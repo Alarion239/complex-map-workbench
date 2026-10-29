@@ -302,7 +302,7 @@
     const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note');
     const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
     ft.order = kids;
-    if (!inHead) unitHome(f);
+    if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
     // (in the head: its width and the title's whole width, which the room for the controls depends on, are part of the key)
     let headW = 0, titleW = 0;
     if (inHead) {

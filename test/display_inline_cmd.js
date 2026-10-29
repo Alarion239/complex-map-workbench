@@ -114,7 +114,9 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
     await ev(`(() => { const i = document.getElementById('${id}'); if (i) i.click(); return 1; })()`); await settle(300);
     if (opened) { await key('Escape'); await settle(300); }
   }
-  ok(`${tag}: the unit circle's check goes back home or stays in the head, never lost`, !!(await ev(`document.getElementById('unitChk')`)), null);
+  // (the check moves between the heads with the view: switching views never drops it from the page)
+  for (const m of ['phase', 'xy', 'land', 'xy']) { await ev(`__cmwSetMain('${m}'); 1`); await settle(600); }
+  ok(`${tag}: after Phase, X → Y, Landscape, X → Y the unit circle's check is still in the page and works`, await ev(`(() => { const u = document.getElementById('unitChk'); return !!u && document.body.contains(u); })()`), await ev(`(document.getElementById('unitBox') || {}).parentElement?.id || null`));
 }
 
 // ---- phone: the Display sheet
