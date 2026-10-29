@@ -320,6 +320,9 @@ const Export = (() => {
         // (the grid's name is a translated \text{} at the front of its TeX: review math-3)
         case 'cgrid': return sp('a Cartesian grid on %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\}\s*/, '')) });
         case 'pgrid': return sp('a polar grid in %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\},\s*/, '')) });
+        // ([issue #260] by their equations: arg Φ_M(z) = 2π·θ, |Φ_M(z)| = r)
+        case 'dhray': return sp('the external ray %{m}', { m: M(tex) });
+        case 'dheq': return sp('the equipotential %{m}', { m: M(tex) });
         default: return Region.KINDS[s.kind] ? sp('a %{kind}', { kind: Region.KINDS[s.kind].label.toLowerCase() }) : sp('a shape', {});
       }
     };

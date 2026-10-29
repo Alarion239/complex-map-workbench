@@ -68,8 +68,9 @@ def wm(x, m, c):
     return w, d
 
 
-def trace_to(theta, level, c=None, S=32, R=mp.mpf(64)):
+def trace_to(theta, level, c=None, S=32, R=64):
     """The point of the external ray of angle theta (turns) at |Phi| = level (|phi_c| with c), from |x| = R."""
+    R = mp.mpf(R)
     x = R * mp.expjpi(2 * theta)
     lr, ll = mp.log(R), mp.log(level)
     steps = int(mp.ceil(S * mp.log(lr / ll, 2)))
@@ -116,9 +117,9 @@ def main():
         bad += certify(name, x, y, None, out)
     for name, x, y in JPTS:
         bad += certify(name, x, y, mp.mpc(*JC), jout)
-    doc = {'_about': 'Phi_M at points outside M, and phi_c for c = %s, certified by tools/dh_reference.py (mpmath, %d '
-           'digits): the external ray of each value\'s angle, traced from infinity, lands back on the point to 1e-30.'
-           % (JC, a.dps), 'points': out, 'julia': {'c': list(JC), 'points': jout}}
+    doc = {'_about': f'Phi_M at points outside M, and phi_c for c = {JC}, certified by tools/dh_reference.py (mpmath, '
+           f'{a.dps} digits): the external ray of each value\'s angle, traced from infinity, lands back on the point to '
+           '1e-30.', 'points': out, 'julia': {'c': list(JC), 'points': jout}}
     pathlib.Path(a.o).write_text(json.dumps(doc, indent=1) + '\n', encoding='utf-8')
     print(f'{len(out) + len(jout)} points written to {a.o}; {bad} failed')
     return 1 if bad else 0

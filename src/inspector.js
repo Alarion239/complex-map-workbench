@@ -23,7 +23,7 @@ const Inspector = (() => {
     deriv: sv('<path d="M2.5 13.5c3 0 5-2 6-6s2.5-5 5-5"/><path d="M5 10.5l6-6" stroke-opacity=".45"/>'),
   };
   const FAMILY = { exp: 'exp', log: 'log', mobius: 'mobius', blaschke: 'mobius', recip: 'mobius', zp: 'zp', mul: 'linear', add: 'linear', affine: 'linear',
-    pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
+    pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', dh: 'special', bottcher: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
   const typeIcon = (type) => ICON[FAMILY[type] || (/^a?(sin|cos|tan|sinh|cosh|tanh|sec|csc|cot)h?$/.test(type) ? 'trig' : 'custom')];
   const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
@@ -330,7 +330,25 @@ const Inspector = (() => {
           }
         }
       } else for (const q of d.params || []) if (q.key !== 'cut' || hasCut(st, k)) params.append(A.paramField(st, k, q, 'i'));
+      if ((st.type === 'dh' || st.type === 'bottcher') && A.dhAdd) params.append(...dhAdds(k));
       indexLabels(params, k);
+    }
+    // [issue #260] Φ_M and φ_c: an external ray of angle θ (turns, exact as p/q) and an equipotential |Φ| = r of the
+    // step's set, added as shapes of the plane the step reads (Enter or the button; a value it cannot use is flagged)
+    function dhAdds(k) {
+      const row = (word, sym, val, kind, label) => {
+        const id = `dh${k}_${kind}`;
+        const inp = h('input', { class: 'inp mono', id, value: val, spellcheck: 'false', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off' });
+        const go = () => {
+          const msg = A.dhAdd(k, kind, inp.value);
+          inp.classList.toggle('bad', !!msg); inp.setAttribute('aria-invalid', String(!!msg));
+          if (msg) inp.setAttribute('data-tip', msg); else inp.removeAttribute('data-tip');
+        };
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+        const lab = h('label', { class: 'pl worded', for: id }, h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps', html: sym }));
+        return h('div', { class: 'pf worded wide dh-add' }, lab, h('div', { class: 'pair' }, inp, h('button', { type: 'button', class: 'btn', onclick: go }, label)));
+      };
+      return [row($t('Ray'), '<i>θ</i>', '1/3', 'dhray', $t('Add ray')), row($t('Level'), '|Φ|', '1.1', 'dheq', $t('Add equipotential'))];
     }
     // (v16.5 UX33) a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
     function hasCut(st, k) {

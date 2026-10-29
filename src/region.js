@@ -235,6 +235,63 @@ const Region = (() => {
     },
     tex: (s) => $t('\\text{polar grid}, |%{c}|\\le %{r}', { c: zMinus(P(s.c)), r: num(s.r) }),
   };
+  // ----- [issue #260] external rays and equipotentials of the Mandelbrot set (s.c null) or of the Julia set of
+  // z² + c (s.c = [re, im], the step's c; a shared number's name in s.bind.c, as every bound field) -----
+  // dhray: s.theta '1/3' (exact: the angle doubles in integers) or a decimal turn; the ray from |z| = 10⁴ down to 2^−40
+  // of that potential, then its landing point (CX.dhLanding) when it has one. dheq: s.r = |Φ| > 1 (> e^{G_c(0)})
+  // dhAngle('1/3') -> {p, q}, '0.25' -> 0.25, else null
+  function dhAngle(t) {
+    const m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(String(t ?? ''));
+    if (m) { const p = +m[1], q = +m[2]; return q >= 1 && q <= 2 ** 30 && p < q ? { p, q } : null; }
+    const x = Number(t);
+    return String(t ?? '').trim() !== '' && Number.isFinite(x) && x >= 0 && x < 1 ? x : null;
+  }
+  const dhC = (s) => (s.c == null ? null : Array.isArray(s.c) && Number.isFinite(s.c[0]) && Number.isFinite(s.c[1]) ? C(s.c[0], s.c[1]) : undefined);
+  const DH_MEMO = new Map();
+  function dhMemo(key, make) {
+    let v = DH_MEMO.get(key);
+    if (!v) { v = make(); DH_MEMO.set(key, v); while (DH_MEMO.size > 32) DH_MEMO.delete(DH_MEMO.keys().next().value); }
+    return v;
+  }
+  const DH_S = 16, DH_LEVELS = 40;
+  function dhRayCurves(s) {
+    const th = dhAngle(s.theta), c = dhC(s);
+    if (th == null || c === undefined) return [];
+    const pts = dhMemo(JSON.stringify(['ray', th, c && [c.re, c.im]]), () => {
+      const r = CX.dhRay(th, { c, R0: CX.DH_R, S: DH_S, levels: DH_LEVELS }), L = CX.dhLanding(r, DH_S);
+      return L && !(r.landed && CX.abs(CX.sub(L.z, r.pts[r.pts.length - 1])) === 0) ? r.pts.concat([L.z]) : r.pts;
+    });
+    const k = poly(pts, false);
+    return k ? [k] : [];
+  }
+  function dhEqCurves(s) {
+    const c = dhC(s), r = Number(s.r);
+    if (c === undefined || !(r > 1)) return [];
+    const pts = dhMemo(JSON.stringify(['eq', r, c && [c.re, c.im]]), () => CX.dhEquipotential(Math.log(r), { c, tol: 0.01 * r, R0: CX.DH_R }));
+    const k = pts.length > 2 ? poly(pts, true) : null;
+    return k ? [k] : [];
+  }
+  // arg Φ_M(z) = 2π·θ, arg φ_c(z) = 2π·θ (c by its name when it has one), |Φ_M(z)| = r
+  const dhFn = (s) => {
+    if (s.c == null) return '\\Phi_M(z)';
+    let t = null;
+    if (s.bind && typeof s.bind.c === 'string') { try { t = Expr.toTex(Expr.parse(s.bind.c)).s; } catch (e) { t = null; } }
+    const c = dhC(s);
+    return `\\varphi_{${t || (c ? fmt(c) : 'c')}}(z)`;
+  };
+  const dhTheta = (t) => { const a = dhAngle(t); return a == null ? '?' : typeof a === 'number' ? num(a) : `\\tfrac{${a.p}}{${a.q}}`; };
+  K.dhray = {
+    type: 'curve', label: $t('External ray'),
+    handles: () => [],
+    curves: dhRayCurves,
+    tex: (s) => `\\arg ${dhFn(s)}=2\\pi\\cdot ${dhTheta(s.theta)}`,
+  };
+  K.dheq = {
+    type: 'curve', label: $t('Equipotential'),
+    handles: () => [],
+    curves: dhEqCurves,
+    tex: (s) => `|${dhFn(s)}|=${num(Number(s.r))}`,
+  };
   // ----- areas -----
   K.disc = {
     type: 'area', label: $t('Disc'),
@@ -1934,7 +1991,7 @@ const Region = (() => {
 
   return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, segCurvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
     supportOf, clipPrimitive, shapeClip, convexOf, formulaBox, Globe, curveDesc, traceWin, fcurveTrace,
-    capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf };
+    capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf, dhAngle };
 })();
 // SPEC 9.1: the settle-time line refinement (Region.Lines)
 const Lines = Region.Lines;
