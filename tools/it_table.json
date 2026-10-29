@@ -3028,7 +3028,7 @@
  "Insert at the end": "Inserisci alla fine",
  "Draw panel": "Pannello Disegna",
  "3-pt circle": "Per 3 punti",
- "\u22a5 circle": "Ortogo\u00adnale",
+ "⊥ circle": "Ortogo­nale",
  "field-short\u0004Add function": "Cerca",
  "field\u0004Add function": "Aggiungi funzione",
  "rail\u0004Draw": "Disegna",
@@ -3053,5 +3053,14 @@
  "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "In questo menu, «Tour guidato» avvia il tour per capitoli; «Guida» apre la guida completa.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica",
  "Add this shape": "Aggiungi questa figura",
- "Add shape": "Aggiungi figura"
+ "Add shape": "Aggiungi figura",
+ "side\u0004Between": "Tra",
+ "Between: only the hyperbolic segment from the first point to the second, with no tails": "Tra: solo il segmento iperbolico dal primo punto al secondo, senza prolungamenti",
+ "The points are on different sides of the curve, so there is no segment between them": "I punti sono da parti opposte della curva, quindi non c'è nessun segmento tra loro",
+ "Between {a} and {b} only": "Solo tra {a} e {b}",
+ "hyperbolic segment from {a} to {b}, inside {c}": "segmento iperbolico da {a} a {b}, dentro {c}",
+ "hyperbolic segment from {a} to {b}, outside {c}": "segmento iperbolico da {a} a {b}, fuori da {c}",
+ "hyperbolic segment from {a} to {b}, on one side of {c}": "segmento iperbolico da {a} a {b}, da una parte di {c}",
+ "the hyperbolic segment from {a} to {b}": "il segmento iperbolico da {a} a {b}",
+ "gen\u0004the hyperbolic segment from {a} to {b}": "un segmento iperbolico da {a} a {b}"
 }

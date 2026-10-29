@@ -69,9 +69,9 @@ for (const [name, mk, rp] of [
 {
   const s = fs.readFileSync(path.join(SRC, 'construct.js'), 'utf8');
   ok(/const CTOOLS = \[[^\]]*'hyper'\]/.test(s), 'construct.js: Hyperbolic line is a construct tool');
-  ok(/const sm = tool === 'hyper' \? 'in' : segMode;/.test(s), 'construct.js: the Hyperbolic line tool is always Inside');
+  ok(/const effSeg = \(tool\) => \(tool === 'hyper' \? hyperMode : segMode\)/.test(s) && /let hyperMode = 'in'/.test(s), 'construct.js: the Hyperbolic line tool is Inside or Between, never Outside');
   ok(/if \(sm === 'out'\) seg = -seg;/.test(s), 'construct.js: Outside is the other sign');
-  ok(/nk: seg \? 'hyper'/.test(s), 'construct.js: a one-sided result is named as a Hyperbolic line');
+  ok(/nk: seg \|\| sm === 'between' \? 'hyper'/.test(s), 'construct.js: a one-sided result is named as a Hyperbolic line');
   ok(/\['whole', \$tx\('side', 'Whole'\)\], \['in', \$tx\('side', 'Inside'\)\], \['out', \$tx\('side', 'Outside'\)\]/.test(s), 'construct.js: the chip offers the Inspector\'s three choices');
 }
 console.log(`${pass} passed, ${fail} failed`);

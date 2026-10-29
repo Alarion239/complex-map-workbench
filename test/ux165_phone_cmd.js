@@ -397,7 +397,7 @@ ok('D3 × lets the tool go (the bar is the selection\'s again)', !k3 || k3.k !==
 // the orthogonal circle: Whole | Inside | Outside in words on a second row
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle(500);
 const q1 = await ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(); return { h: Math.round(r.height), seg: [...b.querySelectorAll('.ph-ctseg > button')].map((x) => ({ t: x.textContent, h: Math.round(x.getBoundingClientRect().height), on: x.getAttribute('aria-checked') })) }; })()`);
-ok('D3 the orthogonal circle: a taller bar with Whole, Inside, Outside as 44 px words', q1 && q1.h >= 100 && q1.seg.map((x) => x.t).join('|') === 'Whole|Inside|Outside' && q1.seg.every((x) => x.h >= 44) && q1.seg[0].on === 'true', q1);
+ok('D3 the orthogonal circle: a taller bar with Whole, Inside, Outside, Between as 44 px words', q1 && q1.h >= 100 && q1.seg.map((x) => x.t).join('|') === 'Whole|Inside|Outside|Between' && q1.seg.every((x) => x.h >= 44) && q1.seg[0].on === 'true', q1);
 ok('D3 the plane\'s own Whole | Inside chip is gone while the bar has those words', await ev(`[...document.querySelectorAll('.cm-chip .cm-seg:not(.cm-tan)')].every((e) => !e.getClientRects().length)`));
 await ev(`[...document.querySelectorAll('.ph-ctseg > button')][1].click()`); await settle(500);
 ok('D3 choosing Inside sets the tool and the bar shows it', (await ev(`Construct.seg`)) === 'in' && (await ev(`[...document.querySelectorAll('.ph-ctseg > button')][1].getAttribute('aria-checked')`)) === 'true');

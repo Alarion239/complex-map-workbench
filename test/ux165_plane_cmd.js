@@ -206,7 +206,7 @@ await section('L48', async () => {
   ok('UX52 a tool change clears it', !(await ev(`!!document.querySelector('#draftChipL .cm-warn')`)));
   // UX51 / UX55: the chip's three choices in words; UX100: the kept curve as a token
   const segs = await ev(`[...document.querySelectorAll('#draftChipL .cm-seg .cm-sb')].map((b) => b.getAttribute('aria-label'))`);
-  ok('UX55 the chip offers Whole | Inside | Outside, as the Inspector does', JSON.stringify(segs) === '["Whole","Inside","Outside"]', segs);
+  ok('UX55 the chip offers Whole | Inside | Outside | Between, as the Inspector does', JSON.stringify(segs) === '["Whole","Inside","Outside","Between"]', segs);
   const L = await W(0, 1.5);
   await click(L[0] + 40, L[1]); await settle(120);
   const p1 = await W(-1, -1.5), p2 = await W(1, -1.5);
@@ -493,7 +493,7 @@ await section('P51', async () => {
   ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point \(on Line 1 or anywhere\) · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
   // (D3: on a phone the three choices are in the context bar, in words, and the chip drops its copy: one place)
   const barSeg = await ev(`[...document.querySelectorAll('.ph-ctseg > button')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().height)])`);
-  ok('UX51 phone: Whole | Inside | Outside in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 3 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
+  ok('UX51 phone: Whole | Inside | Outside | Between in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 4 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
   ok('UX51 phone chip: the × takes taps 44 × 44', info.p51.x44, info.p51);
   await shot('ux51-phone-chip');
   // UX15 on the phone: the Undo at the thumb takes the last pick
