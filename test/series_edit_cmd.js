@@ -19,6 +19,7 @@ async function openApp(st) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
   await settle(1500);
+  for (let i = 0; i < 40 && !(await ev('typeof __cmwP === "function" && !!document.querySelector(".card")')); i++) await sleep(250);
   // the chain's rebuilds (Funcs.build of each step) and the page's long tasks from here on
   await ev(`(() => { window.__nb = 0; const b = Funcs.build; Funcs.build = function (...a) { window.__nb++; return b.apply(this, a); };
     window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.duration]); }).observe({ type: 'longtask' }); } catch (e) { /* no long tasks */ } return 1; })()`);
@@ -30,7 +31,7 @@ const focusField = (key) => ev(`(() => { const i = document.querySelector('input
 async function typeSlowly(text, gap) {
   const t0 = await ev('performance.now()');
   for (const ch of text) { await type(ch); await sleep(gap); }
-  const lt = (await ev('window.__lt')).filter(([s]) => s >= t0);
+  const lt = ((await ev('window.__lt')) || []).filter(([s]) => s >= t0);
   return { keys: [...text].length, builds: await ev('window.__nb'), n: lt.length, max: Math.round(Math.max(0, ...lt.map(([, d]) => d))), sum: Math.round(lt.reduce((x, [, d]) => x + d, 0)) };
 }
 const ZETA = { shapes: [{ id: 's1', kind: 'rect', a: [1.5, -6], b: [5, 6], ci: 0, visible: true }], steps: [{ type: 'series', params: { kind: 'dirichlet', an: '1', c: '0' }, on: true }] };
@@ -83,7 +84,7 @@ if (R && R[2] > 0) {
   const y = R[1] + R[3] / 2;
   await drag(R[0] + R[2] * 0.25, y, R[0] + R[2] * 0.75, y, 30, 16);
   await ev('window.__frOn = false; 1');
-  const fr = (await ev('window.__fr')).slice(1).sort((x, y2) => x - y2);
+  const fr = ((await ev('window.__fr')) || []).slice(1).sort((x, y2) => x - y2);
   info.drag = { frames: fr.length, med: +(fr[Math.floor(fr.length / 2)] || 0).toFixed(1), a: await ev(`Params.get('a')`) };
   ok('D the first drag after the page opens takes a to the pointer, about 1.5 (the panel is not redrawn under it)', Math.abs(info.drag.a - 1.5) < 0.1, info.drag);
   await settle(1200);
