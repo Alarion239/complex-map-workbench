@@ -29,13 +29,15 @@
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
   // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
+  // ([#253] constructions bind to the z-plane's shapes and the targets: in a plane of the chain the tools draw plain shapes)
+  const cmHere = (side) => side === 'R' || leftStage() === 0;
   function emptyAt(pane, side, x, y) {
     if (side === 'L' ? !lFlat() : !rImage()) return false;
     pane.setView(side === 'L' ? leftView() : V.right);
     if (side === 'L' && (cutHandlesL.some((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || (zpStep() && zpHit(x, y, 11)))) return false;
-    const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : leftStage() === 0 ? S.shapes : [];
-    const z = pane.s2w(x, y), tol = 7 / pane.view.s, win = target ? targetWin() : clipWin;
-    for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, win)) return false; } catch (e) { /* */ } }
+    const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : planeShapes();
+    const z = pane.s2w(x, y), tol = 7 / pane.view.s;
+    for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, target ? targetWin() : winOf(s))) return false; } catch (e) { /* */ } }
     return true;
   }
   function zoomPane(pane, side, x, y, f) {
@@ -234,10 +236,10 @@
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
-      if (!is3DSide(side) && !Construct.isTool(tool) && (side === 'L' ? lFlat() && leftStage() === 0 : rImage() && targetsEditable())) {
+      if (!is3DSide(side) && !Construct.isTool(tool) && (side === 'L' ? lFlat() : rImage() && targetsEditable())) {
         const [ex, ey] = evXY(pane, e);
         pane.setView(side === 'R' ? V.right : leftView());
-        for (const s of (side === 'R' ? S.targets : S.shapes).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+        for (const s of (side === 'R' ? S.targets : planeShapes()).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
           const eg = polyEdgeAt(pane, s, ex, ey, 7);
           if (eg && polyAddVertex(s, eg.i, eg.z)) { selected = s.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); undoToast($t('Vertex added.')); return; }
         }
@@ -338,11 +340,10 @@
     // the landscape takes no drawing (panels.md 9.1)
     else if (lLand() && tool !== 'select' && tool !== 'formula' && !drag) c = 'not-allowed';
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
-    // P4: shapes are drawn in the z-plane; at focus k >= 2 a drawing tool does not draw over X (nothing jumps)
-    else if (leftStage() > 0 && tool !== 'select' && !drag) c = 'not-allowed';
+    // ([#253] shapes are drawn in any flat plane X shows; constructions in the z-plane only: P4, nothing jumps)
+    else if (leftStage() > 0 && Construct.isTool(tool) && !drag) c = 'not-allowed';
     else if (drag && (drag.mode === 'panL' || drag.mode === 'zp')) c = 'grabbing';
     else if (hoverCut || zpHover) c = 'pointer';
-    else if (leftStage() > 0) c = 'grab';
     else c = tool === 'select' ? 'default' : 'crosshair';
     pane.ocanvas.style.cursor = c;
   }
@@ -414,10 +415,10 @@
     for (const hnd of cutHandlesL) {
       if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p }; return; }
     }
-    // shapes are drawn in the z-plane: a drawing tool used on a step's input plane returns to it first
-    // (P4: nothing jumps mid-gesture; the Whole chain button pulses once to show the way back)
-    if (leftStage() > 0 && tool !== 'select') { pulseWhole(); return; }
-    if (leftStage() === 0 && editDown(pane, 'L', z, x, y)) return;
+    // ([#253] a shape is drawn in the plane X shows, at its stage; a construction tool works in the z-plane only (P4:
+    // nothing jumps mid-gesture; the Whole chain button pulses once to show the way back)
+    if (leftStage() > 0 && Construct.isTool(tool)) { pulseWhole(); return; }
+    if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
   }
@@ -425,7 +426,7 @@
   // (Preimage). Returns true when the press was used (a draft, a new point, a handle or a shape to move).
   function editDown(pane, side, z, x, y) {
     const target = side === 'R';
-    const list = target ? S.targets : S.shapes, win = target ? targetWin() : clipWin, ov = target ? 'OR' : 'OL';
+    const list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin, ov = target ? 'OR' : 'OL';
     if (Construct.isTool(tool)) return Construct.toolDown(pane, side, x, y);   // (v16: picks are clicks, onUp)
     // polygon drafting
     if (tool === 'polygon') {
@@ -434,7 +435,7 @@
         const [fx, fy] = pane.w2sxy(draft.pts[0][0], draft.pts[0][1]);
         if (Math.hypot(fx - x, fy - y) < (ptrTouch ? 24 : 12)) { finishPolygon(); return true; }
       }
-      const cmT = Construct.vertexPick(draft, side, x, y);   // (v16: a vertex binds to a point)
+      const cmT = cmHere(side) ? Construct.vertexPick(draft, side, x, y) : null;   // (v16: a vertex binds to a point)
       const zz = cmT || snapZ(pane, z);
       draft.pts.push([zz.re, zz.im]);
       requestRender(ov);
@@ -453,7 +454,7 @@
     }
     if (tool !== 'select') {
       if (tool === 'point') {
-        const pd = Construct.pointDown(pane, side, x, y);   // (v16: a crossing, a curve, a point)
+        const pd = cmHere(side) ? Construct.pointDown(pane, side, x, y) : null;   // (v16: a crossing, a curve, a point)
         // ([v16.5 rail SPEC 6] a press on an existing point selects it, and a drag from there moves it as the Select tool
         // would: along its curve, off it by a pull, or a free point with snapping. A click alone changes nothing)
         if (pd === 'existing') { const ps = list.find((s) => s.id === selected && s.kind === 'point'); if (ps) drag = { mode: 'move', shape: ps, z0: z, moved: false, target, cmTell: Construct.touchNow() }; }   // ([v16.5 fix rail-6] cmTell: a finger's tap that does not move says how to place another, at the release)
@@ -461,7 +462,7 @@
       }
       // [UX47] the second click (or tap) of a two-click shape: its end, here; a drag from it still moves the end
       if (draft && draft.pending && !draft.globe && draft.kind === tool && !!draft.target === target) {
-        const zp = Construct.drawMove(pane, side, tool, x, y) || snapZ(pane, z);
+        const zp = (cmHere(side) && Construct.drawMove(pane, side, tool, x, y)) || snapZ(pane, z);
         Object.assign(draft.shape, Region.defaultsFor(tool, draft.z0, zp));
         draft.pending = false;
         drag = { mode: 'draw', target, second: true };
@@ -469,7 +470,7 @@
         return true;
       }
       if (draft && draft.pending) dropPending();
-      const cmZ = tool !== 'point' ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
+      const cmZ = tool !== 'point' && cmHere(side) ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
       const zz = cmZ || snapZ(pane, z);
       if (tool === 'point') { addShape(newShape('point', { p: [zz.re, zz.im] }, target), target); return true; }
       const shape = newShape(tool === 'lasso' ? 'polygon' : tool, tool === 'curve' || tool === 'lasso' ? { pts: [[zz.re, zz.im]] } : Region.defaultsFor(tool, zz, zz), target);
@@ -480,7 +481,7 @@
     }
     // handles of the selected shape
     const sel = list.find((s) => s.id === selected);
-    const cmU = sel ? Construct.boundUnder(sel, pane, x, y) : null;   // (v16: a bound handle's press goes to what is beneath)
+    const cmU = sel && cmHere(side) ? Construct.boundUnder(sel, pane, x, y) : null;   // (v16: a bound handle's press goes to what is beneath)
     if (cmU) { if (cmU.key) { drag = { mode: 'handle', shape: cmU.shape, key: cmU.key, target }; return true; } selected = cmU.shape.id; zpSel = null; buildShapeList(); drag = { mode: 'move', shape: cmU.shape, z0: z, moved: false, target }; requestRender(ov); return true; }
     if (sel) {
       const hk = handleAt(pane, sel, x, y);
@@ -495,7 +496,7 @@
     let hit = null;
     const under = [];
     for (const s of cands) {
-      try { if (Region.hitTest(s, z, tol, win)) { under.push(s); if (!altHeld) break; } } catch (e) { /* a damaged formula never hits */ }
+      try { if (Region.hitTest(s, z, tol, target ? win : winOf(s))) { under.push(s); if (!altHeld) break; } } catch (e) { /* a damaged formula never hits */ }
     }
     // (UX42: Alt-click on shapes that cover each other goes to the next one under the pointer, round again at the last)
     hit = altHeld && under.length > 1 && under.some((s) => s.id === selected) ? under[(under.findIndex((s) => s.id === selected) + 1) % under.length] : under[0] || null;
@@ -1136,7 +1137,7 @@
         return;
       }
       if (drag.mode === 'draw' && draft) {
-        const zz = Construct.drawMove(pane, drag.target ? 'R' : 'L', draft.kind, x, y) || (pane.setView(drag.target ? V.right : leftView()), snapZ(pane, z));
+        const zz = (cmHere(drag.target ? 'R' : 'L') && Construct.drawMove(pane, drag.target ? 'R' : 'L', draft.kind, x, y)) || (pane.setView(drag.target ? V.right : leftView()), snapZ(pane, z));
         const s = draft.shape;
         if (draft.kind === 'curve' || draft.kind === 'lasso') {
           if (draft.kind === 'lasso' && !drag.target) sndMove(x, y, z, 'loop');
@@ -1199,7 +1200,7 @@
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
     if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }
-    Construct.hover(pane, side, x, y, e);   // (v16: the snap ring before the press)
+    if (cmHere(side)) Construct.hover(pane, side, x, y, e);   // (v16: the snap ring before the press)
     if (side === 'L') {
       pane.setView(leftView());
       probe = pane.s2w(x, y);
@@ -1373,7 +1374,7 @@
     }
     if ((side === 'R') !== !!draft.target) return;
     pane.setView(draft.target ? V.right : leftView());
-    const zp = Construct.drawMove(pane, side, draft.kind, x, y) || snapZ(pane, pane.s2w(x, y));
+    const zp = (cmHere(side) && Construct.drawMove(pane, side, draft.kind, x, y)) || snapZ(pane, pane.s2w(x, y));
     Object.assign(draft.shape, Region.defaultsFor(draft.kind, draft.z0, zp));
     requestRender(side === 'R' ? 'OR' : 'OL');
   }

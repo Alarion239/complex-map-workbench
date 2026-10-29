@@ -1119,9 +1119,9 @@ const MorphPaths = (() => {
       // (the image of X's view rectangle: only X Plane has one; the globe shows all of X, the landscape a trimmed box)
       if (A.S.fov !== false && !trans.k && lFlat()) drawFov(pane, focusF());
       if (!trans.k) drawCutBanks(pane, k);
-      drawChevrons(pane, F);
+      drawChevrons(pane, F, trans.k ? undefined : k);
       if (A.S.focus > 0) drawCuts(pane, k, false, true);
-      drawPoints(pane, F, { primes: k });
+      drawPoints(pane, F, { primes: k, k: trans.k ? undefined : k });
       if (hasTargets()) drawPoints(pane, (z) => z, { list: A.S.targets, target: true });
       drawRulers(pane, 'R');
     }

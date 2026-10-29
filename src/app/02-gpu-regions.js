@@ -189,6 +189,7 @@
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
   function shapeGPU(s) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
+    const win = winOf(s);
     let r = gpu.get(s.id);
     if (!r) { r = { fix: {} }; gpu.set(s.id, r); }
     const t = kindType(s);
@@ -197,13 +198,13 @@
       const base = baseRes(s, r);
       let bb = null;
       try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
-      const ww = clipWin.x1 - clipWin.x0, wh = clipWin.y1 - clipWin.y0;
+      const ww = win.x1 - win.x0, wh = win.y1 - win.y0;
       const stretched = !bb || (bb.x1 - bb.x0) > 3 * ww || (bb.y1 - bb.y0) > 3 * wh;
-      const key = sk + '|' + base + (stretched ? '|' + JSON.stringify(clipWin) : '');
+      const key = sk + '|' + base + (stretched ? '|' + JSON.stringify(win) : '');
       if (r.meshKey !== key) {
         let mesh = null;
         const tb = performance.now();
-        try { mesh = Region.buildMesh(s, clipWin, base); s._err = null; } catch (err) { s._err = err.message; mesh = null; }
+        try { mesh = Region.buildMesh(s, win, base); s._err = null; } catch (err) { s._err = err.message; mesh = null; }
         // (the build time at each resolution: the drag-time cap reads the full-resolution one)
         (r.buildMs || (r.buildMs = {}))[base] = performance.now() - tb;
         retireMesh(r);
@@ -224,7 +225,7 @@
     // a curve formula that no longer classifies as a curve (old saved state, a newer parser) says why in its row
     if (s.kind === 'fcurve') { try { Region.curveDesc(s); s._err = null; } catch (e) { s._err = e.message; } }
     if (t !== 'point') {
-      const lkey = sk + '|' + JSON.stringify(clipWin) + (s.kind === 'formula' ? '|' + r.meshKey : '');
+      const lkey = sk + '|' + JSON.stringify(win) + (s.kind === 'formula' ? '|' + r.meshKey : '');
       if (r.lineKey !== lkey) {
         // a pair still on screen (the hold) or on its way to it (the live job's mesh) keeps the strokes it was drawn
         // with: fill and strokes then change together, when the new mesh's fix-up lands (a re-centred clipWin, a drag)
@@ -232,9 +233,9 @@
           (r.lpool || (r.lpool = new Map())).set(r.lineKey, { lineRes: r.lineRes, lineKey: r.lineKey, open: r.open, lpolys: r.lpolys, lorigin: r.lorigin, arcs: r.arcs });
           r.lineRes = null;
         }
-        const polys = sourceCurves(s, r.mesh).map((c) => Region.sampleCurve(c, clipWin)).filter((p) => p.length >= 4);
+        const polys = sourceCurves(s, r.mesh).map((c) => Region.sampleCurve(c, win)).filter((p) => p.length >= 4);
         // sent relative to the window centre (precision far from 0 and at deep zoom)
-        const origin = [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
+        const origin = [(win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2];
         // P4 review: the refined samples (SPEC 9.1) are built right here when they fit the frame's budget (a shape
         // drag, a new clipWin after a left-plane pan or zoom, an edit), so motion frames and rest frames draw the same
         // strokes. Today's samples are drawn only when the refinement does not fit (the settle job then swaps it in).
@@ -259,6 +260,60 @@
 
   // ---------------- maps (what each view shows) ----------------
   const stageMap = (k) => ({ mode: 0, a: 0, b: k });
+  // [#253] a shape drawn in an intermediate plane: s.stage = k (absent: the z-plane, stage 0). It is drawn in its own
+  // plane and, forward only, in every later one: shapeMap turns a view's map of the z-plane's shapes ({mode 0, a 0,
+  // b j}) into this shape's ({a k, b j}), or null where it is not drawn (j < k, a d/dz between, a homotopy)
+  const shapeStage = (s) => (s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0);
+  function shapeMap(s, map) {
+    const k = shapeStage(s);
+    if (!k) return map;
+    if ((map.mode || 0) !== 0 || (map.a || 0) !== 0) return null;
+    const b = map.b || 0;
+    return k <= b && !derivIn(k, b) ? { mode: 0, a: k, b } : null;
+  }
+  // its CPU map into plane k, given F, the map of the z-plane's shapes into it (null: not drawn there; k undefined: a
+  // homotopy, where only the z-plane's shapes are drawn)
+  function shapeF(s, F, k) {
+    const j = shapeStage(s);
+    if (!j) return F;
+    return Number.isInteger(k) && j <= k && !derivIn(j, k) ? rangeF(j, k) : null;
+  }
+  // the window a shape is meshed and sampled in: the z-plane's (clipWin) or its plane's (stageWins: X's view the last
+  // time X showed that plane; before that the shape's own box, with room around it)
+  const stageWins = new Map();
+  function winOf(s) {
+    const k = shapeStage(s);
+    if (!k) return clipWin;
+    const w = stageWins.get(k);
+    if (w && goodWin(w)) return w;
+    let bb = null;
+    try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
+    if (bb && Number.isFinite(bb.x0) && Number.isFinite(bb.y1)) {
+      const h = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0, 1e-3) * 1.5, cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+      return { x0: cx - h, x1: cx + h, y0: cy - h, y1: cy + h };
+    }
+    return clipWin;
+  }
+  // the window of plane k (the z-plane's for 0)
+  const stageWin = (k) => (k > 0 ? stageWins.get(k) || viewBox(leftView()) : clipWin);
+  // the shapes X edits: those of the plane it shows (the z-plane's at focus 0)
+  const planeShapes = () => { const k = leftStage(); return S.shapes.filter((s) => shapeStage(s) === k); };
+  // X shows plane k (> 0): its window follows X's view as clipWin follows it for the z-plane (rounded, kept while the
+  // view stays within it)
+  function noteStageWin(k, b) {
+    if (!(k > 0)) return;
+    const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
+    if (!(q > 0) || !Number.isFinite(q)) return;
+    const nb = { x0: Math.floor(b.x0 / q) * q, x1: Math.ceil(b.x1 / q) * q, y0: Math.floor(b.y0 / q) * q, y1: Math.ceil(b.y1 / q) * q };
+    if (!goodWin(nb)) return;
+    const o = stageWins.get(k);
+    if (o && goodWin(o)) {
+      const ow = o.x1 - o.x0, nw = nb.x1 - nb.x0;
+      const shift = Math.max(Math.abs((nb.x0 + nb.x1 - o.x0 - o.x1) / 2), Math.abs((nb.y0 + nb.y1 - o.y0 - o.y1) / 2));
+      if (!(nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw))) return;
+    }
+    stageWins.set(k, nb);
+  }
   // the focused map at t = end, on the left plane (a focused d/dz step's stage is a map of z)
   const endMap = () => (S.focus === 0 ? { mode: 0, a: 0, b: nSteps() } : focusDeriv() ? { mode: 0, a: 0, b: S.focus } : { mode: 0, a: S.focus - 1, b: S.focus });
   // what the right plane plots over the left plane (Phase, Landscape, the phase sphere): the focused map, or, while
@@ -494,7 +549,7 @@
   async function runFixInner(token) {
     for (const tg of fixTargets()) {
       for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) !== 'area') continue;
+        if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;   // ([#253] a later plane's shapes: forward, no fix-ups)
         const r = gpu.get(s.id);
         if (!r || !r.mesh || !r.meshRes) continue;
         // the dragged shape's fix-ups are the live driver's (liveFix), also for the tail after the pointer-up
@@ -784,7 +839,7 @@
     sm.exportPartial = 0; sm.lastExport = [];
     for (const { role, pane, map } of panes) {
       for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) !== 'area') continue;
+        if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;
         const r = gpu.get(s.id) || shapeGPU(s);
         if (pathOf(s, map, role, 'flat', { status: true }).path !== 'forward') continue;
         const m = normalizeMap(map);
@@ -902,7 +957,7 @@
       if (!alive()) return false;
       const spec = lineSpecNow();
       if (!spec) return true;
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
       const r = gpu.get(s.id);
       if (!r || !r.lineKey || r.refKey === r.lineKey + '|' + spec.key) continue;
       const origin = r.lorigin || [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
@@ -932,7 +987,7 @@
     if (!spec) return;
     const todo = [];
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
       const r = gpu.get(s.id);
       if (!r || !r.lineKey || r.refKey === r.lineKey + '|' + spec.key) continue;
       todo.push([s, r]);

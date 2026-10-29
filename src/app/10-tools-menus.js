@@ -77,8 +77,9 @@
     draft = null;
     Construct.toolChanged();   // (v16)
     for (const b of document.querySelectorAll('.tool[data-tool]')) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // shapes are drawn in the z-plane (Image also draws targets in the right plane at any focus)
-    if (id !== 'select' && leftStage() > 0 && !targetsEditable()) setFocus(0);
+    // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
+    // plane at any focus)
+    if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
     if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
@@ -99,6 +100,8 @@
   function newShape(kind, params, target) {
     const ci = target ? TARGET_CI[S.targets.length % TARGET_CI.length] : S.shapes.length % 8;
     const s = Object.assign({ id: 's' + takeId(), kind, ci, visible: true }, params);
+    // [#253] a shape drawn while X shows an intermediate plane belongs to it
+    if (!target && leftStage() > 0 && lFlat() && !('stage' in s)) s.stage = leftStage();
     return s;
   }
   // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
@@ -366,7 +369,13 @@
     // ([v16.5 UX27] the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
     const counts = {}, pv = { n: 0 };
-    S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; host.append(shapeRow(s, rowName(s, counts, pv), false)); });
+    // ([#253] then the shapes of each plane of the chain they were drawn in, by its name: "In the plane w₁")
+    const rows = [];
+    S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; rows.push([s, shapeRow(s, rowName(s, counts, pv), false)]); });
+    for (const k of [...new Set([0, ...S.shapes.map(shapeStage)])].sort((x, y) => x - y)) {
+      if (k) host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In the plane {w}</span>', { w: wHtml(k) }) }));
+      for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
+    }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     {
       const out = S.focus === 0 ? '<i>w</i>' : wHtml(rightStage());
@@ -433,7 +442,7 @@
         const now = performance.now();
         if (!touchUI() && e && e.target && e.target.closest && e.target.closest('.shape-name .k') && lastNameClick.id === s.id && now - lastNameClick.t < 450) { lastNameClick = { id: null, t: 0 }; startRename(s); return; }
         lastNameClick = { id: s.id, t: now };
-        selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R', 'P'); },
+        selected = selected === s.id ? null : s.id; zpSel = null; if (!target && selected === s.id && shapeStage(s) !== leftStage()) setFocus(shapeStage(s) ? shapeStage(s) + 1 : 0); buildShapeList(); requestRender('L', 'R', 'P'); },
       onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L', 'R'); },
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
@@ -508,6 +517,8 @@
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
       if (isTarget(s)) { const yv = S.focus === 0 ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
+      // ([#253] a shape of a plane of the chain, in that plane's variable)
+      else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
       if (Construct.row(s, r)) continue;   // (v16: definitions, reasons)
       const er = s.undef || s._err;

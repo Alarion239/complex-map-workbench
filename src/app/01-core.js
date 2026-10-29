@@ -559,6 +559,8 @@
         if ('undef' in sh && typeof sh.undef !== 'string') delete sh.undef;
         if ('undefHid' in sh) { if (sh.undefHid && sh.undef) sh.undefHid = true; else delete sh.undefHid; }
         // v15: fields written as formulas of the shared numbers (the fields keep their last values)
+        // ([#253] a domain shape drawn in a plane of the chain: its stage, 1 … the steps; else the z-plane)
+        if ('stage' in sh && !(out === shapes && Number.isInteger(sh.stage) && sh.stage >= 1 && sh.stage <= steps.length)) delete sh.stage;
         if ('bind' in sh) { const b = sh.bind && typeof sh.bind === 'object' && !Array.isArray(sh.bind) ? sh.bind : {}; sh.bind = {}; for (const [k, v] of Object.entries(b)) if (typeof v === 'string' && v.trim() && (k === 'expr' || k in sh)) sh.bind[k] = v.slice(0, 2000); if (!Object.keys(sh.bind).length) delete sh.bind; }
         out.push(sh);
       }
@@ -676,8 +678,23 @@
     repeatMemo = [];
     S.steps.forEach((st, i) => { if (st.repeat) repeatMemo.push({ holder: st, n: st.repeat.n, members: S.steps.slice(i + 1 - st.repeat.len, i + 1) }); });
   }
+  // [#253] the shapes of a plane of the chain follow its step (Funcs.stageFollow): an insert before it moves it on, a
+  // removal back; after an undo or a load the steps are new objects and the saved stages stand
+  let stageMemo = null;
+  function stagesFollow() {
+    const old = stageMemo, cur = S.steps;
+    stageMemo = cur.slice();
+    if (!old || !old.some((st) => cur.includes(st))) return;
+    for (const s of S.shapes) {
+      const k = shapeStage(s);
+      if (!k) continue;
+      const j = Funcs.stageFollow(old, cur, k);
+      if (j > 0) s.stage = j; else delete s.stage;
+    }
+  }
   function rebuild() {
     repeatsFollow();
+    stagesFollow();
     // ([issue #6] a repeat's last step runs its block n times: Funcs.applyRepeats)
     built = Funcs.applyRepeats(S.steps, S.steps.map((st) => Funcs.build(st)));
     chainSig = ['0'];
