@@ -3082,5 +3082,7 @@
  "This step, twice": "Questo passo, due volte",
  "f{a}–f{b}, twice": "f{a}–f{b}, due volte",
  "Repeat": "Ripeti",
- "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Ripeti × N: questo blocco è troppo pesante per disegnarlo {n} volte; al massimo N = {max}"
+ "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Ripeti × N: questo blocco è troppo pesante per disegnarlo {n} volte; al massimo N = {max}",
+ "{x} is complex: use Re {x}, Im {x} or |{x}|": "{x} è complesso: usa Re {x}, Im {x} o |{x}|",
+ "A complex number": "Un numero complesso"
 }
