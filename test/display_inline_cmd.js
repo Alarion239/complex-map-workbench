@@ -1,9 +1,10 @@
 // The display options inline (issue #247): on a laptop no Display pop-up covers the plane. Each pane head holds its
-// options on one row: in the Phase view the style's six glyphs (one click each, the chosen one with its word), n (only for
-// the styles it changes), and Outlines and Unit circle as icon toggles named for screen readers; what the head has no room
-// for is behind a ⋯ button, with no title. In the X → Y view a pattern button holds the shapes' pattern. On a phone the
-// Display sheet starts with the styles' row (no "This view" title), its targets 44 px or more. Laptop and phone, English
-// and Russian. A command file for a CDP daemon (test/cdp_kit README).
+// options on one row: in the Phase view the style's six glyphs (one click each; option 1: no word, each name is the
+// tooltip and the accessible name, the chosen one's the header's style button), and Outlines and Unit circle as icon
+// toggles named for screen readers; n (only for the styles it changes) and what the head has no room for are behind a
+// ⋯ button, with no title. In the X → Y view a pattern button holds the shapes' pattern. On a phone the Display sheet
+// starts with the styles' row (no "This view" title), its targets 44 px or more. Laptop and phone, English and
+// Russian. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [];
@@ -17,6 +18,8 @@ const fresh = async (w, h, mobile, lang, main = 'phase', state = ST) => {
   await load(ns, state);
   if (lang) { await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` }); await sleep(2500); }
   await ev(`__cmwSetMain('${main}'); 1`); await settle(1200);
+  // (a slow shared machine may still be laying the heads out: wait for both option rows, up to 5 s)
+  for (let i = 0; i < 25 && !(await ev(`!!document.querySelector('#paneL .pane-head .options') && !!document.querySelector('#paneR .pane-head .options')`)); i++) await sleep(200);
 };
 const pops = () => ev(`document.querySelectorAll('#popHost .pop').length`);
 // the head of pane side: its row's controls, whether anything in it is cut or overflows, and the title's state
@@ -59,24 +62,34 @@ for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]
     ok(`${tag} Phase: the style row shows`, false, { d: await diag(), hd, view: (await st()).view, dc: (await st()).dc, inner: await ev('[innerWidth, innerHeight, devicePixelRatio]'), seg: await ev(`(() => { const e = document.getElementById('dcSeg'); return e ? { parent: e.parentElement && (e.parentElement.id || e.parentElement.className), inPop: !!e.closest('.pop') } : null; })()`) });
     continue;
   }
-  ok(`${tag} Phase: the six styles are a row in X's head, each a glyph with a name; the chosen one shows its word, the others not`,
-    sr && sr.inHead && sr.n === 6 && sr.btns.every((b) => b.glyph && b.name && b.tip) && (sr.btns.filter((b) => b.word).length === 1 && sr.btns.find((b) => b.word).on || (!strict && sr.btns.every((b) => !b.word) && (await ev(`document.getElementById('leftFoot').classList.contains('sty-compact')`)))), [sr, await diag()]);
+  // (#247 option 1: the glyphs alone; each style's name is its tooltip and accessible name, the chosen one's the header's
+  // style button)
+  ok(`${tag} Phase: the six styles are a row of glyphs in X's head, each named, the chosen one marked, no word shown`,
+    sr && sr.inHead && sr.n === 6 && sr.btns.every((b) => b.glyph && b.name && b.tip && !b.word) && sr.btns.filter((b) => b.on).length === 1, [sr, await diag()]);
   ok(`${tag} Phase: Pulled-back grid keeps its whole name for screen readers`, sr && /Pulled-back grid|Обратн|сетк/i.test(sr.btns.find((b) => b.v === 'grid').name), sr && sr.btns.find((b) => b.v === 'grid'));
   // one click picks a style, and nothing opens
   await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').click()`); await settle(500);
   sr = await styleRow();
-  ok(`${tag} Phase: one click on Contours sets it, with no pop-up`, !!sr && (await st()).dc === 'modulus' && (await pops()) === 0 && sr.btns.find((b) => b.v === 'modulus').on && (sr.btns.find((b) => b.v === 'modulus').word || !strict), [(await st()).dc, sr || await diag()]);
+  ok(`${tag} Phase: one click on Contours sets it, with no pop-up`, !!sr && (await st()).dc === 'modulus' && (await pops()) === 0 && sr.btns.find((b) => b.v === 'modulus').on, [(await st()).dc, sr || await diag()]);
   if (!sr) continue;
   const sb = await ev(`(document.querySelector('#styleBtn .hw') || {}).textContent`);
   ok(`${tag} Phase: the header's style button follows`, sb && sb === (await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').getAttribute('aria-label')`)), sb);
-  // n only for the styles it changes
-  let n = await ctl('secSel');
-  ok(`${tag} Phase: n shows for Contours, in the head${strict ? '' : ' or behind its ⋯'}`, (n && n.vis && n.inHead) || (!strict && !n && (await head('L')).more), [n, await diag()]);
+  // n only for the styles it changes, and (#247 option 1) always behind the head's ⋯, which shows it with no title
+  const nBehind = async () => {
+    if (await ctl('secSel')) return { inline: true };
+    await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); return 1; })()`); await settle(400);
+    const c = await ctl('secSel'), titles = await ev(`document.querySelectorAll('#popHost .opts-h').length`);
+    await key('Escape'); await settle(300);
+    return { inline: false, inPop: !!(c && c.vis && c.inPop), titles };
+  };
+  let n = await nBehind();
+  ok(`${tag} Phase: n for Contours is behind X's ⋯, with no title`, !n.inline && n.inPop && n.titles === 0, [n, await diag()]);
   await ev(`document.querySelector('#dcSeg button[data-v="classic"]').click()`); await settle(500);
-  ok(`${tag} Phase: no n for Modulus`, !(await ctl('secSel')), await ctl('secSel'));
+  n = await nBehind();
+  ok(`${tag} Phase: no n for Modulus`, !n.inline && !n.inPop, n);
   await ev(`document.querySelector('#dcSeg button[data-v="enhanced"]').click()`); await settle(500);
-  n = await ctl('secSel');
-  ok(`${tag} Phase: n back for Tiles`, (n && n.vis) || (!strict && !n && (await head('L')).more), n);
+  n = await nBehind();
+  ok(`${tag} Phase: n back for Tiles, behind ⋯`, !n.inline && n.inPop, n);
   // Outlines and Unit circle: icon toggles in the head, named, one click each
   for (const [id, re] of [['outlineChk', /Outlines|Контуры|Границы/], ['unitChk', /Unit circle|окружность/i]]) {
     let c = await ctl(id), opened = false;
@@ -121,14 +134,15 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   ok(`${tag}: a pattern picked there applies, and the button's name follows`, (await ev(`(document.querySelector('#patternSeg .pat.on') || {}).dataset?.pat`)) === 'polar' && /Log|Лог/.test(await ev(`document.querySelector('#rightFoot .pat-btn').getAttribute('aria-label')`)), [await ev(`(document.querySelector('#patternSeg .pat.on') || {}).dataset?.pat`), await ev(`document.querySelector('#rightFoot .pat-btn').getAttribute('aria-label')`)]);
   await key('Escape'); await settle(300);
   ok(`${tag}: Escape closes it, and the regions' box goes home`, (await pops()) === 0 && (await ev(`document.getElementById('regionsBox').parentElement.id`)) === 'regionsHome', await ev(`document.getElementById('regionsBox').parentElement.id`));
-  // View outline, Phase key, Unit circle: inline in Y's head, or behind its ⋯ (with no title), one action each
+  // View outline, Phase key, Unit circle: inline in Y's head, or behind its ⋯ (with no title); with nothing inline, in
+  // the pattern button's pop-up above the patterns (one button, #247 option 1)
   for (const id of ['fovChk', 'wKeyChkR', 'unitChk']) {
     let c = await ctl(id);
     let opened = false;
     if (!(c && c.vis && c.inHead)) {
-      await ev(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)').click()`); await settle(400);
+      await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400);
       opened = true; c = await ctl(id);
-      ok(`${tag}: ${id} not in the head is in the ⋯ pop-up, with no title`, c && c.vis && c.inPop && (await ev(`document.querySelectorAll('#popHost .opts-h').length`)) === 0, c);
+      ok(`${tag}: ${id} not in the head is in the ⋯ or pattern pop-up, with no title`, c && c.vis && c.inPop && (await ev(`document.querySelectorAll('#popHost .opts-h').length`)) === 0, c);
     } else ok(`${tag}: ${id} in Y's head is an icon toggle named for screen readers`, c.w <= 30 && c.name.length > 2, c);
     const was = c && c.checked;
     await clickId(id); await settle(400);

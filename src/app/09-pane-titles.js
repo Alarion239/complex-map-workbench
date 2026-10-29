@@ -313,7 +313,9 @@
       }).observe(f.parentElement);
     }
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
-    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note');
+    // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
+    // and the toggles, so the plane's title keeps its room)
+    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf');
     const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
@@ -329,13 +331,12 @@
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
     const pat = inHead && S.view.main === 'xy' ? patternBtn(side) : null;
-    let n = kids.length, compact = f.classList.contains('sty-compact');
+    let n = kids.length;
     if (phone) n = 0;
     else {
       if (!ft.widths) {
         // natural widths, measured once per build with every control inline on one row
         if (f.childElementCount !== kids.length || [...f.children].some((c, i) => c !== kids[i])) f.replaceChildren(...kids);
-        f.classList.remove('sty-compact');
         f.classList.add('measuring');
         const ws = kids.map((c) => c.getBoundingClientRect().width);
         f.classList.remove('measuring');
@@ -368,28 +369,33 @@
         used = next;
       }
       // (in the head a first control that is a segmented row, the Phase style or the Landscape's height, always stays:
-      // one click is the point of the row. Short of room the style's row drops its chosen word too (sty-compact), and
-      // fitTitle cuts the title down)
-      compact = false;
-      if (inHead && n === 0 && kids.length && kids[0].classList.contains('seg')) { n = 1; compact = kids[0].classList.contains('sty-seg'); }
+      // one click is the point of the row; a head short of room cuts the title down instead, fitTitle)
+      if (inHead && n === 0 && kids.length && kids[0].classList.contains('seg')) n = 1;
     }
     ft.w = pane.w; ft.phone = phone;
-    if (n === ft.n && compact === !!ft.compact && !force) { f.classList.toggle('sty-compact', compact); return; }
-    ft.n = n; ft.compact = compact;
+    if (n === ft.n && !force) return;
+    ft.n = n;
     const rest = kids.slice(n);
     let b = null;
-    if (rest.length) {
+    // (in a head with the pattern button and nothing else inline, Y's in the X → Y view, the controls that do not fit go
+    // into the pattern's pop-up above the patterns: one button, as narrow as the Display button was)
+    const merged = !!pat && n === 0 && rest.length > 0;
+    ft.merged = merged;
+    if (rest.length && !merged) {
       // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
     }
-    const open = ft.pop && ft.pop.isConnected && ft.pop.dataset.of !== 'pattern';
+    const open = ft.pop && ft.pop.isConnected && (ft.pop.dataset.of !== 'pattern' || ft.pop.dataset.merged === '1');
     if (unit && rest.includes(unit)) unitHome(f);
     f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
-    f.classList.toggle('sty-compact', compact);
     if (inHead) fitTitle(side);   // (the head's room changed with the controls: the title is fitted again)
-    if (open) { if (b) openFootPop(b, true, side); else closePalette(); }
+    if (open) {
+      // (the open pop-up follows its controls: the pattern's while they are merged into it, else the ⋯'s)
+      if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
+      else if (b) openFootPop(b, true, side); else closePalette();
+    }
   }
   // ([v17 D5, #82; #247] in the X → Y view the shapes' pattern, a swatch in the pane head: its pop-up holds the regions'
   // display, page.html's #regionsBox (pattern, cell, grid lines, chevrons, opacity), lent while it is open)
@@ -408,10 +414,10 @@
     // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the pattern button's, the regions'
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
-    const unit = $('unitBox'), rest = regionsOnly ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
+    const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
     const regions = regionsOnly ? $('regionsBox') : null;
-    const kids = regionsOnly ? (regions ? [regions] : []) : rest;
-    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of }, ...kids);
+    const kids = regionsOnly ? [...rest, ...(regions ? [regions] : [])] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
@@ -793,8 +799,8 @@
         f.append(h('span', { class: 'foot-note', html: cp ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name }) : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') }));
       }
       // (#247: n, the sectors per turn, only for the styles it changes: Tiles, Contours, Cauchy's Tiles, the relief's)
-      if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) f.append(h('div', { class: 'scrub', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+      if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
       if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines));
     }
     if (lGlobe()) {
