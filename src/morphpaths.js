@@ -1145,3 +1145,8 @@ const MorphPaths = (() => {
   }
   return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
 })();
+import { $, DEG, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+export { MorphPaths };

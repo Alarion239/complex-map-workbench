@@ -312,3 +312,4 @@ const PlaneMenu = (() => {
   return PM;
 })();
 if (typeof window !== 'undefined') window.PlaneMenu = PlaneMenu;
+export { PlaneMenu };

@@ -436,3 +436,10 @@ const Examples = (() => {
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();
+import { $, h } from './util.js';
+import { Funcs } from './funcs.js';
+import { GLR } from './gl.js';
+import { Pane, Views } from './view.js';
+import { Tour } from './tour.js';
+import { Params } from './params.js';
+export { Examples };

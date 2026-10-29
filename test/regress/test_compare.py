@@ -10,6 +10,7 @@ where it matters, its verdict per run or metric). The cases cover the review fin
            --enforce-targets; a gated metric with a baseline value that became null fails; color_off is gated
   perf     a NEW check that is false fails; a NEW limit over its limit fails; a limit that expected a value (an
            inverse program was linked) and has none fails, NEW or not; a NEW limit with nothing to measure passes
+           [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
 """
 import contextlib
 import io
@@ -205,6 +206,24 @@ class Perf(unittest.TestCase):
         self.assertEqual(st['a.f'], 'PASS', out)                       # -35%: improved by the 1-fold margin, not by 3-fold
         rc, out, st = self.gate(f, {'a.f': pm(12.0, 'frame_ms')}, '--tol-scale', '3')
         self.assertEqual(st['a.f'], 'IMPROVED', out)
+
+    def test_reference_cannot_run_the_unit(self):
+        # [#292] the reference lacks the feature (phase.mandel against wave 5: no iter() in its parser, an empty plane):
+        # its metrics carry ref_unsupported, and the unit's are NEW, not FAIL, and listed with the reason
+        why = 'shape s1 draws nothing there'
+        b = {'m.fps': pm(15.1, 'throughput', unit_id='m', ref_unsupported=why), 'm.mem': pm(32768, 'mem_bytes', unit_id='m', ref_unsupported=why),
+             'm.moved': pm(False, 'check', unit_id='m', ref_unsupported=why)}
+        r = {'m.fps': pm(6.5, 'throughput', unit_id='m'), 'm.mem': pm(1.4e6, 'mem_bytes', unit_id='m'), 'm.moved': pm(True, 'check', unit_id='m')}
+        rc, out, st = self.gate(b, r, '--paired')
+        self.assertEqual((rc, st), (0, {'m.fps': 'NEW', 'm.mem': 'NEW', 'm.moved': 'NEW'}), out)
+        self.assertIn(why, out)
+        # an absolute rule still holds: a false check of the current build fails, NEW or not
+        r['m.moved'] = pm(False, 'check', unit_id='m')
+        rc, out, st = self.gate(b, r, '--paired')
+        self.assertEqual((rc, st['m.moved']), (1, 'FAIL'), out)
+        # without the mark the same numbers are compared, and fail
+        rc, out, st = self.gate({k: dict(v, ref_unsupported=None) for k, v in b.items()}, {k: v for k, v in r.items() if k != 'm.moved'}, '--paired')
+        self.assertEqual((rc, st['m.fps'], st['m.mem']), (1, 'FAIL', 'FAIL'), out)
 
 
 if __name__ == '__main__':
