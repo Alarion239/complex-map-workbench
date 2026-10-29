@@ -34,6 +34,9 @@ const pickXY = (id) => ev(`(() => { const b = document.querySelector('#popHost .
 // a point of the curve on screen (index k of its stored points), away from the cut handle
 const curveXY = (k) => ev(`(() => { const p = SEASONG.pts[${k}]; return __cmwW2S('L', p[0], p[1]); })()`);
 // the curve on screen: every point inside the plane, the lowest above the style bar, none under the colour key
+// (#247: on a desktop the style bar is in the pane head, above the plane, and covers none of it: then the bound is the
+// plane's own bottom; a bar over the plane, as on a phone, keeps the curve above it)
+const barTop = (v) => (v.bar && v.bar[3] > v.plane[1] ? v.bar[1] : v.plane[3]);
 const inView = () => ev(`(() => {
   const cv = document.querySelector('canvas.overlay[aria-keyshortcuts], .plot > canvas.overlay'); const r = cv.getBoundingClientRect();
   const bar = [...document.querySelectorAll('.seg button')].find((b) => b.textContent.trim() === 'Plain' || b.textContent.trim() === 'Фаза' || b.dataset.dc === 'phase');
@@ -87,7 +90,7 @@ ok('en: Phase view, Plain', st.view.main === 'phase' && st.dc === 'phase', st);
 ok('en: the Examples button names it', (await ev(`document.querySelector('#examplesBtn .exlabel').textContent`)) === NAME.en);
 let iv = await inView();
 R.desktopView = iv;
-ok('desktop: the whole spiral in the plane, above the style bar', iv.curve[0] > iv.plane[0] && iv.curve[2] < iv.plane[2] && iv.curve[1] > iv.plane[1] && iv.curve[3] < (iv.bar ? iv.bar[1] : iv.plane[3]), iv);
+ok('desktop: the whole spiral in the plane, above the style bar', iv.curve[0] > iv.plane[0] && iv.curve[2] < iv.plane[2] && iv.curve[1] > iv.plane[1] && iv.curve[3] < barTop(iv), iv);
 await shot('desk_en_light');
 // the laptop and tablet sizes (review picture-2): the example opened at each, the whole spiral in the plane and above
 // the style bar (the bar is kept clear in pixels), no stored point inside the bar's box
@@ -97,7 +100,7 @@ for (const [w, h] of [[1366, 768], [1280, 720], [1024, 768], [1024, 700], [768, 
   await ev(`__cmwExample(${EXI}); 1`); await settle(900);
   const v = await inView();
   R.sizes[w + 'x' + h] = v;
-  ok(`desktop ${w}×${h}: the whole spiral in the plane, above the style bar, no point under it`, v.curve[0] > v.plane[0] && v.curve[2] < v.plane[2] && v.curve[1] > v.plane[1] && v.curve[3] < (v.bar ? v.bar[1] : v.plane[3]) && v.under === 0, v);
+  ok(`desktop ${w}×${h}: the whole spiral in the plane, above the style bar, no point under it`, v.curve[0] > v.plane[0] && v.curve[2] < v.plane[2] && v.curve[1] > v.plane[1] && v.curve[3] < barTop(v) && v.under === 0, v);
 }
 await view(1440, 900, false, false); await settle(500);
 await ev(`__cmwExample(${EXI}); 1`); await settle(900);
