@@ -283,6 +283,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head > .options > .seg.sty-seg > button { gap: 5px; padding: 0 5px; }
 .pane-head > .options > .seg.sty-seg > button:not(.on) .sty-n { display: none; }
 .pane-head > .options > .seg.sty-seg > button.on { padding: 0 8px 0 6px; }
+.pane-head > .options.sty-compact > .seg.sty-seg > button .sty-n { display: none; }
+.pane-head > .options.sty-compact > .seg.sty-seg > button.on { padding: 0 5px; }
 .seg.sty-seg > button { display: inline-flex; align-items: center; gap: 5px; }
 .sty-seg .sty-g svg { display: block; width: 15px; height: 15px; }
 .pane-head > .options > .scrub { height: 26px; padding: 0 0 0 6px; border: 1px solid var(--line); border-radius: var(--r-2, 6px); }

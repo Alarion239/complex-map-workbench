@@ -329,12 +329,13 @@
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
     const pat = inHead && S.view.main === 'xy' ? patternBtn(side) : null;
-    let n = kids.length;
+    let n = kids.length, compact = f.classList.contains('sty-compact');
     if (phone) n = 0;
     else {
       if (!ft.widths) {
         // natural widths, measured once per build with every control inline on one row
         if (f.childElementCount !== kids.length || [...f.children].some((c, i) => c !== kids[i])) f.replaceChildren(...kids);
+        f.classList.remove('sty-compact');
         f.classList.add('measuring');
         const ws = kids.map((c) => c.getBoundingClientRect().width);
         f.classList.remove('measuring');
@@ -366,13 +367,15 @@
         if (next + more > avail) break;
         used = next;
       }
-      // (in the head the first control, the Phase style or the Landscape's height, always stays: one click is the point
-      // of the row; a head short of room cuts the title down first, fitTitle)
-      if (inHead && n === 0 && kids.length && !isNote(kids[0])) n = 1;
+      // (in the head a first control that is a segmented row, the Phase style or the Landscape's height, always stays:
+      // one click is the point of the row. Short of room the style's row drops its chosen word too (sty-compact), and
+      // fitTitle cuts the title down)
+      compact = false;
+      if (inHead && n === 0 && kids.length && kids[0].classList.contains('seg')) { n = 1; compact = kids[0].classList.contains('sty-seg'); }
     }
     ft.w = pane.w; ft.phone = phone;
-    if (n === ft.n && !force) return;
-    ft.n = n;
+    if (n === ft.n && compact === !!ft.compact && !force) { f.classList.toggle('sty-compact', compact); return; }
+    ft.n = n; ft.compact = compact;
     const rest = kids.slice(n);
     let b = null;
     if (rest.length) {
@@ -384,6 +387,7 @@
     if (unit && rest.includes(unit)) unitHome(f);
     f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
+    f.classList.toggle('sty-compact', compact);
     if (inHead) fitTitle(side);   // (the head's room changed with the controls: the title is fitted again)
     if (open) { if (b) openFootPop(b, true, side); else closePalette(); }
   }
