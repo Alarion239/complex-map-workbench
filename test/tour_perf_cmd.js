@@ -12,13 +12,16 @@ for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await ev('Tour.dismissSuggestion()');
   // the panes' size changes through Views (one chapter): a ResizeObserver on #panes
   // (each change logged with the step's title, the height and the web fonts' state: what a failure needs to be read)
-  await ev(`window.__rs = 0; window.__rsLog = []; new ResizeObserver((es) => { window.__rs++; const t = document.querySelector('.tour-strip #tourTitle'); window.__rsLog.push({ h: Math.round(es[0].contentRect.height), step: t ? t.textContent.slice(0, 40) : null, fonts: document.fonts.status, ms: Math.round(performance.now()) }); }).observe(document.querySelector('#panes')); 1`);
+  await ev(`window.__rs = 0; window.__rsLog = []; new ResizeObserver((es) => { window.__rs++; const t = document.querySelector('.tour-strip #tourTitle'); window.__rsLog.push({ h: Math.round(es[0].contentRect.height), step: t ? t.textContent.slice(0, 40) : null, sheet: !!document.querySelector('.ph-sheet:not([hidden])'), fonts: document.fonts.status, ms: Math.round(performance.now()) }); }).observe(document.querySelector('#panes')); 1`);
   await ev(`Tour.start({ chapter: 'views', step: 1 })`); await settle(1800);
   const r0 = await ev('window.__rs');
   for (let i = 0; i < 4; i++) { await ev('Tour.next()'); await settle(1400); }
   const r1 = await ev('window.__rs');
   R['resizes_' + w] = { start: r0, inChapter: r1 - r0, log: await ev('window.__rsLog') };
-  check(`${w}: the panes keep their size through the steps of a chapter`, r1 - r0 === 0, R['resizes_' + w]);
+  // (a step that opens a phone's sheet gives the planes the room above it, once; every other change is a fault)
+  const rl = R['resizes_' + w].log.slice(r0), bySheet = {};
+  for (const x of rl) if (x.sheet) bySheet[x.step] = (bySheet[x.step] || 0) + 1;
+  check(`${w}: the panes keep their size through the steps of a chapter, but for the one resize a step's sheet makes`, rl.every((x) => x.sheet) && Object.values(bySheet).every((n) => n <= 1) && (w === 1440 ? r1 - r0 === 0 : true), R['resizes_' + w]);
   // a countdown running: the land step, an orbit, then frames while Next fills
   await ev(`Tour.start({ chapter: 'views', step: 2 })`); await settle(1800);
   const a = await ev(`(() => { const b = document.querySelector('#panes').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);

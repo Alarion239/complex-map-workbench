@@ -24,8 +24,8 @@
   const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : leftCam());
   const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : leftCamBase());
   // the orbit camera of the left plane's sphere view (renderSphereLeft keeps it fitted, like camS)
-  const leftCam = () => (typeof camL !== 'undefined' ? camL : null);
-  const leftCamBase = () => (typeof CAML !== 'undefined' ? CAML : CAMS);
+  const leftCam = () => camL;
+  const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
   // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
@@ -262,7 +262,7 @@
       const aspect = Math.abs((nb.y1 - nb.y0) / nw - (clipWin.y1 - clipWin.y0) / ow);
       if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
         clipWin = nb;
-        S.clipWin = clipWin;
+        setOpt('clipWin', clipWin);
         if (rightAuto && rImage()) fitRight(true);
         requestRender('L', 'R', 'T');
       }

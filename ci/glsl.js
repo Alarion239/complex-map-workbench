@@ -4,7 +4,7 @@
 //   dist/glsl-test.html          test/glsl_test.js      (window.__glslTest)
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
-//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--ref <commit> [--absolute [PAGES]] [--force]]
+//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--filter TEXT] [--ref <commit> [--absolute [PAGES]] [--force]]
 // With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
 // reference's is not run (nothing to compare) unless --force.
 // Without --ref, every page must pass outright (the rules of the command files, test/glsl_inverse_cmd.js): what the
@@ -15,7 +15,8 @@
 // --absolute with --ref: both; --absolute glsl,inverse: both for those pages, paired only for the others (the
 // self-hosted Mac: adv fails 304 values there, in 10 chains near removable singularities, as every release since v14
 // and the reference do). --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse page
-// runs whole (its chains come from one seeded sequence). Exit 0 pass, 1 a failure, 2 setup problem.
+// runs whole (its chains come from one seeded sequence). --filter TEXT: only the glsl page's chains whose name holds
+// TEXT (?filter=; to time a few chains' shaders on one platform). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
@@ -41,7 +42,19 @@ const [pi, pn] = (arg('--part') || '1/1').split('/').map(Number);
 // chains; the others run whole, so in parts they would run once per part (on Windows' software renderer a part of
 // the whole page took 34-61 min): CI runs `direct,keys,compile` once and `main` in parts
 const sections = arg('--sections');
+const filter = arg('--filter');
 const TIMEOUT = 240 * 60 * 1000;   // (the job's own timeout is the real limit)
+// a line every CMW_GLSL_PROGRESS_S seconds (default 60) while a page runs. The glsl and adv pages run in one
+// synchronous task, so the page cannot say how far it is; the browser can say how busy its processes were since the
+// last line: the GPU process (ANGLE and the driver compiling shaders, then the draws), the page (its JS and the CPU
+// side of the tests), or neither (a hang)
+const PROGRESS = (+process.env.CMW_GLSL_PROGRESS_S || 60) * 1000;
+// CMW_GLSL_CACHE: a folder kept between runs (the GPU gate's own machines) for Chrome's profile with its GPU program
+// cache on. A program is cached by its source, so one compiled before, for the reference, for this change or in an
+// earlier run, is not compiled again. On Direct3D 11 compiling is nearly all of a page's time: on the Windows laptop
+// (Iris Xe) 1/64 of the glsl page took 103 s cold, 94 s of it in links, and 7 s from the cache, with the same results.
+// The pages compare values, not timings, so a warm cache changes nothing they check.
+const CACHE = process.env.CMW_GLSL_CACHE || null;
 
 async function waitFor(B, expr, timeout) {
   const t0 = Date.now();
@@ -68,10 +81,41 @@ function buildPages(root, pages) {
   for (const p of pages) if (run(PY, [p.make], { cwd: root }) !== 0) throw new Error(`${p.make} failed in ${root}`);
 }
 
-// one page in a fresh browser -> { r (the page's result), note, ok (the outright rules), ms }
-async function runPage(base, p) {
-  const B = await launch({ width: 1200, height: 800 });
+// the CPU seconds of the browser's GPU process and of its pages so far (null if the browser does not say)
+async function cpuOf(B) {
+  try {
+    const c = { gpu: 0, page: 0 };
+    for (const x of (await B.browser('SystemInfo.getProcessInfo')).processInfo) {
+      if (x.type === 'GPU') c.gpu += x.cpuTime; else if (x.type === 'renderer') c.page += x.cpuTime;
+    }
+    return c;
+  } catch { return null; }
+}
+
+// one page in a fresh browser -> { r (the page's result), note, ok (the outright rules), ms, cpu (seconds: gpu, page) }
+// (side: 'this change' or 'reference', for the progress lines)
+async function runPage(base, p, side) {
+  let B = null;
+  // (Chrome exits 21 while another Chrome still holds the profile: the previous page's, closing, or one a cancelled
+  // job left behind; after three tries the page runs without the cache)
+  for (let i = 0; CACHE && !B && i < 3; i++) {
+    try { B = await launch({ width: 1200, height: 800, cache: CACHE }); } catch (e) {
+      console.log(`the shader cache ${CACHE} did not open (${e.message || e})${i < 2 ? '; again in 10 s' : ': running without it'}`);
+      if (i < 2) await sleep(10000);
+    }
+  }
+  B = B || await launch({ width: 1200, height: 800 });
   const t0 = Date.now();
+  const c0 = await cpuOf(B);
+  let last = { t: t0, c: c0 }, cpu = null;
+  console.log(`${p.page} (${side}): started`);
+  const beat = setInterval(async () => {
+    const c = await cpuOf(B), t = Date.now();
+    if (!c || !last.c) return;
+    const pct = (k) => `${Math.round((c[k] - last.c[k]) / ((t - last.t) / 1000) * 100)}%`;
+    console.log(`  ${p.page} (${side}): ${Math.round((t - t0) / 60000)} min; CPU since the last line: GPU process ${pct('gpu')}, page ${pct('page')} (100% = one core)`);
+    last = { t, c };
+  }, PROGRESS);
   let r = null, ok = false, note = '';
   try {
     if (p.id === 'inverse') {
@@ -81,7 +125,7 @@ async function runPage(base, p) {
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
       note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
     } else {
-      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : [])];
+      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
       r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
@@ -91,9 +135,17 @@ async function runPage(base, p) {
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');
     if (exc.length) { ok = false; r.exception = exc[0].m.slice(0, 300); note += `; page exception: ${r.exception}`; }
-  } catch (e) { r = r || {}; r.setup = String(e.message || e); ok = false; note = r.setup; } finally { await B.close(); }
-  return { r, ok, note, ms: Date.now() - t0 };
+  } catch (e) { r = r || {}; r.setup = String(e.message || e); ok = false; note = r.setup; } finally {
+    clearInterval(beat);
+    const c = c0 && await cpuOf(B);
+    if (c) cpu = { gpu: c.gpu - c0.gpu, page: c.page - c0.page };
+    await B.close();
+  }
+  return { r, ok, note, ms: Date.now() - t0, cpu };
 }
+
+// ' (95 s; CPU: GPU process 60 s, page 30 s)'
+const timeNote = (x) => ` (${(x.ms / 1000).toFixed(0)} s${x.cpu ? `; CPU: GPU process ${x.cpu.gpu.toFixed(0)} s, page ${x.cpu.page.toFixed(0)} s` : ''})`;
 
 // where this change is worse than the reference on the same machine -> list of reasons
 function worse(p, cur, rf) {
@@ -141,15 +193,15 @@ async function main() {
   let failed = 0, renderer = null;
   try {
     for (const p of pages) {
-      const cur = await runPage(srv.base, p);
-      const rf = R ? await runPage(rsrv.base, p) : null;
+      const cur = await runPage(srv.base, p, 'this change');
+      const rf = R ? await runPage(rsrv.base, p, 'reference') : null;
       const why = rf ? worse(p, cur, rf) : [];
       const pass = (!absolute(p) || cur.ok) && !why.length && !(cur.r && cur.r.setup);
       if (!pass) failed++;
       renderer = renderer || (cur.r && cur.r.renderer);
-      const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
+      const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${filter && p.id === 'glsl' ? ` filter ${filter}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
       const s = (cur.ms / 1000).toFixed(0);
-      console.log(`${pass ? 'pass' : 'FAIL'} ${p.page} (${s} s): ${cur.note}${rf ? ` | reference: ${rf.note}` : ''}`);
+      console.log(`${pass ? 'pass' : 'FAIL'} ${p.page}${timeNote(cur)}: ${cur.note}${rf ? ` | reference${timeNote(rf)}: ${rf.note}` : ''}`);
       if (why.length) console.log('  worse than the reference:\n    ' + why.join('\n    '));
       if (!pass || (rf && !cur.ok)) console.log(JSON.stringify(cur.r, null, 1).slice(0, 6000));
       rows.push(`| ${pass ? '✅' : '❌'} | ${label} | ${s} s | ${esc(cur.note)} | ${rf ? esc(rf.note) : ''} |`);

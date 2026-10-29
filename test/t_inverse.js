@@ -105,8 +105,8 @@ section('(a) round trips');
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
   // (d/dz, Γ and ζ are ineligible by rule: below)
-  const byRule = new Set(['deriv', 'gamma', 'zeta']);
-  check('every catalog type except d/dz, Γ and ζ is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
+  const byRule = new Set(['deriv', 'gamma', 'zeta', 'series']);
+  check('every catalog type except d/dz, Γ, ζ and a series is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
     ['poly', { co: '1, 0, -1, 0' }, 'polynomial of degree 3'], ['rational', { p: '1, 0, 0, 1', q: '1, 0' }, 'rational map of degree 3'],
@@ -116,6 +116,8 @@ section('(a) round trips');
     ['mul', { c: '0' }, 'constant'], ['powa', { alpha: '0' }, 'constant'], ['mobius', { a: '1', b: '2', c: '2', d: '4' }, ''],
     // (issue #4) Γ and ζ take each value infinitely often: X → Y uses the sphere-mesh fallback
     ['gamma', {}, 'no inverse enumerator'], ['zeta', {}, 'no inverse enumerator'], ['custom', { expr: '\\Gamma(z)+1' }, 'infinitely often'],
+    // (issue #5) a series: the sphere-mesh fallback too
+    ['series', { kind: 'power', an: '\\frac{1}{n!}', c: '0' }, ''], ['custom', { expr: '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}' }, ''],
   ];
   for (const [type, params, why] of INELIGIBLE) {
     const st = St(type, params), b = Funcs.build(st);
