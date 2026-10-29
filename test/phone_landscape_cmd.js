@@ -1,0 +1,41 @@
+// A landscape phone is a landscape phone whatever its width (#295): src/phone.js sync() gives :root.ph.ph-land to every
+// coarse-pointer landscape viewport at most 500 px tall and below 1024 px wide, 568 to 767 px included (they took the portrait
+// layout: 184 of 360 px for the planes, a sheet showing only its head). Portrait phones keep :root.ph without ph-land.
+// A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const U = `http://localhost:${PORT}/test.html`;
+const fails = [], info = {};
+const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const ST = { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
+const probe = () => ev(`(() => { const r = document.documentElement, q = (id) => { const e = document.getElementById(id); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }; }; return { ph: r.classList.contains('ph'), land: r.classList.contains('ph-land'), iw: innerWidth, ih: innerHeight, L: q('paneL'), R: q('paneR') }; })()`);
+// (the phone layout is entered once the app has initialised, which a slow runner takes a while over: wait for it, then probe)
+const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(600); };
+const open = async (w, h) => { await view(w, h, false, true); await load('pl' + w + 'x' + h + '-' + Date.now(), ST); await waitPh(); };
+
+// landscape phones, below and above 768 px: the landscape layout
+for (const [w, h] of [[740, 360], [667, 375], [736, 414], [568, 320], [812, 375]]) {
+  await open(w, h);
+  const p = await probe(); info[`${w}x${h}`] = p;
+  ok(`${w}×${h}: a landscape phone gets ph-land`, p.ph && p.land, p);
+  // the planes side by side, each most of the height under the top bar
+  ok(`${w}×${h}: the planes sit side by side`, p.L && p.R && p.R.l >= p.L.r - 2 && Math.abs(p.L.t - p.R.t) <= 2, p);
+  ok(`${w}×${h}: the planes have at least 60 % of the height`, p.L && (p.L.b - p.L.t) >= 0.6 * h, p);
+  // a sheet opens beside them, with its content on screen
+  await ev(`Phone.open('tools')`); await settle(800);
+  const sh = await ev(`(() => { const e = document.querySelector('.ph-sheet .ph-sb:not([hidden])'); const b = e && e.getBoundingClientRect(); return b && { t: Math.round(b.top), b: Math.round(b.bottom), l: Math.round(b.left), r: Math.round(b.right), h: Math.round(b.height) }; })()`);
+  ok(`${w}×${h}: an open sheet shows its content (at least 100 px of it, inside the screen)`, sh && sh.h >= 100 && sh.b <= h + 1 && sh.r <= w + 1, sh);
+  await ev('Phone.close(true)'); await settle(300);
+}
+// portrait phones: ph, not ph-land
+for (const [w, h] of [[360, 740], [390, 844], [412, 915], [320, 568]]) {
+  await open(w, h);
+  const p = await probe();
+  ok(`${w}×${h}: a portrait phone has ph and no ph-land`, p.ph && !p.land, p);
+}
+// a laptop-sized window below 768 px with a mouse (no coarse pointer) keeps the portrait layout, and 1024 px wide is no phone
+await view(700, 360, false, false); await load('plm' + Date.now(), ST); await settle(1200);
+const m = await probe(); ok('700×360 with a mouse: ph, no ph-land (not a phone landscape)', m.ph && !m.land, m);
+await view(1280, 800, false, false); await load('pld' + Date.now(), ST); await settle(1200);
+const d = await probe(); ok('1280×800: no phone layout', !d.ph && !d.land, d);
+return { pass: fails.length === 0, fails, info };
