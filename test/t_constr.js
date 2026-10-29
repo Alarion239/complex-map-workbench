@@ -402,6 +402,7 @@ require('./constr_touch_tests.js')({ K, ok, near, nearP });
 // =========================================================== G. Inside C only (notes/orthogonal-circle/segments/SPEC.md 11)
 sect.G = [0, 0]; cur = 'G';
 require('./constr_seg_tests.js')({ K, ok, near, nearP });
+require('./constr_between_tests.js')({ K, ok, near, nearP });
 
 console.log(`\nA ${sect.A[0]}/${sect.A[0] + sect.A[1]}, B ${sect.B[0]}/${sect.B[0] + sect.B[1]}, C ${sect.C[0]}/${sect.C[0] + sect.C[1]}, D ${sect.D[0]}/${sect.D[0] + sect.D[1]}, E ${sect.E[0]}/${sect.E[0] + sect.E[1]}, F ${sect.F[0]}/${sect.F[0] + sect.F[1]}, G ${sect.G[0]}/${sect.G[0] + sect.G[1]}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -334,13 +334,25 @@ async function main() {
   if (opt.override) for (const r of runs) Object.assign(r.state, opt.override);
   if (!runs.length) { console.error('no scenes match ' + opt.only); process.exit(2); }
   for (const d of ['renders', 'maps', 'golden_diff']) { fs.rmSync(path.join(opt.out, d), { recursive: true, force: true }); fs.mkdirSync(path.join(opt.out, d), { recursive: true }); }
-  const appFile = path.join(ROOT, 'dist', 'test.html');
-  const appSha = fs.existsSync(appFile) ? crypto.createHash('sha1').update(fs.readFileSync(appFile)).digest('hex') : 'unknown';
-  try { const r = await fetch(opt.base + '/test.html'); if (!r.ok) throw new Error('HTTP ' + r.status); } catch (e) {
+  // the app's hash: the page this run renders, as the server at --base-url serves it (a paired run serves the reference
+  // and this checkout from two servers, so each side stamps its own); the checkout's dist/test.html only when the body
+  // could not be read, and app_sha1_source says which (#254)
+  const sha1 = (buf) => crypto.createHash('sha1').update(buf).digest('hex');
+  let appSha = null, appShaSource = 'served';
+  try {
+    const r = await fetch(opt.base + '/test.html');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    try { const body = Buffer.from(await r.arrayBuffer()); if (body.length) appSha = sha1(body); } catch (e) { /* the checkout's file below */ }
+  } catch (e) {
     console.error(`the app is not served at ${opt.base}/test.html (${e.message}); start the static server for dist/ first`); process.exit(2);
   }
+  if (!appSha) {
+    const appFile = path.join(ROOT, 'dist', 'test.html');
+    appSha = fs.existsSync(appFile) ? sha1(fs.readFileSync(appFile)) : 'unknown';
+    appShaSource = 'checkout';
+  }
   const B = await startChrome();
-  const met = { meta: { suite: 'cmw-image-quality', version: 1, date: new Date().toISOString(), browser: B.version, viewport: VIEWPORT, base_url: opt.base, app_sha1: appSha,
+  const met = { meta: { suite: 'cmw-image-quality', version: 1, date: new Date().toISOString(), browser: B.version, viewport: VIEWPORT, base_url: opt.base, app_sha1: appSha, app_sha1_source: appShaSource,
     band_px: M.BAND, parity_min_cell_px: M.PARITY_MIN_CELL, parity_min_edge_px: M.PARITY_MIN_EDGE, golden_thr: GOLDEN_THR, stable_ms: opt.stableMs }, runs: {} };
   if (opt.override) met.meta.state_override = opt.override;
   const t0 = Date.now();

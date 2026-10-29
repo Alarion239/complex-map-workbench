@@ -46,7 +46,16 @@ const Params = (() => {
   });
   // (review russian-7: a Cyrillic look-alike typed on a Russian layout reads as its Latin letter, as in formulas)
   const LOOK = { 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'к': 'k', 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
-  function check(raw, { exists = true } = {}) {
+  // [#240] letters a step binds: n, the index of every series, is never a new number; u (a recurrence's variable) and
+  // the field's own bound letters are not while a step binds them. A number by such a name in an older scene still
+  // loads (sanitize), and its fields keep reading the bound letter as the index
+  function reservedWhy(nm, bound) {
+    if (nm === 'n') return $t('n is the index of a series: pick another letter');
+    const chain = host && typeof host.binds === 'function' ? host.binds() : [];
+    if ((bound || []).includes(nm) || chain.includes(nm)) return $t('{x} is the variable of a recurrence in the chain: pick another letter', { x: nm });
+    return '';
+  }
+  function check(raw, { exists = true, bound = null } = {}) {
     const s0 = String(raw == null ? '' : raw).trim();
     if (!s0) return { error: $t('Type a name: one letter, such as a or k, or a Greek letter') };
     const s = /^[асеорхукАВСЕНКМОРТХ][0-9₀-₉_]*$/.test(s0) ? LOOK[s0[0]] + s0.slice(1) : s0;
@@ -60,7 +69,7 @@ const Params = (() => {
       return { error: $t('{f} is a function or a word: a name is one letter (a, k, a₁) or a Greek letter (α, ρ)', { f: c.word }) };
     }
     const base = c.replace(/\d+$/, '');
-    const t = TAKEN()[base];
+    const t = TAKEN()[base] || reservedWhy(c, bound);
     if (t) return { error: t };
     if (base.length === 1 && /[Ͱ-Ͽ]/.test(base) && !GREEK_CH.has(base)) return { error: $t('A name is one letter, with an index if you like (a, k, a₁), or a Greek letter (α, ρ)') };
     if (exists && find(c)) return { error: $t('{x} already exists', { x: display(c) }) };
@@ -89,13 +98,14 @@ const Params = (() => {
     return null;
   }
   // names in a text (in order, without repeats) and the ones not defined yet
-  function namesIn(src) {
+  // (opts.bound: the letters the field binds, a series' n or a recurrence's u, which are never names there)
+  function namesIn(src, opts) {
     if (src == null || typeof Expr.nameSpans !== 'function') return [];
     const out = [];
-    for (const sp of Expr.nameSpans(String(src))) if (!out.includes(sp.name)) out.push(sp.name);
+    for (const sp of Expr.nameSpans(String(src), opts)) if (!out.includes(sp.name)) out.push(sp.name);
     return out;
   }
-  const unknownIn = (src) => namesIn(src).filter((nm) => !find(nm));
+  const unknownIn = (src, opts) => namesIn(src, opts).filter((nm) => !find(nm));
   // (review verify-7: a value or formula that fails because of a Cyrillic letter, a look-alike read as an unknown Latin
   // name or a letter the parser cannot read, says so in the name field's words, not with a Latin name the user never
   // typed; a look-alike of a known number still reads as that number)

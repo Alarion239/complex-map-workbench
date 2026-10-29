@@ -77,7 +77,10 @@ const Phone = (() => {
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
     els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
-    els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
+    // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+      h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
+    els.body.display.append(els.style, h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain bar: Numbers first
@@ -405,9 +408,9 @@ const Phone = (() => {
         : btn('', '⌫ ' + $t('Undo pick'), () => A.ctxAct('undopick'), st.undo ? {} : { disabled: true });
       const x = btn('ico', '×', () => A.ctxAct('xcancel'), { 'aria-label': $t('Cancel') });
       if (st.seg) {
-        // (the orthogonal circle: Whole, Inside or Outside, in words, on a second row)
+        // (the orthogonal circle: Whole, Inside, Outside or Between, in words, on a second row)
         const sg = h('div', { class: 'ph-ctseg', role: 'radiogroup', 'aria-label': $t('Whole or inside') });
-        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')]]) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
+        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')], ['between', $tx('side', 'Between')]].filter(([v]) => !st.segs || st.segs.includes(v))) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
         kids = [text(st.text), undo, x, sg];
       } else kids = [text(st.text), undo, x];
     } else if (st && st.kind === 'listen') {
@@ -645,8 +648,17 @@ const Phone = (() => {
   const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu') });
 
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
+  function paintStyle() {
+    const st = A.styleState();
+    els.style.hidden = !st.show;
+    if (!st.show) return;
+    els.style.querySelector('.ph-ic').innerHTML = st.svg;
+    els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
+    els.style.setAttribute('aria-disabled', String(st.land));
+  }
   function fillDisplay(side) {
     els.dispSide = side;
+    paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
     homeDisplay();
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));

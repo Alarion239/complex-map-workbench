@@ -128,6 +128,33 @@
       shapes: [{ kind: 'disc', c: [0, 0], r: 0.85 }, { kind: 'point', p: [0.5, 0.3], bind: { p: 'a' } }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z-a}{1-\\overline{a}\\,z}', cut: 180 } }], rightMode: 'color',
     },
+    // [issue #6] iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
+    // and Newton's method for z³ − 1 as a Recurrence step
+    {
+      name: $t('The Mandelbrot set'), try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
+      steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('A Julia set that its map keeps'), try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.75, u, z, 64)|\\le 2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.75' } }],
+    },
+    {
+      name: $t('Douady’s rabbit'), try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.1226+0.7449i, u, z, 96)|\\le 2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.1226+0.7449i' } }],
+    },
+    {
+      name: $t('Newton’s method for z³ − 1'), try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
+      shapes: [{ kind: 'rect', a: [-2, -2], b: [2, 2] }],
+      steps: [{ type: 'custom', params: { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }, repeat: { n: 20, len: 1 } }], rightMode: 'color',
+    },
+    {
+      name: $t('The Julia set of z² + i'), try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
@@ -213,6 +240,50 @@
     b.setAttribute('data-tip', $t('Phase colours: {name}', { name })); b.setAttribute('aria-label', $t('Phase colours: {name}', { name })); b.removeAttribute('title');
     const pl = b.querySelector('.plabel'); if (pl) pl.textContent = name;
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
+  }
+  // ---------------- the Phase style button (issue #81) ----------------
+  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
+  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  const STYLE_SVG = {
+    enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
+    phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
+    classic: '<svg viewBox="0 0 16 16" aria-hidden="true"><defs><radialGradient id="stySg"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient></defs><circle cx="8" cy="8" r="6.5" fill="url(#stySg)" stroke="currentColor" stroke-width="1" stroke-opacity=".5"/></svg>',
+    modulus: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="6.3"/><circle cx="8" cy="8" r="3.8"/><circle cx="8" cy="8" r="1.4"/></svg>',
+    grid: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2 4.5c4 1.5 8-1.5 12 0M2 8c4 1.5 8-1.5 12 0M2 11.5c4 1.5 8-1.5 12 0M4.5 2c-1.5 4 1.5 8 0 12M8 2c-1.5 4 1.5 8 0 12M11.5 2c-1.5 4 1.5 8 0 12"/></svg>',
+    cauchy: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="#53B8F7" fill-opacity=".35" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>',
+  };
+  const styleName = () => (DC_STYLES.find((p) => p[0] === S.dc) || DC_STYLES[0])[1];
+  // the style picked, from the header button, the phone's chip or the Display options (their control follows)
+  function pickPhaseStyle(v) {
+    setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
+    const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
+    syncStyleBtn();
+  }
+  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
+  function styleItems(done) {
+    if (lLand()) {
+      return Object.assign([{ label: $t('Styles belong to the flat Phase view'), disabled: true }, 'sep', { label: $t('Switch to Phase'), run: () => { setMain('phase'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+    }
+    const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
+    return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
+  }
+  let styleKey = '';
+  function syncStyleBtn() {
+    const b = $('styleBtn');
+    if (!b) return;
+    const st = styleState(), key = `${st.show}|${st.land}|${st.id}`;
+    if (key === styleKey) return;
+    styleKey = key;
+    b.hidden = !st.show;
+    if (!st.show) return;
+    const text = st.land ? $t('Styles belong to the flat Phase view') : $t('Phase style: {name}', { name: st.name });
+    b.setAttribute('aria-disabled', String(st.land));
+    b.setAttribute('data-tip', text); b.setAttribute('aria-label', text); b.removeAttribute('title');
+    const ic = b.querySelector('.sty-ic'); if (ic) ic.innerHTML = STYLE_SVG[st.id] || '';
+    const hw = b.querySelector('.hw'); if (hw) hw.textContent = st.name;
+    if (typeof hdrFitSoon === 'function') hdrFitSoon();
   }
   function viewBox(v) {
     const w = paneL ? paneL.w : 500, hh = paneL ? paneL.h : 500;
