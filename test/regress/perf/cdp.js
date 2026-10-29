@@ -2,7 +2,7 @@
 // Minimal standalone Chrome DevTools Protocol client for the perf suite.
 // Launches its own headless Chrome (ANGLE Metal, real WebGL2, same flags as test/cdp_kit/cdpd.js) over
 // --remote-debugging-pipe with a throw-away profile, opens one page and exposes small helpers.
-// Nothing here is shared with other harnesses: every run gets a fresh browser and profile.
+// Nothing here is shared with other harnesses: every run gets a fresh browser and profile (but see opts.cache).
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -47,11 +47,18 @@ function flagsFor(opts) {
   return f;
 }
 
+// opts.cache: a folder kept between runs as the profile, with the GPU program cache on and large, so a shader program
+// compiled once loads from it later, in this run or the next. Not for timings (the perf suite compiles cold): for the
+// GLSL conformance pages, whose time on Direct3D 11 is almost all compiling (ci/glsl.js). A program takes 20-50 KB
+// there; Chrome keeps 6 MB of them by default, about a third of the glsl page, so the limit is raised.
+const CACHE_KB = 512 * 1024;
 async function launch(opts = {}) {
   const chrome = opts.chrome || CHROME_CANDIDATES.find((p) => fs.existsSync(p));
   if (!chrome) throw new Error('Google Chrome not found; set CHROME_BIN');
-  const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-perf-prof-'));
-  const flags = flagsFor(opts);
+  const prof = opts.cache ? (fs.mkdirSync(opts.cache, { recursive: true }), opts.cache) : fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-perf-prof-'));
+  const flags = opts.cache
+    ? [...flagsFor(opts).filter((f) => !/^--disable-gpu-(program|shader-disk)-cache$/.test(f)), `--gpu-program-cache-size-kb=${CACHE_KB}`]
+    : flagsFor(opts);
   const ch = spawn(chrome, [...flags, `--user-data-dir=${prof}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const wr = ch.stdio[3], rd = ch.stdio[4];
   let id = 0, buf = '';
@@ -97,6 +104,9 @@ async function launch(opts = {}) {
   const H_ = {};
   H_.version = version;
   H_.send = send;
+  // a command to the browser itself, not the page: it answers while the page's main thread is busy
+  // (SystemInfo.getProcessInfo: the CPU time of the GPU and renderer processes)
+  H_.browser = (m, p) => sendRaw(m, p);
   H_.sleep = sleep;
   // evaluate an expression in the page; returns its value (no promise awaiting: start async work in the page,
   // store the result on window and poll it)
@@ -174,9 +184,10 @@ async function launch(opts = {}) {
   H_.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
   H_.close = async () => {
     try { await sendRaw('Browser.close'); } catch (e) { /* already gone */ }
-    await Promise.race([new Promise((r) => (dead ? r() : ch.on('exit', r))), sleep(3000)]);
+    // (a kept profile: time to write the cache and let go of the profile, which the next launch opens)
+    await Promise.race([new Promise((r) => (dead ? r() : ch.on('exit', r))), sleep(opts.cache ? 30000 : 3000)]);
     try { ch.kill('SIGKILL'); } catch (e) { /* gone */ }
-    try { fs.rmSync(prof, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+    if (!opts.cache) try { fs.rmSync(prof, { recursive: true, force: true }); } catch (e) { /* best effort */ }
   };
   H_.chromePath = chrome;
   H_.flags = flags;
