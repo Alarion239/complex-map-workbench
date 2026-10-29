@@ -12,8 +12,9 @@ Each team has the same hierarchy.
 - **One orchestrator**, a Claude session at maximum effort, **coordinates and does no issue work itself**. It:
   - reads the issues, the board and CI;
   - decides what to do next;
-  - creates task-specific worker agents, choosing each one's model and thinking level to suit the task (e.g. Opus
-    at high effort for cross-cutting or numerical work, Sonnet for well-scoped UI, test or docs tasks);
+  - creates task-specific worker agents, choosing each one's model and thinking level to suit the task. Use the
+    cheapest model that does the task well: Sonnet for well-scoped UI, test, docs and issue work, Opus at high
+    effort for cross-cutting, numerical or architectural work. Quality comes first: when in doubt, Opus;
   - gives each worker its issue with the context it needs;
   - has workers review each other's PRs, and answers their questions;
   - keeps the board current.
@@ -23,10 +24,25 @@ Each team has the same hierarchy.
   - they claim it on GitHub, work on their own branch and open the PR;
   - they report to their orchestrator, and ask it when a decision is not theirs;
   - they don't merge into shared branches.
-- **Alexander's orchestrator owns the waves**:
+- **The issue agent** (a worker of Alexander's team, Sonnet) keeps the issue list:
+  - it files issues for what anyone notices but should not do now (any agent may ask it, or file the issue
+    directly);
+  - it deduplicates, links related issues and researches them, including on the web, for example for
+    performance;
+  - it proposes the next waves to the orchestrator: which issues go together, in what order, how big each is, and
+    which model suits each.
+
+  The orchestrator decides whom to hire for each.
+- **Alexander's orchestrator owns the waves and the runs**, on Alexander's account (Alarion239), which has the most
+  usage and the permissions on runs:
   - it merges ready PRs from both teams into the integration branch, resolving only the generated tables and
     trivial overlaps (anything else goes back to the PR's worker);
-  - it runs the wave's gate, merges it into `main` and deploys the release.
+  - it opens each wave PR into `main` and runs its full gate, with any re-runs;
+  - it dispatches the GPU-gate runs (Alexander approves them);
+  - it merges into `main` and deploys the release.
+
+  Pietro's team pushes PRs into the integration branch, where they run their own tier, and asks on the board for
+  anything that needs a full gate or a GPU run.
 - **Pietro's orchestrator** runs his workers the same way. It talks to Alexander's orchestrator on the wave board
   and in PR comments.
 - **Product decisions belong to Alexander**, asked on the issue. Pietro decides his own areas (sound, Italian, the
@@ -89,3 +105,32 @@ Each team has the same hierarchy.
 - About a PR: comment on the PR.
 - Coordination (claims, waves, freezes): comment on the wave board.
 - Product decisions belong to Alexander. Ask on the issue.
+
+## 6. Usage limits: hand the work over, don't strand it
+Any agent can run out of usage in the middle of a task. As soon as you see a usage warning, or before you stop:
+1. **Push what you have** to your branch, unfinished work included. A draft PR may hold WIP commits. If there is no
+   PR yet, open a draft so the work can be seen.
+2. **Mark the PR as handed off:** add the label `handoff`. If you can't add labels, start the PR's title with
+   `[handoff] `.
+3. **Write a handoff comment on the PR:**
+   - what is done;
+   - what is left, as a checklist;
+   - how to check it (the commands and suites);
+   - anything you could not push.
+4. **Release the claim:** on the issue, comment `Released: <team> (<agent>) is out of usage; handoff notes on #<PR>`.
+5. Tell your orchestrator. If it blocks a wave, say so on the board too.
+
+Taking a handed-off PR over:
+- Any agent of either team may take over a `handoff` PR. Comment `Taking over from <agent>` on the PR and on the issue,
+  remove the label or the title prefix, and go on from the handoff checklist.
+- Continue on the same branch with merge commits. Never rebase or force-push someone else's branch.
+- If you can't push to that branch, branch from its head and open a new PR that says it supersedes the old one. Link
+  both, and the old one is closed when the new one merges.
+- An agent coming back from a limit checks for a takeover before it resumes.
+
+An orchestrator that runs low:
+- It pushes its integration work. Nothing is left merged only in its own checkout.
+- It brings the board's "Now" section up to date: the wave, what is in it, what runs, what is pending.
+- It comments on the board `Orchestrator out of usage until <time>`.
+- The other team's orchestrator, or a fresh session started from the board, can then carry on. A fresh session
+  for Alexander's team reads this file, the board and the open PRs first.
