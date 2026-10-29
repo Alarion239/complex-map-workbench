@@ -3,23 +3,28 @@
   // A step's text fields keep the names (Funcs.build reads them through the parser's name scope); a shape's field that
   // holds names keeps its text in s.bind[key] and its value in the field itself (s.expr: the text with the values
   // written in), so the renderers and every cache keyed by a shape see plain values.
-  const FX_TYPES = ['cx', 'coeffs', 'cxlist', 'expr'];
-  // the text fields of a step: [key, text]
+  // ([#241] seq: a series' a_n, a recurrence's u_0 and rule, whose bound letters, n and u, are never names)
+  const FX_TYPES = ['cx', 'coeffs', 'cxlist', 'expr', 'seq'];
+  // the text fields of a step: [key, text, {bound}] (the third: the options of Params.namesIn for that field)
   function stepTexts(st) {
     const d = Funcs.DEFS[st.type], out = [];
     if (!d) return out;
-    for (const q of d.params) if (FX_TYPES.includes(q.type) && typeof st.params[q.key] === 'string') out.push([q.key, st.params[q.key]]);
+    for (const q of d.params) if (FX_TYPES.includes(q.type) && typeof st.params[q.key] === 'string') out.push([q.key, st.params[q.key], { bound: q.bound || [] }]);
     return out;
   }
+  // [#240] the letters the chain's steps bind (a recurrence's u): not new numbers while it holds them
+  const chainBinds = () => [...new Set(S.steps.flatMap((st) => { const d = Funcs.DEFS[st.type]; return d ? d.params.flatMap((q) => q.bound || []) : []; }))];
   // the names a step's fields use, with their values: part of the chain signature, so every cache keyed by it (cards,
   // fits, paths) sees a new value; the GPU programs keep their structure (the values are uniforms)
   function paramSig(st) {
     if (!S.params || !S.params.length) return '';
     let out = '';
-    for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
+    for (const [, v, o] of stepTexts(st)) for (const nm of Params.namesIn(v, o)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
+    // ([issue #6] Repeat × N's N bound to a number: its value is the number of passes)
+    if (st.repeat && st.repeat.by) out += `;${st.repeat.by}=${Params.get(st.repeat.by)}`;
     return out;
   }
-  const stepUses = (st, names) => stepTexts(st).some(([, v]) => Params.namesIn(v).some((n) => names.has(n)));
+  const stepUses = (st, names) => stepTexts(st).some(([, v, o]) => Params.namesIn(v, o).some((n) => names.has(n))) || !!(st.repeat && st.repeat.by && names.has(st.repeat.by));
   function bindField(s, key, text) {
     if (Params.namesIn(text).length) (s.bind || (s.bind = {}))[key] = String(text).trim();
     else if (s.bind && key in s.bind) { delete s.bind[key]; if (!Object.keys(s.bind).length) delete s.bind; }
@@ -297,6 +302,15 @@
   function paramFormulas() {
     const out = [];
     S.steps.forEach((st, i) => { for (const [key] of stepTexts(st)) out.push({ label: `f${sub(i + 1)}`, get: () => st.params[key], set: (t) => { st.params[key] = t; } }); });
+    // ([issue #6] a repeat's N bound to a number: renamed with it; a removed number leaves its value, rounded)
+    S.steps.forEach((st, i) => {
+      if (!st.repeat || !st.repeat.by) return;
+      out.push({ label: `f${sub(i + 1)}`, get: () => st.repeat.by, set: (t) => {
+        const ns = Params.namesIn(t), v = Number(t);
+        if (ns.length === 1 && String(t).trim() === ns[0]) st.repeat = Object.assign({}, st.repeat, { by: ns[0] });
+        else st.repeat = { n: Number.isFinite(v) ? Math.min(Funcs.REPEAT_MAX, Math.max(1, Math.round(v))) : st.repeat.n, len: st.repeat.len };
+      } });
+    });
     const names = shapeNames();
     for (const x of S.shapes.concat(S.targets)) if (x.bind) for (const key of Object.keys(x.bind)) out.push({ label: names.get(x.id) || $t('a target'), get: () => x.bind[key], set: (t) => { x.bind[key] = t; } });
     return out;
@@ -320,7 +334,7 @@
     const st = S.steps[k - 1];
     if (!st) return '';
     const ns = [];
-    for (const [key] of stepTexts(st)) for (const n of Params.namesIn(st.params[key])) if (!ns.includes(n)) ns.push(n);
+    for (const [key, , o] of stepTexts(st)) for (const n of Params.namesIn(st.params[key], o)) if (!ns.includes(n)) ns.push(n);
     const num4 = (v) => I18N.num(String(+(+v).toPrecision(4))).replace('-', '−');
     const val = (n) => {
       const c = Params.getC(n);
@@ -354,6 +368,7 @@
   function attachParams() {
     Params.attach({
       list: () => (S && Array.isArray(S.params) ? S.params : []),
+      binds: chainBinds,
       formulas: paramFormulas,
       commit: () => commit(),
       toast: (m) => toast(m),
@@ -442,10 +457,12 @@
     document.addEventListener('change', (e) => {
       const el = e.target;
       if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-fx')) return;
-      const u = Params.unknownIn(el.value);
+      // ([#240] a field's bound letters, a series' n, a recurrence's u, are its own: never new numbers)
+      const bound = el.dataset.bound ? el.dataset.bound.split(',') : [];
+      const u = Params.unknownIn(el.value, { bound });
       if (!u.length) return;
       if (u.length > 1) { sndError(); toast($t('One new name at a time: {x}', { x: u.map(Params.display).join(', ') })); return; }
-      const c = Params.check(u[0]);
+      const c = Params.check(u[0], { bound });
       if (c.error) { sndError(); toast(c.error); return; }
       Params.add(c.name);
       el.dispatchEvent(new Event('input'));

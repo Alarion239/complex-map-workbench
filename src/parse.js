@@ -72,6 +72,8 @@ const Expr = (() => {
   // cannot read the whole run (xi stays x i, chi stays ch i). Without the hook (node tests) nothing changes.
   let NAMES = null, NAMED = null;
   const setNames = (h) => { NAMES = h || null; };
+  // a shared number's value by its name (Repeat × N's N bound to a number), or undefined
+  const nameValue = (name) => (NAMES ? NAMES.get(name) : undefined);
   const GREEK = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Lambda: 'Λ', Xi: 'Ξ', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
   const GREEK_TEX = Object.assign({ varepsilon: 'ε', varphi: 'φ', varrho: 'ρ', varsigma: 'σ' }, GREEK);
   const GREEK_WORD = Object.assign({}, GREEK);
@@ -159,14 +161,14 @@ const Expr = (() => {
   function scanIdx(src) {
     const out = new Set();
     for (const m of src.matchAll(/(?:\\sum|\\prod|[Σ∑∏])\s*(?:\\(?:no)?limits\s*)?(?:\^\s*(?:\{[^{}]*\}|\\[A-Za-z]+|\S)\s*)?_\s*\{?\s*([A-Za-z])(?![A-Za-z])/g)) if (!LETTERS[m[1]]) out.add(m[1]);
-    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod)\s*\(/g)) {
+    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod|iter)\s*\(|\\(?:operatorname|mathrm)\s*\{\s*iter\s*\}\s*(?:\\left\s*)?\(/g)) {
       let d = 0, j = (m.index || 0) + m[0].length;
       for (; j < src.length; j++) {
         const c = src[j];
         if ('([{'.includes(c)) d++;
         else if (')]}'.includes(c)) { if (!d) break; d--; } else if (c === ',' && !d) break;
       }
-      const mm = /^,\s*([A-Za-z])\s*,/.exec(src.slice(j));
+      const mm = /^,(?:\s|\\[ ,;:!])*([A-Za-z])(?:\s|\\[ ,;:!])*,/.exec(src.slice(j));
       if (mm && !LETTERS[mm[1]]) out.add(mm[1]);
     }
     return out;
@@ -253,6 +255,9 @@ const Expr = (() => {
         // ψ as \operatorname{\psi}(z) (a bare \psi stays a name)
         const op = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*\\psi\s*\}/.exec(src.slice(i + m[0].length));
         if (op && callsAt(src, i + m[0].length + op[0].length)) { toks.push({ t: 'func', v: 'digamma', pos: i }); i += m[0].length + op[0].length; continue; }
+        // ([issue #6] \operatorname{iter}(…), as toTex writes a recurrence inside a formula)
+        const opi = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*iter\s*\}/.exec(src.slice(i + m[0].length));
+        if (opi && callsAt(src, i + m[0].length + opi[0].length)) { toks.push({ t: 'iterfn', pos: i }); i += m[0].length + opi[0].length; continue; }
         const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
         if (!spec && NAMES && GREEK_TEX[name]) {
           const sb = subAt(src, i + m[0].length);
@@ -306,8 +311,9 @@ const Expr = (() => {
         const rest = src.slice(i);
         // [issue #5] sum( prod( binom( (only so, a call), inf as a sum's limit, and a sum's index (not where a name of
         // the plain language starts: n in "not")
-        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom)(?=\s*\()/.exec(rest);
-        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom' }[fw[1]], pos: i }); i += fw[1].length; continue; }
+        // ([issue #6] and iter( : a recurrence, iter(g, u, u₀, N))
+        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom|iter)(?=\s*\()/.exec(rest);
+        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom', iter: 'iterfn' }[fw[1]], pos: i }); i += fw[1].length; continue; }
         const iw = BOUND.size && !/[A-Za-z]/.test(src[i - 1] || '') && /^inf(?:inity)?(?![A-Za-z])/.exec(rest);
         if (iw) { toks.push(INF_T(i)); i += iw[0].length; continue; }
         if (BOUND.has(ch) && !PLAIN_NAMES.some((nm) => rest.startsWith(nm))) { toks.push({ t: 'idx', v: ch, pos: i }); i++; continue; }
@@ -380,11 +386,13 @@ const Expr = (() => {
 
   // the names in a text, as written: [{pos, len, name}] (a list or a formula that does not parse yet: the names before
   // the first error; ';' lists read like ',' lists)
-  function nameSpans(src) {
+  // (opts.bound: the letters the field binds, a series' n, a recurrence's u: never names, as parse(src, {bound}))
+  function nameSpans(src, opts) {
     if (!NAMES) return [];
     const saved = NAMED;
     NAMED = { unknown: [], spans: [] };
-    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ }
+    EXTRA_BOUND = (opts && opts.bound) || [];
+    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ } finally { EXTRA_BOUND = []; }
     const out = NAMED.spans;
     NAMED = saved;
     return out;
@@ -419,7 +427,7 @@ const Expr = (() => {
       if (!isOp(tk, v)) throw new ParseError($t("Expected '{x}'", { x: v }), tk.pos);
     };
     const startsPrimary = (tk) => {
-      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom'].includes(tk.t)) return true;
+      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom', 'iterfn'].includes(tk.t)) return true;
       if (tk.t === 'op' && (tk.v === '(' || tk.v === '{' || tk.v === '[')) return true;
       if (tk.t === 'op' && tk.v === '|' && absDepth === 0) return true;
       return false;
@@ -567,6 +575,21 @@ const Expr = (() => {
           limDepth--;
           expect(')');
           return { t: 'sum', op: tk.t === 'sumfn' ? 'sum' : 'prod', v: ix.v, lo, hi, a };
+        }
+        // [issue #6] iter(g, u, u₀, N): u₀, then u ↦ g(u, z) N times (Expr.iterate): the Mandelbrot set is
+        // |iter(u^2+z, u, 0, 64)| ≤ 2, a filled Julia set |iter(u^2+c, u, z, 64)| ≤ 2
+        case 'iterfn': {
+          expect('(');
+          const g = parseAdd();
+          expect(',');
+          const ix = next();
+          if (ix.t !== 'idx') throw new ParseError($t('Expected the letter of the recurrence, such as u'), ix.pos);
+          expect(',');
+          const u0 = parseAdd();
+          expect(',');
+          const N = parseAdd();
+          expect(')');
+          return iterate(u0, g, N, ix.v);
         }
         case 'binom': {
           if (isOp(peek(), '(')) { next(); const a = parseAdd(); expect(','); const b = parseAdd(); expect(')'); return { t: 'binom', a, b }; }
@@ -1934,9 +1957,11 @@ const Expr = (() => {
         // [issue #5] the sum takes the factors after it, so it is wrapped as a factor (p 0); −∞ … ∞ is n ∈ ℤ
         case 'idx': return { s: n.v, p: 4 };
         case 'binom': return { s: `\\binom{${go(n.a).s}}{${go(n.b).s}}`, p: 4 };
-        // [issue #6] u_N, with u_0 and the rule in u_k
+        // [issue #6] u_N, with u_0 and the rule in u_k (the whole formula); inside a formula iter(g, u, u_0, N), as typed
         case 'iter': {
-          const v = n.v, N = go(n.hi).s, g = go(subst(n.a, v, { t: 'idx', v: `${v}_k` })).s;
+          const v = n.v, N = go(n.hi).s;
+          if (n !== ast) return { s: `\\operatorname{iter}\\left(${go(n.a).s},\\ ${v},\\ ${go(n.lo).s},\\ ${N}\\right)`, p: 4 };
+          const g = go(subst(n.a, v, { t: 'idx', v: `${v}_k` })).s;
           return { s: `${v}_{${N}},\\ ${v}_0=${go(n.lo).s},\\ ${v}_{k+1}=${g}`, p: -1 };
         }
         case 'sum': {
@@ -1985,6 +2010,6 @@ const Expr = (() => {
   const hasIter = (n) => hasT(n, 'iter');
   // [issue #6] the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
-  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;

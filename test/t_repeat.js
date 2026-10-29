@@ -64,5 +64,13 @@ check('a heavy step weighs more: ζ twenty times is refused, at most N = 16', !!
 check('ζ sixteen times is drawn', !chain([Rp(S('zeta'), 16, 1)]).built[0].error);
 check('repeatOk: a len past the chain\'s start is no repeat', Funcs.repeatOk([Rp(S('exp'), 2, 3)], 1) === null);
 
+// ---- 6. N bound to a shared number (repeat.by): its value rounded, 1 … REPEAT_MAX; the stored n without it
+Expr.setNames({ get: (nm) => ({ k: 2.6, big: 1000, neg: -3 })[nm], display: (nm) => nm });
+const byN = (by) => Funcs.repeatOk([S('exp'), Rp(S('sin'), 2, 2)].map((st, i) => (i === 1 ? Object.assign(st, { repeat: { n: 2, len: 2, by } }) : st)), 2);
+check('by k = 2.6: three passes', byN('k').n === 3);
+check('by a large number: at most REPEAT_MAX', byN('big').n === Funcs.REPEAT_MAX);
+check('by a negative number: one pass', byN('neg').n === 1);
+check('by a number that is gone: the stored n', byN('gone').n === 2);
+Expr.setNames(null);
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

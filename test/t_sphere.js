@@ -366,5 +366,24 @@ if (!filt.length || filt.includes('app')) {
   const cust = SphereMesh.atInfOf(step('custom', { expr: '\\frac{z^2+1}{2z^2-3}' }));
   ok('a custom rational probes to its limit 1/2 at infinity', cust.k === 0 && Math.abs(cust.w.re - 0.5) < 1e-6 && Math.abs(cust.w.im) < 1e-6, cust);
 }
+// a region whose formula iterates (#6: the Mandelbrot set's escape test) counts its level evaluations in the work
+// budget, so its mesh ends there and not on the time cap; other regions' work is their map evaluations only
+{
+  const run = (expr) => {
+    const M = SphereMesh.create({
+      steps: [step('recurrence', { u0: '0', g: 'u^2+z', N: 12, cut: 180 })], injective: false, shape: { kind: 'formula', expr },
+      left: { W, H, cx: -0.6, cy: 0, s: 150 }, view: { kind: 'flat', cx: 0, cy: 0, s: 100, W, H, guard: 2 }, Kmax: 1,
+      pattern: { id: 0, cell: 1 }, budgetMs: 1e9, maxNodes: 3e6, maxWork: 250000,
+    });
+    while (!M.step(1e9).done);
+    const st = M.stats();
+    M.dispose();
+    return st;
+  };
+  const it = run('|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2');
+  ok('an iterating region: its levels count in the work, and the mesh ends on the work budget', it.budgetWhy === 'work' && it.work >= 8 * it.levels, { work: it.work, levels: it.levels, why: it.budgetWhy });
+  const plain = run('|z+0.5|<1');
+  ok('a plain formula region: the work is its map evaluations only', plain.work === plain.evals + 12 * plain.stepProbes && plain.levels > 0, { work: plain.work, evals: plain.evals, levels: plain.levels });
+}
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);
