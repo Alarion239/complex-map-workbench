@@ -3016,5 +3016,6 @@
  "the external ray %{m}": "il raggio esterno %{m}",
  "gen\u0004the external ray %{m}": "un raggio esterno %{m}",
  "the equipotential %{m}": "l'equipotenziale %{m}",
- "gen\u0004the equipotential %{m}": "un'equipotenziale %{m}"
+ "gen\u0004the equipotential %{m}": "un'equipotenziale %{m}",
+ "Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank": "Passi N: l'orbita deve superare |w| = 10⁴ entro N passi (|u| > 2 non basta per Φ), quindi una sottile fascia vicino all'insieme, più larga di quella lasciata dal test di fuga |u| ≤ 2, resta vuota"
 }

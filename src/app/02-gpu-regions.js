@@ -1,7 +1,10 @@
   // ---------------- regions on the GPU ----------------
   let clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 };
   const kindType = (s) => Region.KINDS[s.kind].type;
-  const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr]);
+  // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
+  // traces them in idle slices and asks for the redraw when one lands)
+  const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
+  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would

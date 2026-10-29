@@ -160,5 +160,45 @@ check('the level 1.02 lies inside the level 2', EQ[0].every((z) => wind(EQ[3], z
   check('the ray 1/3 crosses it exactly once', crossings(ray.pts, P, false, true) === 1);
 }
 
-console.log(`${n - bad}/${n} passed`);
-process.exit(bad ? 1 : 0);
+// ---- 7. a moving c (#299 review: Play on c re-traced every curve, 300 ms frames)
+// dhFollow moves a traced curve to a nearby c: its points exact on the new curve (Böttcher angle and level kept)
+{
+  const c0 = C(-1, 0), c1 = C(-0.97, 0.02);
+  const eq = CX.dhEquipotential(Math.log(1.2), { c: c0 }), ray = CX.dhRay({ p: 1, q: 3 }, { c: c0, levels: 20, S: 16 });
+  const fe = CX.dhFollow(eq, c1), fr = CX.dhFollow(ray, c1);
+  let we = 0, wr = 0;
+  for (const z of fe || []) we = Math.max(we, Math.abs(CX.abs(CX.bottcherJ(z, c1, 4000)) - 1.2));
+  for (let i = 0; i < (fr ? fr.pts.length : 0); i += 9) { const w = CX.bottcherJ(fr.pts[i], c1, 4000); wr = Math.max(wr, Math.abs(Math.atan2(w.im, w.re) - 2 * Math.PI / 3)); }
+  check('dhFollow: the equipotential 1.2 moved to c = −0.97 + 0.02i, |φ_c| = 1.2 to 1e−12', !!fe && fe.length === eq.length && we < 1e-12, we);
+  check('dhFollow: the ray 1/3 moved, arg φ_c = 2π/3 to 1e−9', !!fr && fr.pts.length === ray.pts.length && wr < 1e-9, wr);
+  check('dhFollow: a level not above the new critical level gives null', CX.dhFollow(CX.dhEquipotential(Math.log(1.02), { c: C(0.3, 0) }), C(0.5, 0)) === null);
+}
+// Region's async tracing (as the app runs it): a new c draws a quick curve at once, the full one lands at rest
+(async () => {
+  global.Region = require('../src/region.js');
+  let ready = 0;
+  Region.dhAsync = { ready: () => { ready++; } };
+  const win = { x0: -2, x1: 2, y0: -1.5, y1: 1.5 };
+  const sh = ['0', '1/3', '2/3', '1/2'].map((t, i) => ({ id: 'r' + i, kind: 'dhray', theta: t, c: [-1, 0] })).concat([1.05, 1.3].map((r, i) => ({ id: 'e' + i, kind: 'dheq', r, c: [-1, 0] })));
+  for (const x of sh) Region.curvesOf(x, win);
+  await new Promise((res) => setTimeout(res, 3000));
+  check('async: the full traces land once c rests, and ask for a redraw', sh.every((x) => Region.dhStamp(x) === 'f') && ready >= 6, [sh.map(Region.dhStamp).join(''), ready]);
+  const per = [];
+  for (let k = 1; k <= 20; k++) {
+    for (const x of sh) x.c = [-1 + 0.004 * k, 0.002 * k];
+    const t = performance.now();
+    for (const x of sh) Region.curvesOf(x, win);
+    per.push(performance.now() - t);
+  }
+  per.sort((a, b) => a - b);
+  check('async: while c moves the curves are quick ones, at most 15 ms a frame (median)', sh.every((x) => Region.dhStamp(x) === 'q') && per[10] <= 15, [sh.map(Region.dhStamp).join(''), per[10]]);
+  // (a quick curve's points are exact: |φ_c| on the equipotential 1.05)
+  const eqq = Region.curvesOf(sh[4], win)[0], cq = C(sh[4].c[0], sh[4].c[1]);
+  let wq = 0;
+  for (const z of eqq.pts) wq = Math.max(wq, Math.abs(CX.abs(CX.bottcherJ(z, cq, 4000)) - 1.05));
+  check('async: a quick equipotential\'s points are on it (|φ_c| = 1.05 to 1e−12)', wq < 1e-12, wq);
+  await new Promise((res) => setTimeout(res, 3000));
+  check('async: and once c rests again, the full traces', sh.every((x) => Region.dhStamp(x) === 'f'), sh.map(Region.dhStamp).join(''));
+  console.log(`${n - bad}/${n} passed`);
+  process.exit(bad ? 1 : 0);
+})();

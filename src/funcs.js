@@ -1467,11 +1467,13 @@ const Funcs = (() => {
   // steps to pass 10⁴, and for φ_c below the critical potential. The external rays and equipotentials of the Inspector
   // card are Region's dhray and dheq. Both deform along the straight line (no zoom path: they are not defined at 0)
   const DH_NMAX = 64;
+  // ([#299 review] its tooltip: why a band next to the set stays blank)
+  const DH_NTIP = $t('Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank');
   const dhNoInv = () => $t('Φ is one-to-one, but its inverse is not available as a step; {note}', { note: NOTE_PRE });
   const dhHomTex = (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: $t('Φ is defined only outside the set, so it has no point to zoom about') }), segment: true });
   def({
     id: 'dh', group: $t('Special'), label: $t('Douady–Hubbard map'), menuTex: '\\Phi_M(z)',
-    params: [{ key: 'N', label: $t('steps N'), type: 'int', def: DH_NMAX, min: 1, max: DH_NMAX }],
+    params: [{ key: 'N', label: $t('steps N'), type: 'int', def: DH_NMAX, min: 1, max: DH_NMAX, tip: DH_NTIP }],
     build({ N }) {
       const f = (z) => CX.bottcher(z, z, N);
       return {
@@ -1485,7 +1487,7 @@ const Funcs = (() => {
   });
   def({
     id: 'bottcher', group: $t('Special'), label: $t('Böttcher coordinate'), menuTex: '\\varphi_c(z)',
-    params: [{ key: 'c', label: 'c', type: 'cx', def: '-1' }, { key: 'N', label: $t('steps N'), type: 'int', def: DH_NMAX, min: 1, max: DH_NMAX }],
+    params: [{ key: 'c', label: 'c', type: 'cx', def: '-1' }, { key: 'N', label: $t('steps N'), type: 'int', def: DH_NMAX, min: 1, max: DH_NMAX, tip: DH_NTIP }],
     build({ c, N }) {
       const rho = CX.dhCritRho(c, N);
       const f = (z) => CX.bottcherJ(z, c, N, rho);

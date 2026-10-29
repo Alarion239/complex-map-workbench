@@ -624,7 +624,9 @@
       return f;
     };
     // positive radii, whole counts in range; an invalid value is shown but never applied
-    const LIMITS = { r: s.kind === 'dheq' ? [1 + 1e-9, Infinity, $t('The level |Φ| must be more than 1')] : [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
+    // ([#299 review] an equipotential of a Julia set: above the critical level of its c, |Φ_M(c)|^{1/2}, too)
+    const dhRho = s.kind === 'dheq' && Array.isArray(s.c) ? CX.dhCritRho(C(s.c[0], s.c[1]), 64) : 1;
+    const LIMITS = { r: s.kind === 'dheq' ? [dhRho * (1 + 1e-9), Infinity, dhRho > 1 ? $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(dhRho, 4) }) : $t('The level |Φ| must be more than 1')] : [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
       r1: [0, Infinity, $t('Radii must be 0 or more')], r2: [0, Infinity, $t('Radii must be 0 or more')],
       n: [1, 60, $t('Use a whole number from 1 to 60')], nc: [1, 60, $t('Use a whole number from 1 to 60')], nr: [1, 60, $t('Use a whole number from 1 to 60')] };
     const numField = (key, label, step = 'any') => {

@@ -92,9 +92,30 @@ ok('Böttcher example: four rays and two levels of the basilica, c bound to the 
 const bw = await imagesOf(sh.find((x) => x.kind === 'dhray' && x.theta === '1/3').id);
 const bOff = bw.filter((w) => w).map((w) => Math.abs(Math.atan2(w[1], w[0]) - 2 * Math.PI / 3));
 ok('… its ray 1/3 maps onto arg w = 2π/3', bOff.length > 20 && Math.max(...bOff) < 1e-9, [bw.length, Math.max(...bOff)]);
+// ([#299 review] c on Play: each new c costs the curves no more than a quick follow, and the full traces land once c
+// rests. The curve work per frame is Region.curvesOf's time (the drawing itself is the GPU's, as for any curve))
+await ev(`(() => { window.__play = null; const R = Region, f = R.curvesOf; let acc = 0; R.curvesOf = function (...a) { const t = performance.now(); try { return f.apply(this, a); } finally { acc += performance.now() - t; } };
+  const per = [], stamps = []; let k = 0;
+  const step = () => { acc = 0; Params.set('c', -1 + 0.3 * Math.sin(++k / 6)); requestAnimationFrame(() => { per.push(acc); if (k % 5 === 0) stamps.push(__cmwP().shapes.map((s) => R.dhStamp(s)).join('')); if (k < 20) step(); else { R.curvesOf = f; per.sort((a, b) => a - b); window.__play = { frames: per.length, median: per[per.length >> 1], max: per[per.length - 1], stamps }; } }); };
+  step(); return 1; })()`);
+for (let i = 0; i < 240 && !(await ev(`window.__play`)); i++) await sleep(250);
+info.play = await ev('window.__play');
+// (whether the full traces land between two frames depends on the frame rate: t_dh.js checks the quick curves)
+ok('c on Play: the curves cost at most 15 ms a frame (median)', !!info.play && info.play.median <= 15, info.play);
+await settle(2500);
+info.rest = await ev(`__cmwP().shapes.map((s) => Region.dhStamp(s)).join('')`);
+ok('… and once c rests, every curve is its full trace again', info.rest === 'ffffff', info.rest);
 await ev(`Params.set('c', 0.3)`); await settle(1500);
 info.cOut = await ev(`__cmwP().shapes.map((s) => [s.kind, Region.curvesOf(s, { x0: -2, x1: 2, y0: -2, y1: 2 }).length])`);
 ok('c = 0.3 (outside M): the shapes follow it, and nothing throws', info.cOut.length === 6, info.cOut);
+// ([#299 review] a c whose critical level reaches an equipotential's: that shape is undefined and says why, as any
+// value out of range; it comes back with a c that frees it. |Φ_M(1)|^{1/2} ≈ 1.226: the level 1.05 goes, 1.3 stays)
+await ev(`Params.set('c', 1)`); await settle(1500);
+info.undef = await ev(`__cmwP().shapes.filter((s) => s.kind === 'dheq').map((s) => [s.r, s.undef || null, s.visible])`);
+ok('c = 1: the equipotential 1.05 is undefined, saying the critical level; 1.3 stays', info.undef.length === 2 && /critical/.test(info.undef.find((x) => x[0] === 1.05)[1] || '') && !info.undef.find((x) => x[0] === 1.3)[1], info.undef);
+await ev(`Params.set('c', 0.3)`); await settle(1500);
+info.back = await ev(`__cmwP().shapes.filter((s) => s.kind === 'dheq').map((s) => [s.r, s.undef || null, s.visible])`);
+ok('… and c = 0.3 brings it back', info.back.every((x) => !x[1] && x[2] !== false), info.back);
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };

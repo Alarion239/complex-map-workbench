@@ -364,5 +364,6 @@
  "the external ray %{m}": "внешний луч %{m}",
  "gen\u0004the external ray %{m}": "внешнего луча %{m}",
  "the equipotential %{m}": "эквипотенциаль %{m}",
- "gen\u0004the equipotential %{m}": "эквипотенциали %{m}"
+ "gen\u0004the equipotential %{m}": "эквипотенциали %{m}",
+ "Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank": "Шагов N: орбита должна выйти за |w| = 10⁴ не более чем за N шагов (|u| > 2 для Φ недостаточно), поэтому тонкая полоса у множества, шире той, что оставляет проверка ухода |u| ≤ 2, остаётся пустой"
 }

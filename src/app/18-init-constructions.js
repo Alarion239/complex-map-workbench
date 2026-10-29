@@ -66,6 +66,12 @@
         if (touched && x !== s[key]) { s[key] = x; ch = true; }
       } catch (e) { bad = bad || (e && e.message) || $t('{x} has no value here', { x: src }); }
     }
+    // ([#299 review] an equipotential of the Julia set of a bound c: a c that lifts the critical level to the curve's
+    // level or past it leaves no curve, and says so as any value out of range does)
+    if (!bad && s.kind === 'dheq' && Array.isArray(s.c)) {
+      const rho = CX.dhCritRho(C(s.c[0], s.c[1]), 64);
+      if (!(s.r > rho)) bad = $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(rho, 4) });
+    }
     if (bad) {
       if (s.undef !== bad) { if (!s.undef && (s.visible !== false || s.cHid)) { s.visible = false; s.undefHid = true; } s.undef = bad; ch = true; }
     } else if (s.undef) { delete s.undef; if (s.undefHid && !s.cHid) s.visible = true; delete s.undefHid; ch = true; }

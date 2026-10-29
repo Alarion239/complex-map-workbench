@@ -400,9 +400,10 @@ const CX = (() => {
   // of the potential, each by Newton from the one before. o.c null: the parameter ray of M (points c); else the dynamic
   // ray of K_c (points z), which stops above the critical potential. {pts, pot (log |Φ| of each), full (all levels),
   // landed (the point, when it reached a landing point to rounding)}
-  function dhRay(theta, o = {}) {
+  function* dhRayGen(theta, o = {}) {
     const c = o.c || null, levels = o.levels ?? 40, S = o.S ?? 32, L0 = Math.log(o.R0 ?? 64);
-    const Lc = c ? Math.log(dhCritRho(c, 4000)) : 0;
+    // (o.Lc: the critical level, when the caller has it: an equipotential's rays share it)
+    const Lc = o.Lc ?? (c ? Math.log(dhCritRho(c, 4000)) : 0);
     const to = Math.max(o.to ?? 0, Lc * (1 + 1e-9));
     const a0 = TAU * dhAngle(theta, 0), R0 = Math.exp(L0);
     // (Φ_M(c) = c + 1/2 + O(1/c), φ_c(z) = z + O(1/z))
@@ -410,6 +411,8 @@ const CX = (() => {
     const pts = [], pot = [];
     let step = Infinity, full = true, landed = null;
     for (let j = 0; j <= levels * S; j++) {
+      // (a slice point every 32 steps, for the app's idle tracing)
+      if (j && !(j & 31)) yield;
       let L = L0 * Math.pow(2, -j / S);
       const last = L <= to;
       if (last) { if (to <= 0 || to >= L0) { full = !(to > 0); break; } L = to; }
@@ -430,8 +433,11 @@ const CX = (() => {
       pts.push(y); pot.push(L);
       if (last) { full = false; break; }
     }
-    return { pts, pot, full: full && pts.length === levels * S + 1, landed };
+    return { pts, pot, theta, c, full: full && pts.length === levels * S + 1, landed };
   }
+  // a generator run to its end (the synchronous form of the tracers)
+  const drain = (g) => { for (;;) { const r = g.next(); if (r.done) return r.value; } };
+  const dhRay = (theta, o) => drain(dhRayGen(theta, o));
   // A ray's landing point, from its points at depths D = (6/11, 8/11, 1) of the levels traced, fitted to c∞ + a D^{−q}:
   // at a parabolic root the ray converges like 1/D (the 1/3 ray: 0.07 from −3/4 at 44 levels, the fit 5e−3), at a
   // Misiurewicz point geometrically (the fit is then the last point). {z, err: |z − the last point|}, or null
@@ -454,36 +460,61 @@ const CX = (() => {
   }
   // The equipotential of potential L (|Φ_M| = e^L, or |φ_c| = e^L with o.c), closed: the ray points at L over K angles,
   // a gap wider than o.tol halved (6 times at most) by the point at the middle angle: Newton from the chord's midpoint,
-  // kept when its own Böttcher angle is that angle, else traced along its ray
-  function dhEquipotential(L, o = {}) {
-    const c = o.c || null, K = o.K ?? 128, tol = o.tol ?? 0.01, ro = { c, S: o.S ?? 8, levels: 64, to: L, R0: o.R0 };
+  // kept when its own Böttcher angle is that angle, else traced along its ray. The points, with .th (each one's angle)
+  // and .L, so that dhFollow can move them to another c
+  function* dhEquipotentialGen(L, o = {}) {
+    const c = o.c || null, K = o.K ?? 128, tol = o.tol ?? 0.01, ro = { c, S: o.S ?? 8, levels: 64, to: L, R0: o.R0, Lc: c ? Math.log(dhCritRho(c, 4000)) : 0 };
     let m = 0;
     while (L * 2 ** m < DH_TGT) m++;
     const rr = Math.exp(L * 2 ** m);
-    const ray = (th) => { const r = dhRay(th, ro); return r.pts.length && r.pot[r.pot.length - 1] === L ? r.pts[r.pts.length - 1] : null; };
-    const at = (th, guess) => {
+    const ray = function* (th) { const r = yield* dhRayGen(th, ro); return r.pts.length && r.pot[r.pot.length - 1] === L ? r.pts[r.pts.length - 1] : null; };
+    const at = function* (th, guess) {
       const a = TAU * dhAngle(th, m), y = dhNewton(guess, m, C(rr * Math.cos(a), rr * Math.sin(a)), c);
       if (y) {
         const p = bottcher(y, c || y, 4000), d = arg(p) / TAU - th;
         if (isFin(p) && Math.abs(d - Math.round(d)) < 1e-9) return y;
       }
-      return ray(th);
+      return yield* ray(th);
     };
-    const out = [];
-    const fill = (t0, z0, t1, z1, depth) => {
+    const out = [], ths = [];
+    const fill = function* (t0, z0, t1, z1, depth) {
       if (depth >= 6 || !z0 || !z1 || abs(sub(z1, z0)) <= tol) return;
-      const tm = (t0 + t1) / 2, zm = at(tm, scale(add(z0, z1), 0.5));
-      fill(t0, z0, tm, zm, depth + 1);
-      if (zm) out.push(zm);
-      fill(tm, zm, t1, z1, depth + 1);
+      const tm = (t0 + t1) / 2, zm = yield* at(tm, scale(add(z0, z1), 0.5));
+      yield* fill(t0, z0, tm, zm, depth + 1);
+      if (zm) { out.push(zm); ths.push(tm); }
+      yield* fill(tm, zm, t1, z1, depth + 1);
     };
     const zs = [];
-    for (let k = 0; k <= K; k++) zs.push(k < K ? ray(k / K) : zs[0]);
+    for (let k = 0; k <= K; k++) { zs.push(k < K ? yield* ray(k / K) : zs[0]); yield; }
     for (let k = 0; k < K; k++) {
-      if (zs[k]) out.push(zs[k]);
-      fill(k / K, zs[k], (k + 1) / K, zs[k + 1], 0);
+      if (zs[k]) { out.push(zs[k]); ths.push(k / K); }
+      yield* fill(k / K, zs[k], (k + 1) / K, zs[k + 1], 0);
     }
-    return out;
+    return Object.assign(out, { th: ths, L, c });
+  }
+  const dhEquipotential = (L, o) => drain(dhEquipotentialGen(L, o));
+  // A traced ray or equipotential moved to the nearby parameter c: each point by Newton from where it was, at its own
+  // angle and potential (exact points of the new curve, at the cost of one Newton solve each). null when a point does not
+  // settle, a segment grows past 4 times the longest old one (a jump to another ray), or (an equipotential) the level is
+  // not above the new critical one
+  function dhFollow(curve, c) {
+    const n = curve.pts ? curve.pts.length : curve.length, P = curve.pts || curve;
+    if (!n) return null;
+    if (curve.L != null && c && !(curve.L > Math.log(dhCritRho(c, 4000)))) return null;
+    const out = [];
+    let longest = 0;
+    for (let i = 1; i < n; i++) longest = Math.max(longest, abs(sub(P[i], P[i - 1])));
+    for (let i = 0; i < n; i++) {
+      const L = curve.pot ? curve.pot[i] : curve.L, th = curve.pot ? curve.theta : curve.th[i];
+      let m = 0;
+      while (L * 2 ** m < DH_TGT) m++;
+      const a = TAU * dhAngle(th, m), rr = Math.exp(L * 2 ** m);
+      // (from where it was, moved as its neighbour moved: a ray's deep points follow its landing point)
+      const y = dhNewton(i ? add(P[i], sub(out[i - 1], P[i - 1])) : P[i], m, C(rr * Math.cos(a), rr * Math.sin(a)), c);
+      if (!y || (i && abs(sub(y, out[i - 1])) > 4 * longest + 1e-9)) return null;
+      out.push(y);
+    }
+    return curve.pot ? Object.assign({}, curve, { pts: out, c, landed: null }) : Object.assign(out, { th: curve.th, L: curve.L, c });
   }
 
   // ---- Dirichlet series Σ a_k k^{−s} (issues #242, #244) ----
@@ -851,7 +882,7 @@ const CX = (() => {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
     exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX, dirichletForm, dirichletEM, dirichletPartial, powTable, DIR_Q, DIR_HEAD,
-    DH_R, bottcher, bottcherJ, dhCritRho, dhAngle, dhRay, dhLanding, dhEquipotential,
+    DH_R, bottcher, bottcherJ, dhCritRho, dhAngle, dhRay, dhRayGen, dhLanding, dhEquipotential, dhEquipotentialGen, dhFollow,
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
