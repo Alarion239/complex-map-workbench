@@ -124,11 +124,13 @@
     const F = stageF(k);
     if (k > 0) noteStageWin(k, pane.box());
     if (GLR.ok) drawScene(pane, stageMap(k), 'L', { domain: k === 0, plane: k }); else noGL(pane);
+    if (GLR.ok) stagePullbacks(pane, k);
     // the w-plane targets pulled back by the focused map, in every view
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false));
     drawChevrons(pane, F, k);
     cutHandlesL = drawCuts(pane, k, true, false);
     drawPoints(pane, F, { primes: k, domain: k === 0, k, editK: k });
+    updatePre('L', pane, k); drawPre(pane, 'L', k);
     if (hasTargets()) { updateRoots(); drawRoots(pane); }
     drawRulers(paneL, 'L');
     // overlays are drawn once per frame, after both planes (frame)
@@ -939,7 +941,7 @@
   function globeResult(role, s, res, live, fwd) {
     if (live && res === 'pending' && fwd) noteStandIn(role, s.id, fwd.map((f) => [f.res, f.st && f.st.cacheKey]));
     if (live) notePath(role, s.id, res === 'drawn' ? 'inverse' : res === 'pending' ? 'pending' : 'forward');
-    if (res === 'pending') { if (live) invWaiting.add(role); else thumbNotFinal = true; }
+    if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
     else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
     if (res === 'error' && GLR.inverseStatus(S.alpha, 'globe') === 'error') {
       const k = (GLR.inverseInfo || {}).key || '';
@@ -1154,6 +1156,13 @@
   // It starts below the equator, looking up at the south pole: the domain's shapes usually sit near 0.
   const CAML = { yaw: -60 * DEG, pitch: -24 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const camL = Object.assign({ vyaw: 0, vpitch: 0 }, CAML);
+  // the globe's pre passes: the targets' (pre) and ([#253]) those of the shapes of later planes (fills at half strength
+  // over a phase portrait, as the targets')
+  function preAll(pre, half) {
+    const out = pre && pre.targets.length ? [pre] : [];
+    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: p.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)) }) : p);
+    return out.length ? out : null;
+  }
   function renderSphereLeft(pane) {
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
@@ -1164,11 +1173,11 @@
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
-      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: pre && pre.targets.length ? pre : null, role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
     // drawn on the globe (P3b) over the shapes
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: pre && pre.targets.length ? pre : null, role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
   function sphereCaption(pane, text) {

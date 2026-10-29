@@ -569,7 +569,9 @@
       const disp = 'float formulaLevel(int f, vec2 w) {\n' + forms.map((_, i) => `  if (f == ${i}) return tlev${i}(w);\n`).join('') + '  return -1.0;\n}\n';
       DEFS[name] = { chain: true, vs: () => (sph ? SPHERE_VS : QUAD_VS), fs: () => PRE_FS(src + disp, sph) };
       preNames.push(name);
-      while (preNames.length > 4) dropDef(preNames.shift());
+      // (a frame may draw a pass per later plane on the flat plane and on the globe, and the targets' pass: 16 formula
+      // programs, so one plane's never evicts another's within a frame and nothing relinks every frame)
+      while (preNames.length > 16) dropDef(preNames.shift());
     } else {
       preNames.splice(preNames.indexOf(name), 1);
       preNames.push(name);
