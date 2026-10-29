@@ -537,6 +537,9 @@
       if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (v16: step uids and zero ids)
       if (st.zpIds && typeof st.zpIds === 'object') steps[steps.length - 1].zpIds = st.zpIds;
       if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // ([UX54] checked by Constr.syncSteps)
+      // ([issue #6] a repeat on its block's last step: n passes of len steps that are all in the chain)
+      const rp = st.repeat;
+      if (rp && typeof rp === 'object' && Number.isInteger(rp.n) && rp.n >= 1 && rp.n <= Funcs.REPEAT_MAX && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= steps.length) steps[steps.length - 1].repeat = { n: rp.n, len: rp.len };
     }
     const shapes = [], targets = [], ids = new Set();
     let maxId = 0;
@@ -638,11 +641,48 @@
   let chainSig = ['0'];
   // stage maps G_k as CPU functions of z (G_0 = id; a d/dz step k gives G_k = G_{k−1}′), rebuilt with the chain
   let stageFns = [];
+  // [issue #6] the repeats follow their steps: each block is the steps it held at the last rebuild (by object), so an
+  // insert inside it widens it, a removal narrows it, and a removed last step hands the repeat to the step before (its
+  // n is the step's own, as edited; an ended repeat stays ended). After an undo or a load the steps are new objects
+  // and the saved repeats stand as they are.
+  let repeatMemo = [];
+  function repeatsFollow() {
+    const known = new Set(repeatMemo.flatMap((m) => m.members));
+    if (repeatMemo.length && S.steps.some((st) => known.has(st))) {
+      // a step put in a holder's place with its repeat (setStepAt: written by zeros and poles, replaced by its derivative)
+      // carries the block on: its repeat stands, and the remembered block it covers is not attached elsewhere
+      const fresh = S.steps.map((st, i) => (st.repeat && !known.has(st) ? [i + 1 - st.repeat.len, i] : null)).filter(Boolean);
+      for (const m of repeatMemo) {
+        const alive = S.steps.includes(m.holder);
+        if (alive && !m.holder.repeat) continue;
+        const nn = alive ? m.holder.repeat.n : m.n;
+        const ix = m.members.map((st) => S.steps.indexOf(st)).filter((i) => i >= 0);
+        if (alive) delete m.holder.repeat;
+        if (!ix.length) continue;
+        const lo = Math.min(...ix), hi = Math.max(...ix);
+        if (!alive && fresh.some(([a, b]) => a <= hi && lo <= b)) continue;
+        const holder = S.steps[hi];
+        holder.repeat = { n: nn, len: hi - lo + 1 };
+      }
+    }
+    // blocks never overlap: a later one that reaches into an earlier one is dropped
+    let end = 0;
+    S.steps.forEach((st, i) => {
+      if (!st.repeat) return;
+      const rp = Funcs.repeatOk(S.steps, i + 1);
+      if (!rp || i + 1 - rp.len + 1 <= end) { delete st.repeat; return; }
+      end = i + 1;
+    });
+    repeatMemo = [];
+    S.steps.forEach((st, i) => { if (st.repeat) repeatMemo.push({ holder: st, n: st.repeat.n, members: S.steps.slice(i + 1 - st.repeat.len, i + 1) }); });
+  }
   function rebuild() {
-    built = S.steps.map((st) => Funcs.build(st));
+    repeatsFollow();
+    // ([issue #6] a repeat's last step runs its block n times: Funcs.applyRepeats)
+    built = Funcs.applyRepeats(S.steps, S.steps.map((st) => Funcs.build(st)));
     chainSig = ['0'];
     let acc = '';
-    S.steps.forEach((st) => { acc += '|' + (st.on === false ? 'off' : JSON.stringify([st.type, st.params]) + paramSig(st)); chainSig.push(acc); });
+    S.steps.forEach((st) => { acc += '|' + (st.on === false ? 'off' : JSON.stringify([st.type, st.params]) + paramSig(st)) + (st.repeat ? JSON.stringify(st.repeat) : ''); chainSig.push(acc); });
     stageFns = null;
     if (typeof Funcs.stageFunctions === 'function') { try { stageFns = Funcs.stageFunctions(S.steps, built); } catch (e) { console.error('stageFunctions', e); stageFns = null; } }
     if (!Array.isArray(stageFns) || stageFns.length !== S.steps.length + 1) stageFns = localStageFunctions();

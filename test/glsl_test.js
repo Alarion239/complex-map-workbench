@@ -292,6 +292,13 @@
     add('recurrence Newton z^3-1', [S('recurrence', { u0: 'z', g: 'u-\\frac{u^3-1}{3u^2}', N: 12, cut: 180 })]);
     add('recurrence u/2+sin z', [S('recurrence', { u0: 'z', g: '\\frac{u}{2}+\\sin z', N: 20, cut: 180 })]);
     add('recurrence d/dz u^2+z', [S('affine', { a: '0.3', b: '0' }), S('recurrence', { u0: 'z', g: 'u^2+z', N: 3, cut: 180 }), S('deriv')]);
+    // [issue #6] Repeat × N: z² + c three times (a polynomial of degree 8, the block's steps copy by copy), a Möbius map
+    // four times, exp then a scaling twice with d/dz after it (the circle formula), and a block with a bypassed step
+    const Rp = (st, n, len) => Object.assign(st, { repeat: { n, len } });
+    add('repeat z^2+c x3', [S('pown', { n: 2 }), Rp(S('add', { c: '0.2+0.1i' }), 3, 2)]);
+    add('repeat mobius x4', [S('affine', { a: '0.5', b: '0' }), Rp(S('mobius', { a: '1', b: '0.3', c: '-0.3', d: '1' }), 4, 1)]);
+    add('repeat exp mul x2 d/dz', [S('mul', { c: '0.4' }), Rp(S('exp'), 2, 2), S('deriv')]);
+    add('repeat with a bypassed step', [S('sin'), S('pown', { n: 3 }, false), Rp(S('mul', { c: '0.7+0.2i' }), 3, 3)]);
   }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 
@@ -419,6 +426,8 @@
   // the steps built as a formula (b.ast): a Series step too ([issue #5]) and a Recurrence step ([issue #6])
   const FORMULA = new Set(['custom', 'series', 'recurrence']);
   function cancelProbe(b) {
+    // ([issue #6] a repeat is its steps, with no formula of its own)
+    if (b.repeat) return null;
     if (probeCache.has(b)) return probeCache.get(b);
     const th = (b.vals.cut ?? 180) * Math.PI / 180;
     const ops = [];
@@ -753,7 +762,8 @@ void main() {
   const rowName = (r) => (r.mode === 0 ? `range(${r.a},${r.b})` : r.mode === 1 ? `step(${r.i})` : r.mode === 2 ? `hom(${r.i},t=${r.t})`
     : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 9 ? `sheetHom(${JSON.stringify(r.map)},combo=${r.combo}${r.end ? `,end=${r.end}` : ''})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
   function testChain(ch) {
-    const built = ch.steps.map((s) => Funcs.build(s));
+    // ([issue #6] a repeat's last step runs its block n times, as in the app)
+    const built = Funcs.applyRepeats(ch.steps, ch.steps.map((s) => Funcs.build(s)));
     const gc = GLChain.build(ch.steps, built);
     if (srcByKey.has(gc.key) && srcByKey.get(gc.key) !== gc.source) R.errors.push(`key collision: ${ch.name}`);
     srcByKey.set(gc.key, gc.source);

@@ -409,6 +409,15 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* v16: the deformation's bracket over the chain (notes/deform-range/SPEC.md 6.2): a line in the chain bar's top padding
    from connector a to connector b + 1, built from borders in whole CSS px; its ends are sliders over their connectors */
 #pipeline { position: relative; }
+/* [issue #6] Repeat × N: a line under a block's cards, its chip on the last card's lower edge */
+.rep-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; }
+.rep-bracket[hidden] { display: none; }
+.rep-line { position: absolute; height: 5px; box-sizing: border-box; border: 1.5px solid var(--accent); border-top: 0; border-radius: 0 0 3px 3px; pointer-events: none; }
+.rep-chip { position: absolute; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 1px; height: 18px; padding: 0 2px 0 6px; border-radius: 9px; background: var(--surface); border: 1px solid var(--accent); font: 600 11px/16px var(--f-ui); color: var(--accent); white-space: nowrap; }
+.rep-chip .rep-n { width: 3.2ch; border: 0; padding: 0; background: transparent; font: inherit; color: var(--ink); text-align: center; -moz-appearance: textfield; appearance: textfield; }
+.rep-chip .rep-n::-webkit-inner-spin-button, .rep-chip .rep-n::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.rep-chip .rep-off { border: 0; background: transparent; color: var(--ink-2); font: 500 12px/16px var(--f-ui); width: 16px; height: 16px; padding: 0; border-radius: 8px; cursor: pointer; }
+.rep-chip .rep-off:hover, .rep-chip .rep-off:focus-visible { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
 .chain-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; animation: br-in 120ms var(--ease-out); }
 .chain-bracket[hidden] { display: none; }
 @keyframes br-in { from { opacity: 0; } to { opacity: 1; } }

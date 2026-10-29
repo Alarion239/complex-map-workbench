@@ -957,6 +957,7 @@ const Funcs = (() => {
   function derivAst(b, opts = {}) {
     if (!b || b.error || !b.def) return { error: b && b.error ? b.error : $t('No step') };
     if (b.op === 'deriv') return { error: $t('d/dz is an operator on the chain, not a map of w; add a second d/dz for the second derivative') };
+    if (b.repeat) return { error: $t('A repeat has no derivative formula here; d/dz after it is computed numerically') };
     const v = b.vals, id = b.def.id;
     const { z, num, real, neg, add, sub, mul, div, pow, call, root } = XN;
     const sq = (a) => pow(a, real(2));
@@ -2469,6 +2470,65 @@ const Funcs = (() => {
     return acc;
   }
 
+  // ---------------- [issue #6] Repeat × N ----------------
+  // step.repeat = {n, len} on the last step k of a block of len steps (k − len + 1 … k): the block runs n times. Its
+  // last step is built as the block's tail: f_k, then the block n − 1 times more, so the chain's stages before k are
+  // the first pass and w_k is after the last. It is drawn, deformed (copy by copy, each step on its own part of t),
+  // inverted and continued onto sheets as the steps it runs, as a recognized formula is (b.rec); its guarantees are
+  // those of the composition; d/dz after it uses the circle formula. At most REPEAT_MAX passes, and REPEAT_STEPS steps
+  // weighed by the code they write into the GPU's program (the whole tail is one program: a heavy step many times is
+  // minutes of compiling on Windows): a catalog step 1, Γ and ζ 16, a formula by the size of its tree.
+  const REPEAT_MAX = 64, REPEAT_STEPS = 256;
+  const astSize = (n) => (n && typeof n === 'object' && n.t ? 1 + ['a', 'b', 'n', 'lo', 'hi'].reduce((s, k) => s + astSize(n[k]), 0) : 0);
+  const stepWeight = (b) => (b.rec ? b.rec.built.reduce((s, x) => s + stepWeight(x), 0) : b.def && (b.def.id === 'gamma' || b.def.id === 'zeta') ? 16
+    : b.ast ? Math.max(1, Math.ceil(astSize(b.ast) / 8)) : 1);
+  function repeatOk(steps, k) {
+    const rp = steps[k - 1] && steps[k - 1].repeat;
+    return !!rp && Number.isInteger(rp.n) && rp.n >= 1 && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= k ? rp : null;
+  }
+  function repeatBuilt(steps, built, k) {
+    const rp = repeatOk(steps, k), base = built[k - 1];
+    if (!rp || rp.n === 1 || !base || base.error || steps[k - 1].on === false) return base;
+    const a = k - rp.len + 1, block = [];
+    for (let j = a; j <= k; j++) {
+      const st = steps[j - 1], b = built[j - 1];
+      if (!st || st.on === false || !b || b.error) continue;
+      if (b.op === 'deriv' || st.type === 'deriv') return { error: $t('Repeat × N cannot hold a d/dz step'), def: base.def };
+      block.push(b);
+    }
+    const w = block.reduce((s, b) => s + stepWeight(b), 0);
+    if (w * rp.n > REPEAT_STEPS) return { error: $t('Repeat × N: this block is too heavy to draw {n} times; at most N = {max}', { n: rp.n, max: Math.max(1, Math.floor(REPEAT_STEPS / w)) }), def: base.def };
+    const seq = [base];
+    for (let r = 1; r < rp.n; r++) seq.push(...block);
+    const fs = seq.map((b) => b.f), homs = seq.map((b) => b.hom || linHom(b.f)), m = seq.length;
+    const f = (z) => { for (const g of fs) z = g(z); return z; };
+    const names = block.length === 1 ? `f_{${k}}` : `\\left(f_{${k}}\\circ\\cdots\\circ f_{${a}}\\right)`;
+    return {
+      def: DEFS.custom, vals: { expr: '', cut: 180 }, repeat: { n: rp.n, len: rp.len, a, base },
+      rec: { steps: seq.map((b) => ({ type: b.def.id })), built: seq },
+      f,
+      hom: (t) => {
+        if (!(t > 0)) return (z) => z;
+        if (t >= 1) return f;
+        const x = t * m, j = Math.min(m - 1, Math.floor(x)), H = homs[j](x - j);
+        return (z) => { for (let i = 0; i < j; i++) z = fs[i](z); return H(z); };
+      },
+      homTex: () => ({ tex: $t('the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$', { n: String(m) }) }),
+      nat: { kind: 'chain', n: m }, natData: null,
+      tex: capTex((x) => ({ s: `${names}^{\\circ ${rp.n - 1}}\\!\\left(${base.tex(x).s}\\right)`, p: 4 })),
+      props: composeProps(seq.map((b) => b.props)),
+      usesCut: seq.some((b) => b.usesCut),
+      cuts: [], poles: [], domain: null, branchNote: null,
+      inverse: null,
+      inverseNote: $t('Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}', { note: NOTE_PRE }),
+    };
+  }
+  // the chain's built steps with every repeat applied (a copy; the others as they are)
+  function applyRepeats(steps, built) {
+    if (!steps.some((st) => st && st.repeat)) return built;
+    return built.map((b, i) => (repeatOk(steps, i + 1) ? repeatBuilt(steps, built, i + 1) : b));
+  }
+
   // ---------------- stage functions (CPU) ----------------
   const isLive = (steps, built, k) => {
     const st = steps[k - 1], b = built[k - 1];
@@ -2477,6 +2537,7 @@ const Funcs = (() => {
   // f′ of one built step as a CPU function of its input, or null (no derivative is known)
   const derivFnCache = new WeakMap();
   function stepDerivFn(b) {
+    if (b.repeat) return null;
     if (derivFnCache.has(b)) return derivFnCache.get(b);
     let f = null;
     const d = derivAst(b, { stable: true });
@@ -2888,7 +2949,7 @@ const Funcs = (() => {
 
   return {
     DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
+    REPEAT_MAX, REPEAT_STEPS, repeatOk, repeatBuilt, applyRepeats, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();

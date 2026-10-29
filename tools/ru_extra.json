@@ -277,5 +277,16 @@
  "Tip: Show alone pictures one step by itself in X and Y; a step's ⋯ menu has Replace with the inverse and Bypass this step.": "Совет: «Показать отдельно» показывает один шаг сам по себе в X и Y; в меню ⋯ шага есть «Заменить обратной» и «Отключить шаг».",
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
- "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})"
+ "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
+ "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
+ "the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$": "гомотопия, выполняющая по очереди %{n} шагов повтора, каждый на равной части $0\\le t\\le 1$",
+ "Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}": "У повторённых шагов нет одного обратного шага; точный рендерер обращает их копию за копией, когда может; %{note}",
+ "A repeat has no derivative formula here; d/dz after it is computed numerically": "Для повтора здесь нет формулы производной; d/dz после него вычисляется численно",
+ "End the repeat": "Убрать повтор",
+ "Repeat f{k}: times": "Повтор f%{k}: число раз",
+ "Repeat f{a}–f{b}: times": "Повтор f%{a}–f%{b}: число раз",
+ "This step, twice": "Этот шаг, дважды",
+ "f{a}–f{b}, twice": "f%{a}–f%{b}, дважды",
+ "Repeat": "Повторить",
+ "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Повтор × N: этот блок слишком тяжёл, чтобы нарисовать его %{n} раз; не более N = %{max}"
 }
