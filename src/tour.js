@@ -167,7 +167,7 @@ const Tour = (() => {
           // (v16.5 UX17: a phone's words for the places and gestures, here and below)
           touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
           try: { text: 'Type $|z+1|<1$ and press Add.', touch: 'Type $|z+1|<1$ and tap Add.', on: 'shape-added', test: (e) => !e || e.via === 'formula', then: 'A set from a formula is a shape like any other.' } },
-        { id: 'chain', anchor: 'chain', title: 'The function chain', before: [['focus', 0]],
+        { id: 'chain', anchor: 'chain', also: ['panes'], title: 'The function chain', before: [['focus', 0]],
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
           touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
@@ -281,7 +281,7 @@ const Tour = (() => {
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
           try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
-        { id: 'range', anchor: 'bracketL', title: 'Part of the chain', before: [['deform', true], ['look', { allAtOnce: false }], ['range', null]],
+        { id: 'range', anchor: 'bracketL', also: ['panes'], title: 'Part of the chain', before: [['deform', true], ['look', { allAtOnce: false }], ['range', null]],
           body: 'The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.',
           try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2, work: ['card2Menu'], then: 'Only the Möbius map deforms; $f_1$ acts first, in full.' } },
       ],
@@ -614,6 +614,9 @@ const Tour = (() => {
       // (v16.4) Move on by itself (on unless turned off); Why open on a wide screen (null: by the viewport)
       auto: r.auto !== false,
       why: r.why === true || r.why === false ? r.why : null,
+      // (#34, UX76) a tour is running: a page that finds this set and no live tour of its own was cut short by a
+      // reload or a crash, and offers to continue (stop() clears it)
+      open: r.open === true,
     };
   }
   const seenRec = (r) => r.outcome != null || Object.keys(r.done).length > 0 || r.last != null;
@@ -624,7 +627,8 @@ const Tour = (() => {
   // ---------------------------------------------------------------- state
   let api = {}, rec = normRec(null), inited = false;
   let run = null;        // the running tour: {chs, ci, si, snap, scene, seq, opener, offs, ui, ...}
-  let sugg = null;       // the suggestion card
+  let sugg = null;       // the suggestion card (or, id 'continue', the line that continues a tour cut short)
+  let cutShort = false;  // (#34, UX76) init found a tour that a reload or a crash cut short
   let menu = null;       // the help menu
   let lastWhy = null;    // the steps the last run skipped, and why (Tour.skipped())
   const doc = () => (typeof document !== 'undefined' ? document : null);
@@ -1261,6 +1265,9 @@ const Tour = (() => {
   // this page is going away (a reload, a closed tab): its heartbeat goes with it, so the next page recovers at once
   function unbeat() {
     try { const live = JSON.parse(localStorage.getItem(sk(LIVE)) || 'null'); if (live && live.page === PAGE) localStorage.removeItem(sk(LIVE)); } catch (e) { /* */ }
+  }
+  function liveElsewhere() {
+    try { const live = JSON.parse(localStorage.getItem(sk(LIVE)) || 'null'); return !!(live && live.page !== PAGE && Date.now() - live.t < BEAT_STALE); } catch (e) { return false; }
   }
   function dropStash() { try { localStorage.removeItem(sk(STASH)); localStorage.removeItem(sk(LIVE)); } catch (e) { /* */ } }
 
@@ -1970,8 +1977,8 @@ const Tour = (() => {
     const r = run;
     const pos = seek(r.ci, r.si + dir, dir, isAbsent);
     if (!pos) { if (dir > 0) stop({ finished: true }); return; }
-    // the end of a chapter counts as finishing it
-    if (dir > 0 && pos.ci !== r.ci) { rec.done[CHAPTERS[r.ci].id] = CHAPTERS[r.ci].rev; save(); }
+    // the end of a chapter counts as finishing it (#34, UX75: and says so)
+    if (dir > 0 && pos.ci !== r.ci) { rec.done[CHAPTERS[r.ci].id] = CHAPTERS[r.ci].rev; save(); say($t('{chapter} done ✓', { chapter: $t(CHAPTERS[r.ci].title) })); }
     await show(pos.ci, pos.si, dir);
   }
 
@@ -2021,7 +2028,7 @@ const Tour = (() => {
     }
     const ch = CHAPTERS[ci], step = ch.steps[si];
     r.ci = ci; r.si = si; r.dir = dir;
-    rec.last = { ch: ch.id, i: si }; save();
+    rec.last = { ch: ch.id, i: si }; rec.open = true; save();
     // (v15.2: the Inspector's split offer shows during the tour only at a step that asks for it)
     call('splitOffer', !!step.split);
     // (v16.1: a step about the cards' pictures shows them, Pictures rather than Names; any other step, and the end of the
@@ -2318,7 +2325,13 @@ const Tour = (() => {
     const tr = tryOf(step);
     let text, ring = false, done = false, cap = false;
     if (r.caption != null) { text = $t(r.caption); cap = true; }
-    else if (tr && r.done) { text = tr.then ? $t(tr.then) : $t('Done.'); ring = true; done = true; }
+    else if (tr && r.done) {
+      // (#34, UX75) the chapter's last task: the line says the chapter is done ("Basics done ✓"); Next names the next one
+      const nx = seek(r.ci, r.si + 1, 1, isAbsent), end = !nx || nx.ci !== r.ci;
+      const chDone = end ? $t('{chapter} done ✓', { chapter: $t(CHAPTERS[r.ci].title) }) : '';
+      text = tr.then ? $t(tr.then) + (chDone ? ' ' + chDone : '') : chDone || $t('Done.');
+      ring = true; done = true;
+    }
     else if (tr && r.hint) { text = $t(r.hint); ring = true; }
     else if (tr) { text = tr.off && step.act === 'listen' && !(soundState().on && soundState().events) ? $t(tr.off) : tryFor(tr); ring = true; }
     else text = step.lead ? $t(leadFor(step)) : '';
@@ -2818,6 +2831,7 @@ const Tour = (() => {
       const nc = CHAPTERS.findIndex((c, j) => j > r.ci && chapterShown(c));
       rec.last = nc > 0 ? { ch: CHAPTERS[nc].id, i: 0 } : null;
     }
+    rec.open = false;
     save();
     const ui = r.ui;
     // (v16.4: the sound the Sound chapter held comes back; a Listen along stops)
@@ -2858,7 +2872,10 @@ const Tour = (() => {
   function suggest(opt = {}) {
     if (!doc()) return false;
     load();
-    if (run || sugg || (!opt.force && !shouldSuggest(rec))) return false;
+    // (#34, UX76) a tour cut short by a reload: the lane offers to continue it, in place of the first-run invitation
+    const cont = cutShort && !!rec.last;
+    cutShort = false;
+    if (run || sugg || (!opt.force && !cont && !shouldSuggest(rec))) return false;
     const delay = opt.delay != null ? opt.delay : 1200;
     let tries = 0;
     const attempt = () => {
@@ -2866,7 +2883,7 @@ const Tour = (() => {
       // (not while a menu or a dialog is open: wait for it to close, about 15 s at most, then until the next opening)
       if (appLayerOpen() && !opt.force) { if (++tries > 15) { sugg = null; return; } sugg.pending = setTimeout(attempt, 1000); return; }
       sugg = null;
-      showSuggest();
+      if (!cont || !showContinue()) showSuggest();
     };
     sugg = { pending: setTimeout(attempt, delay) };
     return true;
@@ -2887,14 +2904,30 @@ const Tour = (() => {
     say($t('Tour suggestion: {title}. Start the tour or Not now.', { title }) + ' ' + $t('The tour stays under {where}.', { where: helpWhere() }));
     call('onSuggest', true);
   }
+  // (#34, UX76) "Continue the tour: Views", the step it stopped at, [Continue] [×]; × forgets where it stopped (the
+  // help menu's Continue the tour goes with it). -> whether the line is shown
+  function showContinue() {
+    const ch = rec.last && CHAPTERS.find((c) => c.id === rec.last.ch);
+    if (!ch || !chapterShown(ch)) return false;
+    injectCSS();
+    const i = Math.min(rec.last.i, ch.steps.length - 1), title = $t('Continue the tour: {chapter}', { chapter: $t(ch.title) });
+    const go1 = () => { hideSuggest(false); start({ chapter: ch.id, step: i, opener: anchorEl(['helpBtn', 'moreBtn']) }); };
+    const box = laneShow({ id: 'continue', title, body: stepTitle(ch.steps[i]),
+      acts: [{ label: $t('Continue'), primary: true, run: go1 }],
+      label: $t('Continue the tour'), drop: 'body', onEsc: () => hideSuggest(true), onClose: () => { sugg = null; rec.last = null; save(); } });
+    if (!box) return false;
+    sugg = { box, lane: true, id: 'continue' };
+    say(title + '. ' + $t('Continue, or close the line.'));
+    return true;
+  }
   function hideSuggest(anim) {
     if (!sugg) return;
     if (sugg.pending) clearTimeout(sugg.pending);
-    const box = sugg.box;
+    const box = sugg.box, id = sugg.id || 'suggest';
     sugg = null;
     if (!box) return;
-    laneHide('suggest', anim);
-    call('onSuggest', false);
+    laneHide(id, anim);
+    if (id === 'suggest') call('onSuggest', false);
   }
 
   // ---------------------------------------------------------------- v16.5: the learning lane
@@ -3070,6 +3103,9 @@ const Tour = (() => {
     api = a || {};
     inited = true;
     load();
+    // (#34, UX76) a tour that was running and is not running in another page (its heartbeat is stale or gone): cut short
+    cutShort = !run && rec.open && !liveElsewhere();
+    if (cutShort) { rec.open = false; save(); }
     // a tour running in this page holds the stash: a second init only replaces the adapter
     if (!run) recoverStash();
     return Tour;
@@ -3116,6 +3152,8 @@ const Tour = (() => {
   const Tour = {
     VERSION, init, start, stop: (o) => Promise.resolve(stop(o || {})), next: () => go(1), back: () => go(-1),
     suggest, dismissSuggestion: () => hideSuggest(false), openHelpMenu,
+    // (#34, UX76; tests) the line that continues a tour cut short, at once: -> whether it is shown
+    offerContinue: () => { load(); if (run || sugg) return false; return showContinue(); },
     // (v16.5) the learning lane: one closable line in the tour's docked slot (an example's Try line, UX74)
     lane: (o) => !!laneShow(o || {}), laneHide: (id) => laneHide(id || null, false), laneId: () => (lane ? lane.id : null), closeHelpMenu: () => closeMenu(false),
     isSeen: () => seenRec(load()), isActive: () => !!run, reset,
@@ -3137,7 +3175,7 @@ const Tour = (() => {
     // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
     skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
+    _t: { cutShort: () => cutShort, CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
       // (r3 review: the lines the running chapter's strip line needs here, for the browser checks)
       needLines: (dbg) => (run ? needLines(run, dbg) : null) },
   };

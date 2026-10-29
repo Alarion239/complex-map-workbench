@@ -1,0 +1,40 @@
+// An example's Try line closes when the user does what it asks, and only then (issue #34): "press Deformation" closes
+// when the Deformation opens, not on any other action; another example's line replaces it, as before; an example whose
+// line asks for something we cannot see (its X, Show me) keeps working. A command file for a CDP daemon.
+const fails = [];
+const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
+const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const lane = () => ev(`!!document.querySelector('.tour-lane[data-lane="example"]')`);
+const byName = async (re) => ev(`(() => { for (let i = 0; i < 60; i++) { try { __cmwExample(i); } catch (e) { return -1; } const l = document.querySelector('#examplesBtn .exlabel'); if (l && ${re}.test(l.textContent)) return i; } return -1; })()`);
+await view(1440, 900, false, false);
+await load('extry' + Date.now(), { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
+await settle(1200);
+const iQuarter = await byName('/Quarter plane squared/');
+const iSine = await byName('/Sine of a half-strip/');
+ok('the examples exist', iQuarter >= 0 && iSine >= 0, { iQuarter, iSine });
+
+// "press Deformation": another action leaves the line, the Deformation closes it
+await ev(`__cmwExample(${iQuarter})`); await settle(1000);
+ok('the line is there', await lane(), null);
+await ev(`__cmwSetMain('phase'); 1`); await settle(500);
+ok('an action the line does not ask for leaves it', await lane(), null);
+await ev(`__cmwSetMain('xy'); 1`); await settle(300);
+await ev(`document.getElementById('morphBtn').click()`); await settle(800);
+ok('pressing Deformation closes the line', !(await lane()), null);
+
+// "switch to Phase": that view closes it, nothing else does
+await ev(`__cmwExample(${iSine})`); await settle(1000);
+ok('the sine example has its line', await lane(), null);
+await ev(`document.getElementById('morphBtn').click()`); await settle(500);
+ok('the Deformation is not what this line asks for', await lane(), null);
+await ev(`document.getElementById('morphBtn').click()`); await settle(500);
+await ev(`__cmwSetMain('phase'); 1`); await settle(600);
+ok('switching to Phase closes it', !(await lane()), null);
+
+// another example opens: its own line, as today (the earlier watch does not close it)
+await ev(`__cmwExample(${iQuarter})`); await settle(1000);
+await ev(`__cmwExample(${iSine})`); await settle(1000);
+ok('another example brings its own line', await lane(), null);
+await ev(`document.getElementById('morphBtn').click()`); await settle(600);
+ok('and the earlier example\'s watch is gone: Deformation does not close the sine line', await lane(), null);
+return { pass: fails.length === 0, fails };

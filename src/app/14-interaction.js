@@ -61,6 +61,22 @@
   const edgeTouch = (pane, x, y) => ptrTouch && touchUI() && (x < EDGE_PX || y < EDGE_PX || x > pane.w - EDGE_PX || y > pane.h - EDGE_PX);
   // the shape drawn last: a drawing tool's press on it moves or reshapes it, a press elsewhere draws (touch)
   let justDrawn = null;
+  // a point bound to a free number (bind.p is exactly its name) moves the number when it is dragged, as a handle or by its
+  // body: the point follows through the number's change. The drop attaches nothing (no rail, no binding): the point is
+  // the number's, and only the grid snaps it. True when the number took the move.
+  function numberPointDrag(drag, pane, z) {
+    const s = drag.shape;
+    if (!s || s.kind !== 'point' || (drag.mode === 'handle' && drag.key !== 'p')) return false;
+    const bn = boundNumber(s, 'p'), pr = bn && Params.list().find((q) => q.name === bn);
+    if (!pr || pr.expr) return false;
+    if (drag.mode === 'move' && !drag.moved && Math.hypot(z.re - drag.z0.re, z.im - drag.z0.im) * pane.view.s < 3) return true;
+    if (!drag.bnOff) drag.bnOff = drag.mode === 'move' ? [s.p[0] - drag.z0.re, s.p[1] - drag.z0.im] : [0, 0];
+    pane.setView(leftView());
+    const zn = snapZ(pane, C(z.re + drag.bnOff[0], z.im + drag.bnOff[1]));
+    drag.boundNum = bn; drag.moved = true;
+    Params.set(bn, { re: zn.re, im: zn.im }, { live: true });
+    return true;
+  }
   // Space held turns a globe in every tool, Alt suspends snapping on it (P3b, panels.md 9.5); a field being typed in
   // keeps its Space
   const typing = (t) => !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -892,6 +908,7 @@
         if (gInf[side]) return;
         const gs = globeSnap(gc, side, g, s.kind === 'point' ? 'round' : 'cart', s);
         if (!gs.z) return;
+        if (s.kind === 'point' && d.key === 'p' && numberPointGlobe(d, gs.z)) return;
         Region.setHandle(s, d.key, gs.z);
       }
       d.moved = true;
@@ -915,6 +932,7 @@
         if (gInf[side]) return;
         const t = JSON.parse(JSON.stringify(d.s0));
         if (!GL3.rotateShape(t, GL3.rotationTo(d.P0, g.P))) return;
+        if (s.kind === 'point' && numberPointGlobe(d, C(t.p[0], t.p[1]))) return;
         const cap = GL3.capFamily(t) ? GL3.capOf(t) : null;
         const Cs = cap ? infSnapC(gc, cap.C, cap.h) : null;
         if (Cs) { GL3.applyCap(t, Cs, Cs[2]); gSnapMark = { side, P: [0, 0, 1] }; }
@@ -929,6 +947,15 @@
       d.moved = true;
       changed(s);
     }
+  }
+  // a point bound to a free number moved on a globe: the number takes the place (the point follows through the number's
+  // change), as numberPointDrag does on the plane; nothing attaches on the drop. True when the number took the move.
+  function numberPointGlobe(d, z) {
+    const s = d.shape, bn = !d.target && boundNumber(s, 'p'), pr = bn && Params.list().find((q) => q.name === bn);
+    if (!pr || pr.expr) return false;
+    d.boundNum = bn; d.moved = true;
+    Params.set(bn, { re: z.re, im: z.im }, { live: true });
+    return true;
   }
   // the end of a globe gesture: a draft becomes a shape (or a target) when it has a size on screen; an edit is one undo step
   function globeUp(pane, side, d) {
@@ -953,6 +980,7 @@
       return;
     }
     if ((d.mode === 'ghandle' || d.mode === 'gmove') && d.moved) {
+      if (d.boundNum) Params.rest(d.boundNum);
       if (d.target) targetsChanged(true);
       else { if (rightAuto && autoFit()) fitRight(true); scheduleFix(); shapesChanged(true); }
       commit();
@@ -1086,6 +1114,8 @@
         else requestRender('OL');
         return;
       }
+      // a point bound to a free number, pressed selected (a handle) or not (its body): the number moves
+      if ((drag.mode === 'handle' || drag.mode === 'move') && !drag.target && numberPointDrag(drag, pane, z)) return;
       if (drag.mode === 'handle') {
         const cmZ = Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y);   // (v16: onto a point, binds at the release)
         pane.setView(drag.target ? V.right : leftView());
@@ -1367,7 +1397,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
+    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
@@ -1389,7 +1419,7 @@
     }
     if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
-    if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { shapesChanged(true); commit(); } return; }
+    if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;

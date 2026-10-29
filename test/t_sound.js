@@ -4,7 +4,7 @@
 // suspended-context rule, the silent off, Esc). v15.2 (notes/sound/AS-BUILT-v152.md): palette B's parts (variation,
 // repetition, clean edges), the scrub's landmarks, the phase harp (its low Ds count the winding number), curves sing
 // (the loudest harmonic is 4 + W). Run: node test/t_sound.js
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const vm = require('vm');
 global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
 const C = CX.C, TAU = 2 * Math.PI;
@@ -156,7 +156,7 @@ function makeEnv(opts = {}) {
     URL: { createObjectURL: () => 'blob:x' }, Blob: function () {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sandbox);
+  vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
   for (const k in env.Sound.CATALOG) { const d = env.Sound.CATALOG[k], m = d.make; d.make = (Pt, o) => { env.made.push(k); return m(Pt, o); }; }
   env.fire = (t, e = {}) => { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); };

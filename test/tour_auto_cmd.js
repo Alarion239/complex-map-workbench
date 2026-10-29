@@ -312,6 +312,20 @@ check('phone: Why opens a panel at most half the screen', why.open && why.h > 40
 // (v16.5 UX38: the plane's keys are one column at the bottom right of a phone's plane: the pan starts left of it)
 await tdrag(a.r - 160, a.b - 160, a.r - 240, a.b - 110);
 check('phone: a touch in X folds Why and reaches the app (the pan ticks the task)', await ev(`document.querySelector('#tourWhy').hidden && document.querySelector('.ts-l2').classList.contains('done')`));
+// the Constructions chapter by finger: "Drag z2 across the line" is done by a touch drag too (issue #34, T4)
+await go('construct', 0);
+const moreK = await center('#toolMore > summary');
+if (moreK) { await tap(moreK[0], moreK[1]); await settle(500); }
+const c3t = await center('.ph-tiles .ph-tile[data-tool="circle3"]');
+if (c3t) { await tap(c3t[0], c3t[1]); await settle(600); }
+const pb = await paneBox('#paneL'), cx = (pb.l + pb.r) / 2, cy = (pb.t + Math.min(pb.b, 560)) / 2;
+for (const p of [[cx - 70, cy + 40], [cx + 70, cy + 40], [cx, cy - 70]]) { await tap(p[0], p[1]); await settle(300); }
+check('phone construct: the circle task is done', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+check('phone construct: the tour moves on to the family step', (await advancedAt('construct/c3', Date.now() - 200, 6000)) != null && (await cur()) === 'construct/follow', await cur());
+const selK = await center('#secDraw .tool[data-tool="select"], #tools > .tool[data-tool="select"]');
+if (selK) { await tap(selK[0], selK[1]); await settle(200); }
+await tdrag(cx, cy - 70, cx, cy + 130);
+check('phone construct: a finger dragging z2 across the line ticks the step', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
 await ev('Tour.stop()'); await settle(300);
 
 } catch (e) { check('390 × 844, touch, English' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }

@@ -191,6 +191,7 @@ node ci/snapshots.js && node ci/unit.js            # unit tests (snapshots: old 
 node ci/glsl.js                                    # GLSL conformance in headless Chrome
 node ci/quality.js --ref origin/main               # image quality, paired against main (--shard 1/3 for a part)
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
+node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard
@@ -243,7 +244,9 @@ Settings (environment variables):
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |
+| `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js/cyr.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |

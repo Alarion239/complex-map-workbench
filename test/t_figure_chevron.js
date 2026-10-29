@@ -2,14 +2,14 @@
 // stays on the left (notes/export-design/DESIGN.md), in the source panel and, as F is conformal, in the image panel;
 // the mark keeps clear of the axes, their crossing and their tick labels. Run: node test/t_figure_chevron.js
 // (The export window of unbounded sets, the same at every pane size, is checked in the browser: xrfix2_cdp/win.js.)
-const fs = require('fs'), vm = require('vm'), path = require('path');
+const vm = require('vm'), path = require('path');
 const R = path.join(__dirname, '..');
 global.CX = require(R + '/src/cx.js');
 global.Expr = require(R + '/src/parse.js');
 global.Funcs = require(R + '/src/funcs.js');
 global.Region = require(R + '/src/region.js');
 global.window = global;
-vm.runInThisContext(fs.readFileSync(R + '/src/figure.js', 'utf8') + '\n;globalThis.Figure = Figure;', { filename: 'figure.js' });
+vm.runInThisContext(require('./src_text').source('figure.js', R + '/src', { esm: 'strip' }) + '\n;globalThis.Figure = Figure;', { filename: 'figure.js' });
 const { senseAt, chevronAt } = Figure.geom;
 const C = CX.C;
 let pass = 0, fail = 0;

@@ -401,10 +401,21 @@
     lines.forEach((t, i) => ctx.fillText(t, pane.w / 2, y0 + 7 + 9 + i * 18));
     ctx.restore();
   }
-  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6)
+  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6), and (issue #72) that the
+  // GPU is still preparing the frame's programs when it has waited for them over 1.5 s (a cold link on Direct3D 11
+  // takes seconds, or minutes; the browser's program cache keeps them for later visits)
+  const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
   function glStatusNote(pane) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
+    if (pane !== paneL && pane !== paneR) return;
+    if (!st || !st.pending) { gpuWait.delete(pane); return; }
+    const now = performance.now();
+    // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
+    if (!gpuWait.has(pane)) { gpuWait.set(pane, now); setTimeout(() => requestRender(pane === paneL ? 'L' : 'R'), 1600); return; }
+    const n = GLR.pendingLinks || 0;
+    if (n && now - gpuWait.get(pane) > 1500) paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n }));
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes)}
@@ -695,7 +706,8 @@
   const nextPointNum = () => { let n = -1; for (const s of S.shapes) if (numbered(s) && Number.isInteger(s.num)) n = Math.max(n, s.num); return n + 1; };
   function pointLabel(s, idx, primes) {
     // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
-    const base = exLabel(s.label) || 'z' + sub(Number.isInteger(s.num) ? s.num : idx);
+    const bn = s.bind ? boundNumber(s) : '';
+    const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
