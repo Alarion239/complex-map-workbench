@@ -66,6 +66,8 @@ reaches our machines.
     (#169). Keep it plugged in too: the settings *on battery* are separate (the laptop's own: sleep after 3 minutes).
   - Mac: *System Settings → Battery → Options*, turn on **Prevent automatic sleeping on power adapter when the display
     is off** (on a desktop Mac: *Energy*).
+    In Terminal the same, with Power Nap off: `sudo pmset -c sleep 0 powernap 0` (check with `pmset -g`). A MacBook
+    with its lid closed sleeps anyway unless an external display is attached: keep the lid open.
 - **Disk:** about 5 GB free (two builds of the app, browser profiles, results). The GLSL job also keeps a shader
   cache in the runner's folder, `_work/_tool/cmw-glsl-cache` (a Chrome profile; 20-50 KB per compiled program, tens
   of MB per version of the shader code): it is what keeps that job short on Windows (ci/README.md, `CMW_GLSL_CACHE`).
@@ -192,7 +194,10 @@ The first run builds two copies of the app and runs every shard on both machines
 minutes, so the whole gate takes roughly one to two hours per machine; the two machines work in parallel.
 The Windows laptop's GLSL job is the exception the first time: Direct3D 11 compiles every shader program on the CPU
 (the glsl page alone takes hours a side; one program took 12 minutes), where the Mac takes 7 minutes for all three
-pages. The first runs may hit the job's 240 minutes; each keeps what it compiled in the shader cache (section 2,
+pages. Every chain runs there only on the nightly run and by hand, in ten jobs (the glsl page in eighths, adv and
+inverse whole; ci/README.md, GLSL tiers): one job for all of it ran over 170 minutes on the glsl page's first side
+alone. A cold nightly run takes about 4-6 hours of the laptop's time in all (its jobs run one after another
+on the one runner), and jobs queued behind it wait. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
 *Disk*), so the next goes further, and from then on only programs whose code changed compile: 1/64 of the glsl page
 took 103 s cold and 7 s warm. To warm the cache in one go, run on the laptop, in a checkout of `main` (hours; not
 while the runner has a GLSL job):
@@ -219,10 +224,14 @@ idle page: stuck).
 
 ## Troubleshooting
 
+Any other Mac runner problem: open an issue with the label `mac-runner`; Alexander's local agent on the Mac picks it up.
+
 | symptom | fix |
 |---|---|
 | Jobs stay *Queued* | The machine is asleep, logged out, or its runner is not started (section 3 step 4, section 4 step 4). *Settings → Actions → Runners* shows *Offline*. |
 | Jobs stay *Queued* while the runner is online | It is busy: the runner window's last line is `Running job: …`. After the machine slept during a job, that job may already show as failed on GitHub while the runner still works on it; it lets go of it by itself (23 minutes on 2026-10-28), or close the runner window and start `run.cmd` again. Its log is in `C:\actions-runner\_diag\Worker_*.log`. |
+| A job fails after about 6 minutes: "The job was not acquired by Runner of type self-hosted even after multiple attempts" (runner id 0) | The runner could not acquire the job in time. Look in `_diag/Runner_*.log` for `409 Conflict` on acquire and slow token fetches, and time the token host over IPv4 and IPv6: `curl -4 -o /dev/null -w '%{time_total}\n' https://vstoken.actions.githubusercontent.com`, then the same with `-6`. On the Mac on 2026-10-29 the host resolved to an IPv6 address its network could not route, and the runner's .NET client waited 75 s before it fell back to IPv4 (curl falls back at once), by which time GitHub had withdrawn the job (81 conflicts in a row). Fix: add `DOTNET_SYSTEM_NET_DISABLEIPV6=1` to the runner's `.env` and restart the runner (`./svc.sh stop && ./svc.sh start`); it touches only the runner, and removing the line undoes it. (A sleeping machine shows differently: jobs stay *Queued*, the runner is *Offline*, or "lost communication" in the middle of a job.) |
+| "A self-hosted runner lost communication with the server" | The machine (the Windows laptop) slept or went offline in the middle of a job (#169): section 1, lid and sleep settings. |
 | A cancelled run stays *Queued* | A job that waits for a self-hosted runner is cancelled only when a runner takes it, or after 24 hours, and the run holds its concurrency group (the next push to `main` waits behind it). Force it: `gh api -X POST repos/Alarion239/complex-map-workbench/actions/runs/<run id>/force-cancel`. |
 | "No GPU" in **gpu probe** | See section 5, step 3. |
 | "Rosetta" in **gpu probe** (Mac) | The runner is the x64 package, translated on Apple silicon: install the ARM64 one (section 4, *Replacing an x64 runner with the arm64 build*). |

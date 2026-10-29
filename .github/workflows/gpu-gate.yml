@@ -74,6 +74,7 @@ jobs:
       reference: ${{ steps.ref.outputs.reference }}
       shards: ${{ steps.shards.outputs.shards }}
       machines: ${{ steps.machines.outputs.machines }}
+      glsl: ${{ steps.glsl.outputs.glsl }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -113,6 +114,26 @@ jobs:
             mac) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
             *) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
           esac
+      # the GLSL jobs: macOS runs its pages whole (minutes). Windows (FXC on one core: the glsl page alone took over 170
+      # minutes a side on the nightly run of 2026-10-29, cut off at the job's limit) runs every chain in parts, the
+      # glsl page in eighths and adv and inverse in a job each, on the nightly run and by hand; a pull request and a
+      # push to main run its core tier in one job (ci/README.md, GLSL tiers)
+      - id: glsl
+        shell: bash
+        env:
+          MACHINES: ${{ steps.machines.outputs.machines }}
+        run: |
+          set -eu
+          case "${{ github.event_name }}" in schedule|workflow_dispatch) win=all ;; *) win=core ;; esac
+          node -e '
+            const ms = JSON.parse(process.env.MACHINES), win = process.argv[1], jobs = [];
+            for (const machine of ms) {
+              if (machine !== "Windows") { jobs.push({ machine, page: "", part: "1/1", tier: "all" }); continue; }
+              if (win === "core") { jobs.push({ machine, page: "", part: "1/1", tier: "core" }); continue; }
+              for (let i = 1; i <= 8; i++) jobs.push({ machine, page: "glsl", part: i + "/8", tier: "all" });
+              jobs.push({ machine, page: "adv", part: "1/1", tier: "all" }, { machine, page: "inverse", part: "1/1", tier: "all" });
+            }
+            console.log("glsl=" + JSON.stringify(jobs));' "$win" >> "$GITHUB_OUTPUT"
 
   # (mode glprof, by hand: ci/glprof.js on each machine instead of the gates; the table goes to the run's summary)
   glprof:
@@ -141,13 +162,13 @@ jobs:
           retention-days: 30
 
   glsl:
-    name: GLSL (${{ matrix.machine }} GPU)
+    name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
     needs: plan
     if: inputs.mode != 'glprof'
     strategy:
       fail-fast: false
       matrix:
-        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+        include: ${{ fromJSON(needs.plan.outputs.glsl) }}
     runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
     # Windows compiles shaders with Direct3D 11's compiler (FXC) on the CPU, about 95 % of a page's time there: cold,
     # the glsl page takes hours a side on the laptop (1/64 of it: 103-148 s; a single program of 1/8 took 12 min),
@@ -166,9 +187,9 @@ jobs:
       - run: node ci/gpu_probe.js --require-hardware
       # (paired with the reference; on the Mac, where the tests were written, glsl and inverse also outright: adv fails
       # 304 values there, in 10 chains near removable singularities, as every release since v14 did, so it is paired only)
-      # (only the pages whose shader code or tests changed; all of them nightly and with force. On a pull request
-      # Windows runs the core tier, the Mac every chain: ci/README.md, GLSL tiers)
-      - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} --tier ${{ github.event_name == 'pull_request' && matrix.machine == 'Windows' && 'core' || 'all' }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
+      # (only the pages whose shader code or tests changed; all of them nightly and with force. The job's page, part
+      # and tier come from the plan: on Windows every chain only nightly and by hand, in parts; ci/README.md, GLSL tiers)
+      - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.page && format('--only {0}', matrix.page) || '' }} --part ${{ matrix.part }} --tier ${{ matrix.tier }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
         env:
           # (a page whose browser used no CPU for 20 minutes is stuck: it fails then, not at the job's timeout)
           CMW_GLSL_STALL_MIN: '20'

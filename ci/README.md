@@ -106,14 +106,30 @@ no other):
 - **deep**: the rest of the random families, the `adv` page's `direct` and `compile` sections, and the chains in
   `SLOW` (the slowest on Windows).
 
+The Gate (`gate.yml`, GitHub's machines):
+
 | run | Windows | macOS |
 |---|---|---|
 | a pull request (also a wave PR into `main`, and the whole gate) | core | all |
-| a push to `main`, the nightly GPU gate, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
+| a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate's Windows laptop runs the same tiers. **A release tag** needs a green run of every chain (`all`) on the
-commit's `main`, on both systems: the push to `main` or the nightly run, or one by hand.
+The GPU gate (`gpu-gate.yml`, our machines). Its Windows laptop compiles on one core (FXC): the glsl page alone took
+over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
+runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
+
+| run | Windows | macOS |
+|---|---|---|
+| a pull request (the label `gpu-gate`), a push to `main` | core, one job | all |
+| the nightly run, a run by hand | all, ten jobs | all |
+
+A page whose shader code and tests are the same as the reference's is not run unless forced: the nightly run always
+is, a run by hand only with its *force* input, so a by-hand run covers every chain only with *force*. The cold cost
+of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first nightly
+runs after this change is that cost first, not a regression.
+
+**A release tag** needs a green run of every chain (`all`) on the commit's `main`, on both systems: the GPU gate's
+nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run.
 
 `ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
 minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's
