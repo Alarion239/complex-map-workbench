@@ -20,6 +20,21 @@ if (had) {
   for (let i = 0; i < 40 && !done; i++) { await sleep(500); done = await ev(`(() => { const e = document.querySelector('.xf-wait'); return !!e && e.hidden; })()`); }
   ok('once MathJax is back the figure is built and the wait goes', done, await ev(`(document.querySelector('.xf-wait') || {}).textContent`));
 }
+// "Save figure again" / "Copy figure again" (the export menu, no dialog) with MathJax not in yet: the menu item says it is
+// preparing the formulas, and a second press while it waits is ignored
+if (had) {
+  await key('Escape'); await sleep(400);
+  await ev(`window.MathJax = undefined; window.__ag = Figure.again('copy'); 1`);
+  await sleep(500);
+  const tst = await ev(`(document.querySelector('#toastHost') || {}).textContent || ''`);
+  ok('again, with MathJax not ready, says Preparing formulas…', /Preparing formulas/.test(tst), tst);
+  await ev(`window.__second = 'pending'; Figure.again('copy').then((r) => { window.__second = 'r=' + r; }, (e) => { window.__second = 'err=' + e.message; }); 1`);
+await sleep(300);
+const second = await ev('window.__second');
+ok('a second press while it waits does nothing', second === 'r=false', second);
+  await ev(`window.MathJax = window.__mj; 1`);
+  await ev(`window.__ag.then(() => 1, () => 1)`);
+}
 await key('Escape'); await sleep(400);
 await ev(`if (!window.MathJax && window.__mj) window.MathJax = window.__mj; 1`);
 return { pass: fails.length === 0, fails };

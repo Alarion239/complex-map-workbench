@@ -3814,6 +3814,8 @@ const Figure = (() => {
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
       wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
+      // (once MathJax is in, the line says what the build is doing now)
+      if (!XD.ready()) XD.whenReady(20000, () => my === token && !closed).then((on) => { if (on && my === token && !wait.hidden) wait.textContent = $t('Typesetting…'); });
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));
         if (my !== token || !f) return;
@@ -3967,7 +3969,18 @@ const Figure = (() => {
   // the share sheet takes files here (a phone's browser); a laptop keeps Save
   const canShareFiles = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && matchMedia('(pointer: coarse)').matches;
   // the export menu's Copy figure again / Save figure again: the last destination, with the remembered settings
+  // (MathJax may still be loading: build waits for it up to 20 s with no dialog to show it, so the menu item says so, and a
+  // second press while it waits is ignored)
+  let againBusy = false;
   async function again(what) {
+    if (againBusy) return false;
+    againBusy = true;
+    try {
+      if (!XD.ready()) A.toast($t('Preparing formulas…'));
+      return await againRun(what);
+    } finally { againBusy = false; }
+  }
+  async function againRun(what) {
     const set = loadSet();
     // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
     // and for Copy, the last figure is made again; export review r3, video-3)
