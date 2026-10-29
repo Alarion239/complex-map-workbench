@@ -1,6 +1,7 @@
 // Repeat × N (issue #6, part B): a card's ⋯ → Repeat sets a block to run twice; the bracket under its cards holds N
 // (typed), and its × ends it; one Undo per edit; an insert inside the block widens it, removing its last step hands
-// the repeat to the step before, a duplicate of that step carries none; F's guarantees follow (degree d^N).
+// the repeat to the step before, a duplicate of that step carries none; F's guarantees follow (degree d^N); an example
+// keeps its repeats.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/repeat_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -65,6 +66,12 @@ await openApp({ shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], steps: [{
 const d0 = await fDeg();
 r = await menu(1, 'Write by zeros and poles'); await settle(900);
 ok('Write by zeros and poles keeps the repeat and F (degree 8)', (await chain()) === 'zp[3/1]' && /deg 8(?!\d)/.test(await fDeg()) && /deg 8(?!\d)/.test(d0 || ''), [r, await chain(), d0, await fDeg()]);
+// an example keeps its steps' repeats: Newton's method is its map twenty times (#6)
+const exAt = (name) => ev(`(() => { for (let i = 0; i < 60; i++) { try { __cmwExample(i); } catch (e) { return -1; } const l = document.querySelector('#examplesBtn .exlabel'); if (l && l.textContent.includes(${JSON.stringify(name)})) return i; } return -2; })()`);
+info.newton = await exAt('Newton'); await settle(1500);
+ok('the Newton example: one step, repeated twenty times', (await chain()) === 'custom[20/1]' && !!(await ev(`!!document.querySelector('#pipeline .rep-bracket:not([hidden]) .rep-n')`)), [info.newton, await chain()]);
+info.julia = await exAt('z² + i'); await settle(1500);
+ok('the z² + i example draws its escape-time curve', (await chain()) === 'pown,add' && (await ev(`__cmwP().shapes.map((s) => s.kind).join()`)) === 'fcurve', [info.julia, await chain()]);
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };
