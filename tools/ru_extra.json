@@ -300,5 +300,7 @@
  "Try: drag the point a, or press Play beside a under Numbers: it circles the origin.": "Попробуйте: перетащите точку a или нажмите «Воспроизвести» рядом с a в разделе «Числа»: она обходит начало координат.",
  "The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.": "Отображение (z − a)/(1 − āz) переводит единичный круг в себя и точку a в 0. Число a комплексное: его точка на плоскости и есть число, поэтому перетаскивание точки меняет отображение.",
  "Play: {x} circles the origin": "Воспроизвести: %{x} обходит начало координат",
- "Add as a complex number": "Добавить как комплексное число"
+ "Add as a complex number": "Добавить как комплексное число",
+ "Tour options": "Параметры обучения",
+ "Next step in {n} s.": "Следующий шаг через %{n} с."
 }
