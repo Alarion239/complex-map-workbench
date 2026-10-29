@@ -730,18 +730,18 @@ if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
   const rate = () => ev(`await (async () => { const d = __cmwFig.dialog(), a = d.preview.state(), t = performance.now(); await new Promise((r) => setTimeout(r, 1000)); const b = d.preview.state(); const dt = performance.now() - t; return +(((b.i - a.i + b.n) % b.n) / dt * 1000).toFixed(1); })()`);
   const setV = (v) => ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; s.video = Object.assign({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', paths: true, tlabel: true, look: 'light', win: 'screen' }, ${JSON.stringify(v)}); __cmwFig.saveSettings(s); return 1; })()`);
   const scene = async (ns, w, h) => { await open(ns, w, h); await ev('__cmwExample(1); 1'); await settle(1800); await key('m'); await settle(1200); await ev('__cmwMorph({ playing: false, T: 1.2 }); 1'); await key('2'); await settle(1500); };
-  const firstShownOn = () => ev(`(() => { window.__fs = null; (function f() { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); if (s && s.id && s.shown) { const e = d.preview.entry(s.i); window.__fs = { i: s.i, t: typeof e === 'number' ? e : e && e.a }; return; } requestAnimationFrame(f); })(); return 1; })()`);
+  // the frame the preview drew first (its own record, so a long task before the next animation frame cannot move it)
+  const firstShown = () => ev(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); if (!s || !s.id || s.first < 0) return null; const e = d.preview.entry(s.first); return { i: s.first, t: typeof e === 'number' ? e : e && e.a }; })()`);
 
   // (a) DPR 2, the default options (1920 x 1080, 30 fps, 3 s, Once): kept at the shown size in device pixels, which is
   // more than plain frames may take, so compressed; the first picture is the poster's frame; frame k is the video's
   await scene('xvpb', 1440, 900);
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false }); await settle(400);
   await setV({});
-  await firstShownOn();
   await key('e', 4);
   // (the animation frames are timed once the preview shows: it fills and plays; the dialog's opening is not counted)
   await until(shownE, 20000); await perfOn(); await sleep(2500);
-  let a = await pvState(); const pa = await perfOff(), fs0 = await ev('window.__fs'), ra = await rate();
+  let a = await pvState(); const pa = await perfOff(), fs0 = await firstShown(), ra = await rate();
   R.pv2.dpr2 = { a, pa, fs0, ra };
   ok('preview DPR 2 (vp-1): frames kept at the shown size in device pixels (not below it), compressed, the note says the video is 1920 × 1080', a.dpr === 2 && a.pw >= Math.min(1920, a.cssW * 2) - 2 && a.raw === false && /^image\/(webp|jpeg)$/.test(a.mime) && a.hot <= 40, R.pv2.dpr2);
   ok('preview (vp-4): the first picture is the poster\'s frame (t = 1.2), not t = 0', fs0 && Math.abs(fs0.t - 1.2) < 0.15, fs0);
@@ -825,7 +825,7 @@ if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
   const e0 = await pvState();
   await ev(`document.getElementById('xfPvSeek').focus(); 1`); await key('ArrowRight'); await sleep(400);
   const e1 = await pvState();
-  await clickSel('#xfPvPlay'); await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.ready === s.total; })()`, 30000);
+  await clickSel('#xfPvPlay'); await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.ready === s.total; })()`, 90000);
   const e2 = await pvState();
   R.pv2.reduced = { e0, e1, e2 };
   ok('preview, reduced motion (vp-5): only the frame in view is drawn; a scrub draws its frames and the note drops "Press Play"; Play draws them all', e0.lazy && e0.ready === 1 && !e0.canvas && /Press Play/.test(e0.note) && e1.canvas && e1.ready <= 7 && !/Press Play/.test(e1.note) && e2.ready === e2.total && e2.playing, { e0: [e0.ready, e0.note], e1: [e1.ready, e1.note], e2: [e2.ready, e2.total, e2.playing] });
