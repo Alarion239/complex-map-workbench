@@ -1432,6 +1432,8 @@ unit('mesh', 'CPU mesh build per shape kind (Region.buildMesh) and mesh quality'
 for (const scene of ['default', 'logUHP', 'chain4']) {
   for (const meshN of MESHES) unit(`image.${scene}.m${meshN}`, `Image mode, ${SCENES[scene].label}, mesh ${meshN}: statics, remesh, pan L/R${meshN === 240 ? ', wheel zoom L/R' : ''}`, () => imageUnit(scene, meshN));
 }
+// [#253] shapes of later planes pulled back in X: one pass per plane, one blit
+unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
 // iteration (#6): the default N of the Mandelbrot example in Phase (its pan L is the X -> Y view: the sphere mesh of
