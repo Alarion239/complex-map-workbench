@@ -716,3 +716,18 @@ const Commands = (() => {
   }
   return { init, openPalette, opener, closed };
 })();
+import { $, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Funcs } from './funcs.js';
+import { Region } from './region.js';
+import { Curves } from './curves.js';
+import { Palette } from './palette.js';
+import { Axes, Pane } from './view.js';
+import { Figure } from './figure.js';
+import { Sound } from './sound.js';
+import { Tour } from './tour.js';
+import { Inspector } from './inspector.js';
+import { Construct } from './construct.js';
+import { Params } from './params.js';
+export { Commands };

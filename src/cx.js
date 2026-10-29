@@ -4,8 +4,8 @@
 // without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
 // (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
 if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof /** @type {any} */ (globalThis).$t !== 'function') {
-  if (typeof require === 'function') require('./i18n.js');
-  else {
+  // (an ES module: node's tests get this English fallback; the page runs i18n.js before the bundle)
+  {
     const fill = (s, p) => {
       if (!p) return s;
       const tex = /[$\\]/.test(s);
@@ -702,4 +702,4 @@ const CX = (() => {
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
-if (typeof module !== 'undefined') module.exports = CX;
+export { CX, CX as 'module.exports' };
