@@ -327,6 +327,11 @@
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
+  // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
+  // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
+  // may be the other pane's or a card's; the quality harness reads this pane's own (a test hook)
+  const paneGl = { L: null, R: null };
+  let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
   let lastRecs = null;     // the shape records of the last packShapes (GLR.packShapes: once per scene draw)
   // SPEC 2.2: the path of area shape s under map in a view (role 'R' | 'L' | null: thumbnail; viewKind 'flat' |
   // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e}. Drawing asks
@@ -416,6 +421,8 @@
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
+    paneGl[role] = { pending: !!(st && st.pending), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    invPendN = 0;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
@@ -576,7 +583,7 @@
         lp = p.path;
         if (p.path === 'inverse' && invGate) {
           lp = invGate === 'pending' ? 'pending' : 'forward';
-          if (invGate === 'pending') { if (live) invWaiting.add(role); else thumbNotFinal = true; }
+          if (invGate === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
         } else if (p.path === 'inverse') {
           const box = invBox(p.e, p.plan, s, live);
           const sc = box ? GLR.scissorOf(box, pane.view, pane.dpr, 4) : null;
@@ -599,7 +606,7 @@
             continue;
           }
           lp = res === 'pending' ? 'pending' : 'forward';
-          if (res === 'pending') { if (live) invWaiting.add(role); else thumbNotFinal = true; }
+          if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
           // a failed compile (silent: console only) draws forward from now on, with its fix-ups (SPEC 4.4, 10.4)
           if (res === 'error' && GLR.inverseStatus(S.alpha, 'flat') === 'error') {
             const k = (GLR.inverseInfo || {}).key || '';

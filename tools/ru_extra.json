@@ -300,7 +300,7 @@
  "Play: {x} circles the origin": "Воспроизвести: %{x} обходит начало координат",
  "Add as a complex number": "Добавить как комплексное число",
  "<span>In the plane {w}</span>": "<span>В плоскости %{w}</span>",
- "<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane, and every later plane and card shows its image; the <i>z</i>-plane and the planes before it do not show it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.": "<b>Фигуры в плоскости шага.</b> Когда шаг показан отдельно, <i>X</i> — его входная плоскость, <i>w</i><sub><i>k</i>−1</sub>. Инструменты рисуют и там: фигура принадлежит этой плоскости, а все следующие плоскости и карточки показывают её образ; плоскость <i>z</i> и плоскости до неё её не показывают. Список фигур группирует их по плоскостям. Построения выполняются в плоскости <i>z</i>.",
+ "<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane; every later plane and card shows its image, and the <i>z</i>-plane and the planes before it show its preimage, everything the steps between them map into it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.": "<b>Фигуры в плоскости шага.</b> Когда шаг показан отдельно, <i>X</i> — его входная плоскость, <i>w</i><sub><i>k</i>−1</sub>. Инструменты рисуют и там: фигура принадлежит этой плоскости; все следующие плоскости и карточки показывают её образ, а плоскость <i>z</i> и плоскости до неё — её прообраз, всё, что шаги между ними переводят в неё. Список фигур группирует их по плоскостям. Построения выполняются в плоскости <i>z</i>.",
  "On the globe, shapes are drawn in the z-plane: choose Plane to draw in this plane, or Show F.": "На сфере фигуры рисуются в плоскости z: выберите «Плоскость», чтобы рисовать в этой плоскости, или «Показать F».",
  "Tour options": "Параметры обучения",
  "Next step in {n} s.": "Следующий шаг через %{n} с.",
@@ -328,5 +328,8 @@
  "Times: a whole number, or a number’s name to run its slider": "Сколько раз: целое число или имя числа, чтобы его ползунок задавал N",
  "n is the index of a series: pick another letter": "n — индекс ряда: выберите другую букву",
  "{x} is the variable of a recurrence in the chain: pick another letter": "%{x} — переменная рекуррентности в цепочке: выберите другую букву",
- "Pattern: {name}": "Узор: %{name}"
+ "Pattern: {name}": "Узор: %{name}",
+ "+{n} more": "ещё %{n}",
+ "more": "ещё",
+ "A step between uses {x}: drag {x} in its own plane": "Шаг между плоскостями использует %{x}: перетаскивайте %{x} в его собственной плоскости"
 }
