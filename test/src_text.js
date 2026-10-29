@@ -20,8 +20,29 @@ function parts(file, dir = SRC) {
   return fs.readdirSync(d).filter((n) => /^\d\d-.*\.js$/.test(n)).sort().map((n) => path.join(d, n));
 }
 
-// the text of src/<file>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line
-function source(file, dir = SRC) {
+// What a module file (ES modules, phase 4 of issue #20) carries around its code, which a test that evaluates the text as a
+// script must not see: `import ... from '...';` lines (plain, default, `* as`, multi-line, or bare `import '...';`) and
+// `export { ... };` lines, each standing at the start of a line, wherever in the file they are (the codemod puts the block
+// at the end of a file so that no line number above it changes). Both go; the rest is as it was: an indented one, or
+// `import(` as a call, stays. A file with neither is returned as it is.
+const IMPORT_RE = /^import\s*(?:[\w$*{][^;'"]*?\bfrom\s*)?(['"])[^'"\n]+\1[ \t]*;?[ \t]*\r?\n?/gm;
+const EXPORT_RE = /^export\s*\{[^}]*\}[ \t]*(?:from\s*['"][^'"\n]+['"][ \t]*)?;?[ \t]*\r?\n?/gm;
+function stripEsm(text) {
+  return text.replace(IMPORT_RE, '').replace(EXPORT_RE, '');
+}
+
+// the text of src/<file>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line.
+//   source(file)                      the app's own src/
+//   source(file, dir)                 another copy of src/ (a snapshot)
+//   source(file, { esm: 'strip' })    without the import lines and export { } lines of a module file (a script's text, for
+//                                     vm and new Function); also source(file, dir, { esm: 'strip' })
+function source(file, a, b) {
+  // (the options are b when it is an object, whatever a is: source(f, undefined, { esm: 'strip' }) too)
+  const dir = typeof a === 'string' ? a : SRC, opt = (b && typeof b === 'object' ? b : a && typeof a === 'object' ? a : null) || {};
+  const text = joined(file, dir);
+  return opt.esm === 'strip' ? stripEsm(text) : text;
+}
+function joined(file, dir) {
   const p = parts(file, dir);
   if (!p) return fs.readFileSync(path.join(dir, file), 'utf8');
   const wrap = fs.readFileSync(path.join(dir, file.replace(/\.js$/, ''), 'wrap.js'), 'utf8');
@@ -30,4 +51,4 @@ function source(file, dir = SRC) {
   return wrap.slice(0, m.index) + p.map((f) => fs.readFileSync(f, 'utf8')).join('') + wrap.slice(m.index + m[0].length);
 }
 
-module.exports = { SRC, SPLIT, PARTS_RE, parts, source, appText: () => source('app.js'), glText: () => source('gl.js') };
+module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, appText: () => source('app.js'), glText: () => source('gl.js') };

@@ -14,7 +14,7 @@ const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', cal
 function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
-  for (const f of files) vm.runInContext(source(f + '.js', dir) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+  for (const f of files) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
 // gl.js's friendly() is not exported: its body is taken from the source and run in each context
@@ -151,7 +151,7 @@ const ruCtx = (() => {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
   for (const f of ['i18n', 'i18n_ru', ...MODS]) {
-    vm.runInContext(source(f + '.js', path.join(ROOT, 'src')) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+    vm.runInContext(source(f + '.js', path.join(ROOT, 'src'), { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   return ctx;
