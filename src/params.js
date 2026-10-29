@@ -264,7 +264,7 @@ const Params = (() => {
     }
     const cv = toC(value);
     if (!cv) return $t('Enter a number');
-    const freed = !!p.expr;
+    const freed = !!p.expr, wasC = isComplex(p);
     delete p.expr; delete p._err;
     // (the range belongs to the real part: a complex number is moved on the plane, not by the slider)
     if (cv.im === 0) {
@@ -274,6 +274,8 @@ const Params = (() => {
     if (p.value === cv.re && imOf(p) === cv.im && !freed) return '';
     p.value = cv.re;
     if (cv.im !== 0) p.im = cv.im; else delete p.im;
+    // a number that changes between real and complex stops playing: its real part must not keep animating
+    if (playing.has(name) && (cv.im !== 0) !== wasC) stopPlay(name);
     recompute();
     fire(closure([name]), o);
     if (!o.live || o.fromUI !== true) render(o.live ? name : null);
@@ -657,7 +659,7 @@ const Params = (() => {
       ...(isComplex(p) && host && host.showPoint ? [{ label: $t('Show as a point'), disabled: !!(host.pointOf && host.pointOf(p.name)), run: () => host.showPoint(p.name) }, 'sep'] : []),
       { label: $t('Range…'), run: () => { m.open = { name: p.name, what: 'range' }; draw(m); } },
       { label: $t('Rename…'), run: () => { m.open = { name: p.name, what: 'rename' }; draw(m); } },
-      { label: p.play === 'loop' ? $t('Play back and forth') : $t('Play in a loop'), disabled: !!p.expr, run: () => { p.play = p.play === 'loop' ? 'bounce' : 'loop'; commit(); } },
+      { label: p.play === 'loop' ? $t('Play back and forth') : $t('Play in a loop'), disabled: !!p.expr || isComplex(p), run: () => { p.play = p.play === 'loop' ? 'bounce' : 'loop'; commit(); } },
       { label: $t('Unlink from the formula'), disabled: !p.expr, run: () => { set(p.name, p.value); commit(); } },
       'sep',
       { label: $t('Delete'), danger: true, run: () => {

@@ -1016,6 +1016,28 @@ const Expr = (() => {
   }
 
   // Region formulas compile to a real "level" function, positive inside.
+  // the first shared number that is complex and sits where a real is read: a comparison's side, outside Re, Im, |.| and
+  // arg (Re z < a with a = 0.5 + 0.3i would draw Re z < 0.5 and say nothing); '' when there is none. Literals such as i
+  // keep the real part, as they always did.
+  function complexParamAsReal(n) {
+    if (!n || typeof n !== 'object') return '';
+    if (n.t === 'num') return n.param != null && n.v.im !== 0 ? n.param : '';
+    if (n.t === 'call' && (n.f === 're' || n.f === 'im' || n.f === 'arg' || n.f === 'abs')) return '';
+    for (const k of kids(n)) { const r = complexParamAsReal(k); if (r) return r; }
+    return '';
+  }
+  // throws the hint for a complex shared number read as a real in a comparison of ast
+  function checkRealSides(ast) {
+    (function walk(n) {
+      if (!n || typeof n !== 'object') return;
+      if (n.t === 'cmp') {
+        const nm = complexParamAsReal(n.a) || complexParamAsReal(n.b);
+        if (nm) { const d = NAMES && NAMES.display ? NAMES.display(nm) : nm; throw new ParseError($t('{x} is complex: use Re {x}, Im {x} or |{x}|', { x: d }), 0); }
+        return;
+      }
+      for (const k of ['a', 'b']) if (n[k]) walk(n[k]);
+    })(ast);
+  }
   function compileLevel(ast) {
     if (!hasBool(ast)) throw new ParseError($t('A region needs a comparison, e.g. |z| < 1'), 0);
     const san = (v) => (Number.isNaN(v) ? -Infinity : v);
@@ -1023,6 +1045,7 @@ const Expr = (() => {
       switch (n.t) {
         case 'cmp': {
           if (n.op === '=') throw new ParseError(CURVE_NOT_AREA, 0);
+          checkRealSides(n);
           const A = compile(n.a), B = compile(n.b);
           if (n.op === '<' || n.op === '<=') return (z) => san(B(z).re - A(z).re);
           return (z) => san(A(z).re - B(z).re);
@@ -1195,7 +1218,10 @@ const Expr = (() => {
     function go(n) {
       switch (n.t) {
         case 'cmp': {
-          if (n.op !== '=') return AREA;
+          if (n.op !== '=') {
+            try { checkRealSides(n); } catch (e) { throw new Fail(e.message); }
+            return AREA;
+          }
           const k = equationKind(n);
           if (k.err || k.msg) throw new Fail(k.err ? REL_MSG[k.err] : k.msg);
           return { pieces: [k.dir ? { eq: n, restrict: null, real: k.real, dir: k.dir } : { eq: n, restrict: null, real: k.real }] };
@@ -1889,6 +1915,6 @@ const Expr = (() => {
     return q;
   }
   const hasSeries = (n) => hasT(n, 'sum');
-  return { parse, typed, compile, compileLevel, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;

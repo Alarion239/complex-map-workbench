@@ -243,6 +243,29 @@ P._local(list);
   P.inline('a');
   eq(P.list().find((q) => q.name === 'b').expr, '(1+2i)^2', 'inline writes the complex value');
   ok(P.tex('a') !== undefined, 'tex of a name');
+  // comparisons name a complex shared number instead of reading its real part (Re z < a, a = 0.5 + 0.3i)
+  list.length = 0;
+  P.add('a', { value: { re: 0.5, im: 0.3 } });
+  const rel = (src) => Expr.classifyRelation(Expr.parse(src, { allowRel: true }));
+  for (const src of ['Re z < a', 'a z < 1', 'Re z < 2a', 'Im z >= conj a']) {
+    const r = rel(src);
+    ok(r.dim === 'error' && /a is complex: use Re a, Im a or \|a\|/.test(r.error), `comparison ${src}: ${JSON.stringify(r)}`);
+    let m = ''; try { Expr.compileLevel(Expr.parse(src, { allowRel: true })); } catch (e) { m = e.message; }
+    ok(/a is complex/.test(m), `compileLevel ${src}: ${m}`);
+  }
+  for (const src of ['Re z < Re a', '|z - a| < 2', 'Re(z a) < 1', 'Im z < arg a', 'Re z < i', 'Re z < |a|']) ok(rel(src).dim === 'area', `comparison ${src} stays an area: ${JSON.stringify(rel(src))}`);
+  ok(rel('Re z = a').dim === 'error', 'an equation with a complex number keeps its own message');
+  P.set('a', 0.5);
+  ok(rel('Re z < a').dim === 'area', 'the same comparison reads once a is real');
+  // a number that is playing and becomes complex stops (and one that becomes real again)
+  global.requestAnimationFrame = () => 0;
+  P.add('q', { value: 1 });
+  P.togglePlay('q');
+  ok(P.isPlaying('q'), 'q plays');
+  P.set('q', '1 + i');
+  ok(!P.isPlaying('q'), 'editing a playing number into a complex value stops its play');
+  P.set('q', 2);
+  ok(!P.isPlaying('q'), 'and a real value does not restart it');
   console.log(`${n - fails}/${n} passed`);
   if (fails) process.exit(1);
 })().catch((e) => { console.error(e); process.exit(1); });
