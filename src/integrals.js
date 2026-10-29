@@ -565,8 +565,38 @@ const Integrals = (() => {
     const nodes = new Float32Array(4 * n);
     let o = 0;
     for (const p of parts) { nodes.set(p, o); o += p.length; }
-    cauchyCache.key = key; cauchyCache.val = n ? { nodes, n, name: g.name } : null;
+    // (#235) the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
+    // checked against the quadrature at a few points (Calc.cauchyPlan); else the nodes above draw. At most 16 poles of
+    // order 4, which the shader's uniforms hold
+    let plan = null;
+    if (n && hasCalc('cauchyPlan')) {
+      try { plan = Calc.cauchyPlan(F, { loops: g.comps.map((c) => c.flat) }); } catch (e) { plan = { ok: false, why: 'unverified' }; }
+      if (plan.ok && (plan.poles.length > 16 || plan.poles.some((q) => q.order > 4))) plan = { ok: false, why: 'tooMany' };
+    }
+    cauchyCache.key = key; cauchyCache.val = n ? { nodes, n, name: g.name, plan, edgesAt: new Map() } : null;
     return cauchyCache.val;
+  }
+  // what the GL draws: cauchyPlot, with, when the formula holds, the polygon's edges simplified to a quarter of a pixel
+  // at this zoom (kept per half octave; at most 2048 edges, the texture row) and what to show
+  function cauchyDraw(scale) {
+    const cp = cauchyPlot();
+    if (!cp || !cp.plan || !cp.plan.ok) return cp;
+    const b = scale > 0 ? Math.round(2 * Math.log2(scale)) : 0;
+    let e = cp.edgesAt.get(b);
+    if (!e) {
+      let tol = 0.25 / Math.pow(2, b / 2), loops;
+      for (let k = 0; k < 12; k++, tol *= 2) {
+        loops = cp.plan.loops.map((l) => Calc.simplifyLoop(l, tol));
+        if (loops.reduce((m, l) => m + l.length, 0) <= 2048) break;
+      }
+      e = new Float64Array(4 * loops.reduce((m, l) => m + l.length, 0));
+      let o = 0;
+      for (const l of loops) for (let i = 0; i < l.length; i++) { const p = l[i], q = l[(i + 1) % l.length]; e[o++] = p.re; e[o++] = p.im; e[o++] = q.re; e[o++] = q.im; }
+      if (cp.edgesAt.size > 8) cp.edgesAt.clear();
+      cp.edgesAt.set(b, e);
+    }
+    const v = A.S.cauchyShow;
+    return Object.assign({}, cp, { edges: e, show: v === 'in' ? 1 : v === 'out' ? 2 : 0, sign: A.S.cauchyPlus ? 1 : -1 });
   }
   // what the Phase, Landscape and Sphere (phase) views plot, at t = end (a derivative is a d/dz step of the chain)
   const plotF = () => focusF();
@@ -575,5 +605,5 @@ const Integrals = (() => {
     A = api;
     ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
-  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, plotF };
+  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, plotF };
 })();

@@ -53,7 +53,7 @@ const agree = (name, F, poly, expect) => {
   check(`${name}: the formula is verified`, plan.ok, plan.why);
   if (!plan.ok) return plan;
   if (expect) check(`${name}: poles, orders, windings`, JSON.stringify(plan.poles.map((q) => [Math.round(q.z.re * 1e6) / 1e6, Math.round(q.z.im * 1e6) / 1e6, q.order, q.n]).sort()) === JSON.stringify(expect.sort()), plan.poles.map((q) => [q.z.re, q.z.im, q.order, q.n]));
-  const pts = plan.pts;
+  const pts = plan.loops[0];
   let worst = 0, k = 0;
   for (let i = 0; i < 40; i++) {
     const z = C(rnd() * 6 - 3, rnd() * 6 - 3);
@@ -104,6 +104,19 @@ agree('exp z (entire)', (z) => CX.exp(z), circle(C(0.3, 0.2), 1.4, 64), []);
   const F = (z) => ps.reduce((s, p, k) => CX.add(s, CX.div(C(k + 1, 0), sub(z, p))), C(0, 0));
   const pl = agree('twelve simple poles', F, circle(C(0, 0), 1, 96), null);
   check('twelve poles found, with residues 1…12', pl.ok && pl.poles.length === 12 && pl.poles.map((q) => Math.round(q.a[0].re)).sort((a, b) => a - b).join() === '1,2,3,4,5,6,7,8,9,10,11,12', pl.ok ? pl.poles.length : pl.why);
+}
+{
+  // an annulus (the boundary of a region with a hole): the outer circle counter-clockwise, the inner clockwise
+  const loops = [circle(C(0, 0), 2, 96), circle(C(0, 0), 0.7, 64).reverse()];
+  const F = (z) => CX.add(inv(sub(z, C(1.2, 0))), inv(sub(z, C(0.1, 0.1))));   // a pole in the annulus, one in the hole
+  const pl = Calc.cauchyPlan(F, { loops });
+  check('an annulus: only the pole in the ring counts (n = 1; the one in the hole has n = 0)', pl.ok && pl.poles.length === 1 && Math.abs(pl.poles[0].z.re - 1.2) < 1e-9 && pl.poles[0].n === 1, pl.ok ? pl.poles : pl.why);
+  let worst = 0;
+  for (const z of [C(0.3, 0.2), C(1.5, 1.2), C(-1.1, 0.4), C(3, 2), C(0, 0)]) {
+    let q = C(0, 0); for (const l of loops) { const v = Calc.cauchy(F, l, z); q = C(q.re + v.re, q.im + v.im); }
+    const a = Calc.cauchyValue(F, pl, z); worst = Math.max(worst, CX.abs(sub(a, q)));
+  }
+  check('the annulus: Φ = the quadrature over both boundary circles', pl.ok && worst < 1e-9, worst);
 }
 // ---- (c) the cases that keep the quadrature or say "not available"
 {

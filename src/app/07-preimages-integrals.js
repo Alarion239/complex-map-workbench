@@ -729,5 +729,6 @@
   function refreshIntPop(...args) { return INT.refreshIntPop(...args); }
   function integrateSelected(...args) { return INT.integrateSelected(...args); }
   function cauchyPlot(...args) { return INT.cauchyPlot(...args); }
+  function cauchyDraw(...args) { return INT.cauchyDraw(...args); }
   function plotF(...args) { return INT.plotF(...args); }
 

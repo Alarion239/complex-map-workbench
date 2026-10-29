@@ -746,6 +746,9 @@ const Calc = (() => {
     }
     return w;
   }
+  // (over several closed polygons, a region's boundary and its holes: the winding numbers add)
+  const windingSum = (loops, z) => loops.reduce((w, l) => w + windingAt(l, z), 0);
+  const distToLoops = (loops, z) => Math.min(...loops.map((l) => distToLoop(l, z)));
   function distToLoop(pts, z) {
     let d = Infinity;
     const n = pts.length;
@@ -816,27 +819,28 @@ const Calc = (() => {
   // 'unverified' (the formula disagrees with the quadrature: a singularity of a kind the pole count does not cover,
   // a branch cut, a missed pole). opts.max (poles, default 32), opts.tol (the check, default 1e-6)
   function cauchyPlan(F, poly, opts = {}) {
-    const pts = loop(poly), n = pts.length;
-    if (n < 3) return { ok: false, why: 'curve' };
+    // poly: one closed polygon, or {loops: [polygon, ...]} (a region's boundary and its holes: the winding numbers add)
+    const loops = (poly && poly.loops ? poly.loops : [poly]).map(loop).filter((l) => l.length >= 3);
+    if (!loops.length) return { ok: false, why: 'curve' };
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const q of pts) { x0 = Math.min(x0, q.re); x1 = Math.max(x1, q.re); y0 = Math.min(y0, q.im); y1 = Math.max(y1, q.im); }
+    for (const l of loops) for (const q of l) { x0 = Math.min(x0, q.re); x1 = Math.max(x1, q.re); y0 = Math.min(y0, q.im); y1 = Math.max(y1, q.im); }
     const W = x1 - x0, H = y1 - y0, scale = Math.hypot(W, H);
     if (!(scale > 0) || !Number.isFinite(scale)) return { ok: false, why: 'curve' };
     // F finite on γ (the vertices and the midpoints of the edges)
-    for (let k = 0; k < n; k++) {
-      const a = pts[k], b = pts[(k + 1) % n];
+    for (const pts of loops) for (let k = 0; k < pts.length; k++) {
+      const a = pts[k], b = pts[(k + 1) % pts.length];
       if (!fin(F(a)) || !fin(F(C(0.5 * (a.re + b.re), 0.5 * (a.im + b.im))))) return { ok: false, why: 'onCurve' };
     }
     // zerosPoles can miss a pole that lies close to a zero (their turns cancel in a cell): a finer grid finds it, so the
     // check below, which notices the miss, is tried again on a finer one before the plan gives up
     let last = { ok: false, why: 'unverified' };
     for (const grid of opts.grids || [32, 64, 128, 256]) {
-      last = planWith(F, pts, { x0, x1, y0, y1, W, H, scale }, grid, opts);
+      last = planWith(F, loops, { x0, x1, y0, y1, W, H, scale }, grid, opts);
       if (last.ok || last.why !== 'unverified') return last;
     }
     return last;
   }
-  function planWith(F, pts, bb, grid, opts) {
+  function planWith(F, loops, bb, grid, opts) {
     const { x0, x1, y0, y1, W, H, scale } = bb;
     const max = opts.max || 32, tol = opts.tol || 1e-6;
     // the poles inside the curve's box, and those with a non-zero winding number
@@ -845,9 +849,9 @@ const Calc = (() => {
     try { found = zerosPoles(F, box, { max: max + 8, grid }).filter((f) => f.kind === 'pole'); } catch (e) { found = []; }
     const inside = [];
     for (const f of found) {
-      const d = distToLoop(pts, f.z);
+      const d = distToLoops(loops, f.z);
       if (d <= 1e-7 * scale) return { ok: false, why: 'onCurve' };
-      const wn = windingAt(pts, f.z);
+      const wn = windingSum(loops, f.z);
       if (wn) inside.push({ z: f.z, order: Math.max(1, f.mult || 1), n: wn, dist: d });
     }
     if (inside.length > max) return { ok: false, why: 'unverified' };
@@ -870,36 +874,38 @@ const Calc = (() => {
     for (let k = 0; k < 4; k++) {
       for (let f = 1.2; f < 40; f *= 1.6) {
         const z = C(c0.re + f * scale * Math.cos(0.4 + k * Math.PI / 2), c0.im + f * scale * Math.sin(0.4 + k * Math.PI / 2));
-        if (windingAt(pts, z) === 0 && distToLoop(pts, z) > 0.05 * scale) { probes.push(z); break; }
+        if (windingSum(loops, z) === 0 && distToLoops(loops, z) > 0.05 * scale) { probes.push(z); break; }
       }
     }
     let nIn = 0;
     for (let i = 0; i < 12 && nIn < 2; i++) for (let j = 0; j < 12 && nIn < 2; j++) {
       const z = C(x0 + (i + 0.37) * W / 12, y0 + (j + 0.61) * H / 12);
-      if (windingAt(pts, z) !== 0 && distToLoop(pts, z) > 0.03 * scale && inside.every((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) > 0.03 * scale)) { probes.push(z); nIn++; }
+      if (windingSum(loops, z) !== 0 && distToLoops(loops, z) > 0.03 * scale && inside.every((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) > 0.03 * scale)) { probes.push(z); nIn++; }
     }
     const worst = [];
     for (const z of probes) {
-      const q = cauchy(F, pts, z);
+      let q = C(0, 0), qb = 0;
+      for (const l of loops) { const v = cauchy(F, l, z); q = C(q.re + v.re, q.im + v.im); qb += v.errBound || 0; }
       if (!fin(q)) return { ok: false, why: 'unverified' };
-      const nz = windingAt(pts, z), pp = ppSum(z);
+      q.errBound = qb;
+      const nz = windingSum(loops, z), pp = ppSum(z);
       let e = C(-pp.re, -pp.im);
       if (nz) { const fz = F(z); if (!fin(fz)) continue; e = C(nz * fz.re - pp.re, nz * fz.im - pp.im); }
       const err = Math.hypot(q.re - e.re, q.im - e.im);
       worst.push(err);
       if (!(err <= tol * (1 + Math.hypot(q.re, q.im)) + (q.errBound || 0) * 10)) return { ok: false, why: 'unverified' };
     }
-    return { ok: true, pts, poles: inside, probes: worst };
+    return { ok: true, loops, poles: inside, probes: worst };
   }
   // Φ(z) from a plan: n F(z) − Σ n PP (z off γ and not a pole), the CPU twin of the plot, for tests and the captions
   function cauchyValue(F, plan, z) {
-    const nz = windingAt(plan.pts, z);
+    const nz = windingSum(plan.loops, z);
     let re = 0, im = 0;
     if (nz) { const f = F(z); re = nz * f.re; im = nz * f.im; }
     for (const q of plan.poles) { const v = ppAt(q.a, q.z, z); re -= q.n * v.re; im -= q.n * v.im; }
     return C(re, im);
   }
 
-  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, cauchyPlan, cauchyValue, windingAt, simplifyLoop, laurentCoefs, points, argStep, orderAt };
+  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, cauchyPlan, cauchyValue, windingAt, windingSum, simplifyLoop, laurentCoefs, points, argStep, orderAt };
 })();
 if (typeof module !== 'undefined') module.exports = Calc;

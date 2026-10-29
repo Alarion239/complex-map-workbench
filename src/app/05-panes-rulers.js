@@ -468,7 +468,7 @@
     // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside); with the Morph
     // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
     const hv = typeof homView === 'function' ? homView() : null;
-    const cz = !hv && S.dc === 'cauchy' && typeof cauchyPlot === 'function' ? cauchyPlot() : null;
+    const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     GLR.drawColorPlot({ map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz });
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
     if (S.outline && !artMode) {
