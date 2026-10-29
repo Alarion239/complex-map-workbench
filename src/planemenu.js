@@ -230,9 +230,9 @@ const PlaneMenu = (() => {
       out.push({ id: 'shape-delete', icon: 'trash', danger: true, label: $t('Delete {name}', { name: s.name }), run: () => api.del(s.id) });
       if (s.kind === 'point') out.push(...integrals);
     }
-    // a complex number at the pointer, with its point (X's plane at stage 0, where the shapes live): in a menu that is
-    // already open for a shape there (a plane with nothing under the pointer opens no menu)
-    if (s && api.newNumber && ctx.plane === 'X' && ctx.surface === 'flat' && ctx.stage === 0) out.push({ id: 'number-new', icon: 'number', label: $t('New complex number here'), run: () => api.newNumber(ctx.z) });
+    // a complex number at the pointer, with its point (in the plane X shows: [#252] its value is the point's place
+    // there): in a menu that is already open for a shape there (a plane with nothing under the pointer opens no menu)
+    if (s && api.newNumber && ctx.plane === 'X' && ctx.surface === 'flat') out.push({ id: 'number-new', icon: 'number', label: $t('New complex number here'), run: () => api.newNumber(ctx.z) });
     return out;
   }
   // ---- keyboard: Shift+F10 or the Menu key opens it at the keyboard probe, the pointer or the plane's centre; with

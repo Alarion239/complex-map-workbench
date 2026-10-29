@@ -11,7 +11,7 @@ const MorphPaths = (() => {
     drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
     lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
     morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-    patternSegs, preimageTargets, stagePullbacks, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
+    patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
     resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
     sub, syncPlaying, trans, transState, tweens, updateCalcChip;
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
@@ -1124,6 +1124,7 @@ const MorphPaths = (() => {
       drawChevrons(pane, F, trans.k ? undefined : k);
       if (A.S.focus > 0) drawCuts(pane, k, false, true);
       drawPoints(pane, F, { primes: k, k: trans.k ? undefined : k });
+      if (!trans.k) { updatePre('R', pane, k); drawPre(pane, 'R', k); }
       if (hasTargets()) drawPoints(pane, (z) => z, { list: A.S.targets, target: true });
       drawRulers(pane, 'R');
     }
@@ -1140,7 +1141,7 @@ const MorphPaths = (() => {
 
   function init(api) {
     A = api;
-    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
+    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
   }
   return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
 })();

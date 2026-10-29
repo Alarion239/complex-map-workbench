@@ -2979,5 +2979,8 @@
  "Times: a whole number, or a number’s name to run its slider": "Volte: un numero intero, o il nome di un numero per guidarle con il suo cursore",
  "n is the index of a series: pick another letter": "n è l’indice di una serie: scegli un’altra lettera",
  "{x} is the variable of a recurrence in the chain: pick another letter": "{x} è la variabile di una ricorrenza nella catena: scegli un’altra lettera",
- "Pattern: {name}": "Motivo: {name}"
+ "Pattern: {name}": "Motivo: {name}",
+ "+{n} more": "altri {n}",
+ "more": "altri",
+ "A step between uses {x}: drag {x} in its own plane": "Un passo intermedio usa {x}: trascina {x} nel suo piano"
 }

@@ -130,6 +130,7 @@
     drawChevrons(pane, F, k);
     cutHandlesL = drawCuts(pane, k, true, false);
     drawPoints(pane, F, { primes: k, domain: k === 0, k, editK: k });
+    updatePre('L', pane, k); drawPre(pane, 'L', k);
     if (hasTargets()) { updateRoots(); drawRoots(pane); }
     drawRulers(paneL, 'L');
     // overlays are drawn once per frame, after both planes (frame)
