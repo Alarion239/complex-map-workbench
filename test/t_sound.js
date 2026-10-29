@@ -41,16 +41,21 @@ const expF = (z) => { const r = Math.exp(z.re); return C(r * Math.cos(z.im), r *
   r = Calc.argStep(id, C(0, 0), null, C(1, 0), null);
   check('argStep from a zero: why end', !r.exact && r.why === 'end', JSON.stringify(r));
   // the wall-clock deadline (review: the 3 ms per event held even when the cost estimate is off): a slow F across
-  // sin(1/z)'s essential singularity stops at the deadline, as 'budget', whatever the call budget
+  // sin(1/z)'s essential singularity stops at the deadline, as 'budget', whatever the call budget. Promptly is counted
+  // in work, not in time (a shared machine can stall the process for milliseconds at any point): the calls of F that
+  // start after the deadline, at most the 16 between two looks at the clock (calc.js) and 8 leaf evaluations already
+  // under way (24 calls of 20 µs: half a millisecond over)
   {
-    const slow = (z) => { const t = performance.now(); while (performance.now() - t < 0.02) { /* 20 µs a call */ } const q = CX.inv(z); return C(Math.sin(q.re) * Math.cosh(q.im), Math.cos(q.re) * Math.sinh(q.im)); };
-    const t0 = performance.now();
-    r = Calc.argStep(slow, C(-0.3, 0.02), null, C(0.3, 0.02), null, { budget: 1e6, deadline: t0 + 3 });
-    const dt = performance.now() - t0;
-    check('argStep deadline: stops near 3 ms as budget', !r.exact && r.why === 'budget' && dt < 6, JSON.stringify({ why: r.why, evals: r.evals, dt }));
-    const t1 = performance.now();
-    const m = Calc.orderAt(slow, C(0, 0), 0.05, { budget: 1e6, deadline: t1 + 3 });
-    check('orderAt deadline: null within about 3 ms', m === null && performance.now() - t1 < 6, performance.now() - t1);
+    let calls = [];
+    const slow = (z) => { const t = performance.now(); calls.push(t); while (performance.now() - t < 0.02) { /* 20 µs a call */ } const q = CX.inv(z); return C(Math.sin(q.re) * Math.cosh(q.im), Math.cos(q.re) * Math.sinh(q.im)); };
+    const late = (dl) => calls.filter((t) => t > dl).length, LATE = 16 + 8;
+    const d0 = performance.now() + 3;
+    r = Calc.argStep(slow, C(-0.3, 0.02), null, C(0.3, 0.02), null, { budget: 1e6, deadline: d0 });
+    check('argStep deadline: stops at 3 ms as budget, at most 16 + 8 calls of F after it', !r.exact && r.why === 'budget' && late(d0) <= LATE, JSON.stringify({ why: r.why, evals: r.evals, late: late(d0) }));
+    calls = [];
+    const d1 = performance.now() + 3;
+    const m = Calc.orderAt(slow, C(0, 0), 0.05, { budget: 1e6, deadline: d1 });
+    check('orderAt deadline: null, at most 16 + 8 calls of F after it', m === null && late(d1) <= LATE, JSON.stringify({ m, calls: calls.length, late: late(d1) }));
   }
   // a budget: e^(50 z) turns 50 radians along a unit step
   r = Calc.argStep((z) => expF(CX.scale(z, 50)), C(0, 0), null, C(0, 0.3), null, { budget: 20 });
