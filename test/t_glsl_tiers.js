@@ -43,6 +43,10 @@ const deepName = fam('multi#').find((n) => T.tierOf('glsl', n) === 'deep');
 ok('deep keeps a deep chain and not a core one', D.keep('glsl', deepName, 5) && !D.keep('glsl', 'default exp', 0));
 ok('all keeps every chain (one part)', fam('rand ').every((n, i) => T.keep('glsl', n, i)));
 ok('an unknown tier is all', load('?tier=fast').TIER === 'all');
+// the GPU gate's Windows parts (gpu-gate.yml: --part i/8, ci/glsl.js: ?parts=8&part=i-1): every chain in exactly one
+const P8 = Array.from({ length: 8 }, (_, i) => load(`?parts=8&part=${i}`));
+const hits = [...fam('rand '), ...fam('multi#'), 'default exp', 'special zeta'].map((n, i) => P8.filter((P) => P.keep('glsl', n, i)).length);
+ok('--part 1/8 ... 8/8: every chain in exactly one part', hits.every((h) => h === 1), hits.filter((h) => h !== 1).length);
 // legacy: index parts, every chain, every section
 const L = load('?legacy=1&parts=8&part=3&tier=core');
 ok('legacy: by index', L.keep('glsl', 'whatever', 3) && L.keep('glsl', 'whatever', 11) && !L.keep('glsl', 'whatever', 4));
