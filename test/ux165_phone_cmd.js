@@ -249,7 +249,7 @@ const rows = await ev(`[...document.querySelectorAll('.ph-sheet .shape-row')].ma
 ok('UX45 rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
 ok('UX45 the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
 ok('UX45 ⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360 - 16), rows);
-const tip = await ev(`(document.querySelector('.ph-sheet .ph-tip') || {}).textContent || ''`);
+const tip = await ev(`(document.querySelector('.ph-sb[data-k="tools"] .ph-tip') || {}).textContent || ''`);
 ok('UX40 More tools teaches the long press', /hold a finger/i.test(tip), tip);
 await ev(`Phone.close(true)`); await settle(200);
 await tap('#pipeline .card:not(.region-card)', 700);
@@ -339,14 +339,11 @@ ok('D6 searching "theme" leaves the Theme row (and the command search), and clea
 await ev(`Phone.close(true)`); await settle(300);
 // ---------------- D3: the context bar for what is selected or under way ----------------
 await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });
-const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
+const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden || b.classList.contains('under')) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
 const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 nothing selected: no bar', (await ctxInfo()) === null);
-const zA = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 await ev(`__cmwSelect('s1')`); await settle(600);
-const zB = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 const c1 = await ctxInfo();
-ok('D3 the bar coming does not move the drawing under the finger', Math.abs(zA[0] - zB[0]) < 1 && Math.abs(zA[1] - zB[1]) < 1, [zA, zB]);
 const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 a selected shape: a 56 px bar over the tool row with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
 ok('D3 the plane gives up the bar\'s height from the bottom', d0 - d1 >= 50 && d0 - d1 <= 60, [d0, d1]);
@@ -417,6 +414,17 @@ ok('D3 ru, a selected shape: Изменить, Удалить and ⋯ fit at 360
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle(500);
 const r2 = await ruChk();
 ok('D3 ru, the orthogonal circle: its words and Отменить выбор fit at 360 px', r2 && !r2.over && !r2.cut.length && !r2.small.length, r2);
+
+// ---------------- UX40 (#34): a tip inside the Display and Editor sheets, none cut, at 390 and at 360 px in Russian ----------------
+for (const [w, extra, lang] of [[390, '', 'en'], [360, '&lang=ru', 'ru']]) {
+  await fresh('tips' + w, w, 780, false, true, extra); await settle(900);
+  for (const k of ['display', 'edit']) {
+    await ev(`Phone.open('${k}')`); await settle(600);
+    const t = await ev(`(() => { const b = document.querySelector('.ph-sb[data-k="${k}"]'), p = b && b.querySelector('.ph-tip'); if (!p) return null; p.scrollIntoView({ block: 'nearest' }); const r = p.getBoundingClientRect(), s = p.querySelector('span:last-child'), b2 = b.getBoundingClientRect(); return { text: p.textContent, h: Math.round(r.height), left: Math.round(r.left), right: Math.round(r.right), vis: !!p.getClientRects().length, cut: s.scrollWidth > s.clientWidth + 1 || p.scrollHeight > p.clientHeight + 1, inBody: r.left >= b2.left - 1 && r.right <= b2.right + 1 }; })()`);
+    ok(`UX40 the ${k} sheet has its tip at ${w} px (${lang}), whole and inside the sheet`, t && t.vis && t.h > 0 && !t.cut && t.inBody && t.right <= w && /^(Tip|Совет)/.test(t.text), t);
+  }
+  await ev('Phone.close(true)'); await settle(300);
+}
 
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });

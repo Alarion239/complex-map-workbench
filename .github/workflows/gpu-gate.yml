@@ -10,6 +10,8 @@
 #
 # Runs: on every push to main; nightly; by hand (Actions > GPU gate > Run workflow); on a pull request from a branch of
 # this repository when it has the label `gpu-gate`. The machines' own Chrome, Python and Git are used (ci/RUNNERS.md).
+# By hand with mode glprof: no gates, only the app's shader link times on each machine, cold and warm (ci/glprof.js,
+# issue #72): the table in the run's summary, the JSON as the artifact glprof-<machine>.
 name: GPU gate
 
 on:
@@ -38,12 +40,19 @@ on:
         description: Run the paired gates even when the app (src/, build.py) did not change
         type: boolean
         default: false
+      mode:
+        description: gate (the paired gates) or glprof (the app's shader link times, cold and warm, issue #72; no gate)
+        type: choice
+        options: [gate, glprof]
+        default: gate
 
 permissions:
   contents: read
 
 concurrency:
-  group: gpu-gate-${{ github.event.pull_request.number || github.ref }}
+  # (the nightly run in a group of its own: one that waits for a machine never holds the next push to main behind it,
+  # as run 83 held 113 on 2026-10-28, #169)
+  group: gpu-gate-${{ github.event_name == 'schedule' && 'nightly' || github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -71,6 +80,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - id: ref
         shell: bash
         run: |
@@ -103,15 +113,47 @@ jobs:
             *) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
           esac
 
-  glsl:
-    name: GLSL (${{ matrix.machine }} GPU)
+  # (mode glprof, by hand: ci/glprof.js on each machine instead of the gates; the table goes to the run's summary)
+  glprof:
+    name: Shader link times (${{ matrix.machine }} GPU)
     needs: plan
+    if: inputs.mode == 'glprof'
     strategy:
       fail-fast: false
       matrix:
         machine: ${{ fromJSON(needs.plan.outputs.machines) }}
     runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
-    timeout-minutes: 90
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node ci/gpu_probe.js --require-hardware
+      - run: node ci/glprof.js
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: glprof-${{ matrix.machine }}
+          path: .ci/glprof/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  glsl:
+    name: GLSL (${{ matrix.machine }} GPU)
+    needs: plan
+    if: inputs.mode != 'glprof'
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+    runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
+    # Windows compiles shaders with Direct3D 11's compiler (FXC) on the CPU, about 95 % of a page's time there: cold,
+    # the glsl page takes hours a side on the laptop (1/64 of it: 103-148 s; a single program of 1/8 took 12 min),
+    # against 7 minutes for every page on the Mac. The shader cache (CMW_GLSL_CACHE) loads a program compiled once in
+    # milliseconds, so only new shader code compiles; a run that times out keeps what it compiled, and the next one
+    # goes further (#169)
+    timeout-minutes: ${{ matrix.machine == 'Windows' && 240 || 90 }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -119,16 +161,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (paired with the reference; on the Mac, where the tests were written, glsl and inverse also outright: adv fails
       # 304 values there, in 10 chains near removable singularities, as every release since v14 did, so it is paired only)
       # (only the pages whose shader code or tests changed; all of them nightly and with force)
       - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
+        env:
+          # (the machine's own folder, kept between jobs: Chrome's profile with its GPU program cache)
+          CMW_GLSL_CACHE: ${{ runner.tool_cache }}/cmw-glsl-cache
 
   quality:
     name: Quality (${{ matrix.machine }} GPU)
     needs: [plan, glsl]
-    if: always() && needs.plan.result == 'success'
+    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof'
     strategy:
       fail-fast: false
       matrix:
@@ -142,6 +188,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (the Mac also against the committed baseline and goldens, which were recorded on a Mac GPU)
       - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
@@ -156,7 +203,7 @@ jobs:
   perf:
     name: Perf (${{ matrix.machine }} GPU, ${{ matrix.shard }})
     needs: [plan, quality]
-    if: always() && needs.plan.result == 'success'
+    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof'
     strategy:
       fail-fast: false
       matrix:
@@ -171,6 +218,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
       - if: always()
@@ -183,7 +231,7 @@ jobs:
 
   gate:
     name: GPU gate
-    if: always() && needs.plan.result != 'skipped'
+    if: always() && needs.plan.result != 'skipped' && inputs.mode != 'glprof'
     needs: [plan, glsl, quality, perf]
     runs-on: ubuntu-latest
     timeout-minutes: 5

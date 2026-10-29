@@ -42,7 +42,7 @@ function makeEnv(opts = {}) {
     URL: { createObjectURL: () => 'blob:x' }, Blob: function () {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sandbox);
+  vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
   env.advance = (ms) => { const end = env.clock + ms; for (;;) { let nx = null; for (const t of env.timers) if (t.f && t.at <= end && (!nx || t.at < nx.at)) nx = t; if (!nx) break; env.clock = nx.at; const f = nx.f; nx.f = null; f(); } env.clock = end; if (env.ctx) env.ctx.currentTime += ms / 1000; };
   return env;
@@ -407,7 +407,7 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
   // apart are one cluster, its last heard
   {
     const { SEASONG: MK } = require('../src/seasong.js');
-    for (const [f, nm] of [['parse', 'Expr'], ['funcs', 'Funcs']]) if (!globalThis[nm]) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, { filename: f + '.js' });
+    for (const [f, nm] of [['parse', 'Expr'], ['funcs', 'Funcs']]) if (!globalThis[nm]) vm.runInThisContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, { filename: f + '.js' });
     const EX = globalThis.Expr, fU = EX.compile(EX.parse(MK.steps[0].params.expr)), fG = EX.compile(EX.parse(MK.steps[1].params.expr));
     const F = (z) => fG(fU(z));
     const P = MK.pts, cum = [0];

@@ -11,7 +11,7 @@ Russian or Italian changes here is marked *(new)* and goes through tools/ru_extr
 | Thing | Term | Short form | Russian | Italian | Retired names |
 |---|---|---|---|---|---|
 | The left panel (drawing tools, the formula, the shapes) | Draw | | Рисование | Disegna | Region tools, region tools panel |
-| A region the user draws | Shape | | Фигура | Figura | region (in UI text), figure (for a shape) |
+| A region the user draws | Shape | Shapes (the chain's first card, its Inspector title, the Display sections) | Фигура | Figura | region (in UI text), figure (for a shape) |
 | Clearing the shapes | Clear shapes | Clear (in the Shapes head) | Очистить фигуры | Cancella figure | Empty canvas (for the action; the blank example, the gallery's first card, keeps the name) |
 | Clearing the chain | Clear chain | Clear (in the chain head) | Очистить цепочку | Svuota catena | Clear the chain |
 | The header's function field and the palette's add mode | Add function | | Добавить функцию | Aggiungi funzione | Add function or command |
@@ -34,6 +34,10 @@ commands.js) with the tables regenerated and the suites that match on these word
 the tour rework (#34), and `test/t_terms.js` then strict (every count 0).
 All three are done: the guide's title is Guide, the tour says Search and Guide, and the shortcut list says
 perpendicular; `test/t_terms.js` fails on any retired name in the sources.
+Part 4: the UI's region labels say Shape (the palette's Add shape, its Shapes topic, the chain's first card and its
+Inspector title, the Display popover's and the phone's Display sheet's section). Region stays where it means a filled
+area as opposed to a curve, the mathematical sense: Region formulas (the palette's group of set formulas) and a
+construction's Curve | Region choice, with its aria-label «Curve or region».
 
 ## Italian changes for review (Pietro, #60)
 

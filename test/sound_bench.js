@@ -16,7 +16,7 @@ global.registerProcessor = (n, c) => { reg[n] = c; };
 const page = { window: { addEventListener() {} }, document: { visibilityState: 'visible', addEventListener() {} }, location: { search: '?ns=b' }, navigator: {}, performance: { now: () => 0 },
   setTimeout, clearTimeout, URLSearchParams, console, Math, JSON, Object, Array, Float32Array, Float64Array, Number, Map, Set, Promise, Date };
 vm.createContext(page);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', page);
+vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', page);
 const Sound = page.Sound;
 vm.runInThisContext(Sound.WORKLET_SRC.replace("'use strict';", ''));
 const Q = 15000, W = 3000, NOUT = 8;

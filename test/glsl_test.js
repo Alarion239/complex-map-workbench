@@ -8,7 +8,8 @@
   };
   const t0 = performance.now();
   const qs = new URLSearchParams(location.search);
-  const PARTS = +qs.get('parts') || 1, PART = +qs.get('part') || 0, FILTER = qs.get('filter') || '';
+  // (?tier=, ?parts=, ?part=: test/glsl_tiers.js, by the chain's name)
+  const FILTER = qs.get('filter') || '';
   const C = CX.C;
   const TOL = 2e-3;
   const TS = [0, 0.01, 0.37, 0.5, 0.73, 0.999, 1];
@@ -32,8 +33,9 @@
   const TYPES = Object.keys(Funcs.DEFS);
   // the random rows and chains draw from the types they had before the zeros-and-poles step (2026-10-22), so their
   // deterministic sequence is unchanged; 'zp' gets its own random rows with their own seed (below)
-  // (and before Γ and ζ, issue #4, and the Series step, issue #5, which have chains of their own below)
-  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series');
+  // (and before Γ and ζ, issue #4, the Series step, issue #5, and the Recurrence step, issue #6, which have chains of
+  // their own below)
+  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence');
   const CUTS = [0, 90, -45, 180, 270, -180, 30];
   const EXPRS = [
     'z^2+\\frac{1}{z}', '\\sin z+\\cos(2z)', '\\tan z', '\\cot z', '\\sec z', '\\csc z', '\\sinh z-\\cosh(z/2)', '\\tanh(z)', '\\coth z',
@@ -64,7 +66,9 @@
     }
   }
   // 1. defaults
-  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta') add(`default ${t}`, [S(t)]);
+  // (Γ, ζ, the Series step and the Recurrence step have their own chains at the end, so the catalog's chains keep their
+  // sequence and parts)
+  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence') add(`default ${t}`, [S(t)]);
   add('ijouk interior', [S('ijouk', { branch: 'interior' })]);
   // natural paths (2026-10-22): zoom paths, Joukowski's Cayley power, roots and rational zoom paths, all at once
   add('nat joukowski > cos > rational', [S('joukowski'), S('cos'), S('rational')]);
@@ -278,11 +282,27 @@
     sum('d/dz e^z 0.2z+1', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '0.2', b: '1' })]);
     chains[chains.length - 1].steps.push(S('deriv'));
     // the Series step (a power series about a centre, a Laurent and a Dirichlet series from their a_n)
+    add('default series', [S('series')]);
     add('series step power 1/n^2 about 0.5', [S('series', { kind: 'power', an: '\\frac{1}{n^2}', c: '0.5' })]);
     add('series step Laurent', [S('series', { kind: 'laurent', an: '\\frac{1}{2^{|n|}+n^2}', c: '0' })]);
     add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
+    // [issue #6] the Recurrence step: Mandelbrot's u² + z near its main cardioid, Newton's method for z³ − 1, a contraction
+    // with sin, and a short one differentiated
+    add('default recurrence', [S('recurrence')]);
+    add('recurrence u^2+z from 0', [S('affine', { a: '0.15', b: '0' }), S('recurrence', { u0: '0', g: 'u^2+z', N: 6, cut: 180 })]);
+    add('recurrence Newton z^3-1', [S('recurrence', { u0: 'z', g: 'u-\\frac{u^3-1}{3u^2}', N: 12, cut: 180 })]);
+    add('recurrence u/2+sin z', [S('recurrence', { u0: 'z', g: '\\frac{u}{2}+\\sin z', N: 20, cut: 180 })]);
+    add('recurrence d/dz u^2+z', [S('affine', { a: '0.3', b: '0' }), S('recurrence', { u0: 'z', g: 'u^2+z', N: 3, cut: 180 }), S('deriv')]);
+    // [issue #6] Repeat × N: z² + c three times (a polynomial of degree 8, the block's steps copy by copy), a Möbius map
+    // four times, exp then a scaling twice with d/dz after it (the circle formula), and a block with a bypassed step
+    const Rp = (st, n, len) => Object.assign(st, { repeat: { n, len } });
+    add('repeat z^2+c x3', [S('pown', { n: 2 }), Rp(S('add', { c: '0.2+0.1i' }), 3, 2)]);
+    add('repeat mobius x4', [S('affine', { a: '0.5', b: '0' }), Rp(S('mobius', { a: '1', b: '0.3', c: '-0.3', d: '1' }), 4, 1)]);
+    add('repeat exp mul x2 d/dz', [S('mul', { c: '0.4' }), Rp(S('exp'), 2, 2), S('deriv')]);
+    add('repeat with a bypassed step', [S('sin'), S('pown', { n: 3 }, false), Rp(S('mul', { c: '0.7+0.2i' }), 3, 3)]);
   }
-  const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
+  const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
+  Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
 
   // ---------- sample points (float32-exact) ----------
   const f32 = Math.fround;
@@ -405,9 +425,11 @@
   // 1.2e-7 * that bounds the float32 rounding error of the sum (e.g. sin^2 z + cos^2 z at Im z = 13:
   // operands ~1e11, result 1), which no float32 evaluation can avoid.
   const probeCache = new WeakMap();
-  // the steps built as a formula (b.ast): a Series step too ([issue #5])
-  const FORMULA = new Set(['custom', 'series']);
+  // the steps built as a formula (b.ast): a Series step too ([issue #5]) and a Recurrence step ([issue #6])
+  const FORMULA = new Set(['custom', 'series', 'recurrence']);
   function cancelProbe(b) {
+    // ([issue #6] a repeat is its steps, with no formula of its own)
+    if (b.repeat) return null;
     if (probeCache.has(b)) return probeCache.get(b);
     const th = (b.vals.cut ?? 180) * Math.PI / 180;
     const ops = [];
@@ -424,6 +446,8 @@
         }
         return;
       }
+      // ([issue #6] a recurrence: its start only; its rule needs u)
+      if (n.t === 'iter') { walk(n.lo); return; }
       if ((n.t === 'add' || n.t === 'sub') && Expr.depends(n)) ops.push(Expr.compile(n.a, { theta: th }), Expr.compile(n.b, { theta: th }));
       for (const k of ['a', 'b', 'n']) if (n[k] && n[k].t) walk(n[k]);
     })(ast);
@@ -463,7 +487,7 @@
   }
   // steps whose homotopy is (1-t) z + t f(z) in funcs.js (no natural path: a constant, a formula that is not
   // recognisably a catalog map), so f(z) is an intermediate value of the homotopy
-  const LINEAR_HOM = new Set(['poly', 'rational', 'zp', 'custom', 'series']);
+  const LINEAR_HOM = new Set(['poly', 'rational', 'zp', 'custom', 'series', 'recurrence']);
   const isLinHom = (b) => !b.hom || (LINEAR_HOM.has(b.def.id) && !b.nat);
   // returns z => {mag: largest |intermediate|, cancel: largest relative float32 cancellation error of a custom step}
   function rowStages(steps, built, row) {
@@ -740,7 +764,8 @@ void main() {
   const rowName = (r) => (r.mode === 0 ? `range(${r.a},${r.b})` : r.mode === 1 ? `step(${r.i})` : r.mode === 2 ? `hom(${r.i},t=${r.t})`
     : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 9 ? `sheetHom(${JSON.stringify(r.map)},combo=${r.combo}${r.end ? `,end=${r.end}` : ''})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
   function testChain(ch) {
-    const built = ch.steps.map((s) => Funcs.build(s));
+    // ([issue #6] a repeat's last step runs its block n times, as in the app)
+    const built = Funcs.applyRepeats(ch.steps, ch.steps.map((s) => Funcs.build(s)));
     const gc = GLChain.build(ch.steps, built);
     if (srcByKey.has(gc.key) && srcByKey.get(gc.key) !== gc.source) R.errors.push(`key collision: ${ch.name}`);
     srcByKey.set(gc.key, gc.source);
@@ -935,7 +960,9 @@ void main() {
   } catch (e) { R.errors.push('vertex shader: ' + e.message); }
 
   for (const ch of selected) {
+    const tc = performance.now();
     try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 3000)}`); }
+    R.chainMs[ch.name] = Math.round(performance.now() - tc);
   }
   R.ms = Math.round(performance.now() - t0);
   R.points = P;

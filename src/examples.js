@@ -12,6 +12,7 @@ const Examples = (() => {
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
+  // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -31,6 +32,28 @@ const Examples = (() => {
   const exOk = (ex) => ex.steps.every((st) => Funcs.DEFS[st.type]);
   // a first visit opens a worked example, not the empty canvas listed first
   const firstExample = () => Math.max(0, EX.findIndex((e) => e.shapes.length && e.steps.length));
+  // An example's Try line closes when the user does what it asks: ex.tryDone lists the actions, each a group of
+  // alternatives {on: the tour's event, test(e): which of them counts}, and every group must happen. Only the line's own
+  // action closes it (a line about something else stays), and another example, its X or Show me ends the watch.
+  let exTry = null;
+  function exTryStop() { if (exTry) { for (const off of exTry.offs) off(); exTry = null; } }
+  function exTryWatch(ex) {
+    if (!Array.isArray(ex.tryDone) || !ex.tryDone.length || typeof A.tourOn !== 'function') return;
+    const mine = { offs: [], left: ex.tryDone.map(() => true), t0: performance.now() };
+    exTry = mine;
+    ex.tryDone.forEach((group, gi) => {
+      for (const g of group) {
+        mine.offs.push(A.tourOn(g.on, (e) => {
+          // (what the example's own opening sets going is not the user's doing)
+          if (exTry !== mine || performance.now() - mine.t0 < 250 || (g.test && !g.test(e || {}))) return;
+          mine.left[gi] = false;
+          if (mine.left.some(Boolean)) return;
+          exTryStop();
+          if (Tour.laneId && Tour.laneId() === 'example' && Tour.laneHide) Tour.laneHide('example');
+        }));
+      }
+    });
+  }
   function loadExample(i, spec, opt) {
     phHold();
     const ex = spec || EX[i];
@@ -39,16 +62,33 @@ const Examples = (() => {
     sndStopPlay(false);
     // (v16.5 UX74) an example's Try line goes with the example
     if (Tour.laneHide) Tour.laneHide('example');
+    exTryStop();
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) A.currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
     setShapes([]); setSteps([]);
-    // [issue #5] an example's own shared numbers (the partial sums' N): set, or in place of one of the user's of that name
-    if (!spec && Array.isArray(ex.params)) {
-      const ps = A.S.params.slice();
-      for (const p of ex.params) { const c = JSON.parse(JSON.stringify(p)), j = ps.findIndex((q) => q.name === p.name); if (j >= 0) ps[j] = c; else ps.push(c); }
-      setParams(ps);
+    // [issue #5] an example's own shared numbers (the partial sums' N) are marked ex: the next example takes away the ones it does
+    // not define, and gives back a number of the user's that one of them stood in for; the user's other numbers stay
+    if (!spec) {
+      const mine = (ex.params || []).filter((p) => p && typeof p.name === 'string');
+      const ps = [];
+      for (const q of A.S.params) {
+        if (!q.ex || mine.some((p) => p.name === q.name)) { ps.push(q); continue; }
+        // (the user's number it stood in for is kept in the state, on its own entry: q.ex.was, so a reload, a link or a scene
+        // that opens with the example does not lose it)
+        const back = q.ex && q.ex.was ? Params.sanitize([q.ex.was])[0] : null;
+        if (back) ps.push(back);
+      }
+      for (const p of mine) {
+        const c = Object.assign(JSON.parse(JSON.stringify(p)), { ex: true }), j = ps.findIndex((q) => q.name === p.name);
+        if (j >= 0) {
+          const was = ps[j].ex ? ps[j].ex.was : JSON.parse(JSON.stringify(ps[j]));
+          if (was) c.ex = { was };
+          ps[j] = c;
+        } else ps.push(c);
+      }
+      if (mine.length || ps.length !== A.S.params.length || ps.some((q, i) => q !== A.S.params[i])) setParams(ps);
     }
     setSel(null);   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
@@ -88,7 +128,7 @@ const Examples = (() => {
     }
     for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
-    if (!spec && Array.isArray(ex.params)) Params.render();
+    if (!spec) Params.render();
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');   // (v16)
     // (an example that is played: the Phase key's n it was made for, one colour line a note)
     if (ex.sectors) setOpt('sectors', ex.sectors);
@@ -115,8 +155,9 @@ const Examples = (() => {
     // (issue #34, D7) every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && ex.try && Tour.lane && !laned) {
-      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: ex.try, drop: 'title', onClose: () => {},
-        acts: [{ label: $t('Show me'), primary: true, run: () => { if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: ex.tour || 'basics' }); } }] });
+      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: ex.try, drop: 'title', onClose: exTryStop,
+        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: ex.tour || 'basics' }); } }] });
+      exTryWatch(ex);
     }
     // the line integral the example is about, once the planes have their size
     if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
@@ -201,10 +242,13 @@ const Examples = (() => {
       if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(anchor, okey); }
     });
     armOutside(anchor);
-    // fill thumbnails one per frame so the menu opens at once
+    // fill thumbnails one per frame so the menu opens at once; (issue #72) one example's programs compile at a time:
+    // the next thumbnail waits until the one before has landed (a cold Direct3D 11 link takes seconds, and many at once
+    // held the GPU from the user's own view)
     let q = 0;
     const next = () => {
       if (A.popEl !== pop || q >= items.length) return;
+      if ([...exWait.values()].some((key) => !GLR.ready(key))) { setTimeout(next, 100); return; }
       const it = items[q++];
       if (it.b.hidden) { setTimeout(next, 0); return; }
       const url = renderExampleThumb(it.i);

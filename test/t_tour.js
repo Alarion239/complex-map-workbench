@@ -80,8 +80,8 @@ for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/for
   'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
-const RU = (() => { let tab = {}; const src = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
-const IT = (() => { let tab = {}; const src = fs.readFileSync(path.join(__dirname, '../src/i18n_it.js'), 'utf8'); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
 const EVENTS_USED = new Set();
 for (const s of steps) {
@@ -280,8 +280,8 @@ check('ms tokens', [T.ms('240ms', 0), T.ms('0.24s', 0), T.ms(' 0ms ', 9), T.ms('
 
 // ---- the persisted record
 const R = T.normRec;
-check('fresh record', R(null), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null });
-check('malformed record', R({ v: 'x', shown: null, outcome: 'maybe', done: 3, last: { ch: 4 }, auto: 'no', why: 1 }), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null });
+check('fresh record', R(null), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
+check('malformed record', R({ v: 'x', shown: null, outcome: 'maybe', done: 3, last: { ch: 4 }, auto: 'no', why: 1, open: 'yes' }), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
 check('Move on by itself off and Why chosen are kept', [R({ auto: false }).auto, R({ why: false }).why, R({ why: true }).why], [false, false, true]);
 ok('fresh: suggest', T.shouldSuggest(R(null)));
 ok('shown twice, ignored: suggest again', T.shouldSuggest(R({ shown: 2 })));
@@ -321,7 +321,23 @@ ok('dismissed in storage: seen', Tour.isSeen() === true);
 ok('dismissed: the namespace without it is not seen', (() => { Tour.init({ storageKey: (k) => `${k}:other` }); return Tour.isSeen() === false; })());
 Tour.init(api);
 Tour.reset();
-check('reset forgets the record', JSON.parse(localStorage.getItem('cmw-tour:ns1')), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null });
+check('reset forgets the record', JSON.parse(localStorage.getItem('cmw-tour:ns1')), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
+const lsKept = global.localStorage;
+// (#34, UX76) a tour that was running when the page went away (open, no live heartbeat elsewhere) was cut short: the next
+// page's init says so once, and clears the mark; another page's fresh heartbeat means that tour is still running there
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }) });
+Tour.init(api);
+ok('a tour cut short by a reload: init finds it', Tour._t.cutShort() === true);
+ok('... and clears the mark (offered once)', JSON.parse(localStorage.getItem('cmw-tour:ns1')).open === false);
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }),
+  'cmw-tour-live:ns1': JSON.stringify({ page: 'elsewhere', t: Date.now() }) });
+Tour.init(api);
+ok('a tour still running in another tab is not cut short', Tour._t.cutShort() === false && JSON.parse(localStorage.getItem('cmw-tour:ns1')).open === true);
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 } }) });
+Tour.init(api);
+ok('a tour that was ended is not cut short', Tour._t.cutShort() === false);
+global.localStorage = lsKept;
+Tour.init(api);
 ok('reset: not seen', Tour.isSeen() === false);
 global.localStorage = fakeStorage({ 'cmw-tour:ns1': '{not json', 'cmw-tour-stash:ns1': '{also not' });
 let threw = false;

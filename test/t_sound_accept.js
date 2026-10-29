@@ -73,7 +73,7 @@ function convolve(x, hh, len) {
 let ROOM = null;
 function room(Sound) {
   if (ROOM) return ROOM;
-  const SRC = fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8');
+  const SRC = require('./src_text').source('sound.js', { esm: 'strip' });
   const r0 = SRC.indexOf('  function roomIR(c) {'), r1 = SRC.indexOf('\n  }\n', r0);
   if (r0 < 0 || r1 < r0) throw new Error('src/sound.js: roomIR not found as expected');
   const roomIR = new Function('prng', SRC.slice(r0, r1 + 4) + '; return roomIR;')(Sound.LIB.prng);

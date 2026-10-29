@@ -957,6 +957,7 @@ const Funcs = (() => {
   function derivAst(b, opts = {}) {
     if (!b || b.error || !b.def) return { error: b && b.error ? b.error : $t('No step') };
     if (b.op === 'deriv') return { error: $t('d/dz is an operator on the chain, not a map of w; add a second d/dz for the second derivative') };
+    if (b.repeat) return { error: $t('A repeat has no derivative formula here; d/dz after it is computed numerically') };
     const v = b.vals, id = b.def.id;
     const { z, num, real, neg, add, sub, mul, div, pow, call, root } = XN;
     const sq = (a) => pow(a, real(2));
@@ -1048,6 +1049,8 @@ const Funcs = (() => {
         }
         // ([issue #5] a series step: its formula, term by term)
         case 'series': ast = Expr.diff(b.ast); cut = 180; break;
+        // ([issue #6] a recurrence: the derivative of the formula it writes out, when it is short enough)
+        case 'recurrence': ast = Expr.diff(b.ast, { theta: v.cut * DEG }); cut = v.cut; break;
         case 'custom': {
           cut = v.cut;
           const src = Expr.parse(v.expr);
@@ -1590,7 +1593,8 @@ const Funcs = (() => {
       const f = Expr.compile(ast, { theta: th });
       // a formula that is undefined at every generic point (z/0, log 0, ...) is an error, not a map
       const probes = [C(0.37, -0.81), C(-1.3, 0.6), C(2.1, 1.7), C(-0.45, -2.2), C(0.9, 0.05)];
-      if (!probes.some((p) => CX.isFin(f(p)))) throw new Error($t('The formula is undefined for every z (check for a division by zero or a logarithm of 0)'));
+      // (a recurrence whose orbits escape is ∞ there, not undefined)
+      if (!probes.some((p) => CX.isFin(f(p))) && !Expr.hasIter(ast)) throw new Error($t('The formula is undefined for every z (check for a division by zero or a logarithm of 0)'));
       const cls = Expr.classify(ast);
       let P;
       if (!cls.dep) P = CONSTANT;
@@ -1614,8 +1618,9 @@ const Funcs = (() => {
       // a formula that is a chain of catalog steps renders, deforms and reports as that chain (recognizeCustom)
       const rec = part || !cls.dep || P.constant ? null : recChain(ast, cut, f);
       let nat = null;
-      // ([issue #5] a series deforms along the straight line for now: its zoom path waits for its GPU twin)
-      try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
+      // ([issue #5, #6] a series or a recurrence deforms along the straight line for now: its zoom path waits for its
+      // GPU twin)
+      try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) && !Expr.hasIter(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
       const r = /** @type {any} */ ({
         ast,
         f, hom: nat ? nat.hom : linHom(f),
@@ -1681,6 +1686,31 @@ const Funcs = (() => {
       const sa = Expr.simplify(r.ast);
       r.tex = (x) => Expr.toTex(sa, x);
       r.inverseNote = $t('A series takes most values many times, so it has no single inverse; {note}', { note: NOTE_PRE });
+      return r;
+    },
+  });
+  // [issue #6] a recurrence: u_0 a formula in z, u_{k+1} = g(u_k, z), and the map z ↦ u_N (N from 0 to Expr.ITER_CAP);
+  // ∞ where the orbit escapes. Built as the formula it writes (Expr's iter node): its values, guarantees (a polynomial
+  // of exact degree when it is short enough to write out), d/dz and the GPU's loop.
+  def({
+    id: 'recurrence', group: $t('Polynomial & custom'), label: $t('Recurrence'), menuTex: 'u_{k+1}=g(u_k,z)',
+    params: [
+      { key: 'u0', label: 'u_0 =', type: 'seq', def: 'z' },
+      { key: 'g', label: 'u_{k+1} =', type: 'seq', def: 'u^2+z' },
+      { key: 'N', label: 'N', type: 'int', def: 8, min: 0, max: Expr.ITER_CAP },
+      { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 },
+    ],
+    hasCut: 'maybe',
+    build({ u0, g, N, cut }) {
+      if (!String(u0 || '').trim()) throw new Error($t('Write the start u₀ as a formula in z'));
+      if (!String(g || '').trim()) throw new Error($t('Write the rule as a formula in u and z, such as u^2+z'));
+      if (!(Number.isInteger(N) && N >= 0 && N <= Expr.ITER_CAP)) throw new Error($t('N must be a whole number from 0 to {max}', { max: Expr.ITER_CAP }));
+      if (/(^|[^A-Za-z\\])u(?![A-Za-z])/.test(u0)) throw new Error($t('u₀ is a formula in z: u is the letter of the rule'));
+      const a0 = Expr.parse(u0);
+      const ast = Expr.iterate(a0, Expr.parse(g, { bound: ['u'] }), { t: 'num', v: C(N, 0), lit: String(N) });
+      const r = DEFS.custom.build({ expr: '', cut, ast });
+      r.inverse = null;
+      r.inverseNote = $t('A recurrence usually takes each value many times, so it has no single inverse; {note}', { note: NOTE_PRE });
       return r;
     },
   });
@@ -2468,6 +2498,65 @@ const Funcs = (() => {
     return acc;
   }
 
+  // ---------------- [issue #6] Repeat × N ----------------
+  // step.repeat = {n, len} on the last step k of a block of len steps (k − len + 1 … k): the block runs n times. Its
+  // last step is built as the block's tail: f_k, then the block n − 1 times more, so the chain's stages before k are
+  // the first pass and w_k is after the last. It is drawn, deformed (copy by copy, each step on its own part of t),
+  // inverted and continued onto sheets as the steps it runs, as a recognized formula is (b.rec); its guarantees are
+  // those of the composition; d/dz after it uses the circle formula. At most REPEAT_MAX passes, and REPEAT_STEPS steps
+  // weighed by the code they write into the GPU's program (the whole tail is one program: a heavy step many times is
+  // minutes of compiling on Windows): a catalog step 1, Γ and ζ 16, a formula by the size of its tree.
+  const REPEAT_MAX = 64, REPEAT_STEPS = 256;
+  const astSize = (n) => (n && typeof n === 'object' && n.t ? 1 + ['a', 'b', 'n', 'lo', 'hi'].reduce((s, k) => s + astSize(n[k]), 0) : 0);
+  const stepWeight = (b) => (b.rec ? b.rec.built.reduce((s, x) => s + stepWeight(x), 0) : b.def && (b.def.id === 'gamma' || b.def.id === 'zeta') ? 16
+    : b.ast ? Math.max(1, Math.ceil(astSize(b.ast) / 8)) : 1);
+  function repeatOk(steps, k) {
+    const rp = steps[k - 1] && steps[k - 1].repeat;
+    return !!rp && Number.isInteger(rp.n) && rp.n >= 1 && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= k ? rp : null;
+  }
+  function repeatBuilt(steps, built, k) {
+    const rp = repeatOk(steps, k), base = built[k - 1];
+    if (!rp || rp.n === 1 || !base || base.error || steps[k - 1].on === false) return base;
+    const a = k - rp.len + 1, block = [];
+    for (let j = a; j <= k; j++) {
+      const st = steps[j - 1], b = built[j - 1];
+      if (!st || st.on === false || !b || b.error) continue;
+      if (b.op === 'deriv' || st.type === 'deriv') return { error: $t('Repeat × N cannot hold a d/dz step'), def: base.def };
+      block.push(b);
+    }
+    const w = block.reduce((s, b) => s + stepWeight(b), 0);
+    if (w * rp.n > REPEAT_STEPS) return { error: $t('Repeat × N: this block is too heavy to draw {n} times; at most N = {max}', { n: rp.n, max: Math.max(1, Math.floor(REPEAT_STEPS / w)) }), def: base.def };
+    const seq = [base];
+    for (let r = 1; r < rp.n; r++) seq.push(...block);
+    const fs = seq.map((b) => b.f), homs = seq.map((b) => b.hom || linHom(b.f)), m = seq.length;
+    const f = (z) => { for (const g of fs) z = g(z); return z; };
+    const names = block.length === 1 ? `f_{${k}}` : `\\left(f_{${k}}\\circ\\cdots\\circ f_{${a}}\\right)`;
+    return {
+      def: DEFS.custom, vals: { expr: '', cut: 180 }, repeat: { n: rp.n, len: rp.len, a, base },
+      rec: { steps: seq.map((b) => ({ type: b.def.id })), built: seq },
+      f,
+      hom: (t) => {
+        if (!(t > 0)) return (z) => z;
+        if (t >= 1) return f;
+        const x = t * m, j = Math.min(m - 1, Math.floor(x)), H = homs[j](x - j);
+        return (z) => { for (let i = 0; i < j; i++) z = fs[i](z); return H(z); };
+      },
+      homTex: () => ({ tex: $t('the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$', { n: String(m) }) }),
+      nat: { kind: 'chain', n: m }, natData: null,
+      tex: capTex((x) => ({ s: `${names}^{\\circ ${rp.n - 1}}\\!\\left(${base.tex(x).s}\\right)`, p: 4 })),
+      props: composeProps(seq.map((b) => b.props)),
+      usesCut: seq.some((b) => b.usesCut),
+      cuts: [], poles: [], domain: null, branchNote: null,
+      inverse: null,
+      inverseNote: $t('Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}', { note: NOTE_PRE }),
+    };
+  }
+  // the chain's built steps with every repeat applied (a copy; the others as they are)
+  function applyRepeats(steps, built) {
+    if (!steps.some((st) => st && st.repeat)) return built;
+    return built.map((b, i) => (repeatOk(steps, i + 1) ? repeatBuilt(steps, built, i + 1) : b));
+  }
+
   // ---------------- stage functions (CPU) ----------------
   const isLive = (steps, built, k) => {
     const st = steps[k - 1], b = built[k - 1];
@@ -2476,6 +2565,7 @@ const Funcs = (() => {
   // f′ of one built step as a CPU function of its input, or null (no derivative is known)
   const derivFnCache = new WeakMap();
   function stepDerivFn(b) {
+    if (b.repeat) return null;
     if (derivFnCache.has(b)) return derivFnCache.get(b);
     let f = null;
     const d = derivAst(b, { stable: true });
@@ -2887,7 +2977,7 @@ const Funcs = (() => {
 
   return {
     DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
+    REPEAT_MAX, REPEAT_STEPS, repeatOk, repeatBuilt, applyRepeats, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();

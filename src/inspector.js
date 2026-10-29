@@ -542,7 +542,7 @@ const Inspector = (() => {
     }
     // ---- the region ----
     function buildRegion() {
-      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Region')));
+      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Shapes')));
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
       // (v16.5 UX17: on a touch screen, the phone's places)

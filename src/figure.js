@@ -33,6 +33,12 @@ const Figure = (() => {
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
+  XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
+    const t0 = Date.now();
+    const tick = () => { if (XD.ready()) resolve(true); else if (!alive() || Date.now() - t0 > ms) resolve(false); else setTimeout(tick, 100); };
+    tick();
+  });
 
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
@@ -2405,7 +2411,11 @@ const Figure = (() => {
   // captionTex, name, view, Wtex, ...} or null when cancelled
   async function build(opts) {
     if (!A) throw new Error('Figure is not attached');
-    if (!XD.ready()) throw new Error('MathJax is still loading');
+    // (an export or a rebuild that comes before MathJax is ready waits for it; null when the caller has gone, an error after the timeout)
+    if (!XD.ready() && !(await XD.whenReady(20000, (opts && opts.alive) || undefined))) {
+      if (opts && opts.alive && !opts.alive()) return null;
+      throw new Error('MathJax did not load in time');
+    }
     const o = Object.assign(defaults(), opts || {});
     const P = Object.assign({}, PRESET[o.for] || PRESET.article);
     const size = sizeOf(o), Wtex = size.pt, W = XD.bp(Wtex);
@@ -3569,7 +3579,7 @@ const Figure = (() => {
     // behind one button, so the sheet opens on the format and the buttons; elsewhere the rows sit in the grid as before.
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
-    printBtn.setAttribute('aria-expanded', printBox.dataset.open);
+    printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
     const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
@@ -3803,6 +3813,9 @@ const Figure = (() => {
     const rebuild = async () => {
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
+      wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
+      // (once MathJax is in, the line says what the build is doing now)
+      if (!XD.ready()) XD.whenReady(20000, () => my === token && !closed).then((on) => { if (on && my === token && !wait.hidden) wait.textContent = $t('Typesetting…'); });
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));
         if (my !== token || !f) return;
@@ -3820,7 +3833,8 @@ const Figure = (() => {
         facts.append(h('b', null, dims), $t(' · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}', { x: I18 ? I18.num(T[0]) : T[0], x2: I18 ? I18.num(T[1]) : T[1], tsz, choice: f.ink === 'bw' ? $t('gray only') : $t('print color'), choice2: f.for === 'homework' ? $t('stays under its problem ([H])') : f.star ? $t('figure* across both columns') : $t('floats [tbp]') }));
         if (f.info && f.info.hiddenZP) facts.append(h('div', { class: 'xf-warn' }, $t('Most zeros and poles are on the far side of the sphere in these frames: turn the globe so they face you, then export again.')));
       } catch (e) {
-        console.error(e);
+        // (MathJax that never came is a known condition the message below reports, not an error of the page)
+        (/MathJax/.test(String(e && e.message)) ? console.warn : console.error)(e);
         if (my === token) { wait.hidden = false; wait.textContent = /MathJax/.test(String(e && e.message)) ? $t('The typesetter is still loading; try again in a moment.') : $t('The figure could not be made.'); }
         return;
       } finally { if (my === token) { st.building = false; scroll.classList.remove('busy'); } }
@@ -3955,7 +3969,18 @@ const Figure = (() => {
   // the share sheet takes files here (a phone's browser); a laptop keeps Save
   const canShareFiles = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && matchMedia('(pointer: coarse)').matches;
   // the export menu's Copy figure again / Save figure again: the last destination, with the remembered settings
+  // (MathJax may still be loading: build waits for it up to 20 s with no dialog to show it, so the menu item says so, and a
+  // second press while it waits is ignored)
+  let againBusy = false;
   async function again(what) {
+    if (againBusy) return false;
+    againBusy = true;
+    try {
+      if (!XD.ready()) A.toast($t('Preparing formulas…'));
+      return await againRun(what);
+    } finally { againBusy = false; }
+  }
+  async function againRun(what) {
     const set = loadSet();
     // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
     // and for Copy, the last figure is made again; export review r3, video-3)

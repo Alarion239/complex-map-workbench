@@ -42,6 +42,8 @@ function app() {
     evXY: (pane, e) => [e.x, e.y], sndQueryClick: (pane, side, x, y) => ctx.queried.push([pane.id, side, x, y]),
     PM: () => null, cancelDrawing: () => false, leftView: () => ({ cx: 0, cy: 0 }), requestRender() {}, camOf: () => ({}), setCursor() {},
     openIntegralMenu: () => ctx.menu, onMove: (pane, side, ev) => ctx.moved.push(ev),
+    // (a mouse: the touch screen's edge strip, onDown's edgeTouch at the press's x, y, never pans)
+    edgeTouch: () => false, x: 120, y: 80,
   });
   vm.createContext(ctx);
   vm.runInContext(`globalThis.panBtnOf = (e) => (${panBtnM[1]});\nglobalThis.upQuery = (pane, side, e, d) => {${upM[1]}\n};\nglobalThis.holdFire = ${braced(APP, holdAt + 't: setTimeout('.length, 'hold')};`, ctx);

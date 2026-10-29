@@ -5,6 +5,7 @@ import pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
 src = root / 'src'
 parts = [(src / f).read_text(encoding='utf-8') for f in ['cx.js', 'parse.js', 'funcs.js', 'homrange.js', 'glsl.js']]
+parts.append((root / 'test' / 'glsl_tiers.js').read_text(encoding='utf-8'))   # (the tiers and parts: before the page's own test)
 parts.append((root / 'test' / 'glsl_test.js').read_text(encoding='utf-8'))
 js = '\n'.join(parts).replace('</script', '<\\/script')
 html = f"""<!doctype html>

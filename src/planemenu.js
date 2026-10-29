@@ -176,6 +176,7 @@ const PlaneMenu = (() => {
     edit: svg('<path d="M10.5 2.75l2.75 2.75-7.5 7.5H3v-2.75z"/><path d="M9 4.25L11.75 7"/>'),
     cut: svg('<path d="M2.5 8h11" stroke-dasharray="2 2"/><path d="M8 4.5a3.5 3.5 0 1 1-3.5 3.5"/><path d="M4.5 5.5v2.5H7"/>'),
     integral: '<span class="pm-glyph">∮</span>',
+    number: '<span class="pm-glyph">ℂ</span>',
     listen: svg('<path d="M3 6.5v3h2.25L8.5 12V4L5.25 6.5z"/><path d="M10.75 6a2.75 2.75 0 0 1 0 4M12.5 4.25a5 5 0 0 1 0 7.5"/>'),
     // (a composed curve's "Play the composition": a beamed pair of notes)
     piece: svg('<path d="M6 11.5V4.25l6-1.5v7.25"/><circle cx="4.6" cy="11.6" r="1.4"/><circle cx="10.6" cy="10.1" r="1.4"/>'),
@@ -229,6 +230,9 @@ const PlaneMenu = (() => {
       out.push({ id: 'shape-delete', icon: 'trash', danger: true, label: $t('Delete {name}', { name: s.name }), run: () => api.del(s.id) });
       if (s.kind === 'point') out.push(...integrals);
     }
+    // a complex number at the pointer, with its point (X's plane at stage 0, where the shapes live): in a menu that is
+    // already open for a shape there (a plane with nothing under the pointer opens no menu)
+    if (s && api.newNumber && ctx.plane === 'X' && ctx.surface === 'flat' && ctx.stage === 0) out.push({ id: 'number-new', icon: 'number', label: $t('New complex number here'), run: () => api.newNumber(ctx.z) });
     return out;
   }
   // ---- keyboard: Shift+F10 or the Menu key opens it at the keyboard probe, the pointer or the plane's centre; with

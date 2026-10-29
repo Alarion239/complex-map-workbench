@@ -13,7 +13,7 @@
 //    engine's batch
 //    (Sound.HT.events): 250 px/s, one sample a ms, a seat only at the start, the four cuts as cuts, pan from x.
 // Run: node test/t_hear_glue.js
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const vm = require('vm');
 const CX = global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
 const { SEASONG } = require('../src/seasong.js');
@@ -40,7 +40,7 @@ const sb = {
   performance: { now: () => 0 }, setTimeout: () => 0, clearTimeout() {}, console, URL: { createObjectURL: () => '' }, Blob: function () {},
 };
 vm.createContext(sb);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sb);
+vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sb);
 const Sound = sb.Sound;
 check('the engine has the contract: Sound.hear, Sound.along, Sound.HT (events, throughZP)', !!(Sound.hear && Sound.along && Sound.HT && Sound.HT.events && Sound.HT.throughZP && Sound.HT.throughZPAlong));
 
@@ -188,7 +188,7 @@ const move = (g, z, src = 'pointer') => { const [x, y] = px(z); g.clock += 16; g
 {
   const sbx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
   vm.createContext(sbx);
-  for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, sbx, { filename: f + '.js' });
+  for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, sbx, { filename: f + '.js' });
   const [s1, s2] = SEASONG.steps, fU = sbx.Expr.compile(sbx.Expr.parse(s1.params.expr)), fG = sbx.Expr.compile(sbx.Expr.parse(s2.params.expr));
   const F = (z) => fG(fU(z));
   const g = glue();

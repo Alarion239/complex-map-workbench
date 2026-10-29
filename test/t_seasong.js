@@ -10,14 +10,14 @@
 //    just before the downbeat B, which follows it;
 //  * the statements take 5.35, 4.20, 5.35 s (the accelerando of the Möbius map), the whole 19.1 s at 250 px/s.
 // Run: node test/t_seasong.js
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const vm = require('vm');
 const { SEASONG } = require('../src/seasong.js');
 const TAU = 2 * Math.PI;
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, info); } else if (process.env.V) console.log('ok  ', name, info); }
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
-for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
+for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
 const { Expr } = ctx;
 
 const [s1, s2] = SEASONG.steps;

@@ -139,7 +139,9 @@
   function finishInv(e) {
     if (gl.isContextLost && gl.isContextLost()) return;      // not a failure: the restore recompiles
     const p = e.p;
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const linked = gl.getProgramParameter(p, gl.LINK_STATUS);
+    profWaited(e);
+    if (!linked) {
       const log = (!gl.getShaderParameter(e.vs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.vs))
         || (!gl.getShaderParameter(e.fs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.fs)) || gl.getProgramInfoLog(p) || 'link failed';
       gl.deleteShader(e.vs); gl.deleteShader(e.fs); gl.deleteProgram(p);
@@ -777,7 +779,7 @@
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartLand, profile, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -825,6 +827,10 @@
     frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
+    // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)
+    get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
+    // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
+    pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },
