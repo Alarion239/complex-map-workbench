@@ -864,6 +864,7 @@
         if (gInf[side]) return;
         const gs = globeSnap(gc, side, g, s.kind === 'point' ? 'round' : 'cart', s);
         if (!gs.z) return;
+        if (s.kind === 'point' && d.key === 'p' && numberPointGlobe(d, gs.z)) return;
         Region.setHandle(s, d.key, gs.z);
       }
       d.moved = true;
@@ -887,6 +888,7 @@
         if (gInf[side]) return;
         const t = JSON.parse(JSON.stringify(d.s0));
         if (!GL3.rotateShape(t, GL3.rotationTo(d.P0, g.P))) return;
+        if (s.kind === 'point' && numberPointGlobe(d, C(t.p[0], t.p[1]))) return;
         const cap = GL3.capFamily(t) ? GL3.capOf(t) : null;
         const Cs = cap ? infSnapC(gc, cap.C, cap.h) : null;
         if (Cs) { GL3.applyCap(t, Cs, Cs[2]); gSnapMark = { side, P: [0, 0, 1] }; }
@@ -901,6 +903,15 @@
       d.moved = true;
       changed(s);
     }
+  }
+  // a point bound to a free number moved on a globe: the number takes the place (the point follows through the number's
+  // change), as numberPointDrag does on the plane; nothing attaches on the drop. True when the number took the move.
+  function numberPointGlobe(d, z) {
+    const s = d.shape, bn = !d.target && boundNumber(s, 'p'), pr = bn && Params.list().find((q) => q.name === bn);
+    if (!pr || pr.expr) return false;
+    d.boundNum = bn; d.moved = true;
+    Params.set(bn, { re: z.re, im: z.im }, { live: true });
+    return true;
   }
   // the end of a globe gesture: a draft becomes a shape (or a target) when it has a size on screen; an edit is one undo step
   function globeUp(pane, side, d) {
@@ -925,6 +936,7 @@
       return;
     }
     if ((d.mode === 'ghandle' || d.mode === 'gmove') && d.moved) {
+      if (d.boundNum) Params.rest(d.boundNum);
       if (d.target) targetsChanged(true);
       else { if (rightAuto && autoFit()) fitRight(true); scheduleFix(); shapesChanged(true); }
       commit();
