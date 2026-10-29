@@ -66,6 +66,8 @@ reaches our machines.
     (#169). Keep it plugged in too: the settings *on battery* are separate (the laptop's own: sleep after 3 minutes).
   - Mac: *System Settings → Battery → Options*, turn on **Prevent automatic sleeping on power adapter when the display
     is off** (on a desktop Mac: *Energy*).
+    In Terminal the same, with Power Nap off: `sudo pmset -c sleep 0 powernap 0` (check with `pmset -g`). A MacBook
+    with its lid closed sleeps anyway unless an external display is attached: keep the lid open.
 - **Disk:** about 5 GB free (two builds of the app, browser profiles, results). The GLSL job also keeps a shader
   cache in the runner's folder, `_work/_tool/cmw-glsl-cache` (a Chrome profile; 20-50 KB per compiled program, tens
   of MB per version of the shader code): it is what keeps that job short on Windows (ci/README.md, `CMW_GLSL_CACHE`).
@@ -226,6 +228,8 @@ idle page: stuck).
 |---|---|
 | Jobs stay *Queued* | The machine is asleep, logged out, or its runner is not started (section 3 step 4, section 4 step 4). *Settings → Actions → Runners* shows *Offline*. |
 | Jobs stay *Queued* while the runner is online | It is busy: the runner window's last line is `Running job: …`. After the machine slept during a job, that job may already show as failed on GitHub while the runner still works on it; it lets go of it by itself (23 minutes on 2026-10-28), or close the runner window and start `run.cmd` again. Its log is in `C:\actions-runner\_diag\Worker_*.log`. |
+| A job fails after about 6 minutes: "The job was not acquired by Runner of type self-hosted even after multiple attempts" (runner id 0) | The machine sleeps but wakes for the network now and then (Power Nap, dark wake), so GitHub thinks its runner is online and offers it jobs it cannot take (the Mac, on every job from 06:20 on 2026-10-29). Keep it awake on power (section 1), restart the runner's service (`./svc.sh stop && ./svc.sh start`) and check that *Settings → Actions → Runners* shows it *Idle*. |
+| "A self-hosted runner lost communication with the server" | The machine (the Windows laptop) slept or went offline in the middle of a job (#169): section 1, lid and sleep settings. |
 | A cancelled run stays *Queued* | A job that waits for a self-hosted runner is cancelled only when a runner takes it, or after 24 hours, and the run holds its concurrency group (the next push to `main` waits behind it). Force it: `gh api -X POST repos/Alarion239/complex-map-workbench/actions/runs/<run id>/force-cancel`. |
 | "No GPU" in **gpu probe** | See section 5, step 3. |
 | "Rosetta" in **gpu probe** (Mac) | The runner is the x64 package, translated on Apple silicon: install the ARM64 one (section 4, *Replacing an x64 runner with the arm64 build*). |
