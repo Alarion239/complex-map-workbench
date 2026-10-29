@@ -61,7 +61,7 @@ ok('a paired job chosen by its runner is forced (A/A); one chosen by the app is 
 ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_shards.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
 
 // T3
-for (const f of ['src/app/wrap.js', 'src/gl/wrap.js', 'src/app/01-core.js', 'build.py', 'tools/src_parts.py']) {
+for (const f of ['src/app/wrap.js', 'src/gl/wrap.js', 'src/app/01-core.js', 'build.py', 'tools/src_parts.py', 'tools/bundle.mjs']) {
   const p = select([f]);
   ok(`T3: ${f}`, p.tier === 'T3' && p.full && same(p.browser, ALL) && p.glsl.length === 14 && p.quality.length === 3 && p.perf, p.tier);
 }
