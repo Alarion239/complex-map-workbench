@@ -52,9 +52,19 @@ reaches our machines.
 - **Power:** keep the machine plugged in and stop it from sleeping on power:
   - Windows: *Settings → System → Power & battery → Screen and sleep*, "When plugged in, put my device to sleep
     after" **Never**.
+  - **A laptop: closing the lid must not sleep it.** *Control Panel → Hardware and Sound → Power Options → Choose
+    what closing the lid does*, "When I close the lid", *Plugged in*: **Do nothing** (or in an administrator
+    PowerShell: `powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0; powercfg /setactive SCHEME_CURRENT`).
+    The idle setting above does not cover the lid. On 2026-10-28 the Windows laptop slept with its lid closed for 53
+    minutes in the middle of a GLSL job: GitHub marked the job failed 3 minutes later, and the runner, once awake,
+    kept working on the job for another 23 minutes before it took the next one, while every other GPU job waited
+    (#169). Keep it plugged in too: the settings *on battery* are separate (the laptop's own: sleep after 3 minutes).
   - Mac: *System Settings → Battery → Options*, turn on **Prevent automatic sleeping on power adapter when the display
     is off** (on a desktop Mac: *Energy*).
-- **Disk:** about 5 GB free (two builds of the app, browser profiles, results).
+- **Disk:** about 5 GB free (two builds of the app, browser profiles, results). The GLSL job also keeps a shader
+  cache in the runner's folder, `_work/_tool/cmw-glsl-cache` (a Chrome profile; 20-50 KB per compiled program, tens
+  of MB per version of the shader code): it is what keeps that job short on Windows (ci/README.md, `CMW_GLSL_CACHE`).
+  Deleting it is safe; the next run compiles everything again, which on the Windows laptop takes hours.
 
 ## 3. The Windows laptop
 
@@ -170,6 +180,15 @@ jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's 
 
 The first run builds two copies of the app and runs every shard on both machines. On a GPU a shard takes a few
 minutes, so the whole gate takes roughly one to two hours per machine; the two machines work in parallel.
+The Windows laptop's GLSL job is the exception the first time: Direct3D 11 compiles every shader program on the CPU
+(the glsl page alone takes hours a side; one program took 12 minutes), where the Mac takes 7 minutes for all three
+pages. The first runs may hit the job's 240 minutes; each keeps what it compiled in the shader cache (section 2,
+*Disk*), so the next goes further, and from then on only programs whose code changed compile: 1/64 of the glsl page
+took 103 s cold and 7 s warm. To warm the cache in one go, run on the laptop, in a checkout of `main` (hours; not
+while the runner has a GLSL job):
+`$env:CMW_GLSL_CACHE='C:\actions-runner\_work\_tool\cmw-glsl-cache'; node ci/glsl.js --ref HEAD~1 --force`.
+Each page prints a line a minute while it runs, with how busy Chrome's GPU process was (busy: compiling; idle with an
+idle page: stuck).
 
 ## 6. Everyday use
 
@@ -190,6 +209,8 @@ minutes, so the whole gate takes roughly one to two hours per machine; the two m
 | symptom | fix |
 |---|---|
 | Jobs stay *Queued* | The machine is asleep, logged out, or its runner is not started (section 3 step 4, section 4 step 4). *Settings → Actions → Runners* shows *Offline*. |
+| Jobs stay *Queued* while the runner is online | It is busy: the runner window's last line is `Running job: …`. After the machine slept during a job, that job may already show as failed on GitHub while the runner still works on it; it lets go of it by itself (23 minutes on 2026-10-28), or close the runner window and start `run.cmd` again. Its log is in `C:\actions-runner\_diag\Worker_*.log`. |
+| A cancelled run stays *Queued* | A job that waits for a self-hosted runner is cancelled only when a runner takes it, or after 24 hours, and the run holds its concurrency group (the next push to `main` waits behind it). Force it: `gh api -X POST repos/Alarion239/complex-map-workbench/actions/runs/<run id>/force-cancel`. |
 | "No GPU" in **gpu probe** | See section 5, step 3. |
 | `Google Chrome not found` | Chrome is not in its usual place. Put `CHROME_BIN=<path to chrome>` and `CHROME=<same path>` in the file `.env` in the runner's folder, then restart the runner. |
 | `python` or `git` not found | Install it (section 2), then restart the runner so it sees the new PATH. |
