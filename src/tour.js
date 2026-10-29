@@ -516,7 +516,7 @@ const Tour = (() => {
     // a name (Im, log, an \operatorname) is set off by U+0003 marks, so two names written together keep a space
     // between them (\operatorname{Im}\log z: "Im log z", not "Imlog z"); the marks are resolved once the names are read
     s = s.replace(/\\operatorname\{(\w+)\}/g, '\u0003$1\u0003').replace(/\\(Re|Im|arg|log|sin|cos|exp)\b/g, '\u0003$1\u0003');
-    const WORDS = { pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', zeta: 'ζ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉' };
+    const WORDS = { pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', zeta: 'ζ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉', Phi: 'Φ', phi: 'φ', varphi: 'φ' };
     s = s.replace(/\\([a-zA-Z]+)/g, (m, w) => (WORDS[w] != null ? WORDS[w] : '\u0003' + w + '\u0003'));
     // a name's mark becomes a space between two letters (Im|log, i|Res), else nothing (sin|(z), log| z, Res|_i)
     s = s.replace(/\u0003+/g, (m, at, all) => (/\p{L}/u.test(all[at - 1] || '') && /\p{L}/u.test(all[at + m.length] || '') ? ' ' : ''));
