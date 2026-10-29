@@ -289,6 +289,7 @@
     }
     return u;
   }
+  const headRO = new WeakSet();   // (the pane heads observed for their width)
   function layoutFootSide(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     const phone = phoneMQ.matches;
@@ -300,9 +301,9 @@
     if (inHead && f.hidden) f.hidden = false;
     // (a head whose width changes on its own, the panels or the fonts settling after the first layout, lays its row out
     // again: the cache key below holds its width, so an unchanged head costs nothing)
-    if (inHead && !f.parentElement._footRO && typeof ResizeObserver === 'function') {
-      f.parentElement._footRO = new ResizeObserver(() => { if (f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side); });
-      f.parentElement._footRO.observe(f.parentElement);
+    if (inHead && !headRO.has(f.parentElement) && typeof ResizeObserver === 'function') {
+      headRO.add(f.parentElement);
+      new ResizeObserver(() => { if (f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side); }).observe(f.parentElement);
     }
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note');
