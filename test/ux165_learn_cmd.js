@@ -43,9 +43,9 @@ await shot('ux165-ux21-laptop');
 await laptop(1366, 768, true); await settle(300); await shot('ux165-ux21-laptop-dark'); await laptop();
 await ev(`document.querySelector('.tour-lane .btn.primary').click()`); await settle(1500);
 check('UX21 laptop: Start runs the tour from Basics, and the line has gone', (await ev('Tour.isActive() && Tour.current().chapter === "basics"')) && !(await ev(`!!document.querySelector('.tour-lane')`)));
-// (v16.5 UX77) Details folded at first on a laptop; the welcome lead says the practice is cleared (UX90)
-g = await ev(`({ why: Tour.lit() ? Tour.lit().why : null, wl: (document.querySelector('.ts-wlw') || {}).textContent, lead: (document.querySelector('#tourLead') || {}).textContent })`);
-check('UX77: Details starts folded at 1366, and is called Details', g.why === false && /Details/.test(g.wl || ''), g);
+// (#250) no Details on a laptop: the strip's text is plain, with the key on Next and the switch beside ×; the welcome lead says the practice is cleared (UX90)
+g = await ev(`({ why: Tour.lit() ? Tour.lit().why : null, details: [...document.querySelectorAll('.tour-strip *')].some((e) => /Details/.test(e.textContent) || /Details/.test(e.getAttribute('aria-label') || '')), key: getComputedStyle(document.querySelector('.ts-next'), '::after').content, autob: !!document.querySelector('.ts-autob') && document.querySelector('.ts-autob').getClientRects().length > 0, textBtn: document.querySelector('.ts-text').getAttribute('role'), lead: (document.querySelector('#tourLead') || {}).textContent })`);
+check('#250: no Details at 1366; Next carries →, Move on by itself is a switch in the row, the text is plain', g.why === false && !g.details && g.key === '"→"' && g.autob && g.textBtn === 'presentation', g);
 check('UX90: the welcome lead says what is cleared', /Practice freely: what you draw here is cleared at the end/.test(g.lead || ''), g.lead);
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(500); await ev('Tour.stop()'); await settle(300);
 await laptop(1440, 900);
@@ -54,7 +54,7 @@ await fresh('ux165w'); await settle(1500);
 await ready();
 await ev(`Tour.start({ chapter: 'views' })`); await settle(1500);
 for (let i = 0; i < 20 && !(await ev('!!Tour.lit()')); i++) await sleep(250);
-check('UX77: Details folded at 1440 x 900 too (it opened from 1280 x 800 up)', (await ev('Tour.lit() && Tour.lit().why')) === false);
+check('#250: no sheet at 1440 x 900 either', (await ev('Tour.lit() && Tour.lit().why')) === false && (await ev(`!document.querySelector('#tourWhy') || !document.querySelector('#tourWhy').isConnected`)));
 await ev('Tour.stop()'); await settle(300);
 await laptop();
 
@@ -183,9 +183,9 @@ const palOpen = await ev(`!!document.querySelector('#popHost .pop')`);
 const tt = await box('.tour-strip .ts-text');
 await tap(tt.l + 30, tt.t + 10); await settle(500);
 g = await ev(`({ pal: !!document.querySelector('#popHost .pop'), why: Tour.lit() && Tour.lit().why, active: Tour.isActive() })`);
-check('UX89 phone: a tap on the strip that closes the open function list neither opens Details nor ends anything', palOpen && !g.pal && g.why === false && g.active, Object.assign({ palOpen }, g));
+check('UX89 phone: a tap on the strip that closes the open function list neither opens the sheet nor ends anything', palOpen && !g.pal && g.why === false && g.active, Object.assign({ palOpen }, g));
 await tap(tt.l + 30, tt.t + 10); await settle(500);
-check('UX89: the next tap on the strip opens Details as before', (await ev('Tour.lit() && Tour.lit().why')) === true);
+check('UX89: the next tap on the strip opens the sheet as before', (await ev('Tour.lit() && Tour.lit().why')) === true);
 await ev('Tour.stop()'); await settle(300);
 grab();
 

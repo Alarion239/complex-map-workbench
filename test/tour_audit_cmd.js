@@ -58,7 +58,7 @@ const PROBE = `(() => {
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
   const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length < 4 || c[3] > 0.5) return c; } return rgb(getComputedStyle(document.body).backgroundColor); };
   const con = {};
-  for (const [n, sel] of [['title', '.ts-title'], ['lead', '#tourLead'], ['count', '.ts-count'], ['why', '.ts-wl']]) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && e.textContent.trim()) con[n] = +ratio(rgb(getComputedStyle(e).color), bgOf(e)).toFixed(2); }
+  for (const [n, sel] of [['title', '.ts-title'], ['lead', '#tourLead'], ['count', '.ts-count'], ['why', '.ts-chev']]) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && e.textContent.trim()) con[n] = +ratio(rgb(getComputedStyle(e).color), bgOf(e)).toFixed(2); }
   const nx = strip.querySelector('.ts-next'), ncs = getComputedStyle(nx), fill = getComputedStyle(document.documentElement).getPropertyValue('--accent-hover').trim();
   const hex = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
   con.next = +ratio(rgb(ncs.color), rgb(ncs.backgroundColor)).toFixed(2);
