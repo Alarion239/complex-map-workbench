@@ -94,8 +94,8 @@ Each team has the same hierarchy.
   green.
 - Each merged wave is a release, deployed to the live page by hand: `v17.0-beta.N` is wave N, then `v17.0` and
   `v17.x`.
-- Only Alexander's orchestrator does these: merge into the integration branch or `main`, push tags, or run the Pages
-  deploy.
+- Only Alexander's orchestrator merges into the integration branch or `main` and runs the Pages deploy. The tag for each
+  release is pushed by Alexander: the orchestrator's session cannot push tags.
 - While a wave's gate runs, work on the next issues from the integration head. After the wave merges, merge the
   integration branch into your branch.
 - **Freezes** are announced on the board. During the switch to ES modules (#20 phase 4), no `src/` PR merges.
