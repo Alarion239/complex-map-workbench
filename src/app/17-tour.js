@@ -71,12 +71,15 @@
   // Listen along the current scene's curve: the shape with a melody, else its last closed curve (the tour's act button)
   function tourListen() {
     if (!SND || typeof (window.AudioContext || window.webkitAudioContext) !== 'function') return false;
-    const s = S.shapes.find((x) => x.listen && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || null;
+    // (the example's curve: with a score, or, once the example is a function with no score, its one curve)
+    const s = S.shapes.find((x) => sndIsSong(x) && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || S.shapes.find((x) => x.visible !== false && x.kind === 'curve') || null;
     if (!s) return false;
     if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); }
-    if (sndP.on && sndP.events) return sndListenShape(s) !== false;
+    // (the composition, as the tour's song step and its captions describe it)
+    const piece = !!sndListenOf(s);
+    if (sndP.on && sndP.events) return sndListenShape(s, piece) !== false;
     tourSoundHold({ on: true, events: true });
-    sndTurnOnListen(s);
+    sndTurnOnListen(s, piece);
     return true;
   }
   // the end of a drag in a pane (onUp): a shape or target moved or reshaped, a zero or pole dragged, a cut dragged
@@ -180,7 +183,7 @@
     if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
     if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines: the harp's strings)
+    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines)
     if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
@@ -244,15 +247,15 @@
     },
     sceneSpec: (name) => {
       if (name !== 'song') return null;
-      const ex = EX.find((x) => x.shapes.some((sh) => sh.listen));
-      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, rightMode: ex.rightMode, dc: ex.dc } : null;
+      const ex = EX.find((x) => x.song || x.shapes.some((sh) => sh.listen));
+      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, sectors: ex.sectors, song: ex.song, rightMode: ex.rightMode, dc: ex.dc } : null;
     },
     listen: tourListen,
     soundHold: tourSoundHold,
     soundStop: () => { sndStopPlay(false); return true; },
     soundReady: tourSoundReady,
-    soundPlaying: () => !!snd.play,
-    soundState: () => ({ on: !!sndP.on, events: !!sndP.events, sonify: !!sndP.sonify, audio: SND ? SND.state().audio : 'none', playing: !!snd.play }),
+    soundPlaying: () => !!(snd.play || snd.prep),
+    soundState: () => ({ on: !!sndP.on, events: !!sndP.events, sonify: !!sndP.sonify, audio: SND ? SND.state().audio : 'none', playing: !!(snd.play || snd.prep) }),
     setView: (main) => setMain(main),
     setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
     setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },

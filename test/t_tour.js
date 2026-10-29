@@ -81,6 +81,7 @@ for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/for
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
 const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
 const EVENTS_USED = new Set();
 for (const s of steps) {
@@ -105,7 +106,10 @@ for (const s of steps) {
   if (s.lead) ok(`${id}: lead, one sentence, at most 60, a full stop`, one(s.lead) && T.plainCopy(s.lead, 'Ctrl').length <= 60 && /\.$/.test(s.lead), s.lead);
   if (s.try && s.try.then) ok(`${id}: result line, one sentence, at most 60, a full stop`, one(s.try.then) && T.plainCopy(s.try.then, 'Ctrl').length <= 60 && /\.$/.test(s.try.then), s.try.then);
   for (const [sec, c] of s.captions || []) ok(`${id}: caption at ${sec} s, at most two sentences, 60, a full stop`, Number.isFinite(sec) && sentences(c) <= 2 && T.plainCopy(c, 'Ctrl').length <= 60 && /\.$/.test(c), c);
-  if (s.captions) ok(`${id}: captions ascending, within the piece (22.97 s), on a listen step`, s.captions.every((c, i) => i === 0 || c[0] > s.captions[i - 1][0]) && s.captions.every((c) => c[0] >= 0 && c[0] < 22.97) && s.act === 'listen', s.captions.map((c) => c[0]));
+  // (v16.5: capFrac, the captions of the function's Listen along, at fractions of its duration in [0, 1); else
+  // seconds within the composition's 22.97 s)
+  if (s.captions) ok(`${id}: captions ascending, within the piece (${s.capFrac ? 'fractions of it' : '22.97 s'}), on a listen step`, s.captions.every((c, i) => i === 0 || c[0] > s.captions[i - 1][0]) && s.captions.every((c) => c[0] >= 0 && c[0] < (s.capFrac ? 1 : 22.97)) && s.act === 'listen', s.captions.map((c) => c[0]));
+  if (id === 'sound/song') ok(`${id}: the function's Listen along, so its captions are fractions of its duration`, s.capFrac === true, s.capFrac);
   if (s.act != null) ok(`${id}: act is listen or sound`, ['listen', 'sound'].includes(s.act), s.act);
   if (s.hear != null) ok(`${id}: hear is true, in the Sound chapter`, s.hear === true && s.ch === 'sound');
   if (s.try && s.try.after) { const c = CH.find((x) => x.id === s.ch); const i = c.steps.findIndex((x) => x.id === s.try.after), j = c.steps.findIndex((x) => x.id === s.id); ok(`${id}: try.after names an earlier task step of its chapter`, i >= 0 && i < j && !!c.steps[i].try, s.try.after); }
@@ -114,6 +118,8 @@ for (const s of steps) {
   for (const t of [s.lead, s.try && s.try.text, s.try && s.try.touch, s.try && s.try.then, ...(s.captions || []).map((c) => c[1])].filter(Boolean)) {
     const ru = RU[t];
     ok(`${id}: Russian of "${t.slice(0, 30)}" at most 64 as read`, typeof ru === 'string' && T.plainCopy(ru, 'Ctrl').length <= 64, ru);
+    // (the Italian too, in the Sound chapter, whose strings are this branch's)
+    if (s.ch === 'sound') { const it = IT[t]; ok(`${id}: Italian of "${t.slice(0, 30)}" at most 64 as read`, typeof it === 'string' && T.plainCopy(it, 'Ctrl').length <= 64, it); }
   }
   for (const a of s.before || []) {
     ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'deform', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);

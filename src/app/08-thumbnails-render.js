@@ -178,7 +178,7 @@
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
     } else {
-      fitPane(pane, k);
+      fitPane(pane, k, [], undefined, fitMs > FIT_LIVE_MS);
       pane.begin(TH.plane);
       if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
       if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
@@ -462,22 +462,33 @@
     if (drag || now - lastChangeT < 150) { TeX.hush(); scrubT = now; }
     lastChangeT = now;
   }
-  function chainChanged(structural) {
+  // ([#243, #241] what the last chain change cost, ms, all of it and the fit of the views in it (a series' fit samples
+  // it on the CPU): a live change (a slider dragged) of a chain whose fit costs more than FIT_LIVE_MS keeps the views
+  // until the drag ends, whose change at rest fits them; a field and a slider of a costly chain wait for a pause or the
+  // next frame (paramField, onParamChange))
+  let chainMs = 0, fitMs = 0, fitLate = 0;
+  const FIT_LIVE_MS = 12;
+  const chainCost = () => chainMs + fitLate;   // (with the fit in slices after it)
+  function chainChanged(structural, o) {
+    const t0 = performance.now();
     noteChange();
     rebuild();
     cmChain();   // (v16: step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
     if (structural) buildPipeline(); else updateCards();
-    if (rightAuto && autoFit()) fitRight();
+    const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !morphOn() && !hasTargets(), tf = performance.now();
+    if (fit && rightAuto && autoFit()) { if (sliced) fitRightSliced(); else fitRight(); }
     const ls = leftStage() + ':' + chainSig[leftStage()];
-    if (leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
-    lastLeftSig = ls;
+    if (fit && leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
+    if (fit) lastLeftSig = ls;
+    if (fit && !sliced) { fitMs = performance.now() - tf; fitLate = 0; }
     if (morph.open && !morphRange().steps.length) closeTransport();
     scheduleFix();
     updateLeds();
     refreshIntPop();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
     requestRender('L', 'R', 'T', 'P');
+    chainMs = performance.now() - t0;
   }
   function shapesChangedAll(structural) { shapesChanged(structural); }
   function shapesChanged(structural) {
@@ -534,7 +545,31 @@
       }
     return target;
   }
+  // ([#243] a costly fit of Y (the last took over FIT_LIVE_MS: a series sampled on the CPU) after a chain change: its
+  // samples are taken in slices of FIT_SLICE ms between which the page draws and takes input; Y keeps its view until
+  // the fit is ready; a newer change or fit drops it)
+  const fitJob = { token: 0 };
+  const FIT_SLICE = 8;
+  const yieldFit = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function' ? scheduler.yield() : yieldTask());
+  async function fitRightSliced() {
+    const token = ++fitJob.token, k = rightStage(), sig = chainSig[k];
+    const xs = [], ys = [], it = stageSampler(stageF(k), xs, ys, k);
+    let t0 = performance.now(), ms = 0;
+    for (let r = it.next(); !r.done; r = it.next()) {
+      if (performance.now() - t0 < FIT_SLICE) continue;
+      ms += performance.now() - t0;
+      await yieldFit();
+      if (token !== fitJob.token) return;
+      t0 = performance.now();
+    }
+    fitMs = fitLate = ms + performance.now() - t0;
+    if (rightStage() !== k || chainSig[k] !== sig || !(rightAuto && autoFit()) || morphOn() || hasTargets()) return;
+    paneR.setView(V.right);
+    Object.assign(V.right, boxView(paneR, robustBox(xs, ys) || { x0: -2, x1: 2, y0: -2, y1: 2 }));
+    requestRender('R', 'T');
+  }
   function fitRight(animate, withT) {
+    fitJob.token++;
     paneR.setView(V.right);
     let target;
     if (morphOn()) target = defFitView(paneR, withT);

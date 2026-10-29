@@ -178,6 +178,8 @@ const PlaneMenu = (() => {
     integral: '<span class="pm-glyph">∮</span>',
     number: '<span class="pm-glyph">ℂ</span>',
     listen: svg('<path d="M3 6.5v3h2.25L8.5 12V4L5.25 6.5z"/><path d="M10.75 6a2.75 2.75 0 0 1 0 4M12.5 4.25a5 5 0 0 1 0 7.5"/>'),
+    // (a composed curve's "Play the composition": a beamed pair of notes)
+    piece: svg('<path d="M6 11.5V4.25l6-1.5v7.25"/><circle cx="4.6" cy="11.6" r="1.4"/><circle cx="10.6" cy="10.1" r="1.4"/>'),
   };
 
   // ---- the built-in groups
@@ -212,7 +214,7 @@ const PlaneMenu = (() => {
     const vtx = ctx.surface === 'flat' && api.vertexAt ? api.vertexAt(ctx.side, ctx.x, ctx.y, ctx.touch) : null;
     if (vtx) out.push({ id: 'vertex-remove', icon: 'trash', label: $t('Remove vertex'), disabled: vtx.n <= 3, run: () => api.removeVertex(vtx.id, vtx.i) });
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
-    const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id).map((it) => ({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run }));
+    const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id).map((it) => ({ id: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', icon: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', label: it.label, run: it.run }));
     // ([v16.5 UX56] a point is the menu's subject: its items come before the curve's integral)
     if (!(s && s.kind === 'point')) out.push(...integrals);
     if (s) {

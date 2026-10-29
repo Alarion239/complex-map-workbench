@@ -401,7 +401,14 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     return { out: plan.up ? trustedR(plan.up, 1, NG, plan.R) : Infinity, in: plan.down ? trustedR(plan.down, -1, NG, plan.r) : 0 };
   }
   // ---- custom formulas: mirror Expr.compile ----
-  function genCustom(ast, P, A, TH, writers, lines, shape = []) {
+  // a subtree that holds a shared number (its value is a uniform, never in the program key)
+  const hasParam = (n) => (n.t === 'num' ? n.param != null : Object.keys(n).some((k) => {
+    const x = n[k];
+    return !!x && typeof x === 'object' && (Array.isArray(x) ? x.some((y) => !!y && !!y.t && hasParam(y)) : !!x.t && hasParam(x));
+  }));
+  // baked: when given (a custom step, whose key holds it), constant exponents are specialized and their kinds pushed
+  // here; without it (d/dz, whose key holds its own source) they stay uniforms through cx_powk
+  function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = []) {
     let tmp = 0, out = lines;
     const dep = Expr.depends;
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
@@ -685,6 +692,39 @@ ${inner.map((x) => '  ' + x).join('\n')}
         case 'mul': { const a = g(n.a), b = g(n.b); return tv(`cmul(${a}, ${b})`); }
         case 'div': { const a = g(n.a), b = g(n.b); return tv(`cdiv(${a}, ${b})`); }
         case 'pow': {
+          if (!dep(n.b) && baked && !hasParam(n.b)) {
+            // a constant exponent without a shared number: its kind, and an integer's value, go into the program key
+            // (baked; Expr.compile takes constants at their principal value whatever the cut), so only the branch of
+            // cx_powk that it takes is compiled. Direct3D's FXC inlines all three branches at every call
+            // site and unrolls cx_ipow32's 32 rounds: 0.5 to 1.4 s of compile per power (sound/impl/CUSTOM-PLAN.md P1).
+            // (Measured on Iris Xe, D3D11, 16 call sites in one program: cx_powk 6.8 to 16 s, cx_ipow32 alone 0.15 to
+            // 0.45 s, cpowr or cx_powg alone 0.6 to 2.2 s, so the cost is the three branches together. cx_ipow32 keeps
+            // its constant-bound loop: the same rounds with the test at the end of the loop took 0.9 to 2.1 s.)
+            const a = g(n.a);
+            // (classified at cut 0, written at the step's cut th: the same value, a constant is principal whatever the cut)
+            const v = constOf(n.b, 0);
+            if (v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096) {
+              // cx_ipow32's rounds written out for this n: the same cmul calls in the same order, so the same values
+              baked.push(['i', v.re]);
+              if (v.re === 0) return 'vec2(1.0, 0.0)';   // (z^0 = 1 at ∞ and NaN too, as Expr.compile gives)
+              let m = Math.abs(v.re), b = v.re < 0 ? tv(`cinv(${a})`) : a, r = 'vec2(1.0, 0.0)';
+              for (;;) {
+                if (m & 1) r = tv(`cmul(${r}, ${b})`);
+                m >>= 1;
+                if (m <= 0) return r;
+                b = tv(`cmul(${b}, ${b})`);
+              }
+            }
+            const cell = A.cell();
+            if (v.im === 0) {
+              baked.push(['r']);
+              writers.push((put, th) => put(cell.c, constOf(n.b, th).re, 0));
+              return tv(`cpowr(${a}, ${cell.x}, ${TH}, 0.0)`);
+            }
+            baked.push(['c']);
+            writers.push((put, th) => putC(put, cell, constOf(n.b, th)));
+            return tv(`cx_powg(${a}, ${cell.v}, ${TH}, 0.0)`);
+          }
           if (!dep(n.b)) {
             const a = g(n.a);
             const s = A.slot();
@@ -1257,10 +1297,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const cut = A.cell();
         const TH = cut.x;
         const writers = [], lines = [], shape = [];
-        const res = genCustom(ast, P, A, TH, writers, lines, shape);
+        const baked = [];
+        const res = genCustom(ast, P, A, TH, writers, lines, baked, shape);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
@@ -1269,13 +1310,34 @@ vec2 cx_binom(vec2 a, vec2 b) {
   }
 
   // The program key of a formula: its tree without positions or spelling (z^{i} and z^i, \\frac12 and 1/2 are one key),
-  // a shared number by its name (its value is a uniform), any other constant by its value (the sheet code bakes in an
-  // integer exponent)
+  // a shared number by its name, and no number's value: every number is a uniform (genCustom, genCustomPair and
+  // derivPlan write constants at fill time), so changing one does not compile again. What the code is built from
+  // goes in beside it: the exponents genCustom bakes in (its baked list), those the sheet code bakes in (pairBaked),
+  // and d/dz's own source (build).
   function astSig(n) {
     return JSON.stringify(n, (k, x) => (k === 'pos' || k === 'len' || k === 'lit' || k === 's' || k === 'name' ? undefined
-      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : [x.v.re, x.v.im])
+      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : '#')
         // ([issue #6] a recurrence's constant N is a uniform: a new N is the same program)
         : x && typeof x === 'object' && x.t === 'iter' && !Expr.depends(x.hi) ? Object.assign({}, x, { hi: '#N' }) : x));
+  }
+  // What the sheet code (genCustomPair) builds from the values of constant exponents without a shared number, in tree
+  // order: Funcs.branchNode null (an integer, |n| <= 4096) writes the integer into cipow; any other exponent is a
+  // branch node, 'n', whose value and sheet count are uniforms. An exponent with a shared number is always a branch
+  // node there (paramPow), whatever its value, so the code does not depend on it and a slider never compiles again
+  function pairBaked(ast) {
+    const out = [];
+    const walk = (n) => {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!n.t) return;
+      for (const k of Object.keys(n)) if (n[k] && typeof n[k] === 'object') walk(n[k]);
+      if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && !hasParam(n.b)) {
+        const bn = typeof Funcs !== 'undefined' && Funcs.branchNode ? Funcs.branchNode(n) : null;
+        out.push(bn ? 'n' : Expr.compile(n.b)(C(0, 0)).re);
+      }
+    };
+    walk(ast);
+    return out;
   }
   // A formula recognized as catalog steps (Funcs: b.rec): each step's own plan, as functions of their own (P r j), and
   // the step as their composition; its homotopy runs the steps' own homotopies in turn, step j on [j/n, (j+1)/n]
@@ -1387,6 +1449,14 @@ vec2 cx_binom(vec2 a, vec2 b) {
       gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad',
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
+    // (an exponent with a shared number, z^{a}: a branch node whatever a is, its value and sheet count read when the
+    // uniforms are filled; an integer a is one sheet, a digit of radix 1 that takes nothing from c, and cpow on any
+    // sheet is z^a. So the code, and the key (astSig, pairBaked), do not depend on a. The price: an integer a goes
+    // through cpow (exp and log, about 1e-4 relative at large |z|) where a typed integer takes cipow, in the sheet view only)
+    const paramPow = (b) => {
+      const vOf = () => constOf(b), intOf = (v) => v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096;
+      return { kind: 'powc', get v() { return vOf(); }, get n() { const v = vOf(); return intOf(v) ? 1 : Funcs.sheetCount(v); } };
+    };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
     // (v16.1 review math-3: the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
     function node(bn, inC) {
@@ -1419,7 +1489,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
           return pair(op(a[0], b[0]), op(a[1], b[1]));
         }
         case 'pow': {
-          const bn = Funcs.branchNode(n);
+          const bn = !dep(n.b) && hasParam(n.b) ? paramPow(n.b) : Funcs.branchNode(n);
           if (!dep(n.b)) {
             const a = g(n.a);
             if (!bn) { const k = constOf(n.b).re; return both((x) => `cipow(${x}, ${k})`, a); }
@@ -1535,7 +1605,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
     const ast = b.ast || Expr.parse(v.expr);
     // no branch node: single-valued, both points go through P_f (and no uniforms are spent on a pair version)
-    const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || ['a', 'b'].some((k) => hasNode(n[k])));
+    // (an exponent with a shared number is a node whatever its value: genCustomPair's paramPow)
+    const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && hasParam(n.b)) || ['a', 'b'].some((k) => hasNode(n[k])));
     if (!hasNode(ast)) return null;
     const writers = [], lines = [];
     const { res, rads } = genCustomPair(ast, `${P}_p`, A, writers, lines, (v.cut ?? 180) * Math.PI / 180);

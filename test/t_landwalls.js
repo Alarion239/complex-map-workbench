@@ -483,6 +483,6 @@ console.log(JSON.stringify({ midpointJumps: midJumps }));
   console.log(JSON.stringify({ poleCrossing: { worstOff1h: +worst.toExponential(2), worstOffLinear: +worstLin.toFixed(3) } }));
   ok(worst < 1e-9, `box clip at a pole: off by ${worst} of an edge`);
 }
-require('fs').writeFileSync(process.env.LW_OUT || '/dev/null', JSON.stringify(rows, null, 1));
+require('fs').writeFileSync(process.env.LW_OUT || require('os').devNull, JSON.stringify(rows, null, 1));
 console.log(fails ? `t_landwalls: ${fails} FAILED` : 't_landwalls: all passed');
 process.exit(fails ? 1 : 0);
