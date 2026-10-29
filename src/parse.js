@@ -72,6 +72,8 @@ const Expr = (() => {
   // cannot read the whole run (xi stays x i, chi stays ch i). Without the hook (node tests) nothing changes.
   let NAMES = null, NAMED = null;
   const setNames = (h) => { NAMES = h || null; };
+  // a shared number's value by its name (Repeat × N's N bound to a number), or undefined
+  const nameValue = (name) => (NAMES ? NAMES.get(name) : undefined);
   const GREEK = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Lambda: 'Λ', Xi: 'Ξ', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
   const GREEK_TEX = Object.assign({ varepsilon: 'ε', varphi: 'φ', varrho: 'ρ', varsigma: 'σ' }, GREEK);
   const GREEK_WORD = Object.assign({}, GREEK);
@@ -159,14 +161,14 @@ const Expr = (() => {
   function scanIdx(src) {
     const out = new Set();
     for (const m of src.matchAll(/(?:\\sum|\\prod|[Σ∑∏])\s*(?:\\(?:no)?limits\s*)?(?:\^\s*(?:\{[^{}]*\}|\\[A-Za-z]+|\S)\s*)?_\s*\{?\s*([A-Za-z])(?![A-Za-z])/g)) if (!LETTERS[m[1]]) out.add(m[1]);
-    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod)\s*\(/g)) {
+    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod|iter)\s*\(|\\(?:operatorname|mathrm)\s*\{\s*iter\s*\}\s*(?:\\left\s*)?\(/g)) {
       let d = 0, j = (m.index || 0) + m[0].length;
       for (; j < src.length; j++) {
         const c = src[j];
         if ('([{'.includes(c)) d++;
         else if (')]}'.includes(c)) { if (!d) break; d--; } else if (c === ',' && !d) break;
       }
-      const mm = /^,\s*([A-Za-z])\s*,/.exec(src.slice(j));
+      const mm = /^,(?:\s|\\[ ,;:!])*([A-Za-z])(?:\s|\\[ ,;:!])*,/.exec(src.slice(j));
       if (mm && !LETTERS[mm[1]]) out.add(mm[1]);
     }
     return out;
@@ -253,6 +255,9 @@ const Expr = (() => {
         // ψ as \operatorname{\psi}(z) (a bare \psi stays a name)
         const op = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*\\psi\s*\}/.exec(src.slice(i + m[0].length));
         if (op && callsAt(src, i + m[0].length + op[0].length)) { toks.push({ t: 'func', v: 'digamma', pos: i }); i += m[0].length + op[0].length; continue; }
+        // ([issue #6] \operatorname{iter}(…), as toTex writes a recurrence inside a formula)
+        const opi = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*iter\s*\}/.exec(src.slice(i + m[0].length));
+        if (opi && callsAt(src, i + m[0].length + opi[0].length)) { toks.push({ t: 'iterfn', pos: i }); i += m[0].length + opi[0].length; continue; }
         const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
         if (!spec && NAMES && GREEK_TEX[name]) {
           const sb = subAt(src, i + m[0].length);
@@ -306,8 +311,9 @@ const Expr = (() => {
         const rest = src.slice(i);
         // [issue #5] sum( prod( binom( (only so, a call), inf as a sum's limit, and a sum's index (not where a name of
         // the plain language starts: n in "not")
-        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom)(?=\s*\()/.exec(rest);
-        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom' }[fw[1]], pos: i }); i += fw[1].length; continue; }
+        // ([issue #6] and iter( : a recurrence, iter(g, u, u₀, N))
+        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom|iter)(?=\s*\()/.exec(rest);
+        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom', iter: 'iterfn' }[fw[1]], pos: i }); i += fw[1].length; continue; }
         const iw = BOUND.size && !/[A-Za-z]/.test(src[i - 1] || '') && /^inf(?:inity)?(?![A-Za-z])/.exec(rest);
         if (iw) { toks.push(INF_T(i)); i += iw[0].length; continue; }
         if (BOUND.has(ch) && !PLAIN_NAMES.some((nm) => rest.startsWith(nm))) { toks.push({ t: 'idx', v: ch, pos: i }); i++; continue; }
@@ -380,11 +386,13 @@ const Expr = (() => {
 
   // the names in a text, as written: [{pos, len, name}] (a list or a formula that does not parse yet: the names before
   // the first error; ';' lists read like ',' lists)
-  function nameSpans(src) {
+  // (opts.bound: the letters the field binds, a series' n, a recurrence's u: never names, as parse(src, {bound}))
+  function nameSpans(src, opts) {
     if (!NAMES) return [];
     const saved = NAMED;
     NAMED = { unknown: [], spans: [] };
-    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ }
+    EXTRA_BOUND = (opts && opts.bound) || [];
+    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ } finally { EXTRA_BOUND = []; }
     const out = NAMED.spans;
     NAMED = saved;
     return out;
@@ -419,7 +427,7 @@ const Expr = (() => {
       if (!isOp(tk, v)) throw new ParseError($t("Expected '{x}'", { x: v }), tk.pos);
     };
     const startsPrimary = (tk) => {
-      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom'].includes(tk.t)) return true;
+      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom', 'iterfn'].includes(tk.t)) return true;
       if (tk.t === 'op' && (tk.v === '(' || tk.v === '{' || tk.v === '[')) return true;
       if (tk.t === 'op' && tk.v === '|' && absDepth === 0) return true;
       return false;
@@ -567,6 +575,21 @@ const Expr = (() => {
           limDepth--;
           expect(')');
           return { t: 'sum', op: tk.t === 'sumfn' ? 'sum' : 'prod', v: ix.v, lo, hi, a };
+        }
+        // [issue #6] iter(g, u, u₀, N): u₀, then u ↦ g(u, z) N times (Expr.iterate): the Mandelbrot set is
+        // |iter(u^2+z, u, 0, 64)| ≤ 2, a filled Julia set |iter(u^2+c, u, z, 64)| ≤ 2
+        case 'iterfn': {
+          expect('(');
+          const g = parseAdd();
+          expect(',');
+          const ix = next();
+          if (ix.t !== 'idx') throw new ParseError($t('Expected the letter of the recurrence, such as u'), ix.pos);
+          expect(',');
+          const u0 = parseAdd();
+          expect(',');
+          const N = parseAdd();
+          expect(')');
+          return iterate(u0, g, N, ix.v);
         }
         case 'binom': {
           if (isOp(peek(), '(')) { next(); const a = parseAdd(); expect(','); const b = parseAdd(); expect(')'); return { t: 'binom', a, b }; }
@@ -736,8 +759,10 @@ const Expr = (() => {
           }
           if (!depends(n.a)) {
             const base = A(C(0, 0));
-            // [issue #5] an exponent made of a sum's index (2^n, (−1)^n): exact at the integers
-            if (!usesZ(n.b)) return (z) => { const b = B(z); return b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1100 ? CX.ipow(base, b.re) : CX.exp(CX.mul(b, CX.log(base))); };
+            // [issue #5] an exponent made of a sum's index (2^n, (−1)^n): exact at the integers; a negative one as (1/base)^|n|,
+            // which underflows to 0 where base^|n| overflows (2^{−1030}, not 1/∞ = NaN), as the GPU's cx_ipow32
+            const ib = CX.inv(base);
+            if (!usesZ(n.b)) return (z) => { const b = B(z); return b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1100 ? (b.re < 0 ? CX.ipow(ib, -b.re) : CX.ipow(base, b.re)) : CX.exp(CX.mul(b, CX.log(base))); };
             if (base.re === Math.E && base.im === 0) return (z) => CX.exp(B(z));
             const L = CX.log(base); // principal log of a constant base: 2^{z} = e^{z \ln 2} for every cut
             return (z) => CX.exp(CX.mul(B(z), L));
@@ -927,10 +952,13 @@ const Expr = (() => {
     else if (zn.t === 'pow' && !usesZ(zn.b) && (c = centreOf(zn.a))) E = f.e > 0 ? zn.b : { t: 'neg', a: zn.b };
     if (!c) return null;
     const eOf = ofIdx(E, n.v);
+    // (the first n whose coefficient is undefined: the Series step's message)
+    let bad = null;
     const side = (k0, dk) => {
       const a = [], e = [];
       for (let j = 0, k = k0; j < SER_CAP && (dk > 0 ? k <= hi : k >= lo); j++, k += dk) {
         const ev = eOf(k), av = aOf(k);
+        if (bad == null && !CX.isFin(av)) bad = k;
         if (ev.im !== 0 || !Number.isFinite(ev.re) || Math.abs(ev.re - Math.round(ev.re)) > 1e-9) return null;
         a.push(av); e.push(Math.round(ev.re));
       }
@@ -978,7 +1006,7 @@ const Expr = (() => {
     };
     const kind = lo === -Infinity && hi === Infinity ? 'laurent' : 'power';
     return {
-      kind, c, R, r, up, down,
+      kind, c, R, r, up, down, bad,
       at: (z) => {
         const w = CX.sub(z, c);
         let S = C(0, 0), A = 0;
@@ -992,41 +1020,40 @@ const Expr = (() => {
       },
     };
   }
-  // Σ a(n) n^{−z} from n = lo: absolutely convergent for Re z > σ (σ = 1 + the growth order of a(n), from the tail);
-  // up to DIR_CAP terms, and for coefficients constant along the tail the rest as the integral (K + ½)^{1−z}/(z − 1)
-  // (the midpoint rule: the error is below |z(z + 1)| K^{−Re z − 2}/24). Re z ≤ σ: NaN
+  // Σ a(n) n^{−z} from n = lo. Coefficients of the form b_{n mod q} n^p from some n on (CX.dirichletForm: 1, 1/n², (−1)^n,
+  // i^n, the characters) are summed by Euler–Maclaurin per residue (CX.dirichletEM): exact to rounding, about 15q to
+  // (|Im z| + 15)q terms, where the series converges: Re z > σ = p + 1, or σ = p when the b_r add up to 0 (η converges
+  // for Re z > 0). Any other coefficients: absolutely convergent for Re z > σ (σ = 1 + the growth order of a(n), estimated
+  // from the tail; `est`), summed until the rest, at most G k^{σ−Re z}/(Re z − σ) (G the largest |a_j| j^{1−σ} past k),
+  // is below SER_TOL of the sum, kept after DIR_CAP terms only when it is below 1e-4 of it. Re z ≤ σ: NaN. A coefficient
+  // undefined among the first DIR_CAP: NaN everywhere, and `bad` is that n
   const DIR_CAP = 4096;
   function dirichletPlan(lo, aOf) {
-    const a = [], L = [];
-    for (let k = lo; k < lo + DIR_CAP; k++) { a.push(aOf(k)); L.push(Math.log(k)); }
-    if (!a.every(CX.isFin)) return null;
+    const a = [];
+    for (let k = lo; k < lo + DIR_CAP; k++) a.push(aOf(k));
+    const nan = () => C(NaN, NaN), ib = a.findIndex((x) => !CX.isFin(x));
+    if (ib >= 0) return { kind: 'dirichlet', sigma: NaN, bad: lo + ib, at: nan };
+    const F = CX.dirichletForm(lo, a);
+    if (F) {
+      const sigma = F.b.every(CX.isZero) ? -Infinity : F.p + (CX.isZero(F.B) ? 0 : 1);
+      return {
+        kind: 'dirichlet', sigma, form: F,
+        at: (z) => {
+          if (!(z.re > sigma + 1e-12) || !(Math.abs(z.im) <= CX.ZETA_MAX)) return nan();
+          const r = CX.dirichletEM(F, z);
+          return cancelled(r.A, r.S) ? nan() : r.S;
+        },
+      };
+    }
     const ord = [];
-    a.forEach((x, j) => { if (!CX.isZero(x) && j + lo > 1) ord.push(Math.log(CX.abs(x)) / L[j]); });
+    a.forEach((x, j) => { if (!CX.isZero(x) && j + lo > 1) ord.push(Math.log(CX.abs(x)) / Math.log(j + lo)); });
     const q = Math.floor(ord.length / 4);
-    const sigma = ord.length >= 16 ? 1 + Math.max(...ord.slice(3 * q)) : 1;
-    const tail = a.slice(-64), aT = tail[tail.length - 1];
-    const flat = tail.every((x) => CX.abs(CX.sub(x, aT)) <= 1e-14 * CX.abs(aT));
-    const K = lo + DIR_CAP - 1;
+    const sigma = ord.length >= 16 ? 1 + Math.max(...ord.slice(3 * q)) : 1, sum = CX.dirichletPartial(lo, a, sigma, SER_TOL, 1e-4);
     return {
-      kind: 'dirichlet', sigma, a, L, flat, aT, K,
+      kind: 'dirichlet', sigma, est: true, a, lo,
       at: (z) => {
-        if (!(z.re > sigma + 1e-12)) return C(NaN, NaN);
-        let S = C(0, 0), A = 0;
-        const win = [];
-        for (let j = 0; j < a.length; j++) {
-          if (CX.isZero(a[j])) continue;
-          const t = CX.mul(a[j], CX.exp(CX.scale(z, -L[j])));
-          S = CX.add(S, t);
-          A += CX.abs(t);
-          win.push(CX.abs(t));
-          if (win.length > SER_WIN) win.shift();
-          if (j >= 8 && Math.max(...win) <= SER_TOL * CX.abs(S)) return cancelled(A, S) ? C(NaN, NaN) : S;
-        }
-        if (cancelled(A, S)) return C(NaN, NaN);
-        if (flat) return CX.add(S, CX.mul(aT, CX.div(CX.exp(CX.scale(CX.sub(CX.ONE, z), Math.log(K + 0.5))), CX.sub(z, CX.ONE))));
-        // the rest is at most max|a| K^{1−σ'}/(σ' − 1), σ' = Re z − (σ − 1): kept when it is small against the sum
-        const sp = z.re - (sigma - 1), amax = Math.max(...tail.map((x) => CX.abs(x)));
-        return amax * Math.pow(K, 1 - sp) / (sp - 1) <= 1e-4 * CX.abs(S) ? S : C(NaN, NaN);
+        const r = z.re > sigma + 1e-12 ? sum(z) : null;
+        return !r || cancelled(r.A, r.S) ? nan() : r.S;
       },
     };
   }
@@ -1037,7 +1064,7 @@ const Expr = (() => {
     try { compile(ast); } catch (e) { return []; }
     const out = [];
     const walk = (n) => {
-      if (n.t === 'sum' && PLANS.has(n)) { const p = PLANS.get(n); out.push({ kind: p.kind, c: p.c, R: p.R, r: p.r, sigma: p.sigma }); }
+      if (n.t === 'sum' && PLANS.has(n)) { const p = PLANS.get(n); out.push({ kind: p.kind, c: p.c, R: p.R, r: p.r, sigma: p.sigma, est: !!p.est, bad: p.bad == null ? null : p.bad }); }
       for (const k of ['a', 'b', 'n', 'lo', 'hi']) if (n[k]) walk(n[k]);
     };
     walk(ast);
@@ -1934,9 +1961,11 @@ const Expr = (() => {
         // [issue #5] the sum takes the factors after it, so it is wrapped as a factor (p 0); −∞ … ∞ is n ∈ ℤ
         case 'idx': return { s: n.v, p: 4 };
         case 'binom': return { s: `\\binom{${go(n.a).s}}{${go(n.b).s}}`, p: 4 };
-        // [issue #6] u_N, with u_0 and the rule in u_k
+        // [issue #6] u_N, with u_0 and the rule in u_k (the whole formula); inside a formula iter(g, u, u_0, N), as typed
         case 'iter': {
-          const v = n.v, N = go(n.hi).s, g = go(subst(n.a, v, { t: 'idx', v: `${v}_k` })).s;
+          const v = n.v, N = go(n.hi).s;
+          if (n !== ast) return { s: `\\operatorname{iter}\\left(${go(n.a).s},\\ ${v},\\ ${go(n.lo).s},\\ ${N}\\right)`, p: 4 };
+          const g = go(subst(n.a, v, { t: 'idx', v: `${v}_k` })).s;
           return { s: `${v}_{${N}},\\ ${v}_0=${go(n.lo).s},\\ ${v}_{k+1}=${g}`, p: -1 };
         }
         case 'sum': {
@@ -1985,6 +2014,6 @@ const Expr = (() => {
   const hasIter = (n) => hasT(n, 'iter');
   // [issue #6] the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
-  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;

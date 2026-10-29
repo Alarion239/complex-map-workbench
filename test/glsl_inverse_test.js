@@ -193,11 +193,14 @@ void main() {
   // f() (a draw) until its program is no longer 'pending', for up to WAIT_MS by the clock: Windows' software renderer
   // (WARP) can take longer for one program than 4000 tries 3 ms apart (12-16 s), which ended random cases 'gpu pending';
   // 'pending' after WAIT_MS stays an error. R.waitMs: the longest wait
-  const WAIT_MS = 120000;
-  async function untilCompiled(f) {
+  // (the flip test's programs wait up to FLIP_WAIT_MS: in the core tier the walk is short, so on Windows they are
+  // still compiling, behind the walk's, when the flip test needs them, and one took over 120 s on WARP; its checks are
+  // about program identity, not compile time)
+  const WAIT_MS = 120000, FLIP_WAIT_MS = 480000;
+  async function untilCompiled(f, wait = WAIT_MS) {
     const t = performance.now();
     let r = f();
-    while (r === 'pending' && performance.now() - t < WAIT_MS) { await sleep(3); r = f(); }
+    while (r === 'pending' && performance.now() - t < wait) { await sleep(3); r = f(); }
     R.waitMs = Math.max(R.waitMs, Math.round(performance.now() - t));
     return r;
   }
@@ -542,7 +545,7 @@ void main() {
           if (r !== 'drawn') GLR.drawRegion(res, Object.assign({ map: { mode: 0, a: 0, b: 1 }, view, dpr: 1, L: 4, cacheKey: null, sync: true }, look));
           return r;
         };
-        const r = await untilCompiled(frame);
+        const r = await untilCompiled(frame, FLIP_WAIT_MS);
         drawn = r === 'drawn' ? 'inverse' : 'forward';
         rec.drawn = drawn;
         const px = new Uint8Array(W * H * 4);

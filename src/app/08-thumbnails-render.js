@@ -74,12 +74,14 @@
     cardMu.set(key, mu);
     return mu;
   }
-  function shapeOutlines(map) {
-    const out = [], mk = mapKeyOf(map);
+  function shapeOutlines(map0) {
+    const out = [];
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
+      const map = shapeMap(s, map0);   // ([#253] a later plane's shape: not in this one)
+      if (!map) continue;
       const r = shapeGPU(s);
-      if (r.lineRes) out.push({ r, res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map, cacheKey: `${r.lineKey}|${mk}` });
+      if (r.lineRes) out.push({ r, res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map, cacheKey: `${r.lineKey}|${mapKeyOf(map)}` });
     }
     return out;
   }
@@ -91,7 +93,7 @@
     if (S.outline) {
       const map = stageMap(0);
       for (const o of shapeOutlines(map)) {
-        const dash = o.r.open ? { dash: [5, 3.5], arc: arcOf(o.r, stageF(0), mapKeyOf(map)) } : null;
+        const dash = o.r.open ? { dash: [5, 3.5], arc: arcOf(o.r, stageF(0), mapKeyOf(o.map)) } : null;
         GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 2.4 * pane.dpr }, cacheKey: o.cacheKey }, dash));
       }
     }
@@ -176,13 +178,13 @@
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
     } else {
-      fitPane(pane, k);
+      fitPane(pane, k, [], undefined, fitMs > FIT_LIVE_MS);
       pane.begin(TH.plane);
       if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
       if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
-      drawPoints(pane, stageF(k), { thin: true });
+      drawPoints(pane, stageF(k), { thin: true, k });
       // (step k + 1's cuts show on card k only while step k + 1 is selected: a card never shows a later step's marks)
       if (selOf() === k + 1) drawCuts(pane, k, false, true);
       if (!S.shapes.some((x) => x.visible !== false)) {
@@ -506,22 +508,33 @@
     if (drag || now - lastChangeT < 150) { TeX.hush(); scrubT = now; }
     lastChangeT = now;
   }
-  function chainChanged(structural) {
+  // ([#243, #241] what the last chain change cost, ms, all of it and the fit of the views in it (a series' fit samples
+  // it on the CPU): a live change (a slider dragged) of a chain whose fit costs more than FIT_LIVE_MS keeps the views
+  // until the drag ends, whose change at rest fits them; a field and a slider of a costly chain wait for a pause or the
+  // next frame (paramField, onParamChange))
+  let chainMs = 0, fitMs = 0, fitLate = 0;
+  const FIT_LIVE_MS = 12;
+  const chainCost = () => chainMs + fitLate;   // (with the fit in slices after it)
+  function chainChanged(structural, o) {
+    const t0 = performance.now();
     noteChange();
     rebuild();
     cmChain();   // (v16: step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
     if (structural) buildPipeline(); else updateCards();
-    if (rightAuto && autoFit()) fitRight();
+    const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !morphOn() && !hasTargets(), tf = performance.now();
+    if (fit && rightAuto && autoFit()) { if (sliced) fitRightSliced(); else fitRight(); }
     const ls = leftStage() + ':' + chainSig[leftStage()];
-    if (leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
-    lastLeftSig = ls;
+    if (fit && leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
+    if (fit) lastLeftSig = ls;
+    if (fit && !sliced) { fitMs = performance.now() - tf; fitLate = 0; }
     if (morph.open && !morphRange().steps.length) closeTransport();
     scheduleFix();
     updateLeds();
     refreshIntPop();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
     requestRender('L', 'R', 'T', 'P');
+    chainMs = performance.now() - t0;
   }
   function shapesChangedAll(structural) { shapesChanged(structural); }
   function shapesChanged(structural) {
@@ -559,9 +572,9 @@
       const end = S.focus > 0 ? S.focus : nSteps();
       const m = morphLen();
       const xs = [], ys = [], bx = [], by = [];
-      stageSamples(stageF(end), xs, ys);
+      stageSamples(stageF(end), xs, ys, end);
       if (withT && morph.T > 0 && morph.T < m) stageSamples(morphAt(morph.T), xs, ys);
-      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by);   // (v16: the bracket's start)
+      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by, homRangeOk() ? undefined : base);   // (v16: the bracket's start)
       const U = robustBox(xs, ys), B = robustBox(bx, by);
       const area = (b) => (b.x1 - b.x0) * (b.y1 - b.y0);
       if (U && B && area(B) > 9 * Math.max(area(U), 1e-12)) {
@@ -578,14 +591,38 @@
       }
     return target;
   }
+  // ([#243] a costly fit of Y (the last took over FIT_LIVE_MS: a series sampled on the CPU) after a chain change: its
+  // samples are taken in slices of FIT_SLICE ms between which the page draws and takes input; Y keeps its view until
+  // the fit is ready; a newer change or fit drops it)
+  const fitJob = { token: 0 };
+  const FIT_SLICE = 8;
+  const yieldFit = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function' ? scheduler.yield() : yieldTask());
+  async function fitRightSliced() {
+    const token = ++fitJob.token, k = rightStage(), sig = chainSig[k];
+    const xs = [], ys = [], it = stageSampler(stageF(k), xs, ys, k);
+    let t0 = performance.now(), ms = 0;
+    for (let r = it.next(); !r.done; r = it.next()) {
+      if (performance.now() - t0 < FIT_SLICE) continue;
+      ms += performance.now() - t0;
+      await yieldFit();
+      if (token !== fitJob.token) return;
+      t0 = performance.now();
+    }
+    fitMs = fitLate = ms + performance.now() - t0;
+    if (rightStage() !== k || chainSig[k] !== sig || !(rightAuto && autoFit()) || morphOn() || hasTargets()) return;
+    paneR.setView(V.right);
+    Object.assign(V.right, boxView(paneR, robustBox(xs, ys) || { x0: -2, x1: 2, y0: -2, y1: 2 }));
+    requestRender('R', 'T');
+  }
   function fitRight(animate, withT) {
+    fitJob.token++;
     paneR.setView(V.right);
     let target;
     if (morphOn()) target = defFitView(paneR, withT);
     else if (hasTargets()) {
       // the image of the domain and the w-plane targets
       const xs = [], ys = [];
-      stageSamples(stageF(rightStage()), xs, ys);
+      stageSamples(stageF(rightStage()), xs, ys, rightStage());
       for (const s of S.targets) {
         if (s.visible === false) continue;
         let b = null;

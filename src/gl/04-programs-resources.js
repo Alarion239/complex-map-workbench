@@ -196,7 +196,7 @@ float wabs(vec2 w) {
     let e = progs.get(id);
     if (!e) {
       if (!start) return null;
-      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain) };
+      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain), born: performance.now() };
       progs.set(id, e);
       e.rt = d.tf === 'rt' && rtOK;
       try { const [vs, fs] = sources(name, ch, mode); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
@@ -210,7 +210,8 @@ float wabs(vec2 w) {
       // either: a synchronous link held the main thread 0.3-1.8 s per program on Direct3D 11 (Iris Xe), ~4 s before
       // the first frame, while the background links run in parallel (1.3 s for all seven). syncDepth (tests) and
       // syncFwd (figure and video exports) wait.
-      if (!pcExt || syncDepth > 0 || syncFwd > 0) finishLink(e);
+      if (heldOf(e)) { /* (tests: holdLinks) */ }
+      else if (!pcExt || syncDepth > 0 || syncFwd > 0) finishLink(e);
       else if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (!d.chain || (groupDone(e) && canFinish(e)))) { finishLink(e); if (d.chain) finishGroup(e); }
       else schedulePoll();
     }
@@ -416,12 +417,41 @@ float wabs(vec2 w) {
     if (!gl || lost) return;
     let main = false, sided = false, waiting = false;
     for (const e of progs.values()) {
-      if (e.state !== 'pending') continue;
+      if (e.state !== 'pending' || heldOf(e)) continue;
       if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || !e.chain || (groupDone(e) && canFinish(e)))) { (e.inv ? finishInv : finishLink)(e); if (e.chain) finishGroup(e); if (e.side) sided = true; else main = true; } else if (e.state === 'pending') waiting = true;
     }
     if (waiting) schedulePoll();
     // which draws can now redraw: main (the current chain and its history), side (side chains)
     if ((main || sided) && api.onReady) api.onReady({ main, side: sided });
+  }
+  // (issue #72, I) How long the current chain's area draws (region, or tfRegion for the cached path; the deformation's
+  // start for a mode still compiling) have had nothing to draw: their own programs still linking and no earlier chain
+  // version ready to stand in. 0 as soon as a draw would find a program (one ready, or a link complete, so the frame
+  // that leaves the app's stand-in draws the GPU picture: no blank frame between), when none was asked for yet, or
+  // after a failed compile (reported, never covered up). The same program table as pendingLinks and pending().
+  const AREA_PROGS = ['region', 'tfRegion'];
+  function drawable(e) {
+    if (!e) return false;
+    if (e.state === 'ready') return true;
+    if (e.state !== 'pending' || heldOf(e)) return false;
+    return !pcExt || syncDepth > 0 || syncFwd > 0 || (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (!e.chain || groupDone(e)));
+  }
+  function bareMs(map) {
+    if (!ok || lost || sideMode || !cur.info) return 0;
+    const maps = modeOf(map) ? [map, startOf(map)] : [map];
+    const own = maps.flatMap((m) => AREA_PROGS.map((n) => progs.get(progId(n, cur, m)))).filter(Boolean);
+    if (!own.length || own.some((e) => e.state === 'error' || drawable(e))) return 0;
+    for (const h of hist) for (const n of AREA_PROGS) { const q = progs.get(progId(n, h, map)); if (q && q.state === 'ready') return 0; }
+    return performance.now() - Math.min(...own.map((e) => e.born || performance.now()));
+  }
+  // (tests) holdLinks(true): the current chain's forward programs stay linking (COMPLETION_STATUS held false, and no
+  // synchronous link) until holdLinks(false), on any back end: SwiftShader and lavapipe link synchronously. ?glhold
+  // starts with it on (a cold load: no earlier version of the chain)
+  let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
+  function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
+  function holdLinks(on) {
+    held = !!on;
+    if (!held && api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
@@ -432,9 +462,10 @@ float wabs(vec2 w) {
     if (P) return P;
     const e = progs.get(progId(name, cur, map));
     if (e && e.state === 'error') { frameErr = friendly(e.error); return null; }
-    if (!DEFS[name].chain) { if (e && e.state === 'pending') framePending = true; return null; }
+    if (!DEFS[name].chain) { if (e && e.state === 'pending') { framePending = true; standIn(e.id); } return null; }
     if (!cur.info) return null;
     framePending = true;
+    if (e && e.state === 'pending') standIn(e.id);
     if (sideMode) return null;   // a side chain draws only with its own programs
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;

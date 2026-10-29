@@ -16,10 +16,12 @@ const PNG_DIR = process.argv.includes('--png') ? process.argv[process.argv.index
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, info); } }
 const t0All = Date.now();
-const St = (s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params || {}), on: true });
+// (a scene's steps as the app holds them, a repeat on its block's last step included: Funcs.applyRepeats)
+const St = (s) => Object.assign({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params || {}), on: true }, s.repeat ? { repeat: Object.assign({}, s.repeat) } : {});
+const builtOf = (steps) => Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
 function planOf(stepList) {
   const steps = stepList.map(St);
-  return Inverse.planChain(steps, steps.map(Funcs.build));
+  return Inverse.planChain(steps, builtOf(steps));
 }
 const savePng = (name, rgba) => {
   if (!PNG_DIR) return;
@@ -205,7 +207,7 @@ console.log('--- (h) golden emulation');
   // the forward draw: Region.buildMesh at Q = 60, the L = 4 GPU template, the 0.2-edge midpoint test, linear source
   // interpolation inside each sub-triangle, its footprint, mesh order, alpha 1 (notes/proto/lead-inv/golden_cmp.js)
   function forward(sc, view, pattern) {
-    const steps = sc.steps.map(St), built = steps.map(Funcs.build);
+    const steps = sc.steps.map(St), built = builtOf(steps);
     const F = (z) => { for (const b of built) z = b.f(z); return z; };
     const mesh = Region.buildMesh(sc.shapes[0], Q.boxOf(sc.srcView), 60);
     const cell = Q.cellOf(sc), look = Object.assign({}, LOOKF, { pattern, cell });

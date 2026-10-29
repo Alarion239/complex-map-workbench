@@ -314,6 +314,9 @@ const fmt = (z) => CX.fmt(z, 8);
     check(`levelGLSL ${s}`, g.ok && /^float tgtLevel\(vec2 z\)/.test(g.source), g.source);
   }
   check('levelGLSL accepts text', GLChain.levelGLSL('|z-1|<2', 'L2').ok);
+  // ([issue #6] the Mandelbrot set's escape test: a recurrence inside a region formula, its loop bounded by N)
+  const gm = GLChain.levelGLSL(Expr.parse('|iter(u^2+z, u, 0, 64)| \\le 2', { allowRel: true }), 'mLevel');
+  check('levelGLSL of a recurrence (the Mandelbrot set)', gm.ok && /for \(int j = 0; j < int\(/.test(gm.source), gm.source);
   check('levelGLSL rejects a non-region', !GLChain.levelGLSL(Expr.parse('z^2'), 'L3').ok);
 }
 console.log(`${n - bad}/${n} passed; bad: ${bad}`);

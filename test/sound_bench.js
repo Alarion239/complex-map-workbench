@@ -1,5 +1,6 @@
 // The audio thread's cost (v15.2, notes/sound/AS-BUILT-v152.md): src/sound.js's worklet (the synth: palette B's
-// parts, the harp's strings, the texture, the singer) run in node, the same V8 as Chrome's AudioWorklet. µs per
+// parts, the harp's strings, the texture, the singer; Hear the function's marimba bars, its Glide and the declared
+// limiter) run in node, the same V8 as Chrome's AudioWorklet. µs per
 // 128-frame quantum over 15,000 quanta after 3,000 of warm-up, median of 3 runs, as a share of real time on one core
 // (128 / 48000 s = 2667 µs). Also checks that every scenario's output is finite, starts at exactly 0 and ends at 0.
 // Run it alone: node test/sound_bench.js [--json out.json]. Limits: 5 % of one core a scenario, 8 % all at once.
@@ -62,20 +63,51 @@ res.push(bench('scrub + motion texture', (msg, q, T) => msg([{ k: 'tex', id: 1, 
 // 4. the singer live (the deformation): a new spectrum every 3 quanta (≈ 125 Hz, faster than the page's 60)
 const A = (n0, x) => { const a = new Array(24).fill(0); a[n0 - 1] = 0.8; a[n0] = 0.3 + 0.3 * x; a[n0 - 2] = 0.2; for (let k = 8; k < 24; k++) a[k] = 0.02 / k; return a; };
 res.push(bench('singer live', (msg, q, T) => { if (q === 0) msg([{ k: 'hv', at: 0, amps: A(5, 0), lvl: 0.74, hum: 0.45, vow: 1, tier: 2 }, { k: 'hv', at: 0, gate: 1, t1: 0.04, n: 1 }]); else if (q % 3 === 0) msg([{ k: 'hv', at: T, amps: A(q % 900 < 450 ? 5 : 6, Math.sin(q / 50)), slew: 0.05 }]); }));
-// 5. everything at once: the harp, the singer, the texture and the cues
+// 6. Hear the function's marimba (Sound.htNote, the engine's own posts): a note every 2 quanta (188 a second, near
+// the merge rate 1/minIoi = 200), each its octave copies (at most 3 bars, the group's cap: the bars damp each other),
+// at the crowding gain of that rate (10·log10(R0/200) = −16 dB); and at 12 notes a second (−3.8 dB)
+const htCmds = (gdb) => Array.from({ length: 12 }, (_, k) => collect((g) => Sound.htNote(g, 0, k, 0, gdb, 0, 'sonify', undefined, false)));
+const ht200 = htCmds(10 * Math.log10(Sound.HT.HT.R0 / 200)), ht12 = htCmds(10 * Math.log10(Sound.HT.HT.R0 / 12));
+const htFeed = (cm, every) => (msg, q, T) => { if (q % every === 0) msg(cm[Math.floor(q / every) % 12].map((c) => Object.assign({}, c, { at: T + 0.01 + (c.at || 0) }))); };
+res.push(bench('marimba, 188 notes/s', htFeed(ht200, 2)));
+res.push(bench('marimba, 12 notes/s', htFeed(ht12, 31)));
+// 7. the Glide with its gate open: a control every 2 quanta (5.3 ms, faster than the page's frames), φ moving
+const glFeed = (msg, q, T) => { if (q % 2 === 0) msg([{ k: 'gl', at: T + 0.01, phi: 0.3 * T, mode: q ? 'slew' : 'seat', a: 0.03, b: 0.23, pan: 0.1, until: T + 0.3, tier: 2, tag: 'b' }]); };
+res.push(bench('glide', glFeed));
+// 8. the declared limiter (cmw-limit) on a full-scale input, acting all the time
+{
+  const lim = new reg['cmw-limit']({ processorOptions: { ceil: Math.pow(10, -8.8 / 20) } }), inp = [[new Float32Array(128), new Float32Array(128)]], o = [[new Float32Array(128), new Float32Array(128)]];
+  const r = [];
+  for (let k = 0; k < 3; k++) {
+    let t0 = 0n;
+    for (let q = 0; q < Q + W; q++) {
+      if (q === W) t0 = process.hrtime.bigint();
+      for (let i = 0; i < 128; i++) { const v = 0.9 * Math.sin(0.05 * (q * 128 + i)); inp[0][0][i] = v; inp[0][1][i] = -v; }
+      lim.process(inp, o);
+    }
+    r.push(Number(process.hrtime.bigint() - t0) / 1000 / Q);
+  }
+  r.sort((a, b) => a - b);
+  res.push({ name: 'limiter', us: +r[1].toFixed(1), pct: +(100 * r[1] / (128 / FS * 1e6)).toFixed(2), bad: 0 });
+}
+// 9. everything at once: the marimba at its busiest (it replaces the harp under the pointer), the singer, the
+// texture and the cues
 res.push(bench('all at once', (msg, q, T) => {
-  if (q % 375 === 0) msg(harpCmds.map((c) => Object.assign({}, c, { at: T + 0.01 + (c.at || 0) })));
+  if (q % 2 === 0) msg(ht200[(q / 2) % 12].map((c) => Object.assign({}, c, { at: T + 0.01 + (c.at || 0) })));
   if (q % 27 === 0) msg(cueCmds[(q / 27) % cueCmds.length].map((c) => Object.assign({}, c, { at: T + 0.01 })));
   if (q === 0) msg([{ k: 'hv', at: 0, amps: A(5, 0), lvl: 0.74, hum: 0.45, vow: 1, tier: 2 }, { k: 'hv', at: 0, gate: 1, t1: 0.04, n: 1 }]); else if (q % 3 === 0) msg([{ k: 'hv', at: T, amps: A(5, Math.sin(q / 50)), slew: 0.05 }]);
   msg([{ k: 'tex', id: 1, at: T, v: 1.5, t: (q % 2000) / 2000, amp: 0.06, tier: 1, wet: 0.12, hold: 0.09, seed: 11 }]);
 }));
 let fails = 0;
 for (const r of res) { console.log(r.name.padEnd(24), String(r.us).padStart(6), 'µs/quantum =', String(r.pct).padStart(5), '% of one core', r.bad ? 'NON-FINITE ' + r.bad : ''); if (r.bad) fails++; }
-// limits: each scenario ≤ 5 % of one core; all of them at once (not reachable in use: the harp at its D-only rate while
-// cues fire at the storm guard's 14 a second, the singer and the texture) ≤ 8 %
+// (against the harp's 25 notes a second in the same run: a loaded machine slows every scenario alike)
+{ const h = res.find((r) => r.name === 'harp, 25 notes/s'); if (h) console.log('against the harp:', res.filter((r) => r !== h).map((r) => `${r.name} ${(r.us / h.us).toFixed(2)}×`).join(', ')); }
+// limits: each scenario ≤ 5 % of one core; all of them at once (not reachable in use: the marimba at its merge
+// rate while cues fire at the storm guard's 14 a second, the singer and the texture) ≤ 8 %
 for (const r of res) { const lim = r.name === 'all at once' ? 8 : 5; if (r.pct > lim) { fails++; console.log('FAIL:', r.name, 'uses', r.pct, '% of one core (limit', lim, '%)'); } }
 // clean edges: a single cue and a single harp note start from exactly 0 and end at exactly 0
-for (const [name, cm] of [['toggleOn', cueCmds[names.indexOf('toggleOn')]], ['zero', cueCmds[names.indexOf('zero')]], ['a harp note', harpCmds.slice(0, 4)]]) {
+const glOne = [{ k: 'gl', at: 0, phi: 0.2, mode: 'seat', a: 0.03, b: 0.23, pan: 0, until: 0.3, tier: 2, tag: 'b' }, { k: 'gl', at: 0.1, phi: 0.25, mode: 'slew', a: 0.03, b: 0.23, pan: 0, until: 0.3, tier: 2, tag: 'b' }];
+for (const [name, cm] of [['toggleOn', cueCmds[names.indexOf('toggleOn')]], ['zero', cueCmds[names.indexOf('zero')]], ['a harp note', harpCmds.slice(0, 4)], ['a marimba note', ht12[0]], ['the Glide', glOne]]) {
   const o = outs(); let firstQ = null, lastV = 1;
   const node = new reg['cmw-synth']({ processorOptions: { seed: 1 } });
   node.port.onmessage({ data: cm.map((c) => Object.assign({}, c, { at: 0.01 + (c.at || 0) })) });
