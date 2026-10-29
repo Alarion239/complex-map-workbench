@@ -2315,6 +2315,7 @@
  "role\u0004domain": "dominio",
  "role\u0004image": "immagine",
  "role\u0004landscape": "paesaggio",
+ "style\u0004Cauchy": "Cauchy",
  "role\u0004phase": "fase",
  "roots zeros poles solve solutions equation preimages target": "roots zeros poles solve solutions equation preimages target radici zeri poli risolvi soluzioni equazione controimmagini bersaglio",
  "row\u0004the tangent to {c} at {a}": "la tangente a {c} in {a}",
