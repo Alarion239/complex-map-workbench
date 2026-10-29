@@ -700,7 +700,7 @@ if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
   R.pv.reduced = { r0, r1, rt };
   ok('preview, reduced motion: paused on the poster frame (t = 1.2), Play offered, the note says why', !r0.playing && r0.poster && !r0.canvas && r0.btn === 'Play' && r1.i === r0.i && Math.abs(rt - 1.2) < 0.05 && /reduced motion is on/.test(r0.note), R.pv.reduced);
   await clickSel('#xfPvPlay');
-  await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.playing && s.shown; })()`, 5000); await sleep(600);
+  await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.playing && s.shown && s.i !== ${r1.i}; })()`, 20000); await sleep(100); // (time runs from the first shown picture, so on a slow machine the playhead moves a little after it)
   const r2 = await pvState();
   ok('preview, reduced motion: Play plays it', r2.playing && r2.canvas && !r2.poster && r2.i !== r1.i, r2);
   await key('Escape'); await sleep(300);
