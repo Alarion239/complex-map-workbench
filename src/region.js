@@ -254,14 +254,25 @@ const Region = (() => {
     return v;
   }
   const DH_S = 16, DH_LEVELS = 40;
-  function dhRayCurves(s) {
+  // the points a view can tell apart: each kept point at least tol from the last one kept (the ends always), so a
+  // ray's thousand points near its landing point are not all mapped and drawn at every frame (the line renderer
+  // evaluates the chain at every vertex)
+  function dhThin(pts, tol) {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length - 1; i++) { const a = out[out.length - 1], b = pts[i]; if (Math.hypot(b.re - a.re, b.im - a.im) >= tol) out.push(b); }
+    if (pts.length > 1) out.push(pts[pts.length - 1]);
+    return out;
+  }
+  // (a fifth of a pixel of the 1440-pixel view)
+  const dhTol = (win) => (win ? Math.max(win.x1 - win.x0, win.y1 - win.y0) / 7200 : 0);
+  function dhRayCurves(s, win) {
     const th = dhAngle(s.theta), c = dhC(s);
     if (th == null || c === undefined) return [];
     const pts = dhMemo(JSON.stringify(['ray', th, c && [c.re, c.im]]), () => {
       const r = CX.dhRay(th, { c, R0: CX.DH_R, S: DH_S, levels: DH_LEVELS }), L = CX.dhLanding(r, DH_S);
       return L && !(r.landed && CX.abs(CX.sub(L.z, r.pts[r.pts.length - 1])) === 0) ? r.pts.concat([L.z]) : r.pts;
     });
-    const k = poly(pts, false);
+    const k = poly(dhThin(pts, dhTol(win)), false);
     return k ? [k] : [];
   }
   function dhEqCurves(s) {
