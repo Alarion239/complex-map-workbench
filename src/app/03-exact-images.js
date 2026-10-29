@@ -416,13 +416,14 @@
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
+    if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
     // (and one at 300 ms: a chain with no earlier version is drawn from a SphereMesh once its link has waited 250 ms,
     // whether or not the frame counts as compiling)
     else if (!gpuWait.has(pane)) { gpuWait.set(pane, now); for (const ms of [300, 1600]) setTimeout(() => requestRender(role), ms); }
     else {
-      const n = GLR.pendingLinks || 0;
+      const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
     }
     if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); return; }

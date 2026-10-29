@@ -249,6 +249,52 @@
     lastInputT = t;
     if (ev === 'wheel' || (ev === 'pointermove' && e.buttons) || (ev === 'input' && e.target && e.target.type === 'range') || (ev === 'keydown' && e.repeat)) motionInT = t;
   }, { passive: true, capture: true });
+  // ---------------- the start-up bar (issue #245) ----------------
+  // A thin bar at the top of the page while the programs of the first frames and of the background warm-up (WARM, in
+  // the init part) are still linking: counted from the GPU layer's own program lists (GLR.warmStatus), never from
+  // timers. It shows only when work is still pending 300 ms after it began (GLR.warmBarStep), so a warm program cache
+  // shows nothing, and it never takes input. warmDriver: set by the init part, {finished(), phase()}.
+  let warmDriver = null, warmS = null, warmBarT = 0, warmLast = '';
+  function warmCounts() {
+    const st = GLR.warmStatus(S.homAll ? [3] : [1]);
+    // (every warm-up group started and nothing compiling: a program that is still not linked never will be, e.g. one
+    // the chain cannot have; the bar must not wait for it)
+    const fin = !!(warmDriver && warmDriver.finished()) && !st.pending;
+    if (fin) st.done = st.total;
+    // (the total is unknown while the chain's programs are not listed yet and something is compiling: the sweep, not a number)
+    st.unknown = !st.known && st.pending > 0;
+    st.phase = !st.known ? 'first' : warmDriver ? warmDriver.phase() : 'first';
+    return st;
+  }
+  function warmUpdate() {
+    warmBarT = 0;
+    const el = $('warmBar');
+    if (!el || !GLR.ok || !GLR.warmStatus) return;
+    const st = warmCounts();
+    warmS = GLR.warmBarStep(warmS, st, performance.now());
+    const pct = Math.round(warmS.frac * 100);
+    const sig = `${warmS.visible}|${warmS.indet}|${pct}|${st.done}|${st.total}|${I18N.lang}`;
+    if (sig !== warmLast) {
+      warmLast = sig;
+      el.hidden = !warmS.visible;
+      el.classList.toggle('indet', warmS.indet);
+      el.style.setProperty('--warm', warmS.frac.toFixed(3));
+      el.setAttribute('aria-label', $t('Preparing the page'));
+      if (warmS.indet) { el.removeAttribute('aria-valuenow'); el.removeAttribute('aria-valuetext'); }
+      else { el.setAttribute('aria-valuenow', String(pct)); el.setAttribute('aria-valuetext', $t('Preparing {done} of {total} shaders, first time only', { done: st.done, total: st.total })); }
+    }
+    // (it ticks while there is work or the bar is up; a frame that waits for a program, or a program that lands, starts it again)
+    if (warmS.visible || st.total > st.done || st.unknown) warmBarT = setTimeout(warmUpdate, 150);
+  }
+  function warmKick() { if (!warmBarT) warmBarT = setTimeout(warmUpdate, 0); }
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // test hook: the counts, the phase, whether the bar shows and how far it is
+  /** @type {any} */ (window).__cmwWarm = () => {
+    if (!GLR.ok || !GLR.warmStatus) return { done: 0, total: 0, pending: 0, visible: false, phase: 'none', frac: 0 };
+    const st = warmCounts();
+    return { done: st.done, total: st.total, pending: st.pending, visible: !!(warmS && warmS.visible), phase: st.phase, frac: warmS ? warmS.frac : 0, indet: !!(warmS && warmS.indet), groups: st.groups };
+  };
+  // TEMP-DEBUG-HOOK
   // cameras: 28° telephoto. dist is the fit distance for the bounding sphere at the pane's aspect; render3D and
   // renderSphere refit it every frame (refitCam), so zoom limits (0.4–4 × dist) and resets stay relative to the fit.
   const CAM3 = { yaw: -38 * DEG, pitch: 30 * DEG, dist: 1.77 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: -0.04, fov: 28 * DEG };

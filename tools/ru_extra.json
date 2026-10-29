@@ -274,6 +274,8 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
+ "Preparing the page": "Подготовка страницы",
+ "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
  "the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$": "гомотопия, выполняющая по очереди %{n} шагов повтора, каждый на равной части $0\\le t\\le 1$",
  "Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}": "У повторённых шагов нет одного обратного шага; точный рендерер обращает их копию за копией, когда может; %{note}",
