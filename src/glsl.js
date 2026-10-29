@@ -1250,6 +1250,35 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       case 'zeta':
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
+      // [issue #260] Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
+      // uniform; neither loop unrolls, issue #72), then back by the square root nearest each orbit point. float32 holds
+      // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform
+      case 'dh': case 'bottcher': {
+        const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
+        const NM = Funcs.DH_NMAX;
+        return {
+          sig: [type],
+          f: `vec2 orb[${NM + 1}];
+  vec2 c = ${jc ? jc.v : 'z'}, w = z;
+  int n = -1;
+  for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
+    orb[k] = w;
+    if (cx_abs(w) > 1e4) { n = k; break; }
+    if (float(k) >= ${nn.x}) break;
+    w = cmul(w, w) + c;
+  }
+  if (n < 0) return vec2(cx_nan());
+  vec2 p = cmul(w, csqrtp(vec2(1.0, 0.0) + cdiv(cdiv(c, w), w)));
+  for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
+    if (j > n) break;
+    vec2 r = csqrtp(p), o = orb[n - j];
+    p = dot(r, o) >= 0.0 ? r : -r;
+  }
+  ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;`,
+          h: LIN(P),
+          write(put) { put(nn.c, v.N, jc ? b.dh.rho : 0); if (jc) putC(put, jc, v.c); },
+        };
+      }
       case 'poly': case 'rational': {
         const lists = type === 'poly' ? [CX.polyTrim(v.co)] : [CX.polyTrim(v.p), CX.polyTrim(v.q)];
         const cells = lists.map((co) => co.map(() => A.cell()));

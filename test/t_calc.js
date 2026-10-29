@@ -291,6 +291,8 @@ const fmt = (z) => CX.fmt(z, 8);
     if (st.type === 'conj') { check('conj has no derivative', !!r.error, JSON.stringify(r)); continue; }
     // d/dz is an operator on the chain (its derivative is a second d/dz step), not a map with a derivative formula
     if (st.type === 'deriv') { check('d/dz has no single-step derivative', !!r.error, JSON.stringify(r)); continue; }
+    // ([issue #260] Φ_M and φ_c: no formula for Φ′, so d/dz after them is numerical, and they say so)
+    if (st.type === 'dh' || st.type === 'bottcher') { check(`${st.type}: no derivative formula, d/dz numerically`, !!r.error && /numerically/.test(r.error), JSON.stringify(r)); continue; }
     if (r.error) { check(`derivative of ${nm}`, false, r.error); continue; }
     const db = Funcs.build(r.step);
     if (db.error) { check(`derivative step of ${nm} builds`, false, db.error); continue; }

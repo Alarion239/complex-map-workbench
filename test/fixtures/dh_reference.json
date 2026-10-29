@@ -1,9 +1,9 @@
 {
- "_about": "Phi_M at points outside M, certified by tools/dh_reference.py (mpmath, 50 digits): the external ray of each value's angle, traced from infinity, lands back on c to 1e-30.",
+ "_about": "Phi_M at points outside M, and phi_c for c = (-1, 0), certified by tools/dh_reference.py (mpmath, 50 digits): the external ray of each value's angle, traced from infinity, lands back on the point to 1e-30.",
  "points": [
   {
    "name": "far 10+20i",
-   "c": [
+   "z": [
     10,
     20
    ],
@@ -14,7 +14,7 @@
   },
   {
    "name": "|c|=3 at 2i-2",
-   "c": [
+   "z": [
     -2.2,
     2.0
    ],
@@ -25,7 +25,7 @@
   },
   {
    "name": "beyond the tip -2.1",
-   "c": [
+   "z": [
     -2.1,
     0.0
    ],
@@ -36,7 +36,7 @@
   },
   {
    "name": "near the tip -1.99+0.02i",
-   "c": [
+   "z": [
     -1.99,
     0.02
    ],
@@ -47,7 +47,7 @@
   },
   {
    "name": "near i 0.01+1.02i",
-   "c": [
+   "z": [
     0.01,
     1.02
    ],
@@ -58,7 +58,7 @@
   },
   {
    "name": "near the cusp 0.28",
-   "c": [
+   "z": [
     0.28,
     0.0
    ],
@@ -69,7 +69,7 @@
   },
   {
    "name": "in the 1/3 wake -0.75+0.08i",
-   "c": [
+   "z": [
     -0.75,
     0.08
    ],
@@ -80,7 +80,7 @@
   },
   {
    "name": "by an antenna -1.7+0.05i",
-   "c": [
+   "z": [
     -1.7,
     0.05
    ],
@@ -91,7 +91,7 @@
   },
   {
    "name": "by the period-3 bulb -0.2+0.66i",
-   "c": [
+   "z": [
     -0.2,
     0.66
    ],
@@ -102,7 +102,7 @@
   },
   {
    "name": "between bulbs 0.4+0.3i",
-   "c": [
+   "z": [
     0.4,
     0.3
    ],
@@ -111,5 +111,68 @@
     "0.2015635776663953575518761803867568765878"
    ]
   }
- ]
+ ],
+ "julia": {
+  "c": [
+   -1,
+   0
+  ],
+  "points": [
+   {
+    "name": "basilica far 3+4i",
+    "z": [
+     3,
+     4
+    ],
+    "phi": [
+     "2.942809876299992420165973281756726451251",
+     "4.080918887813379015597628238040285825118"
+    ]
+   },
+   {
+    "name": "basilica beyond the tip 1.65",
+    "z": [
+     1.65,
+     0.0
+    ],
+    "phi": [
+     "1.130936847506280500491616978465122725115",
+     "0.0"
+    ]
+   },
+   {
+    "name": "basilica above 0.1+0.75i",
+    "z": [
+     0.1,
+     0.75
+    ],
+    "phi": [
+     "0.1579927229522212489595200638208254702773",
+     "1.055457449763781741460986263154991619024"
+    ]
+   },
+   {
+    "name": "basilica near alpha -0.62+0.1i",
+    "z": [
+     -0.62,
+     0.1
+    ],
+    "phi": [
+     "-0.5004881181281460823346242340900543439094",
+     "0.8669817789282952334960240285735422563255"
+    ]
+   },
+   {
+    "name": "basilica by the left lobe -1.3+0.3i",
+    "z": [
+     -1.3,
+     0.3
+    ],
+    "phi": [
+     "-0.9433758053448472825234442120296803829002",
+     "0.6105212414149710663319877207797419062725"
+    ]
+   }
+  ]
+ }
 }
