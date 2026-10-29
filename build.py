@@ -1,6 +1,7 @@
 import json
 import pathlib
 import re
+import subprocess
 import sys
 from tools.src_parts import source
 root = pathlib.Path(__file__).parent
@@ -18,7 +19,6 @@ def save(p, s):
 src = root / 'src'
 page = (src / 'page.html').read_text(encoding='utf-8')
 # app.js and gl.js are kept as ordered parts, src/app/ and src/gl/ (issue #20, phase 2): source() joins them
-import subprocess
 def bundle(mode):
     out = root / 'dist' / f'bundle-{mode}.js'
     (root / 'dist').mkdir(exist_ok=True)
