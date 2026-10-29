@@ -6,7 +6,7 @@ const path = require('path');
 const I18N = require('../src/i18n.js');
 const XL = path.resolve(__dirname, '../src');
 // the shipped table is one JSON string in a JS call: I18N.define('ru', "...")
-const RU_JS = fs.readFileSync(path.join(XL, 'i18n_ru.js'), 'utf8');
+const RU_JS = require('./src_text').source('i18n_ru.js', { esm: 'strip' });
 const RU_ALL = JSON.parse(new Function('let j; const I18N = { define: (l, s) => { j = s; } };' + RU_JS + '; return j;')());
 new Function('I18N', RU_JS)(I18N);
 // the entries the structural checks cover: the sample of phase 1 (proto/ru.json) as shipped, and every key a call
@@ -372,7 +372,7 @@ eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
   vm.createContext(ctx);
   const NAMES = { cx: 'CX', parse: 'Expr', region: 'Region' };
   for (const f of ['i18n', 'i18n_ru', 'cx', 'parse', 'region']) {
-    vm.runInContext(fs.readFileSync(path.join(XL, f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+    vm.runInContext(require('./src_text').stripEsm(fs.readFileSync(path.join(XL, f + '.js'), 'utf8')) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   const a = [-0.5, 0.25], b = [1, 1.25], c = [0.5, 0.25];

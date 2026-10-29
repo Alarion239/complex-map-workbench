@@ -78,6 +78,8 @@ const Phone = (() => {
     els.regions = h('div', { class: 'ph-regions' });
     els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
     els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
+    els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
+    els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain bar: Numbers first
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
     // the context bar: above the tool row, only while something is selected or under way (D3)
@@ -150,6 +152,9 @@ const Phone = (() => {
   const TOUR = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 5.4v5.2L10.6 8z" fill="currentColor"/></svg>';
   const OPEN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 4.5v8h11v-6H8L6.5 4.5z"/></svg>';
   const HOLD = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5" /></svg>';
+  const INFO = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.7"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>';
+  // a tip taught where people look: a line with its small icon, at the end of a sheet's content (never on the plane)
+  const tip = (icon, text) => h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: icon }), h('span', null, text));
   const SWAP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/></svg>';
 
   // ---------------- mode ----------------
@@ -198,6 +203,7 @@ const Phone = (() => {
     // the Inspector's host goes into the Editor, the region sections into More tools and Display; the Deformation
     // toggle closes the chain bar; Numbers opens it
     park($('propsPanel'), els.body.edit);
+    els.body.edit.append(els.editTip);
     park($('secShapes'), els.shapesPane);
     park($('secFormula'), els.shapesPane);
     const wrap = document.querySelector('.pipe-wrap');
@@ -449,7 +455,7 @@ const Phone = (() => {
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     // v16.5 UX40: the long press, taught where people look (never on the plane)
-    ct.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
+    ct.push(tip(HOLD, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.')));
     els.tiles.replaceChildren(...tiles);
     els.ctiles.replaceChildren(...ct);
     setTab(toolTab);
@@ -651,6 +657,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     if (mesh) els.body.display.append(mesh);
+    els.body.display.append(els.dispTip);
   }
   function homeDisplay() {
     const home = $('regionsHome');

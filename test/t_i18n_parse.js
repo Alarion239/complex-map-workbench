@@ -13,7 +13,7 @@ function load(dir, files, lang) {
   const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs' };
   for (const f of files) {
     const p = path.join(dir, f + '.js');
-    vm.runInContext(fs.readFileSync(p, 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: p });
+    vm.runInContext(require('./src_text').source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: p });
     if (f === 'i18n_ru' && lang) vm.runInContext(`I18N._setLang(${JSON.stringify(lang)})`, ctx);
   }
   return ctx;

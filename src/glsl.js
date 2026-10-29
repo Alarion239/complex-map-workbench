@@ -13,6 +13,10 @@ const GLChain = (() => {
   // Internal helpers are prefixed cx_ to stay out of the includer's namespace.
   const LIB = `
 const float CX_PI = 3.141592653589793;
+// [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
+// loop a loop. ANGLE's Direct3D 11 back end hands the code to FXC, which unrolls a loop of constant trip count (its
+// body copied N times; its link time grows much faster than the code). highp: declared alike in both stages.
+uniform highp int uNoUnroll;
 const float CX_TAU = 6.283185307179586;
 const float CX_HALF_PI = 1.5707963267948966;
 float cx_inf() { return uintBitsToFloat(0x7f800000u); }
@@ -122,7 +126,7 @@ vec2 cpow(vec2 z, vec2 w, float theta, float k) {
 vec2 cx_ipow32(vec2 z, bool neg, highp int m) {
   vec2 r = vec2(1.0, 0.0);
   vec2 b = neg ? cinv(z) : z;
-  for (int j = 0; j < 32; j++) {
+  for (int j = 0; j < max(32, uNoUnroll); j++) {
     if (j > 0 && m <= 0) break;
     if ((m & 1) == 1) r = cmul(r, b);
     b = cmul(b, b);
@@ -515,46 +519,47 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
       out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
   float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
-      const run = (from, dir) => {
-        const k = `${id}_k${dir > 0 ? 'p' : 'm'}`, saved = out, inner = [];
-        out = inner;
-        idxVar.push({ v: n.v, k });
-        let t;
-        try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
-        const lim = dir > 0 ? `${k} > ${id}_hi` : `${k} < ${id}_lo`, inf = dir > 0 ? `${id}_hi > 1e30` : `${id}_lo < -1e30`;
-        // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
-        // and the same over both halves, leave
-        // the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
-        out.push(`  { int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-  for (int j = 0; j < ${cap}; j++) {
-    float ${k} = ${from} ${dir > 0 ? '+' : '-'} float(j);
-    if (${lim}) { done = true; break; }
-${inner.map((x) => '  ' + x).join('\n')}
-    vec2 t = ${t};
-    ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
-    if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
-    if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
-    if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
-    tl = u; kl = abs(${k});
-    // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
-    if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
-    if (d > 0.0) dz = d;
-    if (${inf} && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
-  }
-  if (!done && ${inf} && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
-    float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
-    vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
-    if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
-  }
-  if (!done) ${OK} = false; }`);
-      };
-      out.push(`  if (${id}_lo < -1e30 && ${id}_hi > 1e30) {`);
-      run('0.0', 1); run('-1.0', -1);
-      out.push(`  } else if (${id}_lo < -1e30) {`);
-      run(`${id}_hi`, -1);
-      out.push('  } else {');
-      run(`${id}_lo`, 1);
-      out.push('  }');
+      // one loop body for every case (a constant-bound loop written out per case was four copies of the term code, which
+      // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
+      // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
+      // values, not constants, so the loops stay loops
+      const k = `${id}_k`, saved = out, inner = [];
+      out = inner;
+      idxVar.push({ v: n.v, k });
+      let t;
+      try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
+      // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
+      // the sum, as the CPU does: Expr's tailOf)
+      out.push(`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
+  for (int sd = 0; sd < ${id}_nsd; sd++) {
+    float from = ${id}_nsd == 2 ? (sd == 0 ? 0.0 : -1.0) : ${LO} < -1e30 ? ${HI} : ${LO};
+    float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
+    bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
+    int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
+    for (int j = 0; j < ${cap}; j++) {
+      float ${k} = from + dir * float(j);
+      if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
+${inner.map((x) => '    ' + x).join('\n')}
+      vec2 t = ${t};
+      ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
+      if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
+      if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
+      if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
+      tl = u; kl = abs(${k});
+      // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
+      if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
+      if (d > 0.0) dz = d;
+      if (inf && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
+    }
+    if (!done && inf && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
+      float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
+      vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
+      if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
+    }
+    if (!done) ${OK} = false;
+  }`);
       out.push(`  if (!${OK}${prod ? '' : ` || ${SER_CANCEL(M, S)}`}) ${S} = ${NAN};`);
       return S;
     }
@@ -719,7 +724,7 @@ vec2 cx_digamma(vec2 z) {
     acc = -CX_PI * cinv(ctan(cx_pimod(z)));
     z = vec2(1.0, 0.0) - z;
   }
-  for (int i = 0; i < 12; i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
+  for (int i = 0; i < max(12, uNoUnroll); i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
   vec2 w2 = cinv(cmul(z, z));
   vec2 ser = cmul(w2, vec2(1.0 / 12.0, 0.0) + cmul(w2, vec2(-1.0 / 120.0, 0.0) + cmul(w2, vec2(1.0 / 252.0, 0.0) + cmul(w2, vec2(-1.0 / 240.0, 0.0)))));
   return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
@@ -732,7 +737,7 @@ vec2 cx_zetaEM(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 1; k < 200; k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
+  for (int k = 1; k < max(200, uNoUnroll); k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN);
   sum += 0.5 * Nms + cdiv(Nms * fN, s - vec2(1.0, 0.0));
@@ -748,7 +753,7 @@ vec2 cx_zetaEMd(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 2; k < 200; k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
+  for (int k = 2; k < max(200, uNoUnroll); k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN), r = cinv(s - vec2(1.0, 0.0));
   sum -= 0.5 * lnN * Nms + cmul(Nms * fN, r * lnN + cmul(r, r));
@@ -798,7 +803,7 @@ vec2 cx_ipowi(vec2 w, float e) {
   float n = abs(e);
   vec2 r = vec2(1.0, 0.0), b = w;
   if (n > 2147483647.0) { float a = cx_abs(w); r = a < 1.0 ? vec2(0.0) : a == 1.0 ? vec2(1.0, 0.0) : vec2(cx_inf()); return r; }
-  for (int i = 0; i < 31; i++) {
+  for (int i = 0; i < max(31, uNoUnroll); i++) {
     if (mod(n, 2.0) == 1.0) r = cmul(r, b);
     n = floor(0.5 * n);
     if (n == 0.0) break;

@@ -16,7 +16,7 @@
   function paramSig(st) {
     if (!S.params || !S.params.length) return '';
     let out = '';
-    for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) out += `;${nm}=${Params.get(nm)}`;
+    for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
     return out;
   }
   const stepUses = (st, names) => stepTexts(st).some(([, v]) => Params.namesIn(v).some((n) => names.has(n)));
@@ -40,7 +40,7 @@
     for (const [key, src] of Object.entries(s.bind)) {
       const touched = !names || Params.namesIn(src).some((n) => names.has(n));
       try {
-        if (key === 'expr') { if (!touched) continue; const r = Params.resolve(src); if (r !== s.expr) { s.expr = r; ch = true; } continue; }
+        if (key === 'expr') { if (!touched) continue; Expr.checkRealSides(Expr.parse(src, { allowRel: true })); const r = Params.resolve(src); if (r !== s.expr) { s.expr = r; ch = true; } continue; }
         if (Array.isArray(s[key])) {
           const v = Expr.constValue(src);
           if (!CX.isFin(v)) { bad = bad || $t('{x} has no value here', { x: src }); continue; }
@@ -65,6 +65,37 @@
       if (s.undef !== bad) { if (!s.undef && (s.visible !== false || s.cHid)) { s.visible = false; s.undefHid = true; } s.undef = bad; ch = true; }
     } else if (s.undef) { delete s.undef; if (s.undefHid && !s.cHid) s.visible = true; delete s.undefHid; ch = true; }
     return ch;
+  }
+  // the shared number a field of shape s is exactly (a point bound to a: bind.p = 'a'), or '': dragging that point moves
+  // the number, and the point is named after it
+  function boundNumber(s, key = 'p') {
+    const t = s && s.bind && s.bind[key];
+    if (typeof t !== 'string') return '';
+    const nm = Params.namesIn(t)[0];
+    return nm && Params.resolve(t, { [nm]: 0 }) === '(0)' && Params.getC(nm) ? nm : '';
+  }
+  // a point on the plane that shows the number nm (its position bound to it); the add is one undo step
+  function addNumberPoint(nm) {
+    const c = Params.getC(nm);
+    if (!c) return null;
+    const s = newShape('point', { p: [c.re, c.im], bind: { p: nm } });
+    addShape(s);
+    return s;
+  }
+  const numberPoint = (nm) => S.shapes.find((s) => s.kind === 'point' && boundNumber(s) === nm) || null;
+  // the first name for a new number that the name field would accept: a, b, c, …
+  function freeNumberName() {
+    for (const c of 'abcdfghjklmnpqstuv'.split('').concat('αβγδεζηθικλμνξπρστυφχψω'.split(''))) { if (!Params.check(c).error) return c; }
+    return '';
+  }
+  // the plane menu's "New complex number here": a number at z and its point, one undo step
+  function newNumberHere(z) {
+    const nm = freeNumberName();
+    if (!nm) { toast($t('There is no free name left for a number.')); return null; }
+    Params.add(nm, { value: { re: z.re, im: z.im } });
+    addNumberPoint(nm);
+    undoToast($t('Added the complex number {x}', { x: Params.display(nm) }));
+    return nm;
   }
   // every bound field and every number by formula from the numbers' current values (review math-3: a state, a link or a
   // scene opens with its formulas as the truth; the stored values are only a cache)
@@ -290,7 +321,12 @@
     if (!st) return '';
     const ns = [];
     for (const [key] of stepTexts(st)) for (const n of Params.namesIn(st.params[key])) if (!ns.includes(n)) ns.push(n);
-    const val = (n) => { const v = Params.get(n); return v == null ? '?' : I18N.num(String(+(+v).toPrecision(4))).replace('-', '−'); };
+    const num4 = (v) => I18N.num(String(+(+v).toPrecision(4))).replace('-', '−');
+    const val = (n) => {
+      const c = Params.getC(n);
+      if (!c) return '?';
+      return c.im ? `${c.re ? num4(c.re) : ''}${c.re ? (c.im < 0 ? ' − ' : ' + ') : c.im < 0 ? '−' : ''}${Math.abs(c.im) === 1 ? '' : num4(Math.abs(c.im))}i` : num4(c.re);
+    };
     return ns.length ? $t('Numbers: {list}', { list: ns.map((n) => `${Params.display(n)} = ${val(n)}`).join(', ') }) : '';
   }
   function paramsRestored() { zpParsed.clear(); Params.render(); }
@@ -325,6 +361,8 @@
       undoToast: (m) => undoToast(m),
       openMenu: (a, items) => openMenu(a, items),
       useIn: (nm) => paramUseIn(nm),
+      pointOf: (nm) => numberPoint(nm),
+      showPoint: (nm) => { if (!numberPoint(nm)) addNumberPoint(nm); },
     });
     if (!attachParams.on) { attachParams.on = true; Params.on('change', onParamChange); }
   }
@@ -485,12 +523,21 @@
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
     // once nothing compiles (the views' plain programs and the exact images have landed), the views' homotopy programs
     // (one per map mode, gl.js MAP) compile in the background, so a deformation started later plays at once; never
-    // before, so they do not delay the first image or an inverse program (its compile waits for forward programs)
-    let modesT = 0;
-    const prestartModesIdle = () => {
-      clearTimeout(modesT);
-      modesT = setTimeout(() => { try { if (GLR.ok && GLR.prestartModes && !GLR.compiling) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the deformation starts them */ } }, 400);
+    // before, so they do not delay the first image or an inverse program (its compile waits for forward programs).
+    // (issue #72) Then, one group at a time, each once the one before has landed and the user has paused for a second,
+    // the globes' and the Landscape's: a cold link on Direct3D 11 takes seconds, and the browser keeps the programs for
+    // later visits. Each group starts only the programs not started yet.
+    let modesT = 0, warmI = 0;
+    const WARM = [() => GLR.prestartModes(S.homAll ? [3] : [1]), () => prestartGlobe(), () => GLR.prestartLand()];
+    const warmNext = () => {
+      try {
+        if (!GLR.ok || !GLR.prestartModes || warmI >= WARM.length) return;
+        if (GLR.compiling || (warmI && performance.now() - lastInputT < 1000)) { modesT = setTimeout(warmNext, 400); return; }
+        WARM[warmI++]();
+        modesT = setTimeout(warmNext, 400);
+      } catch (e) { /* the views start them */ }
     };
+    const prestartModesIdle = () => { clearTimeout(modesT); warmI = 0; modesT = setTimeout(warmNext, 400); };
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
