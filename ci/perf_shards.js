@@ -9,7 +9,7 @@
 const SHARDS = [
   { id: 'image-default', re: '^image\\.default\\.', what: 'Image mode, the default example, meshes 240 / 480 / 1920' },
   { id: 'image-logUHP', re: '^image\\.logUHP\\.', what: 'Image mode, log of the upper half-plane' },
-  { id: 'image-chain4', re: '^image\\.chain4\\.', what: 'Image mode, a 4-step chain' },
+  { id: 'image-chain4', re: '^image\\.(chain4|stages3)\\.', what: 'Image mode, a 4-step chain; shapes of planes 1-3 pulled back (#253)' },
   { id: 'image-ziH', re: '^image\\.ziH\\.', what: 'Image mode, z^i of H (dpr 1 and 2, opacities)' },
   { id: 'image-expH', re: '^image\\.(expH|disc_cube)\\.', what: 'Image mode, exp of H, the disc under z^3 (dpr 2)' },
   { id: 'image-sphere-mesh', re: '^image\\.(custom_e_z1z|expexp_H)\\.', what: 'Image mode, the SphereMesh chains' },
