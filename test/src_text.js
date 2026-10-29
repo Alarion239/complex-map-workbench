@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SRC = path.join(__dirname, '../src');
-const PARTS_RE = /^ *\/\/ @parts\b.*\n/m;
+const PARTS_RE = /^ *\/\/ @parts\b[^\n]*\n/m;   // ([^\n], not ., which stops at the \r of a CRLF checkout)
 // the files kept as parts
 const SPLIT = ['app.js', 'gl.js'];
 

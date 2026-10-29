@@ -80,6 +80,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - id: ref
         shell: bash
         run: |
@@ -160,6 +161,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (paired with the reference; on the Mac, where the tests were written, glsl and inverse also outright: adv fails
       # 304 values there, in 10 chains near removable singularities, as every release since v14 did, so it is paired only)
@@ -186,6 +188,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (the Mac also against the committed baseline and goldens, which were recorded on a Mac GPU)
       - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
@@ -215,6 +218,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
       - if: always()
