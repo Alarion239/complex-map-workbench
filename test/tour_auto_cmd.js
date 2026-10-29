@@ -358,9 +358,12 @@ const ruWait = await until(`(() => { const s = __cmwSound(); return !!s.listenFn
 t0 = Date.now();
 const ruDur = await ev(`(() => { const s = __cmwSound(); return s.listenFn ? s.listenFn.dur : null; })()`);
 check('RU Grieg: the function plays within 25 s of the press', ruWait != null && ruDur > 0, [ruWait, ruDur, await lit()]);
-await sleep(1500);
+// (the first caption holds for the first 0.2 of the playback (capFrac), 1.5 s of this phone's 7.5 s: it is read while
+// it shows, polled within 0.18 of the playback from its start, never at a fixed moment, which can land on the next one)
+const capWin = Math.max(300, 180 * (ruDur || 7.5) - (Date.now() - t0));
+await until(`/Нота/.test(document.querySelector('#tourLead').textContent)`, capWin);
 const ruCap = await ev(`document.querySelector('#tourLead').textContent`);
-check('RU Grieg: the first caption in Russian', /Нота/.test(ruCap), ruCap);
+check('RU Grieg: the first caption in Russian', /Нота/.test(ruCap), [ruCap, capWin]);
 const fit = await ev(`(() => { const e = document.querySelector('.ts-lead'); return e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1 && document.querySelector('.ts-l2').scrollHeight <= document.querySelector('.ts-l2').clientHeight + 1; })()`);
 check('RU Grieg: the caption fits the strip', fit);
 // stopped at 60 % of the piece (at most 10 s) from its start: listen-ended with heard >= min(9 s, 45 % of it) is done;
