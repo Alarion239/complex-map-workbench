@@ -203,6 +203,9 @@ idle page: stuck).
   every metric that got worse, and a list of improvements. The raw results (JSON) are the run's artifacts.
 - **A machine is off:** its jobs wait in the queue for up to 24 hours, then GitHub cancels them. Cancel the run if
   you know it will not come back, or turn the gate off (`GPU_RUNNERS` to `false`).
+- **A lost job** (the machine slept, rebooted or lost its GPU mid-run, or a page reports *stalled*): re-run it
+  (*Re-run failed jobs*), do not debug it. A new push or run on the same branch replaces a pull request's or a
+  by-hand run anyway; a failure that comes back on the re-run is real.
 - **While a run is on the machine:** avoid heavy work on it (a build, a game, another browser test). Both sides of
   each comparison run back to back, so a busy machine slows both, but it adds noise.
 - **Updates:** the runner updates itself. Keep Chrome, Node and Python updated as usual.
