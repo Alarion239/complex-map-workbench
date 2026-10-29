@@ -79,7 +79,8 @@ grab();
 // ---------------------------------------------------------------- UX20: keys and options in the pane head
 await laptop();
 await fresh('ux165a'); await settle(1800);
-g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => c.classList.contains('opts-btn')) }; })()`);
+g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => { const r = c.getBoundingClientRect(), hd = c.closest('.pane-head'), h = hd && hd.getBoundingClientRect(); return !!h && r.top >= h.top - 1 && r.bottom <= h.bottom + 1; }) }; })()`);
+// (#247: the head's controls are inline, compact, every one inside the head)
 check('UX20 laptop X → Y: the pattern key and the options are in Y\'s pane head, nothing of theirs on the plot', g.legHead && g.footHead && g.inPlot === 0 && /^cell /.test(g.sum || '') && g.onlyBtn, g);
 let lb = await box('#rightLegend');
 await move(lb.l + 8, lb.t + 8); await settle(500);
@@ -88,9 +89,11 @@ check('UX20: the key unfolds under the head only while pointed at (invited)', g.
 await shot('ux165-ux20-key-hover');
 await move(300, 300); await settle(300);
 check('UX20: and folds again', await ev(`getComputedStyle(document.querySelector('#rightLegend > canvas')).display === 'none'`));
-await ev(`document.querySelector('#rightFoot .opts-btn').click()`); await settle(400);
-g = await ev(`(() => { const p = document.querySelector('.opts-pop'); if (!p) return null; const b = p.getBoundingClientRect(), h = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { phaseKey: !!p.querySelector('#wKeyChkR'), under: b.top >= h.bottom - 1 }; })()`);
-check('UX20: Display options in the head opens View outline and Phase key under it', g && g.phaseKey && g.under, g);
+// (#247: View outline and Phase key are toggles in Y's head, or behind its ⋯ when the head has no room; never over the plot)
+const inlineKey = await ev(`(() => { const k = document.getElementById('wKeyChkR'), l = k && k.closest('label'); return !!(l && l.getClientRects().length && l.closest('#paneR .pane-head')); })()`);
+if (!inlineKey) { await ev(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)').click()`); await settle(400); }
+g = await ev(`(() => { const k = document.getElementById('wKeyChkR'), f = document.getElementById('fovChk'), l = k && k.closest('label'), p = document.querySelector('.opts-pop'), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); if (!l) return null; const b = (p || l).getBoundingClientRect(); return { phaseKey: l.getClientRects().length > 0, fov: !!f, inHead: !!l.closest('.pane-head'), under: !p || b.top >= hd.bottom - 1, titles: p ? p.querySelectorAll('.opts-h').length : 0 }; })()`);
+check('UX20/#247: View outline and Phase key in Y\'s head, or in its ⋯ pop-up under it, with no title', g && g.phaseKey && g.fov && (g.inHead || g.under) && g.titles === 0, g);
 await key('Escape'); await settle(200);
 for (const v of ['phase', 'land']) {
   await ev(`__cmwSetMain('${v}')`); await settle(2200);

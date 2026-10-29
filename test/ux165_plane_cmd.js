@@ -472,11 +472,12 @@ await section('L86', async () => {
   await key('2'); await settle(900);
   // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
   // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
-  const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
-  const ph = await ev(`[...document.querySelectorAll('[data-dc], .options button, .options [role=radio], #dcSeg > button')].map((b) => b.textContent.trim()).filter((t) => /grid/i.test(t))`);
+  // (#247: the row shows "Grid"; the style's name, its accessible name and tooltip, stays "Pulled-back grid")
+  const ph = await ev(`[...document.querySelectorAll('[data-dc], .options button, .options [role=radio], #dcSeg > button')].map((b) => (b.getAttribute('aria-label') || b.textContent).trim()).filter((t) => /grid/i.test(t))`);
   ok('UX86 the Phase style is "Pulled-back grid"', ph.includes('Pulled-back grid'), ph);
-  await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200);
+  await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200);
   await key('1'); await settle(400);
 });
 
