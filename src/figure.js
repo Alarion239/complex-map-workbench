@@ -3172,6 +3172,9 @@ const Figure = (() => {
       raf = 0;
       const q = run;
       if (!q || !P.playing) return;
+      // (time does not run before the first picture is shown: on a slow machine the poster's frame is still rendering, and the
+      // preview must open on it, not on a frame the clock has since passed)
+      if (!P.shown) { pos0 = P.i; clock = now; }
       const i = Math.max(0, Math.floor(pos0 + (now - clock) * q.fps / 1000)) % q.times.length;
       if (i !== P.i) { P.i = i; ui.tick(i); }
       ahead(q, i);
