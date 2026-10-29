@@ -192,10 +192,12 @@
   }
   const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Pulled-back grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
   // (#247) the Phase style as one row: each style its glyph (STYLE_SVG), alone in the pane head (option 1: the name its
-  // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here, its
+  // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here
+  // and Cauchy its short word (Russian «Коши», not «Интеграл Коши», which a 54 px button at 360 px broke mid-word), the
   // whole name the tooltip, the accessible name and the header menu's item
   function styleSeg() {
-    const el = seg('dcSeg', S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, v === 'grid' ? $t('Grid') : name)], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
+    const word = (v, name) => (v === 'grid' ? $t('Grid') : v === 'cauchy' ? $tx('style', 'Cauchy') : name);
+    const el = seg('dcSeg', S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, word(v, name))], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
     el.classList.add('sty-seg');
     for (const b of /** @type {HTMLElement[]} */ ([...el.children])) {
       const d = DC_STYLES.find((p) => p[0] === b.dataset.v);
@@ -292,7 +294,8 @@
   const headRO = new WeakSet();   // (the pane heads observed for their width)
   function layoutFootSide(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
-    const phone = phoneMQ.matches;
+    // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
+    const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
     // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys, so no bar lies over the plot. [#247] There its
     // controls are inline, compact (icon toggles, the style's glyphs), as many as the head has room for beside a title
     // kept readable; the rest go behind a ⋯ button. In the X → Y view the head also has the shapes' pattern button)

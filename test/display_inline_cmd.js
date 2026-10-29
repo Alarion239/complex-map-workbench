@@ -178,20 +178,25 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
 }
 
 // ---- phone: the Display sheet
+// (the words of an element's text that wrap onto a second line inside themselves)
+const BROKEN = `const brokenWords = (e) => { const out = []; if (!e) return out; for (const t of e.childNodes) { if (t.nodeType !== 3) continue; const re = /\\S+/g; let m;
+      while ((m = re.exec(t.textContent))) { const r = document.createRange(); r.setStart(t, m.index); r.setEnd(t, m.index + m[0].length); if (new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size > 1) out.push(m[0]); } } return out; };`;
 for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
   await fresh(w, 780, true, lang);
   const tag = `phone ${w} ${lang || 'en'}`;
   await ev(`Phone.open('display')`); await settle(900);
   const sh = await ev(`(() => {
+    ${BROKEN}
     const body = document.querySelector('.ph-sheet .ph-body:not([hidden])') || document.querySelector('.ph-sheet'), s = document.getElementById('dcSeg'); if (!s) return null;
     const sb = s.closest('.ph-sheet, .ph-sb').getBoundingClientRect();
     const first = [...s.closest('.ph-vopts').parentElement.children].find((e) => e.getClientRects().length && !e.matches('.ph-h[hidden]'));
     return { first: first === s.closest('.ph-vopts'), firstIsSeg: s.closest('.ph-vopts').firstElementChild === s, titles: [...document.querySelectorAll('.ph-sheet h3')].filter((e) => e.getClientRects().length).map((e) => e.textContent),
       chip: !!document.querySelector('.ph-style') && document.querySelector('.ph-style').getClientRects().length > 0,
-      btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, cut: n && n.scrollWidth > n.clientWidth + 1 }; }) };
+      btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, cut: n && n.scrollWidth > n.clientWidth + 1, broken: brokenWords(n) }; }) };
   })()`);
   ok(`${tag}: the sheet starts with the styles' row, no "This view" title, no separate style chip in the flat Phase view`, sh && sh.first && sh.firstIsSeg && !sh.titles.some((t) => /This view|Этот вид/.test(t)) && !sh.chip, sh);
   ok(`${tag}: six styles, each ≥ 44 × 44 px with its word, inside the sheet, none cut`, sh && sh.btns.length === 6 && sh.btns.every((b) => b.w >= 44 && b.h >= 44 && b.in && b.word && !b.cut), sh && sh.btns);
+  ok(`${tag}: no style's word is broken across two lines (Russian «Интеграл Коши» was, at 360 px)`, sh && sh.btns.every((b) => !b.broken.length), sh && sh.btns.map((b) => b.broken));
   await ev(`document.querySelector('#dcSeg button[data-v="classic"]').click()`); await settle(500);
   ok(`${tag}: one tap picks a style`, (await st()).dc === 'classic', (await st()).dc);
   for (const id of ['outlineChk', 'unitChk']) {
@@ -204,6 +209,23 @@ for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
   await ev(`Phone.open('display')`); await settle(800);
   const ch = await ev(`(() => { const e = document.querySelector('.ph-style'); return e && e.getClientRects().length ? { dis: e.getAttribute('aria-disabled'), h: e.getBoundingClientRect().height } : null; })()`);
   ok(`${tag}: in the Landscape the style chip shows, dimmed`, ch && ch.dis === 'true' && ch.h >= 44, ch);
+  await ev(`Phone.close(true)`); await settle(300);
+}
+// a landscape phone (wider than 767 px): the Display sheet opened from the Phase plane has all its options, the styles
+// first (it had only the unit circle: the plane's strip was laid out as a laptop's, the sheet given only its overflow)
+for (const lang of ['', 'ru']) {
+  await fresh(780, 360, true, lang);
+  const tag = `phone 780 × 360 ${lang || 'en'}`;
+  await ev(`(() => { const b = document.querySelector('#plotL .ph-dsp'); if (b) b.click(); return !!b; })()`); await settle(900);
+  const sh = await ev(`(() => {
+    ${BROKEN}
+    const s = document.getElementById('dcSeg'), v = s && s.closest('.ph-vopts'); if (!v) return { seg: s && (s.parentElement.id || s.parentElement.className) };
+    const sb = s.closest('.ph-sheet, .ph-sb').getBoundingClientRect();
+    return { firstIsSeg: v.firstElementChild === s, ids: [...v.querySelectorAll('input, select')].map((i) => i.id),
+      btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, broken: brokenWords(n) }; }) };
+  })()`);
+  ok(`${tag}: the Phase plane's Display sheet starts with the six styles, then its toggles`, sh && sh.firstIsSeg && sh.btns && sh.btns.length === 6 && ['outlineChk', 'unitChk'].every((id) => sh.ids.includes(id)), sh);
+  ok(`${tag}: each style ≥ 44 × 44 px with its word, inside the sheet, none broken`, sh && sh.btns && sh.btns.every((b) => b.w >= 44 && b.h >= 44 && b.in && b.word && !b.broken.length), sh && sh.btns);
   await ev(`Phone.close(true)`); await settle(300);
 }
 await view(1440, 900, false, false);
