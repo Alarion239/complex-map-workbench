@@ -1387,8 +1387,9 @@
       gl.bindVertexArray(null);
       gl.enable(gl.BLEND);
     }
-    // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid})
-    if (st.pre && P) drawPreimage(Object.assign({}, st.pre, { sphere: { MVP, eye }, dpr, view: null }));
+    // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid}), or a
+    // list of them, one per map ([#253] the shapes of each later plane)
+    if (P) for (const pr of Array.isArray(st.pre) ? st.pre : st.pre ? [st.pre] : []) drawPreimage(Object.assign({}, pr, { sphere: { MVP, eye }, dpr, view: null }));
     // lifted regions and their edges: tested against the globe, never against each other (a casing written to
     // depth would otherwise hide parts of its own stroke)
     gl.depthMask(false);
