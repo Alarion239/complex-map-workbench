@@ -1198,3 +1198,76 @@
     const v = leftView(), P = solo() === 'R' ? paneR : paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
+  // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
+  function setupViewControls() {
+    // the view controls: the top bar's view switch (merged-views.md) and the panes' Plane | Sphere radios (U4)
+    const vsw = $('viewSwitch');
+    if (vsw) {
+      for (const [v, l, k, html] of MAINS) vsw.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': `${l}  ${k}`, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${html}</span>`, onclick: () => setMain(v) }));
+      vsw.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const i = MAINS.findIndex((x) => x[0] === S.view.main), j = Math.max(0, Math.min(MAINS.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+        setMain(MAINS[j][0]); vsw.children[j].focus(); e.preventDefault();
+      });
+    }
+    for (const side of ['L', 'R']) {
+      const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+      for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
+        const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+        setView(side, list[j][0]); el.children[j].focus(); e.preventDefault();
+      });
+    }
+    // the Key switch in X's legend chip: the colour key painted in the Y plane
+    const kc = $('wKeyChk');
+    if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
+    $('linesChk').addEventListener('change', (e) => { setOpt('lines', e.target.checked); requestRender('L', 'R', 'T'); save(); });
+    $('chevChk').addEventListener('change', (e) => { setOpt('chev', e.target.checked); requestRender('L', 'R'); save(); });
+    $('unitChk').addEventListener('change', (e) => { setOpt('unit', e.target.checked); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => { setOpt('alpha', +e.target.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
+    $('meshRange').addEventListener('input', (e) => { showMeshVal(posToMesh(+e.target.value)); });
+    $('patScale').addEventListener('input', (e) => { setOpt('patternScale', 2 ** +e.target.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
+    $('leftReadout').addEventListener('click', () => copyReadout('L'));
+    $('rightReadout').addEventListener('click', () => copyReadout('R'));
+    radioKeys($('patternSeg'));
+  }
+  // (#385) the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
+  function setupPaneButtons() {
+    $('leftFit').addEventListener('click', () => {
+      if (!lFlat()) { const c = camOf('L'); if (c) tweenCam(c, camBaseOf(c)); return; }
+      paneL.setView(leftView());
+      const target = fittedView(paneL, leftStage());
+      if (leftStage() > 0) leftAuto = true;
+      tweenView(leftView(), target, 260, () => sourceViewChanged());
+    });
+    $('rightFit').addEventListener('click', () => { rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
+    // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (merged-views
+    // review: on a 356 px plot the key covered a third of the landscape); a tap on a folded or unfolded chip toggles
+    for (const id of ['leftLegend', 'rightLegend']) {
+      const el = $(id);
+      if (!el) continue;
+      try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
+      // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
+      for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
+      el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
+    }
+    for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
+      $(side + 'ZoomIn').innerHTML = ICONS.plus;
+      $(side + 'ZoomOut').innerHTML = ICONS.minus;
+      $(side + 'Fit').innerHTML = ICONS.fit;
+      $(side + 'Solo').innerHTML = ICONS.expand;
+      const zb = (f) => () => {
+        const sd = side === 'left' ? 'L' : 'R';
+        if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
+        const v = sd === 'L' ? leftView() : V.right;
+        pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
+        const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
+        if (sd === 'R') rightAuto = false; else if (leftStage() > 0) leftAuto = false;
+        tweenView(v, target, 180, () => sourceViewChanged());
+      };
+      $(side + 'ZoomIn').addEventListener('click', zb(1.6));
+      $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
+    }
+  }
