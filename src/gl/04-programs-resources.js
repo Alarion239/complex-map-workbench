@@ -108,7 +108,7 @@
     preS: { chain: true, vs: () => SPHERE_VS, fs: () => PRE_FS('', true) },
     // (the heights, uPass 0, and the refinement, 1 and 2: one program, one call site of the chain, LAND_TF_VS)
     // (issue #47: and the edge pass, uPass 3, of the cut kind tfKind gives this chain version and map mode)
-    landTF: { chain: true, vs: (ch, mode) => UTIL_V + HEIGHT + LAND_TF_VS(tfKind(ch, mode)), fs: () => TF_FS, tf: true },
+    landTF: { chain: true, vs: (ch, mode) => UTIL_V + HEIGHT + LAND_TF_VS(tfKind(ch, mode)), fs: () => TF_FS, tf: true, kind: (ch, mode) => tfKind(ch, mode) },
     // (the refinement's levels and vertices: no chain, compiled once per page, LAND_LV_VS / LAND_RP_VS / LAND_RA_VS)
     landLv: { chain: false, vs: () => LAND_LV_VS, fs: () => TF_FS, tf: true },
     landRP: { chain: false, vs: () => LAND_RP_VS, fs: () => TF_FS, tf: true },
@@ -200,10 +200,13 @@ float wabs(vec2 w) {
   let useClock = 0, pollT = 0;
   const PROG_KEEP = 3;   // chain versions kept per program (undo, redo and bypass toggles reuse them)
   // the id of program `name` in progs: chain programs per chain version and map mode (the draw's map, as use() applies
-  // it to version ch), the others once
+  // it to version ch), the others once; landTF also per kind (tfKind): a log's or z^a's cut angle and branch are
+  // uniforms, so the chain's key stays when its cuts change kind (sheet <-> other) and the kind flips S <-> N (#168 review)
   function progId(name, ch, map) {
     const d = DEFS[name];
-    return d && d.chain ? `${name}|${ch.key}|m${modeOf(mapFor(map, ch))}` : name + '|static';
+    if (!(d && d.chain)) return name + '|static';
+    const mode = modeOf(mapFor(map, ch));
+    return `${name}|${ch.key}|m${mode}${d.kind ? '|' + d.kind(ch, mode) : ''}`;
   }
   // The program `name` for chain version ch (null for programs without the chain) and the draw's map (its mode: one
   // program per mode, MAP); start: begin compiling if needed. Returns the program once it is ready, else null.
@@ -396,13 +399,13 @@ float wabs(vec2 w) {
   const GROUPS = [['landTF', 'land', 'floor'], ['landSheetTF', 'landSheet', 'floor']];
   // (the floor goes with the surface it is drawn under: All sheets' when their programs were asked for, r3: through the
   // principal group it started the principal programs alongside the sheets', a second family compiling at a cold open)
-  const groupOf = (e) => (e.name === 'floor' ? (progs.has(`landSheet|${e.key}|m${e.mode}`) ? GROUPS[1] : GROUPS[0]) : GROUPS.find((g) => g.includes(e.name)) || null);
+  const groupOf = (e) => (e.name === 'floor' ? (progs.has(progId('landSheet', e.ch, { mode: e.mode })) ? GROUPS[1] : GROUPS[0]) : GROUPS.find((g) => g.includes(e.name)) || null);
   function groupDone(e) {
     const g = groupOf(e);
     if (!g || !pcExt) return true;
     for (const n of g) {
       if (n === e.name) continue;
-      const q = progs.get(`${n}|${e.key}|m${e.mode}`);
+      const q = progs.get(progId(n, e.ch, { mode: e.mode }));
       if (!q) { getProg(n, e.ch, true, { mode: e.mode }); return false; }
       if (q.state === 'pending' && !gl.getProgramParameter(q.p, pcExt.COMPLETION_STATUS_KHR)) return false;
     }
@@ -411,11 +414,11 @@ float wabs(vec2 w) {
   function finishGroup(e) {
     const g = groupOf(e);
     if (!g) return;
-    for (const n of g) { const q = progs.get(`${n}|${e.key}|m${e.mode}`); if (q && q !== e && q.state === 'pending') finishLink(q); }
+    for (const n of g) { const q = progs.get(progId(n, e.ch, { mode: e.mode })); if (q && q !== e && q.state === 'pending') finishLink(q); }
   }
   function canFinish(e) {
     const now = performance.now();
-    if (now - freshT < FRESH_MS && (e.side || hist.some((h) => { const q = progs.get(`${e.name}|${h.key}|m${e.mode}`); return q && q.state === 'ready'; }))) return false;
+    if (now - freshT < FRESH_MS && (e.side || hist.some((h) => { const q = progs.get(progId(e.name, h, { mode: e.mode })); return q && q.state === 'ready'; }))) return false;
     freshT = now;
     return true;
   }
