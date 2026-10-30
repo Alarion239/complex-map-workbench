@@ -3,13 +3,19 @@
 // app, cold (a fresh profile, the GPU program cache empty) and then warm (the same profile again: Chrome's program
 // cache), on the machine's own GPU and ANGLE back end (Direct3D 11 on Windows, Metal on the Mac). The GPU gate runs it
 // on its machines (gpu-gate.yml, mode glprof); any machine can run it.
-//   node ci/glprof.js [--no-build] [--ref REF] [--rounds N] [--clear-metal-cache] [--walk all|quick] [--step-timeout S] [--out FILE] [--cache DIR]
+//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended] [--step-timeout S] [--out FILE] [--cache DIR]
 // --ref: the build of another commit too (ci/reference.js), the two sides in turn, current, reference, reference,
 // current, ... (--rounds N: N pairs, default 2), each a cold and a warm pass: whatever the machine keeps between runs
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
 // for Chrome outside its profile (see metalCaches); without it a fresh profile is not cold on the Mac (#237).
 // The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are on by default: their inverse programs too); then on the
-// first example, the views (Phase, Landscape, both Spheres) and the deformation. Each step waits until every link it started has landed (or --step-timeout, default
+// first example, the views (Phase, Landscape, both Spheres) and the deformation. --walk extended (#238's Windows list)
+// adds: the deformation of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the time to
+// the first exact-image draw, the gallery opened (its thumbnails' time), and on every pass the first minute from the
+// page's load (the start-up bar shown, the links pending, the page's long tasks). --variant unroll (#238 item 3): a
+// second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
+// constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
+// bounds are not undone by it). Each step waits until every link it started has landed (or --step-timeout, default
 // 1200 s: on Direct3D 11 one program has taken 12 minutes). Prints the programs by their cold time-share (links run in
 // parallel: a link's own cost, about; see share below), to the job summary and the log, and writes FILE
 // (default .ci/glprof/glprof.json): per pass, per step, per program {name, key, mode, inv, vs, fs, ms, by}.
@@ -27,9 +33,12 @@ const flag = (name) => argv.includes('--' + name);
 const OUT = path.resolve(opt('out', path.join(ROOT, '.ci', 'glprof', 'glprof.json')));
 const CACHE = path.resolve(opt('cache', path.join(os.tmpdir(), 'cmw-glprof-profile')));
 const STEP_S = Number(opt('step-timeout', '1200'));
-const QUICK = opt('walk', 'all') === 'quick';
+const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended';
 const REF = opt('ref', '');
-const ROUNDS = Math.max(1, Number(opt('rounds', REF ? '2' : '1')) || 1);
+const VARIANT = opt('variant', '');
+if (VARIANT && VARIANT !== 'unroll') throw new Error(`--variant ${VARIANT}: only unroll`);
+if (VARIANT && REF) throw new Error('--variant and --ref: one second side at a time');
+const ROUNDS = Math.max(1, Number(opt('rounds', REF || VARIANT ? '2' : '1')) || 1);
 const CLEAR_METAL = flag('clear-metal-cache') && process.platform === 'darwin';
 
 
@@ -43,8 +52,53 @@ function walk() {
   return s;
 }
 
+// --walk extended: the examples by their English names in src/app/15-examples-guide.js (their indices move as examples
+// are added), each opened, then deformed and closed again; [label, statement, false, {until, measure}]: until, a
+// condition polled from the statement on (its time is the step's firstS); measure, read once the links have landed
+function exampleIndex(name) {
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
+  const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+  return names.indexOf(name);
+}
+function extended() {
+  const s = [];
+  // (#238 item 2: the All sheets and the Γ/ζ examples deformed; item 3: a Σ step and a power series)
+  for (const nm of ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series']) {
+    const i = exampleIndex(nm);
+    if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
+    s.push([`${nm} (example ${i})`, `__cmwExample(${i})`, false, null]);
+    s.push([`${nm}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${nm}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
+  }
+  // (item 4: the first example again with the exact images on, until the right pane draws with nothing pending)
+  s.push(['exact images: the first visible draw', "(window.__gpX = __cmwExample(1), __cmwSet('exactImages', true), true)", false,
+    { until: "(() => { const p = __cmwPaneStatus('R'); return !!p && !p.pending && !p.compiling && !p.exact; })()" }]);
+  // (item 5: the gallery opened: until every example's thumbnail is drawn, and how many were)
+  s.push(['the gallery opened', "(document.getElementById('examplesBtn').click(), true)", false,
+    { until: "(() => { const it = [...document.querySelectorAll('.ex-item')]; return it.length > 0 && it.every((e) => { const g = e.querySelector('img, canvas'); return !g || (g.tagName === 'IMG' ? !!g.getAttribute('src') : g.width > 0); }); })()",
+      measure: "(() => { const it = [...document.querySelectorAll('.ex-item')]; return { items: it.length, drawn: it.filter((e) => { const g = e.querySelector('img'); return !!(g && g.getAttribute('src')); }).length }; })()" }]);
+  s.push(['the gallery closed', "(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true)", false, null]);
+  return s;
+}
+// (#238 item 8) from the page's first script on: the start-up bar's visibility, the links pending and the long tasks,
+// every 100 ms for 60 s, read with the start step
+const STARTUP = `(() => {
+  const t0 = performance.now(), lt = [], tl = [];
+  try { new PerformanceObserver((l) => { for (const e of l.getEntries()) lt.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { /* none */ }
+  const tick = () => {
+    const b = document.getElementById('warmBar'), G = window.GLR;
+    tl.push([Math.round(performance.now() - t0), b ? (b.hidden ? 0 : 1) : -1, G && typeof G.pendingLinks === 'number' ? G.pendingLinks : -1]);
+    if (performance.now() - t0 < 60000) setTimeout(tick, 100);
+  };
+  setTimeout(tick, 0);
+  window.__gpStartup = () => {
+    const on = tl.filter((x) => x[1] === 1);
+    return { barFirstMs: on.length ? on[0][0] : null, barLastMs: on.length ? on[on.length - 1][0] : null, barShownMs: on.length * 100, pendingMax: Math.max(0, ...tl.map((x) => x[2])),
+      longTasks: lt.length, longMax: Math.max(0, ...lt.map((x) => x[1])), longOver200: lt.filter((x) => x[1] > 200).length, samples: tl.length };
+  };
+})();`;
+
 async function pass(name, base, tag) {
-  const B = await launch({ cache: CACHE });
+  const B = await launch(EXTENDED ? { cache: CACHE, inject: STARTUP } : { cache: CACHE });
   const out = { pass: name, renderer: '', steps: [] };
   try {
     await B.nav(`${base}test.html?glprof&ns=glprof${Date.now()}`);
@@ -65,20 +119,49 @@ async function pass(name, base, tag) {
       }
     };
     out.steps.push(await settle('start (the default example)'));
+    if (EXTENDED) { await sleep(Math.max(0, 61000 - out.steps[0].s * 1000)); out.steps[0].measure = await B.ev('window.__gpStartup ? __gpStartup() : null'); }
     const steps = [];
     for (let i = 0; i < (QUICK ? 3 : 200); i++) steps.push([`example ${i}`, `__cmwExample(${i})`, true]);
     let exDone = false;
-    for (const [label, js, ex] of [...steps, ...walk()]) {
+    for (const [label, js, ex, x] of [...steps, ...walk(), ...(EXTENDED ? extended() : [])]) {
       if (ex && exDone) continue;
       // (__cmwExample is false past the last example: the examples are done)
+      const t1 = Date.now();
       const r = await B.ev(`(() => { try { const r = ${js}; return r !== false; } catch (e) { return false; } })()`);
       if (!r) { if (ex) { exDone = true; continue; } throw new Error('step failed: ' + label); }
+      let firstS;
+      if (x && x.until) {
+        for (;;) {
+          if (await B.ev(`(() => { try { return !!${x.until}; } catch (e) { return false; } })()`)) { firstS = (Date.now() - t1) / 1000; break; }
+          if (Date.now() - t1 > STEP_S * 1000) { firstS = null; break; }
+          await sleep(100);
+        }
+      }
       const st = await settle(label);
+      if (x && x.until) st.firstS = firstS;
+      if (x && x.measure) st.measure = await B.ev(`(() => { try { return ${x.measure}; } catch (e) { return String(e); } })()`);
       out.steps.push(st);
       const ms = st.programs.reduce((a, p) => a + Math.max(0, p.ms || 0), 0);
       console.log(`[glprof] ${tag}${name} ${label}: ${st.programs.length} links, ${(ms / 1000).toFixed(1)} s of link time, ${st.s.toFixed(1)} s wall${st.timedOut ? ' (TIMED OUT)' : ''}`);
     }
   } finally { await B.close(); }
+  return out;
+}
+
+// --variant unroll: a copy of dist whose shader sources have the loop guards stripped, so every guarded loop has a
+// constant trip count again (the app is otherwise the same); says how many it stripped
+function unrolledDist(dist) {
+  const out = path.join(os.tmpdir(), 'cmw-glprof-unrolled');
+  fs.rmSync(out, { recursive: true, force: true });
+  fs.cpSync(dist, out, { recursive: true });
+  let n = 0;
+  for (const f of fs.readdirSync(out).filter((x) => /\.(js|html)$/.test(x))) {
+    const p = path.join(out, f), a = fs.readFileSync(p, 'utf8');
+    const b = a.replace(/max\(([^,()]+(?:\([^()]*\))?), uNoUnroll\)/g, (m, x) => { n++; return x; }).replace(/ \* uIxOne\b/g, () => { n++; return ''; });
+    if (b !== a) fs.writeFileSync(p, b);
+  }
+  console.log(`[glprof] --variant unroll: ${n} loop guards stripped in ${out}`);
+  if (!n) throw new Error('--variant unroll: no loop guard found to strip');
   return out;
 }
 
@@ -139,6 +222,7 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
   const sides = [{ side: 'current', dist: path.join(ROOT, 'dist') }];
   if (REF) { const R = buildReference(REF); sides.push({ side: `reference ${R.sha.slice(0, 12)}`, dist: R.dist, sha: R.sha }); }
+  if (VARIANT === 'unroll') sides.push({ side: 'unrolled (#206 guards stripped)', dist: unrolledDist(path.join(ROOT, 'dist')) });
   for (const s of sides) Object.assign(s, await serve(s.dist));
   const order = [];
   for (let r = 0; r < ROUNDS; r++) order.push(...(r % 2 ? sides.slice().reverse() : sides));
@@ -155,7 +239,7 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   }
   for (const s of sides) s.server.close();
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, reference: sides[1] ? sides[1].sha : null, clearMetal: CLEAR_METAL, runs }, null, 1));
+  fs.writeFileSync(OUT, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, reference: sides[1] ? sides[1].sha || sides[1].side : null, walk: WALK, clearMetal: CLEAR_METAL, runs }, null, 1));
   const lines = [`### Shader link times (${runs[0].cold.renderer || 'unknown renderer'})`, ''];
   if (runs.length > 1) {
     // every run, then each side's mean (the sides in turn: current, reference, reference, current, ...)
@@ -199,6 +283,13 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   for (const r of rows.slice(0, 30)) lines.push(`| ${s2(r.ms || 0)} | ${s2(r.share)} | ${r.peers || ''} | ${s2(r.warm)} | ${s2(r.wshare)} | ${r.inv ? 'inverse ' : ''}${r.name} \`${r.key}\` | ${r.mode} | ${r.vs} + ${r.fs} | ${r.step} |`);
   lines.push('', '| step | cold: links, wall s | warm: links, wall s |', '|---|---|---|');
   cold.steps.forEach((s, i) => { const w = warm.steps[i] || { programs: [], s: 0 }; lines.push(`| ${s.label}${s.timedOut ? ' (timed out)' : ''} | ${s.programs.length}, ${s.s.toFixed(1)} | ${w.programs.length}, ${w.s.toFixed(1)} |`); });
+  // (--walk extended: the timed steps and the measurements, cold and warm)
+  const timed = cold.steps.map((s, i) => [s, warm.steps[i] || {}]).filter(([s]) => s.firstS !== undefined || s.measure !== undefined);
+  if (timed.length) {
+    lines.push('', '| step | cold: first s, measured | warm: first s, measured |', '|---|---|---|');
+    const f = (s) => `${s.firstS === undefined ? '' : s.firstS === null ? 'timed out' : s.firstS.toFixed(1)}${s.measure !== undefined ? ' ' + esc(JSON.stringify(s.measure)) : ''}`;
+    for (const [c, w] of timed) lines.push(`| ${c.label} | ${f(c)} | ${f(w)} |`);
+  }
   const md = lines.join('\n') + '\n';
   summary(md);
   console.log(md);   // (the job log too: the summary and the artifact are out of reach of some readers)
