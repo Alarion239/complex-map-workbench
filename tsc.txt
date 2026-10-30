@@ -1,0 +1,537 @@
+
+> typecheck
+> node tools/join_src.js && tsc -p tsconfig.json
+
+dist/tsc/app.js(123,10): error TS2339: Property '__mjReady' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(160,100): error TS2339: Property 'transitionProperty' does not exist on type 'Animation'.
+dist/tsc/app.js(325,18): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(325,37): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(326,18): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(326,37): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(438,78): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(438,97): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(448,84): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(448,103): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(449,75): error TS2339: Property 'id' does not exist on type 'EventTarget'.
+dist/tsc/app.js(449,104): error TS2339: Property 'id' does not exist on type 'EventTarget'.
+dist/tsc/app.js(449,140): error TS2339: Property 'id' does not exist on type 'EventTarget'.
+dist/tsc/app.js(1419,32): error TS2339: Property 'workOf' does not exist on type '{ maxWork: number; maxNodes: number; guard: number; workOf: (K: any) => number; } | { maxWork: number; maxNodes: number; guard: number; }'.
+  Property 'workOf' does not exist on type '{ maxWork: number; maxNodes: number; guard: number; }'.
+dist/tsc/app.js(1419,48): error TS2339: Property 'workOf' does not exist on type '{ maxWork: number; maxNodes: number; guard: number; workOf: (K: any) => number; } | { maxWork: number; maxNodes: number; guard: number; }'.
+  Property 'workOf' does not exist on type '{ maxWork: number; maxNodes: number; guard: number; }'.
+dist/tsc/app.js(3219,28): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3221,27): error TS2339: Property 'value' does not exist on type 'Element'.
+dist/tsc/app.js(3221,53): error TS2339: Property 'value' does not exist on type 'Element'.
+dist/tsc/app.js(3702,20): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3737,13): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3738,51): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3740,22): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3740,44): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3740,64): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3741,9): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(3943,19): error TS2339: Property 'getContext' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(3943,45): error TS2339: Property 'getContext' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(3998,144): error TS2554: Expected 0 arguments, but got 1.
+dist/tsc/app.js(4106,14): error TS2339: Property 'linear' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4116,26): error TS2339: Property 'muS' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4116,43): error TS2339: Property 'muS' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4152,26): error TS2339: Property 'muH' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4152,42): error TS2339: Property 'muH' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4152,68): error TS2339: Property 'muH' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4158,24): error TS2339: Property 'muH' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4185,26): error TS2339: Property 'muH' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4204,25): error TS2339: Property 'linear' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4223,75): error TS2339: Property 'linear' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4241,14): error TS2339: Property 'sheetsInfo' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4243,14): error TS2339: Property 'pick' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4243,123): error TS2339: Property 'pick' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4250,25): error TS2339: Property 'pick' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(4666,55): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+dist/tsc/app.js(4666,68): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+dist/tsc/app.js(4666,90): error TS2339: Property 'map' does not exist on type 'string | number[]'.
+  Property 'map' does not exist on type 'string'.
+dist/tsc/app.js(5272,129): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+dist/tsc/app.js(5275,80): error TS2339: Property 'truncated' does not exist on type 'any[]'.
+dist/tsc/app.js(5275,98): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+dist/tsc/app.js(5277,27): error TS2339: Property 'truncated' does not exist on type 'any[]'.
+dist/tsc/app.js(5277,45): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+dist/tsc/app.js(5423,160): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+dist/tsc/app.js(5426,11): error TS2339: Property 'truncated' does not exist on type 'any[]'.
+dist/tsc/app.js(5426,30): error TS2339: Property 'truncated' does not exist on type 'any[]'.
+dist/tsc/app.js(5426,43): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+dist/tsc/app.js(5426,63): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+dist/tsc/app.js(5683,133): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(5683,145): error TS2339: Property 'select' does not exist on type 'Element'.
+dist/tsc/app.js(5785,10): error TS2339: Property '__cmwPlaneMenu' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(6050,164): error TS2554: Expected 0 arguments, but got 1.
+dist/tsc/app.js(6220,54): error TS2339: Property 'buttons' does not exist on type 'Event'.
+dist/tsc/app.js(6220,106): error TS2339: Property 'type' does not exist on type 'EventTarget'.
+dist/tsc/app.js(6220,150): error TS2339: Property 'repeat' does not exist on type 'Event'.
+dist/tsc/app.js(6370,40): error TS2339: Property 'vyaw' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vyaw' does not exist on type 'string'.
+dist/tsc/app.js(6370,68): error TS2339: Property 'vpitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vpitch' does not exist on type 'string'.
+dist/tsc/app.js(6371,10): error TS2339: Property 'yaw' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'yaw' does not exist on type 'string'.
+dist/tsc/app.js(6371,20): error TS2339: Property 'vyaw' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vyaw' does not exist on type 'string'.
+dist/tsc/app.js(6372,10): error TS2339: Property 'pitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'pitch' does not exist on type 'string'.
+dist/tsc/app.js(6372,63): error TS2339: Property 'pitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'pitch' does not exist on type 'string'.
+dist/tsc/app.js(6372,74): error TS2339: Property 'vpitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vpitch' does not exist on type 'string'.
+dist/tsc/app.js(6373,10): error TS2339: Property 'vyaw' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vyaw' does not exist on type 'string'.
+dist/tsc/app.js(6373,26): error TS2339: Property 'vpitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vpitch' does not exist on type 'string'.
+dist/tsc/app.js(6375,25): error TS2339: Property 'vyaw' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vyaw' does not exist on type 'string'.
+dist/tsc/app.js(6375,53): error TS2339: Property 'vpitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vpitch' does not exist on type 'string'.
+dist/tsc/app.js(6375,75): error TS2339: Property 'vyaw' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vyaw' does not exist on type 'string'.
+dist/tsc/app.js(6375,85): error TS2339: Property 'vpitch' does not exist on type 'string | ({ vyaw: number; vpitch: number; } & { yaw: number; pitch: number; dist: number; tx: number; ty: number; tz: number; fov: number; })'.
+  Property 'vpitch' does not exist on type 'string'.
+dist/tsc/app.js(6663,23): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+dist/tsc/app.js(6767,88): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(6770,22): error TS2339: Property 'refresh' does not exist on type '() => void'.
+dist/tsc/app.js(6770,44): error TS2339: Property 'refresh' does not exist on type '() => void'.
+dist/tsc/app.js(7393,138): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(7538,52): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7538,76): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7617,50): error TS2339: Property 'classList' does not exist on type 'ParentNode'.
+dist/tsc/app.js(7617,78): error TS2339: Property 'classList' does not exist on type 'ParentNode'.
+dist/tsc/app.js(7637,20): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7637,45): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7645,12): error TS2339: Property 'width' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7645,36): error TS2339: Property 'width' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7645,56): error TS2339: Property 'height' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7662,20): error TS2339: Property 'getContext' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7664,28): error TS2339: Property 'width' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7664,38): error TS2339: Property 'height' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(7899,153): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(7899,179): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(7899,252): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(7907,102): error TS2551: Property 'select' does not exist on type 'HTMLElement'. Did you mean 'onselect'?
+dist/tsc/app.js(7911,83): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(8034,58): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(8266,46): error TS2554: Expected 0-3 arguments, but got 4.
+dist/tsc/app.js(8482,13): error TS2367: This comparison appears to be unintentional because the types 'string' and 'number' have no overlap.
+dist/tsc/app.js(8495,26): error TS2367: This comparison appears to be unintentional because the types 'string' and 'number' have no overlap.
+dist/tsc/app.js(8495,49): error TS2367: This comparison appears to be unintentional because the types 'string' and 'number' have no overlap.
+dist/tsc/app.js(8520,137): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+dist/tsc/app.js(8537,137): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+dist/tsc/app.js(8537,168): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+dist/tsc/app.js(8730,42): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(8732,21): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(8765,16): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(8768,48): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(8779,11): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(8789,18): error TS2339: Property 'refresh' does not exist on type '() => void'.
+dist/tsc/app.js(8974,30): error TS2339: Property 'offsetLeft' does not exist on type 'Element'.
+dist/tsc/app.js(8974,46): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+dist/tsc/app.js(8974,83): error TS2339: Property 'offsetLeft' does not exist on type 'Element'.
+dist/tsc/app.js(8974,99): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+dist/tsc/app.js(8975,48): error TS2339: Property 'offsetTop' does not exist on type 'Element'.
+dist/tsc/app.js(8977,24): error TS2339: Property 'style' does not exist on type 'Element'.
+dist/tsc/app.js(9046,58): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(9059,110): error TS2339: Property 'offsetLeft' does not exist on type 'Element'.
+dist/tsc/app.js(9059,125): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+dist/tsc/app.js(9148,20): error TS2339: Property 'classList' does not exist on type 'ChildNode'.
+dist/tsc/app.js(9158,88): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(9213,14): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(9218,186): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(9308,22): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(9310,10): error TS2339: Property 'hidden' does not exist on type 'Element'.
+dist/tsc/app.js(9318,31): error TS2339: Property 'hidden' does not exist on type 'Element'.
+dist/tsc/app.js(9323,70): error TS2339: Property 'hidden' does not exist on type 'Element'.
+dist/tsc/app.js(9549,20): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(9550,21): error TS2339: Property 'value' does not exist on type 'Element'.
+dist/tsc/app.js(9550,38): error TS2339: Property 'value' does not exist on type 'Element'.
+dist/tsc/app.js(9945,21): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(9948,9): error TS2339: Property 'tabIndex' does not exist on type 'Element'.
+dist/tsc/app.js(9951,114): error TS2339: Property 'tabIndex' does not exist on type 'Element'.
+dist/tsc/app.js(9954,16): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(9968,107): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(9987,16): error TS2339: Property 'disabled' does not exist on type 'Element'.
+dist/tsc/app.js(9988,16): error TS2339: Property 'disabled' does not exist on type 'Element'.
+dist/tsc/app.js(10390,46): error TS2339: Property 'blur' does not exist on type 'Element'.
+dist/tsc/app.js(10390,69): error TS2339: Property 'blur' does not exist on type 'Element'.
+dist/tsc/app.js(10566,36): error TS2339: Property 't' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10567,23): error TS2339: Property 'pending' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10568,23): error TS2339: Property 't' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10571,28): error TS2339: Property 'pending' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10572,36): error TS2339: Property 't' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10573,23): error TS2339: Property 't' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10577,37): error TS2339: Property 't' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(10578,25): error TS2339: Property 'pending' does not exist on type '{ (): void; flush: () => void; apply: () => void; }'.
+dist/tsc/app.js(12022,10): error TS2339: Property 'menuLabel' does not exist on type '{ label: any; tip: any; radio: boolean; checked: boolean; iconHtml: string; run: () => void; }[]'.
+dist/tsc/app.js(12022,48): error TS2339: Property 'focusChecked' does not exist on type '{ label: any; tip: any; radio: boolean; checked: boolean; iconHtml: string; run: () => void; }[]'.
+dist/tsc/app.js(12200,19): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12202,20): error TS2339: Property 'min' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12202,44): error TS2339: Property 'max' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12202,71): error TS2339: Property 'step' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12203,20): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12205,19): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12206,18): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12207,18): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12208,21): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12319,99): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12328,20): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12423,58): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12423,171): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12423,194): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12427,173): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12428,13): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12428,36): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(12444,16): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12444,40): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(12451,29): error TS2339: Property 't' does not exist on type '() => void'.
+dist/tsc/app.js(12451,44): error TS2339: Property 't' does not exist on type '() => void'.
+dist/tsc/app.js(12464,16): error TS2339: Property '__cmwChainH' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(12464,96): error TS2339: Property '__cmwChainH' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(12530,27): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12530,47): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12551,39): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12551,58): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12574,27): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12574,47): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12596,86): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12596,106): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(12652,64): error TS2339: Property 'tabIndex' does not exist on type 'Element'.
+dist/tsc/app.js(12652,82): error TS2339: Property 'tabIndex' does not exist on type 'Element'.
+dist/tsc/app.js(12731,139): error TS2339: Property 'isConnected' does not exist on type 'EventTarget'.
+dist/tsc/app.js(13062,55): error TS2551: Property 'webkitAudioContext' does not exist on type 'Window & typeof globalThis'. Did you mean 'AudioContext'?
+dist/tsc/app.js(13140,69): error TS2339: Property 'title' does not exist on type 'Element'.
+dist/tsc/app.js(13173,105): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(13317,138): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(13343,74): error TS2339: Property 'id' does not exist on type 'EventTarget'.
+dist/tsc/app.js(13507,12): error TS2339: Property 'last' does not exist on type '(changed: any) => any'.
+dist/tsc/app.js(13534,29): error TS2339: Property 'freed' does not exist on type '(o: any) => void'.
+dist/tsc/app.js(13753,23): error TS2339: Property 'on' does not exist on type '() => void'.
+dist/tsc/app.js(13753,42): error TS2339: Property 'on' does not exist on type '() => void'.
+dist/tsc/app.js(13792,12): error TS2339: Property 'freed' does not exist on type '(o: any) => void'.
+dist/tsc/app.js(13800,63): error TS2339: Property 'freed' does not exist on type '(o: any) => void'.
+dist/tsc/app.js(13857,56): error TS2339: Property 'freed' does not exist on type '(o: any) => void'.
+dist/tsc/app.js(13873,10): error TS2339: Property '__cmwP' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(13874,10): error TS2339: Property '__cmwPOpen' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(13885,16): error TS2339: Property '__cmwChainH' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(13885,96): error TS2339: Property '__cmwChainH' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(13975,96): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(13986,47): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(13996,51): error TS2339: Property 'focus' does not exist on type 'Element'.
+dist/tsc/app.js(14001,69): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14001,158): error TS2339: Property 'checked' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14009,80): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14010,78): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14014,78): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14015,82): error TS2339: Property 'value' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14016,87): error TS2339: Property 'value' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14017,92): error TS2339: Property 'value' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14021,27): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(14030,90): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14030,107): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14030,128): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14037,70): error TS2339: Property 'tabIndex' does not exist on type 'Element'.
+dist/tsc/app.js(14037,87): error TS2339: Property 'open' does not exist on type 'Element'.
+dist/tsc/app.js(14040,128): error TS2339: Property 'open' does not exist on type 'Element'.
+dist/tsc/app.js(14040,136): error TS2339: Property 'open' does not exist on type 'Element'.
+dist/tsc/app.js(14059,25): error TS2339: Property 'disabled' does not exist on type 'Element'.
+dist/tsc/app.js(14062,12): error TS2339: Property 'click' does not exist on type 'Element'.
+dist/tsc/app.js(14106,82): error TS2339: Property 'value' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14107,116): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(14131,92): error TS2339: Property 'classList' does not exist on type 'ParentNode'.
+dist/tsc/app.js(14132,58): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14132,78): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+dist/tsc/app.js(14132,141): error TS2339: Property 'classList' does not exist on type 'ParentNode'.
+dist/tsc/app.js(14272,27): error TS2339: Property 'isContentEditable' does not exist on type 'Element'.
+dist/tsc/app.js(14295,82): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14295,91): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14411,16): error TS2339: Property 'MathJax' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14492,24): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14492,49): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+dist/tsc/app.js(14504,10): error TS2339: Property '__tourApi' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14505,10): error TS2339: Property '__tourTap' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14515,10): error TS2339: Property '__cmwZp' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14516,10): error TS2339: Property '__cmwTime' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14522,10): error TS2339: Property '__cmwInfo' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14524,10): error TS2339: Property '__cmwHoldCheck' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14529,10): error TS2339: Property '__cmwSet' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14543,10): error TS2339: Property '__cmwView' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14545,10): error TS2339: Property '__cmwSetView' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14546,10): error TS2339: Property '__cmwSetPhase' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14548,10): error TS2339: Property '__cmwSetMain' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14549,10): error TS2339: Property '__cmwLayout' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14551,10): error TS2339: Property '__cmwPaneOf' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14554,10): error TS2339: Property '__cmwOtherPane' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14556,10): error TS2339: Property '__cmwSphere' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14558,10): error TS2339: Property '__cmwSmVerdict' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14559,10): error TS2339: Property '__cmwSmReset' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14562,10): error TS2339: Property '__cmwPaths' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14579,10): error TS2339: Property '__cmwHideStrokes' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14580,10): error TS2339: Property '__cmwForceForward' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14582,10): error TS2339: Property '__cmwSphereW' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14584,10): error TS2339: Property '__cmwPredict' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14586,10): error TS2339: Property '__cmwLines' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14588,10): error TS2339: Property '__cmwGuard' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14590,10): error TS2339: Property '__cmwGuardOpts' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14592,10): error TS2339: Property '__cmwLook' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14595,10): error TS2339: Property '__cmwShapes' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14596,10): error TS2339: Property '__cmwGlobeXY' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14597,10): error TS2339: Property '__cmwGlobeSnap' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14598,10): error TS2339: Property '__cmwSelect' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14599,10): error TS2339: Property '__cmwGlobeHandles' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14600,10): error TS2339: Property '__cmwSphereWL' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14601,10): error TS2339: Property '__cmwCam' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14603,10): error TS2339: Property '__cmwDrawn' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14605,10): error TS2339: Property '__cmwInvBox' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14612,10): error TS2339: Property '__cmwExample' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14615,10): error TS2339: Property '__cmwCards' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14623,10): error TS2339: Property '__cmwCardsNow' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14626,10): error TS2339: Property '__cmwBuildFigure' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14630,10): error TS2339: Property '__cmwEval' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14641,10): error TS2339: Property '__cmwRange' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14641,266): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(14641,286): error TS2339: Property 'dataset' does not exist on type 'Element'.
+dist/tsc/app.js(14642,10): error TS2339: Property '__cmwMorph' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14643,10): error TS2339: Property '__cmwMorphSel' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14651,10): error TS2339: Property '__cmwPathsCheck' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14722,10): error TS2339: Property '__cmwMorphCache' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14723,10): error TS2339: Property '__cmwLastFigure' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14724,10): error TS2339: Property '__cmwFigPathsSel' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14725,10): error TS2339: Property '__cmwFig' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14726,10): error TS2339: Property '__cmwPrepareExport' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14727,10): error TS2339: Property '__cmwRenderOff' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14730,10): error TS2339: Property '__cmwDraft' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14731,10): error TS2339: Property '__cmwHandles' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14732,10): error TS2339: Property '__cmwW2S' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14734,10): error TS2339: Property '__cmwSound' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14737,10): error TS2339: Property '__cmwC' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14741,25): error TS2339: Property 'last' does not exist on type '(changed: any) => any'.
+dist/tsc/app.js(14741,46): error TS2339: Property 'last' does not exist on type '(changed: any) => any'.
+dist/tsc/app.js(14741,76): error TS2339: Property 'last' does not exist on type '(changed: any) => any'.
+dist/tsc/app.js(14741,115): error TS2339: Property 'last' does not exist on type '(changed: any) => any'.
+dist/tsc/app.js(14742,243): error TS2339: Property 'freed' does not exist on type '(o: any) => void'.
+dist/tsc/app.js(14745,10): error TS2339: Property '__cmwCI' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14746,10): error TS2339: Property '__cmwCapText' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14747,10): error TS2339: Property '__cmwLandSheets' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14747,53): error TS2339: Property 'sheetsInfo' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(14747,142): error TS2339: Property 'linear' does not exist on type '(pane: any) => void'.
+dist/tsc/app.js(14748,10): error TS2339: Property '__cmwCutHandles' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/app.js(14749,10): error TS2339: Property '__cmwState' does not exist on type 'Window & typeof globalThis'.
+dist/tsc/gl.js(4660,32): error TS2339: Property 'unref' does not exist on type 'number'.
+dist/tsc/gl.js(4660,49): error TS2339: Property 'unref' does not exist on type 'number'.
+dist/tsc/gl.js(6425,62): error TS2365: Operator '>=' cannot be applied to types 'number | number[]' and 'number'.
+dist/tsc/gl.js(6427,27): error TS2365: Operator '+' cannot be applied to types 'number | number[]' and 'number | number[]'.
+dist/tsc/gl.js(6430,37): error TS2365: Operator '+' cannot be applied to types 'number | number[]' and 'number'.
+dist/tsc/gl.js(6430,62): error TS2365: Operator '+' cannot be applied to types 'number | number[]' and 'number'.
+dist/tsc/gl.js(6988,63): error TS2353: Object literal may only specify known properties, and 'cold' does not exist in type '{ P?: undefined; state: string; reason: any; id?: undefined; } | { reason?: undefined; state: string; P: any; id?: undefined; } | { P?: undefined; state: string; reason: string; id: string; }'.
+src/commands.js(137,19): error TS2339: Property 'oneType' does not exist on type 'any[]'.
+src/commands.js(162,27): error TS2339: Property 'parseErr' does not exist on type 'any[]'.
+src/commands.js(162,55): error TS2339: Property 'parseErrPos' does not exist on type 'any[]'.
+src/commands.js(189,26): error TS2339: Property 'oneType' does not exist on type 'any[]'.
+src/commands.js(189,71): error TS2339: Property 'oneType' does not exist on type 'any[]'.
+src/commands.js(239,39): error TS1345: An expression of type 'void' cannot be tested for truthiness.
+src/commands.js(448,118): error TS2339: Property 'focus' does not exist on type 'Element'.
+src/commands.js(489,17): error TS2339: Property 'parseErr' does not exist on type 'any[]'.
+src/commands.js(490,59): error TS2339: Property 'parseErrPos' does not exist on type 'any[]'.
+src/commands.js(493,96): error TS2339: Property 'parseErr' does not exist on type 'any[]'.
+src/commands.js(662,114): error TS2345: Argument of type 'string | 0' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/commands.js(662,148): error TS2345: Argument of type 'string | 0' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/constr.js(21,66): error TS2339: Property 'Constr' does not exist on type 'Window & typeof globalThis'.
+src/constr.js(72,24): error TS2345: Argument of type 'number | bigint' is not assignable to parameter of type 'number'.
+  Type 'bigint' is not assignable to type 'number'.
+src/constr.js(73,18): error TS2345: Argument of type 'number | bigint' is not assignable to parameter of type 'number'.
+  Type 'bigint' is not assignable to type 'number'.
+src/constr.js(74,74): error TS2365: Operator '*' cannot be applied to types 'number | bigint' and 'bigint'.
+src/constr.js(74,92): error TS2365: Operator '-' cannot be applied to types 'number | bigint' and 'number'.
+src/constr.js(75,12): error TS2367: This comparison appears to be unintentional because the types 'number' and 'bigint' have no overlap.
+src/constr.js(124,99): error TS2339: Property 'ru' does not exist on type 'FormulaError'.
+src/constr.js(344,58): error TS2339: Property 'coincide' does not exist on type 'any[]'.
+src/constr.js(1219,11): error TS2339: Property 'coincide' does not exist on type 'any[]'.
+src/constr.js(1219,25): error TS2339: Property 'coincide' does not exist on type '{ z: any; index: number; }[]'.
+src/constr.js(1920,45): error TS2339: Property 'coincide' does not exist on type '{ z: any; index: string; }[] | { z: any; index: number; }[]'.
+  Property 'coincide' does not exist on type '{ z: any; index: string; }[]'.
+src/constr.js(2333,14): error TS2367: This comparison appears to be unintentional because the types 'number' and 'bigint' have no overlap.
+src/constr.js(2334,14): error TS2365: Operator '*' cannot be applied to types 'bigint' and 'number'.
+src/constr.js(2334,14): error TS2367: This comparison appears to be unintentional because the types 'number' and 'bigint' have no overlap.
+src/constr.js(2335,14): error TS2365: Operator '*' cannot be applied to types 'bigint' and 'number'.
+src/constr.js(2335,14): error TS2367: This comparison appears to be unintentional because the types 'number' and 'bigint' have no overlap.
+src/constr.js(2342,13): error TS2367: This comparison appears to be unintentional because the types 'number' and 'bigint' have no overlap.
+src/constr.js(2343,15): error TS2367: This comparison appears to be unintentional because the types 'number' and 'bigint' have no overlap.
+src/construct.js(1112,49): error TS2339: Property 'told' does not exist on type '(pane: any, side: any, x: any, y: any) => "existing" | boolean'.
+src/construct.js(1112,67): error TS2339: Property 'told' does not exist on type '(pane: any, side: any, x: any, y: any) => "existing" | boolean'.
+src/construct.js(1694,119): error TS2339: Property 'hidden' does not exist on type 'Element'.
+src/construct.js(1701,86): error TS2339: Property 'hidden' does not exist on type 'Element'.
+src/construct.js(1727,15): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/construct.js(1728,13): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/construct.js(1783,17): error TS2339: Property 'offsetHeight' does not exist on type 'Element'.
+src/construct.js(2413,133): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/construct.js(2413,151): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/construct.js(2457,128): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/construct.js(2457,151): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/curves.js(1052,12): error TS2339: Property 'info' does not exist on type 'any[]'.
+src/curves.js(1145,47): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/curves.js(1211,66): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/curves.js(1275,9): error TS2339: Property 'dim' does not exist on type 'CurveError'.
+src/curves.js(1372,16): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/curves.js(1394,23): error TS2339: Property 'info' does not exist on type 'any[]'.
+src/examples.js(69,53): error TS2339: Property 'title' does not exist on type 'Element'.
+src/examples.js(223,37): error TS2339: Property 'src' does not exist on type 'Element'.
+src/export.js(22,17): error TS2339: Property 'claude' does not exist on type 'Window & typeof globalThis'.
+src/export.js(22,41): error TS2339: Property 'claude' does not exist on type 'Window & typeof globalThis'.
+src/export.js(23,36): error TS2339: Property 'claude' does not exist on type 'Window & typeof globalThis'.
+src/export.js(65,23): error TS2339: Property 'MathJax' does not exist on type 'Window & typeof globalThis'.
+src/export.js(687,59): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/figure.js(35,30): error TS2339: Property 'MathJax' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(35,55): error TS2339: Property 'MathJax' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(63,27): error TS2339: Property 'MathJax' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(427,40): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/figure.js(436,40): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/figure.js(467,50): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/figure.js(530,20): error TS2339: Property 'jspdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(530,36): error TS2339: Property 'jspdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(531,20): error TS2339: Property 'svg2pdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(531,38): error TS2339: Property 'svg2pdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(532,21): error TS2339: Property 'jspdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(532,37): error TS2339: Property 'svg2pdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(532,63): error TS2339: Property 'jspdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(532,92): error TS2339: Property 'svg2pdf' does not exist on type 'Window & typeof globalThis'.
+src/figure.js(2888,60): error TS2345: Argument of type '{ codec: string; width: any; height: any; bitrate: number; framerate: any; avc: { format: string; }; latencyMode: string; }' is not assignable to parameter of type 'VideoEncoderConfig'.
+  The types of 'avc.format' are incompatible between these types.
+    Type 'string' is not assignable to type 'AvcBitstreamFormat'.
+src/figure.js(2892,60): error TS2345: Argument of type '{ codec: string; width: any; height: any; bitrate: number; framerate: any; latencyMode: string; }' is not assignable to parameter of type 'VideoEncoderConfig'.
+  Types of property 'latencyMode' are incompatible.
+    Type 'string' is not assignable to type 'LatencyMode'.
+src/figure.js(2963,29): error TS2339: Property 'pos' does not exist on type '{ t: any; head: Uint8Array<ArrayBuffer>; pieces: any; size: number; }'.
+src/figure.js(2964,123): error TS2339: Property 'pos' does not exist on type '{ t: any; head: Uint8Array<ArrayBuffer>; pieces: any; size: number; }'.
+src/figure.js(2973,103): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/figure.js(2994,269): error TS2339: Property 'buffer' does not exist on type 'AllowSharedBufferSource'.
+  Property 'buffer' does not exist on type 'ArrayBuffer'.
+src/figure.js(2994,281): error TS2339: Property 'buffer' does not exist on type 'AllowSharedBufferSource'.
+  Property 'buffer' does not exist on type 'ArrayBuffer'.
+src/figure.js(2994,297): error TS2339: Property 'byteOffset' does not exist on type 'AllowSharedBufferSource'.
+  Property 'byteOffset' does not exist on type 'ArrayBuffer'.
+src/figure.js(2994,312): error TS2339: Property 'byteOffset' does not exist on type 'AllowSharedBufferSource'.
+  Property 'byteOffset' does not exist on type 'ArrayBuffer'.
+src/figure.js(3008,187): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/figure.js(3097,28): error TS2339: Property 'deviceMemory' does not exist on type 'Navigator'.
+src/figure.js(3097,58): error TS2339: Property 'deviceMemory' does not exist on type 'Navigator'.
+src/figure.js(3107,19): error TS2339: Property 'convertToBlob' does not exist on type 'OffscreenCanvas | (HTMLCanvasElement & { width: number; height: number; })'.
+  Property 'convertToBlob' does not exist on type 'HTMLCanvasElement & { width: number; height: number; }'.
+src/figure.js(3107,43): error TS2339: Property 'convertToBlob' does not exist on type 'OffscreenCanvas | (HTMLCanvasElement & { width: number; height: number; })'.
+  Property 'convertToBlob' does not exist on type 'HTMLCanvasElement & { width: number; height: number; }'.
+src/figure.js(3107,125): error TS2339: Property 'toBlob' does not exist on type 'OffscreenCanvas | (HTMLCanvasElement & { width: number; height: number; })'.
+  Property 'toBlob' does not exist on type 'OffscreenCanvas'.
+src/figure.js(3123,31): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/figure.js(3124,129): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/figure.js(3259,105): error TS2339: Property 'toBlob' does not exist on type 'OffscreenCanvas | (HTMLCanvasElement & { width: number; height: number; })'.
+  Property 'toBlob' does not exist on type 'OffscreenCanvas'.
+src/figure.js(3406,219): error TS2339: Property 'focus' does not exist on type 'Element'.
+src/figure.js(3406,233): error TS2339: Property 'focus' does not exist on type 'Element'.
+src/homrange.js(11,66): error TS2339: Property 'HomRange' does not exist on type 'Window & typeof globalThis'.
+src/i18n.js(360,19): error TS2339: Property '__pseudo' does not exist on type 'CanvasRenderingContext2D'.
+src/i18n.js(366,10): error TS2339: Property '__pseudo' does not exist on type 'CanvasRenderingContext2D'.
+src/i18n.js(385,64): error TS2339: Property 'getAttribute' does not exist on type 'Node'.
+src/i18n.js(385,141): error TS2339: Property 'closest' does not exist on type 'Node'.
+src/i18n.js(385,169): error TS2339: Property 'setAttribute' does not exist on type 'Node'.
+src/i18n.js(420,78): error TS2339: Property 'rel' does not exist on type 'HTMLElement'.
+src/i18n.js(420,101): error TS2339: Property 'href' does not exist on type 'HTMLElement'.
+src/i18n.js(425,19): error TS2339: Property 'sheet' does not exist on type 'HTMLElement'.
+src/inspector.js(265,67): error TS2339: Property 'focus' does not exist on type 'Element'.
+src/integrals.js(201,162): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/integrals.js(202,25): error TS2339: Property 'truncated' does not exist on type 'any[]'.
+src/integrals.js(202,43): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/main.js(36,8): error TS2882: Cannot find module or type declarations for side-effect import of './app.js'.
+src/morphpaths.js(355,14): error TS2365: Operator '<' cannot be applied to types 'number' and 'number | boolean'.
+src/morphpaths.js(1052,131): error TS2339: Property 'hidden' does not exist on type 'Element'.
+src/morphpaths.js(1052,156): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/morphpaths.js(1056,52): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+src/morphpaths.js(1057,50): error TS2339: Property 'max' does not exist on type 'HTMLElement'.
+src/morphpaths.js(1057,67): error TS2339: Property 'min' does not exist on type 'HTMLElement'.
+src/morphpaths.js(1058,62): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+src/morphpaths.js(1058,93): error TS2339: Property 'value' does not exist on type 'HTMLElement'.
+src/morphpaths.js(1137,87): error TS2339: Property 'classList' does not exist on type 'ParentNode'.
+src/palette.js(15,66): error TS2339: Property 'Palette' does not exist on type 'Window & typeof globalThis'.
+src/params.js(527,106): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/params.js(691,51): error TS2339: Property 'label' does not exist on type 'string | { label: any; disabled: boolean; run: () => any; danger?: undefined; } | { disabled?: undefined; label: any; run: () => void; danger?: undefined; } | { disabled?: undefined; label: any; danger: boolean; run: () => void; }'.
+  Property 'label' does not exist on type 'string'.
+src/params.js(692,16): error TS2339: Property 'run' does not exist on type 'string | { label: any; disabled: boolean; run: () => any; danger?: undefined; } | { disabled?: undefined; label: any; run: () => void; danger?: undefined; } | { disabled?: undefined; label: any; danger: boolean; run: () => void; }'.
+  Property 'run' does not exist on type 'string'.
+src/phone.js(122,13): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+src/phone.js(123,13): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+src/phone.js(132,88): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+src/phone.js(133,59): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+src/phone.js(144,26): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+src/phone.js(144,46): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+src/phone.js(189,30): error TS2339: Property 'selectionStart' does not exist on type 'Element'.
+src/phone.js(189,60): error TS2339: Property 'selectionStart' does not exist on type 'Element'.
+src/phone.js(189,80): error TS2339: Property 'selectionEnd' does not exist on type 'Element'.
+src/phone.js(220,79): error TS2339: Property 'open' does not exist on type 'HTMLElement'.
+src/phone.js(269,14): error TS2339: Property 'click' does not exist on type 'Element'.
+src/phone.js(436,26): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/phone.js(443,91): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/phone.js(444,17): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/phone.js(445,8): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/phone.js(504,65): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+src/phone.js(505,65): error TS2339: Property 'disabled' does not exist on type 'HTMLElement'.
+src/planemenu.js(109,15): error TS2339: Property 'menuLabel' does not exist on type '("sep" | { label: any; key: any; danger: any; disabled: any; run: any; labelEl: any; })[]'.
+src/planemenu.js(314,43): error TS2339: Property 'PlaneMenu' does not exist on type 'Window & typeof globalThis'.
+src/sound.js(613,19): error TS2339: Property 'counts' does not exist on type 'any[]'.
+src/sound.js(651,9): error TS2339: Property 'counts' does not exist on type 'any[]'.
+src/sound.js(867,44): error TS2551: Property 'webkitAudioContext' does not exist on type 'Window & typeof globalThis'. Did you mean 'AudioContext'?
+src/sound.js(1293,27): error TS2339: Property 'audioSession' does not exist on type 'Navigator'.
+src/sound.js(1293,51): error TS2339: Property 'audioSession' does not exist on type 'Navigator'.
+src/sound.js(1607,27): error TS2740: Type '{ k: string; at: any; gate: number; t1: number; n: any; }' is missing the following properties from type '{ k: string; at: any; amps: any; slew: number; lvl: number; lt: number; hum: number; vow: number; tier: any; tag: any; }': amps, slew, lvl, lt, and 4 more.
+src/sound.js(1608,34): error TS2740: Type '{ k: string; at: any; gate: number; t1: number; n: any; tag: any; }' is missing the following properties from type '{ k: string; at: any; amps: any; slew: number; lvl: number; lt: number; hum: number; vow: number; tier: any; tag: any; }': amps, slew, lvl, lt, and 3 more.
+src/soundhooks.js(100,20): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/soundhooks.js(100,52): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/soundhooks.js(171,88): error TS2740: Type 'EventTarget' is missing the following properties from type 'Node': baseURI, childNodes, firstChild, isConnected, and 43 more.
+src/soundhooks.js(171,112): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+src/soundhooks.js(171,132): error TS2339: Property 'closest' does not exist on type 'EventTarget'.
+src/soundhooks.js(173,96): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+src/soundhooks.js(173,124): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+src/soundhooks.js(176,193): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+src/soundhooks.js(176,227): error TS2339: Property 'checked' does not exist on type 'EventTarget'.
+src/soundhooks.js(1260,7): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/soundhooks.js(1260,26): error TS2339: Property 'incomplete' does not exist on type 'any[]'.
+src/tour.js(9,63): error TS2339: Property 'I18N' does not exist on type 'typeof globalThis'.
+src/tour.js(9,81): error TS2339: Property 'I18N' does not exist on type 'typeof globalThis'.
+src/tour.js(424,96): error TS2339: Property 'offsetParent' does not exist on type 'Element'.
+src/tour.js(465,113): error TS2339: Property 'offsetParent' does not exist on type 'Element'.
+src/tour.js(667,80): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/tour.js(1243,73): error TS2339: Property 'focus' does not exist on type 'Element'.
+src/tour.js(1390,70): error TS2339: Property 'isContentEditable' does not exist on type 'Element'.
+src/tour.js(1397,43): error TS2339: Property 'type' does not exist on type 'Element'.
+src/tour.js(1443,215): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'passive' does not exist in type 'EventListenerOptions'.
+src/tour.js(1522,52): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/tour.js(1522,75): error TS2339: Property 'style' does not exist on type 'Element'.
+src/tour.js(1522,109): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/tour.js(1529,24): error TS2339: Property 'hidden' does not exist on type 'Element'.
+src/tour.js(1531,22): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/tour.js(1531,45): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/tour.js(1531,72): error TS2339: Property 'style' does not exist on type 'Element'.
+src/tour.js(1532,27): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/tour.js(1532,57): error TS2339: Property 'dataset' does not exist on type 'Element'.
+src/tour.js(1532,78): error TS2339: Property 'style' does not exist on type 'Element'.
+src/tour.js(1579,71): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+src/tour.js(1579,112): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+src/tour.js(1579,133): error TS2339: Property 'offsetWidth' does not exist on type 'Element'.
+src/tour.js(1584,15): error TS2339: Property 'free' does not exist on type '() => "desk" | "head" | "port" | "row"'.
+src/tour.js(1612,70): error TS2339: Property 'free' does not exist on type '() => "desk" | "head" | "port" | "row"'.
+src/tour.js(1895,122): error TS2339: Property 'isContentEditable' does not exist on type 'Element'.
+src/tour.js(1895,152): error TS2339: Property 'blur' does not exist on type 'Element'.
+src/tour.js(2139,40): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/tour.js(2140,64): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/tour.js(2142,97): error TS2810: Expected 1 argument, but got 0. 'new Promise()' needs a JSDoc hint to produce a 'resolve' that can be called without arguments.
+src/tour.js(2208,32): error TS2447: The '|' operator is not allowed for boolean types. Consider using '||' instead.
+src/tour.js(2343,93): error TS2339: Property 'rect' does not exist on type '{ el: any; }'.
+src/tour.js(3145,43): error TS2339: Property 'Tour' does not exist on type 'Window & typeof globalThis'.
