@@ -33,7 +33,7 @@ async function select(k) {
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
   const o = (e) => e && { text: e.textContent, tip: e.getAttribute('data-tip'), desc: e.getAttribute('aria-description') };
-  return { f: vis(f) ? o(f) : null, rows: r.map(o), lastRow: r.length ? r[0].closest('.so-row') === [...p.querySelectorAll('.split-offer .so-row')].pop() : null }; })()`);
+  const bx = p.querySelector('.split-offer'); return { box: bx ? { hidden: bx.hidden, rows: bx.querySelectorAll('.so-row').length, html: bx.innerHTML.slice(0, 200) } : null, ready: typeof TeX !== 'undefined' && !!TeX.ready, f: vis(f) ? o(f) : null, rows: r.map(o), lastRow: r.length ? r[0].closest('.so-row') === [...p.querySelectorAll('.split-offer .so-row')].pop() : null }; })()`);
 const look = () => ev(`(() => { const p = document.getElementById('propsPanel'); if (!p) return null; const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const well = p.querySelector('.iform .ftex:not(.long)'), lg = p.querySelector('.iform .ftex.long'), fx = p.querySelector('input[data-pkey="expr"]'), note = p.querySelector('.inote');
   const rows = [...p.querySelectorAll('.split-offer .so-tex')].map((t) => ({ n: (t.dataset.tex || '').length, tex: (t.dataset.tex || '').slice(0, 40), over: t.scrollWidth > t.clientWidth + 1, fs: t.style.fontSize }));
@@ -74,24 +74,17 @@ ok('show: the note says it is written in short', L && /Written in short/.test(L.
 ok('show: the field holds the formula unchanged', L && L.field === LONGF, L && L.field && L.field.length);
 ok('show: no row typeset at 700 characters or more', L && L.rows.every((r) => r.n < 700), L && L.rows);
 ok('show: no row wider than its place', L && L.rows.every((r) => !r.over), L && L.rows);
-info.showRows = L && L.rows;
+info.showRows = L && L.rows; info.showOffer = L && L.offer;
 await select('F');
 L = await look();
 const fw = await ev(`(() => { const e = document.querySelector('#propsPanel .iform .ftex:not(.long)'); return e && !e.hidden ? e.dataset.tex : null; })()`);
 ok('show: F is written with the display form', fw && fw.includes('\\prod_{j=1}^{30}'), fw);
 let M = await marks();
 ok('show: F\'s line carries the mark, with the full-formula explanation', M.f && M.f.text === 'in short' && /in full/.test(M.f.tip) && M.f.desc === M.f.tip, M);
-await select(2);
-M = await marks();
-ok('show: the offer\'s last row carries the mark, once', M.rows.length === 1 && M.lastRow === true && /in full/.test(M.rows[0].tip), M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
   await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
-  const m = await marks();
-  ok(`show: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip !== 'Written in short; the field of the step itself holds the formula in full.', m);
-  await select('F');
   const mf = await marks();
-  ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word, mf);
-  await select(2);
+  ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word && mf.f.tip === mf.f.desc && !/^Written in short/.test(mf.f.tip), mf);
 }
 await ev(`I18N.setPref('en'), 1`); await settle(1200);
 
@@ -101,7 +94,6 @@ await ev(`(() => { const f = document.querySelector('#propsPanel input[data-pkey
 await settle(1200);
 L = await look();
 ok('edited: the display form is gone', L && L.long && L.well === null && !/Written in short/.test(L.note), L);
-ok('edited: no mark on the offer\'s rows', (await marks()).rows.length === 0);
 await select('F');
 ok('edited: no mark on F\'s line', (await marks()).f === null);
 await select(2);
@@ -109,6 +101,30 @@ ok('edited: the step keeps its display text (Undo can use it)', (await ev(`__cmw
 await key('z', 2); await settle(1200);
 L = await look();
 ok('undo: the display form is back', L && L.well && L.well.includes('\\prod_{j=1}^{30}'), L);
+
+// 2b. a shorter formula with a display form: the offer's rows are the chain, its last row ends with the display form
+// (a formula too long for its rows shows each step once instead, with no display form to mark)
+const SHEXPR = 'sin(z^2+1)', SHTEX = '\\mathrm{S}_{\\!\\sharp}';
+const stepsB = (show) => [MOB, { type: 'custom', params: Object.assign({ expr: SHEXPR, cut: 180 }, show ? { show: SHTEX, showOf: fnv(SHEXPR) } : {}), on: true }];
+await open('cshow3', stepsB(false));
+await select(2);
+M = await marks();
+ok('plain: the offer shows rows, none marked', M.box && !M.box.hidden && M.box.rows > 1 && M.rows.length === 0, M);
+await open('cshow4', stepsB(true));
+await select(2);
+M = await marks();
+ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /in full/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
+ok('offer: the last row ends with the display form', (await ev(`[...document.querySelectorAll('#propsPanel .split-offer .so-tex')].pop().dataset.tex`)).includes(SHTEX), M);
+for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
+  await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+  const m = await marks();
+  ok(`offer: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip === m.rows[0].desc && !/^Written in short/.test(m.rows[0].tip), m);
+}
+await ev(`I18N.setPref('en'), 1`); await settle(1200);
+await ev(`(() => { const f = document.querySelector('#propsPanel input[data-pkey="expr"]'); f.focus(); f.value = f.value.replace(/\\)$/, '+0)'); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); f.blur(); return 1; })()`);
+await settle(1200);
+M = await marks();
+ok('offer edited: the mark is gone with the display form', M.rows.length === 0, M);
 
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors', errs.length === 0, errs.slice(0, 3));
