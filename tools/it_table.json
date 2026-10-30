@@ -3079,5 +3079,10 @@
  "after the colour plane {p}": "dopo il piano del colore {p}",
  "colour plane": "piano del colore",
  "coloured from {p}": "colorato da {p}",
- "the colour plane": "il piano del colore"
+ "the colour plane": "il piano del colore",
+ "Between {a} and {b}": "Tra {a} e {b}",
+ "Glide speed": "Velocità della transizione",
+ "Fast": "Veloce",
+ "Slow": "Lenta",
+ "Slower": "Più lenta"
 }

@@ -21,6 +21,9 @@
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
   };
+  // the glide's time a plane, by speed (a setting kept on this device)
+  const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
+  SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   // the planes: z and the stage after each active step
   function svPlanes() { return [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
@@ -95,7 +98,9 @@
     const from = SV.g.x;
     if (Math.abs(i - from) < 1e-6) { SV.anim = null; SV.g.set(i); svArrive(); return; }
     // (a press while it glides starts the next glide from where the picture is: no jump; 420 ms a plane, at most 900)
-    SV.anim = { from, to: i, t0: performance.now(), ms: Math.min(900, 420 * Math.max(1, Math.abs(i - from))) };
+    // (the speed setting's time a plane, for at most two planes' worth when it crosses several)
+    const per = SV_SPEEDS[SV.speed] || 900;
+    SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
     requestRender('L');
   }
@@ -108,8 +113,15 @@
     const live = SV.els && SV.els.live;
     if (live) live.textContent = svLabel();
   }
-  const svMoving = () => !!SV.anim || SV.g.moving() || !!(SV.drag && SV.drag.moved);
-  const svTarget = () => (SV.anim ? SV.anim.to : Math.round(SV.g.x));
+  // (parked: left between two planes on the thread, the picture of the deformation there)
+  const svParked = () => !SV.anim && !(SV.drag && SV.drag.moved) && Math.abs(SV.g.x - Math.round(SV.g.x)) > 1e-6;
+  const svMoving = () => !!SV.anim || SV.g.moving() || !!(SV.drag && SV.drag.moved) || svParked();
+  // one plane on (d = ±1) from where the view is: from between two planes, the next one that way
+  function svStep(d) {
+    if (SV.anim) { svGo(SV.anim.to + d); return; }
+    const x = SV.g.x;
+    svGo(d > 0 ? Math.floor(x + 1e-6) + 1 : Math.ceil(x - 1e-6) - 1);
+  }
   // one frame of the glide (frame() calls it); true while it moves
   function svFrame(ts) {
     if (!SV.on) return false;
@@ -143,36 +155,100 @@
     return { a, b, u, map, F, near: u < 0.5 ? a : b };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
-  // a frame between two planes: plane a's colour fades into plane b's (or out, toward a plane past the colour plane), and
-  // the z-plane's shapes move along h_{b,t} (the step's natural homotopy after the steps before it), as Y's ‹ › glide
-  // does; the view stays. Everything follows the rules of the planes at rest: Inside regions masks the colour with the
-  // moving regions, and the regions are outlined over colour and filled past the colour plane
+  // The colour carried by the points: a grid over plane s's window (the camera's, half again as wide), each vertex
+  // painted by where it lands in the colour plane, G = f_T ∘ … ∘ f_{s+1} (its phase, the Arg pattern of the
+  // pre-mapped meshes, which reads (ln |G|, arg G) from the vertex), and placed where posF takes it. So the colour
+  // travels with the points along a deformation, and a plane past the colour plane shows the colour plane's colours
+  // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s)
+  function svCarry(pane, cc, s, posF) {
+    const T = svT();
+    if (s > 0 && derivIn(s, T)) return false;
+    const G = s === T ? (z) => z : rangeF(s, T);
+    const v = S.srcView, ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext;
+    const nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    const K = 16 / TAU, lim = 0.35 * Math.max(pane.w, pane.h) / v.s;
+    const W = (nx + 1) * (ny + 1), qx = new Float64Array(W), qy = new Float64Array(W), gl = new Float64Array(W), ga = new Float64Array(W), ok = new Uint8Array(W);
+    for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
+      const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
+      let q, g;
+      try { q = posF(p); g = G(p); } catch (e) { continue; }
+      if (!q || !g || !CX.isFin(q) || !CX.isFin(g)) continue;
+      qx[n] = q.re - v.cx; qy[n] = q.im - v.cy;
+      gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); ga[n] = Math.atan2(g.im, g.re); ok[n] = 1;
+    }
+    const pos = [], attr = [];
+    const tri = (A, B, D) => {
+      if (!ok[A] || !ok[B] || !ok[D]) return;
+      // (a triangle torn across a branch cut or a pole is long on the screen: left out)
+      if (Math.hypot(qx[A] - qx[B], qy[A] - qy[B]) > lim || Math.hypot(qx[B] - qx[D], qy[B] - qy[D]) > lim || Math.hypot(qx[D] - qx[A], qy[D] - qy[A]) > lim) return;
+      const a0 = ga[A];
+      for (const n of [A, B, D]) {
+        let t = ga[n] - a0;
+        t -= TAU * Math.round(t / TAU);   // (arg unwrapped within the triangle)
+        pos.push(qx[n], qy[n]);
+        attr.push(0, 0, gl[n] * K, (a0 + t) * K);
+      }
+    };
+    for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
+      const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
+      tri(n, e, d); tri(n, d, u);
+    }
+    const nt = pos.length / 6;
+    if (!nt) return true;
+    const res = GLR.createPreMesh({ n: nt, pos: new Float32Array(pos), attr: new Float32Array(attr), tri: new Float32Array(nt), origin: [v.cx, v.cy] });
+    if (!res) return false;
+    GLR.begin(pane.pw, pane.ph);
+    GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
+    GLR.blit(cc);
+    GLR.destroy(res);
+    return true;
+  }
+  // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
+  // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
+  // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const { a, b, u, map, near } = svBetween();
+    const { a, b, u, map, F } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     pane.setView(S.srcView);
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
-    const fill = !svColoured(near);
-    if (fill) drawScene(pane, map, null, { cache: false });
+    paper(pane);
+    if (GLR.drawGrid) {
+      GLR.begin(pane.pw, pane.ph);
+      GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55 });
+      GLR.blit(pane.ctx);
+    }
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
-    let painted = false;
-    for (const [k, al] of [[a, svColoured(b) ? 1 : 1 - u], [b, u]]) {
-      if (al <= 0.01 || !svColoured(k) || (k === b && b === a)) continue;
+    const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
+    const plot = (k, al) => {
+      if (al <= 0.01 || !svColoured(k)) return;
       GLR.begin(pane.pw, pane.ph);
       GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
       cc.globalAlpha = al;
       GLR.blit(cc);
       cc.globalAlpha = 1;
-      painted = true;
+    };
+    // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
+    // the window would, the picture is not left blank)
+    if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
+    let carried = false;
+    if (still || !isDeriv(b)) {
+      const toA = src === a ? null : rangeF(src, a), H = still ? null : homF(b, u);
+      carried = svCarry(pane, cc, src, (p) => { let q = toA ? toA(p) : p; if (H) q = H(q); return q; });
     }
-    if (painted) {
-      if (svMaskOn()) svMaskWith(pane, cc, map);
-      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
-    }
-    if (!fill) svOutlines(pane, map);
+    // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the first
+    // and the last 15 % of a glide)
+    const near = (w) => Math.max(0, Math.min(1, w));
+    if (still) plot(a, 1);
+    else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
+    if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
+    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
+    svOutlines(pane, map);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    // (the points, carried too; at rest the plane's rulers, as every plane has)
+    drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
+    if (rest) drawRulers(pane, 'L');
   }
   // keep only what is inside the regions under map (and, at rest on plane k, the later planes' regions pulled back) of
   // the picture in the 2D context cc
@@ -289,7 +365,8 @@
   }
   function svFormulaHtml(k) {
     if (k === 0) return '<i>z</i>';
-    return `${svNameHtml(k)} = <i>f</i><sub>${k}</sub>(${svNameHtml(svPlanes()[svPlanes().indexOf(k) - 1] || 0)})`;
+    // (the formula after the name is left out on a phone, whose header has room for the name alone)
+    return `${svNameHtml(k)}<span class="sv-tf"> = <i>f</i><sub>${k}</sub>(${svNameHtml(svPlanes()[svPlanes().indexOf(k) - 1] || 0)})</span>`;
   }
   function svSeg(cls, label, items, cur, pick) {
     const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
@@ -311,11 +388,13 @@
     bar.append(title, cp, scope, surf, surf1);
     head.prepend(bar);
     // the chain strip: ‹, a segment per plane with the step between, ›
-    const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svGo(svTarget() - 1) }, '‹');
-    const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svGo(svTarget() + 1) }, '›');
+    const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svStep(-1) }, '‹');
+    const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next);
+    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
+      ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next, speed);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -334,8 +413,10 @@
     P.forEach((k, i) => {
       if (i > 0) {
         const st = S.steps[k - 1], d = Funcs.DEFS[st.type];
-        E.track.append(h('button', { type: 'button', class: 'sv-step', 'data-k': String(k), 'data-tip': `${cardName(st, d)} · ${$t('Edit step {k}', { k })}`, 'aria-label': `f${sub(k)} ${cardName(st, d)}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); inspectStep(k); } },
-          h('span', { class: 'sv-fk', html: `<i>f</i><sub>${k}</sub>` }), h('span', { class: 'sv-fn' }, cardName(st, d))));
+        // (a step is a stretch of the thread, which a drag moves along; its function's chip on it opens the step)
+        E.track.append(h('div', { class: 'sv-step', 'data-k': String(k) },
+          h('button', { type: 'button', class: 'sv-fchip', 'data-tip': `${cardName(st, d)} · ${$t('Edit step {k}', { k })}`, 'aria-label': `f${sub(k)} ${cardName(st, d)}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); inspectStep(k); } },
+            h('span', { class: 'sv-fk', html: `<i>f</i><sub>${k}</sub>` }), h('span', { class: 'sv-fn' }, cardName(st, d)))));
       }
       // (a plane is a node, the colour plane's filled with the wheel; its name is small: the steps are the buttons)
       E.track.append(h('button', { type: 'button', class: 'sv-plane' + (k === T ? ' cp' : ''), 'data-i': String(i), 'aria-label': k === T ? `${svName(k)}, ${$t('colour plane')}` : svName(k), 'data-tip': k === T ? $t('The colour plane') : '', onclick: (e) => { e.stopPropagation(); svGo(i); } },
@@ -381,11 +462,25 @@
   // the nearest plane when it is let go
   function svStripWire(strip, track) {
     const rail = strip.querySelector('.sv-rail');
-    const posX = (e) => { const r = track.getBoundingClientRect(), n = svPlanes().length - 1; const pad = r.width / (2 * (n + 1)); return Math.max(0, Math.min(n, n * (e.clientX - r.left - pad) / Math.max(1, r.width - 2 * pad))); };
+    // (the thread's position under the pointer: between the centres of the planes' nodes, in proportion)
+    const posX = (e) => {
+      const ns = [...track.querySelectorAll('.sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return r.left + r.width / 2; });
+      if (ns.length < 2) return 0;
+      const x = e.clientX;
+      if (x <= ns[0]) return 0;
+      for (let i = 1; i < ns.length; i++) if (x <= ns[i]) return i - 1 + (x - ns[i - 1]) / Math.max(1, ns[i] - ns[i - 1]);
+      return ns.length - 1;
+    };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-step')) return;
+      if (e.button !== 0 || e.target.closest('.sv-fchip')) return;
       SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
+    });
+    // (a press on the thread away from the planes and the chips goes there too)
+    rail.addEventListener('click', (e) => {
+      if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
+      if (e.target.closest('.sv-fchip, .sv-plane')) return;
+      SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
     rail.addEventListener('pointermove', (e) => {
       const d = SV.drag;
@@ -400,7 +495,7 @@
       const d = SV.drag;
       if (!d || d.id !== e.pointerId || !d.strip) return;
       SV.drag = null;
-      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svGo(Math.round(SV.g.x)); }
+      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); }
     };
     rail.addEventListener('pointerup', up);
     rail.addEventListener('pointercancel', up);
@@ -419,7 +514,7 @@
       e.stopImmediatePropagation(); e.preventDefault();
       svKeepView();
       SV.anim = null;
-      SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge };
+      SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge, t0: performance.now() };
       try { plot.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
     }, true);
     plot.addEventListener('pointermove', (e) => {
@@ -436,13 +531,26 @@
       if (!d || d.id !== e.pointerId || !d.edge) return;
       e.stopImmediatePropagation();
       SV.drag = null;
-      const dx = e.clientX - d.px, x = SV.g.x;
-      // a flick goes one plane on even when short
-      const to = Math.abs(dx) > 40 ? (dx < 0 ? Math.floor(d.x0 + 1e-6) + 1 : Math.ceil(d.x0 - 1e-6) - 1) : Math.round(x);
-      svGo(to);
+      const dx = e.clientX - d.px;
+      // a flick (short and quick) goes one plane on; otherwise the view stays where it was let go
+      if (Math.abs(dx) > 40 && performance.now() - d.t0 < 300) svGo(dx < 0 ? Math.floor(d.x0 + 1e-6) + 1 : Math.ceil(d.x0 - 1e-6) - 1);
+      else svLetGo();
     };
     plot.addEventListener('pointerup', up, true);
     plot.addEventListener('pointercancel', up, true);
+  }
+  // let go on the thread at x: near a plane (an eighth of a step) it settles there; anywhere else it stays, showing the
+  // deformation at that place (press: a press, which glides there first)
+  function svLetGo(press) {
+    const P = svPlanes(), x = Math.max(0, Math.min(P.length - 1, SV.g.x)), r = Math.round(x);
+    if (Math.abs(x - r) < 0.125) { if (press) { svGo(r); return; } SV.g.set(r); svArrive(); return; }
+    SV.anim = null;
+    SV.g.set(x);
+    SV.i = r;
+    svSync();
+    requestRender('L', 'OL');
+    const live = SV.els && SV.els.live;
+    if (live) live.textContent = $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.ceil(x)]) });
   }
   // ← → move through the planes, C makes the shown plane the colour plane (not while typing, nor on a focused plane,
   // whose arrows move the probe)
@@ -450,13 +558,13 @@
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
-      const typing = !!(t && t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], .cm-palette'));
+      const inField = !!(t && t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], .cm-palette'));
       // (PageUp / PageDown from anywhere but a field, a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (typing || (!page && t && t.closest && t.closest('canvas'))) return;
+      if (inField || (!page && t && t.closest && t.closest('canvas'))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
-        svGo(svTarget() + (e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1));
+        svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
       } else if ((e.key === 'c' || e.key === 'C') && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
         svSetT(svStage());

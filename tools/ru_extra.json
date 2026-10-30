@@ -434,5 +434,11 @@
  "after the colour plane {p}": "после плоскости цвета {p}",
  "colour plane": "плоскость цвета",
  "coloured from {p}": "цвет из {p}",
- "the colour plane": "плоскость цвета"
+ "the colour plane": "плоскость цвета",
+ "Between {a} and {b}": "Между {a} и {b}",
+ "Glide speed": "Скорость перехода",
+ "Fast": "Быстро",
+ "Normal": "Обычно",
+ "Slow": "Медленно",
+ "Slower": "Очень медленно"
 }
