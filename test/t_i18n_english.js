@@ -11,9 +11,10 @@ const ROOT = path.join(__dirname, '..');
 const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
 const MODS = ['cx', 'parse', 'funcs', 'inverse', 'calc', 'glsl', 'region', 'curves'];
 const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', curves: 'Curves' };
-// (src/ no longer checks whether the recognizer is there, issue #20 phase 3: a stub that reads nothing, as the base, which
-// had none, so both sides offer the same; src/'s contexts only)
-const NO_RECOGNIZER = 'globalThis.Recognize = { key: () => "", hasParam: () => false, generic: (a) => a, chain() { throw new Error("no recognizer"); } };';
+// (src/ no longer checks whether a module is there, issue #20 phase 3: src/'s contexts get the stand-ins of
+// test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which had none, so both
+// sides offer the same)
+const NO_RECOGNIZER = require('fs').readFileSync(path.join(__dirname, 'module_stubs.js'), 'utf8');
 function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
