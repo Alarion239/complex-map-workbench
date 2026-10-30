@@ -267,6 +267,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
    (app.js placeKeys): the key a short chip (glyph and words) that unfolds under the head while pointed at, focused or
    clicked open; the options behind the Display options button. A phone keeps them on the plane (phone.css) */
 .pane-head { position: relative; z-index: 11; overflow: visible; }
+/* ([#337] a chip in the plot (a phone's) drops below the readout it would touch; the pane head's pop-up has its own drop) */
+.plot > .legend-chip { margin-top: var(--lg-drop, 0px); }
 .pane-head > .legend-chip { position: relative; top: auto; right: auto; margin: 0 0 0 4px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 4px; line-height: normal;
   background: transparent; border: 1px solid var(--line); box-shadow: none; overflow: visible; cursor: pointer; font: var(--t-label); color: var(--ink-2); flex: 0 1 auto; min-width: 0; }
 .pane-head > .legend-chip:hover, .pane-head > .legend-chip.open { border-color: var(--line-strong); color: var(--ink); background: var(--well, transparent); }
@@ -276,7 +278,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 7px 7px; box-shadow: inset 0 0 0 1px var(--ink-2); }
 .pane-head > .legend-chip.collapsed::after { content: none; }
 .pane-head > .legend-chip > .lg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px); right: -1px; box-sizing: content-box;
+.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: -1px; box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
