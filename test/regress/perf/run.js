@@ -720,6 +720,164 @@ async function morphOpenUnit() {
   }
 }
 
+// [#326] The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
+// user would, and the cards redraw on their own schedule (renderThumbs). Per edit, with the CPU profiler on from the
+// edit until every card is fresh again: the time spent drawing the cards (samples under renderThumbs) and their longest
+// unbroken stretch, which is the longest task the cards add (the #326 target: none over 100 ms once they draw in idle
+// slices); also the edit's longest task overall (a chain change also links programs), how many went over 100 ms, how
+// long the cards took to be fresh, and whether every card was drawn
+const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
+const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
+// a CPU profile -> {ms, link, sync, longest}: the time in samples whose stack holds fn, and the longest run of
+// consecutive such samples
+// (link: the part of ms in a program link, the link status read that waits for it; sync: the part in a GPU read-back,
+// a card's GL -> 2D copy (the gl layer's blit) and the browser's own read-backs, so a GPU's sync wait shows by name)
+const LINK_FN = /^(getProgramParameter|linkProgram|finishLink)$/;
+const SYNC_FN = /^(blit|readPixels|createImageBitmap|toDataURL)$/;
+function profileIn(profile, fn) {
+  const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map(), hit = new Map();
+  for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  // null: not under fn; else {link, sync}: what the stack below fn holds
+  const under = (id) => {
+    if (hit.has(id)) return hit.get(id);
+    let p = id, r = null, link = false, sync = false;
+    while (p != null) {
+      const f = byId.get(p).callFrame.functionName;
+      if (LINK_FN.test(f)) link = true;
+      if (SYNC_FN.test(f)) sync = true;
+      if (f === fn) { r = { link, sync }; break; }
+      p = parent.get(p);
+    }
+    hit.set(id, r);
+    return r;
+  };
+  let ms = 0, link = 0, sync = 0, run = 0, longest = 0, t = profile.startTime;
+  const at = [];   // (the samples' times under fn, profile clock in µs)
+  profile.samples.forEach((id, i) => {
+    t += profile.timeDeltas[i] || 0;
+    const d = (profile.timeDeltas[i + 1] || 0) / 1000;   // (a sample lasts until the next one)
+    const u = under(id);
+    if (u) { ms += d; run += d; longest = Math.max(longest, run); if (u.link) link += d; if (u.sync) sync += d; at.push(t); } else run = 0;
+  });
+  return { ms, link, sync, longest, at };
+}
+// The longest main-thread task that held one of fn's samples (info): the page's long tasks (__perf.longtasks, page clock)
+// against fn's sample times, mapped by the page time read just before Profiler.stop against the profile's end. It shows a
+// GPU sync that a driver puts under (program), outside fn's stack, in fn's own task. It can also take in a task where fn
+// ran after other long work (a chain edit's links), so it is reported, never gated. 0: no long task held fn
+async function taskOf(profile, at, nowAtStop) {
+  if (!at.length) return 0;
+  const lt = await B.ev('__perf.longSince(0)');
+  const off = profile.endTime / 1000 - nowAtStop;
+  const ts = at.map((x) => x / 1000 - off);
+  let best = 0;
+  for (const [t0, d] of lt) if (ts.some((x) => x >= t0 && x <= t0 + d)) best = Math.max(best, d);
+  return best;
+}
+async function cardsRebuildUnit() {
+  const pre = 'cards.rebuild';
+  const longest = [], over = [], fresh = [], thumbs = [], thumbsLongest = [], sync = [], task = [];
+  let allDrawn = true, nCards = 0;
+  await B.send('Profiler.enable');
+  await B.send('Profiler.setSamplingInterval', { interval: 250 });
+  for (let i = 0; i < REPS; i++) {
+    const o = await openApp(sceneState('chain4', { rightMode: 'image', meshN: 240 }));
+    if (i === 0) detail(`${pre}.open`, o);
+    await B.ev('typeof __cmwCardsNow === "function" && __cmwCardsNow(); 1');
+    await settle(await pageNow());
+    nCards = await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`);
+    // (v15: a step's fields are in the Inspector once its card is selected, #i2_n; earlier builds: the card's #p2_n)
+    await B.ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="2"]'); if (c && !document.getElementById('i2_n')) c.click(); return 1; })()`);
+    await sleep(300);
+    await settle(await pageNow());
+    for (const n of [3, 2]) {
+      await B.send('Profiler.start');
+      const a = await B.ev(`(() => { const e = document.getElementById('i2_n') || document.getElementById('p2_n'); if (!e) return null; const t = performance.now(); e.value = '${n}'; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); return t; })()`);
+      if (a == null) { await B.send('Profiler.stop'); throw new Error('cards.rebuild: step 2 field n (#i2_n) not found'); }
+      // (the cards are stale from the edit until they redraw; bounded by the settle timeout)
+      await sleep(50);
+      const T = Date.now();
+      let ok = false;
+      while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
+      const s = await settle(await pageNow());
+      const b = await pageNow();
+      const nowAtStop = await pageNow();
+      const { profile } = await B.send('Profiler.stop');
+      const th = profileIn(profile, 'renderThumbs');
+      task.push(await taskOf(profile, th.at, nowAtStop));
+      thumbs.push(th.ms); thumbsLongest.push(th.longest); sync.push(th.sync);
+      const lt = await B.ev(`__perf.longSince(${a}, ${b})`);
+      longest.push(Math.max(0, ...lt.map((t) => t[1])));
+      over.push(lt.filter((t) => t[1] > 100).length);
+      fresh.push(ok ? Math.min(b, s.t) - a : null);
+      allDrawn = allDrawn && ok;
+    }
+  }
+  await B.send('Profiler.disable');
+  detail(`${pre}.cards`, nCards);
+  // (absolute, the worst edit: a card task over 100 ms fails whatever the reference does; its total is too noisy to gate)
+  put(`${pre}.edit.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...thumbsLongest)], { limit: CARDS_TASK_LIMIT, samples: thumbsLongest.map(r3) });
+  put(`${pre}.edit.cards_ms`, 'info', 'ms', thumbs);
+  put(`${pre}.edit.cards_sync_ms`, 'info', 'ms', sync);
+  put(`${pre}.edit.cards_task_ms`, 'info', 'ms', task);
+  put(`${pre}.edit.longest_task_ms`, 'jank_ms', 'ms', longest);
+  put(`${pre}.edit.tasks_over_100ms`, 'info', '', over);
+  put(`${pre}.edit.fresh_ms`, 'settle_ms', 'ms', fresh);
+  put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
+}
+
+// [#326] The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
+// drawn: `page`, the default page as a first visit opens it (no saved state; #326's 0.7 s and #350's target), and
+// `chain4`, a saved 4-step chain (many cards). Per scene: the time to the first drawn frame, the cards' longest
+// unbroken stretch under renderThumbs (limit 100 ms: #326 draws them after the first frame, in idle slices), their
+// total, the part of it spent waiting for program links (GPU work: on a software renderer it lands on the main thread,
+// inside renderThumbs, so its stretch there is mostly links; a real GPU's numbers count), and whether every card was
+// drawn (not by when: openApp's own waits, MathJax's up to 12 s, would hide it)
+async function openFresh() {
+  // (a first visit: a namespace with nothing saved, the app's own default page)
+  await B.nav(`${BASE}test.html?ns=perffresh${process.pid}_${++nsCounter}`);
+  await B.until('typeof __cmwInfo === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await settle(await pageNow());
+}
+async function cardsStartupUnit() {
+  await B.send('Profiler.enable');
+  await B.send('Profiler.setSamplingInterval', { interval: 250 });
+  for (const scene of ['page', 'chain4']) {
+    const pre = `cards.startup.${scene}`;
+    const first = [], longestS = [], total = [], link = [], sync = [], task = [];
+    let allDrawn = true;
+    for (let i = 0; i < REPS; i++) {
+      await B.send('Profiler.start');
+      try {
+        if (scene === 'page') await openFresh();
+        else await openApp(sceneState(scene, { rightMode: 'image', meshN: 240 }));
+      } catch (e) { await B.send('Profiler.stop'); throw e; }
+      const T = Date.now();
+      let ok = false;
+      while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
+      const nowAtStop = await pageNow();
+      const { profile } = await B.send('Profiler.stop');
+      const th = profileIn(profile, 'renderThumbs');
+      task.push(await taskOf(profile, th.at, nowAtStop));
+      longestS.push(th.longest); total.push(th.ms); link.push(th.link); sync.push(th.sync);
+      // (page time 0 is the navigation; the first frame that drew: its end)
+      const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
+      first.push(f.length ? f[0][6] : null);
+      allDrawn = allDrawn && ok;
+      if (i === 0) detail(`${pre}.cards`, await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`));
+    }
+    put(`${pre}.first_frame_ms`, 'oneshot_ms', 'ms', first);
+    put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });
+    put(`${pre}.cards_ms`, 'info', 'ms', total);
+    put(`${pre}.cards_link_ms`, 'info', 'ms', link);
+    put(`${pre}.cards_sync_ms`, 'info', 'ms', sync);
+    put(`${pre}.cards_task_ms`, 'info', 'ms', task);
+    put(`${pre}.all_drawn`, 'check', '', [allDrawn]);
+  }
+  await B.send('Profiler.disable');
+}
+
 // The deformation playing in the Phase and Landscape views (merged-views review): one full-width panel paints H_t at
 // every frame (868 px wide at 1440 x 900, against v11's ~430 px pane). The scene opens in the view (rightMode color /
 // 3d: the Phase / Landscape view here, the old layout's pane in the reference), the toggle (#morphBtn) opens the
@@ -1448,6 +1606,8 @@ unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, 
 unit('scrub', 'parameter scrub (phi label of a disk automorphism)', () => scrubUnit(false));
 unit('scrub.morph', 'parameter scrub with the deformation open and paused (its arrows)', () => scrubUnit(true));
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
+unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
+unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
