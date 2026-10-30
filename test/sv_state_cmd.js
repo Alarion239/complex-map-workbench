@@ -51,6 +51,19 @@ for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind
   info[name] = st;
   ok(`old ${name} opens on its equivalent`, st.on && st.T === 3 && st.scope === want.scope && st.surf === want.surf && st.x === 0, st);
 }
+// old links and saves open unchanged in the default view: a link made from an old state (rightMode of earlier builds) opens
+// on its view, and nothing in the state or its saves gains an sv
+for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phase', { rightMode: 'color' }, 'phase'], ['Landscape', { rightMode: '3d', material: 'plaster' }, 'land']]) {
+  await load(ns, {});
+  await ev(`(window.__svLink = null, Params.encodeLink(${JSON.stringify(Object.assign({ v3: true, v4: true, shapes: [], steps, nextId: 50, focus: 0 }, o))}).then((p) => { window.__svLink = p; }), 1)`);
+  await sleep(800);
+  const payload = await ev('window.__svLink');
+  const ns2 = ns + 'l' + main;   // (no saved state there: a link opens at once, with a saved one it asks)
+  await nav(`${base}/test.html?ns=${ns2}#cmw=${payload}`); await sleep(5000);
+  const r = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify('complex-map-workbench-v1:' + ns2)}) || 'null'); return { sv: o && 'sv' in o, main: o && o.view && o.view.main, n: o && o.steps.length, steps: __cmwSteps ? __cmwSteps().on : 'nohook' }; })()`);
+  info['link ' + name] = r;
+  ok(`old ${name} link opens in the default view, unchanged, with no sv`, r && r.sv === false && r.main === main && r.n === 3 && r.steps === false, r);
+}
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };
