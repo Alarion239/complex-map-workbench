@@ -95,12 +95,14 @@
       if (!L) {
         const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
         // (N applies once typing settles, so 12 builds the chain once, not for N = 1 then N = 12; at once on change)
-        let settle = 0;
+        // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+        let settle = 0, typedFor = null;
         const show = (st) => { inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n); };
         const apply = () => {
           clearTimeout(settle);
-          const t = inp.value.trim(), k = +L.dataset.k, st = S.steps[k - 1];
-          if (!st || !st.repeat) return;
+          const t = inp.value.trim(), st = typedFor || S.steps[+L.dataset.k - 1];
+          typedFor = null;
+          if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
           const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
           let rp = null;
           if (ns.length === 1 && Params.get(ns[0]) !== undefined) { if (st.repeat.by !== ns[0]) rp = { n: st.repeat.n, len: st.repeat.len, by: ns[0] }; }
@@ -110,7 +112,7 @@
           chainChanged(false);
           repeatMoved(k, rp);
         };
-        inp.addEventListener('input', () => { clearTimeout(settle); settle = setTimeout(apply, 400); });
+        inp.addEventListener('input', () => { clearTimeout(settle); typedFor = S.steps[+L.dataset.k - 1] || null; settle = setTimeout(apply, 400); });
         inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
         // (the arrow keys step a typed N, as a number field does)
         inp.addEventListener('keydown', (e) => {
