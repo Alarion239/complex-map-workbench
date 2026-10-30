@@ -1257,8 +1257,19 @@ registerProcessor('cmw-limit', Limit);`;
     if (g.synth && (g.offline || prefer.worklet)) {
       if (cueHook && !g.offline) { try { cueHook(t, cue); } catch (e) { /* the test's */ } }
       g.synth.post([Object.assign({ k: 'cue', at: t }, cue)]); let e = 0; for (const p of cue.parts) e = Math.max(e, LIB.partEnd(p)); return t + e; }
+    // (#271) the main-thread render takes 30–70 ms: inside an input handler it is handed to the next task, and its start
+    // stays no earlier than now + LEAD (fallbackCue's own rule), so the attack is not cut
+    if (!g.offline && inInput()) {
+      let end = 0; for (const p of cue.parts) end = Math.max(end, LIB.partEnd(p));
+      // (a hush or stopTag before it runs drops it: g.later)
+      const job = { tag: cue.tag }; (g.later || (g.later = new Set())).add(job);
+      setTimeout(() => { if (g.later.delete(job) && g.c.state !== 'closed') fallbackCue(g, cue, t); }, 0);
+      return Math.max(t, g.c.currentTime + LEAD) + end;
+    }
     return fallbackCue(g, cue, t);
   }
+  // in an input event's handler: the activation gesture is live and the event being dispatched is a UI event
+  const inInput = () => inGesture() && typeof UIEvent !== 'undefined' && window.event instanceof UIEvent;
   // one cue of the catalog into a graph at time t (no guards: play() has them; offline renders and the lab call this)
   const reps = new Map();
   function cueTo(g, name, t, o = {}) {
@@ -1292,11 +1303,11 @@ registerProcessor('cmw-limit', Limit);`;
     if (!ctx || ctx.state === 'closed') {
       try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* not iOS 16.4+ */ }
       try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = null; return false; }
-      ctx.onstatechange = () => { if (ctx.state === 'running') graceUsed = false; emit(); };
+      ctx.onstatechange = () => { if (ctx.state === 'running') { graceUsed = false; flushPend(); } emit(); };
       LEAD = Math.max(0.012, 2 * (ctx.baseLatency || 0.005));
       G = graph(ctx, 0);
       // the worklet loads in the background; until it is there (or where it is refused) the fallback renders cues
-      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; if (ok) g.synth = makeSynth(g); g.engine = ok ? 'worklet' : 'nodes'; limitOn(g); emit(); }); } else { G.engine = 'nodes'; limitOn(G); }
+      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; if (ok) g.synth = makeSynth(g); g.engine = ok ? 'worklet' : 'nodes'; limitOn(g); emit(); if (g === G) flushPend(); }); } else { G.engine = 'nodes'; limitOn(G); }
       applyGains(true);
     }
     if (ctx.state !== 'running') ctx.resume().then(emit, () => {});
@@ -1305,14 +1316,68 @@ registerProcessor('cmw-limit', Limit);`;
   }
   // may a sound be scheduled now? Only on a running clock: a suspended or iOS-"interrupted" context would release a
   // backlog as a burst on resume. The one exception: a single sound inside an active gesture (the "on" confirmation).
-  function canSchedule(grace) {
+  function canSchedule(grace, wait) {
     if (ctx && ctx.state === 'running') return true;
+    // the context is due just after this gesture: a one-shot waits for it (play queues it); anything else creates it
+    // now, as before
+    if (pendT) { if (wait) return 'wait'; ensureNow(); return canSchedule(grace); }
     if (!ensure()) return false;
     if (ctx.state === 'running') return true;
     if (grace && !graceUsed && inGesture()) { graceUsed = true; return true; }
+    // (a context the deferred start made that is not running yet, e.g. Firefox's: a one-shot waits for its statechange)
+    if (wait && performance.now() - bornAt < 1500) return 'wait';
     return false;
   }
-  const onActivate = (e) => { if (e.type === 'keydown' && e.key === 'Escape') return; activated = true; lastGesture = performance.now(); if (P.on && !hidden && (!ctx || ctx.state !== 'running')) ensure(); };
+  // The first gesture's context (#271): new AudioContext() takes ~55 ms, so it is created just after the gesture, not
+  // inside it, by a timer created in the activating event itself: WebKit carries a gesture only to a timer created while
+  // it is processed (a timer created in a requestAnimationFrame callback has none); Chrome and Firefox keep transient
+  // activation ~5 s. The work timer (0 ms) is (re)armed by click, keydown, pointerup and touchend, so for a click it
+  // runs in the task after the click's; a mouse pointerdown arms only the backstop (250 ms: a press held into a drag).
+  // A touch pointerdown arms nothing (it is not an activation). One-shots asked for meanwhile wait in pendQ (one per
+  // catalog entry, with its intended start) and sound against the new clock, through the worklet once it has loaded.
+  // Safety net (old iOS): once a context exists, or a deferred start made none, a gesture calls ensure() synchronously.
+  /** @type {{ to: any, late: any } | null} */
+  let pendT = null;
+  let syncNext = false, bornAt = -1e9, pendDrop = 0;
+  const pendQ = new Map();
+  function ensureNow() {
+    const deferred = !!pendT;
+    if (pendT) { clearTimeout(pendT.to); clearTimeout(pendT.late); pendT = null; }
+    const had = ctx, tried = !!AC && P.on && !hidden && mayStart(), ok = ensure();
+    if (tried && !ctx) syncNext = true;
+    if (deferred && ctx && ctx !== had) bornAt = performance.now();
+    if (!ok) pendQ.clear(); else flushPend();
+    return ok;
+  }
+  function deferEnsure(work) {
+    const run = () => { if (pendT) ensureNow(); };
+    if (!pendT) pendT = { to: 0, late: setTimeout(run, 250) };
+    if (work) { clearTimeout(pendT.to); pendT.to = setTimeout(run, 0); }
+  }
+  // the queued one-shots, once the clock runs and the worklet has settled (a statechange and loadWorklet's end call
+  // this again): on the first gesture the cue is the worklet's, not a main-thread render. A cue that could not start
+  // within 1.5 s of its request is dropped: it would no longer belong to its gesture
+  function flushPend() {
+    if (!pendQ.size || pendT) return;
+    if (!ctx) { pendQ.clear(); return; }
+    const now = performance.now() / 1000, run = ctx.state === 'running', loading = G && G.engine === 'loading';
+    for (const [name, q] of [...pendQ]) {
+      if (now - q.asked > 1.5) { pendQ.delete(name); continue; }
+      if ((!run || loading) && !q.o.grace) continue;
+      pendQ.delete(name);
+      play(name, Object.assign({}, q.o, { at: Math.max(0, q.due - now) }));
+    }
+    // (what still waits is dropped at 1.5 s even if nothing calls this again)
+    if (pendQ.size && !pendDrop) pendDrop = setTimeout(() => { pendDrop = 0; flushPend(); }, 1600);
+  }
+  const onActivate = (e) => {
+    if (e.type === 'keydown' && e.key === 'Escape') return;
+    activated = true; lastGesture = performance.now();
+    if (!P.on || hidden || (ctx && ctx.state === 'running')) return;
+    if (ctx || syncNext) { syncNext = false; ensureNow(); return; }
+    if (e.type !== 'pointerdown') deferEnsure(true);
+    else if (!e.pointerType || e.pointerType === 'mouse') deferEnsure(false);
+  };
   for (const ev of ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click']) window.addEventListener(ev, onActivate, { capture: true, passive: true });
   document.addEventListener('visibilitychange', () => {
     hidden = document.visibilityState === 'hidden';
@@ -1342,7 +1407,13 @@ registerProcessor('cmw-limit', Limit);`;
     if (!d || !AC || !P.on || hidden) return false;
     const tier = o.tier || d.tier;
     if (!o.audition && (!P[tier] || (name === 'snap' && !P.snap))) return false;
-    if (!canSchedule(!!o.grace)) return false;
+    let cs = canSchedule(!!o.grace, true);
+    // (behind cues still waiting for the worklet: Hear's zero ping of a still probe must not sound before the start cue
+    // of the M that started the deformation)
+    if (cs === true && pendQ.size && G && G.engine === 'loading') cs = 'wait';
+    // (one per catalog entry: a second request while the first waits is refused)
+    if (cs === 'wait') { if (pendQ.has(name)) return false; const a = performance.now() / 1000; pendQ.set(name, { o, asked: a, due: a + (o.at || 0) }); return true; }
+    if (!cs) return false;
     const now = performance.now(), sched = !!o.force || o.at > 0;
     // zeros and poles are never forced: a shared gap, and a cluster (≥ 3 entries in 300 ms: sin(1/z), z⁵⁰ − 1,
     // Blaschke products) becomes one quiet "dense" cue followed by 600 ms of silence for them
@@ -1646,6 +1717,7 @@ registerProcessor('cmw-limit', Limit);`;
   // and comes back on a 30 ms one 50 ms later; every fallback source stops inside the silent window. A hush during a
   // hush joins its silent window, or (in its return) starts a new one after it: value curves never overlap.
   function hush() {
+    pendQ.clear();
     if (!ctx || !G) return;
     const now = ctx.currentTime + LEAD, at = G.hushAt == null ? -1 : G.hushAt;
     let t = at;
@@ -1656,6 +1728,7 @@ registerProcessor('cmw-limit', Limit);`;
       G.hushAt = t;
     }
     if (G.synth) G.synth.post([{ k: 'clear' }]);
+    if (G.later) G.later.clear();
     HH.along = null;
     const off = Math.max(now, t + 0.013);
     for (const s of G.active) { try { s.stop(off); } catch (e) { /* not started */ } }
@@ -1668,8 +1741,10 @@ registerProcessor('cmw-limit', Limit);`;
   // (review sound-4)
   function stopTag(tag) {
     if (HH.along && HH.along.tag === tag) HH.along = null;
+    for (const [name, q] of [...pendQ]) if (q.o.tag === tag) pendQ.delete(name);
     if (!ctx || !G) return;
     if (G.synth) G.synth.post([{ k: 'clear', tag }]);
+    if (G.later) for (const j of G.later) if (j.tag === tag) G.later.delete(j);
     const t = ctx.currentTime + LEAD;
     for (const s of G.active) {
       if (s.tag !== tag) continue;
@@ -1897,7 +1972,7 @@ registerProcessor('cmw-limit', Limit);`;
     const was = P.on, wasGlide = P.glide, wasSonify = P.sonify;
     for (const k in o) if (k in DEFAULTS && typeof o[k] === typeof DEFAULTS[k]) P[k] = k === 'vol' ? clamp(o[k], 0, 1) : o[k];
     save();
-    if (P.on && !was) { activated = true; lastGesture = performance.now(); ensure(); applyGains(true); if (!opts.quiet) play('toggleOn', { force: true, grace: true }); }
+    if (P.on && !was) { activated = true; lastGesture = performance.now(); ensureNow(); applyGains(true); if (!opts.quiet) play('toggleOn', { force: true, grace: true }); }
     else if (!P.on && was && ctx) {
       // off is immediate and silent: the icon and aria-pressed confirm it
       hush();
