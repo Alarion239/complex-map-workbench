@@ -14,7 +14,7 @@ root = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from tools.src_parts import source  # noqa: E402  (gl.js is joined from src/gl/, as build.py does)
 src = root / 'src'
-parts = [(root / 'test' / 'module_stubs.js').read_text(encoding='utf-8')] + [source(f, src, esm='strip') for f in ['cx.js', 'parse.js', 'funcs.js', 'inverse.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'palette.js', 'gl.js']]   # (constr.js: v16's exact-form rows, review regress-3)
+parts = [(root / 'test' / 'module_stubs.js').read_text(encoding='utf-8')] + [source(f, src, esm='strip') for f in ['cx.js', 'parse.js', 'derivs.js', 'natpaths.js', 'funcs.js', 'inverse.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'palette.js', 'gl.js']]   # (constr.js: v16's exact-form rows, review regress-3)
 # (test/module_stubs.js: stand-ins for the modules left out, which the sources no longer check for; issue #20)
 fx = {k: (root / 'test' / 'fixtures' / f'region_fs_{k}.glsl').read_text(encoding='utf-8') for k in ['flat', 'sphere']}
 parts.append('window.__REGION_FS_FIXTURES = ' + json.dumps(fx) + ';')
