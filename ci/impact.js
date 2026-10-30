@@ -42,8 +42,8 @@ const AREAS = {
 // row matches is T3. Effects: full (T3), areas (their browser shards), core (T2: quality, perf and the core shards),
 // glsl/quality/perf (that job; glsl: 'all' for every page, otherwise the pages whose inputs the path is),
 // suite (the shards of test/<suite>_cmd.js), uses (a test helper: whatever uses it), hooks (the test hooks: the shards
-// of the suites that call a hook the diff changes; T3 when the diff's hooks cannot be named, or a hook is called
-// outside the browser suites and unit tests), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
+// of the suites that call a hook the diff changes; T3 when the diff's hooks cannot be named, no suite calls them, or a
+// hook is called outside the browser suites and unit tests), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
 const full = (why) => ({ full: true, why });
 const ui = (...areas) => ({ areas });
 const T0 = { t0: true };
@@ -272,8 +272,9 @@ function select(files, opts = {}) {
       // ([#385] a test hook acts only when something calls it: the suites that name a changed hook)
       const names = opts.hooksOf ? opts.hooksOf(f) : null;
       const calls = names && names.length ? hookCallers(names) : null;
-      if (!calls || calls.outside.length) {
-        const why = !names ? 'its changed hooks are not known (no diff, or a line outside every hook)' : !names.length ? 'no hook in its diff' : `a hook called outside the browser suites (${calls.outside.join(', ')})`;
+      // (fail safe: a changed hook no browser suite calls is not "nothing to run" but T3, as a hunk the map cannot place)
+      if (!calls || calls.outside.length || !calls.suites.length) {
+        const why = !names ? 'its changed hooks are not known (no diff, or a line outside every hook)' : !names.length ? 'no hook in its diff' : calls.outside.length ? `a hook called outside the browser suites (${calls.outside.join(', ')})` : `no browser suite calls ${names.join(', ')}`;
         fullWhy.push(`${f}: ${why}`); say(f, row.glob, `T3: ${why}`); continue;
       }
       for (const t of calls.suites) for (const id of shardsOfSuite(t)) browser.add(id);

@@ -95,6 +95,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('the test hooks, a diff that names no hook: T3', select([H], { hooksOf: () => [] }).tier === 'T3');
   const zp = select([H], { hooksOf: () => ['__cmwZp'] });
   ok('the test hooks: __cmwZp changed -> the shards of the suites that call it (zp_cmd.js among them), not everything', zp.tier === 'T1' && zp.browser.includes('smoke') && zp.browser.length < ALL.length && zp.reasons.some((r) => /zp_cmd\.js/.test(r.effect)), zp.browser);
+  ok('the test hooks: a changed hook no suite calls -> T3 (fail safe), not nothing', (() => { const p = select([H], { hooksOf: () => ['__cmwNoSuiteCallsThis'] }); return p.tier === 'T3' && /no browser suite calls/.test(p.why.join(' ')); })());
   const ps = select([H], { hooksOf: () => ['__cmwPaneStatus'] });
   ok('the test hooks: a hook the quality runner calls -> T3', ps.tier === 'T3' && ps.why.some((w) => /run_quality\.js/.test(w)), ps.why);
   ok('the Arb oracle (dev-only) -> T0', select(['tools/arb_reference.py', 'tools/arb_compare.js', 'notes/arb/reference.json']).tier === 'T0');
@@ -104,6 +105,16 @@ ok('T3: a test file nothing names', select([`test/${['nobody', 'names', 'this'].
 const lab = select(['README.md'], { full: 'the label full-gate' });
 ok('T3: the label full-gate (or a push, the nightly run, a run by hand) forces everything', lab.tier === 'T3' && same(lab.browser, ALL) && lab.why.includes('the label full-gate') && !lab.skipped.length, lab);
 ok('T3: one unknown path among known ones still forces everything', select(['src/tour.js', 'Makefile']).tier === 'T3');
+
+// [#385] the recent merges the analysis named, on the new rows: #370's desk.css diff now runs the phone shards; #375's,
+// #349's and #342's hunks were in init() (now 20-init.js), so they stay T3 until UI wiring moves out of it (#385 step 3)
+{
+  const d370 = select(['src/desk.css', 'test/dh_cmd.js']);
+  ok('#370 (desk.css, dh_cmd.js): the phone shards too', AREAS.phone.every((id) => d370.browser.includes(id)) && d370.tier !== 'T3', d370.browser);
+  for (const [pr, files] of [['#375', ['src/app/09-pane-titles.js', 'src/app/20-init.js', 'src/desk.css', 'test/pane_heads_1024_cmd.js']], ['#349', ['src/app/20-init.js', 'test/phone_landscape_cmd.js']], ['#342', ['src/app/09-pane-titles.js', 'src/app/20-init.js', 'src/desk.css']]]) {
+    ok(`${pr}: a hunk in init() (start-up) -> T3`, select(files).tier === 'T3');
+  }
+}
 
 // the same build
 const sb = select(['src/app/wrap.js', 'src/app/17-tour.js', 'src/tour.js', 'src/cx.js', 'tools/src_parts.py'], { sameBuild: true });
