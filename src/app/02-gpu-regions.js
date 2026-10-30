@@ -1026,6 +1026,9 @@
       t0 = performance.now();
       return token !== lineJob.token;
     };
+    // ([#325] one curve's refinement is sliced too: refineGen yields once the slice is spent (a few map evaluations
+    // apart, each asking the clock); the same polylines as Lines.refine)
+    const pc = { due: () => performance.now() - t0 > LINE_SLICE };
     try {
       const origin = [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
       for (const [s, r] of todo) {
@@ -1034,7 +1037,10 @@
         const polys = [];
         for (const c of curves) {
           let ps = [];
-          try { ps = Region.Lines.refine([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048 }); } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
+          try {
+            const g = Region.Lines.refineGen([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048, pc });
+            for (let st = g.next(); ; st = g.next()) { if (st.done) { ps = st.value; break; } if (await rest()) return; }
+          } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
           for (const p of ps) if (p.length >= 4) polys.push(p);
           if (performance.now() - t0 > LINE_SLICE && await rest()) return;
         }
