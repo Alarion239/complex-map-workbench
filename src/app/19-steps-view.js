@@ -163,7 +163,7 @@
   // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
   // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
-  let svCarryMemo = null;
+  let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
   function svCarry(pane, cc, s, a, H) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
@@ -183,39 +183,51 @@
         m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
       }
     }
-    const K = 16 / TAU, lim = 0.35 * Math.max(pane.w, pane.h) / v.s;
-    const W = (nx + 1) * (ny + 1), qx = new Float64Array(W), qy = new Float64Array(W), ok = new Uint8Array(W), gl = m.gl, ga = m.ga;
-    for (let n = 0; n < W; n++) {
-      if (!m.ok[n]) continue;
-      let q = C(m.ax[n], m.ay[n]);
-      if (H) { try { q = H(q); } catch (e) { continue; } if (!q || !CX.isFin(q)) continue; }
-      qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
-    }
-    const pos = [], attr = [];
-    const tri = (A, B, D) => {
-      if (!ok[A] || !ok[B] || !ok[D]) return;
-      // (a triangle torn across a branch cut or a pole is long on the screen: left out)
-      if (Math.hypot(qx[A] - qx[B], qy[A] - qy[B]) > lim || Math.hypot(qx[B] - qx[D], qy[B] - qy[D]) > lim || Math.hypot(qx[D] - qx[A], qy[D] - qy[A]) > lim) return;
-      const a0 = ga[A];
-      for (const n of [A, B, D]) {
-        let t = ga[n] - a0;
-        t -= TAU * Math.round(t / TAU);   // (arg unwrapped within the triangle)
-        pos.push(qx[n], qy[n]);
-        attr.push(0, 0, gl[n] * K, (a0 + t) * K);
+    // (the same picture as the last frame, at rest or parked: its mesh, already on the GPU, drawn again (perf on #448))
+    const fkey = key + '|' + (H ? SV.g.x.toFixed(6) : 'rest');
+    let res = svCarryRes && svCarryRes.key === fkey && svCarryRes.res.n ? svCarryRes.res : null;
+    if (!res) {
+      const K = 16 / TAU, lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
+      const W = (nx + 1) * (ny + 1);
+      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W), pos: new Float32Array(nx * ny * 12), attr: new Float32Array(nx * ny * 24) };
+      const { qx, qy, ok, pos, attr } = svCarryBuf, gl = m.gl, ga = m.ga;
+      for (let n = 0; n < W; n++) {
+        ok[n] = 0;
+        if (!m.ok[n]) continue;
+        let q = C(m.ax[n], m.ay[n]);
+        if (H) { try { q = H(q); } catch (e) { continue; } if (!q || !CX.isFin(q)) continue; }
+        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
       }
-    };
-    for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
-      const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
-      tri(n, e, d); tri(n, d, u);
+      // (into the preallocated arrays: positions and, per vertex, (0, 0, ln|G|, arg G) in the pattern's units)
+      let np = 0, na = 0;
+      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
+      const tri = (A, B, D) => {
+        if (!ok[A] || !ok[B] || !ok[D]) return;
+        // (a triangle torn across a branch cut or a pole is long on the screen: left out)
+        if (d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) return;
+        const a0 = ga[A];
+        for (let c = 0; c < 3; c++) {
+          const n = c === 0 ? A : c === 1 ? B : D;
+          let t = ga[n] - a0;
+          t -= TAU * Math.round(t / TAU);   // (arg unwrapped within the triangle)
+          pos[np++] = qx[n]; pos[np++] = qy[n];
+          attr[na++] = 0; attr[na++] = 0; attr[na++] = gl[n] * K; attr[na++] = (a0 + t) * K;
+        }
+      };
+      for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
+        const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
+        tri(n, e, d); tri(n, d, u);
+      }
+      const nt = np / 6;
+      if (svCarryRes) { GLR.destroy(svCarryRes.res); svCarryRes = null; }
+      if (!nt) return true;
+      res = GLR.createPreMesh({ n: nt, pos: pos.subarray(0, np), attr: attr.subarray(0, na), tri: new Float32Array(nt), origin: [v.cx, v.cy] });
+      if (!res) return false;
+      svCarryRes = { key: fkey, res };
     }
-    const nt = pos.length / 6;
-    if (!nt) return true;
-    const res = GLR.createPreMesh({ n: nt, pos: new Float32Array(pos), attr: new Float32Array(attr), tri: new Float32Array(nt), origin: [v.cx, v.cy] });
-    if (!res) return false;
     GLR.begin(pane.pw, pane.ph);
     GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
     GLR.blit(cc);
-    GLR.destroy(res);
     return true;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
@@ -406,8 +418,17 @@
   function svSeg(cls, label, items, cur, pick) {
     const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
     for (const [id, text, tip] of items) {
-      g.append(h('button', { type: 'button', role: 'radio', 'data-v': id, 'data-tip': tip || '', 'aria-checked': String(cur() === id), class: cur() === id ? 'on' : '', onclick: () => pick(id) }, text));
+      g.append(h('button', { type: 'button', role: 'radio', 'data-v': id, 'data-tip': tip || '', 'aria-checked': String(cur() === id), tabindex: cur() === id ? '0' : '-1', class: cur() === id ? 'on' : '', onclick: () => pick(id) }, text));
     }
+    // (a radio group: one Tab stop, the checked one; ← → pick the next and move the focus with it)
+    g.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      const bs = [...g.children], i = bs.indexOf(/** @type {HTMLElement} */ (e.target));
+      if (i < 0) return;
+      e.preventDefault();
+      const n = bs[(i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length];
+      pick(n.dataset.v); n.focus();
+    });
     return g;
   }
   function svBuild() {
@@ -485,7 +506,7 @@
       E.cp.classList.toggle('on', k === T);
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
-      for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+      for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
       for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
@@ -509,6 +530,7 @@
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
     save();
+    if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
   }
   // the strip: a press on a plane goes there; a drag along it scrubs through the deformation, and the glide settles on
   // the nearest plane when it is let go
@@ -604,6 +626,11 @@
     const live = SV.els && SV.els.live;
     if (live) live.textContent = $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.ceil(x)]) });
   }
+  // a dialog, a menu, a popover, a pop-up or a phone sheet is open over the page (its keys are its own)
+  function svLayerOpen() {
+    if (document.querySelector('#popHost > *, .modal-bg, dialog[open], .snd-pop:not([hidden]), .ph-sheet:not([hidden])')) return true;
+    try { return !!document.querySelector(':popover-open'); } catch (e) { return false; }
+  }
   // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
   function svNudge(d) {
     const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
@@ -623,15 +650,17 @@
       const onRail = !!(t && t.classList && t.classList.contains('sv-rail'));
       if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
+      // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
+      // #448; the classic key handler's exclusions, 14-interaction.js): only the thread's own keys pass)
+      if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
       if ((e.shiftKey || onRail) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault(); e.stopImmediatePropagation();
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
         return;
       }
-      const inField = !!(t && t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], .cm-palette'));
-      // (PageUp / PageDown from anywhere but a field, a focused plane too; the arrows not on a plane, where they move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (inField || (!page && t && t.closest && t.closest('canvas'))) return;
+      if (!page && t && t.closest && t.closest('canvas')) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
