@@ -694,13 +694,15 @@
     setTimeout(svPrestart, 300);
   }
   // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
-  // maps' (mode 1) and the carried colour's pre-mapped mesh; at start-up and when the chain changes. (F's GPU carry
-  // hooks its own programs in here)
+  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
+  // chain changes
   function svPrestart() {
     try {
       if (!GLR.ok) return;
       if (GLR.prestartModes) GLR.prestartModes([1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
+      // (#439: the carried colour's programs: carryId too when a plane lies past the colour plane)
+      if (GLR.prestartCarry) { const P = svPlanes(); GLR.prestartCarry(svT() < P[P.length - 1] ? ['carry', 'carryId'] : ['carry']); }
     } catch (e) { /* (the first glide starts them) */ }
   }
   function setupStepsView() {

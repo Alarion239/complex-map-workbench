@@ -299,6 +299,19 @@ float wabs(vec2 w) {
     }
     return n;
   }
+  // (#439) the steps view's carried colour (CARRY_VS): programs `names` (carry, carryId) of the current chain in map
+  // modes 0 (at rest) and 1 (a glide), started in the background, as prestartModes; never without
+  // KHR_parallel_shader_compile. -> the number started
+  function prestartCarry(names) {
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    let n = 0;
+    for (const name of names) for (const mode of [0, 1]) {
+      if (progs.has(progId(name, cur, { mode }))) continue;
+      getProg(name, cur, true, { mode });
+      n++;
+    }
+    return n;
+  }
   // (issue #72) the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
   // -> the number started
