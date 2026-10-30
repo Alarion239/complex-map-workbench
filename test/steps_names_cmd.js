@@ -16,12 +16,12 @@ const txt = (sel) => ev(`(() => { const e = document.querySelector(${JSON.string
 const num = (s) => parseFloat(String(s).replace(',', '.').replace('−', '-'));
 const NUM = '(\\d+[.,]\\d+)';
 // the expected title role by language and colour plane: [en, ru] per (T, plane)
-const WORD = { en: { phase: 'phase of', carried: 'colour of' }, ru: { phase: 'фаза функции', carried: 'цвет' } };
+const WORD = { en: { phase: 'phase of', carried: 'colour of', plane: 'colour plane' }, ru: { phase: 'фаза функции', carried: 'цвет, перенесённый из', plane: 'плоскость цвета' } };
 // [colour plane T][plane k] -> [role kind, the map's name]
 const WANT = [
-  [['phase', 'z'], ['carried', 'z'], ['carried', 'z']],
-  [['phase', 'f₁'], ['phase', 'w₁'], ['carried', 'w₁']],
-  [['phase', 'F'], ['phase', 'f₂'], ['phase', 'w₂']],
+  [['plane', 'z'], ['carried', 'z'], ['carried', 'z']],
+  [['phase', 'f₁'], ['plane', 'w₁'], ['carried', 'w₁']],
+  [['phase', 'F'], ['phase', 'f₂'], ['plane', 'w₂']],
 ];
 const NAMES = ['z', 'w₁', 'w₂'];
 
@@ -32,6 +32,8 @@ for (const lang of ['en', 'ru']) {
   ok(`${lang}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   ok(`${lang}: Cayley, then cube loads`, await ev('__cmwExample(8)'), null);
   await settle(1000);
+  // (an example just loaded is adopted on the next frame, which resets T: let that pass first)
+  await ev('__cmwSteps({ T: 2 }); __cmwSteps({ go: 0, now: true }); 1'); await settle(1500);
   const P = await ev('__cmwP().steps.map((s) => s.type)');
   ok(`${lang}: two steps`, P.length === 2, P);
   for (let T = 0; T < 3; T++) for (let k = 0; k < 3; k++) {
@@ -44,8 +46,8 @@ for (const lang of ['en', 'ru']) {
     const w = WORD[lang][kind];
     // (the shown plane's name, then its role: "w₁ · phase of f₂"; the name is w₂ for the last plane too)
     const plain = (t) => t.replace(/[₀-₉]/g, (c) => String(c.charCodeAt(0) - 0x2080));
-    const want = `${plain(NAMES[k])} · ${w} ${map}`;
-    ok(`${tag}: the title reads "${want}"`, kind === 'phase' ? title === want : !!title && title.startsWith(want), title);
+    const want = kind === 'plane' ? `${plain(NAMES[k])} · ${w}` : `${plain(NAMES[k])} · ${w} ${map}`;
+    ok(`${tag}: the title reads "${want}"`, kind !== 'carried' ? title === want : !!title && title.startsWith(want), title);
     ok(`${tag}: the title names no X and no Y`, !/\bX\b|\bY\b/.test(title) && !/w₂ =|= f/.test(title), title);
     const hidden = await txt('#leftTitle');
     ok(`${tag}: the pane title agrees`, hidden !== null && hidden.includes(w) && !/\bX\b/.test(hidden), hidden);
@@ -58,7 +60,7 @@ for (const lang of ['en', 'ru']) {
     const ro = await txt('#leftReadout');
     const m = new RegExp(`${NUM} ([+\u2212-]) ${NUM}i`).exec(ro || '');
     ok(`${tag}: the readout shows the point`, !!m, ro);
-    if (kind === 'phase' && map !== NAMES[k]) {
+    if (kind === 'phase') {
       // (f₂(w₁): the value of the map into T at the point under the pointer, in the readout's own unit)
       const call = k === 0 ? `${plain(map)}(z)` : `${plain(map)}(w1)`;
       ok(`${tag}: the readout names ${call}`, plain(ro || '').includes(call), ro);
@@ -76,8 +78,8 @@ for (const lang of ['en', 'ru']) {
       // (past T the colour is carried: the readout names where the point comes from in T, or "—")
       const lab = lang === 'ru' ? 'цвет из' : 'colour from', tn = plain(NAMES[T]);
       ok(`${tag}: no pulled-back map past the colour plane`, !/f₁\(|f₂\(|F\(/.test(plain(ro || '')), ro);
-      ok(`${tag}: the readout says where the colour comes from`, plain(ro || '').includes(`${lab} ${tn} =`), ro);
-      const sm = new RegExp(`${lab} ${tn} = ([\u2212-]?\\d+[.,]\\d+) ([+\u2212-]) ${NUM}i`).exec(plain(ro || ''));
+      ok(`${tag}: the readout says where the colour comes from`, plain(ro || '').includes(`${lab} ${tn} `), ro);
+      const sm = new RegExp(`${lab} ${tn} ([\u2212-]?\\d+[.,]\\d+) ([+\u2212-]) ${NUM}i`).exec(plain(ro || ''));
       if (T === 1 && k === 2) ok(`${tag}: the cube root is found`, !!sm, ro);
       if (sm && m) {
         const sre = num(sm[1]), sim = (sm[2] === '+' ? 1 : -1) * num(sm[3]);
@@ -88,6 +90,9 @@ for (const lang of ['en', 'ru']) {
         if (back) ok(`${tag}: the source maps onto the point`, Math.hypot(back[0] - wre, back[1] - wim) <= 3e-3 * Math.max(1, Math.hypot(wre, wim)), { sm: sm[0], back, wre, wim });
       }
     }
+    // (the ruler's corner: the plane's name with a real subscript, which its 18 px kept; at T no repeated map row)
+    ok(`${tag}: the ruler's corner names the plane`, (await ev(`document.getElementById('cornerL').textContent + '|' + !!document.querySelector('#cornerL sub')`)) === (k === 0 ? 'z|false' : `w${k}|true`), await txt('#cornerL'));
+    if (kind === 'plane') ok(`${tag}: the readout does not repeat itself at the colour plane`, !/∠/.test(ro || ''), ro);
     info[tag] = { title, ro };
   }
   // the left panel: shapes by plane, no X and no Y

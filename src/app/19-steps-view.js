@@ -69,6 +69,7 @@
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role;
     if (!svColoured(k)) role = k > T ? $t('colour of {p}, carried', { p: wHtml(T) }) : $t('shapes only');
+    else if (k === T && SV.surf !== 'land') role = $t('colour plane');
     else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: '' });
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };

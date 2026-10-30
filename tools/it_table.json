@@ -3085,7 +3085,7 @@
  "Fast": "Veloce",
  "Slow": "Lenta",
  "Slower": "Più lenta",
- "colour of {p}, carried": "colore di {p}, trasportato",
+ "colour of {p}, carried": "colore trasportato da {p}",
  "shapes only": "solo le forme",
  "Hold and slide to read {f}": "Tieni premuto e scorri per leggere {f}",
  "<span>In {w}</span>": "<span>In {w}</span>",

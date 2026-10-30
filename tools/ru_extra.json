@@ -441,7 +441,7 @@
  "Normal": "Обычно",
  "Slow": "Медленно",
  "Slower": "Очень медленно",
- "colour of {p}, carried": "цвет %{p}, перенесённый",
+ "colour of {p}, carried": "цвет, перенесённый из %{p}",
  "shapes only": "только фигуры",
  "Hold and slide to read {f}": "Удерживайте и проведите, чтобы прочитать %{f}",
  "<span>In {w}</span>": "<span>В %{w}</span>",
