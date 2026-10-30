@@ -730,6 +730,8 @@
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
+    // ([#336] a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    if (q.say) input.setAttribute('aria-label', q.say);
     const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
