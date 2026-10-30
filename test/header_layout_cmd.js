@@ -1,7 +1,7 @@
 // The top bar and the view tabs (issues #248, #249): no "Complex Map Workbench" text in the bar (the logo, a hidden h1 and
 // the page title stay); the room it gave goes to the Sound label and the search words; the bar does not overflow; the word
-// of every view tab (Plane | Sphere in the panes, X → Y | Phase | Landscape in the bar) is centred in its tile, the icon
-// hanging to its left. 1440, 1280, 1100 and 900 px, en, ru and it. A command file for a CDP daemon (test/cdp_kit README).
+// of every view tab (Plane | Sphere in the panes, X → Y | Phase | Landscape in the bar) is centred in its tile with its
+// icon as a pair (#335: the gap left of the content equals the gap right of it). 1440, 1280, 1100 and 900 px, en, ru, it. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
@@ -12,8 +12,10 @@ const probe = () => ev(`(() => {
   const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden';
   const top = document.querySelector('.top'), h1 = document.querySelector('h1');
   const tabs = [...document.querySelectorAll('#leftTabs > button, #rightTabs > button, #viewSwitch > button')].filter((b) => vis(b) && vis(b.querySelector('span'))).map((b) => {
-    const r = b.getBoundingClientRect(), s = b.querySelector('span').getBoundingClientRect();
-    return { t: b.dataset.mode, w: Math.round(r.width), d: +((s.left + s.right) / 2 - (r.left + r.right) / 2).toFixed(2), icon: vis(b.querySelector('svg')) };
+    const r = b.getBoundingClientRect(), s = b.querySelector('span').getBoundingClientRect(), ic = b.querySelector('svg'), i = ic && vis(ic) ? ic.getBoundingClientRect() : null;
+    // the content: the icon (where it shows) and the word; d is the gap left of it less the gap right of it
+    const l = Math.min(s.left, i ? i.left : s.left), rr = Math.max(s.right, i ? i.right : s.right);
+    return { t: b.dataset.mode, w: Math.round(r.width), d: +((l - r.left) - (r.right - rr)).toFixed(2), icon: !!i };
   });
   const hr = h1.getBoundingClientRect(), cs = getComputedStyle(h1);
   return { over: top.scrollWidth > top.clientWidth + 1, h1: { w: Math.round(hr.width), h: Math.round(hr.height), clip: cs.clipPath, pos: cs.position }, title: document.title,
@@ -34,9 +36,13 @@ for (const lang of ['', 'ru', 'it']) {
     ok(`${at}: no wordmark and no app name in the bar`, !p.wm && p.topText === 0 && p.mark, p);
     ok(`${at}: the hidden h1 and the title stay`, p.h1.pos === 'absolute' && p.h1.w <= 2 && /Complex Map Workbench/.test(p.title), p);
     ok(`${at}: the bar does not overflow`, !p.over, p);
-    ok(`${at}: every view tab's word is centred in its tile (±1 px)`, p.tabs.length >= 4 && p.tabs.every((t) => Math.abs(t.d) <= 1), p.tabs);
+    ok(`${at}: every view tab's content (icon and word) is centred in its tile (±1 px)`, p.tabs.length >= 4 && p.tabs.every((t) => Math.abs(t.d) <= 1), p.tabs);
     if (w >= 1100) ok(`${at}: the Sound label shows`, p.sound, p);
     if (w >= 1280 && !lang || w >= 1440) ok(`${at}: the search shows its words`, p.cmd, p);
+    // (#334) the Phase view has no style button in the bar either, and the bar still does not overflow
+    await ev(`__cmwSetMain('phase'); 1`); await settle(500);
+    const ph = await ev(`({ btn: !!document.getElementById('styleBtn'), over: (() => { const t = document.querySelector('.top'); return t.scrollWidth > t.clientWidth + 1; })() })`);
+    ok(`${at}: Phase view, no style button and no overflow`, !ph.btn && !ph.over, ph);
   }
 }
 await view(1440, 900, false, false);

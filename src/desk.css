@@ -62,6 +62,7 @@
 .ftile.sel { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
 .ftile:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ftile .fF { font: italic 500 26px/1 var(--f-math); }
+.ftile > .fwm { display: none; }   /* (#246: the phone's chain sheet names the row; the laptop's tile is F and its lamps) */
 .ftile .fl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 76px; }
 .ftile .lamp { display: flex; align-items: flex-start; gap: 5px; font: 500 11.5px/13px var(--f-ui); font-stretch: 87.5%; color: var(--ink-2); text-align: left; hyphens: manual; }
 .ftile .lamp::before { content: ""; flex: 0 0 8px; width: 8px; height: 8px; margin-top: 2.5px; border-radius: var(--r-1); background: var(--good); }
@@ -113,9 +114,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .inote:empty { display: none; }
 .ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
 .ierr:empty { display: none; }
-/* fields: one row each, 32 px, the symbol, the field, the Argand button */
+/* fields: one row each, 32 px, the symbol (30 px, or as wide as it is: uₖ₊₁ =, #336), the field, the Argand button */
 #propsPanel .params { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 0 0 10px; }
-#propsPanel .params .pf, #propsPanel .params .pf.wide { grid-template-columns: 30px minmax(0, 1fr); gap: 6px; min-height: 32px; grid-column: auto; }
+#propsPanel .params .pf, #propsPanel .params .pf.wide { grid-template-columns: minmax(30px, max-content) minmax(0, 1fr); gap: 6px; min-height: 32px; grid-column: auto; }
 #propsPanel .params .pl { font: italic 500 15px/20px var(--f-math); color: var(--ink-2); overflow: visible; }
 #propsPanel .params .pl sub { font-size: 10px; font-style: normal; }
 #propsPanel .params .inp, #propsPanel .params select.inp { height: 32px; font-size: 13px; padding: 0 10px; }

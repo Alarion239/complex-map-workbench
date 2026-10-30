@@ -1,0 +1,6 @@
+# CodeQL configuration (.github/workflows/codeql.yml). test/ holds the browser suites and the unit tests: scripts that
+# drive the page through the Chrome DevTools Protocol and build test pages, not code the app or CI ships, so it is not
+# scanned.
+name: complex-map-workbench
+paths-ignore:
+  - test

@@ -31,10 +31,24 @@ const PUB_EXAMPLES = [1, 4];   // the published page's examples, by their place 
 // a page split at its app script: the largest <script> without attributes (the data blocks, the ru/it tables, are
 // <script type="application/json"> and never the app's); any case, and the end tag as HTML ends it (</script >,
 // </SCRIPT foo>: the app's own text writes it <\/script, build.py's escape)
+// (scanned, not a regular expression: tag-matching expressions are what CodeQL's bad-tag-filter flags; the tag names
+// are compared case-free, a few characters at a time, so the page's own indices hold)
 function splitPage(html) {
-  const re = /<script\s*>\n?([\s\S]*?)<\/script[^>]*>/gi;
-  let best = null, m;
-  while ((m = re.exec(html))) if (!best || m[1].length > best.body.length) best = { at: m.index + m[0].indexOf(m[1]), body: m[1] };
+  const tagAt = (i, name) => html.slice(i, i + name.length).toLowerCase() === name;
+  let best = null;
+  for (let i = html.indexOf('<'); i >= 0; i = html.indexOf('<', i + 1)) {
+    if (!tagAt(i, '<script')) continue;
+    let j = i + 7;
+    while (j < html.length && /\s/.test(html[j])) j++;
+    if (html[j] !== '>') continue;   // a tag with attributes (or <scripts...): not the app's
+    let at = j + 1;
+    if (html[at] === '\n') at++;
+    let end = html.indexOf('<', at);
+    while (end >= 0 && !tagAt(end, '</script')) end = html.indexOf('<', end + 1);
+    if (end < 0 || html.indexOf('>', end) < 0) break;
+    if (!best || end - at > best.body.length) best = { at, body: html.slice(at, end) };
+    i = end;
+  }
   if (!best) return null;
   return { before: html.slice(0, best.at), script: best.body, after: html.slice(best.at + best.body.length) };
 }

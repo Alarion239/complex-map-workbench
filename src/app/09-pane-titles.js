@@ -47,7 +47,14 @@
     t.classList.add('terse');
   }
   // (#247: a title that changed width changes the room for the head's controls: they are laid out again first)
-  function fitRightTitle() { if (paneR) layoutFoot(); fitTitle('L'); fitTitle('R'); }
+  // (#320: a title in a pane head is fitted by its strip's layout, layoutFootSide, only when what it depends on changed;
+  // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
+  function fitRightTitle(force) {
+    if (paneR) layoutFoot(force);
+    // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
+    const headed = (side) => { const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'); return !!(f && f.parentElement && f.parentElement.classList.contains('pane-head')); };
+    for (const side of ['L', 'R']) if (!paneR || !headed(side)) fitTitle(side);
+  }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
   // the pane titles (panels.md 2): X is the domain of the map in focus, Y its codomain
@@ -109,12 +116,12 @@
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
     const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 w`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
-    syncStyleBtn();
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
+    phoneChain();
     // (the last active step turned off or removed ends the deformation, and with it the merge)
     if (morph.open && !morphRange().steps.length) { closeTransport(); return; }
     if (Views.merged(S.view, morphOn()) !== layoutMg) applyLayout();
@@ -292,7 +299,22 @@
     return u;
   }
   const headRO = new WeakSet();   // (the pane heads observed for their width)
+  // (#320: a strip is laid out once per task, after the handler that asked for it and before the frame: opening the
+  // Deformation asked for it five times a side (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
+  // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
+  // microtask, force if any asked for it; nothing paints in between)
+  const footDue = { L: 0, R: 0 };
+  let footFlush = false;
   function layoutFootSide(side, force) {
+    footDue[side] = Math.max(footDue[side], force ? 2 : 1);
+    if (footFlush) return;
+    footFlush = true;
+    queueMicrotask(() => {
+      footFlush = false;
+      for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
+    });
+  }
+  function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
     const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
@@ -312,6 +334,8 @@
       const ro = new ResizeObserver((es) => {
         let moved = false;
         for (const e of es) { const w = e.contentRect.width; if (!(Math.abs(w - (lastW.has(e.target) ? lastW.get(e.target) : -1)) < 1)) { lastW.set(e.target, w); moved = true; } }
+        // (#320: the widths the observer reports are the layout's key, read with no forced layout)
+        ft.roW = [...lastW.values()].map((w) => Math.round(w)).join(',');
         if (moved && f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
       });
       ro.observe(f.parentElement);
@@ -325,6 +349,18 @@
     const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
+    // (#320: first a key of what the layout depends on that needs no layout read and no write: the head's and its key
+    // chip's widths as the observer reported them, the title's words, which items of the head show, the controls, the
+    // view; unchanged, the strip and the title are as they were laid out and fitted, and nothing is touched. Opening the
+    // Deformation retitles the panes and lays both strips out again: each call stripped the title's classes and read
+    // its widths first, several forced layouts a click)
+    let pre = null;
+    if (inHead) {
+      const hd = f.parentElement, t = $(side === 'L' ? 'leftTitle' : 'rightTitle');
+      pre = [phone, kids.length, pane.w, S.view.main, ft.roW || '', t ? t.innerHTML : '', [...hd.children].map((c) => (/** @type {HTMLElement} */ (c).hidden ? 0 : 1)).join(''), I18N.lang].join('|');
+      if (!force && ft.roW && pre === ft.pre) return;
+    }
+    ft.pre = null;   // (kept only once this layout is done, below)
     // (in the head: its width and the title's whole width, which the room for the controls depends on, are part of the key)
     // (and its role's whole width, "phase of F(z) = …", which fitTitle shortens when the room runs out)
     let headW = 0, titleW = 0, roleW = 0, legW = 0;
@@ -335,7 +371,7 @@
       headW = f.parentElement.clientWidth; titleW = pt ? pt.scrollWidth : 0; roleW = pr ? pr.scrollWidth + 8 : 0;
       legW = leg && leg.parentNode === f.parentElement ? Math.round(leg.getBoundingClientRect().width) : 0;
     }
-    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.roleW === roleW && ft.legW === legW && ft.nk === kids.length) { if (inHead) fitTitle(side); return; }
+    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.roleW === roleW && ft.legW === legW && ft.nk === kids.length) { if (inHead) { fitTitle(side); ft.pre = pre; } return; }
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
@@ -385,7 +421,7 @@
       if (inHead && n === 0 && kids.length && kids[0].classList.contains('seg')) n = 1;
     }
     ft.w = pane.w; ft.phone = phone;
-    if (n === ft.n && !force) return;
+    if (n === ft.n && !force) { if (inHead) { fitTitle(side); ft.pre = pre; } return; }   // (the title's classes were cleared above: fitted again)
     ft.n = n;
     const rest = kids.slice(n);
     let b = null;
@@ -402,7 +438,7 @@
     if (unit && rest.includes(unit)) unitHome(f);
     f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
-    if (inHead) fitTitle(side);   // (the head's room changed with the controls: the title is fitted again)
+    if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
       // (the open pop-up follows its controls: the pattern's while they are merged into it, else the ⋯'s)
       if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
@@ -844,7 +880,9 @@
   const defMem = { y: null, d: null, dkey: '' };
   const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]) + rangeKey();
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
-  function openTransport() {
+  // (o.still: opened paused at its end, F, for the step glide to start from; #246)
+  function openTransport(o) {
+    const still = !!(o && o.still === true);
     if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
     phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
@@ -852,9 +890,10 @@
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
     if (mem) { Object.assign(V.right, mem.v); rightAuto = mem.auto; } else rightAuto = true;
     morph.open = true;
-    morph.T = 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
-    morph.playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    morph.T = still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
+    morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
+    setPlayIcon();
     soundFunctionChanged(); sndRelayout();
     if (draft && draft.target) draft = null;
     // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
@@ -1170,6 +1209,53 @@
     const Fn = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
+  // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
+  // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
+  // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
+  // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
+  function glideStep(d) {
+    if (!morph.open) {
+      if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
+      if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
+      openTransport({ still: true });
+      if (!morph.open) return;
+      glide.set(morph.T);
+    } else if (morph.playing || !glide.moving() || glide.x !== morph.T) {
+      // (Play, the scrubber or a tick moved T last: the glide starts from where T is now)
+      if (morph.playing) { morph.playing = false; snd.morphArm = false; setPlayIcon(); }
+      glide.set(morph.T);
+    }
+    glide.nudge(d, morphLen());
+    glide.last = 0;
+    morph.seg = null; morph.u = 0; morph.hold = 0;
+    // (reduced motion: the step at once, no sweep, as Play does not start by itself there)
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.T = glide.target; glide.set(morph.T); syncTransport(); scheduleFix(); }
+    requestRender('R', 'L');
+  }
+  // (#246) what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
+  // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
+  // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
+  function chainState() {
+    const n = nSteps(), open = morphOn(), m = open ? morphLen() : 0;
+    const T = !open ? m : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
+    let k = n, html = '', name = '';
+    // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
+    const alone = !open && S.focus > 0;
+    if (alone) k = S.focus;
+    else if (open && allAtOnce()) k = j ? -1 : 0;
+    else if (open) k = j ? morphRange().steps[j - 1] : 0;
+    if (k === -1 || (k === n && !n)) { html = '<i>F</i>'; name = $t('The whole map'); }
+    else if (k === 0) {
+      const rp = open ? rangeParts() : null;
+      html = rp ? rangeStart('html') : '<i>z</i>'; name = rp ? '' : $t('Shapes');
+    } else {
+      const st = S.steps[k - 1];
+      html = isDeriv(k) ? 'd/dz' : fsub(k); name = st ? cardName(st, defOf(st)) : '';
+    }
+    return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
+  }
+  // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
+  const phoneChain = () => { if (typeof Phone !== 'undefined' && Phone.isOn() && Phone.chain) Phone.chain(); };
   // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
   function morphTick(d) {
     const m = morphLen(), T = morph.T, eps = 1e-6;

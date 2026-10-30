@@ -66,6 +66,21 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
     {
+      name: $t('Cauchy: a simple pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=\\frac{1}{z}', blurb: $t('F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
+      name: $t('Cauchy: a regular part and a pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=z+\\frac{1}{z}', blurb: $t('F = z + 1/z: inside the circle the Cauchy integral is z, the part of F that is regular at the pole; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
+      name: $t('Cauchy: an essential singularity'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=e^{1/z}', blurb: $t('e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
       name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
@@ -274,11 +289,10 @@
     cauchy: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="#53B8F7" fill-opacity=".35" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>',
   };
   const styleName = () => (DC_STYLES.find((p) => p[0] === S.dc) || DC_STYLES[0])[1];
-  // the style picked, from the header button, the phone's chip or the Display options (their control follows)
+  // the style picked, from the plane head's row or the phone's chip (the other follows)
   function pickPhaseStyle(v) {
     setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
-    syncStyleBtn();
   }
   // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
@@ -288,22 +302,6 @@
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
-  }
-  let styleKey = '';
-  function syncStyleBtn() {
-    const b = $('styleBtn');
-    if (!b) return;
-    const st = styleState(), key = `${st.show}|${st.land}|${st.id}`;
-    if (key === styleKey) return;
-    styleKey = key;
-    b.hidden = !st.show;
-    if (!st.show) return;
-    const text = st.land ? $t('Styles belong to the flat Phase view') : $t('Phase style: {name}', { name: st.name });
-    b.setAttribute('aria-disabled', String(st.land));
-    b.setAttribute('data-tip', text); b.setAttribute('aria-label', text); b.removeAttribute('title');
-    const ic = b.querySelector('.sty-ic'); if (ic) ic.innerHTML = STYLE_SVG[st.id] || '';
-    const hw = b.querySelector('.hw'); if (hw) hw.textContent = st.name;
-    if (typeof hdrFitSoon === 'function') hdrFitSoon();
   }
   function viewBox(v) {
     const w = paneL ? paneL.w : 500, hh = paneL ? paneL.h : 500;
