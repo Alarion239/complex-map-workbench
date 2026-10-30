@@ -1,4 +1,4 @@
-// A shared number as a point in any plane (#252, option 1): a point of a later plane is shown in an earlier one by its
+// A shared number as a point in any plane (#252, option 1; #291, option 3: exact preimages for rational chains): a point of a later plane is shown in an earlier one by its
 // preimages (the solutions of the steps between, = its place), drawn as hollow dots a₍₁₎, a₍₂₎ …, at most 4, the rest
 // counted; a press on a dot drags it and the number becomes the image of where the dot is, one Undo step; while the
 // number moves the dots follow it without a new search; a step between that uses the number keeps its dots still.
@@ -110,6 +110,32 @@ const S6 = await ev('__cmwP()');
 const np = S6.shapes.find((s) => s.kind === 'point');
 ok('F "New complex number here" is offered in w₁ and makes a number and its point there', made === true && !!np && np.stage === 1 && S6.params.length === 1, { made, menu: info.menu, shapes: S6.shapes, params: S6.params });
 ok('F … whose value is the place in w₁', !!np && Math.abs(S6.params[0].value - np.p[0]) < 1e-9 && Math.abs((S6.params[0].im || 0) - np.p[1]) < 1e-9, S6.params);
+
+// ---- G (#291, option 3): a rational chain lists its preimages exactly, all of them; another chain searches
+await openApp({ steps: [{ type: 'pown', params: { n: 8 }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
+await settle(1200);
+let G = (await pre()).list.find((e) => e.id === 'pa');
+ok('G z⁸ is listed exactly: 8 preimages, every one maps to a', !!G && G.exact && G.sols.length === 8 && G.sols.every((z) => { const r = Math.hypot(...z), t = Math.atan2(z[1], z[0]); return Math.abs(r ** 8 - 1) < 1e-9 && Math.abs(Math.sin(8 * t)) < 1e-9; }), G);
+await openApp({ steps: [{ type: 'custom', params: { expr: 'z^8+0.001z^3' }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
+await settle(1500);
+const Gs = (await pre()).list.find((e) => e.id === 'pa');
+ok('G a degree-8 polynomial the catalog does not invert keeps the search (not exact)', !!Gs && !Gs.exact && Gs.sols.length >= 1, Gs);
+// the cost of a frame of motion: the exact list against the tracker, 8 preimages each (the largest of 12 live steps)
+const frameCost = async () => { let mx = 0; for (let i = 1; i <= 12; i++) { await ev(`Params.set('a', { re: ${1 + 0.02 * i}, im: ${0.01 * i} }, { live: true }); 1`); await settle(30); mx = Math.max(mx, (await pre()).trackMs || 0); } return +mx.toFixed(3); };
+info.trackerMs = await frameCost();
+await openApp({ steps: [{ type: 'pown', params: { n: 8 }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
+await settle(1200);
+info.exactMs = await frameCost();
+ok('timing: the exact list costs a frame no more than the tracker (8 preimages)', info.exactMs <= Math.max(0.5, info.trackerMs), [info.exactMs, info.trackerMs]);
+
+// ---- H (#291): through a critical value: a in w₁ under z² goes 0.01 → 0 → −0.01 while moving (no search runs): the
+// dots are ±0.1i, distinct (Newton tracking through w = 0 can lose or merge them)
+await openApp({ steps: [sq, plus1], params: numA(0.01, 0), shapes: [pointA(1, 0.01, 0)] });
+await settle(1200);
+for (const x of [0.005, 0.001, 0, -0.001, -0.005, -0.01]) { await ev(`Params.set('a', { re: ${x}, im: 0 }, { live: true }); 1`); await settle(30); }
+const H = (await pre()).list.find((e) => e.id === 'pa');
+info.H = H;
+ok('H through the critical value 0 the two preimages are ±0.1i, distinct', !!H && H.exact && H.sols.length === 2 && has(H.sols, 0, 0.1, 1e-12) && has(H.sols, 0, -0.1, 1e-12), H);
 
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));

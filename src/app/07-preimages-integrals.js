@@ -431,15 +431,38 @@
   const prePoints = (j) => S.shapes.filter((s) => s.visible !== false && s.kind === 'point' && !s._atInf && shapeStage(s) > j);
   const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
   // the solutions follow their points' moves (an entry keeps the p it was solved for)
+  // ([#291] option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
+  // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
+  // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
+  // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
+  // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
+  const prePlans = new Map();
+  function exactPre(j, st, p) {
+    if (typeof Inverse === 'undefined' || !Inverse.pointPre) return null;
+    const key = `${j}|${st}|${chainSig[nSteps()]}`;
+    let plan = prePlans.get(key);
+    if (!plan) {
+      try { plan = Inverse.planChain(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
+      prePlans.set(key, plan);
+      while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
+    }
+    const r = Inverse.pointPre(plan, C(p[0], p[1]));
+    return r.exact ? r : null;
+  }
   function trackPre(P, j, box) {
-    const size = Math.max(box.x1 - box.x0, box.y1 - box.y0), end = performance.now() + PRE_TRACK_MS;
+    const t0 = performance.now(), size = Math.max(box.x1 - box.x0, box.y1 - box.y0), end = t0 + PRE_TRACK_MS;
     for (const e of P.list) {
       const s = S.shapes.find((x) => x.id === e.id);
       if (!s || (s.p[0] === e.p[0] && s.p[1] === e.p[1])) continue;
-      const F = rangeF(j, e.s), w0 = C(e.p[0], e.p[1]), w1 = C(s.p[0], s.p[1]);
-      e.sols = e.sols.map((r) => { const z = trackRoot(F, r.z, 1, w0, w1, size, end); return z ? { z, mult: r.mult } : null; }).filter(Boolean);
+      const ex = e.exact ? exactPre(j, e.s, s.p) : null;
+      if (ex) e.sols = ex.zs.map((z) => ({ z, mult: 1 }));
+      else {
+        const F = rangeF(j, e.s), w0 = C(e.p[0], e.p[1]), w1 = C(s.p[0], s.p[1]);
+        e.sols = e.sols.map((r) => { const z = trackRoot(F, r.z, 1, w0, w1, size, end); return z ? { z, mult: r.mult } : null; }).filter(Boolean);
+      }
       e.p = s.p.slice();
     }
+    P.trackMs = performance.now() - t0;
   }
   function updatePre(side, pane, j) {
     const P = preOf[side], pts = prePoints(j);
@@ -456,7 +479,8 @@
       if (P.want !== key) return;
       const out = [], ms = Math.max(40, Math.min(200, 600 / pts.length));
       for (const s of pts) {
-        const st = shapeStage(s), F = rangeF(j, st);
+        const st = shapeStage(s), F = rangeF(j, st), ex = exactPre(j, st, s.p);
+        if (ex) { out.push({ id: s.id, s: st, p: s.p.slice(), sols: ex.zs.map((z) => ({ z, mult: 1 })), more: false, exact: true }); continue; }
         let sols = null;
         try { sols = zerosPolesTimed(F, box, { target: { re: s.p[0], im: s.p[1] }, max: 40 }, ms); } catch (e) { sols = null; }
         out.push({ id: s.id, s: st, p: s.p.slice(), sols: (sols || []).filter((r) => r && r.z && CX.isFin(r.z) && r.kind !== 'pole').map((r) => ({ z: r.z, mult: r.mult || 1 })), more: !sols || !!(sols.truncated || sols.incomplete) });
@@ -485,8 +509,9 @@
         labels.push({ x, y, text: `${name}₍${sub(i + 1)}₎` });
         P.hits.push({ id: s.id, s: e.s, j, x, y });
       });
-      const rest = vis.length - PRE_SHOW;
-      if (rest > 0 || (e.more && vis.length)) {
+      // (an exact list counts its preimages off the window too)
+      const rest = (e.exact ? e.sols.length : vis.length) - Math.min(PRE_SHOW, vis.length);
+      if (vis.length && (rest > 0 || e.more)) {
         const [x, y] = pane.w2s(vis[Math.min(PRE_SHOW, vis.length) - 1].z);
         labels.push({ x: x + 14, y: y + 14, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
       }
@@ -507,7 +532,10 @@
     const w = rangeF(d.j, d.s)(z);
     if (!CX.isFin(w)) return;
     const e = preOf.L.list.find((q) => q.id === d.id);
-    if (e) {
+    // ([#291] an exact list: every dot follows at once, the dragged one under the pointer)
+    const ex = e && e.exact ? exactPre(d.j, d.s, [w.re, w.im]) : null;
+    if (ex) { e.sols = ex.zs.map((zz) => ({ z: zz, mult: 1 })); e.p = [w.re, w.im]; }
+    else if (e) {
       const zs = d.z || z;
       let best = -1, bd = Infinity;
       e.sols.forEach((r, i) => { const dd = CX.abs(CX.sub(r.z, zs)); if (dd < bd) { bd = dd; best = i; } });
@@ -521,7 +549,7 @@
   // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
   const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
   // TEMP-DEBUG-HOOK (removed before publishing)
-  /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more })), hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
+  /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more, exact: !!e.exact })), trackMs: preOf[side].trackMs, hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
   // TEMP-DEBUG-HOOK
 
   // the shapes' names as their rows show them ("Circle 1")
