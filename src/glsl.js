@@ -1820,9 +1820,10 @@ vec2 cx_binom(vec2 a, vec2 b) {
       src += 'vec2 chainSheet(vec2 zc, vec2 z, int b, int combo) {\n  vec4 p = vec4(zc, z);\n  int base = 0;\n';
       [...dks].reverse().forEach((d, i) => { src += `  ${i ? 'else ' : ''}if (b >= ${d}) { p = cxs0_sg${d}(zc, z, combo); base = ${d}; }\n`; });
       src += '  return cxs0_sraw(p, base, b, combo, 0).zw;\n}\n';
-      src += 'vec2 chainSheetRange(vec2 zc, vec2 z, int a, int b, int combo) {\n  if (a <= 0) return chainSheet(zc, z, b, combo);\n'
-        + (dks.length ? `  if (${dks.map((d) => `(a < ${d} && b >= ${d})`).join(' || ')}) return vec2(cx_nan());\n` : '')
-        + '  return cxs0_sraw(vec4(zc, z), a, b, combo, a).zw;\n}\n';
+      // (one call of cxs0_sraw, chainSheet's for a <= 0, else the range's: FXC inlines every call, issue #395)
+      src += 'vec2 chainSheetRange(vec2 zc, vec2 z, int a, int b, int combo) {\n  vec4 p = vec4(zc, z);\n  int base = a, d0 = a;\n  if (a <= 0) {\n    base = 0; d0 = 0;\n'
+        + [...dks].reverse().map((d, i) => `    ${i ? 'else ' : ''}if (b >= ${d}) { p = cxs0_sg${d}(zc, z, combo); base = ${d}; }\n`).join('') + '  }\n'
+        + (dks.length ? `  else if (${dks.map((d) => `(a < ${d} && b >= ${d})`).join(' || ')}) return vec2(cx_nan());\n` : '') + '  return cxs0_sraw(p, base, b, combo, d0).zw;\n}\n';
     }
 
     // chainSheetHom(zc, z, mode, base, a, hi, b, post, t, combo): a deformation map (gl.js map modes 1 and 3: step hi

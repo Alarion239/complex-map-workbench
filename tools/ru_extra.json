@@ -410,5 +410,6 @@
  "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Известное ограничение: в нескольких пикселях от нуля arg <i>F</i> меняется так быстро, что дрожащий палец может пересечь цветовую линию и сыграть ноту.",
  "Height key: point at it to unfold, click to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
  "Download offline page ({size})": "Скачать офлайн-версию ({size})",
- "{n} MB": "{n} МБ"
+ "{n} MB": "{n} МБ",
+ "Skip": "Пропустить"
 }
