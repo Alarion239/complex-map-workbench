@@ -114,7 +114,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -127,7 +127,7 @@
       steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{N} \\frac{z^n}{n!}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('A natural boundary'), try: $t('Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.'), tex: 'w=\\sum_{n=0}^{\\infty} z^{2^n}', blurb: $t('Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.'), view: { cx: 0, cy: 0, s: 250 },
+      name: $t('A natural boundary'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }]], try: $t('Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.'), tex: 'w=\\sum_{n=0}^{\\infty} z^{2^n}', blurb: $t('Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.'), view: { cx: 0, cy: 0, s: 250 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{\\infty} z^{2^n}', cut: 180 } }], rightMode: 'color',
     },
@@ -143,7 +143,7 @@
     },
     // [issue #10] a complex number as a point: a Möbius map of the disc that moves a to 0
     {
-      name: $t('A disc map moved by a point'), try: $t('Try: drag the point a, or press Play beside a under Numbers: it circles the origin.'), tex: 'w=\\frac{z-a}{1-\\bar{a}z}', blurb: $t('The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('A disc map moved by a point'), tryDone: [[{ on: 'number-changed', test: (e) => (e.names || []).includes('a') }]], try: $t('Try: drag the point a, or press Play beside a under Numbers: it circles the origin.'), tex: 'w=\\frac{z-a}{1-\\bar{a}z}', blurb: $t('The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.'), view: { cx: 0, cy: 0, s: 150 },
       params: [{ name: 'a', value: 0.5, im: 0.3, min: -1, max: 1, step: 0.01 }],
       shapes: [{ kind: 'disc', c: [0, 0], r: 0.85 }, { kind: 'point', p: [0.5, 0.3], bind: { p: 'a' } }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z-a}{1-\\overline{a}\\,z}', cut: 180 } }], rightMode: 'color',
@@ -151,7 +151,7 @@
     // [issue #6] iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
     // and Newton's method for z³ − 1 as a Recurrence step
     {
-      name: $t('The Mandelbrot set'), try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
+      name: $t('The Mandelbrot set'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }]], try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
       steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
     },
@@ -184,7 +184,7 @@
       steps: [{ type: 'dh', params: { N: 64 } }], rightMode: 'color',
     },
     {
-      name: $t('Böttcher coordinates of a Julia set'), try: $t('Try: press Play beside c under Numbers: the rays follow c; once c leaves M, φ_c is defined only outside the critical level.'), tex: 'w=\\varphi_c(z)', blurb: $t('φ_c maps the basin of ∞ of z ↦ z² + c onto the outside of a disc, z ↦ z² + c to w ↦ w². For c = −1 (the basilica) the rays of angle 1/3 and 2/3 land at the fixed point (1 − √5)/2, and the ray 0 at (1 + √5)/2.'), view: { cx: 0, cy: 0, s: 120 },
+      name: $t('Böttcher coordinates of a Julia set'), tryDone: [[{ on: 'number-changed', test: (e) => (e.names || []).includes('c') }]], try: $t('Try: press Play beside c under Numbers: the rays follow c; once c leaves M, φ_c is defined only outside the critical level.'), tex: 'w=\\varphi_c(z)', blurb: $t('φ_c maps the basin of ∞ of z ↦ z² + c onto the outside of a disc, z ↦ z² + c to w ↦ w². For c = −1 (the basilica) the rays of angle 1/3 and 2/3 land at the fixed point (1 − √5)/2, and the ray 0 at (1 + √5)/2.'), view: { cx: 0, cy: 0, s: 120 },
       params: [{ name: 'c', value: -1, min: -2, max: 0.5, step: 0.01 }],
       shapes: [...['0', '1/3', '2/3', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: [-1, 0], bind: { c: 'c' }, ci: i })),
         ...[1.05, 1.3].map((r, i) => ({ kind: 'dheq', r, c: [-1, 0], bind: { c: 'c' }, ci: 6 + i }))],
