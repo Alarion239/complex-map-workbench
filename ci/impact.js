@@ -86,7 +86,7 @@ const MAP = [
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone')],                                               // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
-  ['src/figure.js', ui('export')],                                            // exported figures, and the images shard
+  ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/cyr.js', ui('export', 'i18n')],                                       // Cyrillic outlines in exported figures
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
