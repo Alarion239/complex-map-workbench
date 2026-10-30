@@ -21,6 +21,7 @@
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
   };
+  const SV_GPU_MASK = false;
   // the glide's time a plane, by speed (a setting kept on this device)
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
@@ -161,8 +162,8 @@
   // travels with the points along a deformation, and a plane past the colour plane shows the colour plane's colours
   // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
-  // chain stay (svCarry.memo), so a glide's frame evaluates only the step's homotopy H (null at rest)
-
+  // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
+  let svCarryMemo = null;
   function svCarry(pane, cc, s, a, H) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
@@ -182,11 +183,11 @@
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
     }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
-    let m = svCarry.memo;
+    let m = svCarryMemo;
     if (!m || m.key !== key) {
       const G = s === T ? (z) => z : rangeF(s, T), toA = s === a ? null : rangeF(s, a);
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, W = (nx + 1) * (ny + 1);
-      m = svCarry.memo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
+      m = svCarryMemo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
       for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
         const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
         let q, g;
@@ -370,9 +371,28 @@
   }
   // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
   function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
-  // the colour plot just drawn into GL's frame (renderColor): only inside the regions, the rest the plane's paper
-  function svMaskColour(pane) {
+  // the colour plot just drawn into GL's frame (renderColor, its draw cst): only inside the regions, the rest the plane's
+  // paper. On the GPU in one frame: the regions write the frame's alpha alone (GLR.alphaOnly), then the colour plot is
+  // kept where that alpha is (dstAlpha). With areas on later planes (pulled back by their own pass) or no alphaOnly,
+  // the 2D path: the plot, the regions' mask drawn apart, and destination-in
+  function svMaskColour(pane, cst) {
     const k = svStage();
+    const later = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area' && shapeStage(s) > k);
+    // (the GPU path is issue G's: on a plane past z its mask comes out empty, so it stays off until G finds why)
+    if (SV_GPU_MASK && GLR.alphaOnly && cst && !later) {
+      // (the forward meshes: the exact images' inverse pass composites its own layers, which an alpha-only mask breaks)
+      const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines, exactImages: S.exactImages };
+      const mp = Object.assign(Object.create(pane), { begin: () => {} });
+      try {
+        setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false); setOpt('exactImages', false);
+        drawScene(mp, stageMap(k), null, { noGrid: true, cache: false, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
+          over: () => { GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
+      } catch (e) { GLR.alphaOnly(false); console.error('steps view mask', e); }
+      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+      pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+      GLR.begin(pane.pw, pane.ph);
+      return;
+    }
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     GLR.blit(cc);

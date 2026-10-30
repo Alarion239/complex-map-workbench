@@ -700,6 +700,8 @@
     // moment, then the panes redraw with it (P2 review: no 75-200 ms first-draw stall inside a drag or a transition).
     // Thumbnails too: a thumbnail's status query can land a compile (no GLR.onReady then) and find it cold.
     if (recs && !offRender && GLR.inverseColdWaiting) scheduleWarm(interacting() ? 100 : 0);
+    // ((#366 prototype) opt.over: drawn into the same frame after the shapes, before it is shown)
+    if (opt.over) opt.over();
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (!opt.thin) glStatusNote(pane);
