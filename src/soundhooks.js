@@ -16,7 +16,7 @@ const SoundHooks = (() => {
   const sndNow = () => performance.now() / 1000;
   // throughZP / throughZPAlong (a zero or a pole on a step that argStep calls a jump: a seat, not a cut): calc.js's
   // when it has them, else the engine's pure core (Sound.HT). (Calc gets them in init: SOUND-PLAN 2.2)
-  const sndZP = () => (typeof Calc !== 'undefined' && Calc.throughZP ? Calc : SND && SND.HT && SND.HT.throughZP ? SND.HT : null);
+  const sndZP = () => (Calc.throughZP ? Calc : SND && SND.HT && SND.HT.throughZP ? SND.HT : null);
   const sndClamp = (x, a, b) => Math.max(a, Math.min(b, x));
   // the finite test: F finite, not 0, and |F| finite too (for |F| > 1.8e308 with a finite F, Math.hypot overflows and
   // ln|F| would be +∞)
@@ -1356,7 +1356,7 @@ const SoundHooks = (() => {
     ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
     // Calc.throughZP / throughZPAlong / ZP_CALLS (SOUND-PLAN 2.2): one implementation, the engine's (Sound.HT, FINAL
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
-    if (typeof Calc !== 'undefined' && !Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
+    if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   }
   return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
 })();

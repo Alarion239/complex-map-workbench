@@ -3,7 +3,8 @@
 // refines a long line through the pole, a second line, a disc around it and a half-plane's edge in pieces of at most
 // SLICE_MAX ms of uninterrupted refinement (before: one piece per curve, a long line about 8000 evaluations), and gives
 // the same polylines as the unsliced refinement (__cmwLines: their size and a weighted sum) and the same picture at
-// rest (the right plane's pixels). A piece is gated by its evaluations, at the mean cost of one in the unsliced run
+// rest (the right plane's pixels). A zoom of the left plane (every shape a new line key: refineNow's synchronous try
+// in the frame, then the job) keeps every piece within the same bound. A piece is gated by its evaluations, at the mean cost of one in the unsliced run
 // (the page's clock is coarse: an evaluation costs about 0.1 ms here, not SLOW_US µs): its wall time also counts the
 // machine's own pauses (a busy software-GL runner preempts the page's thread for 10 ms and more between two
 // evaluations), reported beside it (p95, max) with the page's long tasks, not gated: on software GL a frame is itself
@@ -102,6 +103,24 @@ ok(`sliced: no span of uninterrupted line refinement over ${SLICE_MAX} ms of eva
 ok('the reference is not sliced (one span per curve, and a long one)', info.ref.evMaxMs > 2 * SLICE_MAX, info.ref);
 ok('the sliced polylines are the reference\'s', JSON.stringify(sig(info.sliced)) === JSON.stringify(sig(info.ref)), [sig(info.sliced), sig(info.ref)]);
 ok('the same picture at rest (the right plane\'s pixels)', pxS.equals(pxR), [pxS.length, pxR.length]);
+// ([#325 review] refineNow: a zoom of the left plane gives every shape a new line key, which refineNow tries in the
+// frame first; with the slow map it stops at the frame's budget (drawn unrefined) and the job refines the rest: no
+// synchronous piece over SLICE_MAX ms of evaluations either)
+{
+  await instrument(true);
+  const t0 = await ev('performance.now()');
+  // (four wheel steps at the left plane's centre: about 4.6 x, a new clip window)
+  const cl = await ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  for (let i = 0; i < 4; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: cl[0], y: cl[1], deltaX: 0, deltaY: -240 }); await sleep(120); }
+  await sleep(1500);
+  const L = await linesDone();
+  const spanEv = await ev('window.__spanEv'), lt = ((await ev('window.__lt')) || []).filter(([s0]) => s0 >= t0);
+  info.zoom = { done: !!L, evals: await ev('window.__ev'), spans: spanEv.length, evMax: Math.max(0, ...spanEv), ltMax: Math.round(Math.max(0, ...lt.map(([, d]) => d))) };
+  info.zoom.evMaxMs = +(info.zoom.evMax * evMs).toFixed(1);
+  ok('zoom: the lines are refined for the new view', !!L, await ev('__cmwLines()'));
+  ok('zoom: the refinement ran (slow evaluations after the zoom)', info.zoom.evals > 1000, info.zoom);
+  ok(`zoom: no piece of line refinement over ${SLICE_MAX} ms of evaluations, in the frame or the job`, evMs > 0 && info.zoom.evMaxMs <= SLICE_MAX, info.zoom);
+}
 info.sliced.L = info.ref.L = undefined;
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
