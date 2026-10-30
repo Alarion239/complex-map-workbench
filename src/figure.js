@@ -2268,7 +2268,14 @@ const Figure = (() => {
       else {
         const dc = c.dc || 'enhanced', lv = $t('the thin lines are the level sets $\\arg %{f}\\in\\frac{\\pi}{6}\\mathbb{Z}$', { f });
         if (dc === 'classic') s += $t(': brightness increases with $|%{f}|$, so zeros are black and poles white.', { f });
-        else if (dc === 'cauchy') s += $t(': the Cauchy integral $\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over the selected closed curve, which equals $F$ inside and $0$ outside.');
+        else if (dc === 'cauchy') {
+          const cc = c.cauchy, I = '\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta';
+          if (cc && cc.kind === 'split' && cc.show === 'in') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, shown inside the curve, where it equals $f_+ = F$ minus its principal parts at the poles inside.', { I });
+          else if (cc && cc.kind === 'split' && cc.show === 'out') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, shown outside the curve, where it equals $%{fm}$, the sum of the principal parts of $F$ at its poles inside the curve.', { I, fm: cc.plus ? '-f_-' : 'f_-' });
+          else if (cc && cc.kind === 'split') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, which equals $f_+$ inside and $%{fm}$ outside, where $F = f_+ + f_-$ and $f_-$ is the sum of the principal parts of $F$ at its poles inside the curve.', { I, fm: cc.plus ? '-f_-' : 'f_-' });
+          else if (cc && cc.kind === 'numeric') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, computed numerically ($F$ has a singularity inside the curve that is not a pole).', { I });
+          else s += $t(': the Cauchy integral $\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over the selected closed curve, which equals $F$ inside and $0$ outside.');
+        }
         else if (dc === 'modulus') s += $t(': the color shows $\\arg %{f}$ (key at right); the lines are level curves of $|%{f}|$ and of $\\arg %{f}$.', { f });
         else if (dc === 'grid') s += $t(': the color shows $\\arg %{f}$ (key at right); the lines are the preimages of the coordinate lines of the image plane.', { f });
         else if (dc === 'phase') s += $t(': the color shows $\\arg %{f}$ (key at right) and %{lv}.', { f, lv });

@@ -38,6 +38,9 @@ const Commands = (() => {
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
     recurrence: [$t('z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method'), $t('recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n')],
+    // [issue #260]
+    dh: [$t('The conformal map of the outside of the Mandelbrot set onto the outside of the unit disk; its external rays and equipotentials'), $t('douady hubbard mandelbrot riemann map external ray equipotential bottcher Φ phi')],
+    bottcher: [$t('φ_c: the conformal map of the basin of ∞ of z² + c onto the outside of a disk; external rays of the Julia set'), $t('bottcher böttcher julia basin external ray equipotential filled julia set φ phi')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
     poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
     rational: [$t('Quotient of two polynomials'), $t('rational p/q')],
@@ -45,6 +48,15 @@ const Commands = (() => {
     custom: [$t('Any formula in LaTeX or plain text'), $t('custom formula latex expression')],
     deriv: [$t('Derivative of the chain so far: w = (previous stage)′'), $t('derivative differentiate prime d/dz dz derivative of the chain')],
   };
+  // [issue #260] the external rays and equipotentials of the chain's first Φ_M or φ_c step (its Inspector fields)
+  function dhActs() {
+    const k = A.S.steps.findIndex((st) => st.on !== false && (st.type === 'dh' || st.type === 'bottcher')) + 1;
+    if (!k) return [];
+    return [
+      [$t('Add an external ray to f{x}…', { x: sub(k) }), () => A.dhFocusAdd(k, 'dhray'), '', $t('external ray, ray, angle, landing point, douady, hubbard, mandelbrot, julia, bottcher')],
+      [$t('Add an equipotential to f{x}…', { x: sub(k) }), () => A.dhFocusAdd(k, 'dheq'), '', $t('equipotential, level curve, potential, green function, douady, hubbard, mandelbrot, julia, bottcher')],
+    ];
+  }
   const defaultPropsCache = new Map();
   function defaultProps(type) {
     if (!defaultPropsCache.has(type)) {
@@ -264,6 +276,7 @@ const Commands = (() => {
         [$t('Stop sound'), () => soundStop(), 'Esc'],
         ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
         ...Construct.paletteActs(),   // (v16: the four tools; Make free, Use complement)
+        ...dhActs(),
       ];
       for (const [label, run, key, alias, searched] of acts) if (!ql ? !searched : score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
       // (v16.5 UX03: the drawing tools, with their keys, and the guide's sections, found by what they are for)
