@@ -1062,7 +1062,7 @@
     try { const k = lsk('cmw-probe'); localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { warnStorage(); }
     if (window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(() => TeX.onReady());
     // fonts may arrive late; redraw labels
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(); requestRender('L', 'R', 'T'); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
     // v15: the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
