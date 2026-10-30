@@ -1063,7 +1063,7 @@
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
-    if (kind && box.parentNode && box.parentNode.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
+    if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');
       if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
