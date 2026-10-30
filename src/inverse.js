@@ -72,7 +72,7 @@ const Inverse = (() => {
       fam: { type: 'fin', count: an }, poles: n < 0 ? [ZERO] : [], infPre: n > 0,
       infAt: (w) => n < 0 && isZero(w),
       pre: (w) => {
-        if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0 })] : [];
+        if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0, mult: an })] : [];
         const q = n > 0 ? w : CX.inv(w);
         const r = Math.pow(abs(q), 1 / an), t = Math.atan2(q.im, q.re), out = [];
         for (let j = 0; j < an; j++) {
@@ -251,10 +251,12 @@ const Inverse = (() => {
           const qq = scale(add(B, sd), -0.5);
           roots = (qq.re === 0 && qq.im === 0) ? [ZERO] : [div(qq, A), div(Cc, qq)];
         }
+        // (B = C = 0: the double root 0, listed once with its multiplicity; the one root of a w at infinity is simple)
+        const dbl = roots.length === 1 && abs(A) > 1e-14 * (abs(B) + abs(Cc));
         return roots.map((u, m) => {
           const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
           const fp = div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu));
-          return ONEM(u, CX.inv(fp), { m });
+          return ONEM(u, CX.inv(fp), dbl ? { m, mult: 2 } : { m });
         });
       },
     });
@@ -1352,14 +1354,13 @@ const Inverse = (() => {
     }
     let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
     for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
-      const o = plan.ops[i], next = [], k = o.fam ? o.fam.count : 1;
+      const o = plan.ops[i], next = [];
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
       for (const { z: w, m } of cur) {
-        const mems = o.pre(w);
-        // (an op that lists one member for k branches, IPOW at 0, gives it all k)
-        const each = mems.length === 1 && k > 1 ? m * k : m;
-        for (const mem of mems) {
+        // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
+        for (const mem of o.pre(w)) {
           if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
+          const each = m * (mem.mult || 1);
           // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
           // is only good to about √ε of its value after a step before it, so the merge is within 1e-7, as the holes)
           const q = next.find((r) => abs(sub(r.z, mem.u)) <= 1e-7 * (1 + abs(mem.u)));

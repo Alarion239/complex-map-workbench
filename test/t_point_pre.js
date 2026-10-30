@@ -39,17 +39,25 @@ let r = exact('z^2 at p = -0.01', [step('pown', { n: 2 })], C(-0.01, 0), 2);
 check('z^2 at p = -0.01: ±0.1i', r.exact && r.zs.some((z) => CX.abs(CX.sub(z, C(0, 0.1))) < 1e-12) && r.zs.some((z) => CX.abs(CX.sub(z, C(0, -0.1))) < 1e-12), JSON.stringify(r.zs));
 // a critical value: the double root once, with its multiplicity, whichever op inverts it (IPOW, QUAD, JOUK), and
 // through a later step (z^2 + z, then z^3, at -1/64: of the cube roots of -1/64 only -1/4 is critical, so 5 points, the
-// double root -1/2 among them, good to about √ε there)
+// double root -1/2 among them, good to about √ε there; the multiplicities sum to the total less the branches through
+// infinity)
 const critical = (name, steps, p, z0, m, n = 1) => {
   const ch = chain(steps), q = Inverse.pointPre(Inverse.planChain(ch.steps, ch.built), p);
   const at = q.exact ? q.zs.findIndex((z) => CX.abs(CX.sub(z, z0)) < 1e-7) : -1;
-  check(`${name}: ${n} point${n > 1 ? 's' : ''}, ${JSON.stringify(z0)} ×${m} among them`, q.exact && q.zs.length === n && at >= 0 && !!q.mult && q.mult[at] === m && q.mult.reduce((a, k) => a + k, 0) === q.total, JSON.stringify(q));
+  check(`${name}: ${n} point${n > 1 ? 's' : ''}, ${JSON.stringify(z0)} ×${m} among them`, q.exact && q.zs.length === n && at >= 0 && !!q.mult && q.mult[at] === m && q.mult.reduce((a, k) => a + k, 0) <= q.total, JSON.stringify(q));
 };
 critical('z^2 at the critical value 0 (IPOW)', [step('pown', { n: 2 })], C(0, 0), C(0, 0), 2);
 critical('z^8 at 0 (IPOW)', [step('pown', { n: 8 })], C(0, 0), C(0, 0), 8);
 critical('z^2 + z at -1/4 (QUAD)', [step('custom', { expr: 'z^2+z' })], C(-0.25, 0), C(-0.5, 0), 2);
 critical('Joukowski at 1', [step('joukowski')], C(1, 0), C(1, 0), 2);
 critical('Joukowski at -1', [step('joukowski')], C(-1, 0), C(-1, 0), 2);
+// RAT2: a simple root when the other has gone to infinity (w the value at infinity), the double root 0 listed once
+{
+  const ch = chain([step('custom', { expr: '\\frac{z^2+1}{z^2+z+1}' })]), plan = Inverse.planChain(ch.steps, ch.built);
+  check('(z^2+1)/(z^2+z+1) is one RAT2 op', plan.ok && plan.ops.length === 1 && plan.ops[0].kind === 'RAT2', plan.ok ? plan.ops.map((o) => o.kind) : plan.reason);
+}
+critical('(z^2+1)/(z^2+z+1) at 1, its value at infinity (RAT2): the simple root 0', [step('custom', { expr: '\\frac{z^2+1}{z^2+z+1}' })], C(1, 0), C(0, 0), 1);
+critical('z^2/(z^2+1) at 0 (RAT2): the double root 0', [step('custom', { expr: '\\frac{z^2}{z^2+1}' })], C(0, 0), C(0, 0), 2);
 critical('z^2 + z, then z^3, at -1/64', [step('custom', { expr: 'z^2+z' }), step('pown', { n: 3 })], C(-1 / 64, 0), C(-0.5, 0), 2, 5);
 // not exact: infinitely many branches, a degree the catalog does not invert, above the cap
 for (const [name, steps] of [['exp', [step('exp')]], ['sin', [step('sin')]], ['z^3 + z (a cubic)', [step('custom', { expr: 'z^3+z' })]],
