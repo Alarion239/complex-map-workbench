@@ -34,7 +34,9 @@ async function coldLoads(base, n, { shot = false, log = () => {} } = {}) {
         await sleep(1500);
       };
       await B.nav(base + 'test.html');
-      await B.until(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`, 30000, 250);
+      try { await B.until(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`, 30000, 250); } catch (e) {
+        out.push({ i, err: 'the page did not start within 30 s' }); log(`load ${i}: the page did not start within 30 s`); continue;
+      }
       await sleep(3000);
       await B.ev('(__cmwExample(7), 1)');
       await settle();

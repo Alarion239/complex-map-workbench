@@ -2,12 +2,12 @@
 // cold load in three on SwiftShader: every overlay pass after the load cleared the canvas and drew nothing there, and
 // the GPU-accelerated canvas still held example 7's picture. The overlays' contexts are CPU-backed now (view.js, Pane).
 //   A  both overlay contexts are CPU-backed (willReadFrequently): the fix itself; false before it, every time
-//   B  the overlay still draws and clears: example 7's handle is on the screen, and after example 8 nothing in the cut
-//      ink is left in its box (read from a screenshot: a readback of the canvas can itself move it off the GPU)
+//   B  a sanity check only, which never caught the bug (20 of 20 loads clean before the fix, in this daemon's own page,
+//      programs cached): the overlay still draws and clears, example 7's handle is on the screen, and after example 8
+//      nothing in the cut ink is left in its box (read from a screenshot). A and C carry the regression.
 //   C  cold loads (a fresh Chrome each, no GPU program cache: test/overlay_ghost_repro.js, the overlay read back once
-//      after the waits): none keeps the handle. In this daemon's own page (programs cached) and read from screenshots,
-//      the race did not show before the fix (20 of 20 loads clean), so B alone would not catch it. C is opt-in (about 20 s
-//      a load; CI's runners are shared and A checks the fix): OVERLAY_GHOST_COLD=10 node ci/browser.js --only '^overlay_ghost'
+//      after the waits): none keeps the handle; before the fix, 7 of 10 did. C is opt-in (about 20 s a load; CI's runners
+//      are shared and A checks the fix): OVERLAY_GHOST_COLD=10 node ci/browser.js --only '^overlay_ghost'
 // A command file for the CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
