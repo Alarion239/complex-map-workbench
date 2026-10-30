@@ -120,6 +120,7 @@
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
+    phoneChain();
     // (the last active step turned off or removed ends the deformation, and with it the merge)
     if (morph.open && !morphRange().steps.length) { closeTransport(); return; }
     if (Views.merged(S.view, morphOn()) !== layoutMg) applyLayout();
@@ -878,7 +879,9 @@
   const defMem = { y: null, d: null, dkey: '' };
   const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]) + rangeKey();
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
-  function openTransport() {
+  // (o.still: opened paused at its end, F, for the step glide to start from; #246)
+  function openTransport(o) {
+    const still = !!(o && o.still === true);
     if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
     phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
@@ -886,9 +889,10 @@
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
     if (mem) { Object.assign(V.right, mem.v); rightAuto = mem.auto; } else rightAuto = true;
     morph.open = true;
-    morph.T = 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
-    morph.playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    morph.T = still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
+    morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
+    setPlayIcon();
     soundFunctionChanged(); sndRelayout();
     if (draft && draft.target) draft = null;
     // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
@@ -1228,6 +1232,53 @@
     const Fn = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
+  // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
+  // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
+  // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
+  // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
+  function glideStep(d) {
+    if (!morph.open) {
+      if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
+      if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
+      openTransport({ still: true });
+      if (!morph.open) return;
+      glide.set(morph.T);
+    } else if (morph.playing || !glide.moving() || glide.x !== morph.T) {
+      // (Play, the scrubber or a tick moved T last: the glide starts from where T is now)
+      if (morph.playing) { morph.playing = false; snd.morphArm = false; setPlayIcon(); }
+      glide.set(morph.T);
+    }
+    glide.nudge(d, morphLen());
+    glide.last = 0;
+    morph.seg = null; morph.u = 0; morph.hold = 0;
+    // (reduced motion: the step at once, no sweep, as Play does not start by itself there)
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.T = glide.target; glide.set(morph.T); syncTransport(); scheduleFix(); }
+    requestRender('R', 'L');
+  }
+  // (#246) what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
+  // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
+  // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
+  function chainState() {
+    const n = nSteps(), open = morphOn(), m = open ? morphLen() : 0;
+    const T = !open ? m : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
+    let k = n, html = '', name = '';
+    // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
+    const alone = !open && S.focus > 0;
+    if (alone) k = S.focus;
+    else if (open && allAtOnce()) k = j ? -1 : 0;
+    else if (open) k = j ? morphRange().steps[j - 1] : 0;
+    if (k === -1 || (k === n && !n)) { html = '<i>F</i>'; name = $t('The whole map'); }
+    else if (k === 0) {
+      const rp = open ? rangeParts() : null;
+      html = rp ? rangeStart('html') : '<i>z</i>'; name = rp ? '' : $t('Shapes');
+    } else {
+      const st = S.steps[k - 1];
+      html = isDeriv(k) ? 'd/dz' : fsub(k); name = st ? cardName(st, defOf(st)) : '';
+    }
+    return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
+  }
+  // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
+  const phoneChain = () => { if (typeof Phone !== 'undefined' && Phone.isOn() && Phone.chain) Phone.chain(); };
   // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
   function morphTick(d) {
     const m = morphLen(), T = morph.T, eps = 1e-6;

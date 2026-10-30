@@ -31,7 +31,13 @@ const C = () => ev('__cmwCards()');
 const toasts = () => ev('__qa.toasts()');
 const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; e.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const touch = async (x, y, hold = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(hold); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-const tap = async (sel, wait = 450) => { const c = await center(sel); if (!c) return false; await touch(c[0], c[1]); await settle(wait); return true; };
+// (#246: on a phone the chain's cards and Add function are rows of the chain sheet; while it is closed, a tap on one of
+// them is first the tap on "N steps ▾" that opens it, as a user's)
+const tap = async (sel, wait = 450) => {
+  let c = await center(sel);
+  if (!c && /#pipeline|#addStepBtn/.test(sel)) { const o = await center('.ph-csteps'); if (o) { await touch(o[0], o[1]); await settle(500); c = await center(sel); } }
+  if (!c) return false; await touch(c[0], c[1]); await settle(wait); return true;
+};
 const palOpen = async () => { if (!(await ev(`!!document.getElementById('palInput')`))) { await key('k', 4); await settle(350); } };
 const palType = async (q) => { await palOpen(); await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settle(300); };
 const palRows = () => ev(`[...document.querySelectorAll('.pal-item')].map((e) => ({ label: e.querySelector('.pal-label').textContent, key: (e.querySelector('.pal-props .kbd') || {}).textContent || '', words: (e.querySelector('.pal-pw') || {}).textContent || '', wordsShown: !!(e.querySelector('.pal-pw') && e.querySelector('.pal-pw').getClientRects().length), letters: e.querySelectorAll('.pp').length, sel: e.classList.contains('sel') }))`);
