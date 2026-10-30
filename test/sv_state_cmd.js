@@ -10,18 +10,18 @@ const base = await ev('location.origin');
 const steps = [{ type: 'pown', params: { n: 2 } }, { type: 'exp', params: {} }, { type: 'pown', params: { n: 3 } }];
 const lsKey = `complex-map-workbench-v1:${ns}`;
 const saved = () => ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)})); return o && o.sv; })()`);
-const sv = { at: 1.4, T: 2, scope: 'in', surf: 'plane' };
+const sv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow' };
 await load(ns, { steps, sv });
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500);
 let st = await ev('__cmwSteps()');
 info.open = st;
 ok('opens parked between planes (fractional at)', st.on && Math.abs(st.x - 1.4) < 1e-6, st);
-ok('opens on its colour plane and scope', st.T === 2 && st.scope === 'in', st);
+ok('opens on its colour plane and scope', st.T === 2 && st.scope === 'in' && st.speed === 'slow', st);
 await ev('__cmwSteps({ park: 2.25 })'); await sleep(400);
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 const w = await saved();
 info.written = w;
-ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in', w);
+ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in' && w.speed === 'slow', w);
 // undo: an example replaces the state, undo brings the place back
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500);
 await ev('__cmwSteps({ go: 1, now: true })'); await sleep(300);
@@ -35,7 +35,13 @@ await load(ns, { steps, sv: { at: 99.5, T: 77, scope: 'x', surf: 'cube' } });
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500);
 st = await ev('__cmwSteps()');
 info.bad = st;
-ok('a malformed sv opens on defaults, clamped', st.on && st.x === 3 && st.scope === 'all' && st.surf === 'plane', st);
+ok('a malformed sv opens on defaults, clamped (an unknown speed: the device\'s, normal)', st.on && st.x === 3 && st.scope === 'all' && st.surf === 'plane' && st.speed === 'normal', st);
+// the speed menu writes the state and the device's setting
+await ev(`(() => { const m = document.querySelector('.sv-speed'); m.value = 'slower'; m.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`); await sleep(900);
+const menu = await ev(`({ dev: localStorage.getItem('cmw-sv-speed'), st: (() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)})); return o && o.sv && o.sv.speed; })() })`);
+info.menu = menu;
+ok('the speed menu writes both the state and the device', menu.dev === 'slower' && menu.st === 'slower', menu);
+await ev(`localStorage.removeItem('cmw-sv-speed')`);
 // the default view ignores it, and keeps it
 await load(ns, { steps, sv });
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);

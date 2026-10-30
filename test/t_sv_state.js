@@ -1,4 +1,4 @@
-// The steps view's saved state (#366 issue C): S.sv = {at, T, scope, surf} is repaired by Views.cleanSv, survives
+// The steps view's saved state (#366 issue C): S.sv = {at, T, scope, surf, speed} is repaired by Views.cleanSv, survives
 // JSON (a save, a link and an undo entry are all JSON of it), and an old view opens on its equivalent (Views.svOf).
 // Run: node test/t_sv_state.js
 const { Views } = require('../src/view.js');
@@ -6,7 +6,7 @@ let fails = 0, n = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function check(name, got, want) { n++; if (!eq(got, want)) { fails++; console.log('FAIL', name, '\n  got ', JSON.stringify(got), '\n  want', JSON.stringify(want)); } }
 const P = [0, 1, 2, 3];   // z and three active steps
-const ok = { at: 1.4, T: 2, scope: 'in', surf: 'sphere' };
+const ok = { at: 1.4, T: 2, scope: 'in', surf: 'sphere', speed: 'slow' };
 check('no sv: none', Views.cleanSv(undefined, P), null);
 check('not an object: none', Views.cleanSv('x', P), null);
 check('an array: none', Views.cleanSv([1], P), null);
@@ -23,6 +23,9 @@ check('fractional T is -1', Views.cleanSv({ ...ok, T: 1.5 }, P).T, -1);
 check('a bypassed step is not a plane for T', Views.cleanSv({ ...ok, T: 2 }, [0, 1, 3]).T, -1);
 check('unknown scope', Views.cleanSv({ ...ok, scope: 'x' }, P).scope, 'all');
 check('unknown surface', Views.cleanSv({ ...ok, surf: 'cube' }, P).surf, 'plane');
+for (const sp of ['fast', 'normal', 'slow', 'slower']) check('speed ' + sp, Views.cleanSv({ ...ok, speed: sp }, P).speed, sp);
+check('unknown speed is dropped (the device\'s applies)', 'speed' in Views.cleanSv({ ...ok, speed: 'warp' }, P), false);
+check('a state without a speed has none', 'speed' in Views.cleanSv({ at: 1 }, P), false);
 check('missing fields take defaults', Views.cleanSv({}, P), { at: 0, T: -1, scope: 'all', surf: 'plane' });
 check('idempotent', Views.cleanSv(Views.cleanSv({ ...ok, at: 9 }, P), P), Views.cleanSv({ ...ok, at: 9 }, P));
 check('no planes given still returns a state', Views.cleanSv(ok, null).at, 0);

@@ -75,17 +75,18 @@
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     SV.i = 0; SV.g.set(0);
   }
-  // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the glide's speed stays the
-  // device's setting, not the state's). svStore writes it before a save, a link or an undo entry;
+  // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
+  // the device's setting for a state without one). svStore writes it before a save, a link or an undo entry;
   // svLoad reads it when the page opens on a state that has one, and after an undo
   function svStore() {
     if (!SV.on || !SV.ready) return;
-    setOpt('sv', { at: SV.anim ? SV.anim.to : SV.g.x, T: SV.T, scope: SV.scope, surf: SV.surf });
+    setOpt('sv', { at: SV.anim ? SV.anim.to : SV.g.x, T: SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed });
   }
   function svLoad() {
     const o = Views.cleanSv(S.sv, svPlanes());
     if (!o) return false;
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
+    if (o.speed) { SV.speed = o.speed; if (SV.els && SV.els.speed) SV.els.speed.value = o.speed; }   // (a state without one keeps the device's)
     SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
     return true;
   }
@@ -464,7 +465,7 @@
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
+    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } svStore(); save(); } },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next, speed);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
@@ -475,7 +476,7 @@
     rail.setAttribute('role', 'slider'); rail.setAttribute('tabindex', '0'); rail.setAttribute('aria-label', $t('Place on the chain'));
     rail.setAttribute('aria-valuemin', '0'); rail.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { rail, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { speed, rail, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
