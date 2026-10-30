@@ -861,7 +861,7 @@
     const a = document.activeElement;
     if (a && a !== document.body) return;
     const vis = (el) => (el && el !== document.body && el.isConnected && el.getClientRects().length ? el : null);
-    const t = vis(anchor) || vis(findByKey(key)) || (anchor && anchor.closest && anchor.closest('#hdrMenu') ? vis($('hdrMoreBtn')) : null);
+    const t = vis(anchor) || vis(findByKey(key)) || (anchor && anchor.closest && anchor.closest('#hdrMenu, #examplesBtn') ? vis($('hdrMoreBtn')) : null);
     if (t) t.focus({ preventScroll: true });
   }
   // radiogroups are one Tab stop: only the checked radio is tabbable

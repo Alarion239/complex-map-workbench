@@ -2129,6 +2129,9 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     </svg>
     <h1 class="sr-only" data-i18n="no">Complex Map Workbench</h1>
     <span class="hdiv" aria-hidden="true"></span>
+    <!-- Examples is the bar's first stop, ahead of the views, as it is on screen (#359): in the bar itself, not in the menu below,
+         whose buttons Tab reaches as one block after the views. On the phone the "more" sheet lists it, so the bar hides it. -->
+    <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
     <button class="icon-btn" id="redoBtn" title="Redo  ⇧⌘Z" aria-label="Redo"><span class="ic-slot" data-icon="redo"></span></button>
     <div class="spacer"></div>
@@ -2140,7 +2143,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <!-- Desktop: display:contents, so these sit in the header row (CSS order puts Examples after the divider).
          Phone: the popover is the "more" menu. popovertargetaction="hide" closes it after a choice. -->
     <div class="hdr-menu" id="hdrMenu" popover>
-      <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
       <button class="cmd-field" id="cmdBtn" aria-label="Add function" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function</span><span class="kbd" id="cmdKbd">⌘K</span></button>
       <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Draw  [" aria-label="Show or hide the Draw panel" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Draw panel</span></button>
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
