@@ -3058,5 +3058,6 @@
  "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Un limite noto: a pochi pixel da uno zero arg <i>F</i> varia così in fretta che un dito tremante può attraversare una linea di colore e suonare una nota.",
  "Height key: point at it to unfold, click to keep it open": "Legenda dell'altezza: passa il puntatore per aprirla, fai clic per tenerla aperta",
  "Download offline page ({size})": "Scarica la pagina offline ({size})",
- "{n} MB": "{n} MB"
+ "{n} MB": "{n} MB",
+ "Skip": "Salta"
 }

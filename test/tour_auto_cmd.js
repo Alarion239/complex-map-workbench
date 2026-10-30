@@ -188,7 +188,7 @@ try {
 // cancels: a press on the strip's text; Back; a step reached with Back; Move on by itself off
 await go('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(300);
-const txt = await center('.ts-text');
+const txt = await center('.ts-l1');
 const tText = Date.now();
 await click(txt[0], txt[1]);
 check('a laptop\'s strip text is plain: a press on it neither opens anything nor stops the advance', near(await advancedAt('basics/x', tText), CDMS, 700) && !(await ev(`!!document.querySelector('#tourWhy') && document.querySelector('#tourWhy').isConnected`)));
@@ -430,7 +430,7 @@ await open('au4', 390, 844, false, true);
 // user-7: × and the chevron in the portrait row; Next an arrow named by its label
 await go('basics', 1);
 const row = await ev(`(() => { const s = document.querySelector('.tour-strip'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'; const x = s.querySelector('.ts-x'), n = s.querySelector('.ts-next'); return { x: vis(x) && x.getBoundingClientRect().width >= 44, chev: vis(s.querySelector('.ts-chev svg')), next: n.getAttribute('aria-label'), w: n.getBoundingClientRect().width }; })()`);
-check('phone: × End in the portrait row (44 px), a chevron after the count, Next an arrow named "Next"', row.x && row.chev && row.next === 'Next' && row.w >= 44, row);
+check('phone: × End in the portrait row (44 px), a chevron after the count, Next an arrow named Next (Skip while a task is open)', row.x && row.chev && (row.next === 'Next' || row.next === 'Skip') && row.w >= 44, row);
 // user-1: the chain, the card then the lens in the sheet: ticked, nothing holds it, the sheet's × works, moves on
 await go('basics', 7);
 // (#246: the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
@@ -500,7 +500,7 @@ try {
 await open('au7', 1366, 657, false, false);
 await go('analysis', 0);
 const p0 = await paneBox('#panes');
-const wt = await center('.ts-text');
+const wt = await center('.ts-l1');
 await click(wt[0], wt[1]); await settle(400);
 const p1 = await paneBox('#panes');
 const wl = await lit();
