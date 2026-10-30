@@ -85,8 +85,7 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   sr = await styleRow();
   ok(`${tag} Phase: one click on Contours sets it, with no pop-up`, !!sr && (await st()).dc === 'modulus' && (await pops()) === 0 && sr.btns.find((b) => b.v === 'modulus').on, [(await st()).dc, sr || await diag()]);
   if (!sr) continue;
-  const sb = await ev(`(document.querySelector('#styleBtn .hw') || {}).textContent`);
-  ok(`${tag} Phase: the header's style button follows`, sb && sb === (await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').getAttribute('aria-label')`)), sb);
+  ok(`${tag} Phase: the top bar has no style button (#334)`, !(await ev(`!!document.getElementById('styleBtn')`)), tag);
   // n only for the styles it changes, and (#247 option 1) always behind the head's ⋯, which shows it with no title
   const nBehind = async () => {
     if (await ctl('secSel')) return { inline: true };
@@ -279,6 +278,32 @@ for (const lang of ['', 'ru']) {
     ok(`${w} en X → Y: the Phase key step lights the control that holds the key`, lit && lit.a && lit.k && Math.abs(lit.a.l - lit.k.l) < 2 && Math.abs(lit.a.r - lit.k.r) < 2, lit);
   }
   ok('the Phase key step was checked with the key behind the pattern button at one width at least', runs.some((r) => r.lit && r.lit.pat), runs.map((r) => [r.w, r.lit && r.lit.pat]));
+}
+// the per-frame path (#320): MP.renderRight lays the heads out every pan or zoom frame. With nothing changed, a frame
+// touches nothing in either pane head (no class written, no child moved) and forces no layout: Chrome's own counter over
+// 20 wheel-zoom frames over Y's plane (wave 7 forced about five a frame: the title's classes cleared, the widths read)
+{
+  await fresh(1440, 900, false, '', 'xy');
+  await settle(1200);
+  const r = await ev(`(() => { const b = document.getElementById('paneR').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r[0], y: r[1] }); await settle(400);
+  // (what the strips' layout writes: the strip's children and classes, the title's classes, the pane's 'tiny'; the scale
+  // readout's text, which a zoom changes, is not the layout's)
+  await ev(`(() => { window.__hdMut = 0; window.__hdWhat = []; const mo = new MutationObserver((ms) => { window.__hdMut += ms.length; for (const m of ms) if (window.__hdWhat.length < 6) window.__hdWhat.push(m.type + ' ' + (m.target.id || m.target.className)); });
+    for (const f of document.querySelectorAll('.pane-head > .options')) mo.observe(f, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    for (const t of document.querySelectorAll('.pane-head > .pane-title')) mo.observe(t, { attributes: true, attributeFilter: ['class'] });
+    for (const p of [document.getElementById('paneL'), document.getElementById('paneR')]) mo.observe(p, { attributes: true, attributeFilter: ['class'] });
+    window.__hdMO = mo; return 1; })()`);
+  await send('Performance.enable', {});
+  const lc = async () => (await send('Performance.getMetrics', {})).metrics.find((m) => m.name === 'LayoutCount').value;
+  // (one frame first: the zoom's own first layout, a view change the heads do follow, is not the per-frame cost)
+  await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: r[0], y: r[1], deltaX: 0, deltaY: -40 }); await settle(300);
+  await ev('window.__hdMut = 0; 1');
+  const l0 = await lc();
+  for (let i = 0; i < 20; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: r[0], y: r[1], deltaX: 0, deltaY: i % 2 ? 40 : -40 }); await ev('new Promise((r) => requestAnimationFrame(() => r(1)))'); }
+  const l1 = await lc(), mut = await ev('(() => { window.__hdMO.disconnect(); return { n: window.__hdMut, what: window.__hdWhat }; })()');
+  ok('per-frame: 20 zoom frames write nothing the strips lay out (no class, no child moved, no title class)', mut.n === 0, mut);
+  ok('per-frame: and force under one layout a frame (wave 7: about five)', (l1 - l0) / 20 < 1, { layouts: l1 - l0, perFrame: (l1 - l0) / 20 });
 }
 await view(1440, 900, false, false);
 return { pass: fails.length === 0, fails };

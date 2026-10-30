@@ -289,11 +289,10 @@
     cauchy: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="#53B8F7" fill-opacity=".35" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>',
   };
   const styleName = () => (DC_STYLES.find((p) => p[0] === S.dc) || DC_STYLES[0])[1];
-  // the style picked, from the header button, the phone's chip or the Display options (their control follows)
+  // the style picked, from the plane head's row or the phone's chip (the other follows)
   function pickPhaseStyle(v) {
     setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
-    syncStyleBtn();
   }
   // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
@@ -303,22 +302,6 @@
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
-  }
-  let styleKey = '';
-  function syncStyleBtn() {
-    const b = $('styleBtn');
-    if (!b) return;
-    const st = styleState(), key = `${st.show}|${st.land}|${st.id}`;
-    if (key === styleKey) return;
-    styleKey = key;
-    b.hidden = !st.show;
-    if (!st.show) return;
-    const text = st.land ? $t('Styles belong to the flat Phase view') : $t('Phase style: {name}', { name: st.name });
-    b.setAttribute('aria-disabled', String(st.land));
-    b.setAttribute('data-tip', text); b.setAttribute('aria-label', text); b.removeAttribute('title');
-    const ic = b.querySelector('.sty-ic'); if (ic) ic.innerHTML = STYLE_SVG[st.id] || '';
-    const hw = b.querySelector('.hw'); if (hw) hw.textContent = st.name;
-    if (typeof hdrFitSoon === 'function') hdrFitSoon();
   }
   function viewBox(v) {
     const w = paneL ? paneL.w : 500, hh = paneL ? paneL.h : 500;
