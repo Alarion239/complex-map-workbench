@@ -13,7 +13,7 @@
 //     free points moves them (else the press pans);
 //   - texts: definitions, undefined reasons, the delete toasts; the rows, the ⋯ items, the plane menu's group, the
 //     Inspector's Construction view, export phrases; the tour's events.
-// app.js calls in through one guarded line per hook (typeof Construct !== 'undefined'); its adapter is Construct.ui(A).
+// app.js calls in through one line per hook; its adapter is Construct.ui(A).
 const Construct = (() => {
   let api = null;          // CORE: {cm}
   let A = null;            // the app's adapter (app.js cmUiApi)
@@ -2525,7 +2525,7 @@ const Construct = (() => {
       inp.addEventListener('change', () => {
         const txt = inp.value.trim().replace(/−/g, '-');
         let v = Number(txt), added = null;
-        if (txt && !Number.isFinite(v) && typeof Params !== 'undefined') {
+        if (txt && !Number.isFinite(v)) {
           const u = Params.unknownIn(txt);
           if (u.length > 1) { showErr($t('One new name at a time: {x}', { x: u.map(Params.display).join(', ') })); return; }
           if (u.length === 1) {
@@ -2872,7 +2872,7 @@ const Construct = (() => {
     try { const rail = document.getElementById('railTools'); if (rail && window.ResizeObserver) { const ro = new ResizeObserver(() => fitRail()); ro.observe(rail.closest('.panel') || rail.parentElement); } } catch (e) { /* */ }
     window.addEventListener('keydown', keydown, true);
     window.addEventListener('pointerdown', (e) => { lastPressTouch = e.pointerType === 'touch' || e.pointerType === 'pen'; lastPressAt = performance.now(); }, true);
-    if (typeof PlaneMenu !== 'undefined') PlaneMenu.register('constructions', menuItems);
+    PlaneMenu.register('constructions', menuItems);
     if (freedLater) { freedLater = false; freedToast(); }
   }
   // the command palette: the six tools; Make free and Use complement for a selected construction (SPEC 5.6)

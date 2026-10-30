@@ -945,11 +945,16 @@
     return lineSpecC.spec;
   }
   // the refined polylines of shape s (every curve; today's samples for a curve whose refinement throws)
-  function refinePolys(s, mesh, spec, origin) {
+  // (pc: a pacer, [#325 review] refineNow's frame budget: null when the refinement did not finish within it)
+  function refinePolys(s, mesh, spec, origin, pc) {
     const polys = [];
     for (const c of sourceCurves(s, mesh, { reach: 'sphere' })) {
       let ps = [];
-      try { ps = Region.Lines.refine([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048 }); } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
+      try {
+        const st = Region.Lines.refineGen([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048, pc }).next();
+        if (!st.done) return null;
+        ps = st.value;
+      } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
       for (const p of ps) if (p.length >= 4) polys.push(p);
     }
     return polys;
@@ -965,10 +970,16 @@
     if (!spec) return null;
     const now = performance.now();
     if (now - lineBudget.t > 12) { lineBudget.t = now; lineBudget.ms = 0; }
-    if (!force && lineBudget.ms + (r.refMs || 0) > (drag ? LINE_CAP : LINE_FRAME)) return null;
-    const polys = refinePolys(s, r.mesh, spec, origin);
+    const cap = drag ? LINE_CAP : LINE_FRAME;
+    if (!force && lineBudget.ms + (r.refMs || 0) > cap) return null;
+    // ([#325 review] judged by the last cost, a new key or a pan toward a pole could still cost a whole refinement in
+    // one frame: it stops at the frame's budget instead, drawn unrefined, and the line job refines it, setting its cost)
+    const left = cap - lineBudget.ms;
+    const polys = refinePolys(s, r.mesh, spec, origin, force ? null : { due: () => performance.now() - now > left });
     const ms = performance.now() - now;
-    r.refMs = ms; lineBudget.ms += ms;
+    lineBudget.ms += ms;
+    if (!polys) { r.refMs = Infinity; return null; }
+    r.refMs = ms;
     return { polys, key: lkey + '|' + spec.key };
   }
   // the figure export (prepareExport): every visible shape's lines refined for the current spec, one shape at a time,
@@ -1020,21 +1031,30 @@
     lineJob.running = token; updateLeds();
     let t0 = performance.now();
     // yield to the page, wait out any motion; true when this job went stale meanwhile
+    // ([#325] a background task, not setTimeout(0): its 4 ms clamp would double a sliced curve's time)
     const rest = async () => {
-      await yieldNow();
+      await yieldTask();
       while (lineWait() > 0 && token === lineJob.token) await yieldNow(40);
       t0 = performance.now();
       return token !== lineJob.token;
     };
+    // ([#325] one curve's refinement is sliced too: refineGen yields once the slice is spent (a few map evaluations
+    // apart, each asking the clock); the same polylines as Lines.refine)
+    const pc = { due: () => performance.now() - t0 > LINE_SLICE };
     try {
       const origin = [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
       for (const [s, r] of todo) {
         const lkey = r.lineKey, key = lkey + '|' + spec.key;
         const curves = sourceCurves(s, r.mesh, { reach: 'sphere' });
         const polys = [];
+        // (its refinement's own time, the slices summed: refineNow's estimate of it next time)
+        let work = 0;
         for (const c of curves) {
           let ps = [];
-          try { ps = Region.Lines.refine([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048 }); } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
+          try {
+            const g = Region.Lines.refineGen([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048, pc });
+            for (;;) { const t = performance.now(), st = g.next(); work += performance.now() - t; if (st.done) { ps = st.value; break; } if (await rest()) return; }
+          } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
           for (const p of ps) if (p.length >= 4) polys.push(p);
           if (performance.now() - t0 > LINE_SLICE && await rest()) return;
         }
@@ -1042,7 +1062,7 @@
         if (r.lineKey !== lkey || gpu.get(s.id) !== r) continue;     // rebuilt meanwhile: its own job follows
         // the same samples as drawn (bounded curves away from singular points): nothing to upload
         swapLines(r, polys, origin);
-        r.refKey = key;
+        r.refKey = key; r.refMs = work;
         if (performance.now() - t0 > LINE_SLICE && await rest()) return;
       }
     } finally {

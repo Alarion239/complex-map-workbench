@@ -538,7 +538,7 @@
   const gKind = (t) => (t && t._g && t._g.A !== 0 && (t.kind === 'disc' || t.kind === 'circle') ? (t.kind === 'disc' ? 8 : 20) : 0);
   function packForm(t) {
     let G = t._g;
-    if (formAnchor && typeof Constr !== 'undefined' && Constr.reanchor && !G.thru0) G = Constr.reanchor(G, formAnchor);
+    if (formAnchor && Constr.reanchor && !G.thru0) G = Constr.reanchor(G, formAnchor);
     const gx = G.B[0] - G.A * G.o[0], gy = G.B[1] - G.A * G.o[1], gl = Math.hypot(gx, gy) || 1;
     const A = [G.o[0], G.o[1], G.A, G.C], B = [G.B[0], G.B[1], -gy / gl, gx / gl];
     return [...A, ...B].every(Number.isFinite) ? { kind: gKind(t), A, B, size: 2 / Math.abs(G.A), pts: null } : null;
@@ -585,7 +585,7 @@
       const m = /float\s+([A-Za-z_]\w*)\s*\(\s*vec2/.exec(t.levelSrc);
       if (m) return t.levelSrc.replace(new RegExp('\\b' + m[1] + '\\b', 'g'), name);
     }
-    if (typeof GLChain === 'undefined' || typeof GLChain.levelGLSL !== 'function' || !t.expr) return null;
+    if (typeof GLChain.levelGLSL !== 'function' || !t.expr) return null;
     const r = GLChain.levelGLSL(t.expr, name);
     return r && r.ok ? r.source : null;
   }
@@ -596,7 +596,7 @@
   // (positive inside) | null}. Isolated zeros (|z^2 - 1| = 0) have no stroke.
   function curveForms(t) {
     let d = null;
-    try { d = typeof Region !== 'undefined' && Region.curveDesc ? Region.curveDesc(t) : null; } catch (e) { d = null; }
+    try { d = Region.curveDesc ? Region.curveDesc(t) : null; } catch (e) { d = null; }
     if (!d) return [];
     const out = [];
     for (const pc of d.pieces) {
@@ -647,7 +647,7 @@
     else if (kind === 15) {
       // the arc through a, m, b (Region.arc3): ccw from its start over span degrees
       const m = xyOf(t.m);
-      const arc = typeof Region !== 'undefined' && Region.arc3 ? Region.arc3(CX.C(a[0], a[1]), CX.C(m[0], m[1]), CX.C(b[0], b[1])) : null;
+      const arc = Region.arc3 ? Region.arc3(CX.C(a[0], a[1]), CX.C(m[0], m[1]), CX.C(b[0], b[1])) : null;
       if (!arc || !arc.center) { kind = 11; A = [a[0], a[1], b[0], b[1]]; }
       else {
         const cx = arc.center.re, cy = arc.center.im, TAU = 2 * Math.PI;
