@@ -99,7 +99,9 @@ await key('Escape'); await settle(200);
 for (const v of ['phase', 'land']) {
   await ev(`__cmwSetMain('${v}')`); await settle(2200);
   g = await ev(`(() => { const F = document.querySelector('#leftFoot'), plot = document.querySelector('#plotL'); return { head: F.parentNode.classList.contains('pane-head'), bars: [...plot.querySelectorAll(':scope > .options, :scope > .legend-chip:not([hidden]):not(.calc-chip)')].filter((e) => e.getClientRects().length).length, leg: document.querySelector('#leftLegend').parentNode.classList.contains('pane-head') }; })()`);
-  check(`UX20 laptop ${v}: its option bar and key are in X's pane head, none over the plot`, g.head && g.leg && g.bars === 0, g);
+  // (#365: Phase's colour key lies on the plot, top right, always shown; the Landscape's height key is the head's chip)
+  if (v === 'phase') check('UX20/#365 laptop phase: its option bar is in X\'s pane head, the key is the one thing on the plot', g.head && !g.leg && g.bars === 1, g);
+  else check(`UX20 laptop ${v}: its option bar and key are in X's pane head, none over the plot`, g.head && g.leg && g.bars === 0, g);
   await shot('ux165-ux20-' + v);
 }
 await ev(`__cmwSetMain('xy')`); await settle(800);

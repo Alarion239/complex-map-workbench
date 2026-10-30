@@ -57,7 +57,7 @@ ruff check
 ## Tests, notes and evidence
 
 - `test/` holds what CI runs: the unit tests (`t_*.js`), the browser suites (`*_cmd.js`) and `test/regress/`.
-  One-off review scripts go to `notes/` (see `notes/review-archive/`).
+  One-off review scripts go to `notes/`, next to the work they review (the old `notes/review-archive/` is in git history at 099e5f1).
 - `notes/` holds the Markdown specs and decisions, and nothing else that is large: no screenshots, PDFs, built pages or
   other large binaries in git. Attach evidence to the PR or issue instead, and link it from the spec if a decision
   rests on it. `test/` holds only what CI runs (above), never evidence or one-off scripts.
