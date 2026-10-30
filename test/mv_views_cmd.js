@@ -224,7 +224,7 @@ R.figGlobeDef = await figDialog();
 ok('globe deformation exports a filmstrip of globes of H_t (or the paths, or one frame)', R.figGlobeDef.view === 'xyR' && R.figGlobeDef.images === 4 && R.figGlobeDef.deform.join() === 'Filmstrip,Paths,One frame' && /^The deformation \$H_t\$ on the Riemann sphere/.test(R.figGlobeDef.cap), R.figGlobeDef);
 await key('3', 8); await settle(500); await key('m'); await settle(600);
 // a chain with a d/dz step (no deformation figure): the merged plane, one panel of H_t
-await ev(`__cmwExample(12); 1`); await settle(1200);
+await ev(`__cmwExample(15); 1`); await settle(1200);   // (The derivative in the chain: after the three Cauchy examples, #293)
 await key('1'); await settle(500);
 await key('m'); await settle(900); await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(600);
 R.figDeriv = await figDialog();
@@ -244,9 +244,9 @@ const tm = await ev('__cmwTime(1)');
 ok('__cmwTime times both panes in X → Y', tm.left > 0 && tm.right > 0, tm);
 
 // 7. every example opens in the view it was made for (the old rightMode, migrated)
-const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Sheets of the logarithm': 'land' };
+const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Cauchy: a simple pole': 'phase', 'Cauchy: a regular part and a pole': 'phase', 'Cauchy: an essential singularity': 'phase', 'Sheets of the logarithm': 'land' };
 const exs = [];
-for (let i = 0; i < 14; i++) {
+for (let i = 0; i < 17; i++) {
   await ev(`__cmwExample(${i}); 1`); await sleep(500);
   const name = await ev(`(document.querySelector('#examplesBtn .exlabel') || {}).textContent || ''`);
   const vv = await vw(), ll = await lay();

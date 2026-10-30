@@ -501,7 +501,7 @@
     for (const [key, name] of BADGES) fl.append(h('span', { class: 'lamp', 'data-lamp': key, hidden: true }, h('span', { class: 'lampname' }, W[key] || name), ' ', h('span', { class: 'lampq' })));
     const t = h('div', { class: 'ftile', role: 'option', tabindex: 0, 'aria-selected': 'false', 'data-tip': $t('F, the whole map: its formula and guarantees'),
       onclick: () => selectStep('F'), onkeydown: (e) => chainKey(e, 'F') },
-    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
+    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), h('span', { class: 'fwm' }, $t('The whole map')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
     return t;
   }
   // the lit names on the F tile: the two strongest (the tooltip and the Inspector list them all)
@@ -730,6 +730,8 @@
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
+    // ([#336] a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    if (q.say) input.setAttribute('aria-label', q.say);
     const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;

@@ -32,6 +32,29 @@ async function probe() {
   } finally { await B.close(); }
 }
 
+// A Windows laptop loses the job it runs when it sleeps (#169): warn when it runs on battery, or when closing its lid
+// sleeps it even on power (ci/RUNNERS.md, section 2, "Power"). A machine without a battery gets no warning.
+function windowsPower() {
+  const cp = require('child_process');
+  let online;
+  try {
+    online = cp.execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+      '(Get-CimInstance -Namespace root/wmi -ClassName BatteryStatus -ErrorAction Stop | Select-Object -First 1).PowerOnline'],
+    { encoding: 'utf8', timeout: 30000 }).trim();
+  } catch (e) { return []; }
+  if (online !== 'True' && online !== 'False') return [];
+  const notes = [];
+  if (online === 'False') notes.push('the laptop runs on battery: it sleeps when its lid closes or after a few idle minutes, and the job is lost. Plug it in.');
+  try {
+    // the lid action on AC, then on battery (0 do nothing, 1 sleep, 2 hibernate, 3 shut down); by GUID, since powercfg's
+    // aliases and text are localized
+    const out = cp.execFileSync('powercfg', ['/qh', 'SCHEME_CURRENT', '4f971e89-eebd-4455-a8de-9e59040e7347', '5ca83367-6e45-459f-a27b-476b1d01c936'], { encoding: 'utf8', timeout: 30000 });
+    const ac = [...out.matchAll(/:\s*0x([0-9a-f]+)/gi)].map((m) => parseInt(m[1], 16))[0];
+    if (ac > 0) notes.push(`closing the lid ${['', 'sleeps', 'hibernates', 'shuts down'][ac] || 'stops'} the laptop even on power, and the job is lost. In an administrator PowerShell: powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0; powercfg /setactive SCHEME_CURRENT`);
+  } catch (e) { /* no powercfg */ }
+  return notes;
+}
+
 (async () => {
   let info = await probe();
   if (!info.webgl2 && process.argv.includes('--fallback') && process.env.CMW_ANGLE !== 'swiftshader') {
@@ -60,4 +83,10 @@ async function probe() {
   const rosettaMsg = 'title=Rosetta::this job runs under Rosetta (the x64 runner package on Apple silicon): install the arm64 runner (ci/RUNNERS.md, "Replacing an x64 runner with the arm64 build")';
   if (rosetta && process.argv.includes('--require-hardware')) { console.error(`::error ${rosettaMsg}`); process.exit(1); }
   if (rosetta) console.log(`::warning ${rosettaMsg}`);
+  if (os.platform() === 'win32' && process.argv.includes('--require-hardware')) {
+    for (const note of windowsPower()) {
+      console.log(`::warning title=Sleep::${note}`);
+      summary(`**Sleep:** ${esc(note)}\n`);
+    }
+  }
 })().catch((e) => { console.error(e); process.exit(2); });
