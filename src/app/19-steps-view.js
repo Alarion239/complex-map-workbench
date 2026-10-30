@@ -58,6 +58,8 @@
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
     const sig = svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
+    // (another chain loaded with the state, an example or a link: its glide's programs are started too)
+    if (SV.sig != null && sig !== SV.sig) setTimeout(svPrestart, 300);
     svAdopt(SV.sig != null && sig !== SV.sig);
     SV.sig = sig;
     if (svViewFix()) setTimeout(svApply, 0);
@@ -200,47 +202,56 @@
         m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
       }
     }
-    // (the same picture as the last frame, at rest or parked: its mesh, already on the GPU, drawn again (perf on #448))
+    // (perf on #448) the mesh is made once per memo: every grid triangle whose corners have a colour, with its colours
+    // (arg unwrapped within it), on the GPU; a frame only moves its corners (GLR.updatePreMesh: one upload, no new
+    // buffer), and a triangle torn across a cut or a pole, or with a corner H cannot place, collapses to a point. The
+    // same frame again (at rest, parked) is drawn as it is
     const fkey = key + '|' + (H ? SV.g.x.toFixed(6) : 'rest');
-    let res = svCarryRes && svCarryRes.key === fkey && svCarryRes.res.n ? svCarryRes.res : null;
-    if (!res) {
-      const K = 16 / TAU, lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
-      const W = (nx + 1) * (ny + 1);
-      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W), pos: new Float32Array(nx * ny * 12), attr: new Float32Array(nx * ny * 24) };
-      const { qx, qy, ok, pos, attr } = svCarryBuf, gl = m.gl, ga = m.ga;
-      for (let n = 0; n < W; n++) {
-        ok[n] = 0;
-        if (!m.ok[n]) continue;
-        let q = C(m.ax[n], m.ay[n]);
-        if (H) { try { q = H(q); } catch (e) { continue; } if (!q || !CX.isFin(q)) continue; }
-        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
-      }
-      // (into the preallocated arrays: positions and, per vertex, (0, 0, ln|G|, arg G) in the pattern's units)
-      let np = 0, na = 0;
-      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
-      const tri = (A, B, D) => {
-        if (!ok[A] || !ok[B] || !ok[D]) return;
-        // (a triangle torn across a branch cut or a pole is long on the screen: left out)
-        if (d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) return;
-        const a0 = ga[A];
-        for (let c = 0; c < 3; c++) {
-          const n = c === 0 ? A : c === 1 ? B : D;
-          let t = ga[n] - a0;
-          t -= TAU * Math.round(t / TAU);   // (arg unwrapped within the triangle)
-          pos[np++] = qx[n]; pos[np++] = qy[n];
-          attr[na++] = 0; attr[na++] = 0; attr[na++] = gl[n] * K; attr[na++] = (a0 + t) * K;
-        }
+    if (!m.tris) {
+      const K = 16 / TAU, tris = [], attr = [];
+      const add = (A, B, D) => {
+        if (!m.ok[A] || !m.ok[B] || !m.ok[D]) return;
+        const a0 = m.ga[A];
+        tris.push(A, B, D);
+        for (const n of [A, B, D]) { let t = m.ga[n] - a0; t -= TAU * Math.round(t / TAU); attr.push(0, 0, m.gl[n] * K, (a0 + t) * K); }
       };
       for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
         const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
-        tri(n, e, d); tri(n, d, u);
+        add(n, e, d); add(n, d, u);
       }
-      const nt = np / 6;
+      m.tris = Uint32Array.from(tris);
+      m.pos = new Float32Array(tris.length * 2);
+      m.attr = Float32Array.from(attr);
       if (svCarryRes) { GLR.destroy(svCarryRes.res); svCarryRes = null; }
-      if (!nt) return true;
-      res = GLR.createPreMesh({ n: nt, pos: pos.subarray(0, np), attr: attr.subarray(0, na), tri: new Float32Array(nt), origin: [v.cx, v.cy] });
-      if (!res) return false;
-      svCarryRes = { key: fkey, res };
+    }
+    const nt = m.tris.length / 3;
+    if (!nt) return true;
+    let res = svCarryRes && svCarryRes.memo === m && svCarryRes.res.n ? svCarryRes.res : null;
+    if (!res || svCarryRes.key !== fkey) {
+      const W = (nx + 1) * (ny + 1), lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
+      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W) };
+      const { qx, qy, ok } = svCarryBuf, pos = m.pos, T3 = m.tris;
+      for (let n = 0; n < W; n++) {
+        ok[n] = 0;
+        if (!m.ok[n]) continue;
+        if (!H) { qx[n] = m.ax[n] - v.cx; qy[n] = m.ay[n] - v.cy; ok[n] = 1; continue; }
+        let q;
+        try { q = H(C(m.ax[n], m.ay[n])); } catch (e) { continue; }
+        if (!q || !CX.isFin(q)) continue;
+        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
+      }
+      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
+      for (let t = 0, o = 0; t < nt; t++, o += 6) {
+        const A = T3[3 * t], B = T3[3 * t + 1], D = T3[3 * t + 2];
+        if (!ok[A] || !ok[B] || !ok[D] || d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) { pos.fill(3e7, o, o + 6); continue; }
+        pos[o] = qx[A]; pos[o + 1] = qy[A]; pos[o + 2] = qx[B]; pos[o + 3] = qy[B]; pos[o + 4] = qx[D]; pos[o + 5] = qy[D];
+      }
+      if (res) GLR.updatePreMesh(res, pos);
+      else {
+        res = GLR.createPreMesh({ n: nt, pos, attr: m.attr, tri: new Float32Array(nt), origin: [v.cx, v.cy], dynamic: true });
+        if (!res) return false;
+      }
+      svCarryRes = { key: fkey, memo: m, res };
     }
     GLR.begin(pane.pw, pane.ph);
     GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
@@ -473,10 +484,13 @@
     head.after(strip);
     $('stage').append(live);
     const rail = strip.querySelector('.sv-rail');
-    rail.setAttribute('role', 'slider'); rail.setAttribute('tabindex', '0'); rail.setAttribute('aria-label', $t('Place on the chain'));
-    rail.setAttribute('aria-valuemin', '0'); rail.setAttribute('aria-orientation', 'horizontal');
+    // (the slider is the ring that marks the place, not the thread: the thread holds the planes' and the steps' buttons,
+    // which a slider's children cannot be (axe nested-interactive, ux's re-check of #448))
+    thumb.removeAttribute('aria-hidden');
+    thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
+    thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { speed, rail, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { speed, rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -529,8 +543,8 @@
       for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
-      E.rail.setAttribute('aria-valuenow', x.toFixed(2)); E.rail.setAttribute('aria-valuemax', String(P.length - 1));
-      E.rail.setAttribute('aria-valuetext', svPlaceText());
+      E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
+      E.slider.setAttribute('aria-valuetext', svPlaceText());
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
@@ -664,7 +678,7 @@
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
       // (on the thread itself, a slider: ← → move a quarter of a step and stop there, Home / End go to z and the last plane)
-      const onRail = !!(t && t.classList && t.classList.contains('sv-rail'));
+      const onRail = !!(t && t.classList && t.classList.contains('sv-thumb'));
       if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
       // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
@@ -703,6 +717,8 @@
     try {
       if (!GLR.ok) return;
       if (GLR.prestartModes) GLR.prestartModes([1]);
+      // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
+      if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
     } catch (e) { /* (the first glide starts them) */ }
   }
