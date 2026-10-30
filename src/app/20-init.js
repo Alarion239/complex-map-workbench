@@ -458,6 +458,16 @@
     // the header's globe went (notes/i18n/USER-DECISIONS.md, 2026-10-28)
     const sb = $('settingsBtn');
     if (sb) sb.addEventListener('click', () => openSettings(sb));
+    // [#21] the offline page: build.py writes its size into the live page (<meta name="cmw-offline">) and pages.yml
+    // publishes it beside index.html, so the entry is a same-origin download. The offline page itself, the test page
+    // and a copy opened from disk have no such entry (null)
+    function offlinePage() {
+      const m = document.querySelector('meta[name="cmw-offline"]'), n = m ? Number(m.getAttribute('content')) : 0;
+      if (!(n > 0) || location.protocol === 'file:') return null;
+      const file = 'complex-map-workbench-offline.html';
+      return { file, label: $t('Download offline page ({size})', { size: $t('{n} MB', { n: I18N.num((n / 1e6).toFixed(1)) }) }),
+        run: () => { const a = h('a', { href: file, download: file }); document.body.append(a); a.click(); a.remove(); } };
+    }
     function openSettings(btn) {
       if (popEl && popEl.classList.contains('set-pop')) { closePalette(); btn.focus(); return; }   // (a re-click closes)
       closePalette();
@@ -484,8 +494,10 @@
       const mesh = $('meshGroup');
       if (mesh) kids.push(sep(''), mesh);   // (the fader names itself: Mesh quality)
       const help = (label, run) => h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); run(); } }, label);
+      const off = offlinePage();
       kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Guide'), () => openGuide()),
-        help($t('Keyboard shortcuts'), () => { openGuide(); const k = [...document.querySelectorAll('.modal h3')].find((x) => ['Keys', $t('Keys')].includes(x.textContent.trim())); if (k) k.scrollIntoView({ block: 'start' }); })));
+        help($t('Keyboard shortcuts'), () => { openGuide(); const k = [...document.querySelectorAll('.modal h3')].find((x) => ['Keys', $t('Keys')].includes(x.textContent.trim())); if (k) k.scrollIntoView({ block: 'start' }); }),
+        off ? help(off.label, off.run) : null));
       const pop = h('div', { class: 'pop opts-pop set-pop', role: 'dialog', 'aria-label': $t('Settings') }, ...kids);
       pop._onClose = () => { btn.setAttribute('aria-expanded', 'false'); const home = $('settingsHome'); if (mesh && home && mesh.parentNode === pop) home.append(mesh); };
       $('popHost').append(pop);
@@ -731,6 +743,7 @@
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
+      offlinePage: () => offlinePage(),   // [#21] the More sheet's Download offline page (null: none)
       exportItems: () => exportMenuItems(true),   // (v16.5 V02)
       // v16.5 UX12: the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
       // first: the coordinate pad, the popover (the palette, a menu, a plane's menu, the integral, the options), the
