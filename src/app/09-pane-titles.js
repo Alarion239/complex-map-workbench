@@ -1174,7 +1174,7 @@
   function glideStep(d) {
     if (!morph.open) {
       if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
-      if (S.focus > 0) setFocus(0);
+      if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
       openTransport({ still: true });
       if (!morph.open) return;
       glide.set(morph.T);
@@ -1186,6 +1186,8 @@
     glide.nudge(d, morphLen());
     glide.last = 0;
     morph.seg = null; morph.u = 0; morph.hold = 0;
+    // (reduced motion: the step at once, no sweep, as Play does not start by itself there)
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.T = glide.target; glide.set(morph.T); syncTransport(); scheduleFix(); }
     requestRender('R', 'L');
   }
   // (#246) what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
@@ -1195,7 +1197,10 @@
     const n = nSteps(), open = morphOn(), m = open ? morphLen() : 0;
     const T = !open ? m : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
     let k = n, html = '', name = '';
-    if (open && allAtOnce()) k = j ? -1 : 0;
+    // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
+    const alone = !open && S.focus > 0;
+    if (alone) k = S.focus;
+    else if (open && allAtOnce()) k = j ? -1 : 0;
     else if (open) k = j ? morphRange().steps[j - 1] : 0;
     if (k === -1 || (k === n && !n)) { html = '<i>F</i>'; name = $t('The whole map'); }
     else if (k === 0) {
@@ -1205,7 +1210,7 @@
       const st = S.steps[k - 1];
       html = isDeriv(k) ? 'd/dz' : fsub(k); name = st ? cardName(st, defOf(st)) : '';
     }
-    return { n, open, k, html, name, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, chainSig[n]].join('|') };
+    return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
   const phoneChain = () => { if (typeof Phone !== 'undefined' && Phone.isOn() && Phone.chain) Phone.chain(); };

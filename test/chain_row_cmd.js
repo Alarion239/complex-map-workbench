@@ -11,7 +11,9 @@
 //       quick presses go faster; ‹ at the start and › at the end are off;
 //   (d) a step's row dragged by its grip below the next one moves the step (a touch screen has no drag and drop);
 //   (e) a laptop (1440 px) keeps its strip: the cards and the F tile in the chain bar, no phone row, F without the
-//       phone's name.
+//       phone's name;
+//   (f) with a step shown alone the chip names that step, marked alone, and ‹ ends Show alone and says so;
+//   (g) under reduced motion ‹ › put T on the step at once.
 // A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -135,6 +137,28 @@ await settle(700);
 const types = await ev(`__cmwState().steps ? __cmwState().steps.map((s) => s.type) : [...document.querySelectorAll('#pipeline .card[data-k]:not(.region-card) .nm')].map((e) => e.textContent)`);
 ok('(d) f₁ dragged below f₂ swaps them', Array.isArray(types) && /bius/i.test(String(types[0])) && /exp/i.test(String(types[1])), types);
 await ev('Phone.close(true); 1'); await settle(300);
+
+// ---- (f) a step shown alone: the chip names it, marked alone; ‹ ends Show alone and says so
+await fresh(390, 844, true, '');
+await ev(`document.querySelector('.ph-csteps').click(); 1`); await settle(800);
+await ev(`document.querySelector('#pipeline .card[data-k="2"]').click(); 1`); await settle(900);
+await ev(`(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .alone-btn'); if (b) b.click(); return !!b; })()`); await settle(900);
+await ev('Phone.close(true); 1'); await settle(500);
+const al = await ev(`({ focus: __cmwState().focus, chip: document.querySelector('.ph-cchip').textContent, alone: document.querySelector('.ph-cchip').classList.contains('alone'), label: document.querySelector('.ph-cchip').getAttribute('aria-label') })`);
+ok('(f) with f₂ shown alone the chip names f₂, marked alone (its accessible name says so)', al.focus === 2 && /f2/.test(al.chip.replace(/\s/g, '')) && al.alone && /Show alone/.test(al.label || ''), al);
+await ev(`document.querySelector('.ph-cprev').click(); 1`); await settle(700);
+const after = await ev(`({ focus: __cmwState().focus, open: __cmwGlide().open, toast: [...document.querySelectorAll('#toastHost .toast, #toastHost > *')].map((e) => e.textContent).join(' | ') })`);
+ok('(f) ‹ then ends Show alone, says so, and glides the whole chain', after.focus === 0 && after.open && /Show alone ended/.test(after.toast), after);
+await ev('__cmwMorph({ open: false }); 1'); await settle(500);
+
+// ---- (g) reduced motion: ‹ › go to the step at once, with no sweep
+await fresh(390, 844, true, '');
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+await ev(`document.querySelector('.ph-cprev').click(); 1`); await sleep(60);
+const rm = await glide();
+ok('(g) reduced motion: ‹ puts T on the step at once, nothing gliding', rm.open && rm.T === 2 && !rm.moving, rm);
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+await ev('__cmwMorph({ open: false }); 1'); await settle(500);
 
 // ---- (e) the laptop keeps its strip
 await fresh(1440, 900, false, '');

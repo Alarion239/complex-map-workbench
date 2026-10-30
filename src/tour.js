@@ -171,13 +171,14 @@ const Tour = (() => {
         { id: 'chain', anchor: 'chain', also: ['panes'], title: 'The function chain', before: [['focus', 0]],
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
-          touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then Show alone in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
+          // (#246: on a phone the steps are rows of the chain sheet, which the steps button under the planes opens)
+          touch: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.',
+          try: { text: 'Double-click the card $f_1$.', touch: 'Open the chain, tap $f_1$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on CD_MS after it closes)
         { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
-          touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, tap a card and use Move in its ⋯ menu.',
-          try: { text: 'Press {+}, or click the add card.', touch: 'Tap the add card.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
+          touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
+          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
         { id: 'examples', anchor: ['examples', 'moreBtn'], title: 'Examples',
           lead: 'Worked examples, from Joukowski to a residue.',
           body: 'Worked examples, from the Joukowski airfoil to a residue found by integration. Open one whenever you want a starting point.',
@@ -220,6 +221,7 @@ const Tour = (() => {
         // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
         { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
+          touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
           try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'], then: 'Each card now shows its own landscape.' } },
         // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
         // (v16.5 UX17: on a touch screen the step is the editor's: its title and line say so)

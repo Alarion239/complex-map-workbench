@@ -683,9 +683,11 @@ const Phone = (() => {
     els.cchip.querySelector('.ph-cf').innerHTML = c.n ? c.html : `${A.icons.plus}`;
     els.cchip.querySelector('.ph-cn').textContent = c.n ? c.name : $t('Add function');
     const f = els.cchip.querySelector('.ph-cf').textContent.trim();
-    els.cchip.setAttribute('aria-label', c.n ? (c.name ? `${f}, ${c.name}` : f) : $t('Add function'));
+    els.cchip.setAttribute('aria-label', c.n ? (c.name ? `${f}, ${c.name}` : f) + (c.alone ? `, ${$t('Show alone')}` : '') : $t('Add function'));
+    els.cchip.classList.toggle('alone', !!c.alone);
     els.cprev.disabled = !c.prev; els.cnext.disabled = !c.next;
-    els.csteps.querySelector('.ph-cc').textContent = $tn('{n} step', '{n} steps', c.n);
+    // (no steps: the chevron alone, the chip beside it says Add function)
+    els.csteps.querySelector('.ph-cc').textContent = c.n ? $tn('{n} step', '{n} steps', c.n) : '';
     els.csteps.setAttribute('aria-label', $t('Function chain') + ', ' + $tn('{n} step', '{n} steps', c.n));
     fitChip();
   }
@@ -706,12 +708,15 @@ const Phone = (() => {
     e.preventDefault();
     const cards = [...els.body.chain.querySelectorAll('#pipeline .card[data-k]:not(.region-card)')];
     const rs = cards.map((c) => c.getBoundingClientRect()), me = rs[k - 1], step = rs.length > 1 ? rs[1].top - rs[0].top : me.height;
-    const y0 = e.clientY;
+    const y0 = e.clientY, body = els.body.chain, s0 = body.scrollTop;
     let to = k;
     card.classList.add('ph-drag');
     try { grip.setPointerCapture(e.pointerId); } catch (err) { /* */ }
     const move = (ev) => {
-      const dy = ev.clientY - y0, cy = me.top + me.height / 2 + dy;
+      // (near the sheet's top or bottom edge the sheet scrolls, so a long chain's row can go anywhere in one drag)
+      const sb = body.getBoundingClientRect();
+      if (ev.clientY > sb.bottom - 48) body.scrollTop += 12; else if (ev.clientY < sb.top + 48) body.scrollTop -= 12;
+      const dy = ev.clientY - y0 + (body.scrollTop - s0), cy = me.top + me.height / 2 + dy;
       card.style.transform = `translateY(${dy}px)`;
       to = 1 + rs.filter((r, i) => i !== k - 1 && r.top + r.height / 2 < cy).length;
       cards.forEach((c, i) => { const j = i + 1; if (j === k) return; c.style.transform = k < to && j > k && j <= to ? `translateY(${-step}px)` : to < k && j >= to && j < k ? `translateY(${step}px)` : ''; });

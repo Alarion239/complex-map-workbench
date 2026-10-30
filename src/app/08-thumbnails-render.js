@@ -401,6 +401,8 @@
     if (glide.moving()) {
       if (!morph.open || morph.playing || morph.T !== glide.x) glide.set(morph.T);
       else {
+        // (a step removed or turned off while it glides: the target stays inside the chain as it is now)
+        if (glide.target > morphLen()) glide.to(morphLen(), morphLen());
         const dt = glide.last ? (ts - glide.last) / 1000 : 1 / 60;
         glide.last = ts;
         const still = !glide.step(dt);
