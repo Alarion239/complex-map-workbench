@@ -39,7 +39,17 @@ const runsOn = (/runs-on: (.*)/.exec(gp) || [])[1] || '';
 ok('glprof runs on windows-latest for Windows-hosted, else on the machine\'s self-hosted runner',
   runsOn.includes(`matrix.machine == 'Windows-hosted' && '"windows-latest"'`) && runsOn.includes(`format('["self-hosted","{0}","gpu"]', matrix.machine)`), runsOn);
 ok('the hosted machine gets Python (build.py)', /if: matrix\.machine == 'Windows-hosted'\n\s+uses: actions\/setup-python/.test(gp));
-ok('the probe requires hardware except on the hosted machine', gp.includes("node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '' }}"));
+ok('the probe requires hardware, and on the hosted machine Direct3D 11', gp.includes("node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '--require-angle d3d11' }}"));
+// the probe's own check of the renderer string (its --require-angle names)
+const probe = fs.readFileSync(path.join(__dirname, '..', 'ci', 'gpu_probe.js'), 'utf8');
+const names = /const names = (\{[^\n]*\});/.exec(probe);
+ok('the probe has its --require-angle names', !!names);
+if (names) {
+  const N = eval(`(${names[1]})`);
+  ok('d3d11 accepts ANGLE on WARP', N.d3d11.test('ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)'));
+  ok('d3d11 accepts the laptop', N.d3d11.test('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x000046A8) Direct3D11 vs_5_0 ps_5_0, D3D11)'));
+  ok('d3d11 refuses SwiftShader', !N.d3d11.test('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'));
+}
 const cmd = (/- run: node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
 ok('the hosted machine measures against the reference, one round', cmd.includes(`matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
 ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf('Windows-hosted'), cmd);
