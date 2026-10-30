@@ -100,12 +100,13 @@
     // carry the "Y · " tag)
     if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && bracketWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
-    else if (parkedAt() >= 0) {
+    else if (S.focus === 0) {
       // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
-      const j = parkedAt(), f = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
-      right = T(YT + `${j === 0 ? '<i>w</i>' + sub(0) : wHtml(j)} = ${f}`, $tn('image, after {n} step', 'image, after {n} steps', j), $tx('role', 'image'));
+      const j = parkedAt(), steps = j >= 0 ? j : n;
+      const pf = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
+      const map = j >= 0 ? `${j === 0 ? '<i>w</i>' + sub(0) : wHtml(j)} = ${pf}` : n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>';
+      right = T(YT + map, $tn('image, after {n} step', 'image, after {n} steps', steps), $tx('role', 'image'));
     }
-    else if (S.focus === 0) right = T(YT + (n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>'), $tn('image, after {n} step', 'image, after {n} steps', n), $tx('role', 'image'));
     else if (dk) right = T(YT + `${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
     else right = T(YT + `${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
     return { left, right };
