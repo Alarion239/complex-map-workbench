@@ -113,7 +113,7 @@ ok('(c) and it settles back on 2', S1[S1.length - 1][1] === 2, S1.slice(-2));
 // quick presses go faster: ‹ ‹ (two steps) peaks faster than one
 const speed = async (n) => {
   // (each from F on a fresh page: the glide runs in Y with the deformation closed)
-  await fresh(390, 844, true, '');
+  await fresh(390, 844, true, ''); await settle(600);
   for (let i = 0; i < n; i++) { await glide(-1); await sleep(60); }
   const s = await sample(1500);
   let peak = 0; for (let i = 1; i < s.length; i++) peak = Math.max(peak, Math.abs(s[i][1] - s[i - 1][1]) / Math.max(1, s[i][0] - s[i - 1][0]));
