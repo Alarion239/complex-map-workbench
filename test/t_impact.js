@@ -38,6 +38,7 @@ const ph = select(['src/phone.css', 'src/phone.js']);
 ok('T1: src/phone.* -> the phone shards', ph.tier === 'T1' && same(ph.browser, [...AREAS.phone, 'smoke']), ph.browser);
 ok('T1: src/figure/ (figure.js in parts) -> export and images', same(select(['src/figure/03-views.js']).browser, [...AREAS.export, 'smoke']));
 ok('T1: sound and the sea song', same(select(['src/sound.js', 'src/seasong.js']).browser, ['sound', 'smoke']));
+ok('T1: src/sound/ (sound.js in parts) -> sound', same(select(['src/sound/03-lifecycle-cues.js']).browser, ['sound', 'smoke']));
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 for (const f of ['src/i18n.js', 'src/i18n_ru.js', 'tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIGN.md']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
