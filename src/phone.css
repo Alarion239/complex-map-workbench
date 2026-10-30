@@ -580,4 +580,4 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp { min-height: 40px; }
 :root.ph.sv .sv-title { font-size: 17px; margin: 0 2px; }
 :root.ph.sv .sv-strip { margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
-:root.ph.sv .sv-step { padding: 0 4px; max-width: 76px; }
+:root.ph.sv .sv-step { padding: 0 6px; gap: 4px; font-size: 12px; }

@@ -16,7 +16,6 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),
-    views: {},       // each plane's view {cx, cy, s}, by stage (the z-plane's is S.srcView)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
@@ -31,12 +30,7 @@
   const svName = (k) => (k === 0 ? 'z' : k === nSteps() ? 'w' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : k === nSteps() ? '<i>w</i>' : `<i>w</i><sub>${k}</sub>`);
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function svViewOf(k) {
-    if (k === 0) return S.srcView;
-    let v = SV.views[k];
-    if (!v) { v = SV.views[k] = fittedView(paneL, k); }
-    return v;
-  }
+  // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
   const svMain = (k = svStage()) => (SV.surf === 'land' && svColoured(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
   function svViewFix() {
@@ -80,21 +74,23 @@
   function svApply() {
     const k = svStage();
     svViewFix();
-    if (k > 0) Object.assign(V.left, svViewOf(k));
+    leftAuto = false;
+    if (k > 0) Object.assign(V.left, S.srcView);
     applyLayout();
     buildShapeList();
     updateFocusUI();
     requestRender('L', 'R', 'OL', 'OR', 'G');
     svSync();
   }
-  // leave the shown plane: keep its view for when the glide comes back
-  function svKeepView() { const k = svStage(); if (k > 0) SV.views[k] = { cx: V.left.cx, cy: V.left.cy, s: V.left.s }; }
+  // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
+  function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svKeepView();
-    if (now || svReduced()) { SV.g.set(i); svArrive(); return; }
+    // (the landscape has no frames between two planes: it changes plane at once)
+    if (now || svReduced() || SV.surf === 'land') { SV.g.set(i); svArrive(); return; }
     SV.g.to(i, P.length - 1);
     draft = null; probe = null;
     requestRender('L');
@@ -122,33 +118,129 @@
     if (still) { SV.g.last = 0; svArrive(); return false; }
     return true;
   }
-  const svLerpView = (a, b, u) => {
-    const ls = Math.log(a.s) + (Math.log(b.s) - Math.log(a.s)) * u;
-    return { cx: a.cx + (b.cx - a.cx) * u, cy: a.cy + (b.cy - a.cy) * u, s: Math.exp(ls) };
-  };
-  // a frame between two planes: plane a's colour fades into plane b's, over the plane the view glides through, and the
-  // z-plane's shapes move along h_{b,t} (the step's natural homotopy after the steps before it), as Y's ‹ › glide does
-  function svRenderMoving(pane) {
+  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
+  // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
+  function svBetween() {
     const P = svPlanes(), x = SV.g.x, j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
-    const v = svLerpView(svViewOf(a), svViewOf(b), u);
-    pane.setView(v);
+    const still = u <= 1e-6 || b === a, jump = !still && isDeriv(b);
+    const map = still ? stageMap(a) : jump ? stageMap(u < 0.5 ? a : b) : { mode: 1, hi: b, t: u };
+    // (its CPU twin, for the points: H_u after the steps before b, as transState)
+    const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((Ht, Fp) => (z) => Ht(Fp(z)))(homF(b, u), stageF(b - 1));
+    return { a, b, u, map, F, near: u < 0.5 ? a : b };
+  }
+  const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
+  // a frame between two planes: plane a's colour fades into plane b's (or out, toward a plane past the colour plane), and
+  // the z-plane's shapes move along h_{b,t} (the step's natural homotopy after the steps before it), as Y's ‹ › glide
+  // does; the view stays. Everything follows the rules of the planes at rest: Inside regions masks the colour with the
+  // moving regions, and the regions are outlined over colour and filled past the colour plane
+  function svRenderMoving(pane) {
+    if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
+    const { a, b, u, map, near } = svBetween();
+    pane.setView(S.srcView);
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
-    const T = svT();
+    const fill = !svColoured(near);
+    if (fill) drawScene(pane, map, null, { cache: false });
+    svColCv = svCanvas(svColCv, pane);
+    const cc = svColCv.getContext('2d');
     let painted = false;
-    for (const [k, al] of [[a, 1], [b, u]]) {
+    for (const [k, al] of [[a, svColoured(b) ? 1 : 1 - u], [b, u]]) {
       if (al <= 0.01 || !svColoured(k) || (k === b && b === a)) continue;
       GLR.begin(pane.pw, pane.ph);
-      GLR.drawColorPlot({ map: k === 0 ? stageMap(T) : { mode: 0, a: k, b: T }, view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
-      pane.ctx.globalAlpha = al;
-      GLR.blit(pane.ctx);
-      pane.ctx.globalAlpha = 1;
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
+      cc.globalAlpha = al;
+      GLR.blit(cc);
+      cc.globalAlpha = 1;
       painted = true;
     }
-    const map = u <= 1e-6 || b === a ? stageMap(a) : isDeriv(b) ? stageMap(u < 0.5 ? a : b) : { mode: 1, hi: b, t: u };
-    drawScene(pane, map, null, { cache: false, noGrid: painted });
+    if (painted) {
+      if (svMaskOn()) svMaskWith(pane, cc, map);
+      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
+    }
+    if (!fill) svOutlines(pane, map);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+  }
+  // keep only what is inside the regions under map (and, at rest on plane k, the later planes' regions pulled back) of
+  // the picture in the 2D context cc
+  function svMaskWith(pane, cc, map, k) {
+    svMaskCv = svCanvas(svMaskCv, pane);
+    const mp = svProxy(pane, svMaskCv);
+    mp.begin = () => {};
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    try {
+      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+      drawScene(mp, map, null, k == null ? { noGrid: true, cache: false } : { noGrid: true, cache: false, domain: k === 0, plane: k });
+      if (k != null) stagePullbacks(mp, k);
+    } catch (e) { console.error('steps view mask', e); }
+    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+    cc.save();
+    cc.setTransform(1, 0, 0, 1, 0, 0);
+    cc.globalCompositeOperation = 'destination-in';
+    cc.drawImage(svMaskCv, 0, 0);
+    cc.restore();
+  }
+  // the shapes' outlines under map, as the colour plot draws them (renderColor)
+  function svOutlines(pane, map0) {
+    GLR.begin(pane.pw, pane.ph);
+    for (const s of S.shapes) {
+      if (s.visible === false || kindType(s) === 'point') continue;
+      const map = shapeMap(s, map0), r = map && shapeGPU(s);
+      if (!r || !r.lineRes) continue;
+      GLR.drawLines(r.lineRes, { map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } });
+    }
+    GLR.blit(pane.ctx);
+  }
+  // a pane that draws into canvas cv instead (the same size and view)
+  function svProxy(pane, cv) {
+    const p = Object.create(pane);
+    p.ctx = cv.getContext('2d');
+    p.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    p.ctx.clearRect(0, 0, cv.width, cv.height);
+    p.begin = (bg) => { p.ctx.setTransform(1, 0, 0, 1, 0, 0); p.ctx.clearRect(0, 0, cv.width, cv.height); if (bg) { p.ctx.fillStyle = bg; p.ctx.fillRect(0, 0, cv.width, cv.height); } p.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0); };
+    return p;
+  }
+  // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
+  let svFadeCv = null;
+  function svSphereMoving(pane) {
+    const { a, b, u, map, F, near } = svBetween();
+    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L', colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F } });
+    const info = sphereView(pane, camL, CAML, look(a));
+    // (plane b's globe fades in when it has its own paint: coloured, or the shapes on paper past the colour plane)
+    if (u > 0.01 && b !== a && (svColoured(b) || !svColoured(near))) {
+      svFadeCv = svCanvas(svFadeCv, pane);
+      sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
+      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
+    }
+    leftSphereInfo = info;
+  }
+  // Inside regions on the globe: the globe with its regions, then the colour globe only where a region is: the regions
+  // drawn white on a black globe make the mask
+  let svSphCv = null, svSphMask = null;
+  function svSphereIn(pane) {
+    const k = svStage(), o = { stage: k, plane: !!xView().eq, role: 'L' };
+    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: true }, o));
+    svSphCv = svCanvas(svSphCv, pane);
+    sphereView(svProxy(pane, svSphCv), camL, CAML, Object.assign({ imageMode: false }, o));
+    svSphMask = svCanvas(svSphMask, pane);
+    const keepTH = TH, keepInk = printInk, keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    try {
+      TH = Object.assign({}, TH, { plane: '#000000', planeRGB: [0, 0, 0], gridMajor: '#000000', axisRGB: [0, 0, 0], inkRGB: [0, 0, 0], faint: '#000000', landTop: '#000000', landBottom: '#000000', landShadow: '#000000', halo: '#000000', muted: '#000000' });
+      printInk = () => ({ c0: '#ffffff', alt: '#ffffff', edge: '#ffffff' });
+      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+      sphereView(svProxy(pane, svSphMask), camL, CAML, Object.assign({ imageMode: true }, o));
+    } catch (e) { console.error('steps view globe mask', e); }
+    TH = keepTH; printInk = keepInk;
+    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+    const mc = svSphMask.getContext('2d'), img = mc.getImageData(0, 0, svSphMask.width, svSphMask.height), d = img.data;
+    // (a lit white region stays light; the black globe, its sheen and the ground stay dark)
+    for (let q = 0; q < d.length; q += 4) { const l = (d[q] + d[q + 1] + d[q + 2]) / 3; d[q + 3] = l > 110 ? 255 : l > 70 ? Math.round((l - 70) * 255 / 40) : 0; }
+    mc.putImageData(img, 0, 0);
+    const c = svSphCv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalCompositeOperation = 'destination-in'; c.drawImage(svSphMask, 0, 0); c.globalCompositeOperation = 'source-over';
+    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svSphCv, 0, 0); pane.ctx.restore();
+    return info;
   }
   // Inside regions: the region mask of plane k, drawn opaque into a canvas the size of the pane's
   let svMaskCv = null, svColCv = null;
@@ -166,23 +258,9 @@
   function svMaskColour(pane) {
     const k = svStage();
     svColCv = svCanvas(svColCv, pane);
-    GLR.blit(svColCv.getContext('2d'));
-    svMaskCv = svCanvas(svMaskCv, pane);
-    const mp = Object.create(pane);
-    mp.ctx = svMaskCv.getContext('2d');
-    mp.begin = () => {};
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
-    try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      drawScene(mp, stageMap(k), null, { noGrid: true, cache: false, domain: k === 0, plane: k });
-      stagePullbacks(mp, k);
-    } catch (e) { console.error('steps view mask', e); }
-    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-    const c = svColCv.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = 'destination-in';
-    // (twice: a pulled-back region fills at half strength)
-    c.drawImage(svMaskCv, 0, 0); c.globalCompositeOperation = 'source-over';
+    const cc = svColCv.getContext('2d');
+    GLR.blit(cc);
+    svMaskWith(pane, cc, stageMap(k), k);
     pane.ctx.save();
     pane.ctx.setTransform(1, 0, 0, 1, 0, 0);
     pane.ctx.drawImage(svColCv, 0, 0);
@@ -234,8 +312,6 @@
     const E = SV.els, P = svPlanes(), T = svT();
     const sig = P.join(',') + '|' + T + '|' + P.map((k) => (k ? S.steps[k - 1].type : '')).join(',');
     if (sig === E.sig) return;
-    // (another chain: the planes' views are fitted again)
-    if (E.sig) SV.views = {};
     E.sig = sig;
     E.track.textContent = '';
     E.track.style.setProperty('--n', String(P.length));
@@ -245,8 +321,9 @@
         E.track.append(h('button', { type: 'button', class: 'sv-step', 'data-k': String(k), 'data-tip': $t('Edit step {k}', { k }), onclick: (e) => { e.stopPropagation(); inspectStep(k); } },
           h('span', { class: 'sv-fk', html: `<i>f</i><sub>${k}</sub>` }), h('span', { class: 'sv-fn' }, cardName(st, d))));
       }
-      E.track.append(h('button', { type: 'button', class: 'sv-plane', 'data-i': String(i), 'aria-label': svName(k), onclick: (e) => { e.stopPropagation(); svGo(i); } },
-        h('span', { class: 'sv-pn', html: svNameHtml(k) }), k === T ? h('span', { class: 'sv-dot', 'aria-label': $t('colour plane'), 'data-tip': $t('The colour plane') }) : null));
+      // (a plane is a node, the colour plane's filled with the wheel; its name is small: the steps are the buttons)
+      E.track.append(h('button', { type: 'button', class: 'sv-plane' + (k === T ? ' cp' : ''), 'data-i': String(i), 'aria-label': k === T ? `${svName(k)}, ${$t('colour plane')}` : svName(k), 'data-tip': k === T ? $t('The colour plane') : '', onclick: (e) => { e.stopPropagation(); svGo(i); } },
+        h('span', { class: 'sv-node', 'aria-hidden': 'true' }), h('span', { class: 'sv-pn', html: svNameHtml(k) })));
     });
   }
   function svSync() {
@@ -265,12 +342,12 @@
     E.prev.disabled = at <= 0 && !SV.g.moving();
     E.next.disabled = at >= P.length - 1 && !SV.g.moving();
     for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
-    // (the pill between the two planes' buttons, in proportion to the glide)
+    // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     const bs = E.track.querySelectorAll('.sv-plane'), j = Math.max(0, Math.min(bs.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const A = bs[j], B = bs[Math.min(bs.length - 1, j + 1)];
     if (A && B) {
-      const l = A.offsetLeft + (B.offsetLeft - A.offsetLeft) * u, w = A.offsetWidth + (B.offsetWidth - A.offsetWidth) * u;
-      E.thumb.style.transform = `translateX(${l.toFixed(1)}px)`; E.thumb.style.width = `${w.toFixed(1)}px`;
+      const ca = A.offsetLeft + A.offsetWidth / 2, cb = B.offsetLeft + B.offsetWidth / 2;
+      E.thumb.style.transform = `translateX(${(ca + (cb - ca) * u).toFixed(1)}px)`;
     }
     $('paneL').setAttribute('aria-label', svLabel());
   }

@@ -988,7 +988,8 @@
     const regions = [], lines = [];
     // o.hom: the homotopy at time t (Morph transport): image mode lifts the shapes under H_t, phase mode paints H_t
     const hom = o.hom || null;
-    const map = hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage);   // shapes live in the z-plane
+    // ((#366 prototype) o.lineMap: the steps view's glide moves the shapes in either paint, 19)
+    const map = o.lineMap || (hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage));   // shapes live in the z-plane
     const cell = patternCell();
     const halo = GLR.hexRGB(TH.halo);
     // the same map cache keys as drawScene: orbiting the globe re-evaluates nothing (spec 8.1); homotopy frames go
@@ -1067,7 +1068,7 @@
       }
     }
     const info = GLR.drawSphere({
-      map: hom ? hom.map : focusMap(), mode: imageMode ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
@@ -1169,6 +1170,8 @@
     return out.length ? out : null;
   }
   function renderSphereLeft(pane) {
+    // ((#366 prototype) the steps view's Inside regions on the globe, 19)
+    if (svMaskOn() && lPhase()) return svSphereIn(pane);
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
     // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
