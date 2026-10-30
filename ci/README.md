@@ -264,6 +264,28 @@ node ci/impact.js --base origin/main --print       # the tier of this branch (CI
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```
 
+### In a cloud sandbox (a Claude Code session on the web)
+
+The sandbox has no `google-chrome` and no route to the CDNs, and its GL is software only. What works there:
+
+```sh
+export CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome | head -1)   # Playwright's Chromium; the browser suites look for google-chrome
+export CMW_ANGLE=swiftshader CMW_CHROME_ARGS="--no-sandbox"                              # CPU rendering; no Vulkan flags
+node ci/browser.js --only '^key_popup_cmd' --port 9950                                   # a suite; --no-build skips build.py
+node ci/snapshots.js && node ci/unit.js                                                  # unit tests (see the clone note below)
+npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
+```
+
+- **Do not use CI's Vulkan flags** (`--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`, `CMW_ANGLE=vulkan`) here: Chrome then has no WebGL, the colour keys are hidden and every picture is blank. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
+- **A shallow clone** lacks the old commits that `ci/snapshots.js` restores. It fetches them, and the six tests that read the snapshots fail with a line saying what is missing (never skip).
+- **Keep your own scripts' output out of the repository:** screenshots and measurements go to a scratch folder (a script run from the repository's root once left a `shots/` folder in it).
+- **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
+
+**Failures that happen in a sandbox and not in CI** (as reported on the PRs; check one on `main` before you suspect your change):
+- **No network, so no MathJax or faces from their CDNs:** formulas stay raw TeX, and the typeset checks fail (`custom_show_cmd`'s `show: typeset` and `show: whole, at 70 %`). `seasong_cmd` logs `net::ERR_TUNNEL_CONNECTION_FAILED`. Issue #444 proposes serving the vendored copies to the suites.
+- **Timing, on a shared CPU with software GL:** `t_constr`'s speed checks (`perpForm`, `touchForm` and `tangentForm`), the frame-count checks in `sound_cmd`, and `land_release_cmd`'s "leaving Landscape frees the refinement".
+- **The tour suites:** `tour_auto_cmd`, `tour_cmd` and `ux165_learn_cmd` failed on `main` in a sandbox while CI ran them green; `ux165_learn_cmd` has thrown `Cannot read properties of null (reading 'l')` and failed with other checks on different runs. `repeat_cmd`'s "Write by zeros and poles" failed in one container and passed in another with the flags above.
+
 ### The Landscape walls suite, by hand
 
 `test/landscape_walls_cmd.js` stays in `EXCLUDED` (`ci/browser_suites.js`): its speckle, cold-open and perf parts need
