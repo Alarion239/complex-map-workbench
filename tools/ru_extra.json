@@ -305,7 +305,6 @@
  "Tour options": "Параметры обучения",
  "Next step in {n} s.": "Следующий шаг через %{n} с.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Перетаскивание вращает сферу и сдвигает фигуры; пробел вращает; ∞ — северный полюс",
- "Phase style: {name}": "Стиль фазы: %{name}",
  "Styles belong to the flat Phase view": "Стили относятся к плоскому виду «Фаза»",
  "Switch to Phase": "Перейти к фазе",
  "Style: {name}": "Стиль: %{name}",
