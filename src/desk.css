@@ -600,9 +600,13 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 
 /* ---------- (#366 prototype) the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
 :root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #morphBtn, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
-:root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) auto auto; }
-:root.sv:not(.ph) .stage > .sv-strip { grid-row: 3; }
-:root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto; }
+:root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
+:root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
+:root.sv:not(.ph) #paneL > .pane-head { grid-row: 1; }
+:root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
+:root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
+:root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
+:root.sv:not(.ph) .sv-surf1 { display: none; }
 :root.sv:not(.ph) #paneL .pane-head { gap: 8px; flex-wrap: wrap; min-height: 40px; padding: 4px 6px 4px 10px; }
 .sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }

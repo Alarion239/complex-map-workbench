@@ -58,16 +58,15 @@
     if (svViewFix()) setTimeout(svApply, 0);
     svSync();
   }
-  // a view the steps view did not set (an example, a link, a saved state) opens on its equivalent: X → Y is the
-  // colour plane z with the colour inside the regions, Phase the colour plane F everywhere, Landscape the relief
+  // a view the steps view did not set (an example, a link, a saved state) opens coloured from the last plane: X → Y
+  // with the colour inside its regions, Phase everywhere, Landscape on the relief
   // (force: another chain was loaded, which brings its own view even when it is the one shown)
   function svAdopt(force) {
     const ext = S.view.main;
     if (ext === svMain() && !force) return;
-    // (X → Y with no area to carry the colour, only curves or points: the colour plane F, everywhere)
+    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
-    if (ext === 'xy' && areas) { SV.T = 0; SV.scope = 'in'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'xy') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
+    if (ext === 'xy') { SV.T = -1; SV.scope = areas ? 'in' : 'all'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
     else if (ext === 'phase') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.P.surf === 'sphere' ? 'sphere' : 'plane'; }
     else if (ext === 'land') { SV.T = -1; SV.scope = 'all'; SV.surf = 'land'; }
     SV.i = 0; SV.g.set(0);
@@ -306,7 +305,10 @@
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const scope = svSeg('sv-scope', $t('Where colour shows'), [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], () => SV.scope, (v) => { SV.scope = v; svSync(); requestRender('L'); });
     const surf = svSeg('sv-surf', $t('Surface'), [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]], () => SV.surf, (v) => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); });
-    bar.append(title, cp, scope, surf);
+    // (on a phone, one button for the surface, which steps through the three: the header has no room for three)
+    const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
+    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', onclick: () => { const i = SURF.findIndex((x) => x[0] === SV.surf); const v = SURF[(i + 1) % 3][0]; SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); } });
+    bar.append(title, cp, scope, surf, surf1);
     head.prepend(bar);
     // the chain strip: ‹, a segment per plane with the step between, ›
     const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svGo(svTarget() - 1) }, '‹');
@@ -315,10 +317,10 @@
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
-    const stage = $('stage');
-    stage.insertBefore(strip, $('gutterRow'));
-    stage.append(live);
-    SV.els = { bar, head, title, cp, scope, surf, strip, track, thumb, prev, next, live, sig: '' };
+    // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
+    head.after(strip);
+    $('stage').append(live);
+    SV.els = { bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -332,7 +334,7 @@
     P.forEach((k, i) => {
       if (i > 0) {
         const st = S.steps[k - 1], d = Funcs.DEFS[st.type];
-        E.track.append(h('button', { type: 'button', class: 'sv-step', 'data-k': String(k), 'data-tip': $t('Edit step {k}', { k }), onclick: (e) => { e.stopPropagation(); inspectStep(k); } },
+        E.track.append(h('button', { type: 'button', class: 'sv-step', 'data-k': String(k), 'data-tip': `${cardName(st, d)} · ${$t('Edit step {k}', { k })}`, 'aria-label': `f${sub(k)} ${cardName(st, d)}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); inspectStep(k); } },
           h('span', { class: 'sv-fk', html: `<i>f</i><sub>${k}</sub>` }), h('span', { class: 'sv-fn' }, cardName(st, d))));
       }
       // (a plane is a node, the colour plane's filled with the wheel; its name is small: the steps are the buttons)
@@ -349,9 +351,14 @@
     if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
     const x = SV.g.x, at = Math.round(x);
     E.title.innerHTML = svFormulaHtml(k);
-    E.cp.innerHTML = '<span class="sv-dot"></span>' + (k === T ? $t('Colour plane') : $t('Colour from here'));
+    // (on a phone the button is its wheel alone, its words in its label)
+    const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
+    E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
+    E.cp.setAttribute('aria-label', cpText);
     E.cp.setAttribute('aria-pressed', String(k === T));
     E.cp.classList.toggle('on', k === T);
+    const sname = (E.SURF.find((x) => x[0] === SV.surf) || E.SURF[0])[1];
+    E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
     for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
     E.prev.disabled = at <= 0 && !svMoving();
     E.next.disabled = at >= P.length - 1 && !svMoving();
@@ -443,8 +450,11 @@
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
-      if (t && (t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], canvas, .cm-palette'))) return;
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'PageUp' || e.key === 'PageDown') {
+      const typing = !!(t && t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], .cm-palette'));
+      // (PageUp / PageDown from anywhere but a field, a focused plane too; the arrows not on a plane, where they move the probe)
+      const page = e.key === 'PageUp' || e.key === 'PageDown';
+      if (typing || (!page && t && t.closest && t.closest('canvas'))) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svGo(svTarget() + (e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1));
       } else if ((e.key === 'c' || e.key === 'C') && !e.shiftKey) {
