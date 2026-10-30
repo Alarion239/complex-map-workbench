@@ -175,7 +175,7 @@ const SoundHooks = (() => {
     $('sndVol').addEventListener('change', () => SND.play('toggleOn', { force: true, audition: true }));
     for (const [id, k] of [['sndUi', 'ui'], ['sndSnap', 'snap'], ['sndEv', 'events'], ['sndSo', 'sonify']]) $(id).addEventListener('change', (e) => { const on = /** @type {HTMLInputElement} */ (e.target).checked; tourSndMine([k]); SND.set({ [k]: on }); sndToggleCue(on); });
     // Notes / Glide (a preference the tour never holds: not through tourSndMine)
-    for (const [id, gl] of [['sndNotes', false], ['sndGlide', true]]) { const r = $(id); if (r) r.addEventListener('change', (e) => { if ((/** @type {HTMLInputElement} */ (e.target)).checked) soundMode(gl); }); }
+    for (const [id, gl] of /** @type {[string, boolean][]} */ ([['sndNotes', false], ['sndGlide', true]])) { const r = $(id); if (r) r.addEventListener('change', (e) => { if ((/** @type {HTMLInputElement} */ (e.target)).checked) soundMode(gl); }); }
     // the last pointer's type on a plane (the rope: 5 px behind a finger, 3 px behind a mouse or pen)
     for (const p of [A.paneL, A.paneR]) for (const ev of ['pointerdown', 'pointermove']) p.ocanvas.addEventListener(ev, (e) => { snd.ptype = e.pointerType || ''; }, { capture: true, passive: true });
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('sndIos').hidden = false;
