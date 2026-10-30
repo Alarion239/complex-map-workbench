@@ -588,6 +588,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; padding: 0 12px; border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
+:root.ph.sv .sv-fwrap { height: 44px; border-radius: 22px; }
+:root.ph.sv .sv-fwrap .sv-fchip { height: 42px; padding: 0 12px; border-radius: 22px; }
+:root.ph.sv .sv-more { display: none; }
+:root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
+:root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 4px; border-radius: 22px; }
+:root.ph.sv .sv-add-t { display: none; }
+:root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv .sv-speed { display: none; }
 :root.ph.sv .sv-cp .sv-cp-t { display: none; }

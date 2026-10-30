@@ -640,3 +640,26 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sv-thumb { position: absolute; z-index: 2; top: 50%; left: -15px; width: 30px; height: 30px; margin-top: -21px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; }
 .sv-cp { display: inline-flex; align-items: center; gap: 6px; }
+/* chain editing on the thread (#437): a step's pill is its chip and its ⋯ (two buttons); a bypassed step is dashed with its
+   name struck through; "+ Add function" ends the thread; a step shown alone has its "Whole chain" chip at the left */
+.sv-fwrap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; overflow: hidden; }
+.sv-fwrap:hover, .sv-fwrap:focus-within { border-color: var(--accent); }
+.sv-fwrap .sv-fchip { height: 32px; min-width: 0; border: 0; border-radius: 16px 0 0 16px; background: transparent; padding: 0 4px 0 12px; }
+.sv-fwrap .sv-fchip:hover { border-color: transparent; }
+.sv-more { flex: 0 0 auto; position: relative; width: 24px; height: 24px; margin-right: 4px; padding: 0; display: grid; place-items: center; color: var(--ink-2); background: transparent; border: 0; border-radius: 12px; cursor: pointer; }
+.sv-more::after { content: ""; position: absolute; inset: -4px; }
+.sv-more svg { width: 16px; height: 16px; }
+.sv-more:hover { background: var(--hover, rgb(127 127 127 / .16)); color: var(--ink); }
+.sv-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-fwrap.off { border-style: dashed; color: var(--ink-2); }
+.sv-fwrap.off .sv-fn { text-decoration: line-through; }
+.sv-fwrap.off .sv-fk { color: var(--ink-2); }
+.sv-add, .sv-whole { flex: 0 0 auto; position: relative; z-index: 1; height: 34px; display: inline-flex; align-items: center; gap: 6px; margin: 0 4px 14px 10px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--accent); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; cursor: pointer; white-space: nowrap; }
+.sv-whole { margin: 0 8px 14px 0; border-style: solid; }
+.sv-add:hover, .sv-whole:hover { border-color: var(--accent); }
+.sv-add:focus-visible, .sv-whole:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-add-i svg { width: 14px; height: 14px; display: block; }
+.sv-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: none; text-align: center; font: 500 15px/1.4 var(--f-ui); color: var(--ink); text-shadow: 0 0 6px var(--surface), 0 0 2px var(--surface); z-index: 3; }
+.sv-empty[hidden] { display: none; }
+.sv-speed:disabled, .sv-thumb[aria-disabled="true"] { opacity: .4; }
+@media (pointer: coarse) { .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }

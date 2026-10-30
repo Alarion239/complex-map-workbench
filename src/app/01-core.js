@@ -274,8 +274,8 @@
   let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
   // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
-  const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy() });
-  function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); } }
+  const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy(), sv: svSnap() });   // (sv: #437, the steps view's shown plane)
+  function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); hist[hi].sv = svSnap(); } }
   function commit() {
     const e = snap();
     if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; return; }
@@ -300,6 +300,7 @@
     for (const id of [...gpu.keys()]) if (!keep.has(id)) dropShapeGPU(id);
     if (selected && !keep.has(selected) && !S.targets.some((x) => x.id === selected)) selected = null;
     zpSel = null; zpHover = null;
+    svRestoreState(e.sv);
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     setFocusStep(f);
     if (e.range && typeof e.range === 'object') setOpt('homRange', JSON.parse(JSON.stringify(e.range))); else deleteOpt('homRange');

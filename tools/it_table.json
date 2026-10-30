@@ -3085,5 +3085,11 @@
  "Fast": "Veloce",
  "Slow": "Lenta",
  "Slower": "Più lenta",
- "Place on the chain": "Posizione nella catena"
+ "Place on the chain": "Posizione nella catena",
+ "Add a function to send z through it.": "Aggiungi una funzione per farci passare z.",
+ "Showing f{k} alone, from {a} to {b}": "Mostro solo f{k}, da {a} a {b}",
+ "Open in the Inspector": "Apri nell'Ispettore",
+ "Bypassed f{x} ({name}).": "Passo f{x} escluso ({name}).",
+ "Turned f{x} back on.": "Passo f{x} riattivato.",
+ "More for f{x} {name}": "Altro per f{x} {name}"
 }
