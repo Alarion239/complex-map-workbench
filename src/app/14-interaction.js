@@ -1240,7 +1240,7 @@
       if (probe) { probe = null; setReadouts(null); }
       rHover = w;
       const ro = $('rightReadout');
-      const vout = S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(S.focus)}`;
+      const vout = yHtml();
       if (w && ro && !ro.classList.contains('copied')) ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
       if (!w && ro && !ro.classList.contains('copied')) ro.innerHTML = idleRight();
       copyValue.R = w ? CX.fmt(w, 6).replace(/\s/g, '') : '';
@@ -1316,7 +1316,7 @@
       // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
       // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
       // (the key's "=" and parentheses in the maths face, as its letters: B612 Mono's "(" reads as "[" [UX105])
-      const wz = wOnce = focusF()(z), wv = S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(S.focus)}`, m = (t) => `<span class="rm">${t}</span>`;
+      const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
       const wl = (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
       const forms = [
         () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
@@ -1337,7 +1337,7 @@
     // Y: the image of the probe (F at t = end)
     const w = wOnce !== undefined ? wOnce : focusF()(z);
     copyValue.R = CX.isFin(w) ? CX.fmt(w, 6).replace(/\s/g, '') : '';
-    const vout = S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(S.focus)}`;
+    const vout = yHtml();
     if (rImage()) {
       // F' at the current probe (never a cached value from an earlier pointer position)
       const F = focusF(), hh = 1e-6 * Math.max(1, CX.abs(z));

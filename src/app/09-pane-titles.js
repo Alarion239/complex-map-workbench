@@ -100,7 +100,13 @@
     // carry the "Y · " tag)
     if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && bracketWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
-    else if (S.focus === 0) right = T(YT + (n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>'), $tn('image, after {n} step', 'image, after {n} steps', n), $tx('role', 'image'));
+    else if (S.focus === 0) {
+      // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
+      const j = parkedAt(), steps = j >= 0 ? j : n;
+      const pf = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
+      const map = j >= 0 ? `${j === 0 ? '<i>w</i>' + sub(0) : wHtml(j)} = ${pf}` : n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>';
+      right = T(YT + map, $tn('image, after {n} step', 'image, after {n} steps', steps), $tx('role', 'image'));
+    }
     else if (dk) right = T(YT + `${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
     else right = T(YT + `${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
     return { left, right };
@@ -125,7 +131,7 @@
   function updateFocusUI() {
     const t = paneTitles();
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
-    const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 w`;
+    const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
@@ -1278,7 +1284,8 @@
     // (#362 the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
     if (morph.open) endPeek();
     if (!morph.open && S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
-    const L = !morph.open && peekSteps();
+    // (Y is a plane of X → Y here: in Phase, Landscape or with Y a sphere it isn't shown, so the deformation opens as before)
+    const L = !morph.open && S.view.main === 'xy' && rImage() && peekSteps();
     if (L) {
       if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
       glide.nudge(d, L.length);

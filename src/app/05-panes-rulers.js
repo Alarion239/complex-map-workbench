@@ -324,7 +324,7 @@
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
-    const cornerHtml = !show ? '' : side === 'L' ? wHtml(leftStage()) : (S.focus === 0 ? '<i>w</i>' : wHtml(rightStage()));
+    const cornerHtml = !show ? '' : side === 'L' ? wHtml(leftStage()) : (yAtF() ? '<i>w</i>' : wHtml(rightStage()));
     if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml; seen.corner = cornerHtml; }
     if (!show) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);

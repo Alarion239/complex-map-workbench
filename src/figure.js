@@ -1076,7 +1076,7 @@ const Figure = (() => {
     const steps = {};
     for (const side of panels) if (boxes[side]) steps[side] = stepFor(boxes[side], two ? W / 2 : W);
     // the F arrow's label: F (Article), w = formula (Homework, when it is short)
-    const Fname = st.focus === 0 ? 'F' : `f_{${st.focus}}`;
+    const Fname = A.fTex();
     let arrowTex = two ? Fname : null;
     if (two && o.for !== 'article') {
       // w = \dfrac{..}{..} when the formula is one fraction (narrow), else the inline formula when it is short
