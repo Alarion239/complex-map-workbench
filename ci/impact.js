@@ -90,7 +90,7 @@ const MAP = [
   ['src/cyr.js', ui('export', 'i18n')],                                       // Cyrillic outlines in exported figures
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
-  ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
+  ['src/{construct,constr,constrpoc,constrortho}.js', ui('constructions')],   // perp, constructions, the ux165 rail
   ['src/construct/**', ui('constructions')],                                  // construct.js in parts (#20), the same
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas

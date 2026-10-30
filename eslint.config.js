@@ -74,14 +74,14 @@ const rules = {
   // size budget (issue #20): max-lines is the aim (the warnings list the files still over it); max-lines-per-function
   // sits at today's largest function, so only growth past it is flagged. Both only go down: never raise them.
   'max-lines': ['warn', { max: 1500, skipBlankLines: true, skipComments: true }],
-  'max-lines-per-function': ['warn', { max: 2367, skipBlankLines: true, skipComments: true }],   // src/constr.js; IIFEs (the closures) are not counted
+  'max-lines-per-function': ['warn', { max: 1443, skipBlankLines: true, skipComments: true }],   // src/constr.js; IIFEs (the closures) are not counted
 };
 // the file-size budget (issue #20, ongoing conventions): each file still over the 1,500-line aim at the size it had
 // when the budget was set (max-lines' count: blank and comment lines left out), so max-lines warns only when it grows.
 // A file may shrink, never grow: lower its number when it shrinks (never raise one), and drop it once it is under
 // 1,500, where the aim above applies again. Moving code out of a file into a new one is how a number goes down.
 const SIZE_BUDGET = {
-  'src/funcs.js': 2016, 'src/tour.js': 2582, 'src/constr.js': 2431,
+  'src/funcs.js': 2016, 'src/tour.js': 2582,
   'src/glsl.js': 2152, 'src/inverse.js': 2165, 'src/region.js': 1830, 'src/parse.js': 1777,
 };
 
