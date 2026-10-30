@@ -19,10 +19,13 @@ for (const [w, h, lang] of [[1440, 900, 'en'], [1024, 768, 'ru'], [1024, 768, 'i
   // (a fresh page: no history, so Undo and Redo are not stops; the order is the bar's source order)
   await ev('document.activeElement && document.activeElement.blur(); 1');
   const seq = [];
-  for (let i = 0; i < 14; i++) {
+  // (up to Help; a Tab or two from the page itself can land on the body before the bar's first stop on a slow runner: those
+  // leave the sequence, which starts at the first stop of the bar)
+  for (let i = 0; i < 24 && seq[seq.length - 1] !== 'helpBtn'; i++) {
     await key('Tab'); await sleep(40);
     seq.push(await ev(`(() => { const a = document.activeElement; return a ? (a.closest('#viewSwitch') ? 'viewSwitch' : a.id || a.tagName) : ''; })()`));
   }
+  while (seq.length && (seq[0] === 'BODY' || !seq[0])) seq.shift();
   info[at + ' tab'] = seq.join(' ');
   const at_ = (id) => seq.indexOf(id);
   // (Examples is leftmost on screen and the first stop; then the views, then the menu's buttons as laid out)
