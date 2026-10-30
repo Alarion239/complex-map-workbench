@@ -1101,6 +1101,23 @@ float angIn(vec2 v, float span, vec4 B) {
   return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
 }
 ${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
+// formula fa (and fb when two) at w and at the first n - 1 of w + dx, w + dy, w - dx, w - dy, from one call site of
+// formulaLevel in a loop (issue #396: FXC inlines every call of formulaLevel, the dispatch over every level function,
+// and the gradients' calls one by one wrote them all out about 21 times). a, b: (w + dx, w + dy, w - dx, w - dy)
+void levelStencil(int fa, int fb, bool two, int n, vec2 w, vec2 dx, vec2 dy, out float la, out vec4 a, out float lb, out vec4 b) {
+  la = 0.0; lb = 0.0; a = vec4(0.0); b = vec4(0.0);
+  int m = two ? 2 * n : n;
+  for (int s = 0; s < max(10, uNoUnroll); s++) {
+    if (s >= m) break;
+    bool first = s < n;
+    int k = first ? s : s - n;
+    vec2 o = k == 1 ? dx : k == 2 ? dy : k == 3 ? -dx : k == 4 ? -dy : vec2(0.0);
+    float v = formulaLevel(first ? fa : fb, w + o);
+    // (plain assignments: a blend would turn a level that is already infinite into NaN, review #406)
+    if (first) { if (k == 0) la = v; else if (k == 1) a.x = v; else if (k == 2) a.y = v; else if (k == 3) a.z = v; else a.w = v; }
+    else { if (k == 0) lb = v; else if (k == 1) b.x = v; else if (k == 2) b.y = v; else if (k == 3) b.z = v; else b.w = v; }
+  }
+}
 // area targets: the level of Region.levelOf, positive inside (NaN counts as outside)
 float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
   float L = -1.0;
@@ -1218,20 +1235,19 @@ ${sphere ? `  vec3 n = normalize(vP);
       // jump (a branch cut) or a pole (g from -inf to +inf: the differences differ by 1.3-1.7x), not a crossing
       int gi = int(K.z + 0.5);
       float pd;
+      float s0, s1;
+      vec4 sa, sb;
+      levelStencil(gi, gi + 1, K.w > 0.5, 5, w, dx, dy, s0, sa, s1, sb);
       if (K.w > 0.5) {
-        vec2 D = vec2(formulaLevel(gi, w), formulaLevel(gi + 1, w));
-        vec2 Dx = vec2(formulaLevel(gi, w + dx), formulaLevel(gi + 1, w + dx));
-        vec2 Dy = vec2(formulaLevel(gi, w + dy), formulaLevel(gi + 1, w + dy));
-        vec2 Bx = vec2(formulaLevel(gi, w - dx), formulaLevel(gi + 1, w - dx));
-        vec2 By = vec2(formulaLevel(gi, w - dy), formulaLevel(gi + 1, w - dy));
+        vec2 D = vec2(s0, s1), Dx = vec2(sa.x, sb.x), Dy = vec2(sa.y, sb.y), Bx = vec2(sa.z, sb.z), By = vec2(sa.w, sb.w);
         vec4 dF = vec4(Dx - D, Dy - D), dB = vec4(D - Bx, D - By);
         float lf = length(dF), lb = length(dB), lm = max(lf, lb);
         if (!(length(D) < 1e30) || !(lm < 1e30) || length(dF - dB) > 0.5 * lm + 1e-30) continue;
         pd = length(D) / max(lm, 1e-30);
       } else {
-        float L = formulaLevel(gi, w);
-        vec2 gF = vec2(formulaLevel(gi, w + dx), formulaLevel(gi, w + dy)) - L;
-        vec2 gB = L - vec2(formulaLevel(gi, w - dx), formulaLevel(gi, w - dy));
+        float L = s0;
+        vec2 gF = sa.xy - L;
+        vec2 gB = L - sa.zw;
         float lf = length(gF), lb = length(gB), lm = max(lf, lb);
         if (!(abs(L) < 1e30) || !(lm < 1e30) || length(gF - gB) > 0.5 * lm + 1e-30) continue;
         pd = abs(L) / max(lm, 1e-30);
@@ -1239,8 +1255,10 @@ ${sphere ? `  vec3 n = normalize(vP);
       float cov = 1.0;
       if (B.x > -0.5) {
         int ri = int(B.x + 0.5);
-        float RL = formulaLevel(ri, w);
-        vec2 gR = vec2(formulaLevel(ri, w + dx), formulaLevel(ri, w + dy)) - RL;
+        float RL, rl;
+        vec4 rs, rt;
+        levelStencil(ri, ri, false, 3, w, dx, dy, RL, rs, rl, rt);
+        vec2 gR = rs.xy - RL;
         float sr = RL / max(length(gR), 1e-30);
         cov = RL > -1e30 ? clamp(sr + 0.5, 0.0, 1.0) : 0.0;
       }
