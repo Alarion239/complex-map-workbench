@@ -27,7 +27,7 @@ const Inverse = (() => {
   const B_DEFAULT = 8;         // compositing buffer (4.2)
   const CLIP_PAD = 1.5;        // px: anti-aliasing margin of the shape clips of member lines and rays (a candidate within
                                // 1 px of the shape can still cover: facing rule, 4.2)
-  const RG = () => (typeof Region !== 'undefined' ? Region : null);
+  const RG = () => Region;
   const sgn = (x) => (x < 0 ? -1 : 1);
   const cx = (re, im) => ({ re, im });
 
@@ -2396,7 +2396,7 @@ const Inverse = (() => {
         const flr = (Math.abs(qx.re) + Math.abs(qy.re)) * (6 / PI);
         const sw = sawAA(lr, flr) * (1 - moire(flr, flr)) + 0.5 * moire(flr, flr);
         const L = 0.62 + 0.14 * sw;
-        if (typeof GLR !== 'undefined' && GLR.phaseRGB) col = GLR.phaseRGB(th, L);
+        if (GLR.phaseRGB) col = GLR.phaseRGB(th, L);
         else {
           const h = (th / TAU + 1) % 1, v = L;
           const f = (n) => { const kk = (n + h * 6) % 6; return v - v * 0.55 * Math.max(0, Math.min(kk, 4 - kk, 1)); };

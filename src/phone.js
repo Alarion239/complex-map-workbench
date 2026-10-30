@@ -148,7 +148,7 @@ const Phone = (() => {
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
     for (const id of ['leftTabs', 'rightTabs', 'viewSwitch']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
-    if (typeof Params !== 'undefined' && Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
+    if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
     // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
@@ -525,7 +525,7 @@ const Phone = (() => {
   // ---------------- Numbers ----------------
   function syncNums() {
     if (!els.nums) return;
-    const list = typeof Params !== 'undefined' ? Params.list() : [];
+    const list = Params.list();
     const names = list.map((p) => (Params.display ? Params.display(p.name) : p.name));
     els.nums.replaceChildren(h('span', { class: 'ph-na', html: '<i>a</i> =' }),
       h('span', { class: 'ph-nn', html: names.length ? names.map((n) => `<i>${n}</i>`).join(', ') : $t('Numbers') }));
