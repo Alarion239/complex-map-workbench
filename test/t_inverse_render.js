@@ -47,9 +47,11 @@ function render(sc, view, pattern, opts = {}) {
 console.log('--- (g) reference renders (the quality suite runs)');
 // ([issue #260] a scene whose chain has no inverse plan, Φ_M's dh_disc, is drawn by the app's forward mesh: this
 // renderer has nothing to draw it with. Those runs are left out here, and they must be exactly dh_disc's)
-const noPlan = Q.runs().filter((r) => !planOf(r.scene.steps).ok).map((r) => r.id);
+// (the globes, scenes.js SPHERE_SCENES, have no flat truth to score: left out here as in run_quality.js's metrics)
+const flatRuns = Q.runs().filter((r) => !r.sphere);
+const noPlan = flatRuns.filter((r) => !planOf(r.scene.steps).ok).map((r) => r.id);
 check('the quality runs with no inverse plan are exactly dh_disc\'s', noPlan.join() === 'dh_disc.mask,dh_disc.pattern', noPlan.join());
-const allRuns = Q.runs().filter((r) => !noPlan.includes(r.id));
+const allRuns = flatRuns.filter((r) => !noPlan.includes(r.id));
 for (const [base, f, variants] of [['expH', 4, ['mask', 'pattern']], ['e1z_disc', 4, ['mask', 'pattern']], ['zi_H', 16, ['polar']]]) {
   const src = Q.SCENES.find((x) => x.name === base);
   if (!src) continue;

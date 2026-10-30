@@ -529,6 +529,22 @@ const SCENES = [
   scene('dh_disc', 'dh_disc', 'conformal', { cx: 1.067, cy: 0.868, s: 400 }, 'the Douady–Hubbard map Phi_M of the disc |z - (0.6+0.9i)| < 0.3 by the 1/4 limb (|Phi_M| > 1.026 on it)', ['mask', 'pattern']),
 ];
 
+// [#385 follow-up] the globes: no flat ground truth fits a sphere, so these runs are scored by their golden diff alone
+// (paired: against the reference's render on the same machine) and only reported, never gated (compare_quality.py);
+// a change to the globe's shading or camera shows up as a pixel diff in the quality job's summary. Each pins its camera
+// (__cmwCam: the app's default pose at the suite's 1440 x 900, written out, so a change of the default camera shows too)
+// and names the canvas it draws on; state: the saved state's own keys over DISPLAY's
+const SPHERE_SCENES = [
+  { name: 'sphere_disc_sq', group: 'sphere', canvas: 'canvasR', cam: { side: 'R', yaw: -Math.PI / 3, pitch: Math.PI / 10, dist: 7.158 },
+    note: "the exact image of the disc |z - (0.3+0.2i)| < 0.5 under z^2 on Y's globe (pinned camera)",
+    shapes: [{ kind: 'disc', c: [0.3, 0.2], r: 0.5 }], steps: [{ type: 'pown', params: { n: 2 } }], srcView: { cx: 0, cy: 0, s: 120 },
+    state: { rightMode: 'sphere', sphereMode: 'image' } },
+  { name: 'sphere_phase', group: 'sphere', canvas: 'canvasL', cam: { side: 'L', yaw: -Math.PI / 3, pitch: -2 * Math.PI / 15, dist: 5.035 },
+    note: "the Phase view on X's globe, F(z) = z (pinned camera): the sphere's shading and the phase colours",
+    shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 120 },
+    state: { dc: 'phase', rightMode: 'sphere', sphereMode: 'color' } },
+];
+
 // display settings shared by every scene: no coordinate net, unit circle, view outline or region outline; alpha 1
 const DISPLAY = {
   rightMode: 'image', focus: 0, alpha: 1, lines: false, unit: false, fov: false, outline: false, chev: false,
@@ -578,6 +594,15 @@ function stateOf(sc, variant) {
 //   the polar pattern's solid disc around the origin (pattern cell / 12; the polar origin is 0 in every scene)
 function runs(filter) {
   const out = [];
+  for (const sc of SPHERE_SCENES) {
+    const id = `${sc.name}.look`;
+    if (filter && !filter.some((f) => id === f || sc.name === f || id.startsWith(f))) continue;
+    const shapes = sc.shapes.map((sh, i) => Object.assign({ id: 's' + (i + 1), ci: 0, visible: true }, JSON.parse(JSON.stringify(sh))));
+    const steps = sc.steps.map((st) => ({ type: st.type, params: Object.assign({}, st.params), on: true }));
+    const state = Object.assign({ v3: true, v4: true, v5: true, nextId: 50, targets: [] }, DISPLAY, { pattern: 'checker', shapes, steps, srcView: Object.assign({}, sc.srcView) }, sc.state);
+    out.push({ id, scene: Object.assign({ truth: { desc: 'none: golden diff only (a globe)' }, rightView: null }, sc), variant: 'look', kind: null, parity: null, opacity: false, strict: false,
+      alpha: DISPLAY.alpha, golden: true, sphere: true, canvas: sc.canvas, cam: sc.cam, cell: 0, state, cellErr: false, sheet: null, rc: 0 });
+  }
   for (const sc of SCENES) for (const v of sc.variants || DEFAULT_VARIANTS) {
     const id = `${sc.name}.${v}`;
     if (filter && !filter.some((f) => id === f || sc.name === f || id.startsWith(f))) continue;
@@ -594,4 +619,4 @@ function runs(filter) {
   return out;
 }
 
-module.exports = { SCENES, VARIANTS, VARIANT_STATE, VARIANT_CLASS, LEGACY_GROUPS, runs, stateOf, cellOf, niceStep, boxOf, cx: { C, add, sub, mul, div, abs, cexp, clog, csqrt, casin } };
+module.exports = { SCENES, SPHERE_SCENES, VARIANTS, VARIANT_STATE, VARIANT_CLASS, LEGACY_GROUPS, runs, stateOf, cellOf, niceStep, boxOf, cx: { C, add, sub, mul, div, abs, cexp, clog, csqrt, casin } };

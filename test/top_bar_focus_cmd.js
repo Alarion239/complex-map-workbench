@@ -1,5 +1,5 @@
 // The top bar's keyboard order and the small controls' target size (issues #359, #360). Tab from the top of the page goes
-// through the view switch and Deformation before the menu's buttons (Examples … Help), never to them after Help; and every
+// Examples (leftmost on screen), the view switch, Deformation, then the menu's buttons (search … Help), in the order of the screen; and every
 // segment of a segmented control in the bar, the plane heads and the chain head is at least 24 x 24 px (WCAG 2.5.8; the
 // segments touch, so the spacing exception does not apply) without the control overflowing: the view switch, the plane
 // head's style row, Landscape's height and paint rows, the chain's Pictures | Names. 1440 px in English, 1024 px in
@@ -19,16 +19,20 @@ for (const [w, h, lang] of [[1440, 900, 'en'], [1024, 768, 'ru'], [1024, 768, 'i
   // (a fresh page: no history, so Undo and Redo are not stops; the order is the bar's source order)
   await ev('document.activeElement && document.activeElement.blur(); 1');
   const seq = [];
-  for (let i = 0; i < 14; i++) {
+  // (up to Help; a Tab or two from the page itself can land on the body before the bar's first stop on a slow runner: those
+  // leave the sequence, which starts at the first stop of the bar)
+  for (let i = 0; i < 24 && seq[seq.length - 1] !== 'helpBtn'; i++) {
     await key('Tab'); await sleep(40);
     seq.push(await ev(`(() => { const a = document.activeElement; return a ? (a.closest('#viewSwitch') ? 'viewSwitch' : a.id || a.tagName) : ''; })()`));
   }
+  while (seq.length && (seq[0] === 'BODY' || !seq[0])) seq.shift();
   info[at + ' tab'] = seq.join(' ');
   const at_ = (id) => seq.indexOf(id);
-  ok(`${at}: the view switch is a Tab stop before Examples`, at_('viewSwitch') >= 0 && at_('viewSwitch') < at_('examplesBtn'), seq);
-  ok(`${at}: Deformation follows the view switch and comes before Examples`, at_('morphBtn') === at_('viewSwitch') + 1 && at_('morphBtn') < at_('examplesBtn'), seq);
-  ok(`${at}: the menu's buttons keep their order, Examples … Help`, ['examplesBtn', 'cmdBtn', 'exportBtn', 'settingsBtn', 'helpBtn'].every((id, i, a) => at_(id) >= 0 && (i === 0 || at_(a[i - 1]) < at_(id))), seq);
-  ok(`${at}: no view switch or Deformation stop after Help`, !seq.slice(at_('helpBtn') + 1).some((s) => s === 'viewSwitch' || s === 'morphBtn'), seq);
+  // (Examples is leftmost on screen and the first stop; then the views, then the menu's buttons as laid out)
+  ok(`${at}: Examples is the first Tab stop`, seq[0] === 'examplesBtn', seq);
+  ok(`${at}: the view switch follows it, and Deformation the view switch`, at_('viewSwitch') === 1 && at_('morphBtn') === 2, seq);
+  ok(`${at}: then the menu's buttons in their order, search … Help`, ['cmdBtn', 'exportBtn', 'settingsBtn', 'helpBtn'].every((id, i, a) => at_(id) >= 3 && (i === 0 || at_(a[i - 1]) < at_(id))), seq);
+  ok(`${at}: no view switch or Deformation stop after Help`, !seq.slice(at_('helpBtn') + 1).some((s) => s === 'viewSwitch' || s === 'morphBtn' || s === 'examplesBtn'), seq);
 
   // the segments, in each view's heads
   const scan = () => ev(`(() => [...document.querySelectorAll('.seg')].filter((s) => s.getClientRects().length).map((s) => {
