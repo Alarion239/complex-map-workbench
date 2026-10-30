@@ -781,6 +781,8 @@
       const el = $(id);
       if (!el) continue;
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
+      // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
+      for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
       el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else el.classList.toggle('collapsed'); });
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
