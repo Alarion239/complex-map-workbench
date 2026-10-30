@@ -20,6 +20,7 @@
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
+    ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
   };
   const SV_GPU_MASK = false;
   // the glide's time a plane, by speed (a setting kept on this device)
@@ -68,13 +69,29 @@
   function svAdopt(force) {
     const ext = S.view.main;
     if (ext === svMain() && !force) return;
-    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas)
-    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
-    if (ext === 'xy') { SV.T = -1; SV.scope = areas ? 'in' : 'all'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'phase') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.P.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'land') { SV.T = -1; SV.scope = 'all'; SV.surf = 'land'; }
+    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
+    // Views.svOf, concept §6)
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas);
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     SV.i = 0; SV.g.set(0);
   }
+  // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is also the
+  // device's setting, which a state without one starts from). svStore writes it before a save, a link or an undo entry;
+  // svLoad reads it when the page opens on a state that has one, and after an undo
+  function svStore() {
+    if (!SV.on || !SV.ready) return;
+    S.sv = { at: SV.anim ? SV.anim.to : SV.g.x, T: SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed };
+  }
+  function svLoad() {
+    const o = Views.cleanSv(S.sv, svPlanes());
+    if (!o) return false;
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.speed = o.speed;
+    SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
+    if (SV.els && SV.els.speed) SV.els.speed.value = SV.speed;
+    return true;
+  }
+  // an undo put another S.sv under the view
+  function svRestored() { if (SV.on && SV.ready && svLoad()) { SV.sig = null; setTimeout(svApply, 0); } }
   function svApply() {
     const k = svStage();
     svViewFix();
@@ -432,7 +449,7 @@
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
     $('stage').append(live);
-    SV.els = { bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { speed, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -620,6 +637,7 @@
     svEdgeSwipe();
     svKeys();
     SV.g.set(0); SV.g.max = svPlanes().length - 1;
-    svAdopt();
+    if (!svLoad()) svAdopt();
+    SV.ready = true;
     svApply();
   }

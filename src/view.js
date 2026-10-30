@@ -271,7 +271,32 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, LEGACY, MAIN, SURF_L, SURF_R };
+  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf, speed}. at: the shown position in
+  // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
+  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting. planes: the stages of
+  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state was
+  // never saved from the steps view): a fractional or far `at` is clamped to the planes, a T the chain no longer has
+  // is -1, an unknown scope, surface or speed is the default.
+  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
+  function cleanSv(v, planes) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    const n = Math.max(1, planes ? planes.length : 1), num = (x) => typeof x === 'number' && Number.isFinite(x);
+    return {
+      at: num(v.at) ? Math.max(0, Math.min(n - 1, v.at)) : 0,
+      T: Number.isInteger(v.T) && planes && planes.includes(v.T) && v.T !== planes[n - 1] ? v.T : -1,
+      scope: SV_SCOPES.includes(v.scope) ? v.scope : 'all',
+      surf: SV_SURFS.includes(v.surf) ? v.surf : 'plane',
+      speed: SV_SPEEDS.includes(v.speed) ? v.speed : 'normal',
+    };
+  }
+  // the steps view's picture of a state that has no S.sv (concept §6): X → Y opens at the z-plane with T = the last
+  // plane, on Inside regions when it has areas; Phase the same, coloured everywhere; Landscape on the relief
+  function svOf(view, hasAreas) {
+    const v = clean(view), x = xOf(v);
+    const surf = x.surf === 'land' ? 'land' : x.surf === 'sphere' ? 'sphere' : 'plane';
+    return { at: 0, T: -1, scope: v.main === 'xy' && hasAreas ? 'in' : 'all', surf, speed: 'normal' };
+  }
+  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R, SV_SPEEDS };
 })();
 import { CX } from './cx.js';
 export { Axes, Pane, Views };
