@@ -643,17 +643,18 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* play along the thread (#438): the band of the range, its clear button, the loop toggle, a touch's hold */
 .sv-band { position: absolute; z-index: 0; top: calc(50% - 7px - 13px); height: 26px; box-sizing: border-box; border: 1.5px solid var(--accent); border-radius: 13px; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
 .sv-band[hidden] { display: none; }
-.sv-bandx { position: absolute; right: -2px; top: -22px; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.sv-bandx { position: absolute; right: -12px; top: -10px; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
 .sv-bandx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-play { font-size: 18px; }
-.sv-loop { align-self: center; flex: 0 0 auto; height: 36px; }
+.sv-strip .sv-loop { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
+:root:not(.ph) .sv-playback { display: none; }
 .sv-loop.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .sv-rail.hold .sv-thumb { background: color-mix(in srgb, var(--accent) 25%, transparent); transition: background .45s linear; }
 .sv-rail.arm .sv-thumb { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sv-rail.hold .sv-thumb { transition: none; } }
-.sv-scrim { position: fixed; inset: 0; z-index: 39; background: rgba(0, 0, 0, .35); }
+.sv-scrim { position: fixed; inset: 0; z-index: 56; background: rgba(0, 0, 0, .35); }
 .sv-scrim[hidden], .sv-sheet[hidden] { display: none; }
-.sv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line-strong); border-radius: var(--r-4) var(--r-4) 0 0; display: grid; gap: 12px; }
+.sv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 57; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line-strong); border-radius: var(--r-4) var(--r-4) 0 0; display: grid; gap: 12px; }
 .sv-sheet-h { display: flex; align-items: center; justify-content: space-between; font: 600 16px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet .sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }

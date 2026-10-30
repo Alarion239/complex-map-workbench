@@ -41,12 +41,18 @@ await ctl({ scope: 'all' });
 const d0 = await ev(`(() => { const s = document.getElementById('svStrip'), p = s.querySelector('.sv-play'), n = s.querySelector('.sv-prev'); const rp = p.getBoundingClientRect(); return { play: !!p, before: !!(p.compareDocumentPosition(n) & 4), w: rp.width, h: rp.height, label: p.getAttribute('aria-label'), loop: s.querySelector('.sv-loop').getAttribute('aria-pressed') }; })()`);
 ok('▶ is 44 px, before ‹, labelled Play; Loop is a toggle, off', d0.play && d0.before && d0.w >= 44 && d0.h >= 44 && d0.label === 'Play' && d0.loop === 'false', d0);
 
+const lh = await ev(`document.querySelector('.sv-loop').getBoundingClientRect().height`);
+ok('the Loop toggle is 36 px high, as the speed select', lh >= 35.5 && lh <= 37, lh);
+ok('▶ says how to reach Speed and Loop', await ev(`document.querySelector('.sv-play').getAttribute('aria-description') === 'Hold for speed and loop'`), 'desc');
+
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
 await ev(`document.querySelector('.sv-play').click(); 1`);
+ok('starting says where it plays from and to, in the live region', await ev(`/Playing from z to w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 const p1 = await S();
 ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && await ev(`document.querySelector('.sv-play').getAttribute('aria-label') === 'Pause'`), p1);
 const e1 = await until((s) => !s.play);
+ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
 await ev(`document.querySelector('.sv-play').click(); 1`);
@@ -131,7 +137,12 @@ const k2 = await S();
 ok('Shift+← extends it down a plane (here to every plane: no range)', k2.range === null, k2.range);
 await kdown('ArrowRight', { shiftKey: true });
 await ev(`document.querySelector('.sv-bandx').click(); 1`);
-ok('its × clears the range', (await S()).range === null, await S());
+ok('its × clears the range, and the focus goes to the ring', (await S()).range === null && await ev(`document.activeElement === document.querySelector('.sv-thumb')`), await ev(`document.activeElement.className`));
+// (the × is clear of the end node's ring)
+await ctl({ range: [0, 1] }); await settle(200);
+const bx = await ev(`(() => { const x = document.querySelector('.sv-bandx').getBoundingClientRect(), n = document.querySelectorAll('#svStrip .sv-plane .sv-node')[1].getBoundingClientRect(); return { xl: x.left, nr: n.right, xb: x.bottom, nt: n.top }; })()`);
+ok('the band\'s × does not overlap the end plane\'s node', bx.xl >= bx.nr || bx.xb <= bx.nt, bx);
+await ctl({ range: null });
 await ctl({ go: 0, now: true });
 await ctl({ range: [1, 2] });
 await ev(`document.activeElement.blur(); 1`);
@@ -160,11 +171,23 @@ await ev(`(() => { const b = document.querySelector('.sv-play'); const o = { poi
 await sleep(800);
 const sh = await ev(`(() => { const s = document.querySelector('.sv-sheet'); return s && !s.hidden ? { name: s.getAttribute('aria-label'), rows: s.querySelectorAll('.sv-speed, .sv-loop').length } : null; })()`);
 ok('a long press on ▶ opens the Playback sheet, with Speed and Loop', sh && sh.name === 'Playback' && sh.rows === 2, sh);
-await ev(`document.querySelector('.sv-play').dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', pointerId: 7, bubbles: true })); document.querySelector('.sv-play').click(); 1`);
+await ev(`document.querySelector('.sv-play').dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', pointerId: 7, bubbles: true })); document.querySelector('.sv-play').click(); document.body.focus(); 1`);
+await sleep(250);
+ok('the release does not take the focus out of the sheet, which is modal', await ev(`!!document.activeElement.closest('.sv-sheet') && document.querySelector('.sv-sheet').getAttribute('aria-modal') === 'true'`), await ev(`document.activeElement.tagName`));
+ok('the sheet lies over the toasts', await ev(`(() => { const z = (e) => +getComputedStyle(e).zIndex; return z(document.querySelector('.sv-sheet')) > z(document.getElementById('toastHost')) && z(document.querySelector('.sv-scrim')) > z(document.getElementById('toastHost')); })()`), 'z');
+await ev(`document.querySelector('.sv-sheet .sv-loop').focus(); 1`);
+await kdown('Tab');
+ok('Tab stays in the sheet', await ev(`!!document.activeElement.closest('.sv-sheet')`), await ev(`document.activeElement.tagName`));
 ok('… and the release is not a press: nothing plays', (await S()).play === null, await S());
 await ev(`document.querySelector('.sv-sheet .sv-loop').click(); 1`);
 ok('the sheet\'s Loop sets it', (await S()).loop === true, await S());
 await ctl({ loop: false });
+await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);
+ok('Done closes the sheet and gives the focus back to ▶', await ev(`document.querySelector('.sv-sheet').hidden && document.activeElement === document.querySelector('.sv-play')`), await ev(`document.activeElement.className`));
+const pbk = await ev(`(() => { const b = document.querySelector('.sv-playback'); return b ? { show: getComputedStyle(b).display !== 'none', t: b.textContent } : null; })()`);
+ok('the header\'s ⋯ menu has Playback… (a way to the sheet that needs no long press)', pbk && pbk.show && /Playback/.test(pbk.t), pbk);
+await ev(`document.querySelector('.sv-playback').click(); 1`); await sleep(200);
+ok('… which opens the sheet', await ev(`!document.querySelector('.sv-sheet').hidden`), 'sheet');
 
 // ---- without the flag: no ▶ ----
 await open(1280, 800, false, false);

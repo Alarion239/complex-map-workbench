@@ -459,7 +459,7 @@
     bar.append(title, cp, scope, surf, surf1);
     head.prepend(bar);
     // the chain strip: ‹, a segment per plane with the step between, ›
-    const play = h('button', { type: 'button', class: 'sv-nav sv-play', onclick: () => { if (SV.sheetHeld) { SV.sheetHeld = false; return; } svTogglePlay(); } });
+    const play = h('button', { type: 'button', class: 'sv-nav sv-play', 'aria-description': $t('Hold for speed and loop'), onclick: () => { if (SV.sheetHeld) { SV.sheetHeld = false; if (SV.els.sheet && !SV.els.sheet.hidden) SV.els.sheetSpeed.focus(); return; } svTogglePlay(); } });
     const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svStep(-1) }, '‹');
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
@@ -467,7 +467,7 @@
     const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
     const loop = h('button', { type: 'button', class: 'btn small sv-loop', 'aria-pressed': String(SV.loop), 'data-tip': $t('Start over at the end'), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
-    const band = h('div', { class: 'sv-band', role: 'group', hidden: '' }, h('button', { type: 'button', class: 'sv-bandx', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => svClearRange() }, '×'));
+    const band = h('div', { class: 'sv-band', role: 'group', hidden: '' }, h('button', { type: 'button', class: 'sv-bandx', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×'));
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), next, speed, loop);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
@@ -483,6 +483,10 @@
     SV.els = { rail, play, loop, band, speed, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svPlayHold();
+    // (the other way to the sheet, for a screen reader's user who cannot hold: the header's ⋯ menu, which a phone shows)
+    const pb = h('button', { type: 'button', class: 'icon-btn sv-playback', popovertarget: 'hdrMenu', popovertargetaction: 'hide', onclick: () => svSheet() }, h('span', { class: 'mlabel' }, $t('Playback…')));
+    const sb = $('settingsBtn');
+    if (sb && sb.parentNode) sb.parentNode.insertBefore(pb, sb);
   }
   // the strip's planes and steps, rebuilt when the chain changes
   function svBuildTrack() {
@@ -773,7 +777,7 @@
     if (!key) return;
     const P = svPlanes();
     E.band.style.left = (c[R.lo] - 14) + 'px';
-    E.band.style.width = (c[R.hi] - c[R.lo] + 28) + 'px';
+    E.band.style.width = (c[R.hi] - c[R.lo] + 36) + 'px';
     E.band.setAttribute('aria-label', $t('Range {a} to {b}', { a: svName(P[R.lo]), b: svName(P[R.hi]) }));
   }
   // Shift-drag (mouse) or hold-then-drag (touch) along the thread: the range
@@ -847,6 +851,7 @@
     }
     svSync();
     requestRender('L');
+    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
   }
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
   function svSlide(first) {
@@ -854,7 +859,7 @@
     if (!A || !A.slide) return;
     const i = Math.round(SV.g.x);
     if (!first) {
-      if (i >= A.end) { if (!SV.loop) { svPause(true); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
+      if (i >= A.end) { if (!SV.loop) { svPause(true); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
       SV.i = Math.round(SV.g.x);
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
@@ -875,6 +880,7 @@
     if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.g.set(A.start); SV.i = A.start; svApply(); return true; }
     SV.play = null;
     svArrive();
+    if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
     svSync();
     return false;
   }
@@ -901,10 +907,16 @@
       const sel = h('select', { class: 'sv-speed', 'aria-label': $t('Speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } E.speed.value = SV.speed; } },
         ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v }, t)));
       const lp = h('button', { type: 'button', class: 'btn sv-loop', 'aria-pressed': String(SV.loop), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
-      const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-label': $t('Playback'), hidden: '' },
+      const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
         h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('div', { class: 'sv-sheet-r' }, lp));
-      sh.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); } });
+      sh.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); return; }
+        // (modal: Tab stays in the sheet)
+        if (e.key !== 'Tab') return;
+        const f = [...sh.querySelectorAll('button, select')], i = f.indexOf(/** @type {any} */ (document.activeElement));
+        if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+      });
       scrim.hidden = true;
       document.body.append(scrim, sh);
       Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetLoop: lp });
@@ -924,7 +936,8 @@
       SV.sheetHeld = false;
       t = setTimeout(() => { t = 0; SV.sheetHeld = true; svSheet(); }, 550);
     });
-    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => { if (t) { clearTimeout(t); t = 0; } });
+    // (the release's own mouse events move the focus to the page: it goes back to the sheet after them)
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => { if (t) { clearTimeout(t); t = 0; } if (SV.sheetHeld && SV.els.sheet && !SV.els.sheet.hidden) setTimeout(() => SV.els.sheetSpeed.focus(), 60); });
     b.addEventListener('contextmenu', (e) => { if (document.documentElement.classList.contains('ph')) e.preventDefault(); });
   }
   function setupStepsView() {

@@ -3092,5 +3092,9 @@
  "Range cleared": "Intervallo cancellato",
  "Range {a} to {b}": "Intervallo da {a} a {b}",
  ", range {a} to {b}": ", intervallo da {a} a {b}",
- "Playback": "Riproduzione"
+ "Playback": "Riproduzione",
+ "Hold for speed and loop": "Tieni premuto per velocità e ciclo",
+ "Playback…": "Riproduzione…",
+ "Playing from {a} to {b}": "Riproduzione da {a} a {b}",
+ "Stopped at {p}": "Fermato su {p}"
 }
