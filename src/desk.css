@@ -107,6 +107,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .ihead .fF { font: italic 500 15px/1 var(--f-math); padding: 0 4px; }
 .iform { padding: 10px 12px; margin: 0 0 12px; background: var(--well); border-radius: var(--r-2); font-size: 15px; color: var(--ink); overflow-x: auto; scrollbar-width: thin; }
 .iform .ftex { white-space: nowrap; }
+.shortmark { font: 400 11px/14px var(--f-ui); color: var(--muted); border: 1px solid var(--line); border-radius: var(--r-2); padding: 0 5px; margin-left: 6px; white-space: nowrap; cursor: help; }
+.iform > .shortmark { display: inline-block; margin: 6px 0 0; }
+.iform > .shortmark[hidden] { display: none; }
+.shortmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .iform .ftex.long { white-space: normal; font: var(--t-label); color: var(--muted); }
 .iform .wl { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13.5px; }
 .iform .wl > div { white-space: nowrap; }

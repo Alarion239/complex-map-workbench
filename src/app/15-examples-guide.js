@@ -781,7 +781,7 @@
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
     const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
-      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip]';
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
     // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
