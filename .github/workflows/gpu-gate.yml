@@ -49,9 +49,9 @@ on:
         options: [gate, glprof]
         default: gate
       walk:
-        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples)'
+        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples; mountain: only the Mountain King, its Landscape and deformation)'
         type: choice
-        options: [all, extended, quick]
+        options: [all, extended, quick, mountain]
         default: all
       variant:
         description: 'Mode glprof: a second side, this build with the loop guards of #206 stripped (unroll), the sides in turn (#238 item 3)'
