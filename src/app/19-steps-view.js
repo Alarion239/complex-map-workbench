@@ -162,17 +162,18 @@
   // travels with the points along a deformation, and a plane past the colour plane shows the colour plane's colours
   // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
-  // chain stay (svCarry.memo), so a glide's frame evaluates only the step's homotopy H (null at rest)
+  // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
+  let svCarryMemo = null;
   function svCarry(pane, cc, s, a, H) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
-    let m = svCarry.memo;
+    let m = svCarryMemo;
     if (!m || m.key !== key) {
       const G = s === T ? (z) => z : rangeF(s, T), toA = s === a ? null : rangeF(s, a);
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, W = (nx + 1) * (ny + 1);
-      m = svCarry.memo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
+      m = svCarryMemo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
       for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
         const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
         let q, g;
