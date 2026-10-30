@@ -91,7 +91,7 @@ function reeval(dir) {
   for (const d of ['maps', 'golden_diff']) fs.mkdirSync(path.join(dir, d), { recursive: true });
   for (const [id, prev] of Object.entries(met.runs)) {
     const run = byId[id];
-    if (!run || !prev.capture) { console.log(`skip ${id}`); continue; }
+    if (!run || !prev.capture || run.sphere) { console.log(`skip ${id}`); continue; }   // (a globe has no metrics to recompute)
     const img = PNG.decode(fs.readFileSync(path.join(dir, 'renders', id + '.png')));
     const res = evalRun(run, { rgba: img.data, cap: { geo: prev.capture.geo, colors: prev.capture.colors, clipWin: prev.capture.clipWin, info: prev.gpu }, settled: prev.settled, settleMs: prev.settle_ms, logs: [], busy: null }, dir, false);
     res.settle_ms = prev.settle_ms; res.render_sha1 = prev.render_sha1;
@@ -166,7 +166,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // repeatedly), whether the app reports work in progress, and the final capture
 const PAGE_HELPERS = `window.__qreg = {
   snap() {
-    const c = document.getElementById('canvasR');
+    const c = document.getElementById(window.__qregCanvas || 'canvasR');
     if (!c || !c.width) return null;
     let s = window.__qregScratch;
     if (!s || s.width !== c.width || s.height !== c.height) { s = window.__qregScratch = document.createElement('canvas'); s.width = c.width; s.height = c.height; }
@@ -186,14 +186,16 @@ const PAGE_HELPERS = `window.__qreg = {
   // for a program, or drew a shape with a stand-in while the shape's inverse program compiled (a gate scores the exact
   // image, never its stand-in). ids: the programs still compiling, reported when the run does not settle
   busy() {
-    const led = document.getElementById('rightLed');
+    // (a globe on X's side: that pane's light and status)
+    const side = window.__qregCanvas === 'canvasL' ? 'L' : 'R';
+    const led = document.getElementById(side === 'L' ? 'leftLed' : 'rightLed');
     const st = typeof GLR !== 'undefined' && GLR.frameStatus ? GLR.frameStatus() : null;
-    const ps = typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus('R') : null;
+    const ps = typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus(side) : null;
     const ids = typeof GLR !== 'undefined' && GLR.pending ? GLR.pending().map((e) => e.id.split('|')[0] + (e.key === 'static' ? '' : '|' + e.id.split('|').pop())) : [];
     return { led: led ? led.className : '', pending: ps ? ps.pending || ps.exact > 0 : !!(st && st.pending), exact: ps ? ps.exact : null, own: !!ps, ids, glErr: st && st.error || '' };
   },
   capture() {
-    const c = document.getElementById('canvasR');
+    const c = document.getElementById(window.__qregCanvas || 'canvasR');
     const r = c.getBoundingClientRect();
     const d = this.snap();
     let s = ''; for (let i = 0; i < d.length; i += 0x8000) s += String.fromCharCode.apply(null, d.subarray(i, i + 0x8000));
@@ -224,12 +226,12 @@ async function renderRun(B, run, opt) {
   // the saved state is written before any app script runs (fresh profile, own namespace per scene)
   const seeded = 'qreg-seeded:' + ns;
   // (v15: the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
-  const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
+  const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; window.__qregCanvas = ${JSON.stringify(run.canvas || 'canvasR')}; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
   const t0 = Date.now();
   B.logs.length = 0;
   await B.send('Page.navigate', { url: `${opt.base}/test.html?ns=${ns}` });
   // wait for the app, then until the right canvas stops changing and nothing is in progress
-  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null;
+  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false;
   const deadline = t0 + opt.timeoutMs;
   await sleep(600);
   while (Date.now() < deadline) {
@@ -238,6 +240,8 @@ async function renderRun(B, run, opt) {
       if (!(await B.ev(`typeof window.__qreg === 'object'`))) await B.ev(PAGE_HELPERS + ' true');
       const r = await B.ev(`({ h: __qreg.hash(), b: __qreg.busy(), ready: typeof __cmwState === 'function' })`);
       h = r.ready ? r.h : null; busy = r.b;
+      // (a globe's camera is not in the saved state: pinned here once the app is up, before the canvas may settle)
+      if (r.ready && run.cam && !camSet) { const { side, ...o } = run.cam; await B.ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(o)}), 1`); camSet = true; last = null; continue; }
     } catch (e) { h = null; }
     const now = Date.now();
     lastBusy = busy;
@@ -266,6 +270,7 @@ function evalRun(run, r, outDir, writeRender = true) {
     const b = r.busy;
     out.problems.push(`did not settle within the timeout (last change at ${r.settleMs} ms` + (b ? `; led '${b.led}', pending ${b.pending}${b.exact ? `, ${b.exact} shape(s) waiting for the inverse program` : ''}, compiling: ${(b.ids || []).join(', ') || 'none'}` : '') + ')');
   }
+  if (run.sphere) return evalGlobe(run, r, out, outDir);
   let viewKnown = true;
   if (!cap.geo.o) {
     // no __cmwW2S hook: assume the pinned view (centered in the canvas) and say so
@@ -317,6 +322,32 @@ function evalRun(run, r, outDir, writeRender = true) {
   if (r.busy && r.busy.glErr) out.problems.push('GL error: ' + r.busy.glErr);
   out.view_verified = viewKnown;
   out.ok = r.settled && !(r.busy && r.busy.glErr) && !out.problems.some((p) => p.startsWith('right view'));
+  return out;
+}
+
+// a globe (scenes.js SPHERE_SCENES): no flat ground truth, so its golden diff alone (paired: the reference's render);
+// compare_quality.py reports it and never gates it
+function evalGlobe(run, r, out, outDir) {
+  const { cap, rgba } = r, W = cap.geo.w, H = cap.geo.h;
+  out.metrics = {};
+  const gp = path.join(GOLDEN, run.id + '.png');
+  if (fs.existsSync(gp)) {
+    const g = PNG.decode(fs.readFileSync(gp));
+    if (g.w !== W || g.h !== H) { out.metrics.golden_diff = 1; out.problems.push(`golden is ${g.w}x${g.h}, render is ${W}x${H}`); }
+    else {
+      const gd = M.goldenDiff(rgba, g.data, W, H, GOLDEN_THR);
+      out.metrics.golden_diff = gd.frac;
+      fs.writeFileSync(path.join(outDir, 'golden_diff', run.id + '.png'), PNG.encode(W, H, gd.map));
+    }
+  } else { out.metrics.golden_diff = null; out.problems.push('no golden PNG yet (a paired run compares with the reference\'s render)'); }
+  out.capture = { geo: cap.geo, colors: cap.colors, canvas: run.canvas };
+  out.settle_ms = r.settleMs;
+  out.settled = r.settled;
+  out.render_sha1 = crypto.createHash('sha1').update(rgba).digest('hex');
+  const exc = r.logs.filter((l) => l.startsWith('EXC'));
+  if (exc.length) out.problems.push('page exceptions: ' + exc.slice(0, 3).join(' | '));
+  if (r.busy && r.busy.glErr) out.problems.push('GL error: ' + r.busy.glErr);
+  out.ok = r.settled && !(r.busy && r.busy.glErr);
   return out;
 }
 

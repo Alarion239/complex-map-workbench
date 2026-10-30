@@ -140,6 +140,17 @@ Variants: **polar** = pattern `polar` (the app's log-polar checker); **mask85** 
 For `expH` and `e1z_*` the boundary stroke (the image of the region's boundary: the positive real ray, the curve
 e^{e^{iφ}}) runs through the inside of the image; like `disc_cube` they exclude a 2.5 px band around it (`srcSdf`).
 
+**Globes (group `sphere`, report only).** A sphere has no flat ground truth, so these runs skip the metrics above and
+are scored by `golden_diff` alone, against the reference build's render in CI's paired run (`ci/quality.js`) or the
+golden PNG locally. `compare_quality.py` lists their diff as info and never gates it, and a globe that did not render
+is a warning: a change to the globe's shading or camera shows up in the quality job's summary, and an intended one
+passes. Each pins the app's default camera at 1440 × 900 (`__cmwCam`, written out in `scenes.js`).
+
+| run | what | canvas |
+|---|---|---|
+| `sphere_disc_sq.look` | the exact image of \|z − (0.3 + 0.2i)\| < 0.5 under z² on Y's globe | `#canvasR` |
+| `sphere_phase.look` | the Phase view on X's globe, F(z) = z | `#canvasL` |
+
 ## Metrics
 
 ### Pixel classes

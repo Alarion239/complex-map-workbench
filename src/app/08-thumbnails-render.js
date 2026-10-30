@@ -398,7 +398,7 @@
     }
     // (#246) the step glide moves T while it owns it: T is still what it wrote last. Play, the scrubber, a tick, a new
     // range or focus that moved T take it back, and the glide rests where T is
-    if (glide.moving()) {
+    if (glide.moving() && !trans.glide) {
       if (!morph.open || morph.playing || morph.T !== glide.x) glide.set(morph.T);
       else {
         // (a step removed or turned off while it glides: the target stays inside the chain as it is now)
@@ -438,7 +438,9 @@
       again = true;
     }
     if (tweens.length) { stepTweens(ts); again = true; }
-    if (trans.k) {
+    if (trans.glide) {
+      if (stepPeek(ts)) again = true;
+    } else if (trans.k) {
       if (performance.now() - trans.t0 >= trans.dur || !stepActive(trans.k)) { trans.k = 0; scheduleFix(); if (rightAuto && rImage()) fitRight(true); }
       dirty.R = true; again = true;
     }
@@ -472,7 +474,42 @@
     if (again && !rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
   // a newly added step plays its own homotopy once, so the change is seen as a deformation
-  const trans = { k: 0, t0: 0, dur: 480 };
+  // (#362 glide: ‹ › on a phone's chain glide Y's picture from one step's plane to the next with the transition's map program,
+  // in Y alone and with no transport: the panes, the deformation and its bar stay as they are. glide, the spring, is the
+  // position x in steps; trans.k is the step it is inside while it moves, trans.at the stage Y rests on between two steps,
+  // -1 when it rests on F as ever)
+  const trans = { k: 0, t0: 0, dur: 480, glide: false, at: -1 };
+  // the active steps of the chain when the deformation's range is all of it, one after another: the planes ‹ › step between
+  function peekSteps() {
+    const all = [];
+    for (let k = 1; k <= nSteps(); k++) if (stepActive(k)) all.push(k);
+    const r = morphRange();
+    return all.length && !allAtOnce() && r.steps.length === all.length && r.steps.every((k, i) => k === all[i]) ? all : null;
+  }
+  // the glide ends: Y rests on F again, fitted as it was
+  function endPeek() {
+    if (!trans.glide) return;
+    trans.glide = false; trans.k = 0; trans.at = -1; glide.set(0);
+    if (rightAuto && rImage()) fitRight(true);
+    scheduleFix(); requestRender('R'); phoneChain();
+  }
+  // one frame of the glide; true while it moves
+  function stepPeek(ts) {
+    const L = !morph.open && peekSteps();
+    if (!L) { endPeek(); return false; }
+    if (glide.target > L.length) glide.to(L.length, L.length);
+    if (glide.moving()) {
+      const dt = glide.last ? (ts - glide.last) / 1000 : 1 / 60;
+      glide.last = ts;
+      glide.step(dt);
+    }
+    if (glide.moving()) { trans.k = L[Math.max(1, Math.ceil(glide.x - 1e-6)) - 1]; trans.at = -1; dirty.R = true; return true; }
+    glide.last = 0;
+    if (glide.x >= L.length - 1e-6) { endPeek(); return false; }
+    const j = Math.round(glide.x), at = j === 0 ? L[0] - 1 : L[j - 1];
+    if (trans.k || trans.at !== at) { trans.k = 0; trans.at = at; dirty.R = true; scheduleFix(); phoneChain(); }
+    return false;
+  }
   function startTransition(k) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches || !rImage() || morphOn() || rightStage() !== k || !stepActive(k)) return;
     trans.k = k; trans.t0 = performance.now();
@@ -482,8 +519,9 @@
     requestRender('R');
   }
   function transState() {
-    const u = Math.min(1, (performance.now() - trans.t0) / trans.dur);
-    const t = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    // (the glide's t is the spring's own, already eased)
+    const u = trans.glide ? glide.x - Math.floor(glide.x - 1e-6) : Math.min(1, (performance.now() - trans.t0) / trans.dur);
+    const t = trans.glide ? u : u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
     const k = trans.k, Fprev = stageF(k - 1);
     // a new d/dz step slides from G_{k−1} to G_k along the straight line
     if (isDeriv(k)) return { map: { mode: 1, hi: k, t }, F: lerpF(Fprev, stageF(k), t), u };
@@ -559,6 +597,7 @@
     if (fit && leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
     if (fit) lastLeftSig = ls;
     if (fit && !sliced) { fitMs = performance.now() - tf; fitLate = 0; }
+    endPeek();
     if (morph.open && !morphRange().steps.length) closeTransport();
     scheduleFix();
     updateLeds();
@@ -679,6 +718,7 @@
   }
   function setFocus(k, quiet) {
     phHold();
+    endPeek();
     setFocusStep(k);
     if (k > 0) setSel(k);   // (v15: showing a step alone selects it)
     leftAuto = true; rightAuto = true;

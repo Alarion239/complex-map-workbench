@@ -41,8 +41,9 @@ const AREAS = {
 // What a path selects. The first row whose pattern matches wins (* is any name, ** any path, {a,b} either); a path no
 // row matches is T3. Effects: full (T3), areas (their browser shards), core (T2: quality, perf and the core shards),
 // glsl/quality/perf (that job; glsl: 'all' for every page, otherwise the pages whose inputs the path is),
-// suite (the shards of test/<suite>_cmd.js), uses (a test helper: whatever uses it), harness (the smoke shard proves
-// the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
+// suite (the shards of test/<suite>_cmd.js), uses (a test helper: whatever uses it), hooks (the test hooks: the shards
+// of the suites that call a hook the diff changes; T3 when the diff's hooks cannot be named, no suite calls them, or a
+// hook is called outside the browser suites and unit tests), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
 const full = (why) => ({ full: true, why });
 const ui = (...areas) => ({ areas });
 const T0 = { t0: true };
@@ -52,7 +53,12 @@ const MAP = [
   // the app (src/app/: app.js in parts, joined in name order by build.py; a part not listed here is T3)
   ['src/{app,gl}/wrap.js', full('the closure around the parts')],
   ['src/app/01-core.js', full('the app\'s state and its core, under every area')],
-  ['src/app/18-init-constructions.js', full('the app\'s start-up and the test hooks')],
+  // ([#385] the start-up file in parts along its seams, joined in name order as before, byte for byte the same build)
+  ['src/app/18-params.js', full('the shared numbers and links, under every area')],
+  ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
+  ['src/app/20-init.js', full('the app\'s start-up')],
+  ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
+  ['src/app/22-start.js', full('the app\'s start')],
   ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
   ['src/app/04-labels-zeros-poles.js', ui('views', 'constructions')],                     // labels, zeros and poles
   ['src/app/05-panes-rulers.js', ui('views', 'desktop', 'phone')],                         // view fitting, panes, rulers
@@ -74,6 +80,8 @@ const MAP = [
   ['build.py', full('the build itself')],
   ['tools/src_parts.py', full('how build.py joins the split files')],
   ['tools/bundle.mjs', full('the bundle of the app\'s modules (esbuild)')],
+  ['vendor/**', full('the vendored typesetter and faces, in every page')],
+  ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone')],                                               // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
   ['src/figure.js', ui('export')],                                            // exported figures, and the images shard
@@ -89,7 +97,7 @@ const MAP = [
   ['src/integrals.js', { core: true, areas: ['desktop'] }],                   // the integrals (from part 07; the palette's ∫ too)
   ['src/examples.js', ui('desktop', 'phone', 'tour')],                        // the examples and the guide (from part 15)
   ['src/page.html', ui('desktop', 'phone')],                                  // the page's markup: both layouts
-  ['src/desk.css', ui('desktop')],                                            // the desktop styles
+  ['src/desk.css', ui('desktop', 'phone')],                                   // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
   ['src/{cx,parse,funcs,homrange,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
@@ -174,8 +182,54 @@ function glslPagesOf(f) {
   return GLSL.PAGES.filter((p) => GLSL.inputsOf(p).some((i) => i === f || f.startsWith(i + '/'))).map((p) => p.id);
 }
 
+// [#385] the files that name window.__cmw<name> (a whole word): the browser suites (test/*_cmd.js) and unit tests are
+// fine; anything else that calls a hook (the app itself, the quality and perf runners, ci/, the cdp kit) is outside
+function hookCallers(names) {
+  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[$]/g, '\\$&')).join('|')})\\b`);
+  const suites = [], outside = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name)) walk(rel); continue; }
+      if (!/\.(js|mjs|py|html)$/.test(e.name) || rel === 'src/app/21-test-hooks.js') continue;
+      if (!re.test(fs.readFileSync(path.join(ROOT, rel), 'utf8'))) continue;
+      if (/^test\/[^/]+_cmd\.js$/.test(rel)) { if (!EXCLUDED[e.name]) suites.push(e.name); } else if (!/^test\/t_[^/]+\.js$/.test(rel)) outside.push(rel);
+    }
+  };
+  for (const d of ['src', 'test', 'ci', 'tools']) walk(d);
+  return { suites, outside };
+}
+// [#385] the hooks a diff of src/app/21-test-hooks.js changes: each changed line (old and new) belongs to the hook
+// defined at or above it (a line "  window.__cmw<name> =" starts one, the comments before it belong to it); null when a
+// changed line is above every hook or in a statement that is not one (a helper between hooks)
+function hooksOfDiff(from, head, f) {
+  let diff;
+  try { diff = git('diff', '-U0', '--no-renames', from, head, '--', f); } catch (e) { return null; }
+  const text = (rev) => { try { return git('show', `${rev}:${f}`).split('\n'); } catch (e) { return []; } };
+  const lines = { old: text(from), new: text(head) };
+  // (the hook of line n, 1-based: the next definition at or after the comment block n is in, else the one above it)
+  const hookAt = (L, n) => {
+    const def = (i) => { const m = /^ {2}(?:\/\*\* @type \{any\} \*\/ \(window\)|window)\.(__cmw\w+)\s*=/.exec(L[i] || ''); return m ? m[1] : null; };
+    let i = n - 1;
+    if (/^\s*\/\//.test(L[i] || '')) { for (let j = i; j < L.length; j++) { const d = def(j); if (d) return d; if (!/^\s*\/\//.test(L[j] || '')) break; } }
+    // (a top-level line that is not a hook, a comment or a closing bracket, e.g. a helper between hooks: not known)
+    for (; i >= 0; i--) { const d = def(i); if (d) return d; if (/^ {2}[^ /})\]]/.test(L[i] || '')) return null; }
+    return null;
+  };
+  const names = new Set();
+  for (const h of diff.split('\n').filter((l) => l.startsWith('@@'))) {
+    const m = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(h);
+    if (!m) return null;
+    for (const [side, start, count] of [['old', +m[1], m[2] == null ? 1 : +m[2]], ['new', +m[3], m[4] == null ? 1 : +m[4]]]) {
+      for (let n = start; n < start + count; n++) { const k = hookAt(lines[side], n); if (!k) return null; names.add(k); }
+    }
+  }
+  return [...names];
+}
+
 // files: the changed paths; opts: { full: reason, glslDeep: reason (every GLSL chain on Windows too), sameBuild: true |
-// false | null (not checked) } -> the plan
+// false | null (not checked), hooksOf: (path) -> the test hooks its diff changes, or null (the CLI's, from the diff) }
+// -> the plan
 function select(files, opts = {}) {
   const reasons = [];   // { path, rule, effect: text }
   const browser = new Set(), glsl = new Set();
@@ -216,6 +270,19 @@ function select(files, opts = {}) {
       if (!users.length && !glslPagesOf(f).length) { unknown = true; fullWhy.push(`${f}: no test names it`); say(f, row.glob, 'T3: a test file no suite or unit test names'); continue; }
       got.push(`what uses it: ${users.join(', ') || 'GLSL'}`);
     }
+    if (e.hooks) {
+      // ([#385] a test hook acts only when something calls it: the suites that name a changed hook)
+      const names = opts.hooksOf ? opts.hooksOf(f) : null;
+      const calls = names && names.length ? hookCallers(names) : null;
+      // (fail safe: a changed hook no browser suite calls is not "nothing to run" but T3, as a hunk the map cannot place)
+      if (!calls || calls.outside.length || !calls.suites.length) {
+        const why = !names ? 'its changed hooks are not known (no diff, or a line outside every hook)' : !names.length ? 'no hook in its diff' : calls.outside.length ? `a hook called outside the browser suites (${calls.outside.join(', ')})` : `no browser suite calls ${names.join(', ')}`;
+        fullWhy.push(`${f}: ${why}`); say(f, row.glob, `T3: ${why}`); continue;
+      }
+      for (const t of calls.suites) for (const id of shardsOfSuite(t)) browser.add(id);
+      wantSmoke = true;
+      got.push(`the suites that call ${names.join(', ')}: ${calls.suites.join(', ') || 'none'}`);
+    }
     const pages = glslPagesOf(f);
     if (pages.length && e.glsl !== 'all') got.push(`GLSL ${pages.join(', ')}`);
     say(f, row.glob, got.join('; ') || 'the unit tests');
@@ -243,12 +310,12 @@ function select(files, opts = {}) {
 
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
 function changedFiles(from, head) { return git('diff', '--name-only', '--no-renames', from, head).split('\n').filter(Boolean); }
-// the app's two dist files built at ref and in this checkout are byte for byte the same
+// the app's dist files built at ref and in this checkout are byte for byte the same (the offline page too, #21)
 function sameBuild(ref) {
   const { buildReference } = require('./reference');
   const R = buildReference(ref);
   if (run(PY, ['build.py']) !== 0) throw new Error('this checkout did not build');
-  return ['complex-map-workbench.html', 'test.html'].every((f) => {
+  return ['complex-map-workbench.html', 'complex-map-workbench-offline.html', 'test.html'].every((f) => {
     const a = path.join(ROOT, 'dist', f), b = path.join(R.dist, f);
     return fs.existsSync(a) && fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b));
   });
@@ -299,7 +366,7 @@ if (require.main === module) {
     if (r.status === 0 || r.status === 10) same = r.status === 0;
     else { console.error('the same-build check failed: the build counts as changed'); same = false; }
   }
-  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same });
+  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
   else if (argv.includes('--github')) {
     // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)
@@ -320,4 +387,4 @@ if (require.main === module) {
     process.exit(rc);
   }
 }
-module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe };
+module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe, hookCallers, hooksOfDiff };

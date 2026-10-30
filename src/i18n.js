@@ -414,6 +414,16 @@ const I18N = (() => {
       if (document.fonts && document.fonts.load) document.fonts.load('400 11px "CMW Comma"', ',').catch(() => []).then(fire);
       return;
     }
+    // the offline page (issue #21) has the faces inline, #cmw-fonts-ru: a style element (page.html's head script adds it
+    // before the body is painted, else it is added here), whose rules exist at once
+    const inline = document.getElementById('cmw-fonts-ru');
+    if (inline) {
+      if (!document.getElementById('i18n-fonts')) document.head.append(Object.assign(document.createElement('style'), { id: 'i18n-fonts', textContent: inline.textContent }));
+      if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', fire);
+      if (!document.fonts || !document.fonts.load) fire();
+      else Promise.all(FACES.map((f) => document.fonts.load(f, f.includes('Comma') ? ',' : 'Жж').catch(() => []))).then(fire);
+      return;
+    }
     // page.html's head script adds the link before the body is painted (review eng-1, eng-2); else it is added here
     let ln = document.getElementById('i18n-fonts');
     const had = !!ln;

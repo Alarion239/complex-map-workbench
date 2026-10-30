@@ -42,11 +42,14 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
 | **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
-| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-init-constructions.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
+| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
   first row whose pattern matches a path decides what it selects. A test helper or fixture selects the suites and
-  unit tests whose source names it; a path nothing matches is T3 (fail safe). Every GLSL page whose inputs
+  unit tests whose source names it; a path nothing matches is T3 (fail safe). The app's test hooks
+  (`src/app/21-test-hooks.js`, `window.__cmw*`) select the shards of the suites that call a hook the diff changes,
+  read from the diff (#385); a changed line outside every hook, a hook something other than the browser suites and
+  unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -69,6 +72,12 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
   other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
   and so does every later push while it is not a draft.
+- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing once its
+  push's run on that commit has passed: the job *ready* finds the newest other Gate run of this PR on the same commit,
+  and only if it passed does the plan select no job (tier `none`), the unit job skip, and the **Gate** job check that
+  run again and carry its verdict. Queued, running, failed, cancelled or none: the run is the usual one, so a green
+  Gate never stands on a commit before a gate passed there. Either way it has a concurrency group of its own and never
+  cancels the push's run (#379, `test/t_gate_ready.js`).
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the

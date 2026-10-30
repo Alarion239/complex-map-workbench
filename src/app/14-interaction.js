@@ -139,6 +139,12 @@
     // 450 ms; then its gesture is undone and becomes a probe (readouts, gauge). Sliding on probes; a release without
     // sliding opens the plane menu at the ring's point. A second finger, or a move before the ring is full, cancels it.
     let hold = null, ring = null;
+    // (#362 a tap on Y while ‹ › have it on a step's plane (select, draw, a menu) ends the glide: Y is F again; a pan or a zoom does not)
+    if (side === 'R') {
+      let tap = null;
+      cv.addEventListener('pointerdown', (e) => { tap = trans.glide ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; }, true);
+      cv.addEventListener('pointerup', (e) => { if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8 && performance.now() - tap.t < 500) endPeek(); tap = null; }, true);
+    }
     const PM = () => PlaneMenu;
     const endHold = () => { if (hold) { clearTimeout(hold.t); hold = null; } if (PM()) PM().ringStop(); };
     cv.addEventListener('pointerdown', (e) => {

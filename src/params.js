@@ -530,8 +530,9 @@ const Params = (() => {
     const sec = h('section', { class: 'psec prm', 'aria-label': $t('Numbers') });
     // (review design-17: one add control, + Number at the end of the list)
     sec.append(h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))));
-    const listEl = h('div', { class: 'prm-list', role: 'list' });
     const a = arr();
+    // (#361: a list only with rows to list: its one child with none is the hint, which is not a list item)
+    const listEl = h('div', { class: 'prm-list', role: a.length ? 'list' : null });
     if (!a.length && !m.adding) listEl.append(h('div', { class: 'prm-empty', html: $t('Type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.') }));
     for (const p of a) listEl.append(row(m, p));
     sec.append(listEl);

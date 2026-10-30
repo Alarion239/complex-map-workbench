@@ -1,6 +1,6 @@
 # Review: sound, from an accessibility expert and a maths user who dislikes noise
 
-Scope: `notes/sound/DESIGN.md`, `notes/sound/prototype.html`, and the integration plan (DESIGN §4), checked against
+Scope: `notes/sound/DESIGN.md`, `notes/sound/prototype.html` (removed, see git history at 099e5f1), and the integration plan (DESIGN §4), checked against
 `src/app.js` where the hooks would go. I read the whole prototype and ran my own headless-Chrome checks. They used a
 separate daemon, now stopped, with its profile deleted. The scripts are `cdp/cmd/a11y1.js` … `a11y4.js`; run them in
 order on a fresh daemon. The console stayed empty in every run.

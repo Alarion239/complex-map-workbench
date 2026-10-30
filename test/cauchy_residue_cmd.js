@@ -129,7 +129,7 @@ const c1 = await W2P(0, 0);
 let nonGrey = 0, tot = 0;
 for (let y = 3; y < b1.h; y += 5) for (let x = 3; x < b1.w; x += 5) {
   const d = Math.hypot(x - c1[0], y - c1[1]);
-  if (d < 1.2 * 110 + 8 || (x < 130 && y < 50) || (x > b1.w - 60 && y > b1.h - 120)) continue;   // outside the curve's largest radius (1.12 · 110 px) and a margin; the scale chip and the zoom buttons are not the plot
+  if (d < 1.2 * 110 + 8 || (x < 130 && y < 50) || (x > b1.w - 60 && y > b1.h - 120) || (x > b1.w - 160 && y < 100)) continue;   // outside the curve's largest radius (1.12 · 110 px) and a margin; the scale chip, the zoom buttons and the colour key (#365: always on the plot, top right) are not the plot
   tot++; if (!isGrey(b1.at(x, y))) nonGrey++;
 }
 ok('B the outside of the hand-drawn curve is neutral grey everywhere (the formula gives exactly 0)', tot > 1000 && nonGrey === 0, { tot, nonGrey });

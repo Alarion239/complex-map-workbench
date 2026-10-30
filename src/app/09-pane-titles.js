@@ -19,6 +19,17 @@
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    // ([#356] "Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
+    // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
+    // its gaps), and last its status light goes (Russian at 1024 px)
+    const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+    const legIn = !!(leg && hd && leg.parentNode === hd);
+    const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
+    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    if (legIn && !leg.hidden && tabsCut()) {
+      leg.classList.add('glyph');
+      if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
+    }
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
     if (!(pane.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
@@ -882,7 +893,10 @@
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
   // (o.still: opened paused at its end, F, for the step glide to start from; #246)
   function openTransport(o) {
-    const still = !!(o && o.still === true);
+    // (#362 opened while ‹ › have Y on a step's plane: the deformation opens paused there, the inspectable version of it)
+    const parked = trans.glide ? (glide.moving() ? glide.target : glide.x) : null;
+    endPeek();
+    const still = parked != null || !!(o && o.still === true);
     if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
     phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
@@ -890,7 +904,7 @@
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
     if (mem) { Object.assign(V.right, mem.v); rightAuto = mem.auto; } else rightAuto = true;
     morph.open = true;
-    morph.T = still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
+    morph.T = parked != null ? Math.min(parked, morphLen()) : still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
     morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
     setPlayIcon();
@@ -965,6 +979,7 @@
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
   // after a click, the options behind the Display options button (wave 2's D4 turns it into a Display popover). A phone
   // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
+  const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
     let moved = false;
@@ -972,7 +987,17 @@
       const pane = side === 'L' ? $('paneL') : $('paneR'), head = pane && pane.querySelector('.pane-head'), plot = $(side === 'L' ? 'plotL' : 'plotR');
       const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend'), ft = $(side === 'L' ? 'leftFoot' : 'rightFoot'), led = $(side === 'L' ? 'leftLed' : 'rightLed');
       if (!head || !plot || !leg || !ft) continue;
-      if (!ph) {
+      // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key and
+      // Y's pattern key stay chips in the head)
+      const onPlot = side === 'L' && !ph && keyOnPlot();
+      if (onPlot) {
+        if (leg.parentNode !== plot) {
+          leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
+          const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
+          leg.removeAttribute('aria-label'); moved = true;
+        }
+        if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
+      } else if (!ph) {
         if (leg.parentNode !== head) { head.insertBefore(leg, led && led.parentNode === head ? led : null); leg.classList.remove('collapsed'); moved = true; }
         if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
         // (the empty chain's call to action too: "Add function" in Y's head, not over the picture)
@@ -1000,7 +1025,12 @@
     if (kind === 'image') return S.pattern === 'stretch' ? $t('Scale |F′|') : S.pattern === 'sphere' ? $t('Sphere cells') : $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) });
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
-  function drawLegend() { drawLegendSide('L'); drawLegendSide('R'); }
+  function drawLegend() {
+    // (#365: the view changed under a laptop: Phase's key goes to the plot, the others' back to the head)
+    const L = $('leftLegend'), pl = $('plotL');
+    if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
+    drawLegendSide('L'); drawLegendSide('R');
+  }
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
@@ -1042,9 +1072,16 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      const tip = kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open');
+      // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
+      // own words already name it)
+      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
+    }
+    // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
+    if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
+      const nm = $t('Colour key');
+      if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
     if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
       box.dataset.kind = kind; box.dataset.pal = GLR.palette();
@@ -1238,6 +1275,26 @@
   // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
   // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
   function glideStep(d) {
+    // (#362 the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
+    if (morph.open) endPeek();
+    if (!morph.open && S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
+    const L = !morph.open && peekSteps();
+    if (L) {
+      if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
+      glide.nudge(d, L.length);
+      glide.last = 0;
+      // (reduced motion: the plane at once)
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) glide.set(glide.target);
+      // (Y's view follows the plane the glide is heading for, each fitted on its own: in the inset a view that held every
+      // plane left the first of them a speck off the centre)
+      if (rightAuto && rImage()) {
+        const j = Math.round(glide.target), at = j === 0 ? L[0] - 1 : L[j - 1];
+        tweenView(V.right, fittedView(paneR, at, []));
+      }
+      requestRender('R');
+      phoneChain();
+      return;
+    }
     if (!morph.open) {
       if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
       if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
@@ -1260,8 +1317,8 @@
   // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
   // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
   function chainState() {
-    const n = nSteps(), open = morphOn(), m = open ? morphLen() : 0;
-    const T = !open ? m : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
+    const n = nSteps(), open = morphOn() || trans.glide, m = open ? morphLen() : 0;
+    const T = !open ? m : trans.glide ? (glide.moving() ? glide.target : glide.x) : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
     let k = n, html = '', name = '';
     // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
     const alone = !open && S.focus > 0;

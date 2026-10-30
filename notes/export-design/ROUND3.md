@@ -179,7 +179,7 @@ Still open after the review round:
 
 ## Look at these
 
-All in `notes/export-design/round3/`:
+All in `notes/export-design/round3/` (removed, see git history at 099e5f1):
 
 - `dlg-png-1440.png`: the dialog with Format = PNG, the LaTeX box and its note.
 - `dlg-video-1440.png`, `dlg-video-360-dark.png`: Format = Video, its poster frame and options; phone width, dark.

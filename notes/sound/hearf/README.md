@@ -6,7 +6,7 @@
 
 You said the sound is "not the same" and asked whether each point should sound, or a curve or the function as a
 whole. This folder answers with research, four options, and one page where you can hear all of them on the same
-gestures: [`options.html`](options.html). Nobody here has listened to it. Everything below is measured or reasoned from
+gestures: `options.html` (removed, see git history at 099e5f1). Nobody here has listened to it. Everything below is measured or reasoned from
 acoustics, so your ear decides.
 
 ## What the research found
