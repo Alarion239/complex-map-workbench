@@ -1307,7 +1307,7 @@ registerProcessor('cmw-limit', Limit);`;
       LEAD = Math.max(0.012, 2 * (ctx.baseLatency || 0.005));
       G = graph(ctx, 0);
       // the worklet loads in the background; until it is there (or where it is refused) the fallback renders cues
-      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; if (ok) g.synth = makeSynth(g); g.engine = ok ? 'worklet' : 'nodes'; limitOn(g); emit(); }); } else { G.engine = 'nodes'; limitOn(G); }
+      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; if (ok) g.synth = makeSynth(g); g.engine = ok ? 'worklet' : 'nodes'; limitOn(g); emit(); if (g === G) flushPend(); }); } else { G.engine = 'nodes'; limitOn(G); }
       applyGains(true);
     }
     if (ctx.state !== 'running') ctx.resume().then(emit, () => {});
@@ -1318,60 +1318,65 @@ registerProcessor('cmw-limit', Limit);`;
   // backlog as a burst on resume. The one exception: a single sound inside an active gesture (the "on" confirmation).
   function canSchedule(grace, wait) {
     if (ctx && ctx.state === 'running') return true;
-    // the context is due one frame after this gesture: a one-shot waits for it (play queues it); anything else creates
-    // it now, as before
+    // the context is due just after this gesture: a one-shot waits for it (play queues it); anything else creates it
+    // now, as before
     if (pendT) { if (wait) return 'wait'; ensureNow(); return canSchedule(grace); }
     if (!ensure()) return false;
     if (ctx.state === 'running') return true;
     if (grace && !graceUsed && inGesture()) { graceUsed = true; return true; }
+    // (a context the deferred start made that is not running yet, e.g. Firefox's: a one-shot waits for its statechange)
+    if (wait && performance.now() - bornAt < 1500) return 'wait';
     return false;
   }
   // The first gesture's context (#271): new AudioContext() takes ~55 ms, so it is created just after the gesture, not
-  // inside it: the click's own frame paints first, and the gesture still counts (Chrome and Firefox keep transient
-  // activation ~5 s, WebKit carries it through timers ~1 s). One-shots asked for meanwhile wait in pendQ (one per
-  // catalog entry, with its intended start) and sound against the new clock. Safety net (old iOS): once a context
-  // exists, or a deferred start made none, a gesture calls ensure() synchronously, as before.
-  /** @type {{ raf: number, to: any, late: any } | null} */
+  // inside it, by a timer created in the activating event itself: WebKit carries a gesture only to a timer created while
+  // it is processed (a timer created in a requestAnimationFrame callback has none); Chrome and Firefox keep transient
+  // activation ~5 s. The work timer (0 ms) is (re)armed by click, keydown, pointerup and touchend, so for a click it
+  // runs in the task after the click's; a mouse pointerdown arms only the backstop (250 ms: a press held into a drag).
+  // A touch pointerdown arms nothing (it is not an activation). One-shots asked for meanwhile wait in pendQ (one per
+  // catalog entry, with its intended start) and sound against the new clock, through the worklet once it has loaded.
+  // Safety net (old iOS): once a context exists, or a deferred start made none, a gesture calls ensure() synchronously.
+  /** @type {{ to: any, late: any } | null} */
   let pendT = null;
-  let syncNext = false;
+  let syncNext = false, bornAt = -1e9, pendDrop = 0;
   const pendQ = new Map();
-  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 16);
-  const unraf = typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : clearTimeout;
   function ensureNow() {
-    if (pendT) { unraf(pendT.raf); clearTimeout(pendT.to); clearTimeout(pendT.late); pendT = null; }
-    const tried = !!AC && P.on && !hidden && mayStart(), ok = ensure();
+    const deferred = !!pendT;
+    if (pendT) { clearTimeout(pendT.to); clearTimeout(pendT.late); pendT = null; }
+    const had = ctx, tried = !!AC && P.on && !hidden && mayStart(), ok = ensure();
     if (tried && !ctx) syncNext = true;
+    if (deferred && ctx && ctx !== had) bornAt = performance.now();
     if (!ok) pendQ.clear(); else flushPend();
     return ok;
   }
-  function deferEnsure() {
-    if (pendT) return;
+  function deferEnsure(work) {
     const run = () => { if (pendT) ensureNow(); };
-    pendT = { raf: 0, to: 0, late: 0 };
-    const p = pendT;
-    p.raf = raf(() => { p.to = setTimeout(run, 0); });
-    // (no frame comes, e.g. a throttled page: at most 250 ms later)
-    p.late = setTimeout(run, 250);
+    if (!pendT) pendT = { to: 0, late: setTimeout(run, 250) };
+    if (work) { clearTimeout(pendT.to); pendT.to = setTimeout(run, 0); }
   }
-  // the queued one-shots, once the clock runs (a statechange calls this again). The click's frame comes first: on a
-  // first frame that links shaders (the Deformation's) the start cue sounds with that frame's paint, not at the click.
-  // A cue that could not start within 1.5 s of its request is dropped: it would no longer belong to its gesture
+  // the queued one-shots, once the clock runs and the worklet has settled (a statechange and loadWorklet's end call
+  // this again): on the first gesture the cue is the worklet's, not a main-thread render. A cue that could not start
+  // within 1.5 s of its request is dropped: it would no longer belong to its gesture
   function flushPend() {
     if (!pendQ.size || pendT) return;
     if (!ctx) { pendQ.clear(); return; }
-    const now = performance.now() / 1000, run = ctx.state === 'running';
+    const now = performance.now() / 1000, run = ctx.state === 'running', loading = G && G.engine === 'loading';
     for (const [name, q] of [...pendQ]) {
       if (now - q.asked > 1.5) { pendQ.delete(name); continue; }
-      if (!run && !q.o.grace) continue;
+      if ((!run || loading) && !q.o.grace) continue;
       pendQ.delete(name);
       play(name, Object.assign({}, q.o, { at: Math.max(0, q.due - now) }));
     }
+    // (what still waits is dropped at 1.5 s even if nothing calls this again)
+    if (pendQ.size && !pendDrop) pendDrop = setTimeout(() => { pendDrop = 0; flushPend(); }, 1600);
   }
   const onActivate = (e) => {
     if (e.type === 'keydown' && e.key === 'Escape') return;
     activated = true; lastGesture = performance.now();
     if (!P.on || hidden || (ctx && ctx.state === 'running')) return;
-    if (ctx || syncNext) { syncNext = false; ensureNow(); } else deferEnsure();
+    if (ctx || syncNext) { syncNext = false; ensureNow(); return; }
+    if (e.type !== 'pointerdown') deferEnsure(true);
+    else if (!e.pointerType || e.pointerType === 'mouse') deferEnsure(false);
   };
   for (const ev of ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click']) window.addEventListener(ev, onActivate, { capture: true, passive: true });
   document.addEventListener('visibilitychange', () => {
@@ -1403,7 +1408,8 @@ registerProcessor('cmw-limit', Limit);`;
     const tier = o.tier || d.tier;
     if (!o.audition && (!P[tier] || (name === 'snap' && !P.snap))) return false;
     const cs = canSchedule(!!o.grace, true);
-    if (cs === 'wait') { if (!pendQ.has(name)) { const a = performance.now() / 1000; pendQ.set(name, { o, asked: a, due: a + (o.at || 0) }); } return true; }
+    // (one per catalog entry: a second request while the first waits is refused)
+    if (cs === 'wait') { if (pendQ.has(name)) return false; const a = performance.now() / 1000; pendQ.set(name, { o, asked: a, due: a + (o.at || 0) }); return true; }
     if (!cs) return false;
     const now = performance.now(), sched = !!o.force || o.at > 0;
     // zeros and poles are never forced: a shared gap, and a cluster (≥ 3 entries in 300 ms: sin(1/z), z⁵⁰ − 1,
