@@ -56,7 +56,9 @@ const MAP = [
   // ([#385] the start-up file in parts along its seams, joined in name order as before, byte for byte the same build)
   ['src/app/18-params.js', full('the shared numbers and links, under every area')],
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
-  ['src/app/20-init.js', full('the app\'s start-up')],
+  ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
+  ['src/app/19-shell.js', ui('desktop', 'phone')],                                         // the header, its menus, the panels and drawers (#385)
+  ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
   ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
