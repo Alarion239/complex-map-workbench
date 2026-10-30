@@ -155,8 +155,10 @@ for (const run of Q.runs()) {
     const st = Object.assign({}, run.state, { exactImages: false, rightView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
     await loadReady('p5v' + Date.now(), st);
     await sleep(900);
-    // (the verdict reads the pane's GPU resources: it is asked for once the pane has drawn its first frame and the LED rests)
-    for (let i = 0; i < 240; i++) { const b = await ev('({ led: document.getElementById("rightLed").className, frames: window.__p5w.frames, pending: GLR.frameStatus().pending })'); if (b.frames > 0 && !b.pending && !/busy/.test(b.led)) break; await sleep(250); }
+    // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
+    // is asked for here: the first may have come before) and the LED rests)
+    await ev('window.__p5f = window.__p5w.frames; __cmwHideStrokes(false); 1');
+    for (let i = 0; i < 240; i++) { const b = await ev('({ led: document.getElementById("rightLed").className, drew: window.__p5w.frames > window.__p5f, pending: GLR.frameStatus().pending })'); if (b.drew && !b.pending && !/busy/.test(b.led)) break; await sleep(250); }
     v.push(JSON.stringify(await ev('__cmwSmVerdict("R")')));
   }
   R.verdict.n++;
