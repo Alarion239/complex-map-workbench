@@ -736,7 +736,7 @@
     // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
     // says what the field is; the symbol keeps its own span, where a step's index goes)
     const word = paramWord(st, q);
-    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
     if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
     return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }
