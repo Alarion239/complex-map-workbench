@@ -159,22 +159,35 @@
   // painted by where it lands in the colour plane, G = f_T ∘ … ∘ f_{s+1} (its phase, the Arg pattern of the
   // pre-mapped meshes, which reads (ln |G|, arg G) from the vertex), and placed where posF takes it. So the colour
   // travels with the points along a deformation, and a plane past the colour plane shows the colour plane's colours
-  // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s)
-  function svCarry(pane, cc, s, posF) {
+  // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
+  // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
+  // chain stay (svCarry.memo), so a glide's frame evaluates only the step's homotopy H (null at rest)
+  function svCarry(pane, cc, s, a, H) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
-    const G = s === T ? (z) => z : rangeF(s, T);
-    const v = S.srcView, ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext;
-    const nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
+    let m = svCarry.memo;
+    if (!m || m.key !== key) {
+      const G = s === T ? (z) => z : rangeF(s, T), toA = s === a ? null : rangeF(s, a);
+      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, W = (nx + 1) * (ny + 1);
+      m = svCarry.memo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
+      for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
+        const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
+        let q, g;
+        try { q = toA ? toA(p) : p; g = G(p); } catch (e) { continue; }
+        if (!q || !g || !CX.isFin(q) || !CX.isFin(g)) continue;
+        m.ax[n] = q.re; m.ay[n] = q.im;
+        m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
+      }
+    }
     const K = 16 / TAU, lim = 0.35 * Math.max(pane.w, pane.h) / v.s;
-    const W = (nx + 1) * (ny + 1), qx = new Float64Array(W), qy = new Float64Array(W), gl = new Float64Array(W), ga = new Float64Array(W), ok = new Uint8Array(W);
-    for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
-      const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
-      let q, g;
-      try { q = posF(p); g = G(p); } catch (e) { continue; }
-      if (!q || !g || !CX.isFin(q) || !CX.isFin(g)) continue;
-      qx[n] = q.re - v.cx; qy[n] = q.im - v.cy;
-      gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); ga[n] = Math.atan2(g.im, g.re); ok[n] = 1;
+    const W = (nx + 1) * (ny + 1), qx = new Float64Array(W), qy = new Float64Array(W), ok = new Uint8Array(W), gl = m.gl, ga = m.ga;
+    for (let n = 0; n < W; n++) {
+      if (!m.ok[n]) continue;
+      let q = C(m.ax[n], m.ay[n]);
+      if (H) { try { q = H(q); } catch (e) { continue; } if (!q || !CX.isFin(q)) continue; }
+      qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
     }
     const pos = [], attr = [];
     const tri = (A, B, D) => {
@@ -234,8 +247,7 @@
     if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
     let carried = false;
     if (still || !isDeriv(b)) {
-      const toA = src === a ? null : rangeF(src, a), H = still ? null : homF(b, u);
-      carried = svCarry(pane, cc, src, (p) => { let q = toA ? toA(p) : p; if (H) q = H(q); return q; });
+      carried = svCarry(pane, cc, src, a, still ? null : homF(b, u));
     }
     // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the first
     // and the last 15 % of a glide)
