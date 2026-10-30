@@ -1113,8 +1113,9 @@ void levelStencil(int fa, int fb, bool two, int n, vec2 w, vec2 dx, vec2 dy, out
     int k = first ? s : s - n;
     vec2 o = k == 1 ? dx : k == 2 ? dy : k == 3 ? -dx : k == 4 ? -dy : vec2(0.0);
     float v = formulaLevel(first ? fa : fb, w + o);
-    vec4 e = vec4(k == 1 ? v : 0.0, k == 2 ? v : 0.0, k == 3 ? v : 0.0, k == 4 ? v : 0.0), q = vec4(k == 1, k == 2, k == 3, k == 4);
-    if (first) { if (k == 0) la = v; else a = mix(a, e, q); } else { if (k == 0) lb = v; else b = mix(b, e, q); }
+    // (plain assignments: a blend would turn a level that is already infinite into NaN, review #406)
+    if (first) { if (k == 0) la = v; else if (k == 1) a.x = v; else if (k == 2) a.y = v; else if (k == 3) a.z = v; else a.w = v; }
+    else { if (k == 0) lb = v; else if (k == 1) b.x = v; else if (k == 2) b.y = v; else if (k == 3) b.z = v; else b.w = v; }
   }
 }
 // area targets: the level of Region.levelOf, positive inside (NaN counts as outside)
@@ -1234,17 +1235,17 @@ ${sphere ? `  vec3 n = normalize(vP);
       // jump (a branch cut) or a pole (g from -inf to +inf: the differences differ by 1.3-1.7x), not a crossing
       int gi = int(K.z + 0.5);
       float pd;
-      float la, lb;
+      float s0, s1;
       vec4 sa, sb;
-      levelStencil(gi, gi + 1, K.w > 0.5, 5, w, dx, dy, la, sa, lb, sb);
+      levelStencil(gi, gi + 1, K.w > 0.5, 5, w, dx, dy, s0, sa, s1, sb);
       if (K.w > 0.5) {
-        vec2 D = vec2(la, lb), Dx = vec2(sa.x, sb.x), Dy = vec2(sa.y, sb.y), Bx = vec2(sa.z, sb.z), By = vec2(sa.w, sb.w);
+        vec2 D = vec2(s0, s1), Dx = vec2(sa.x, sb.x), Dy = vec2(sa.y, sb.y), Bx = vec2(sa.z, sb.z), By = vec2(sa.w, sb.w);
         vec4 dF = vec4(Dx - D, Dy - D), dB = vec4(D - Bx, D - By);
         float lf = length(dF), lb = length(dB), lm = max(lf, lb);
         if (!(length(D) < 1e30) || !(lm < 1e30) || length(dF - dB) > 0.5 * lm + 1e-30) continue;
         pd = length(D) / max(lm, 1e-30);
       } else {
-        float L = la;
+        float L = s0;
         vec2 gF = sa.xy - L;
         vec2 gB = L - sa.zw;
         float lf = length(gF), lb = length(gB), lm = max(lf, lb);
