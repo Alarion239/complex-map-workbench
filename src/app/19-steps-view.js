@@ -15,7 +15,8 @@
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
-    g: HomRange.glider({ omega: 7 }),
+    g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
+    anim: null,      // the glide to a plane: {from, to, t0, ms}, eased in and out over a fixed time (no spring tail)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
@@ -90,8 +91,12 @@
     i = Math.max(0, Math.min(P.length - 1, i));
     svKeepView();
     // (the landscape has no frames between two planes: it changes plane at once)
-    if (now || svReduced() || SV.surf === 'land') { SV.g.set(i); svArrive(); return; }
-    SV.g.to(i, P.length - 1);
+    if (now || svReduced() || SV.surf === 'land') { SV.anim = null; SV.g.set(i); svArrive(); return; }
+    SV.g.max = P.length - 1;
+    const from = SV.g.x;
+    if (Math.abs(i - from) < 1e-6) { SV.anim = null; SV.g.set(i); svArrive(); return; }
+    // (a press while it glides starts the next glide from where the picture is: no jump; 420 ms a plane, at most 900)
+    SV.anim = { from, to: i, t0: performance.now(), ms: Math.min(900, 420 * Math.max(1, Math.abs(i - from))) };
     draft = null; probe = null;
     requestRender('L');
   }
@@ -104,11 +109,20 @@
     const live = SV.els && SV.els.live;
     if (live) live.textContent = svLabel();
   }
-  const svMoving = () => SV.g.moving() || !!(SV.drag && SV.drag.moved);
+  const svMoving = () => !!SV.anim || SV.g.moving() || !!(SV.drag && SV.drag.moved);
+  const svTarget = () => (SV.anim ? SV.anim.to : Math.round(SV.g.x));
   // one frame of the glide (frame() calls it); true while it moves
   function svFrame(ts) {
     if (!SV.on) return false;
     if (SV.drag && SV.drag.moved) { dirty.L = true; svSync(); return false; }
+    if (SV.anim) {
+      const A = SV.anim, v = Math.min(1, (performance.now() - A.t0) / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      SV.g.set(A.from + (A.to - A.from) * e);
+      dirty.L = true;
+      svSync();
+      if (v >= 1) { SV.anim = null; svArrive(); return false; }
+      return true;
+    }
     if (!SV.g.moving()) return false;
     const dt = SV.g.last ? (ts - SV.g.last) / 1000 : 1 / 60;
     SV.g.last = ts;
@@ -295,8 +309,8 @@
     bar.append(title, cp, scope, surf);
     head.prepend(bar);
     // the chain strip: ‹, a segment per plane with the step between, ›
-    const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svGo(Math.round(SV.g.target) - 1) }, '‹');
-    const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svGo(Math.round(SV.g.target) + 1) }, '›');
+    const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svGo(svTarget() - 1) }, '‹');
+    const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svGo(svTarget() + 1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next);
@@ -339,8 +353,8 @@
     E.cp.setAttribute('aria-pressed', String(k === T));
     E.cp.classList.toggle('on', k === T);
     for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
-    E.prev.disabled = at <= 0 && !SV.g.moving();
-    E.next.disabled = at >= P.length - 1 && !SV.g.moving();
+    E.prev.disabled = at <= 0 && !svMoving();
+    E.next.disabled = at >= P.length - 1 && !svMoving();
     for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     const bs = E.track.querySelectorAll('.sv-plane'), j = Math.max(0, Math.min(bs.length - 1, Math.floor(x + 1e-9))), u = x - j;
@@ -370,7 +384,7 @@
       const d = SV.drag;
       if (!d || d.id !== e.pointerId || !d.strip) return;
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
-      if (!d.moved) svKeepView();
+      if (!d.moved) { svKeepView(); SV.anim = null; }
       d.moved = true;
       SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
       requestRender('L');
@@ -397,6 +411,7 @@
       if (!edge) return;
       e.stopImmediatePropagation(); e.preventDefault();
       svKeepView();
+      SV.anim = null;
       SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge };
       try { plot.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
     }, true);
@@ -431,7 +446,7 @@
       if (t && (t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], canvas, .cm-palette'))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'PageUp' || e.key === 'PageDown') {
         e.preventDefault(); e.stopImmediatePropagation();
-        svGo(Math.round(SV.g.target) + (e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1));
+        svGo(svTarget() + (e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1));
       } else if ((e.key === 'c' || e.key === 'C') && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
         svSetT(svStage());
