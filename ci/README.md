@@ -69,6 +69,12 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
   other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
   and so does every later push while it is not a draft.
+- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing once its
+  push's run on that commit has passed: the job *ready* finds the newest other Gate run of this PR on the same commit,
+  and only if it passed does the plan select no job (tier `none`), the unit job skip, and the **Gate** job check that
+  run again and carry its verdict. Queued, running, failed, cancelled or none: the run is the usual one, so a green
+  Gate never stands on a commit before a gate passed there. Either way it has a concurrency group of its own and never
+  cancels the push's run (#379, `test/t_gate_ready.js`).
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the

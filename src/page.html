@@ -211,7 +211,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .layout > .panel.right { grid-column: 3; }
 
 /* ---------- 5.1 Header ---------- */
-.top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; reading-flow: flex-visual; }
+/* (#359) no reading-flow here: it took the menu's buttons (display: contents) as one item placed before the views, so Tab went
+   Examples … Help and then the view switch and Deformation; the source order is undo, redo, the views, then the menu */
+.top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; }
 .top > * { flex: 0 0 auto; }
 .top .mark { order: 1; display: block; width: 22px; height: 22px; }
 .hdiv { order: 3; width: 1px; height: 20px; background: var(--line-strong); margin: 0 2px; }
@@ -380,6 +382,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .psec > summary::-webkit-details-marker { display: none; }
 .psec > summary::marker { content: ""; }
 .psec > summary :is(button, a, input, select) { pointer-events: auto; }
+/* (#361: Clear is not inside the summary, a button in a button; it sits over the header's right end) */
+#secShapes { position: relative; }
+#secShapes > #clearShapes { position: absolute; top: 12px; right: 8px; height: 24px; }
 .psec > summary:focus-visible { outline-offset: -2px; }
 details.psec::details-content { content-visibility: visible; display: contents; }
 .panel h2, .psec h2 { display: flex; align-items: center; gap: 8px; min-height: 24px; margin: 0 0 8px; font: var(--t-heading); color: var(--ink); }
@@ -1058,7 +1063,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .seg > button:focus-visible { outline-offset: -1px; }
 .seg > button:disabled { opacity: 0.4; }
 .seg > button > .mic, .seg > button > svg { width: 14px; height: 14px; flex: 0 0 14px; display: block; }
-.seg.small, .options .seg, .card .seg, .pipe-head .seg, .pop .seg { height: 24px; }
+.seg.small, .options .seg, .card .seg, .pipe-head .seg, .pop .seg { height: 26px; padding: 0 2px; }
+.seg.small::before, .options .seg::before, .card .seg::before, .pipe-head .seg::before, .pop .seg::before { top: 0; bottom: 0; }
+/* (#360) the small controls' segments are 24 px tall, WCAG 2.5.8's minimum target (they touch, so the spacing exception
+   does not apply): a 24 px strip inside the control's 1 px border and no vertical padding; the view switch has 2 px of it */
+.top > .seg.vsw { height: 30px; }
 .seg.small > button, .options .seg > button, .card .seg > button { padding: 0 8px; }
 .seg.modes { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 0 1 auto; min-width: 0; }
 .seg.modes::-webkit-scrollbar { display: none; }
@@ -2176,7 +2185,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         </div>
       </details>
       <details class="psec" id="secShapes" open>
-        <summary><h2><span class="grow">Shapes</span><button class="btn ghost small" id="clearShapes">Clear</button></h2></summary>
+        <summary><h2><span class="grow">Shapes</span></h2></summary>
+        <button class="btn ghost small" id="clearShapes">Clear</button>
         <div class="psec-body">
           <div class="shapes" id="shapeList"></div>
         </div>
