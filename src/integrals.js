@@ -195,7 +195,9 @@ const Integrals = (() => {
       try { r = Calc.argPrinciple(F, c.flat, 0); } catch (e) { r = { ok: false, winding: 0 }; }
       wind += r.winding || 0; ok = ok && !!r.ok;
     }
-    let zeros = 0, poles = 0, list = [], partial = false;
+    let zeros = 0, poles = 0, partial = false;
+    /** @type {ZeroPoleList} */
+    let list = [];
     if (hasCalc('zerosPoles')) {
       const b = it.g.box, m = 0.02 * Math.max(b.x1 - b.x0, b.y1 - b.y0, 1e-9);
       try { list = zerosPolesTimed(F, { x0: b.x0 - m, x1: b.x1 + m, y0: b.y0 - m, y1: b.y1 + m }, { target: null, max: 40 }, 250); } catch (e) { list = []; list.incomplete = true; }

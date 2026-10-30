@@ -6,7 +6,8 @@
 // glsl.js's DEG must stay the same expression as funcs.js's (bit-identical cut angles).
 const TAU = 2 * Math.PI;
 const DEG = Math.PI / 180;
-const $ = (id) => document.getElementById(id);
+/** @type {(id: string) => PageEl} */
+const $ = (id) => /** @type {PageEl} */ (document.getElementById(id));
 // an element: h('button', { class, html, onclick, style, ...attributes }, ...children). Attributes null or false are
 // left out, true is an empty attribute; children may be nodes, strings, numbers or arrays of them (null, false skipped)
 function h(tag, attrs, ...kids) {

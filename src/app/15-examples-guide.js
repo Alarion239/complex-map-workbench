@@ -814,7 +814,7 @@
       lpShown = null; hide();
     });
     // the long-press must not open the system's context menu over the tip
-    document.addEventListener('contextmenu', (e) => { if (lpShown || (lp && e.target.closest && e.target.closest(LP_SEL))) e.preventDefault(); });
+    document.addEventListener('contextmenu', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (lpShown || (lp && tg.closest && tg.closest(LP_SEL))) e.preventDefault(); });
   }
   // ---------------- keyboard focus across rebuilds ----------------
   // Lists, cards and segmented controls are rebuilt from the state. A control is known by its id, or by the
@@ -949,7 +949,7 @@
       for (const [gs, isel] of ROVE) { const g = document.querySelector(gs); if (g && t.closest && g.contains(t) && t.matches(isel)) { roveLast.set(gs, /** @type {HTMLElement} */ (t)); roveGroups(); } }
     });
     // a real blur (the user moved on) forgets the control; a blur by removal keeps it for the rebuild below
-    document.addEventListener('focusout', (e) => { const el = e.target; queueMicrotask(() => { if (lastFocus && lastFocus.el === el && el.isConnected && document.activeElement !== el) lastFocus = null; }); });
+    document.addEventListener('focusout', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const el = tg; queueMicrotask(() => { if (lastFocus && lastFocus.el === el && el.isConnected && document.activeElement !== el) lastFocus = null; }); });
     const mo = new MutationObserver(() => {
       roveRadios(); roveGroups();
       const a = document.activeElement;
