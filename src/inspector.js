@@ -271,9 +271,9 @@ const Inspector = (() => {
     // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
     // the quiet mark on a line written with a step's display form: "in short", the full-formula explanation in its tooltip
     // and its accessible description (the step's own card says the same in its note)
-    function shortMark() {
-      const tip = $t('Written in short; the field of the step itself holds the formula in full.');
-      return h('span', { class: 'shortmark', 'data-tip': tip, 'aria-description': tip, tabindex: '0' }, $t('in short'));
+    function shortMark(forF) {
+      const tip = forF ? $t('Written in short; each step\'s own field holds its full formula.') : $t('Written in short; the step\'s own field holds the full formula.');
+      return h('span', { class: 'shortmark', role: 'note', 'data-tip': tip, 'aria-description': tip, tabindex: '0' }, $t('in short'));
     }
     function fillRows(ol, rows, eq, showMark) {
       ol.innerHTML = '';
@@ -458,7 +458,7 @@ const Inspector = (() => {
         else { const t = h('span'); chain.push([k, t]); li.append(t); }
         wl.append(li);
       });
-      const smark = shortMark();
+      const smark = shortMark(true);
       smark.hidden = true;
       const form = h('div', { class: 'iform' }, ftex, smark, flong, wl.childElementCount ? wl : null);
       const warn = h('div', { class: 'ierr', role: 'status' });

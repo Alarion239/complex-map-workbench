@@ -32,7 +32,7 @@ async function select(k) {
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
-  const o = (e) => e && { text: e.textContent, tip: e.getAttribute('data-tip'), desc: e.getAttribute('aria-description') };
+  const o = (e) => e && { role: e.getAttribute('role'), text: e.textContent, tip: e.getAttribute('data-tip'), desc: e.getAttribute('aria-description') };
   const bx = p.querySelector('.split-offer'); return { box: bx ? { hidden: bx.hidden, rows: bx.querySelectorAll('.so-row').length, html: bx.innerHTML.slice(0, 200) } : null, ready: typeof TeX !== 'undefined' && !!TeX.ready, f: vis(f) ? o(f) : null, rows: r.map(o), lastRow: r.length ? r[0].closest('.so-row') === [...p.querySelectorAll('.split-offer .so-row')].pop() : null }; })()`);
 const look = () => ev(`(() => { const p = document.getElementById('propsPanel'); if (!p) return null; const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const well = p.querySelector('.iform .ftex:not(.long)'), lg = p.querySelector('.iform .ftex.long'), fx = p.querySelector('input[data-pkey="expr"]'), note = p.querySelector('.inote');
@@ -80,11 +80,11 @@ L = await look();
 const fw = await ev(`(() => { const e = document.querySelector('#propsPanel .iform .ftex:not(.long)'); return e && !e.hidden ? e.dataset.tex : null; })()`);
 ok('show: F is written with the display form', fw && fw.includes('\\prod_{j=1}^{30}'), fw);
 let M = await marks();
-ok('show: F\'s line carries the mark, with the full-formula explanation', M.f && M.f.text === 'in short' && /in full/.test(M.f.tip) && M.f.desc === M.f.tip, M);
+ok('show: F\'s line carries the mark, with the full-formula explanation', M.f && M.f.text === 'in short' && /each step/.test(M.f.tip) && M.f.desc === M.f.tip, M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
   await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
   const mf = await marks();
-  ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word && mf.f.tip === mf.f.desc && !/^Written in short/.test(mf.f.tip), mf);
+  ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word && mf.f.tip === mf.f.desc && !/^Written/.test(mf.f.tip), mf);
 }
 await ev(`I18N.setPref('en'), 1`); await settle(1200);
 
@@ -113,18 +113,28 @@ ok('plain: the offer shows rows, none marked', M.box && !M.box.hidden && M.box.r
 await open('cshow4', stepsB(true));
 await select(2);
 M = await marks();
-ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /in full/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
+ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /the step's own field/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
 ok('offer: the last row ends with the display form', (await ev(`[...document.querySelectorAll('#propsPanel .split-offer .so-tex')].pop().dataset.tex`)).includes(SHTEX), M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
   await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
   const m = await marks();
-  ok(`offer: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip === m.rows[0].desc && !/^Written in short/.test(m.rows[0].tip), m);
+  ok(`offer: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip === m.rows[0].desc && !/^Written/.test(m.rows[0].tip), m);
 }
 await ev(`I18N.setPref('en'), 1`); await settle(1200);
 await ev(`(() => { const f = document.querySelector('#propsPanel input[data-pkey="expr"]'); f.focus(); f.value = f.value.replace(/\\)$/, '+0)'); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); f.blur(); return 1; })()`);
 await settle(1200);
 M = await marks();
-ok('offer edited: the mark is gone with the display form', M.rows.length === 0, M);
+ok('offer edited: the offer still shows its rows, the mark is gone with the display form', M.box && !M.box.hidden && M.box.rows > 1 && M.rows.length === 0, M);
+
+// 2c. two display-form steps, one bypassed: one mark on F's line (a bypassed step is not in F)
+await open('cshow5', [MOB, { type: 'custom', params: { expr: SHEXPR, cut: 180, show: SHTEX, showOf: fnv(SHEXPR) }, on: false }, { type: 'custom', params: { expr: 'cos(z^2+1)', cut: 180, show: SHTEX, showOf: fnv('cos(z^2+1)') }, on: true }]);
+await select('F'); await settle(800);
+M = await marks();
+ok('two steps, one bypassed: the mark on F\'s line, its role is note', M.f && M.f.text === 'in short' && M.f.role === 'note', Object.assign({ panel: await ev(`(document.querySelector('#propsPanel .ihead .ttl')||{}).textContent`) }, M));
+await open('cshow6', [MOB, { type: 'custom', params: { expr: SHEXPR, cut: 180, show: SHTEX, showOf: fnv(SHEXPR) }, on: false }, MOB]);
+await select('F');
+M = await marks();
+ok('only a bypassed step has a display form: no mark on F\'s line', M.f === null, M);
 
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors', errs.length === 0, errs.slice(0, 3));
