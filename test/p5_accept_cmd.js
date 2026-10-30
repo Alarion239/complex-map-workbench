@@ -44,6 +44,8 @@ const loadReady = async (ns, st, ms = 120000) => {
   for (;;) {
     // (an evaluation can land while the page is still being replaced: that is not an answer either)
     try { missing = await ev(`(() => { const m = ${JSON.stringify(HOOKS)}.filter((h) => typeof window[h] !== 'function'); if (typeof GLR !== 'object' || !GLR) m.push('GLR'); return m; })()`); } catch (e) { missing = HOOKS; }
+    // (an evaluation that comes back as an exception: the page's main thread is busy or the page is gone)
+    if (!Array.isArray(missing)) missing = { page: JSON.stringify(missing).slice(0, 200) };
     if (Array.isArray(missing) && missing.length === 0) break;
     if (Date.now() - t0 > ms) throw new Error(`the app's test hooks are not defined ${ms / 1000} s after load(${ns}): ${JSON.stringify(missing)}`);
     await sleep(250);
