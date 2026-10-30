@@ -3091,5 +3091,6 @@
  "<span>In {w}</span>": "<span>In {w}</span>",
  "<span>Targets in {out}</span>": "<span>Bersagli in {out}</span>",
  "in {w}": "in {w}",
- "Place on the chain": "Posizione nella catena"
+ "Place on the chain": "Posizione nella catena",
+ "colour from {p}": "colore da {p}"
 }

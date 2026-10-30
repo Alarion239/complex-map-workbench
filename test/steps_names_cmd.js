@@ -56,7 +56,7 @@ for (const lang of ['en', 'ru']) {
     const c = await ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left + r.width * 0.6, r.top + r.height * 0.4]; })()`);
     await move(c[0], c[1]); await settle(300);
     const ro = await txt('#leftReadout');
-    const m = new RegExp(`${NUM} [+−-] ${NUM}i`).exec(ro || '');
+    const m = new RegExp(`${NUM} ([+\u2212-]) ${NUM}i`).exec(ro || '');
     ok(`${tag}: the readout shows the point`, !!m, ro);
     if (kind === 'phase' && map !== NAMES[k]) {
       // (f₂(w₁): the value of the map into T at the point under the pointer, in the readout's own unit)
@@ -73,7 +73,20 @@ for (const lang of ['en', 'ru']) {
         if (wantMod != null) ok(`${tag}: |${call}| is ${wantMod.toFixed(3)}`, Math.abs(num(mod[1]) - wantMod) <= 2e-3 * Math.max(1, wantMod), { got: mod[1], want: wantMod });
       }
     } else if (kind === 'carried') {
-      ok(`${tag}: no map line past the colour plane`, !/f₁\(|f₂\(|F\(/.test(plain(ro || '')), ro);
+      // (past T the colour is carried: the readout names where the point comes from in T, or "—")
+      const lab = lang === 'ru' ? 'цвет из' : 'colour from', tn = plain(NAMES[T]);
+      ok(`${tag}: no pulled-back map past the colour plane`, !/f₁\(|f₂\(|F\(/.test(plain(ro || '')), ro);
+      ok(`${tag}: the readout says where the colour comes from`, plain(ro || '').includes(`${lab} ${tn} =`), ro);
+      const sm = new RegExp(`${lab} ${tn} = ([\u2212-]?\\d+[.,]\\d+) ([+\u2212-]) ${NUM}i`).exec(plain(ro || ''));
+      if (T === 1 && k === 2) ok(`${tag}: the cube root is found`, !!sm, ro);
+      if (sm && m) {
+        const sre = num(sm[1]), sim = (sm[2] === '+' ? 1 : -1) * num(sm[3]);
+        const wre = num(m[1]), wim = (m[2] === "+" ? 1 : -1) * num(m[3]);
+        let back = null;
+        if (T === 0 && k === 2) back = await ev(`__cmwEval('F', null, [[${sre}, ${sim}]])[0]`);   // F(source) = the point
+        else if (T === 1 && k === 2) back = [sre * sre * sre - 3 * sre * sim * sim, 3 * sre * sre * sim - sim * sim * sim];   // source³
+        if (back) ok(`${tag}: the source maps onto the point`, Math.hypot(back[0] - wre, back[1] - wim) <= 3e-3 * Math.max(1, Math.hypot(wre, wim)), { sm: sm[0], back, wre, wim });
+      }
     }
     info[tag] = { title, ro };
   }

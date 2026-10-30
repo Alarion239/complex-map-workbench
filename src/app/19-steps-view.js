@@ -51,6 +51,18 @@
   function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }
   // what the key's caption calls the colouring, "arg and |f₂|": the map into the colour plane, or the plane's own variable
   const svKeyName = (k = svStage()) => svMapName('text', k) || svName(k);
+  // past the colour plane the colour is carried, so the probe names where its point comes from in the colour plane T: a
+  // preimage of it under the map T → shown plane, by a short search over the camera's window (undefined at or before T;
+  // null when none is found there or the map has no inverse here, which the readout says as "—")
+  function svSource(q) {
+    const k = svStage(), T = svT();
+    if (k <= T) return undefined;
+    if (T > 0 && derivIn(T, k)) return null;
+    let sols = [];
+    try { sols = zerosPolesTimed(T === 0 ? stageF(k) : rangeF(T, k), paneBox(paneL, leftView()), { target: { re: q.re, im: q.im }, max: 4 }, 4); } catch (e) { return null; }
+    const hit = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z));
+    return hit.length ? hit[0].z : null;
+  }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says
   function svTitleParts() {

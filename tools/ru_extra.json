@@ -447,5 +447,6 @@
  "<span>In {w}</span>": "<span>В %{w}</span>",
  "<span>Targets in {out}</span>": "<span>Цели в %{out}</span>",
  "in {w}": "в %{w}",
- "Place on the chain": "Место в цепочке"
+ "Place on the chain": "Место в цепочке",
+ "colour from {p}": "цвет из %{p}"
 }

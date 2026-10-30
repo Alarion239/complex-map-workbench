@@ -1317,8 +1317,10 @@
       // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
       // (the key's "=" and parentheses in the maths face, as its letters: B612 Mono's "(" reads as "[" [UX105])
       const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
-      // (the steps view's plane past the colour plane has no second line: no map into the colour plane starts here, 19)
-      const wl = SV.on ? () => '' : (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
+      // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
+      // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
+      const src = SV.on ? svSource(z) : undefined;
+      const wl = SV.on ? (dp) => (src === undefined ? '' : `<span class="rln">${rk(`${$t('colour from {p}', { p: wHtml(svT()) })} ${m('=')}`, src ? fmtCxHtml(src, dp) : '—')}</span>`) : (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
       const forms = [
         () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
         () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr), 3)) + rk('arg', degs(Math.atan2(zr.im, zr.re), 2))}</span>` + wl(4),
