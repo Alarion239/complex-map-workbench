@@ -436,7 +436,7 @@ jobs:
             [[ "$MIRROR" =~ ^[0-9]+$ ]] && [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::tier none without a mirrored run ($MIRROR)"; exit 1; }
             got=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MIRROR" --jq "\"\\(.status) \\(.conclusion // \"\") \\(.head_sha) \\((.pull_requests // []) | any(.number == $PR))\"")
             echo "run $MIRROR: $got"
-            if [ "$got" = "completed success $HEAD_SHA true" ]; then echo "Gated by run $MIRROR of this PR on this commit (it passed)." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+            if [ "$got" = "completed success $HEAD_SHA true" ]; then echo "Gated by run $MIRROR of this PR on this commit (it passed)." >> "$GITHUB_STEP_SUMMARY"; exit $bad; fi
             echo "::error::run $MIRROR is not a passing Gate run of #$PR on $HEAD_SHA ($got)"; exit 1
           fi
           [ "${{ needs.unit.result }}" = success ] || { echo "::error::unit: ${{ needs.unit.result }}"; bad=1; }
