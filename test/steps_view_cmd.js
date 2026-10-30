@@ -55,8 +55,16 @@ const sp = await S();
 ok('parked at 0.5: the deformation there, between z and w₁', Math.abs(sp.x - 0.5) < 1e-9 && sp.moving === true && !sp.anim, sp);
 const hP = await hash('sv_park');
 ok('the parked picture is neither plane\'s', hP !== hZ && hP !== h1, [hP, hZ, h1]);
+ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-rail').getAttribute('aria-valuetext'))`), null);
 await press('ArrowRight'); const sn = await rest();
 ok('→ from 0.5 goes on to w₁', sn.i === 1 && Math.abs(sn.x - 1) < 1e-9, sn);
+// Shift+→: a quarter of a step, and the view stays there
+await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true })); 1`); await settle(400);
+const sq = await S();
+ok('Shift+→ stops a quarter of a step on', Math.abs(sq.x - 1.25) < 1e-9 && !sq.anim, sq);
+await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true, cancelable: true })); 1`); await settle(400);
+const sb = await S();
+ok('Shift+← back settles on w₁', Math.abs(sb.x - 1) < 1e-9 && sb.i === 1 && sb.moving === false, sb);
 // C: the colour plane is w₁
 await press('c'); await settle(500);
 const sc = await S();
@@ -74,6 +82,17 @@ const hIn = await hash('sv_in');
 ok('Inside regions changes the picture', hIn !== hAll, null);
 ok('… and leaves the lower half-plane paper', await ev(`(() => { const c = document.getElementById('canvasL'), x = c.getContext('2d'), d = x.getImageData(Math.round(c.width * 0.3), Math.round(c.height * 0.85), 1, 1).data,
   u = x.getImageData(Math.round(c.width * 0.3), Math.round(c.height * 0.15), 1, 1).data; return Math.abs(d[0] - d[1]) + Math.abs(d[1] - d[2]) < 24 && Math.abs(u[0] - u[1]) + Math.abs(u[1] - u[2]) >= 24; })()`), null);
+// (ux's review of #448) the arrows of a focused radio group, or of an open pop-up, are theirs: the plane stays
+const before = (await S()).x;
+await ev(`(() => { const b = document.querySelector('#svHead .sv-surf [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
+const rg = await S();
+ok('→ on a focused Surface radio picks the next surface, not the next plane', rg.x === before && rg.surf === 'sphere', rg);
+await ev(`__cmwSteps({ surf: 'plane' }); document.activeElement.blur(); 1`); await settle(600);
+await ev(`document.getElementById('examplesBtn').click(); 1`); await settle(600);
+await press('ArrowRight');
+const pop = await S();
+ok('→ with the Examples gallery open leaves the plane alone', pop.x === before && !pop.anim, pop);
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(400);
 // reduced motion: a move is a jump
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await press('ArrowRight');
