@@ -380,6 +380,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .psec > summary::-webkit-details-marker { display: none; }
 .psec > summary::marker { content: ""; }
 .psec > summary :is(button, a, input, select) { pointer-events: auto; }
+/* (#361: Clear is not inside the summary, a button in a button; it sits over the header's right end) */
+#secShapes { position: relative; }
+#secShapes > #clearShapes { position: absolute; top: 12px; right: 8px; height: 24px; }
 .psec > summary:focus-visible { outline-offset: -2px; }
 details.psec::details-content { content-visibility: visible; display: contents; }
 .panel h2, .psec h2 { display: flex; align-items: center; gap: 8px; min-height: 24px; margin: 0 0 8px; font: var(--t-heading); color: var(--ink); }
@@ -2176,7 +2179,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         </div>
       </details>
       <details class="psec" id="secShapes" open>
-        <summary><h2><span class="grow">Shapes</span><button class="btn ghost small" id="clearShapes">Clear</button></h2></summary>
+        <summary><h2><span class="grow">Shapes</span></h2></summary>
+        <button class="btn ghost small" id="clearShapes">Clear</button>
         <div class="psec-body">
           <div class="shapes" id="shapeList"></div>
         </div>

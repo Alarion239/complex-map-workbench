@@ -675,7 +675,7 @@ const Phone = (() => {
     if (!on || !els.crow) return;
     const c = A.chainState();
     // (the step buttons in the sheet's rows: Bypass and More, hover-only on a laptop, are plain buttons here)
-    if (kind === 'chain') for (const a of els.body.chain.querySelectorAll('#pipeline .card .acts[aria-hidden]')) { a.removeAttribute('aria-hidden'); for (const b of a.querySelectorAll('button')) b.tabIndex = 0; }
+    if (kind === 'chain') for (const a of els.body.chain.querySelectorAll('#pipeline .card .acts[aria-hidden]')) { a.removeAttribute('aria-hidden'); a.inert = false; for (const b of a.querySelectorAll('button')) b.tabIndex = 0; }
     const key = `${c.key}|${c.prev}|${c.next}|${I18N.lang}`;
     if (key === chainSeen) return;
     chainSeen = key;
