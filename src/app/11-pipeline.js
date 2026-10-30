@@ -110,7 +110,7 @@
           if (!rp) return;
           st.repeat = rp;
           chainChanged(false);
-          repeatMoved(k, rp);
+          repeatMoved(S.steps.indexOf(st) + 1, rp);
         };
         inp.addEventListener('input', () => { clearTimeout(settle); typedFor = S.steps[+L.dataset.k - 1] || null; settle = setTimeout(apply, 400); });
         inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
