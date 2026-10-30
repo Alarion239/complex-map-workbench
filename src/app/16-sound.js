@@ -95,3 +95,20 @@
   function sndQueryClick(...args) { return SH.sndQueryClick(...args); }
   function sndIsSong(...args) { return SH.sndIsSong(...args); }
 
+  let escSound = false;   // (set by setupEscSound's Esc handler, read by setupKeys' after it)
+  // (#385) the Esc that stops a sound (init: before setupKeys)
+  function setupEscSound() {
+    // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
+    // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a
+    // Listen along does only that: the next Esc ends the tour
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      // (a Listen along still preparing its samples counts as playing: this Esc drops it and goes no further)
+      const playing = !!(snd.play || snd.prep);
+      // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
+      // the sound and goes no further; the next one steps out of the modes)
+      escSound = !!(sndP && sndP.on && (snd.play || snd.prep || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
+      soundStop();
+      if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+  }

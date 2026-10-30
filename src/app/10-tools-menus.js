@@ -966,3 +966,13 @@
     setupFormula.refresh = check;
   }
 
+  // (#385) the Draw panel's controls: Snap, the tools' More sheet, Clear in the Shapes heading
+  function setupDrawControls() {
+    // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
+    // ([v16.5 rail SPEC 4.3] the button was "Snap while drawing": it now names what it snaps to, the grid and figures)
+    $('snapBtn').addEventListener('click', () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); });
+    // on phones the More sheet of tools closes once a tool is picked
+    $('tools').addEventListener('click', (e) => { const tm = $('toolMore'); if (tm && tm.open && e.target.closest('.tool')) tm.open = false; });
+    // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
+    $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
+  }
