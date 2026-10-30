@@ -126,6 +126,12 @@ const Examples = (() => {
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
       pushShape(ns);
     }
+    // (#293) an example may name the curve it is about, by index or id: a style that works on the selected curve, as Cauchy,
+    // opens with it. The selection is the planes', not the saved state's, so a link made from the example does not carry it
+    if (ex.selected != null) {
+      const sh = typeof ex.selected === 'number' ? A.S.shapes[ex.selected] : A.S.shapes.find((x) => x.id === ex.selected);
+      if (sh) A.selected = sh.id;
+    }
     for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
     if (!spec) Params.render();

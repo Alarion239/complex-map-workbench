@@ -21,7 +21,7 @@ const SHARDS = [
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'meetnear_coincide_cmd.js'] },                                       // 480 + 295
   { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js', 'deform_dirichlet_cmd.js'] },   // 340 + 292 + 114 + 22 + 24 + about 30
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
-  { id: 'tour', suites: ['tour_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
+  { id: 'tour', suites: ['tour_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },                   // 552 + 16 + 44
   { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 557
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
@@ -37,7 +37,7 @@ const SHARDS = [
   { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
-  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
+  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js', 'phone_ctx_tex_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
   { id: 'smoke', suites: ['smoke_cmd.js'] },
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },

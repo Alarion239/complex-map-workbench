@@ -66,6 +66,21 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
     {
+      name: $t('Cauchy: a simple pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=\\frac{1}{z}', blurb: $t('F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
+      name: $t('Cauchy: a regular part and a pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=z+\\frac{1}{z}', blurb: $t('F = z + 1/z: inside the circle the Cauchy integral is z, the part of F that is regular at the pole; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
+      name: $t('Cauchy: an essential singularity'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=e^{1/z}', blurb: $t('e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
       name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
