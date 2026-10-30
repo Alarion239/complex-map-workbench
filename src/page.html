@@ -1271,12 +1271,15 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 
 /* ---------- Display section ---------- */
 .patterns { display: grid; grid-template-columns: repeat(4, 52px); justify-content: space-between; row-gap: 8px; margin-top: 2px; }
+/* (#339) each name has its column's width, not the swatch's: the four columns share the row, so a Russian name wraps
+   between its words ("Квадратная / сетка") and is not hyphenated inside one ("Растяже-ние") */
+.patterns { grid-template-columns: repeat(4, minmax(52px, 1fr)); column-gap: 4px; }
 .pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
 .pat > canvas { display: block; width: 52px; height: 40px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; }
 .pat > span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; }
 /* [v16.5 UX95, UX86] a pattern's name wraps to two lines rather than being cut ("Sphere checker", "Square grid") */
 .pat { white-space: normal; }
-.pat > span { max-width: 62px; text-align: center; line-height: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pat > span { max-width: 100%; text-align: center; line-height: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .pat:hover { color: var(--ink); }
 .pat:hover > canvas { outline-color: var(--line-strong); }
 .pat.on, .pat[aria-checked="true"] { color: var(--ink); }
@@ -2030,7 +2033,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* CSS-generated text: the empty formula preview's word */
 :root[data-lang="ru"] .texprev:empty::before { content: "Предпросмотр"; }
 :root[data-lang="ru"] .pat { white-space: normal; }
-:root[data-lang="ru"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="ru"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* (v15) the five mesh stops («Черновая» … «Максимум») are 242 px of labels in one row; the left panel has 214-226 px
    at 1024-1440 px. The row widened the Display column, so the pattern swatches and «Максимум» ran 3-15 px past the
    panel. In Russian the stops stand at their slider positions (0, 1/4, 1/2, 3/4, 1, thumb-centre corrected as --at
@@ -2099,7 +2102,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
    button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
 :root[data-lang="it"] .pat { white-space: normal; }
-:root[data-lang="it"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
