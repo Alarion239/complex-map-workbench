@@ -1020,8 +1020,9 @@
     lineJob.running = token; updateLeds();
     let t0 = performance.now();
     // yield to the page, wait out any motion; true when this job went stale meanwhile
+    // ([#325] a background task, not setTimeout(0): its 4 ms clamp would double a sliced curve's time)
     const rest = async () => {
-      await yieldNow();
+      await yieldTask();
       while (lineWait() > 0 && token === lineJob.token) await yieldNow(40);
       t0 = performance.now();
       return token !== lineJob.token;
