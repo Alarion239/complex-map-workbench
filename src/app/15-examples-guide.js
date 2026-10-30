@@ -40,7 +40,7 @@
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: $t('Square root and its sheets'), try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), tryDone: [[{ on: 'sheet-changed' }]], try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
@@ -50,7 +50,7 @@
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
     {
-      name: $t('A formula in LaTeX'), try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('A formula in LaTeX'), tryDone: [[{ on: 'formula-edited' }]], try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
@@ -114,7 +114,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -127,7 +127,7 @@
       steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{N} \\frac{z^n}{n!}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('A natural boundary'), try: $t('Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.'), tex: 'w=\\sum_{n=0}^{\\infty} z^{2^n}', blurb: $t('Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.'), view: { cx: 0, cy: 0, s: 250 },
+      name: $t('A natural boundary'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }]], try: $t('Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.'), tex: 'w=\\sum_{n=0}^{\\infty} z^{2^n}', blurb: $t('Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.'), view: { cx: 0, cy: 0, s: 250 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{\\infty} z^{2^n}', cut: 180 } }], rightMode: 'color',
     },
@@ -143,7 +143,7 @@
     },
     // [issue #10] a complex number as a point: a Möbius map of the disc that moves a to 0
     {
-      name: $t('A disc map moved by a point'), try: $t('Try: drag the point a, or press Play beside a under Numbers: it circles the origin.'), tex: 'w=\\frac{z-a}{1-\\bar{a}z}', blurb: $t('The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('A disc map moved by a point'), tryDone: [[{ on: 'number-changed', test: (e) => (e.names || []).includes('a') }]], try: $t('Try: drag the point a, or press Play beside a under Numbers: it circles the origin.'), tex: 'w=\\frac{z-a}{1-\\bar{a}z}', blurb: $t('The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.'), view: { cx: 0, cy: 0, s: 150 },
       params: [{ name: 'a', value: 0.5, im: 0.3, min: -1, max: 1, step: 0.01 }],
       shapes: [{ kind: 'disc', c: [0, 0], r: 0.85 }, { kind: 'point', p: [0.5, 0.3], bind: { p: 'a' } }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z-a}{1-\\overline{a}\\,z}', cut: 180 } }], rightMode: 'color',
@@ -151,40 +151,40 @@
     // [issue #6] iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
     // and Newton's method for z³ − 1 as a Recurrence step
     {
-      name: $t('The Mandelbrot set'), try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
+      name: $t('The Mandelbrot set'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }]], try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
       steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('A Julia set that its map keeps'), try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('A Julia set that its map keeps'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 2 }], [{ on: 'repeat-changed', test: (e) => e.n > 2 }]], try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.75, u, z, 64)|\\le 2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.75' } }],
     },
     {
-      name: $t('Douady’s rabbit'), try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('Douady’s rabbit'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 }]], try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.1226+0.7449i, u, z, 96)|\\le 2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.1226+0.7449i' } }],
     },
     {
-      name: $t('Newton’s method for z³ − 1'), try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
+      name: $t('Newton’s method for z³ − 1'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 1 && e.n <= 3 }]], try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
       shapes: [{ kind: 'rect', a: [-2, -2], b: [2, 2] }],
       steps: [{ type: 'custom', params: { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }, repeat: { n: 20, len: 1 } }], rightMode: 'color',
     },
     {
-      name: $t('The Julia set of z² + i'), try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('The Julia set of z² + i'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 && e.len === 2 }]], try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
     },
     // [issue #260] the Douady–Hubbard map with external rays and equipotentials of M, and the Böttcher coordinate of a
     // Julia set whose c is a slider (at the end of the list: the examples before keep their places)
     {
-      name: $t('The Douady–Hubbard map'), try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
+      name: $t('The Douady–Hubbard map'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }, { on: 'dh-added' }]], try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
       shapes: [...['0', '1/3', '2/3', '1/7', '2/7', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: null, ci: i })),
         ...[1.02, 1.1, 1.5].map((r, i) => ({ kind: 'dheq', r, c: null, ci: 6 + (i % 2) }))],
       steps: [{ type: 'dh', params: { N: 64 } }], rightMode: 'color',
     },
     {
-      name: $t('Böttcher coordinates of a Julia set'), try: $t('Try: press Play beside c under Numbers: the rays follow c; once c leaves M, φ_c is defined only outside the critical level.'), tex: 'w=\\varphi_c(z)', blurb: $t('φ_c maps the basin of ∞ of z ↦ z² + c onto the outside of a disc, z ↦ z² + c to w ↦ w². For c = −1 (the basilica) the rays of angle 1/3 and 2/3 land at the fixed point (1 − √5)/2, and the ray 0 at (1 + √5)/2.'), view: { cx: 0, cy: 0, s: 120 },
+      name: $t('Böttcher coordinates of a Julia set'), tryDone: [[{ on: 'number-changed', test: (e) => (e.names || []).includes('c') }]], try: $t('Try: press Play beside c under Numbers: the rays follow c; once c leaves M, φ_c is defined only outside the critical level.'), tex: 'w=\\varphi_c(z)', blurb: $t('φ_c maps the basin of ∞ of z ↦ z² + c onto the outside of a disc, z ↦ z² + c to w ↦ w². For c = −1 (the basilica) the rays of angle 1/3 and 2/3 land at the fixed point (1 − √5)/2, and the ray 0 at (1 + √5)/2.'), view: { cx: 0, cy: 0, s: 120 },
       params: [{ name: 'c', value: -1, min: -2, max: 0.5, step: 0.01 }],
       shapes: [...['0', '1/3', '2/3', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: [-1, 0], bind: { c: 'c' }, ci: i })),
         ...[1.05, 1.3].map((r, i) => ({ kind: 'dheq', r, c: [-1, 0], bind: { c: 'c' }, ci: 6 + i }))],
@@ -861,7 +861,7 @@
     const a = document.activeElement;
     if (a && a !== document.body) return;
     const vis = (el) => (el && el !== document.body && el.isConnected && el.getClientRects().length ? el : null);
-    const t = vis(anchor) || vis(findByKey(key)) || (anchor && anchor.closest && anchor.closest('#hdrMenu') ? vis($('hdrMoreBtn')) : null);
+    const t = vis(anchor) || vis(findByKey(key)) || (anchor && anchor.closest && anchor.closest('#hdrMenu, #examplesBtn') ? vis($('hdrMoreBtn')) : null);
     if (t) t.focus({ preventScroll: true });
   }
   // radiogroups are one Tab stop: only the checked radio is tabbable

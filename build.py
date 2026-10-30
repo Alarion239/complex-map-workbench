@@ -1,3 +1,4 @@
+import base64
 import json
 import pathlib
 import re
@@ -127,9 +128,60 @@ pub_js = re.sub(r'\n[ \t]*// TEMP-DEBUG-HOOK \(removed before publishing\).*?// 
 assert '__cmw' not in pub_js, 'test hooks left in the published page'
 # (a charset first, so the file decodes as UTF-8 even served without a charset header or opened from disk; the
 # artifact host's skeleton declares UTF-8 too)
-pub = '<meta charset="utf-8">\n' + page + '\n' + data + mj + '<script>\n' + pub_js + '\n</script>\n'
 dist = root / 'dist'
 dist.mkdir(exist_ok=True)
+
+# ---- the offline page (issue #21, option b): the published page with its typesetter and faces inline ----
+# The live page loads MathJax and the web fonts from CDNs; dist/complex-map-workbench-offline.html (published next to
+# it, and linked from Settings) needs no network. tools/vendor.py writes vendor/ (pinned, checked by test/t_vendor.js),
+# and the build reads vendor/ only. MathJax goes in as a JSON block (never run while the page parses: tex-svg.js holds
+# a "<!--"), started from a Blob URL once the page has loaded and painted, as the CDN's async script arrived; the
+# faces are @font-face rules with the woff2 inline; the Russian set (Roboto Flex) is a text block that page.html's head
+# script, or i18n.js, turns into a style element with the language.
+vendor = root / 'vendor'
+vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
+CDN_MJ = '<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>\n'
+assert mj.count(CDN_MJ) == 1, 'the MathJax script tag build.py replaces'
+mj_off = mj.replace(CDN_MJ, """<script>
+(function () {
+  // (a Blob URL, async: the browser compiles the 2 MB off the main thread, as it did the CDN's script)
+  var done = false, go = function () {
+    if (done) return; done = true;
+    try {
+      var b = document.getElementById('cmw-mathjax'), s = document.createElement('script'), js = JSON.parse(b.textContent);
+      if (window.Blob && window.URL && URL.createObjectURL) { s.async = true; s.src = URL.createObjectURL(new Blob([js], { type: 'text/javascript' })); } else s.textContent = js;
+      document.head.appendChild(s);
+    } catch (e) { /* the TeX source shows */ }
+  };
+  // after the first paint; in a background tab (no frames) a second after the load
+  var later = function () { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 1000); };
+  if (document.readyState === 'complete') later(); else addEventListener('load', later);
+})();
+</script>
+""")
+
+
+def font_face(f):
+    b64 = base64.b64encode((vendor / f['file']).read_bytes()).decode()
+    stretch = f'font-stretch:{f["stretch"]};' if 'stretch' in f else ''
+    return (f'@font-face{{font-family:"{f["family"]}";font-style:{f["style"]};font-weight:{f["weight"]};{stretch}font-display:swap;'
+            f'src:url(data:font/woff2;base64,{b64}) format("woff2");unicode-range:{f["unicodeRange"]}}}\n')
+
+
+fonts = '<style id="cmw-fonts">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'main') + '</style>\n'
+fonts += '<script type="text/plain" id="cmw-fonts-ru">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'ru') + '</script>\n'
+# (the head's three Google Fonts lines go; the faces come before the head script, which reads #cmw-fonts-ru)
+page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https://fonts\.(?:googleapis|gstatic)\.com[^>]*>\n', '', page)
+assert n_links == 3, f'the Google Fonts links build.py drops: {n_links}'
+# (the figure export's PDF library, jsPDF and svg2pdf.js, as JSON blocks too: figure.js starts them on the first PDF
+# export, issue #393; the live page loads them from their CDNs then)
+pdf_blocks = ''.join(block(i, json.dumps((vendor / 'js' / f).read_text(encoding='utf-8'))) for i, f in [('cmw-jspdf', 'jspdf.umd.min.js'), ('cmw-svg2pdf', 'svg2pdf.umd.min.js')])
+offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8')))
+           + pdf_blocks + mj_off + '<script>\n' + pub_js + '\n</script>\n')
+save(dist / 'complex-map-workbench-offline.html', offline)
+# the live page names the offline page's size (Settings: Download offline page); the offline page has no such entry
+off_bytes = len(offline.encode())
+pub = f'<meta charset="utf-8">\n<meta name="cmw-offline" content="{off_bytes}">\n' + page + '\n' + data + mj + '<script>\n' + pub_js + '\n</script>\n'
 save(dist / 'complex-map-workbench.html', pub)
 test = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -137,3 +189,4 @@ test = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 """ + body + "</body></html>\n"
 save(dist / 'test.html', test)
 print('built', len(body), 'bytes; Russian and Italian data blocks', len(data.encode()), 'bytes; bold glyphs', ''.join(keep) or 'none')
+print('published page', len(pub.encode()), 'bytes; offline page', off_bytes, 'bytes (MathJax, the PDF library and', len(fonts.encode()), 'bytes of faces inline)')

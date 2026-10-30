@@ -76,7 +76,7 @@ tone. Both now fade out smoothly, and those cases measure clean too (`DESIGN.md`
 
 ## How to try the prototype
 
-1. Open `notes/sound/prototype.html` in a browser. It is one file and needs nothing else.
+1. Open `notes/sound/prototype.html` (removed, see git history at 099e5f1) in a browser. It is one file and needs nothing else.
 2. Click **Sound** at the top right. You should hear one soft key.
 3. Click **Hear *F*** (the headphones button). Then hover the coloured plane and drag a loop around the double zero
    at −1. The first loop plays itself back. **Listen along γ** plays any loop again.
@@ -126,7 +126,7 @@ under ?ns= keep sound off unless a test turns it on, so the quality and perf sui
 ## The user's verdict on palette B (2026-10-24)
 
 "I like everything except for hearing the function. It still feels quite synthetic. Нет тембра" (no timbre). So:
-keep palette B as it was sent at 01:45 (copy: notes/sound/v2/board-sent-0145.html); change only "hear the function"
+keep palette B as it was sent at 01:45 (copy: notes/sound/v2/board-sent-0145.html, removed, see git history at 099e5f1); change only "hear the function"
 (the continuous tone under the pointer and in the deformation), which needs a real, natural timbre.
 
 ## The user on hearing the function (2026-10-24, later)

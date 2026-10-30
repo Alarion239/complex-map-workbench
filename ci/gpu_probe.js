@@ -1,12 +1,15 @@
 'use strict';
 // Which WebGL2 renderer the gate's headless Chrome gets on this machine (the same launcher and flags as the perf
 // suite: test/regress/perf/cdp.js). Prints it and adds it to the job summary.
-//   node ci/gpu_probe.js [--require-hardware] [--fallback]
+//   node ci/gpu_probe.js [--require-hardware] [--fallback] [--require-angle BACKEND]
 // --require-hardware (the self-hosted GPU runners): exit 1 when Chrome renders in software (SwiftShader, WARP, the
 //   Microsoft Basic Render Driver, llvmpipe) or has no WebGL2: the runner was started where Chrome cannot reach the GPU
 //   (ci/RUNNERS.md, "Check the GPU"); and on a Mac when the job runs under Rosetta, whose timings are not the machine's.
 // --fallback (GitHub's machines): when the platform's backend (Metal, Direct3D 11) gives no WebGL2 in that virtual
 //   machine, try SwiftShader and, when it works, set CMW_ANGLE=swiftshader for the job's later steps.
+// --require-angle BACKEND (e.g. d3d11): exit 1 unless the renderer string names that ANGLE back end (Direct3D11 for
+//   d3d11, Metal, Vulkan, OpenGL), in software too: GitHub's Windows machine for glprof, whose link times are FXC's only
+//   on Direct3D 11 (WARP), not on a SwiftShader fallback (gpu-gate.yml, machines windows-hosted)
 const os = require('os');
 const fs = require('fs');
 const { summary, esc } = require('./lib');
@@ -76,6 +79,15 @@ function windowsPower() {
   console.log(JSON.stringify(Object.assign({ software, rosetta, machine }, info), null, 1));
   summary(`**WebGL2:** ${info.webgl2 ? esc(info.renderer) : 'none'}${software ? ' (software rendering)' : ''} · parallel compile ${info.parallelCompile ? 'yes' : 'no'}  \n${esc(machine)} · \`${esc(info.flags)}\`\n`);
   if (!info.webgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); process.exit(1); }
+  const ai = process.argv.indexOf('--require-angle');
+  if (ai >= 0) {
+    const want = String(process.argv[ai + 1] || '').toLowerCase();
+    const names = { d3d11: /direct3d ?11|d3d11/i, metal: /metal/i, vulkan: /vulkan/i, gl: /opengl/i };
+    if (!names[want] || !names[want].test(info.renderer || '')) {
+      console.error(`::error title=Not ANGLE ${want}::the renderer is "${info.renderer}", not ANGLE's ${want} back end`);
+      process.exit(1);
+    }
+  }
   if (process.argv.includes('--require-hardware') && software) {
     console.error('::error title=No GPU::Chrome renders in software on this runner. Start the runner in a logged-in desktop session (ci/RUNNERS.md, "Check the GPU").');
     process.exit(1);
