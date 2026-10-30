@@ -965,6 +965,7 @@
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
   // after a click, the options behind the Display options button (wave 2's D4 turns it into a Display popover). A phone
   // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
+  const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
     let moved = false;
@@ -972,7 +973,17 @@
       const pane = side === 'L' ? $('paneL') : $('paneR'), head = pane && pane.querySelector('.pane-head'), plot = $(side === 'L' ? 'plotL' : 'plotR');
       const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend'), ft = $(side === 'L' ? 'leftFoot' : 'rightFoot'), led = $(side === 'L' ? 'leftLed' : 'rightLed');
       if (!head || !plot || !leg || !ft) continue;
-      if (!ph) {
+      // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key and
+      // Y's pattern key stay chips in the head)
+      const onPlot = side === 'L' && !ph && keyOnPlot();
+      if (onPlot) {
+        if (leg.parentNode !== plot) {
+          leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
+          const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
+          leg.removeAttribute('aria-label'); moved = true;
+        }
+        if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
+      } else if (!ph) {
         if (leg.parentNode !== head) { head.insertBefore(leg, led && led.parentNode === head ? led : null); leg.classList.remove('collapsed'); moved = true; }
         if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
         // (the empty chain's call to action too: "Add function" in Y's head, not over the picture)
@@ -1000,7 +1011,12 @@
     if (kind === 'image') return S.pattern === 'stretch' ? $t('Scale |F′|') : S.pattern === 'sphere' ? $t('Sphere cells') : $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) });
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
-  function drawLegend() { drawLegendSide('L'); drawLegendSide('R'); }
+  function drawLegend() {
+    // (#365: the view changed under a laptop: Phase's key goes to the plot, the others' back to the head)
+    const L = $('leftLegend'), pl = $('plotL');
+    if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
+    drawLegendSide('L'); drawLegendSide('R');
+  }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   function drawLegendSide(side) {
