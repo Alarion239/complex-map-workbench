@@ -1019,9 +1019,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // (issue #355: one call of f, at the point below t0 too and at t = 1, where the path is f(z) itself: FXC
         // inlines every call, and a formula's f can be tens of KB; the values are the former ones, H(max(t, t0)))
         return {
-          own1: true,
-          h: `${T0}float t0 = ${g.x}, tt = t == 1.0 ? 1.0 : max(t, t0);\n  vec2 fa = ${P}_f(t == 1.0 ? z : ${p.v} + (z - ${p.v}) * tt);\n  if (t == 1.0) return fa;\n`
-            + `  vec2 h = ${p.v} * (1.0 - tt) + ${fp.v} * tt + cmul(cexp(${ll.v} * (tt - 1.0)), fa - ${fp.v}) / tt;\n  return t < t0 ? z + (h - z) * (t / t0) : h;`,
+          own1: true, h: `${T0}float t0 = ${g.x}, tt = t == 1.0 ? 1.0 : max(t, t0);\n  vec2 fa = ${P}_f(t == 1.0 ? z : ${p.v} + (z - ${p.v}) * tt);\n  if (t == 1.0) return fa;\n  vec2 h = ${p.v} * (1.0 - tt) + ${fp.v} * tt + cmul(cexp(${ll.v} * (tt - 1.0)), fa - ${fp.v}) / tt;\n  return t < t0 ? z + (h - z) * (t / t0) : h;`,
           write(put, b) { const d = Funcs.natData(b); for (const [cell, k] of [[p, 'p'], [fp, 'fp'], [ll, 'll']]) putC(put, cell, d ? d[k] : C(0, 0)); put(g.c, d && d.t0 ? d.t0 : 1e-3, 0); },
         };
       }
@@ -1404,20 +1402,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
       h += `float s = t * ${n}.0;\n  `;
       // (issue #355: a sub-step whose path is its map at 1 goes through the path at min(s - j, 1), so its map is
       // written once in the path, not again for the later sub-steps: the same values)
-      subs.forEach(({ Q, pl }, j) => {
-        if (j === n - 1) h += `return ${Q}_h(z, s - ${j}.0);`;
-        else if (exactAt1(pl)) h += `z = ${Q}_h(z, min(s - ${j}.0, 1.0));\n  if (s < ${j + 1}.0) return z;\n  `;
-        else h += `if (s < ${j + 1}.0) return ${Q}_h(z, s - ${j}.0);\n  z = ${Q}_f(z);\n  `;
-      });
+      subs.forEach(({ Q, pl }, j) => { h += j === n - 1 ? `return ${Q}_h(z, s - ${j}.0);` : exactAt1(pl) ? `z = ${Q}_h(z, min(s - ${j}.0, 1.0));\n  if (s < ${j + 1}.0) return z;\n  ` : `if (s < ${j + 1}.0) return ${Q}_h(z, s - ${j}.0);\n  z = ${Q}_f(z);\n  `; });
     }
-    // (every sub-step's path is its map at 1: so is this one, and the shortcut that would write every map again is
-    // left out)
-    const own1 = subs.every(({ pl }) => exactAt1(pl));
+    // (own1 below: every sub-step's path is its map at 1, so is this one, and the shortcut that would write every map
+    // again is left out)
     // (the landscape's cut kinds, GLChain cutKinds: a sub-step with such a cut, in its map or its path; a sub-step's
     // path with a principal cut of its own (hc) runs inside the formula's path, which has no local-cut form)
     const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
     return {
-      sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h, own1,
+      sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: subs.every(({ pl }) => exactAt1(pl)),
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { for (const { pl } of subs) pl.write(put); },
     };
