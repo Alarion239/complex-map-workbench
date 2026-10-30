@@ -18,7 +18,7 @@
 // construction: circle3, meet, glider, midpoint, bisector); Constr.recompute writes their concrete fields, the
 // runtime form s._g, s.cundef / s.cHid (undefined) and s._atInf (a point at infinity), in topological order.
 const Constr = (function (factory) {
-  const M = factory(); if (typeof window !== 'undefined') window.Constr = M;
+  const M = factory(); if (typeof window !== 'undefined') /** @type {any} */ (window).Constr = M;
   return M;
 })(function () {
   const EPS = 2 ** -53;
@@ -58,6 +58,7 @@ const Constr = (function (factory) {
   // 0.1, 0.3, 0.6 …, and three such doubles on a decimal line are exactly collinear only about half the time. When
   // all six coordinates are 12-digit decimals (x === +x.toPrecision(12)), and the double predicate is within the
   // rounding of those decimals, the exact predicate runs on the decimals scaled to integers: 0 there is 0 here.
+  /** @returns {[bigint, number] | null} */
   function decOf(x) {
     if (x === 0) return [0n, 0];
     if (!Number.isFinite(x) || x !== +x.toPrecision(12)) return null;
@@ -121,7 +122,7 @@ const Constr = (function (factory) {
     'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
   function latin(src) {
     const s = String(src).replace(/[\u0400-\u04FF]/g, (c) => HOMO[c] || c);
-    if (/[\u0400-\u04FF]/.test(s)) { const e = new FormulaError('Use Latin letters for names'); e.ru = 'Используйте латинские буквы'; throw e; }
+    if (/[\u0400-\u04FF]/.test(s)) { const e = /** @type {any} */ (new FormulaError('Use Latin letters for names')); e.ru = 'Используйте латинские буквы'; throw e; }
     return s;
   }
   // opt.known: the names in scope. A run of two or more letters that is not a function is a product of names only
@@ -327,6 +328,7 @@ const Constr = (function (factory) {
   const travel = (g, z) => { const v = grad(g, z); return [-v[1], v[0]]; };
   // > 0: curve 2 leaves the inside of curve 1 at z; < 0: it enters
   const crossing = (g1, g2, z) => dot(grad(g1, z), travel(g2, z));
+  /** @returns {any[] & { coincide?: boolean }} */
   function meets(g1, g2) {
     const two = meets0(g1, g2);
     const [p, q] = two;
@@ -341,7 +343,8 @@ const Constr = (function (factory) {
   // the two intersections, unordered. Solved in the Hermitian form of one curve along the other (a line, or the
   // smaller circle) so that a circle of radius 1e8 through nearly collinear points meets as accurately as the line it
   // tends to (rev 2: the centre-radius form lost 1e-3 there)
-  const coincideMark = () => { const r = [null, null]; r.coincide = true; return r; };
+  const coincideMark = () => { const r = /** @type {any[] & { coincide?: boolean }} */ ([null, null]); r.coincide = true; return r; };
+  /** @returns {any[] & { coincide?: boolean }} */
   function meets0(g1, g2) {
     const a = geomOf(g1), b = geomOf(g2);
     if (a.line && b.line) {
@@ -1201,6 +1204,7 @@ const Constr = (function (factory) {
   // entering rule, which orders [p, inf] continuously through that instant [review math-5]
   const lineByKind = (pc) => pc.kind === 'line' && !pc.gen && (!pc.c3 || !!(pc.G && pc.G.byInc));
   // the meets of two pieces with the entering rule: [{z | INF | null, index}] (two lines: one, index 'finite') [C6]
+  /** @returns {({ z: any, index: number | string }[] & { coincide?: boolean })} */
   function meetsOf(pa, pb) {
     if (!pa || !pb || pa.kind === 'none' || pb.kind === 'none') return [];
     if (pa.kind === 'traced' || pb.kind === 'traced') return [];
@@ -1215,7 +1219,9 @@ const Constr = (function (factory) {
       const m = meets0(pa.G, pb.G);
       return [{ z: m[0], index: 'finite' }];
     }
-    const m = meets(pa.G, pb.G), out = [{ z: m[0], index: 0 }, { z: m[1], index: 1 }];
+    const m = meets(pa.G, pb.G);
+    /** @type {{ z: any, index: number | string }[] & { coincide?: boolean }} */
+    const out = [{ z: m[0], index: 0 }, { z: m[1], index: 1 }];
     if (m.coincide) out.coincide = true;
     return out;
   }
@@ -2275,6 +2281,7 @@ const Constr = (function (factory) {
   }
   // [v16.3 review math-3, math-4] numbers as the decimals the user snapped or typed (decOf: 12 digits), scaled to integers
   // under one power of ten: BigInts, or null when one is not such a decimal (or the scales are too far apart)
+  /** @returns {bigint[] | null} */
   function decInts(xs) {
     const ds = xs.map(decOf);
     if (ds.some((d) => !d)) return null;
