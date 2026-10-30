@@ -439,7 +439,7 @@
   const prePlans = new Map();
   // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
   function exactPre(j, st, p) {
-    if (typeof Inverse === 'undefined' || !Inverse.pointPre) return null;
+    if (!Inverse.pointPre) return null;
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
     let plan = prePlans.get(key);
     if (!plan) {

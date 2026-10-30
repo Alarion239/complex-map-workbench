@@ -1364,7 +1364,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       if (!n.t) return;
       for (const k of Object.keys(n)) if (n[k] && typeof n[k] === 'object') walk(n[k]);
       if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && !hasParam(n.b)) {
-        const bn = typeof Funcs !== 'undefined' && Funcs.branchNode ? Funcs.branchNode(n) : null;
+        const bn = Funcs.branchNode ? Funcs.branchNode(n) : null;
         out.push(bn ? 'n' : Expr.compile(n.b)(C(0, 0)).re);
       }
     };
@@ -1452,7 +1452,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   // ---- d/dz: derivative of one step (for the exact chain rule) ----
   // {f: body of vec2 P_df(vec2 z), write} from Funcs.derivAst (exact numbers, the step's cut), or null
   function derivPlan(P, b, A) {
-    if (typeof Funcs === 'undefined' || typeof Funcs.derivAst !== 'function') return null;
+    if (typeof Funcs.derivAst !== 'function') return null;
     const d = Funcs.derivAst(b, { stable: true });
     if (!d || d.error) return null;
     const cut = A.cell();
@@ -1899,7 +1899,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       for (const sp of spl.values()) sp.write(put);
       return (cache = vals);
     }
-    const sheetList = typeof Funcs !== 'undefined' && Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
+    const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken now (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
@@ -2386,7 +2386,6 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
-    if (typeof Inverse === 'undefined') return { ok: false, reason: 'no inverse enumerator', key: null };
     // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
     const ops = [], sigs = [];
     steps.forEach((st, i) => {

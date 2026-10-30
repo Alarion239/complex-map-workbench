@@ -230,7 +230,9 @@ worse (reference → this change, with the rule it broke), what improved, and th
 
 *Actions → Gate (or GPU gate) → Run workflow*: choose the branch, optionally the reference (a commit or branch), only
 some perf shards (e.g. `views,phone`), and *force* to run the paired gates when the app did not change (an A/A run of
-the same app on both sides shows the noise). The Gate's *perf* box runs the perf suite on GitHub's machines (Windows,
+the same app on both sides shows the noise). The GPU gate's *glsl* input, `skip`, leaves out the GLSL and quality jobs
+so that the perf shards start at once: by hand the Windows GLSL tier is ten jobs, about 7 hours, ahead of perf (a
+measurement then, not the full gate). The Gate's *perf* box runs the perf suite on GitHub's machines (Windows,
 and macOS advisory) even when the GPU machines gate speed, e.g. while one of them is away.
 
 ## Locally

@@ -842,7 +842,7 @@ const Constr = (function (factory) {
   }
   // the position handles of a shape (Region.handlesOf when the app's Region is loaded; the same keys otherwise)
   function handlePos(s, h) {
-    if (typeof Region !== 'undefined' && Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) {
+    if (Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) {
       try { const hs = Region.handlesOf(s); for (const [k, z] of hs) if (k === h) return [z.re, z.im]; } catch (e) { /* */ }
       return null;
     }
@@ -852,7 +852,7 @@ const Constr = (function (factory) {
     return isXY(s[h]) ? s[h].slice() : null;
   }
   const handleKeys = (s) => {
-    if (typeof Region !== 'undefined' && Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) { try { return Region.handlesOf(s).map((x) => x[0]); } catch (e) { return []; } }
+    if (Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) { try { return Region.handlesOf(s).map((x) => x[0]); } catch (e) { return []; } }
     const out = [];
     for (const k of ['p', 'a', 'b', 'm', 'c']) if (isXY(s[k])) out.push(k);
     if (Array.isArray(s.pts)) s.pts.forEach((_, i) => out.push('v' + i));

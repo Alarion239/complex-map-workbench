@@ -1045,7 +1045,7 @@
         }
       }
       const rl = linesOf(r, pf.p);
-      if (rl.lineRes && !(artMode && artSkip && artSkip.has(s.id))) {
+      if (rl.lineRes && !hideStrokes && !(artMode && artSkip && artSkip.has(s.id))) {
         const area = kindType(s) === 'area';
         lines.push({ res: rl.lineRes, st: { map, dpr: pane.dpr, M: 8, width: (area ? 1.5 : 2) * pane.dpr, color: imageMode ? GLR.hexRGB(ink.edge) : GLR.hexRGB(TH.dcCasing), alpha: 1, casing: { color: imageMode ? halo : [1, 1, 1], alpha: 0.85, width: (area ? 3.5 : 4) * pane.dpr }, cacheKey: cache ? `${rl.lineKey}|${mk}` : null } });
       }
