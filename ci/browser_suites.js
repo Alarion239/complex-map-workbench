@@ -56,7 +56,7 @@ const SUITES = {
   'touch_cmd.js': { pages: ['v162-test.html'] },
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
   // on lavapipe, so it runs in two halves)
-  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a-fig', '4a-vid', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
   // repository: work/xv16-merged-snap; v16's own build differs from it by design)
   'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },

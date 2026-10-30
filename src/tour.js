@@ -961,12 +961,12 @@ const Tour = (() => {
 /* (r3 review user-3, user-10: a chapter whose line needs three lines here gets a taller row) */
 .tour-strip[data-mode="port"][data-lines="3"] .ts-row { height: 75px; }
 .tour-strip[data-mode="row"][data-lines="3"] .ts-row { height: 55px; }
-/* the buttons: 36 px with a mouse, 44 px on a touch screen or a phone, 8 px apart */
-.tour-strip .ts-btn { flex: 0 0 auto; width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+/* the buttons: 32 px with a mouse, 44 px on a touch screen or a phone, 8 px apart */
+.tour-strip .ts-btn { flex: 0 0 auto; width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
 .tour-strip .ts-btn[hidden], .tour-strip .ts-act[hidden] { display: none !important; }
-.tour-strip .ts-act { flex: 0 0 auto; height: 36px; min-height: 36px; min-width: 36px; padding: 0 12px; gap: 6px; white-space: nowrap; }
+.tour-strip .ts-act { flex: 0 0 auto; height: 32px; min-height: 32px; min-width: 32px; padding: 0 12px; gap: 6px; white-space: nowrap; }
 .tour-strip .ts-act svg { width: 14px; height: 14px; flex: 0 0 14px; }
-.tour-strip .ts-next { flex: 0 0 auto; position: relative; isolation: isolate; overflow: hidden; height: 36px; min-height: 36px; min-width: 64px; max-width: 220px; padding: 0 14px; white-space: nowrap; text-overflow: ellipsis; }
+.tour-strip .ts-next { flex: 0 0 auto; position: relative; isolation: isolate; overflow: hidden; height: 32px; min-height: 32px; min-width: 64px; max-width: 220px; padding: 0 14px; white-space: nowrap; text-overflow: ellipsis; }
 .tour-strip .ts-next { transition: none; }  /* Skip and Next swap in place; no fade between their two looks */
 .tour-strip .ts-next.ready { box-shadow: inset 0 0 0 2px var(--accent-ink); }
 /* (#34 T1) Next is earned: while the step's task is open the button is a quiet outlined Skip */
@@ -1724,11 +1724,11 @@ const Tour = (() => {
     d.innerHTML = ICON_DOWN;
     tin.append(d, ' ');
   }
-  // A desktop's strip height: 62 px, plus while Why is open inline the tallest body of the steps seen so far at this
+  // A desktop's strip height: 52 px, plus while Why is open inline the tallest body of the steps seen so far at this
   // width (measured off screen at each chapter's start; r3 review regress-4: it never shrinks during the tour, so the
   // panes change size at most when a taller chapter comes, not at every chapter). At most 45 % of the view, and never
   // so tall that the panes keep less than 360 px (Why scrolls inside).
-  const ROW_H = 62, SLOT_GAP = 8;
+  const ROW_H = 52, SLOT_GAP = 8;
   // a laptop's strip is one row high
   function sizeDesk(r) {
     const ui = r.ui;
