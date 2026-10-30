@@ -60,4 +60,16 @@ c = await centre('paneR');
 for (const dx of [0, 14, 28, 42]) { await move(c.x + dx, c.y + dx / 2); await sleep(120); }
 await settle(700);
 ok('hovering a point in Y closes it', !(await lane()), null);
+// a line about dragging or playing a number closes when that number moves (a for the disc map, c for Boettcher), not before
+const iDisc = await byName('/A disc map moved by a point/');
+const iBott = await byName('/B.ttcher coordinates/');
+ok('the number examples exist', iDisc >= 0 && iBott >= 0, { iDisc, iBott });
+await ev(`__cmwExample(${iDisc})`); await settle(1500);
+ok('the disc map has its line', await lane(), null);
+await ev(`Params.set('a', 0.3)`); await settle(800);
+ok('moving the number a closes it', !(await lane()), null);
+await ev(`__cmwExample(${iBott})`); await settle(1500);
+ok('Böttcher has its line', await lane(), null);
+await ev(`Params.set('c', 0.1)`); await settle(800);
+ok('moving the number c closes it', !(await lane()), null);
 return { pass: fails.length === 0, fails };
