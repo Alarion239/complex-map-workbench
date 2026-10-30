@@ -1,6 +1,6 @@
 """The app's source files as build.py joins them (issue #20, phase 2).
 
-src/app.js and src/gl.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines around
+src/app.js, src/gl.js and src/figure.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines around
 an "// @parts" line, and the parts src/<name>/NN-*.js take that line's place, joined in file name order. The joined
 text is the old single file byte for byte. test/src_text.js does the same for the JavaScript tests and tools.
 """
