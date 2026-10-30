@@ -465,10 +465,13 @@
     head.after(strip);
     $('stage').append(live);
     const rail = strip.querySelector('.sv-rail');
-    rail.setAttribute('role', 'slider'); rail.setAttribute('tabindex', '0'); rail.setAttribute('aria-label', $t('Place on the chain'));
-    rail.setAttribute('aria-valuemin', '0'); rail.setAttribute('aria-orientation', 'horizontal');
+    // (the slider is the ring that marks the place, not the thread: the thread holds the planes' and the steps' buttons,
+    // which a slider's children cannot be (axe nested-interactive, ux's re-check of #448))
+    thumb.removeAttribute('aria-hidden');
+    thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
+    thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { rail, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -521,8 +524,8 @@
       for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
-      E.rail.setAttribute('aria-valuenow', x.toFixed(2)); E.rail.setAttribute('aria-valuemax', String(P.length - 1));
-      E.rail.setAttribute('aria-valuetext', svPlaceText());
+      E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
+      E.slider.setAttribute('aria-valuetext', svPlaceText());
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
@@ -656,7 +659,7 @@
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
       // (on the thread itself, a slider: ← → move a quarter of a step and stop there, Home / End go to z and the last plane)
-      const onRail = !!(t && t.classList && t.classList.contains('sv-rail'));
+      const onRail = !!(t && t.classList && t.classList.contains('sv-thumb'));
       if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
       // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
@@ -696,7 +699,7 @@
       if (!GLR.ok) return;
       if (GLR.prestartModes) GLR.prestartModes([1]);
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
-      if (GLR.prestartNames) GLR.prestartNames(['region', 'line', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
+      if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
     } catch (e) { /* (the first glide starts them) */ }
   }
