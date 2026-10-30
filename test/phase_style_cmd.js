@@ -1,8 +1,6 @@
-// The Phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away (issue #81): a button in the
-// header beside the palette's disc while X is the flat Phase view, with a menu of the styles; in the Landscape it is dimmed
-// and says where the styles live; on a phone the Display sheet's first row is a "Style: Tiles" chip with the same menu. The
-// pane head's own style row (#247: inline, no Display pop-up) follows, and on a phone the Display sheet starts with that
-// row; the chip shows there in the Landscape only. A command file for a CDP daemon (test/cdp_kit README).
+// The Phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away (issue #81): the pane head's
+// own style row (#247: inline, no Display pop-up); the top bar has no style control of its own (#334). On a phone the
+// Display sheet starts with that row; its "Style: Tiles" chip, with the menu of the styles, shows there in the Landscape only. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [];
@@ -21,43 +19,21 @@ const fresh = async (w, h, mobile, lang, state) => {
 };
 const btn = () => ev(`(() => { const b = document.getElementById('styleBtn'); if (!b) return null; const r = b.getBoundingClientRect(); return { vis: !b.hidden && r.width > 0, label: (b.querySelector('.hw') || {}).textContent, disabled: b.getAttribute('aria-disabled'), tip: b.getAttribute('data-tip'), r: [r.left, r.right], top: document.querySelector('.top').getBoundingClientRect().right, over: document.querySelector('.top').scrollWidth > document.querySelector('.top').clientWidth + 1 }; })()`);
 
-// ---- laptop
-await fresh(1440, 900, false, '');
-let b = await btn();
-ok('Phase view: the style button shows the current style', b && b.vis && b.label === 'Tiles', b);
-await ev(`__cmwSetMain('xy'); 1`); await settle(500);
-ok('X → Y: no style button', !(await btn()).vis, await btn());
-await ev(`__cmwSetMain('phase'); 1`); await settle(500);
-await ev(`document.getElementById('styleBtn').click()`); await settle(400);
-let items = await menuItems();
-ok('its menu lists the six styles, Tiles checked', items.length === 6 && items[0].t === 'Tiles' && items[0].checked === 'true' && items.map((x) => x.t).join() === 'Tiles,Plain,Modulus,Contours,Pulled-back grid,Cauchy', items);
-await pickItem('/Contours/');
-b = await btn();
-ok('picking Contours sets the style and the button follows', (await dc()) === 'modulus' && b.label === 'Contours', [await dc(), b]);
-ok('the pane head\'s own style row follows, with no pop-up to open (#247)', !(await ev(`!!document.querySelector('.disp-btn')`)) && await ev(`(document.querySelector('#dcSeg button.on') || {}).dataset && document.querySelector('#dcSeg button.on').dataset.v === 'modulus'`), await ev(`(document.querySelector('#dcSeg button.on') || {}).textContent`));
-await ev(`document.querySelector('#dcSeg button[data-v="grid"]').click()`); await settle(500);
-ok('and a pick there moves the button', (await btn()).label === 'Pulled-back grid', await btn());
-ok('the header has no overflow with it', !(await btn()).over, await btn());
-// the Landscape: dimmed, says where the styles live, and switches
-await ev(`__cmwSetMain('land'); 1`); await settle(700);
-b = await btn();
-ok('Landscape: the button is there, dimmed, and says where the styles belong', b.vis && b.disabled === 'true' && /belong to the flat Phase view/.test(b.tip), b);
-await ev(`document.getElementById('styleBtn').click()`); await settle(400);
-items = await menuItems();
-ok('its menu has the note (disabled) and the switch', items.length === 2 && items[0].dis && /Switch to Phase/.test(items[1].t), items);
-await pickItem('/Switch to Phase/');
-ok('Switch to Phase goes to the flat Phase view', (await ev('__cmwState().view.main')) === 'phase' && (await btn()).disabled === 'false', await ev('__cmwState().view'));
-// a narrower header: the word gives way before Share's, and nothing overflows
-for (const w of [1280, 1100]) {
-  await view(w, 800, false, false); await settle(600);
-  b = await btn();
-  ok(`${w} px: the header does not overflow with the style button`, !b.over, b);
+// ---- laptop: the header has no style control at any width (#334: the pane head's row is the one place); the row works
+const hdrStyle = () => ev(`(() => { const top = document.querySelector('.top'); const named = [...top.querySelectorAll('button')].filter((b) => /Phase style|Стиль фазы|Stile della fase/i.test((b.getAttribute('aria-label') || '') + (b.getAttribute('data-tip') || '') + (b.getAttribute('title') || ''))); return { id: !!document.getElementById('styleBtn'), named: named.map((b) => b.id || b.className), over: top.scrollWidth > top.clientWidth + 1 }; })()`);
+for (const [w, lang] of [[1440, ''], [1280, ''], [1100, ''], [900, ''], [1440, 'ru'], [1280, 'ru'], [1100, 'it']]) {
+  await fresh(w, 800, false, lang);
+  const h = await hdrStyle();
+  ok(`${w} ${lang || 'en'}: Phase view, no style control in the top bar and no overflow`, !h.id && h.named.length === 0 && !h.over, h);
 }
-// Russian
-await fresh(1366, 800, false, 'ru');
-b = await btn();
-ok('Russian: the button names the style', b && b.vis && /Тасс|Плитк|Мозаик/.test(b.label || '') || (b && b.vis && !!b.label), b);
-ok('Russian: no overflow', b && !b.over, b);
+await fresh(1440, 900, false, '');
+ok('Phase view: the pane head\'s style row has the six styles, one on', await ev(`document.querySelectorAll('#dcSeg button').length === 6 && document.querySelectorAll('#dcSeg button.on').length === 1`), await dc());
+await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').click()`); await settle(500);
+ok('a click on a style there sets it (one click, no pop-up)', (await dc()) === 'modulus' && !(await ev(`!!document.querySelector('.disp-btn')`)), await dc());
+await ev(`document.querySelector('#dcSeg button[data-v="grid"]').click()`); await settle(500);
+ok('and again', (await dc()) === 'grid', await dc());
+await ev(`__cmwSetMain('land'); 1`); await settle(700);
+ok('Landscape: still no style control in the top bar', !(await hdrStyle()).id, await hdrStyle());
 
 // ---- phone: the Display sheet's first row (#247: the styles' own row of glyphs in the flat Phase view, one tap each; the
 // chip, with its menu, in the Landscape, where it says where the styles live)

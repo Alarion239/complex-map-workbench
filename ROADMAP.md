@@ -1,10 +1,11 @@
 # Roadmap
 
-**Live now:** v17.0-beta.7 (waves 1–7, 29 October 2026): the redesign so far, complex shared numbers, iteration, fast
-Dirichlet series, the ES-module build and the first shader-compile work for Windows.
+**Live now:** v17.0-beta.8 (waves 1–8, 30 October 2026): the redesign so far, complex shared numbers, iteration, fast
+Dirichlet series, the ES-module build, shapes and parameter points in every plane, the phone's step bar, and the first
+shader-compile work for Windows.
 
 **Next:** v17.0, when the touch rules (#30) and the guided tour rework (#34) are done; until then each merged wave is a
-beta (v17.0-beta.8, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+beta (v17.0-beta.9, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
 every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
 of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
@@ -14,7 +15,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.7 is live; v17.0 waits for #30 and #34 |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.8 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | planned |
 
 ## Releases
@@ -33,6 +34,7 @@ Each merged wave is a release. Dates are the day the wave PR merged into `main` 
 | v17.0-beta.5 | 2026-10-29 | #221 | Complex shared numbers (#10), the Recurrence step and Repeat × N (#6), shader-compile work for Windows (#72), touch rules (#30, touch half), tour lane (#34), ES-module preparation (#20) |
 | v17.0-beta.6 | 2026-10-29 | #268 (3eb5fb3) | Iteration complete (#6: `iter()`, Mandelbrot, Julia and Newton examples, Repeat × N on one GPU loop), shared numbers in a series' a_n and a recurrence's rule, Dirichlet series correct and about 100× cheaper (#242), Between z₀ and z₁ (#70), Alt and Space on a laptop (#30), the Phase style one click away (#81), one chain walk per shader program (#72 C) |
 | v17.0-beta.7 | 2026-10-29 | #304 (e6830d9) | The ES-module switch (#20 phase 4), Hear the function (#234), ζ about 3× cheaper, series edits and number drags without the lag (#243), shapes in a step's plane, forward (#253), a start-up progress bar (#245), Display options without a pop-up (#247), no wordmark in the top bar, a faster tour (#250), Windows GLSL in ten jobs (#169) |
+| v17.0-beta.8 | 2026-10-30 | #346 (62eb93c) | The Douady–Hubbard map Φ_M with external rays and equipotentials (#260), the Cauchy style by the residue theorem with three Cauchy examples 1/z, z + 1/z, e^{1/z} (#235, #293), shapes and parameter points shown in every plane (#253, #252), the phone's chain as ‹ the step › with a sheet and a glide through the deformation (#246), phone sheets and landscape phones fixed (#251), Display options as glyphs only (#247), pane heads laid out once per task (#320), Landscape step cards that never block on a link (#72), a phone selection sheet that reads a shape's description as plain text (#321), tests for complex shared numbers in a_n and recurrences (#327), CodeQL with an advanced setup that leaves test/ out (#330), a quality harness that settles on the right pane's own frame |
 
 The tag for each release is pushed by Alexander, so a row can exist before its tag does.
 
