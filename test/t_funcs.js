@@ -82,9 +82,10 @@ console.log('z^2 then J:', Funcs.PROP_KEYS.filter((k) => cp[k]).join(','), cp.de
     const G = Funcs.stageFunctions(steps, steps.map(Funcs.build));
     for (const z of zs) check(near(G[steps.length](z), exact(z), tol), 'stage', name, CX.fmt(z), CX.fmt(G[steps.length](z)), CX.fmt(exact(z)));
   }
-  // the exact chain rule and the circle formula agree for every catalog map with a derivative (default params)
+  // the exact chain rule and the circle formula agree for every catalog map with a derivative (default params; Φ_M and
+  // φ_c, issue #260, have no derivative formula: t_dh.js checks their d/dz)
   for (const id of Object.keys(Funcs.DEFS)) {
-    if (id === 'deriv' || id === 'conj') continue;
+    if (id === 'deriv' || id === 'conj' || id === 'dh' || id === 'bottcher') continue;
     const steps = [St(id), D()], built = steps.map(Funcs.build);
     const Gx = Funcs.stageFunctions(steps, built), Gc = Funcs.stageFunctions(steps, built, { exact: false });
     check(Gx.levels[2] === 0 && Gc.levels[2] === 1, 'levels', id);

@@ -180,6 +180,17 @@ const SCENES = {
       srcView: { cx: -0.6, cy: 0, s: 150 },
     },
   },
+  // the Douady–Hubbard map Φ_M (#260) at its N = 64: the GPU program keeps the orbit in an array and goes back by 64
+  // square roots at most; four external rays and two equipotentials of M (CPU curves) ride along
+  dh: {
+    label: 'the Douady–Hubbard map Phi_M (N = 64) with four external rays and two equipotentials',
+    state: {
+      shapes: [['0', 0], ['1/3', 1], ['1/7', 2], ['1/2', 3]].map(([t, i]) => ({ id: 's' + (i + 1), kind: 'dhray', theta: t, c: null }))
+        .concat([1.05, 1.3].map((r, i) => ({ id: 's' + (i + 5), kind: 'dheq', r, c: null }))),
+      steps: [{ type: 'dh', params: { N: 64 }, on: true }],
+      srcView: { cx: -0.6, cy: 0, s: 150 },
+    },
+  },
   // expH plus a small disc: hovering the disc's row in the shape list dims the half-plane (alpha / 2)
   hoverdim: {
     label: 'exp of the upper half-plane and of a disc (shape-list hover dims the other shape)',

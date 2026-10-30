@@ -35,7 +35,9 @@
   // deterministic sequence is unchanged; 'zp' gets its own random rows with their own seed (below)
   // (and before Γ and ζ, issue #4, the Series step, issue #5, and the Recurrence step, issue #6, which have chains of
   // their own below)
-  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence');
+  // (and Φ_M and φ_c, issue #260)
+  const OWN = new Set(['gamma', 'zeta', 'series', 'recurrence', 'dh', 'bottcher']);
+  const RTYPES = TYPES.filter((t) => t !== 'zp' && !OWN.has(t));
   const CUTS = [0, 90, -45, 180, 270, -180, 30];
   const EXPRS = [
     'z^2+\\frac{1}{z}', '\\sin z+\\cos(2z)', '\\tan z', '\\cot z', '\\sec z', '\\csc z', '\\sinh z-\\cosh(z/2)', '\\tanh(z)', '\\coth z',
@@ -68,7 +70,7 @@
   // 1. defaults
   // (Γ, ζ, the Series step and the Recurrence step have their own chains at the end, so the catalog's chains keep their
   // sequence and parts)
-  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence') add(`default ${t}`, [S(t)]);
+  for (const t of TYPES) if (!OWN.has(t)) add(`default ${t}`, [S(t)]);
   add('ijouk interior', [S('ijouk', { branch: 'interior' })]);
   // natural paths (2026-10-22): zoom paths, Joukowski's Cayley power, roots and rational zoom paths, all at once
   add('nat joukowski > cos > rational', [S('joukowski'), S('cos'), S('rational')]);
@@ -313,6 +315,12 @@
     // a block of two steps N = 2, one loop pass)
     add('repeat newton x20', [Rp(S('custom', { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }), 20, 1)]);
     add('repeat sin affine x2', [S('sin'), Rp(S('affine', { a: '0.8+0.3i', b: '0.1' }), 2, 2)]);
+    // [issue #260] Φ_M (the orbit in an array, back by square roots), zoomed onto M's boundary with a short N, and φ_c
+    // for the basilica and for a c outside M (NaN below the critical potential)
+    add('default dh', [S('dh')]);
+    add('dh near M 0.6z-0.5 N 12', [S('affine', { a: '0.6', b: '-0.5' }), S('dh', { N: 12 })]);
+    add('default bottcher', [S('bottcher')]);
+    add('bottcher c = 0.3+0.6i outside M', [S('bottcher', { c: '0.3+0.6i' })]);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });

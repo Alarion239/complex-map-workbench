@@ -512,6 +512,8 @@
   function shapeOk(s) {
     if (s.kind === 'formula' || s.kind === 'fcurve') return typeof s.expr === 'string';
     if (s.kind === 'curve' || s.kind === 'polygon') return Array.isArray(s.pts) && s.pts.length >= (s.kind === 'polygon' ? 3 : 2) && s.pts.every(isXY);
+    // ([issue #260] a ray's angle p/q or a turn in [0, 1), an equipotential's level > 1; c: null (M) or a point)
+    if (s.kind === 'dhray' || s.kind === 'dheq') return (s.kind === 'dhray' ? Region.dhAngle(s.theta) != null : isNum(s.r) && s.r > 1) && (s.c == null || isXY(s.c));
     const t = Region.defaultsFor(s.kind, C(0, 0), C(1, 1));
     return Object.keys(t).every((k) => (Array.isArray(t[k]) ? isXY(s[k]) : isNum(s[k])));
   }

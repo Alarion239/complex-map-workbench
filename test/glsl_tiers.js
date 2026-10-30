@@ -23,7 +23,10 @@ window.GLSLTiers = (() => {
   };
   const SAMPLE = 8;
   // chains measured slowest on Windows (WARP) that are not the only core chain of their kind: always deep
-  const SLOW = new Set([]);
+  // ([issue #260] and Φ_M's second program: its orbit array is an indexable temporary for Direct3D 11's compiler, whose
+  // cost there is not measured yet; on SwiftShader the program's pipeline takes about 3 times an iter() loop's, less
+  // than Γ's)
+  const SLOW = new Set(['dh near M 0.6z-0.5 N 12']);
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';
     const r = RANDOM[page];
