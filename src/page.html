@@ -7,7 +7,7 @@
 /* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
    Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal);
-   Russian also starts the Cyrillic faces' stylesheet now. English returns at once. */
+   Russian also starts the Cyrillic faces' stylesheet now (the offline page's are inline). English returns at once. */
 (function () {
   try {
     var q = new URLSearchParams(location.search), l = q.get('lang'), ns = q.get('ns') || '', p = null, n = '';
@@ -23,6 +23,9 @@
     d.lang = l; d.setAttribute('data-lang', l); d.classList.add('i18n-wait');
     addEventListener('load', function () { d.classList.remove('i18n-wait'); });
     if (l !== 'ru') return;
+    // (the offline page, issue #21: the faces are inline, build.py's #cmw-fonts-ru, and go in as a style element)
+    var f = document.getElementById('cmw-fonts-ru');
+    if (f) { k = document.createElement('style'); k.id = 'i18n-fonts'; k.textContent = f.textContent; document.head.appendChild(k); return; }
     k.id = 'i18n-fonts'; k.rel = 'stylesheet';
     k.href = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
     document.head.appendChild(k);
