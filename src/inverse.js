@@ -72,7 +72,7 @@ const Inverse = (() => {
       fam: { type: 'fin', count: an }, poles: n < 0 ? [ZERO] : [], infPre: n > 0,
       infAt: (w) => n < 0 && isZero(w),
       pre: (w) => {
-        if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0 })] : [];
+        if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0, mult: an })] : [];
         const q = n > 0 ? w : CX.inv(w);
         const r = Math.pow(abs(q), 1 / an), t = Math.atan2(q.im, q.re), out = [];
         for (let j = 0; j < an; j++) {
@@ -251,10 +251,12 @@ const Inverse = (() => {
           const qq = scale(add(B, sd), -0.5);
           roots = (qq.re === 0 && qq.im === 0) ? [ZERO] : [div(qq, A), div(Cc, qq)];
         }
+        // (B = C = 0: the double root 0, listed once with its multiplicity; the one root of a w at infinity is simple)
+        const dbl = roots.length === 1 && abs(A) > 1e-14 * (abs(B) + abs(Cc));
         return roots.map((u, m) => {
           const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
           const fp = div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu));
-          return ONEM(u, CX.inv(fp), { m });
+          return ONEM(u, CX.inv(fp), dbl ? { m, mult: 2 } : { m });
         });
       },
     });
@@ -1335,6 +1337,39 @@ const Inverse = (() => {
       }
     }
     return cur;
+  }
+  // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
+  // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
+  // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
+  // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
+  function pointPre(plan, p, cap = LEAF_CAP) {
+    if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
+    let total = 1;
+    for (const o of plan.ops) {
+      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin')) return { exact: false, reason: 'a step with infinitely many branches' };
+      total *= o.fam ? o.fam.count : 1;
+      if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
+    }
+    let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
+    for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
+      const o = plan.ops[i], next = [];
+      const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
+      for (const { z: w, m } of cur) {
+        // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
+        for (const mem of o.pre(w)) {
+          if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
+          const each = m * (mem.mult || 1);
+          // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
+          // is only good to about √ε of its value after a step before it, so the merge is within 1e-7, as the holes)
+          const q = next.find((r) => abs(sub(r.z, mem.u)) <= 1e-7 * (1 + abs(mem.u)));
+          if (q) q.m += each; else next.push({ z: mem.u, m: each });
+        }
+      }
+      cur = next;
+    }
+    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
@@ -2493,7 +2528,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, inverseKey, prepare, enumerate, sheetKey, front, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
