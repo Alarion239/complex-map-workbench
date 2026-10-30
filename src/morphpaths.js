@@ -349,7 +349,7 @@ const MorphPaths = (() => {
     // slightly preferred), then, when that leaves fewer than minN, the looser test (one crossing, 0.7 dTest, one stub)
     let it = 0;
     // (the globe: points inside X first, the boundary is not preferred: its paths lie along X's outline at the limb)
-    for (const [d, nX, edges, upTo] of [[dT, 0, true, opt.globe ? 0 : Math.ceil(PATHS.edgeShare * cap)], [dT, 0, false, cap], [0.7 * dT, 1, false, cap]]) {
+    for (const [d, nX, edges, upTo] of /** @type {[number, number, boolean, number][]} */ ([[dT, 0, true, opt.globe ? 0 : Math.ceil(PATHS.edgeShare * cap)], [dT, 0, false, cap], [0.7 * dT, 1, false, cap]])) {
       if (nX && kept.length >= Math.min(PATHS.minN, cap)) break;
       if (nX) for (const c of cands) if (c.dead === 2) c.dead = 0;
       while (kept.length < upTo) {
@@ -1046,10 +1046,10 @@ const MorphPaths = (() => {
   // thumb moves by half a pixel: on a phone each change of the page's tree or a style was a full style recalc (the
   // page's :has() rules), about 1.5 to 2 ms a frame. Paused, the scrubber shows T exactly.
   function syncTransport() {
-    const sl = $('morphRange');
+    const sl = /** @type {HTMLInputElement} */ ($('morphRange'));
     // (v16: a phone's transport labels, SPEC 6.6)
-    const fs = sl && sl.closest('.tscrub[data-fit="1"]');
-    if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of fs.querySelectorAll('.tfix')) x.hidden = true; delete fs.dataset.fit; } }
+    const fs = /** @type {HTMLElement | null} */ (sl && sl.closest('.tscrub[data-fit="1"]'));
+    if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of /** @type {NodeListOf<HTMLElement>} */ (fs.querySelectorAll('.tfix'))) x.hidden = true; delete fs.dataset.fit; } }
     syncPlaying();
     const lab = $('morphLabel');
     if (lab) setText(lab, morphReadout(lab.dataset.short === '1'));
@@ -1134,7 +1134,7 @@ const MorphPaths = (() => {
       const show = !A.S.steps.length && rImage();
       if (show && !er.firstChild) er.append(h('span', null, $t('Add a function to map the region')), h('button', { class: 'btn primary small', 'data-tip': $t('Add a function to map the region'), onclick: (e) => openPalette(e.currentTarget, A.S.steps.length, { fnOnly: true }) }, $t('Add function')));
       // (v16.5 UX20: in Y's head the title is fitted with the button in place, so its role is whole, short or gone)
-      if (er.hidden === show) { er.hidden = !show; if (er.parentNode && er.parentNode.classList.contains('pane-head')) fitTitle('R'); }
+      if (er.hidden === show) { er.hidden = !show; if (er.parentNode && /** @type {HTMLElement} */ (er.parentNode).classList.contains('pane-head')) fitTitle('R'); }
     }
     updateCalcChip();
   }

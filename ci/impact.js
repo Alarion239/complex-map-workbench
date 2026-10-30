@@ -91,6 +91,7 @@ const MAP = [
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
   ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
+  ['src/construct/**', ui('constructions')],                                  // construct.js in parts (#20), the same
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas
   ['src/commands.js', ui('desktop', 'i18n')],                                 // the command palette (desktop: formulas too)
@@ -102,7 +103,7 @@ const MAP = [
   ['src/page.html', ui('desktop', 'phone')],                                  // the page's markup: both layouts
   ['src/desk.css', ui('desktop', 'phone')],                                   // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,parse,funcs,homrange,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,parse,funcs,natpaths,derivs,homrange,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
@@ -117,6 +118,7 @@ const MAP = [
   ['test/t_*.js', T0],
   ['test/*_cmd.js', { suite: true }],
   ['test/regress/test_compare.py', T0],
+  ['test/{gl_make_test.py,gl_test.js,make_css_fixture.py,css_fixture.js}', T0],   // by-hand pages (dist/gl-test.html, css-fixture.html): no CI job opens them
   ['test/regress/perf/cdp.js', { glsl: 'all', quality: true, perf: true }],   // the Chrome driver of the paired gates
   ['test/regress/quality/**', { quality: true }],
   ['test/regress/compare_quality.py', { quality: true }],

@@ -296,11 +296,11 @@
     let out = null;
     // (webmOnly: the fallback on purpose, for its test)
     for (const codec of webmOnly ? [] : H264) {
-      const cfg = { codec, width: W, height: H, bitrate, framerate: fps, avc: { format: 'avc' }, latencyMode: 'quality' };
+      const cfg = /** @type {VideoEncoderConfig} */ ({ codec, width: W, height: H, bitrate, framerate: fps, avc: { format: 'avc' }, latencyMode: 'quality' });
       try { const s = await VideoEncoder.isConfigSupported(cfg); if (s && s.supported) { out = { cfg, mux: 'mp4' }; break; } } catch (e) { /* next */ }
     }
     if (!out) for (const codec of ['vp09.00.40.08', 'vp09.00.31.08', 'vp8']) {
-      const cfg = { codec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'quality' };
+      const cfg = /** @type {VideoEncoderConfig} */ ({ codec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'quality' });
       try { const s = await VideoEncoder.isConfigSupported(cfg); if (s && s.supported) { out = { cfg, mux: 'webm' }; break; } } catch (e) { /* next */ }
     }
     pickCache.set(ck, out);
@@ -370,7 +370,7 @@
     // the SeekHead has a fixed size (positions as 8-byte integers), so the offsets are known before it is written
     const seekEntry = (id, p) => el(0x4DBB, [el(0x53AB, idb(id)), el(0x53AC, u64(p))]);
     const seekLen = el(0x114D9B74, [seekEntry(0x1549A966, 0), seekEntry(0x1654AE6B, 0), seekEntry(0x1C53BB6B, 0)]).length;
-    const cl = clusters.map((c) => { const pieces = c.parts.map((q) => (q instanceof Uint8Array ? q : new Uint8Array(q))); const len = pieces.reduce((a, q) => a + q.length, 0); return { t: c.t, head: new Uint8Array([...idb(0x1F43B675), ...vint(len)]), pieces, size: 0 }; });
+    const cl = /** @type {any[]} */ (clusters.map((c) => { const pieces = c.parts.map((q) => (q instanceof Uint8Array ? q : new Uint8Array(q))); const len = pieces.reduce((a, q) => a + q.length, 0); return { t: c.t, head: new Uint8Array([...idb(0x1F43B675), ...vint(len)]), pieces, size: 0 }; }));
     let off = seekLen + info.length + tracks.length;
     for (const c of cl) { c.pos = off; c.size = c.head.length + c.pieces.reduce((a, q) => a + q.length, 0); off += c.size; }
     const cues = el(0x1C53BB6B, cl.map((c) => el(0xBB, [el(0xB3, uint(c.t)), el(0xB7, [el(0xF7, uint(1)), el(0xF1, uint(c.pos))])])));
@@ -382,7 +382,7 @@
     return new Blob([new Uint8Array(ebml), new Uint8Array([...idb(0x18538067), ...vint(blen)]), ...body], { type: 'video/webm' });
   }
   // a wait that a hidden page does not slow to a second: the encoder's dequeue event, else a message-channel turn
-  const turn = () => new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+  const turn = () => new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(undefined); ch.port2.postMessage(0); });
   // makeVideo(opts, {progress(i, n), cancelled()}) -> {blob, ext, codec, frames, fps, secs, W, H, ms} or null (cancelled)
   // (opts.keepForCheck: the tests' videoCheck reads the last video back; nothing is kept otherwise, export review r3, video-4)
   let lastVideo = null;
@@ -403,7 +403,7 @@
     const chunks = [];
     let desc = null, err = null;
     const encoder = new VideoEncoder({
-      output: (ch, meta) => { const d = new Uint8Array(ch.byteLength); ch.copyTo(d); chunks.push({ data: d, key: ch.type === 'key', ts: ch.timestamp }); const dd = meta && meta.decoderConfig && meta.decoderConfig.description; if (dd && !desc) desc = new Uint8Array(dd.buffer ? dd.buffer.slice(dd.byteOffset, dd.byteOffset + dd.byteLength) : dd); },
+      output: (ch, meta) => { const d = new Uint8Array(ch.byteLength); ch.copyTo(d); chunks.push({ data: d, key: ch.type === 'key', ts: ch.timestamp }); const dd = /** @type {any} */ (meta && meta.decoderConfig && meta.decoderConfig.description); if (dd && !desc) desc = new Uint8Array(dd.buffer ? dd.buffer.slice(dd.byteOffset, dd.byteOffset + dd.byteLength) : dd); },
       error: (e) => { err = e; },
     });
     await breathe();
@@ -417,7 +417,7 @@
     // (a fade blends two frames kept as pictures: t = m and t = 0)
     const kept = new Map();
     const keptAt = async (t) => { if (kept.has(t)) return kept.get(t); const c = document.createElement('canvas'); c.width = W; c.height = H; if (!(await videoFrame(plan, t, c.getContext('2d', { alpha: false })))) return null; kept.set(t, c); return c; };
-    const dequeued = () => new Promise((r) => { let done = false; const f = () => { if (!done) { done = true; try { encoder.removeEventListener('dequeue', f); } catch (e) { /* none */ } r(); } }; try { encoder.addEventListener('dequeue', f); } catch (e) { /* none */ } turn().then(() => { if (encoder.encodeQueueSize <= 3) f(); else setTimeout(f, 50); }); });
+    const dequeued = () => new Promise((r) => { let done = false; const f = () => { if (!done) { done = true; try { encoder.removeEventListener('dequeue', f); } catch (e) { /* none */ } r(undefined); } }; try { encoder.addEventListener('dequeue', f); } catch (e) { /* none */ } turn().then(() => { if (encoder.encodeQueueSize <= 3) f(); else setTimeout(f, 50); }); });
     let prev = null;
     try {
       for (let i = 0; i < n; i++) {
@@ -506,7 +506,7 @@
   // screen, not the length of the timeline. pvRaw() is smaller on a phone, a tablet or a device with 4 GB or less.
   const pvRaw = () => {
     let low = false;
-    try { low = (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4) || matchMedia('(pointer: coarse)').matches; } catch (e) { /* no matchMedia */ }
+    try { low = (/** @type {any} */ (navigator).deviceMemory > 0 && /** @type {any} */ (navigator).deviceMemory <= 4) || matchMedia('(pointer: coarse)').matches; } catch (e) { /* no matchMedia */ }
     return low ? 64e6 : 192e6;
   };
   const PV_Q = 0.92;
@@ -514,7 +514,7 @@
   let pvMimeP = null;
   const pvMime = () => pvMimeP || (pvMimeP = (async () => {
     try {
-      const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(2, 2) : Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
+      const c = /** @type {any} */ (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(2, 2) : Object.assign(document.createElement('canvas'), { width: 2, height: 2 }));
       c.getContext('2d').fillRect(0, 0, 1, 1);
       const b = c.convertToBlob ? await c.convertToBlob({ type: 'image/webp', quality: PV_Q }) : await new Promise((r) => c.toBlob(r, 'image/webp', PV_Q));
       return b && b.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
@@ -532,8 +532,8 @@
     // the next slot for a frame's render: just after the screen's frame (so a render of 5-15 ms fits before the next
     // one). A hidden page draws nothing: the fill waits until the page is shown again (review vp-7)
     const shownAgain = (q) => new Promise((r) => {
-      if (!document.hidden) { r(); return; }
-      const f = () => { if (!document.hidden || q.dead) { document.removeEventListener('visibilitychange', f); q.unhide = null; r(); } };
+      if (!document.hidden) { r(undefined); return; }
+      const f = () => { if (!document.hidden || q.dead) { document.removeEventListener('visibilitychange', f); q.unhide = null; r(undefined); } };
       q.unhide = f; document.addEventListener('visibilitychange', f);
     });
     const slot = async (q) => { await shownAgain(q); if (q.dead) return; await new Promise((r) => requestAnimationFrame(() => { breathe().then(r); })); };
@@ -666,7 +666,7 @@
         const big = document.createElement('canvas');
         const bx = big.getContext('2d', { alpha: false });
         const off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : null;
-        const sm = off || Object.assign(document.createElement('canvas'), { width: pw, height: ph });
+        const sm = /** @type {any} */ (off || Object.assign(document.createElement('canvas'), { width: pw, height: ph }));
         const sx = sm.getContext('2d', { alpha: false });
         const enc = (type) => (off ? off.convertToBlob({ type, quality: PV_Q }) : new Promise((r) => sm.toBlob(r, type, PV_Q)));
         try {

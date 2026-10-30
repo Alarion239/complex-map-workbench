@@ -11,6 +11,8 @@ where it matters, its verdict per run or metric). The cases cover the review fin
   perf     a NEW check that is false fails; a NEW limit over its limit fails; a limit that expected a value (an
            inverse program was linked) and has none fails, NEW or not; a NEW limit with nothing to measure passes
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
+           [#413] the dpr-2 opacity zooms' fps and latency are reported (INFO) either way, never gated; their frame
+           times, and the same metrics of every other unit, stay gated
 """
 import contextlib
 import io
@@ -206,6 +208,32 @@ class Perf(unittest.TestCase):
         self.assertEqual(st['a.f'], 'PASS', out)                       # -35%: improved by the 1-fold margin, not by 3-fold
         rc, out, st = self.gate(f, {'a.f': pm(12.0, 'frame_ms')}, '--tol-scale', '3')
         self.assertEqual(st['a.f'], 'IMPROVED', out)
+
+    def test_vsync_bound_zooms_report_only(self):
+        # [#413] runs 41069254062 and 41074624389: fps 47 -> 29 in one round, +14 % in the next, on the same build pair
+        pre = ['image.expH.a30.dpr2.zoomR.in', 'image.expH.a50.dpr2.zoomR.out', 'image.ziH.a30.dpr2.zoomR.out', 'image.ziH.a50.dpr2.zoomR.in']
+        for p in pre:
+            fps, lat, f95 = p + '.fps', p + '.latency_p95_ms', p + '.frame_p95_ms'
+            b = {fps: pm(47.0, 'throughput'), lat: pm(34.5, 'latency_ms', unit='ms'), f95: pm(9.7, 'frame_ms', unit='ms')}
+            for paired in ((), ('--paired',)):
+                for r in ({fps: pm(29.4, 'throughput'), lat: pm(60.0, 'latency_ms', unit='ms')},     # a halved round
+                          {fps: pm(60.0, 'throughput'), lat: pm(10.0, 'latency_ms', unit='ms')}):    # and the reverse
+                    rc, out, st = self.gate(b, dict(r, **{f95: pm(9.7, 'frame_ms', unit='ms')}), *paired)
+                    self.assertEqual((rc, st[fps], st[lat], st[f95]), (0, 'INFO', 'INFO', 'PASS'), out)
+                    self.assertIn('#413', out + json.dumps(rj(os.path.join(self.d, 'v.json'))))
+                # the frame time is still gated: 9.7 -> 16.1 ms is over the limit and over the 14 ms budget
+                rc, out, st = self.gate(b, {fps: pm(29.4, 'throughput'), lat: pm(43.3, 'latency_ms', unit='ms'), f95: pm(16.1, 'frame_ms', unit='ms')}, *paired)
+                self.assertEqual((rc, st[f95], st[fps]), (1, 'FAIL', 'INFO'), out)
+        # every other unit keeps its fps and latency gates: dpr 1, alpha 1, pans, other scenes
+        for p in ('image.expH.a30.zoomR.in', 'image.expH.m240.dpr2.zoomR.out', 'image.ziH.a30.dpr2.panR', 'image.disc_cube.dpr2.zoomR.in'):
+            fps, lat = p + '.fps', p + '.latency_p95_ms'
+            rc, out, st = self.gate({fps: pm(47.0, 'throughput'), lat: pm(34.5, 'latency_ms', unit='ms')},
+                                    {fps: pm(29.4, 'throughput'), lat: pm(60.0, 'latency_ms', unit='ms')}, '--paired')
+            self.assertEqual((rc, st[fps], st[lat]), (1, 'FAIL', 'FAIL'), out)
+        # a report-only metric missing from a full run is still a harness failure
+        m = pre[0] + '.fps'
+        rc, out, st = self.gate({m: pm(47.0, 'throughput')}, {})
+        self.assertEqual((rc, st[m]), (1, 'FAIL'), out)
 
     def test_reference_cannot_run_the_unit(self):
         # [#292] the reference lacks the feature (phase.mandel against wave 5: no iter() in its parser, an empty plane):

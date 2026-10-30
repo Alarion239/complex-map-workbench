@@ -302,6 +302,14 @@ Names are `<unit>.<scenario>.<metric>`; e.g. `image.logUHP.m240.zoomR.in.settle_
 | info | never | – (the change is printed with `--all`) |
 | (the relative kinds, not in the baseline) | never: reported as `NEW` with its value | – |
 | (a paired run whose reference cannot run the unit, #292) | never: reported as `NEW` with the reason | – |
+| (`REPORT_ONLY` in compare_perf.py, #413: `fps` and `latency_p95_ms` of `image.{expH,ziH}.a{30,50}.dpr2.zoomR.{in,out}`) | never: reported as `INFO`, whatever their kind | – |
+
+**The dpr-2 opacity zooms (#413).** The wheel zooms of the opacity scenes at dpr 2 draw frames at the 60 Hz
+boundary (frame p95 12–15 ms). When a few frames miss vsync, the rAF cadence halves and their fps swings
+between about 30 and about 50 frames/s either way, round to round, on the same pair of builds (runs 41069254062 and
+41074624389). Their fps and latency are therefore reported, not gated. Their frame times (`frame_p50_ms`,
+`frame_p95_ms`, `cpu_p95_ms`) stay gated, with the 14 ms budget and accepted.json's caps, as do the same metrics of
+every other unit.
 
 **A unit the reference cannot run (#292).** In a paired run (`run.js --ab`, `ci/perf_shard.js`) every scene a unit
 opens records what it built and drew once settled: the steps' errors, and the shapes with a mesh or lines. When the

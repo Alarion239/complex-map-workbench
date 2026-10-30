@@ -101,7 +101,7 @@ const Commands = (() => {
   function paletteItems(q, fnOnly) {
     q = Expr.typed(q.trim());
     const ql = q.toLowerCase();
-    const items = [];
+    const items = /** @type {any[] & { oneType?: string, parseErr?: string, parseErrPos?: number }} */ ([]);
     const score = (text) => (I18N.lang === 'en' || !ql ? score1(text) : Math.max(score1(text), score1(enOf(text))));
     const score1 = (text) => {
       if (!ql) return 1;
@@ -236,7 +236,7 @@ const Commands = (() => {
         ...integrateRows(),
         [$t('Show the roots: a target at 0'), () => { if (A.S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
         ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, A.S.focus > 0 ? A.S.focus : A.S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
-        [$t('Fit both planes'), () => $('leftFit').click() || $('rightFit').click(), 'Z'],
+        [$t('Fit both planes'), () => /** @type {any} */ ($('leftFit').click()) || $('rightFit').click(), 'Z'],
         [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
@@ -445,7 +445,7 @@ const Commands = (() => {
       closePalette();
       const r = m === 'insert' ? it.run(at) : replaceSteps(m === 'replaceF' ? 0 : target - 1, m === 'replaceF' ? n0 : 1, it.run, it.name || fnName(it));
       // a new step's card takes the focus; anything else returns it to the opener when the run rebuilt it away
-      if (r instanceof Element && r.isConnected && (it.kind === 'fn' || document.activeElement === document.body)) r.focus({ preventScroll: true });
+      if (r instanceof Element && r.isConnected && (it.kind === 'fn' || document.activeElement === document.body)) /** @type {HTMLElement} */ (r).focus({ preventScroll: true });
       else focusBack(opener, okey);
     };
     const render = () => {
@@ -659,7 +659,7 @@ const Commands = (() => {
     let tries = 0;
     const fit = () => {
       if (!line.isConnected) { if (++tries < 60) requestAnimationFrame(fit); return; }
-      const box = line.parentNode, cs = box && getComputedStyle(box), avail = box ? box.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0) : 0;
+      const box = line.parentNode, cs = box && getComputedStyle(box), avail = box ? box.clientWidth - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0') : 0;
       if (!TeX.ready || !(avail > 0)) { if (++tries < 120) requestAnimationFrame(fit); return; }
       line.style.removeProperty('--drv-k');
       line.classList.remove('scroll');

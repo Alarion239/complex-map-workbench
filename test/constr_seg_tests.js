@@ -10,7 +10,7 @@ const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.3's constr.js, frozen: the build before this one reading a saved seg)
-  const K163 = require(path.join(__dirname, '../notes/v16.3-candidate/src/constr.js'));
+  const K163 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.3-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const note = (t) => { if (process.argv.includes('-v')) console.log('     ' + t); };
   const INF = K.INF, isInf = K.isInf;
   const isXY = (z) => Array.isArray(z) && Number.isFinite(z[0]) && Number.isFinite(z[1]);

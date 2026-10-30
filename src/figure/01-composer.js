@@ -411,20 +411,20 @@
       for (const t of xt) {
         if (Math.abs(t) < 1e-12 || minor(t)) continue; const px = X(t); if (px > tipX - ah - 1 || px < x + 1) continue;
         const it = XD.tex(XD.tickTex(t, decX), tp, ink);
-        const cands = [[px, oy + L + 1.2, 'middle', 'top'], [px + 1.2, oy + L + 0.8, 'start', 'top'], [px - 1.2, oy + L + 0.8, 'end', 'top'], [px + 1.2, oy - L - 0.8, 'start', 'bottom']];
+        const cands = /** @type {[number, number, string, string][]} */ ([[px, oy + L + 1.2, 'middle', 'top'], [px + 1.2, oy + L + 0.8, 'start', 'top'], [px - 1.2, oy + L + 0.8, 'end', 'top'], [px + 1.2, oy - L - 0.8, 'start', 'bottom']]);
         // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines)
-        const sl = [];
+        const sl = /** @type {[number, number, string, string][]} */ ([]);
         for (let d = -it.w / 2; d <= it.w / 2; d += 0.25) sl.push([px + d, oy + L + 1.2, 'middle', 'top']);
-        const c = cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0];
+        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0]);
         out += XD.at(it, ...c, 'tick', under(XD.boxOf(it, ...c))[2] < 240 ? 0.4 : 0);
       }
       for (const t of yt) {
         if (Math.abs(t) < 1e-12 || minor(t)) continue; const py = Y(t); if (py < tipY + ah + 1 || py > y + h - 1) continue;
         const it = XD.tex(XD.tickTex(t, decY), tp, ink);
-        const cands = [[ox - L - 1.2, py, 'end', 'mid'], [ox - L - 0.8, py - 1.2, 'end', 'bottom'], [ox - L - 0.8, py + 1.2, 'end', 'top'], [ox + L + 1.2, py, 'start', 'mid']];
-        const sl = [];
+        const cands = /** @type {[number, number, string, string][]} */ ([[ox - L - 1.2, py, 'end', 'mid'], [ox - L - 0.8, py - 1.2, 'end', 'bottom'], [ox - L - 0.8, py + 1.2, 'end', 'top'], [ox + L + 1.2, py, 'start', 'mid']]);
+        const sl = /** @type {[number, number, string, string][]} */ ([]);
         for (let d = -(it.a + it.d) / 2; d <= (it.a + it.d) / 2; d += 0.25) sl.push([ox - L - 1.2, py + d, 'end', 'mid']);
-        const c = cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0];
+        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0]);
         out += XD.at(it, ...c, 'tick', under(XD.boxOf(it, ...c))[2] < 240 ? 0.4 : 0);
       }
     }
@@ -440,6 +440,7 @@
     for (const p of pts) {
       if (!p.label) continue;
       const px = X(p.z[0]), py = Y(p.z[1]), r = p.r || 1.5, it = XD.tex(p.label, p.lpt || lp, p.lcolor || ink), gap = r + 1.4;
+      /** @returns {[number, number, string, string]} */
       const place = (at) => {
         const dx = /e/.test(at) ? gap : /w/.test(at) ? -gap : 0, dy = /n/.test(at) ? -gap : /s/.test(at) ? gap : 0;
         const ax = dx > 0 ? 'start' : dx < 0 ? 'end' : 'middle', ay = dy < 0 ? 'bottom' : dy > 0 ? 'top' : 'mid';
@@ -456,7 +457,7 @@
       });
       const [, , mn] = under(best.b);
       const halo = p.halo === false ? 0 : mn < 240 ? 0.4 : 0; // only where the box overlaps a fill
-      out += XD.at(it, ...best.q, 'point-label', halo);
+      out += XD.at(it, .../** @type {[number, number, string, string]} */ (best.q), 'point-label', halo);
     }
     if (o.over) out += o.over(X, Y, { hits, under, overlaps });
     return { markup: body + out, defs, X, Y, step, xt, yt, lines, hits, under };

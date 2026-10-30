@@ -356,7 +356,7 @@ const I18N = (() => {
   function observePseudo(root) {
     if (!hasWin || L() !== 'pseudo') return;
     const done = (s) => s.includes('·Ж');
-    const P2 = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+    const P2 = /** @type {any} */ (window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype);
     if (P2 && !P2.__pseudo) {
       const ps = (s) => (typeof s === 'string' && hasWords(s) && !done(s) ? pseudoOf(s) : s);
       const ft = P2.fillText, mt = P2.measureText, st = P2.strokeText;
@@ -382,7 +382,7 @@ const I18N = (() => {
     new MutationObserver((ms) => {
       for (const m of ms) {
         if (m.type === 'characterData') fixText(m.target);
-        else if (m.type === 'attributes') { const v = m.target.getAttribute(m.attributeName); if (v && hasWords(v) && !done(v) && !m.target.closest(SKIP_SEL)) m.target.setAttribute(m.attributeName, tAttr(v)); }
+        else if (m.type === 'attributes') { const el = /** @type {Element} */ (m.target), v = el.getAttribute(m.attributeName); if (v && hasWords(v) && !done(v) && !el.closest(SKIP_SEL)) el.setAttribute(m.attributeName, tAttr(v)); }
         else for (const n of m.addedNodes) { if (n.nodeType === 3) fixText(n); else if (n.nodeType === 1) fixEl(n); }
       }
     }).observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
@@ -425,7 +425,7 @@ const I18N = (() => {
       return;
     }
     // page.html's head script adds the link before the body is painted (review eng-1, eng-2); else it is added here
-    let ln = document.getElementById('i18n-fonts');
+    let ln = /** @type {HTMLLinkElement | null} */ (document.getElementById('i18n-fonts'));
     const had = !!ln;
     if (!ln) { ln = document.createElement('link'); ln.id = 'i18n-fonts'; ln.rel = 'stylesheet'; ln.href = FONT_CSS; }
     const loaded = () => {
