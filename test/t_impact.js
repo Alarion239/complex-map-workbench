@@ -48,7 +48,7 @@ ok('T1: desk.css -> the desktop and the phone shards', same(select(['src/desk.cs
 ok('T1: page.html -> desktop and phone', same(select(['src/page.html']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
-ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_cmd.js']).browser, ['export-1', 'export-2', 'export-3', 'smoke']));
+ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_cmd.js']).browser, ['export-1', 'export-2', 'export-3', 'export-4', 'smoke']));
 for (const f of ['ci/browser.js', '.github/workflows/gate.yml', 'test/cdp_kit/cdpd.js', 'ci/impact.js']) {
   const p = select([f]);
   ok(`T1: ${f} -> the smoke shard (the harness)`, p.tier === 'T1' && same(p.browser, ['smoke']), p);
@@ -61,6 +61,8 @@ const sph = select(['src/sphere.js']);
 ok('T2: src/sphere.js is no GLSL page\'s input: no GLSL', sph.tier === 'T2' && !sph.glsl.length && sph.perf, sph.glsl);
 const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
+// (issue #20: the inverse's ops and patterns, out of inverse.js, are inputs of the same page only)
+for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
 ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());

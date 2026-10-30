@@ -609,7 +609,7 @@ function HT_LIB() {
   // keyGap). o: {n, cues: [{t, m, zero}], t0, onLine}. Returns the log with .counts
   function strokesOf(smp) { const s = new Float64Array(smp.length); let k = 0; smp.forEach((p, i) => { if (p.gap || p.seat) k++; s[i] = k; }); return s; }
   function events(smp, o = {}) {
-    const N = o.n || HT.n, RATE = o.rate || 1000, n = smp.length, T0s = n ? smp[0].t : 0, LOG = [];
+    const N = o.n || HT.n, RATE = o.rate || 1000, n = smp.length, T0s = n ? smp[0].t : 0, LOG = /** @type {any[] & { counts?: any }} */ ([]);
     if (!n) { LOG.counts = Decider({ n: N, env: {}, out: () => {} }).C; return LOG; }
     if (o.onLine != null) smp.onLine = !!o.onLine;
     const ev = crossings(smp, N);
