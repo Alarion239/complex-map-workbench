@@ -794,6 +794,40 @@ async function cardsRebuildUnit() {
   put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
 }
 
+// [#326] The step cards at start-up: a cold load of chain4 (a fresh page, the profiler on from before the navigation)
+// until every card is drawn. The time to the first drawn frame, the cards' longest unbroken stretch under renderThumbs
+// (limit 100 ms: #326 draws them after the first frame, in idle slices), their total, and whether every card was drawn
+// (not by when: openApp's own waits, MathJax's up to 12 s, would hide it). The program links are GPU work: a real GPU's
+// numbers count, software GL's are relative
+async function cardsStartupUnit() {
+  const pre = 'cards.startup';
+  const first = [], longestS = [], total = [];
+  let allDrawn = true;
+  await B.send('Profiler.enable');
+  await B.send('Profiler.setSamplingInterval', { interval: 250 });
+  for (let i = 0; i < REPS; i++) {
+    await B.send('Profiler.start');
+    let o;
+    try { o = await openApp(sceneState('chain4', { rightMode: 'image', meshN: 240 })); } catch (e) { await B.send('Profiler.stop'); throw e; }
+    if (i === 0) detail(`${pre}.open`, { loadMs: o.loadMs, settled: o.settled });
+    const T = Date.now();
+    let ok = false;
+    while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
+    // (page time 0 is the navigation; the first frame that drew: its end)
+    const { profile } = await B.send('Profiler.stop');
+    const th = profileIn(profile, 'renderThumbs');
+    longestS.push(th.longest); total.push(th.ms);
+    const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
+    first.push(f.length ? f[0][6] : null);
+    allDrawn = allDrawn && ok;
+  }
+  await B.send('Profiler.disable');
+  put(`${pre}.first_frame_ms`, 'oneshot_ms', 'ms', first);
+  put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });
+  put(`${pre}.cards_ms`, 'info', 'ms', total);
+  put(`${pre}.all_drawn`, 'check', '', [allDrawn]);
+}
+
 // The deformation playing in the Phase and Landscape views (merged-views review): one full-width panel paints H_t at
 // every frame (868 px wide at 1440 x 900, against v11's ~430 px pane). The scene opens in the view (rightMode color /
 // 3d: the Phase / Landscape view here, the old layout's pane in the reference), the toggle (#morphBtn) opens the
@@ -1522,6 +1556,7 @@ unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, 
 unit('scrub', 'parameter scrub (phi label of a disk automorphism)', () => scrubUnit(false));
 unit('scrub.morph', 'parameter scrub with the deformation open and paused (its arrows)', () => scrubUnit(true));
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
+unit('cards.startup', 'the step cards at start-up (a cold load of chain4): first frame, longest card stretch, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
