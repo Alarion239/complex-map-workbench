@@ -382,6 +382,8 @@ eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
     rect: { a, b }, polygon: { pts: [a, b, c] }, halfplane: { a: [0, 0.5], b: [-1, 0.5] }, annulus: { c, r1: 0.75, r2: 1.5 },
     sector: { c: [0.5, 0], r: 2.5, t1: 22.5, t2: 60 }, formula: { expr: '|z-1|<2' }, fcurve: { expr: 'e^{it}' },
     hline: { kind: 'line', a: [0, 0.5], b: [1, 0.5] },
+    // ([issue #260] an external ray at a decimal turn, an equipotential at a decimal level)
+    dhray: { theta: '0.25', c: null }, dheq: { r: 1.25, c: null },
   };
   const kinds = Object.keys(ctx.Region.KINDS);
   for (const k of kinds) ok(Object.prototype.hasOwnProperty.call(shapes, k), 'region check covers the kind ' + k);

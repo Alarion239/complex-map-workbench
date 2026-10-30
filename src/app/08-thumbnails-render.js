@@ -100,6 +100,9 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
   }
+  // (issue #72) the programs a card's Landscape links: its heights, surface and floor (the user's function each) and the
+  // normals' pass
+  const LAND_CARD = ['landTF', 'land', 'floor', 'landNrm'];
   function cardLand(pane, k) {
     pane.begin(TH.plane);
     backdrop(pane);
@@ -148,9 +151,14 @@
     pane.resize(...thumbDims(pane.canvas));
     const card = pane.canvas.closest('.card');
     const kind = k === 0 ? 'xy' : cardKind();
+    // (issue #72) without parallel compile every link is synchronous, seconds each on software GL (a pan over "Sheets of
+    // the logarithm" froze for a minute while the cards linked the principal branch beside the pane's All sheets), so a
+    // Landscape card never starts one: it shows its Phase picture until the pane has linked those programs. The pane's
+    // Landscape redraws the cards (frame), and the sig then asks for the relief
+    const landStand = kind === 'land' && GLR.ok && GLR.parallelCompile === false && !GLR.linked(LAND_CARD, stageMap(k));
     const t = kind === 'def' ? cardT(k) : 0;
     // what the picture depends on, per kind (the view, the camera, the time, the selection that shows step k + 1's cuts)
-    const vk = kind === 'phase' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${S.dc}|${S.sectors || 12}|${S.dcGrid}|${S.outline}`
+    const vk = kind === 'phase' || landStand ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${S.dc}|${S.sectors || 12}|${S.dcGrid}|${S.outline}`
       : kind === 'land' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${cam.yaw.toFixed(4)},${cam.pitch.toFixed(4)},${(cam.dist / CAM3.dist).toFixed(4)},${cam.tx},${cam.ty}|${S.height}|${S.lscale || 1}|${landMaterial()}|${S.dc}|${S.unitLevel}`
       : kind === 'def' ? `t${t.toFixed(4)}|${S.homAll}` : `${selOf() === k + 1 ? 'cuts' : ''}`;
     // (with exact images: whether the inverse program is ready, so a thumbnail drawn forward before it was is redrawn)
@@ -170,7 +178,7 @@
     let waiting = false;
     if (kind === 'phase' || kind === 'land') {
       if (!GLR.ok) { pane.begin(TH.plane); return; }
-      if (kind === 'phase') cardPhase(pane, k); else cardLand(pane, k);
+      if (kind === 'phase' || landStand) cardPhase(pane, k); else cardLand(pane, k);
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
     } else if (kind === 'def') {
@@ -181,9 +189,13 @@
       fitPane(pane, k, [], undefined, fitMs > FIT_LIVE_MS);
       pane.begin(TH.plane);
       if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
+      // ([#253] the scene's pending is read before the preimage passes begin their own frame, and both count: a card
+      // whose picture or preimages are still linking is drawn with a stand-in, never cached as final)
+      let prePending = false;
       if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
-      waiting = !!(glst && glst.pending);
+      if (GLR.ok) prePending = stagePullbacks(pane, k);
+      waiting = !!(glst && glst.pending) || prePending;
       drawPoints(pane, stageF(k), { thin: true, k });
       // (step k + 1's cuts show on card k only while step k + 1 is selected: a card never shows a later step's marks)
       if (selOf() === k + 1) drawCuts(pane, k, false, true);
@@ -383,6 +395,25 @@
       // the cards are held while it plays (renderThumbs is debounced past every frame), so their t is not the main
       // t: they show no t until they are redrawn after the pause (review verify-1, design-13)
       if (morph.playing && cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
+    }
+    // (#246) the step glide moves T while it owns it: T is still what it wrote last. Play, the scrubber, a tick, a new
+    // range or focus that moved T take it back, and the glide rests where T is
+    if (glide.moving()) {
+      if (!morph.open || morph.playing || morph.T !== glide.x) glide.set(morph.T);
+      else {
+        // (a step removed or turned off while it glides: the target stays inside the chain as it is now)
+        if (glide.target > morphLen()) glide.to(morphLen(), morphLen());
+        const dt = glide.last ? (ts - glide.last) / 1000 : 1 / 60;
+        glide.last = ts;
+        const still = !glide.step(dt);
+        morph.T = glide.x;
+        dirty.R = true;
+        if (lPaintsF()) dirty.L = true;
+        syncTransport();
+        soundFunctionChanged('t');
+        if (still) { glide.last = 0; scheduleFix(); } else again = true;
+        if (cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
+      }
     }
     // camera tweens and inertia in 3D views
     for (let i = camTweens.length - 1; i >= 0; i--) {

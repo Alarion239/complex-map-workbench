@@ -18,7 +18,9 @@
   const IDENT = { mode: 0, a: 0, b: 0 };
   // target shapes as GLR.drawPreimage takes them (polygon and freehand vertices at most 256 in all)
   function preimageTargets(areasOnly) {
-    const list = (S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area'));
+    return pullTargets((S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area')));
+  }
+  function pullTargets(list) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
     const keep = nv > 256 ? 256 / nv : 1;
@@ -49,6 +51,42 @@
     } catch (e) { console.error('drawPreimage', e); }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return true;
+  }
+  // ([#253] full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
+  // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
+  // per plane s. A point's preimages are not drawn (they are roots, not a picture)
+  function stagePullbacks(pane, j) {
+    const by = new Map();
+    for (const s of S.shapes) {
+      const st = shapeStage(s);
+      if (s.visible === false || st <= j || kindType(s) === 'point') continue;
+      if (!by.has(st)) by.set(st, []);
+      by.get(st).push(s);
+    }
+    if (!by.size || !GLR.ok || typeof GLR.drawPreimage !== 'function') return false;
+    // (one frame for every plane's pass, one blit: a pass per plane s, never a blit per plane; its pending is the
+    // caller's, since a card is cached as final only when nothing it drew is still linking)
+    let pending = false;
+    try {
+      GLR.begin(pane.pw, pane.ph);
+      cmFormAnchor('Y');
+      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: pullTargets(list), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
+      pending = !!(GLR.frameStatus && GLR.frameStatus().pending);
+      GLR.blit(pane.ctx);
+    } catch (e) { console.error('drawPreimage', e); }
+    pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    return pending;
+  }
+  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s
+  function stagePreList(j) {
+    const by = new Map();
+    for (const s of S.shapes) {
+      const st = shapeStage(s);
+      if (s.visible === false || st <= j || kindType(s) === 'point') continue;
+      if (!by.has(st)) by.set(st, []);
+      by.get(st).push(s);
+    }
+    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: pullTargets(list), halo: GLR.hexRGB(TH.halo) }));
   }
   // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
   function strokeTargets(pane) {
@@ -381,6 +419,140 @@
     if (labels.length) placeLabels(ctx, pane, labels);
   }
 
+  // ---------------- [#252] the preimages of a point of a later plane ----------------
+  // A point of plane s seen in plane j < s: the solutions z of rangeF(j, s)(z) = p over the visible window (as the
+  // targets' roots are found). The PRE_SHOW nearest to the view's centre are drawn, hollow and named a₍₁₎, a₍₂₎ …;
+  // the others are counted ("+k more"). The search runs once the view and the chain settle; while the point moves
+  // (its drag, a slider, Play) each solution follows by Newton from where it was, within PRE_TRACK_MS a frame, so the
+  // dots move with it and no search runs mid-motion. A press on a dot in X drags it: the point goes where the dot's
+  // image lands (a point bound to a free number moves the number), unless a step between uses that number
+  const PRE_SHOW = 4, PRE_TRACK_MS = 4;
+  const preOf = { L: { key: '', want: '', timer: 0, sig: '', list: [], hits: [] }, R: { key: '', want: '', timer: 0, sig: '', list: [], hits: [] } };
+  const prePoints = (j) => S.shapes.filter((s) => s.visible !== false && s.kind === 'point' && !s._atInf && shapeStage(s) > j);
+  const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
+  // the solutions follow their points' moves (an entry keeps the p it was solved for)
+  // ([#291] option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
+  // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
+  // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
+  // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
+  // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
+  const prePlans = new Map();
+  // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
+  function exactPre(j, st, p) {
+    if (!Inverse.pointPre) return null;
+    const key = `${j}|${st}|${chainSig[nSteps()]}`;
+    let plan = prePlans.get(key);
+    if (!plan) {
+      try { plan = Inverse.planChain(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
+      prePlans.set(key, plan);
+      while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
+    }
+    const r = Inverse.pointPre(plan, C(p[0], p[1]));
+    return r.exact ? r : null;
+  }
+  function trackPre(P, j, box) {
+    const t0 = performance.now(), size = Math.max(box.x1 - box.x0, box.y1 - box.y0), end = t0 + PRE_TRACK_MS;
+    for (const e of P.list) {
+      const s = S.shapes.find((x) => x.id === e.id);
+      if (!s || (s.p[0] === e.p[0] && s.p[1] === e.p[1])) continue;
+      const ex = e.exact ? exactPre(j, e.s, s.p) : null;
+      if (ex) e.sols = ex.zs.map((z, i) => ({ z, mult: ex.mult[i] }));
+      else {
+        const F = rangeF(j, e.s), w0 = C(e.p[0], e.p[1]), w1 = C(s.p[0], s.p[1]);
+        e.sols = e.sols.map((r) => { const z = trackRoot(F, r.z, 1, w0, w1, size, end); return z ? { z, mult: r.mult } : null; }).filter(Boolean);
+      }
+      e.p = s.p.slice();
+    }
+    P.trackMs = performance.now() - t0;
+  }
+  function updatePre(side, pane, j) {
+    const P = preOf[side], pts = prePoints(j);
+    if (!pts.length) { P.list = []; P.key = P.want = P.sig = ''; return; }
+    if (!hasCalc('zerosPoles') || !(pane.w > 0)) return;
+    const box = pane.box(), sig = preSig(j);
+    const key = sig + JSON.stringify([box.x0, box.x1, box.y0, box.y1, pts.map((s) => s.p)]);
+    if (key === P.key || key === P.want) return;
+    if (P.sig === sig) trackPre(P, j, box);
+    P.want = key;
+    clearTimeout(P.timer);
+    P.timer = setTimeout(function run() {
+      if (interacting()) { P.timer = setTimeout(run, 150); return; }
+      if (P.want !== key) return;
+      const out = [], ms = Math.max(40, Math.min(200, 600 / pts.length));
+      for (const s of pts) {
+        const st = shapeStage(s), F = rangeF(j, st), ex = exactPre(j, st, s.p);
+        if (ex) { out.push({ id: s.id, s: st, p: s.p.slice(), sols: ex.zs.map((z, i) => ({ z, mult: ex.mult[i] })), more: false, exact: true }); continue; }
+        let sols = null;
+        try { sols = zerosPolesTimed(F, box, { target: { re: s.p[0], im: s.p[1] }, max: 40 }, ms); } catch (e) { sols = null; }
+        out.push({ id: s.id, s: st, p: s.p.slice(), sols: (sols || []).filter((r) => r && r.z && CX.isFin(r.z) && r.kind !== 'pole').map((r) => ({ z: r.z, mult: r.mult || 1 })), more: !sols || !!(sols.truncated || sols.incomplete) });
+      }
+      P.list = out; P.key = key; P.want = ''; P.sig = sig;
+      requestRender(side);
+    }, 100);
+  }
+  // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
+  function drawPre(pane, side, j) {
+    const P = preOf[side];
+    P.hits = [];
+    if (artMode || P.sig !== preSig(j)) return;
+    const ctx = pane.ctx, labels = [], b = pane.box(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    for (const e of P.list) {
+      const s = S.shapes.find((x) => x.id === e.id);
+      if (!s) continue;
+      const ink = shapeInk(s), name = pointLabel(s, 0, 0);
+      const vis = e.sols.filter((r) => inBoxZ(r.z, b, 0)).sort((p, q) => Math.hypot(p.z.re - cx, p.z.im - cy) - Math.hypot(q.z.re - cx, q.z.im - cy));
+      vis.slice(0, PRE_SHOW).forEach((r, i) => {
+        const [x, y] = pane.w2s(r.z);
+        ctx.save();
+        ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = ink.edge; ctx.lineWidth = 1.75; ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.stroke();
+        ctx.restore();
+        labels.push({ x, y, text: `${name}₍${sub(i + 1)}₎` });
+        P.hits.push({ id: s.id, s: e.s, j, x, y });
+      });
+      // (an exact list counts its preimages off the window too)
+      const rest = (e.exact ? e.sols.length : vis.length) - Math.min(PRE_SHOW, vis.length);
+      if (vis.length && (rest > 0 || e.more)) {
+        const [x, y] = pane.w2s(vis[Math.min(PRE_SHOW, vis.length) - 1].z);
+        labels.push({ x: x + 14, y: y + 14, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
+      }
+    }
+    if (labels.length) placeLabels(ctx, pane, labels);
+  }
+  // the dot under (x, y) in a pane, or null
+  function preHit(side, x, y, r) {
+    let best = null, bd = r;
+    for (const h of preOf[side].hits) { const d = Math.hypot(h.x - x, h.y - y); if (d <= bd) { bd = d; best = h; } }
+    return best;
+  }
+  // a dot dragged: the point goes to the image of z (its number, when it is a free number's), and the dot stays under
+  // the pointer
+  function preDrag(d, z) {
+    const s = S.shapes.find((x) => x.id === d.id);
+    if (!s) return;
+    const w = rangeF(d.j, d.s)(z);
+    if (!CX.isFin(w)) return;
+    const e = preOf.L.list.find((q) => q.id === d.id);
+    // ([#291] an exact list: every dot follows at once, the dragged one under the pointer)
+    const ex = e && e.exact ? exactPre(d.j, d.s, [w.re, w.im]) : null;
+    if (ex) { e.sols = ex.zs.map((zz, i) => ({ z: zz, mult: ex.mult[i] })); e.p = [w.re, w.im]; }
+    else if (e) {
+      const zs = d.z || z;
+      let best = -1, bd = Infinity;
+      e.sols.forEach((r, i) => { const dd = CX.abs(CX.sub(r.z, zs)); if (dd < bd) { bd = dd; best = i; } });
+      if (best >= 0) e.sols[best] = { z, mult: 1 };
+      e.p = [w.re, w.im];
+    }
+    d.z = z; d.moved = true;
+    if (d.bn) Params.set(d.bn, { re: w.re, im: w.im }, { live: true });
+    else { s.p = [w.re, w.im]; shapesChanged(false); }
+  }
+  // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
+  const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more, exact: !!e.exact })), trackMs: preOf[side].trackMs, hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
+  // TEMP-DEBUG-HOOK
+
   // the shapes' names as their rows show them ("Circle 1")
   // ([v16.5 fix regress-10] of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
   // rows did when it existed)
@@ -476,10 +648,11 @@
       // the shape under the pointer: X's shapes at stage 0, Y's targets where they are edited
       shapeAt(side, x, y) {
         const target = side === 'R';
-        if (target ? !(rImage() && targetsEditable()) : !(lFlat() && leftStage() === 0)) return null;
+        if (target ? !(rImage() && targetsEditable()) : !lFlat()) return null;
         const pane = paneOf(side);
         pane.setView(viewOf(side));
-        const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : S.shapes, win = target ? targetWin() : clipWin;
+        // ([#252] X's shapes of the plane it shows)
+        const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin;
         // ([v16.5 UX56] a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
         // other shapes there are named as where it lies)
         const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
@@ -729,5 +902,16 @@
   function refreshIntPop(...args) { return INT.refreshIntPop(...args); }
   function integrateSelected(...args) { return INT.integrateSelected(...args); }
   function cauchyPlot(...args) { return INT.cauchyPlot(...args); }
+  function cauchyDraw(...args) { return INT.cauchyDraw(...args); }
+  // (#235) what the Cauchy style shows for the selected curve: 'plain' (F inside, 0 outside: no pole inside), 'split'
+  // (poles inside: f+ inside, f- outside), 'numeric' (the quadrature: a singularity the pole count does not cover),
+  // 'undefined' (F is not finite on the curve), or null (no closed curve)
+  function cauchyKind() {
+    const cp = cauchyPlot();
+    if (!cp) return null;
+    const p = cp.plan;
+    const kind = !p ? 'plain' : p.ok ? (p.poles.length ? 'split' : 'plain') : p.why === 'onCurve' ? 'undefined' : 'numeric';
+    return { kind, poles: p && p.ok ? p.poles.length : 0, show: S.cauchyShow, plus: !!S.cauchyPlus, name: cp.name };
+  }
   function plotF(...args) { return INT.plotF(...args); }
 

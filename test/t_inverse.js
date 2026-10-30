@@ -110,9 +110,9 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   check('every op kind is exercised', ALL_KINDS.every((k) => kinds.has(k)), ALL_KINDS.filter((k) => !kinds.has(k)).join(' '));
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
-  // (d/dz, Γ and ζ are ineligible by rule: below)
-  const byRule = new Set(['deriv', 'gamma', 'zeta', 'series', 'recurrence']);
-  check('every catalog type except d/dz, Γ, ζ, a series and a recurrence is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
+  // (d/dz, Γ, ζ, a series, a recurrence, Φ_M and φ_c are ineligible by rule: below)
+  const byRule = new Set(['deriv', 'gamma', 'zeta', 'series', 'recurrence', 'dh', 'bottcher']);
+  check('every catalog type except d/dz, Γ, ζ, a series, a recurrence, Φ_M and φ_c is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
     ['poly', { co: '1, 0, -1, 0' }, 'polynomial of degree 3'], ['rational', { p: '1, 0, 0, 1', q: '1, 0' }, 'rational map of degree 3'],
@@ -126,6 +126,8 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
     ['series', { kind: 'power', an: '\\frac{1}{n!}', c: '0' }, ''], ['custom', { expr: '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}' }, ''],
     // (issue #6) a recurrence: the sphere-mesh fallback (Repeat × N unrolls its steps)
     ['recurrence', { u0: 'z', g: 'u^2+z', N: 2, cut: 180 }, 'no inverse enumerator'],
+    // (issue #260) Φ_M and φ_c: one-to-one, but with no inverse here (the sphere-mesh fallback)
+    ['dh', {}, 'no inverse enumerator'], ['bottcher', {}, 'no inverse enumerator'],
   ];
   for (const [type, params, why] of INELIGIBLE) {
     const st = St(type, params), b = Funcs.build(st);

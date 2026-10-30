@@ -12,7 +12,7 @@
       else if (pc.t === 'half') out.push(3, pc.a[0], pc.a[1], 0, pc.d[0], pc.d[1], 0, 0);
       else if (pc.t === 'g') {
         let G = pc.G;
-        if (formAnchor && typeof Constr !== 'undefined' && Constr.reanchor) G = Constr.reanchor(G, formAnchor);
+        if (formAnchor && Constr.reanchor) G = Constr.reanchor(G, formAnchor);
         out.push(4, G.o[0], G.o[1], G.A, G.B[0], G.B[1], G.C, 0);
       }
       else out.push(0, 0, 0, 0, 0, 0, 0, 0);
@@ -39,7 +39,7 @@
       const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
       recs.set(s.id, rec);
       let prim = null;
-      try { prim = typeof Region !== 'undefined' && Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
+      try { prim = Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
       const pk = packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
@@ -47,7 +47,7 @@
       if (s.kind === 'formula') {
         if (want.length >= MAX_INV_FORMS) { rec.ok = false; rec.reason = 'fifth formula shape'; }
         else {
-          const src = typeof GLChain !== 'undefined' && GLChain.levelGLSL ? GLChain.levelGLSL(s.expr, 'ilev' + want.length) : null;
+          const src = GLChain.levelGLSL ? GLChain.levelGLSL(s.expr, 'ilev' + want.length) : null;
           if (!src || !src.ok) { rec.ok = false; rec.reason = 'formula GLSL'; }
           else { rec.formSlot = want.length; want.push(src.source); wantExpr.push(String(s.expr)); wantIds.push(s.id); }
         }
@@ -126,14 +126,14 @@
   let coldNonce = 0;
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
-    const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
+    const L = GLChain.LIB;
     let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (extra && extra.pre || '');
     if (coldNonce && !extra) {
       const tag = `uIxNonce${coldNonce++}_${Math.floor(Math.random() * 1e9)}`;
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
@@ -517,7 +517,7 @@
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
-      lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+      globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
@@ -827,6 +827,12 @@
     frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
+    // (issue #72) false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
+    // the draw that asks for it
+    get parallelCompile() { return !!pcExt; },
+    // whether programs `names` of the current chain (static ones by name) are linked for map; never starts one (with no
+    // chain there is no chain program to wait for: true, and the card draws as it would)
+    linked(names, map) { return !cur.info || names.every((n) => { const e = DEFS[n] && progs.get(progId(n, cur, map)); return !!e && e.state === 'ready'; }); },
     // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)
     get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
     // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)

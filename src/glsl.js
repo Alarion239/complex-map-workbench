@@ -1250,6 +1250,38 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       case 'zeta':
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
+      // [issue #260] Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
+      // uniform; neither loop unrolls, issue #72), then back by the square root nearest each orbit point. float32 holds
+      // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform. (The escape test on |w|²
+      // and the roots by length(), whose argument stays below 10⁸ here, not by cx_abs and csqrtp: 1.7 times faster on
+      // SwiftShader; the root keeps csqrtp's form, with no cancellation)
+      case 'dh': case 'bottcher': {
+        const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
+        const NM = Funcs.DH_NMAX;
+        return {
+          sig: [type],
+          f: `vec2 orb[${NM + 1}];
+  vec2 c = ${jc ? jc.v : 'z'}, w = z;
+  int n = -1;
+  for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
+    orb[k] = w;
+    if (dot(w, w) > 1e8) { n = k; break; }
+    if (float(k) >= ${nn.x}) break;
+    w = cmul(w, w) + c;
+  }
+  if (n < 0) return vec2(cx_nan());
+  vec2 p = cmul(w, csqrtp(vec2(1.0, 0.0) + cdiv(cdiv(c, w), w)));
+  for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
+    if (j > n) break;
+    float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o = orb[n - j];
+    p = dot(r, o) >= 0.0 ? r : -r;
+  }
+  ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;`,
+          h: LIN(P),
+          write(put) { put(nn.c, v.N, jc ? b.dh.rho : 0); if (jc) putC(put, jc, v.c); },
+        };
+      }
       case 'poly': case 'rational': {
         const lists = type === 'poly' ? [CX.polyTrim(v.co)] : [CX.polyTrim(v.p), CX.polyTrim(v.q)];
         const cells = lists.map((co) => co.map(() => A.cell()));
@@ -1332,7 +1364,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       if (!n.t) return;
       for (const k of Object.keys(n)) if (n[k] && typeof n[k] === 'object') walk(n[k]);
       if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && !hasParam(n.b)) {
-        const bn = typeof Funcs !== 'undefined' && Funcs.branchNode ? Funcs.branchNode(n) : null;
+        const bn = Funcs.branchNode ? Funcs.branchNode(n) : null;
         out.push(bn ? 'n' : Expr.compile(n.b)(C(0, 0)).re);
       }
     };
@@ -1420,7 +1452,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   // ---- d/dz: derivative of one step (for the exact chain rule) ----
   // {f: body of vec2 P_df(vec2 z), write} from Funcs.derivAst (exact numbers, the step's cut), or null
   function derivPlan(P, b, A) {
-    if (typeof Funcs === 'undefined' || typeof Funcs.derivAst !== 'function') return null;
+    if (typeof Funcs.derivAst !== 'function') return null;
     const d = Funcs.derivAst(b, { stable: true });
     if (!d || d.error) return null;
     const cut = A.cell();
@@ -1867,7 +1899,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       for (const sp of spl.values()) sp.write(put);
       return (cache = vals);
     }
-    const sheetList = typeof Funcs !== 'undefined' && Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
+    const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken now (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
@@ -2354,7 +2386,6 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
-    if (typeof Inverse === 'undefined') return { ok: false, reason: 'no inverse enumerator', key: null };
     // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
     const ops = [], sigs = [];
     steps.forEach((st, i) => {

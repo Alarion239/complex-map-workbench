@@ -66,6 +66,12 @@
         if (touched && x !== s[key]) { s[key] = x; ch = true; }
       } catch (e) { bad = bad || (e && e.message) || $t('{x} has no value here', { x: src }); }
     }
+    // ([#299 review] an equipotential of the Julia set of a bound c: a c that lifts the critical level to the curve's
+    // level or past it leaves no curve, and says so as any value out of range does)
+    if (!bad && s.kind === 'dheq' && Array.isArray(s.c)) {
+      const rho = CX.dhCritRho(C(s.c[0], s.c[1]), 64);
+      if (!(s.r > rho)) bad = $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(rho, 4) });
+    }
     if (bad) {
       if (s.undef !== bad) { if (!s.undef && (s.visible !== false || s.cHid)) { s.visible = false; s.undefHid = true; } s.undef = bad; ch = true; }
     } else if (s.undef) { delete s.undef; if (s.undefHid && !s.cHid) s.visible = true; delete s.undefHid; ch = true; }
@@ -674,17 +680,23 @@
     radioKeys($('patternSeg'));
     // on phones the More sheet of tools closes once a tool is picked
     $('tools').addEventListener('click', (e) => { const tm = $('toolMore'); if (tm && tm.open && e.target.closest('.tool')) tm.open = false; });
-    // from 768 px up the panel sections are always open: their summaries are headings, not Tab stops or toggles
-    const phoneMQ = matchMedia('(max-width: 767px)');
+    // off the phone layout the panel sections are always open: their summaries are headings, not Tab stops or toggles.
+    // ([#348] the phone is :root.ph, as Phone sets it, landscape phones up to 1023 px wide included, not a width query;
+    // the sections follow the class when it changes)
+    const isPhone = () => document.documentElement.classList.contains('ph');
+    let wasPhone = null;
     const syncSections = () => {
+      const ph = isPhone();
+      if (ph === wasPhone) return;
+      wasPhone = ph;
       for (const d of document.querySelectorAll('details.psec')) {
         const s = d.querySelector(':scope > summary');
         if (!s) continue;
-        if (phoneMQ.matches) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
+        if (ph) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
       }
     };
-    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!phoneMQ.matches && !d.open) d.open = true; });
-    phoneMQ.addEventListener('change', syncSections);
+    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!isPhone() && !d.open) d.open = true; });
+    new MutationObserver(syncSections).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     syncSections();
     setupGutters();
     setupTooltips();
@@ -775,6 +787,8 @@
       const el = $(id);
       if (!el) continue;
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
+      // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
+      for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
       el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else el.classList.toggle('collapsed'); });
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
@@ -799,6 +813,15 @@
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;
+    // ([#357] the chain head never cuts a control: when its row does not fit (Russian and Italian at 1024 px beside the
+    // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
+    const pipeHead = document.querySelector('.pipe-head');
+    if (pipeHead && typeof ResizeObserver === 'function') {
+      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const ro = new ResizeObserver(fitPipeHead);
+      ro.observe(pipeHead);
+      for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }
+    }
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => {
@@ -834,17 +857,6 @@
         if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { pb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
       });
       syncPalBtn();
-    }
-    // the Phase style (issue #81): the header button's menu
-    const stb = $('styleBtn');
-    if (stb) {
-      stb.setAttribute('aria-expanded', 'false');
-      stb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, styleItems());
-        stb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { stb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
-      syncStyleBtn();
     }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
     // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
@@ -1056,7 +1068,7 @@
     try { const k = lsk('cmw-probe'); localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { warnStorage(); }
     if (window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(() => TeX.onReady());
     // fonts may arrive late; redraw labels
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(); requestRender('L', 'R', 'T'); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
     // v15: the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
@@ -1080,6 +1092,11 @@
         requestRender('L', 'R', 'OL', 'OR');
       },
       fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
+      // (#246) the phone's chain row and sheet: the plane it is at, ‹ › (the step glide), the deformation's programs
+      // compiled ahead of the first press, a step's sheet, a step moved by the sheet's drag
+      chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => (k === 'F' ? selectStep('F') : cardClick(k)),
+      prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
+      moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
       xyView: () => S.view.main === 'xy',   // ([v17 D5] the regions' display is the X → Y view's)
       renderInspector: () => renderProps(),
@@ -1099,7 +1116,10 @@
         const sel = selected && findShape(selected);
         if (!sel) return null;
         const r = shapeRows.get(sel.id);
-        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def: r ? r.d.textContent : '', used: Construct.usedBy(sel.id).length };
+        // ([#321] a typeset definition as the words its tooltip reads: the cell's text is MathJax's, or the raw TeX
+        // until MathJax has loaded; a construction's definition and an error are plain text already)
+        const def = !r ? '' : r.d.dataset.tex ? texTitle(r.d.dataset.tex) : r.d.textContent;
+        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def, used: Construct.usedBy(sel.id).length };
       },
       ctxAct: (act, id, anchor) => {
         if (act === 'last') polyBack();
@@ -1203,6 +1223,8 @@
   // the SphereMesh verdict (SPEC 8.1) of every visible area shape for the right pane's map (12.3: invariant under right-view zooms)
   window.__cmwSmVerdict = (role = 'R') => S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area').map((s) => ({ id: s.id, why: smNeed(s, gpu.get(s.id), role, normalizeMap(stageMap(role === 'R' ? rightStage() : leftStage()))) }));
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
+  // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
+  window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   window.__cmwPaths = () => {
     const views = [];
     if (solo() !== 'L') {
@@ -1227,7 +1249,9 @@
   // the level predictLevel would give the right pane's passes (13.14's estimate; no longer a floor) and its estimate
   window.__cmwPredict = () => { const list = S.shapes.filter((x) => x.visible !== false); return predictLevel(list, stageMap(rightStage()), 'R', paneR, lastRecs); };
   // per shape: the line key, whether the settle-time refinement is in (SPEC 9.1), segments and pieces drawn
-  window.__cmwLines = () => [...gpu.entries()].map(([id, r]) => ({ id, refined: !!r.refKey && r.refKey.startsWith(r.lineKey + '|'), segs: r.lineRes ? r.lineRes.n : 0, pieces: r.lpolys ? r.lpolys.length : 0, refMs: r.refMs, running: !!lineJob.running }));
+  window.__cmwLines = () => [...gpu.entries()].map(([id, r]) => ({ id, refined: !!r.refKey && r.refKey.startsWith(r.lineKey + '|'), current: (() => { const sp = lineSpecNow(); return !sp || r.refKey === r.lineKey + '|' + sp.key; })(), segs: r.lineRes ? r.lineRes.n : 0, pieces: r.lpolys ? r.lpolys.length : 0, refMs: r.refMs, running: !!lineJob.running,
+    // ([#325] the drawn polylines' size and a weighted sum of their coordinates: a sliced refinement must give the same)
+    pts: r.lpolys ? r.lpolys.reduce((n, p) => n + p.length, 0) : 0, sum: r.lpolys ? r.lpolys.reduce((a, p) => p.reduce((b, x, i) => b + x * ((i % 7) + 1), a), 0) : 0 }));
   // the cost guard per pane, the timer and the display interval estimate
   window.__cmwGuard = () => ({ R: guard ? guard.state('R') : null, L: guard ? guard.state('L') : null, timer: !!(GLR.timer && GLR.timer.available), inverseDraws: GLR.inverseDraws, log: guardLog.slice() });
   // a fresh cost guard with policy options (GLR.CostGuard opts, e.g. {budget: 1e9}: measure only), for measurements
@@ -1258,6 +1282,12 @@
   // selection, the temporary Inspector; __cmwCardsNow() draws the cards at once (no wait for a quiet moment)
   window.__cmwCards = () => ({ kind: cardKind(), sel: selOf(), focus: S.focus, temp: tempInsp, cards: [...thumbs].map(([k, p]) => { const c = p.canvas.closest('.card'); return { k, sig: p.sig || null, view: Object.assign({}, p.view), w: p.w, h: p.h, dpr: p.dpr, stale: !!(c && c.classList.contains('stale')), t: kindOfT(k) }; }), main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
   const kindOfT = (k) => (cardKind() === 'def' ? cardT(k) : null);
+  // (#235: what the Cauchy style draws from, and a switch to draw the quadrature where the formula holds)
+  /** @type {any} */ (window).__cmwCauchy = () => { const cp = cauchyPlot(); return cp ? { name: cp.name, formula: !!(cp.plan && cp.plan.ok), fast: !!(cp.plan && cp.plan.fast), why: cp.plan && !cp.plan.ok ? cp.plan.why : null, poles: cp.plan && cp.plan.ok ? cp.plan.poles.map((q) => ({ z: [q.z.re, q.z.im], order: q.order, n: q.n })) : [] } : null; };
+  /** @type {any} */ (window).__cmwCauchyQuad = (v) => { INT.setCauchyQuad(v); requestRender('L'); };
+  // (the Cauchy style's draw time: n frames of the left pane, each read back so the GPU has finished; ms per frame)
+  /** @type {any} */ (window).__cmwCauchyBench = (n) => { const g = GLR.gl, px = new Uint8Array(4), t0 = performance.now(); for (let i = 0; i < n; i++) { renderColor(paneL); g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); } return (performance.now() - t0) / n; };
+  /** @type {any} */ (window).__cmwCauchyOpt = (show, plus) => { setOpt('cauchyShow', show); setOpt('cauchyPlus', !!plus); requestRender('L'); save(); };
   window.__cmwCardsNow = () => { lastInputT = 0; clearTimeout(thumbT); renderThumbs(); return true; };
   // P3 (SPEC 10.6, 12.4 (h)): the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
   // panel drawn off-screen at print size (a PNG data URL)
@@ -1278,6 +1308,8 @@
   };
   window.__cmwRange = () => ({ stored: S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null, ok: homRangeOk(), stops: HR.stops(S), start: rangeStart('text'), parts: rangeParts(), cards: [...document.querySelectorAll('#pipeline .card[data-k]')].map((c) => [+c.dataset.k, cardT(+c.dataset.k)]) });
   window.__cmwMorph = (o) => { if (o && 'range' in o) setHomRange(o.range, { preview: !!o.preview }); if (o && o.open != null) { if (o.open) openTransport(); else closeTransport(); } if (o && o.T != null) { morph.T = o.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } if (o && o.playing != null) { morph.playing = !!o.playing; setPlayIcon(); requestRender('R'); } return { open: morph.open, T: morph.T, playing: morph.playing, on: morphOn() }; };
+  // (#246) the step glide: press ‹ (d -1) or › (+1) as the phone's chain row does; read where it is
+  /** @type {any} */ (window).__cmwGlide = (d) => { if (d) glideStep(d); return { open: morph.open, T: morph.T, x: glide.x, v: glide.v, target: glide.target, moving: glide.moving(), since: glide.since, max: morphLen(), playing: morph.playing }; };
   window.__cmwMorphSel = async (o) => { if (!morphOn()) return null; const t0 = performance.now(); const sel = await morphSelScreenNow(paneR, !!(o && o.force)); const wall = performance.now() - t0; if (!sel) return null; const end = S.focus > 0 ? S.focus : nSteps(); const base = S.focus > 0 ? S.focus - 1 : 0; return { ms: sel.ms, wall, budget: sel.budget, n: sel.kept.length, nCands: sel.nCands, kept: sel.kept.map((k) => { const w = stageF(end)(k.sp.z), w0 = stageF(base)(k.sp.z), a = k.s[0].w, b = k.s[k.s.length - 1].w; return { z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], path: k.l, F: [w.re, w.im], W0: [w0.re, w0.im], Ws: [a.re, a.im], We: [b.re, b.im], meet: !!k.meet }; }), log: sel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) }; };
   // paths-aesthetics (test/deform_nat_cmd.js): the screen's kept paths measured in its px. seg: the longest drawn
   // segment; jump: the largest distance of H at a segment's mid time from the segment's midpoint (segments over 3 px:

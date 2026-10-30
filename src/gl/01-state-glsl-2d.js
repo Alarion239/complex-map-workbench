@@ -256,6 +256,26 @@ vec3 shade(vec3 alb, vec3 n, vec3 v, float ao) {
   return c * s;
 }
 `;
+  // The globe's light (issue #287), in place of SHADE in every program that draws on the sphere (the globe, its phase
+  // portrait, the lifted and pre-mapped regions, the inverse pass), with the same shade() so their bodies are shared.
+  // On the sphere the colour is the data (arg F and |F|, a shape's fill) and a sphere has no up, so turning it must not
+  // change how readable a region is: the key light follows the camera (uKeyDir, a little above and to the left of the
+  // eye: globeLight in 06-draws-3d.js), the ambient is even (no sky and ground), the highlight is small and weak, and
+  // the limb darkens by at most 15 % for roundness. The face we look at shows its colour at about full strength, the
+  // limb away from the key at about 0.68 of it (linear light), from every side. ao is unused (no occlusion on a ball).
+  const SHADE_GLOBE = `
+uniform vec3 uKeyDir;
+vec3 shade(vec3 alb, vec3 n, vec3 v, float ao) {
+  float s = 1.0;
+  if (dot(n, v) < 0.0) { n = -n; s = 0.6; }   // back faces: flipped normal at 0.6
+  float ndl = max(dot(n, uKeyDir), 0.0);
+  float e = 1.0 - max(dot(n, v), 0.0);
+  vec3 c = alb * ((0.80 + 0.22 * ndl) * (1.0 - 0.15 * e * e));
+  vec3 h = normalize(uKeyDir + v);
+  c += 0.05 * pow(max(dot(n, h), 0.0), 96.0);
+  return c * s;
+}
+`;
   const FADE = `
 uniform vec4 uFade; uniform int uFadeMode; uniform float uFadeW;
 float fadeOf(vec2 s) {
@@ -1009,6 +1029,54 @@ void main() {
   // a sum that cancels to float32 rounding is 0 (outside the curve): no phase, a neutral grey instead of noise
   if (!(wabs(s) > 2e-5 * m)) c = mix(uPlane, vec3(0.5), 0.6);
   o = vec4(c, 1.0);
+}
+`;
+  // the Cauchy integral by the residue theorem (issue #235): Phi(z) = n(z) F(z) - sum_k n_k PP_k(z), n the winding number
+  // of the curve about z (the signed crossings of the ray towards +x with the polygon's edges, an exact integer), PP_k the
+  // principal part of F at its pole p_k inside (up to order 4, coefficients a_-1 ... a_-4 from the CPU). Outside the
+  // curve n = 0 and Phi = -sum_k n_k PP_k, so a curve with no pole inside has an exactly neutral outside. A chain
+  // program (mapF is F): it compiles for a chain when the style is first shown. Edges relative to an origin O (the
+  // curve's centre), as the quadrature's nodes, so z - p keeps float32 precision near the curve.
+  // uShow.x: 0 both halves, 1 only inside (f+), 2 only outside; uShow.y: the outside's sign, -1 f- = sum n PP (F = f+ + f-),
+  // +1 the integral itself (-f-)
+  const CAUCHYF_FS = `
+uniform vec2 uCenter; uniform vec2 uRelC; uniform vec2 uInvScale; uniform vec4 uVp;
+uniform highp sampler2D uEdges; uniform int uEdgeN;
+uniform int uPoleN; uniform vec4 uPole[16]; uniform vec4 uCoef[32]; uniform vec2 uShow;
+out vec4 o;
+vec2 cmx(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+void main() {
+  vec2 off = (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
+  vec2 z = uCenter + off, zr = uRelC + off;
+  int wn = 0;
+  for (int j = 0; j < uEdgeN; j++) {
+    vec4 e = texelFetch(uEdges, ivec2(j, 0), 0);
+    float side = (e.z - e.x) * (zr.y - e.y) - (zr.x - e.x) * (e.w - e.y);
+    if (e.y <= zr.y) { if (e.w > zr.y && side > 0.0) wn++; }
+    else if (e.w <= zr.y && side < 0.0) wn--;
+  }
+  bool inside = wn != 0;
+  vec3 grey = mix(uPlane, vec3(0.5), 0.6);
+  if ((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)) { o = vec4(grey, 1.0); return; }
+  vec2 pp = vec2(0.0);
+  for (int k = 0; k < max(16, uNoUnroll); k++) {   // (a bound no compiler can know: FXC links a loop, not 16 copies, #72)
+    if (k >= uPoleN) break;
+    vec4 P = uPole[k];
+    vec2 d = zr - P.xy;
+    float d2 = dot(d, d);
+    if (d2 < 1e-20 * (1.0 + dot(P.xy, P.xy))) { o = vec4(grey, 1.0); return; }
+    vec2 u = vec2(d.x, -d.y) / d2;
+    vec2 t = u, s = cmx(uCoef[2 * k].xy, t);
+    if (P.z > 1.5) { t = cmx(t, u); s += cmx(uCoef[2 * k].zw, t); }
+    if (P.z > 2.5) { t = cmx(t, u); s += cmx(uCoef[2 * k + 1].xy, t); }
+    if (P.z > 3.5) { t = cmx(t, u); s += cmx(uCoef[2 * k + 1].zw, t); }
+    pp += P.w * s;
+  }
+  vec2 nf = inside ? float(wn) * mapF(z) : vec2(0.0);
+  vec2 w = inside ? nf - pp : -uShow.y * pp;
+  // a value that cancels to float32 rounding (F against its own principal parts) is 0: neutral, not noise
+  if (!(wabs(w) > 4e-6 * (wabs(nf) + wabs(pp)))) { o = vec4(grey, 1.0); return; }
+  o = vec4(dcolor(w), 1.0);
 }
 `;
   // ---------- preimages: where w = F(z) lands in target shapes of the w-plane (Preimage mode) ----------

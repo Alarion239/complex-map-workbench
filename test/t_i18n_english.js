@@ -11,9 +11,14 @@ const ROOT = path.join(__dirname, '..');
 const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
 const MODS = ['cx', 'parse', 'funcs', 'inverse', 'calc', 'glsl', 'region', 'curves'];
 const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', curves: 'Curves' };
+// (src/ no longer checks whether a module is there, issue #20 phase 3: src/'s contexts get the stand-ins of
+// test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which had none, so both
+// sides offer the same)
+const NO_RECOGNIZER = require('fs').readFileSync(path.join(__dirname, 'module_stubs.js'), 'utf8');
 function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
+  if (dir !== BASE) vm.runInContext(NO_RECOGNIZER, ctx);
   for (const f of files) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
@@ -21,7 +26,9 @@ function load(dir, files) {
 const friendlySrc = (dir) => /function friendly\(err\) \{[\s\S]*?\n {2}\}/.exec(source('gl.js', dir))[0];
 
 // the probe: runs in a context, returns [label, value] pairs (value: a string, or JSON of a structure)
-function probe(ctx, dir) {
+// (kinds: the region kinds compared, those of the base: one added since, as dhray and dheq (issue #260), has nothing to
+// compare with)
+function probe(ctx, dir, kinds) {
   const out = [];
   const put = (label, v) => out.push([label, typeof v === 'string' ? v : JSON.stringify(v)]);
   const tryIt = (label, fn) => { try { put(label, fn()); } catch (e) { put(label, 'THROW ' + (e && e.message)); } };
@@ -88,8 +95,8 @@ function probe(ctx, dir) {
   tryIt('REL_MSG', () => Expr.REL_MSG);
   for (const s of ['z^2+1', '\\tan z+\\sinh z', '|z|<1 or Re z>2', '\\log z', '0.5z+1.25', 'z^{2.5}', 'e^{iz}']) tryIt(`toTex ${s}`, () => Expr.toTex(Expr.parse(s, { allowRel: true })).s);
   // ---- regions ----
-  put('KINDS', Object.fromEntries(Object.entries(Region.KINDS).map(([k, v]) => [k, v.label])));
-  for (const kind of Object.keys(Region.KINDS)) {
+  put('KINDS', Object.fromEntries(Object.entries(Region.KINDS).filter(([k]) => kinds.includes(k)).map(([k, v]) => [k, v.label])));
+  for (const kind of kinds) {
     for (const [z0, z1] of [[C(0, 0), C(1, 0.5)], [C(-1.5, 0.25), C(2, -1)], [C(0.3, 0.7), C(0.31, 0.71)]]) {
       let s = null;
       try { s = Object.assign({ kind }, Region.defaultsFor(kind, z0, z1)); } catch (e) { s = { kind }; }
@@ -126,11 +133,12 @@ function probe(ctx, dir) {
 
 const base = load(BASE, MODS);
 const now = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', ...MODS]);
-const a = probe(base, BASE);
+const baseKinds = Object.keys(vm.runInContext('Region.KINDS', base));
+const a = probe(base, BASE, baseKinds);
 // (catalog steps added since the base, e.g. Γ and ζ (issue #4), have nothing to compare with: their outputs are left out)
 const newIds = Object.keys(vm.runInContext('Funcs.DEFS', now)).filter((id) => !Object.prototype.hasOwnProperty.call(vm.runInContext('Funcs.DEFS', base), id));
 const isNew = (label) => newIds.some((id) => label === `def ${id}` || label.startsWith(`${id}#`));
-const b = probe(now, path.join(ROOT, 'src')).filter(([label]) => !isNew(label));
+const b = probe(now, path.join(ROOT, 'src'), baseKinds).filter(([label]) => !isNew(label));
 let fails = 0;
 // (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
 // notes/ux-build/w1-chain-AS-BUILT.md)
@@ -150,13 +158,14 @@ for (let i = 0; i < Math.min(a.length, b.length); i++) {
 const ruCtx = (() => {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
+  vm.runInContext(NO_RECOGNIZER, ctx);
   for (const f of ['i18n', 'i18n_ru', ...MODS]) {
     vm.runInContext(source(f + '.js', path.join(ROOT, 'src'), { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   return ctx;
 })();
-const r = probe(ruCtx, path.join(ROOT, 'src')).filter(([label]) => !isNew(label));
+const r = probe(ruCtx, path.join(ROOT, 'src'), baseKinds).filter(([label]) => !isNew(label));
 const shape = (v) => { if (v.startsWith('THROW')) return 'THROW'; try { return JSON.stringify(JSON.parse(v), (k, x) => (typeof x === 'string' ? '' : x)); } catch (e) { return 'str'; } };
 let ruDiff = 0, ruText = 0;
 for (let i = 0; i < Math.min(b.length, r.length); i++) {

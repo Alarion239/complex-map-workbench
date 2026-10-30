@@ -1034,6 +1034,8 @@ const Funcs = (() => {
           break;
         }
         case 'conj': return { error: $t('Conjugation z̄ is not holomorphic, so it has no complex derivative') };
+        // ([issue #260] Φ′ is not a formula of the language: d/dz after Φ_M or φ_c uses the circle formula)
+        case 'dh': case 'bottcher': return { error: $t('Φ has no derivative formula here; d/dz after it is computed numerically') };
         case 'poly': ast = polyAst(polyDer(CX.polyTrim(v.co))); break;
         case 'rational': {
           const p = CX.polyTrim(v.p), q = CX.polyTrim(v.q);
@@ -1458,6 +1460,47 @@ const Funcs = (() => {
       };
     },
   });
+  // [issue #260] the Douady–Hubbard map Φ_M(z) = φ_z(z), the conformal map of the outside of the Mandelbrot set M onto
+  // the outside of the closed unit disk (Φ_M(z) = z + O(1) at ∞), and the Böttcher coordinate φ_c of z ↦ z² + c, the
+  // conformal map of {G_c > G_c(0)} (the whole basin of ∞ when c ∈ M) onto |w| > e^{G_c(0)}: CX.bottcher, by the
+  // orbit and the square roots nearest to it. NaN on M (on the filled Julia set), wherever the orbit needs more than N
+  // steps to pass 10⁴, and for φ_c below the critical potential. The external rays and equipotentials of the Inspector
+  // card are Region's dhray and dheq. Both deform along the straight line (no zoom path: they are not defined at 0)
+  const DH_NMAX = 64;
+  // ([#299 review] its tooltip: why a band next to the set stays blank)
+  const DH_NTIP = $t('Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank');
+  const dhNoInv = () => $t('Φ is one-to-one, but its inverse is not available as a step; {note}', { note: NOTE_PRE });
+  const dhHomTex = (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: $t('Φ is defined only outside the set, so it has no point to zoom about') }), segment: true });
+  def({
+    id: 'dh', group: $t('Special'), label: $t('Douady–Hubbard map'), menuTex: '\\Phi_M(z)',
+    params: [{ key: 'N', label: $t('steps N'), type: 'int', def: DH_NMAX, min: 1, max: DH_NMAX, tip: DH_NTIP }],
+    build({ N }) {
+      const f = (z) => CX.bottcher(z, z, N);
+      return {
+        f, hom: linHom(f), homTex: dhHomTex,
+        tex: (a) => ({ s: `\\Phi_M${paren(a.s)}`, p: 3 }),
+        props: props({ analytic: true, injective: true }),
+        domain: (v) => `${v}\\notin M`,
+        inverseNote: dhNoInv(),
+      };
+    },
+  });
+  def({
+    id: 'bottcher', group: $t('Special'), label: $t('Böttcher coordinate'), menuTex: '\\varphi_c(z)',
+    params: [{ key: 'c', label: 'c', type: 'cx', def: '-1' }, { key: 'N', label: $t('steps N'), type: 'int', def: DH_NMAX, min: 1, max: DH_NMAX, tip: DH_NTIP }],
+    build({ c, N }) {
+      const rho = CX.dhCritRho(c, N);
+      const f = (z) => CX.bottcherJ(z, c, N, rho);
+      return {
+        f, hom: linHom(f), homTex: dhHomTex,
+        tex: (a) => ({ s: `\\varphi_{${valTex(c)}}${paren(a.s)}`, p: 3 }),
+        props: props({ analytic: true, injective: true }),
+        domain: (v) => (rho > 1 ? `G_c(${v})>G_c(0)` : `${v}\\notin K_c`),
+        inverseNote: dhNoInv(),
+        dh: { rho },
+      };
+    },
+  });
   def({
     id: 'conj', group: $t('Special'), label: $t('Conjugation'), menuTex: '\\bar z', params: [],
     build() {
@@ -1682,7 +1725,7 @@ const Funcs = (() => {
     id: 'series', group: $t('Polynomial & custom'), label: $t('Series'), menuTex: '\\sum a_n (z-c)^n',
     params: [
       { key: 'kind', label: $t('kind'), type: 'choice', def: 'power', choices: [['power', $t('power series')], ['laurent', $t('Laurent series')], ['dirichlet', $t('Dirichlet series')]] },
-      { key: 'an', label: 'a_n =', type: 'seq', def: '\\frac{1}{n!}', bound: ['n'] },
+      { key: 'an', label: 'aₙ =', say: 'a n', type: 'seq', def: '\\frac{1}{n!}', bound: ['n'] },
       { key: 'c', label: 'c =', type: 'cx', def: '0' },
     ],
     build({ kind, an, c }) {
@@ -1711,8 +1754,8 @@ const Funcs = (() => {
   def({
     id: 'recurrence', group: $t('Polynomial & custom'), label: $t('Recurrence'), menuTex: 'u_{k+1}=g(u_k,z)',
     params: [
-      { key: 'u0', label: 'u_0 =', type: 'seq', def: 'z' },
-      { key: 'g', label: 'u_{k+1} =', type: 'seq', def: 'u^2+z', bound: ['u'] },
+      { key: 'u0', label: 'u₀ =', say: 'u 0', type: 'seq', def: 'z' },
+      { key: 'g', label: 'uₖ₊₁ =', say: 'u k+1', type: 'seq', def: 'u^2+z', bound: ['u'] },
       { key: 'N', label: 'N', type: 'int', def: 8, min: 0, max: Expr.ITER_CAP },
       { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 },
     ],
@@ -1782,7 +1825,6 @@ const Funcs = (() => {
     return v;
   };
   function recChain(ast, cut, f) {
-    if (typeof Recognize === 'undefined') return null;
     const th = cut * DEG;
     const read = (a, opts) => { try { return Recognize.chain(a, cut, opts); } catch (e) { return null; } };
     const k = Recognize.key(ast, cut);
@@ -2293,7 +2335,7 @@ const Funcs = (() => {
     return { kind: out.length === 1 ? 'one' : 'many', steps: out, names, rows, eq, reason: null, pnames: pn, typed };
   }
   function splitSteps(st, bIn) {
-    if (!st || st.type !== 'custom' || typeof Recognize === 'undefined') return splitNone('R1');
+    if (!st || st.type !== 'custom') return splitNone('R1');
     const expr = String(st.params && st.params.expr != null ? st.params.expr : DEFS.custom.params[0].def);
     const cut = Number(st.params && st.params.cut != null ? st.params.cut : 180);
     const b = bIn || build(st);
@@ -3018,7 +3060,7 @@ const Funcs = (() => {
   }
 
   return {
-    DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
+    DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
     REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };

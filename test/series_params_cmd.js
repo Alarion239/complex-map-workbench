@@ -51,6 +51,25 @@ const f1 = await F(zs), k1 = await glKey();
 await ev(`Params.set('a', 0.2)`); await settle(900);
 ok('a_n = a^n: a new a changes F, the same GPU program', (await F(zs)) !== f1 && (await glKey()) === k1, [f1, await F(zs), k1, await glKey()]);
 
+// ---- #327: a COMPLEX number in a_n: F is the closed form for each value, the same GPU program, and the rename follows
+const cx = (v) => ({ re: v[0], im: v[1] });
+const cmul = (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re });
+const cdiv1 = (a) => { const d = a.re * a.re + a.im * a.im; return { re: a.re / d, im: -a.im / d }; };   // 1 / a
+const near = (got, want, tol = 1e-9) => !!got && Math.hypot(got[0] - want.re, got[1] - want.im) < tol * Math.max(1, Math.hypot(want.re, want.im));
+const FF = async (z) => (await ev(`__cmwEval('F', null, [${JSON.stringify(z)}])`))[0];
+await openApp({ shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.5 }], params: [{ name: 'a', value: 0.5, im: 0.3, min: -2, max: 2, step: 0.01 }],
+  steps: [{ type: 'series', params: { kind: 'power', an: 'a^n', c: '0' }, on: true }] });
+await settle(1200);
+const seriesWant = (a) => cdiv1({ re: 1 - cmul(a, cx(zs)).re, im: -cmul(a, cx(zs)).im });   // Σ (a z)^n = 1 / (1 − a z)
+const kc = await glKey();
+ok('a = 0.5 + 0.3i in a_n = a^n: F is 1 / (1 − a z)', near(await FF(zs), seriesWant({ re: 0.5, im: 0.3 })), [await FF(zs), seriesWant({ re: 0.5, im: 0.3 })]);
+await ev(`Params.set('a', { re: -0.2, im: 0.7 })`); await settle(900);
+ok('a new complex a: F follows the closed form', near(await FF(zs), seriesWant({ re: -0.2, im: 0.7 })), [await FF(zs), seriesWant({ re: -0.2, im: 0.7 })]);
+ok('… with the same GPU program', (await glKey()) === kc, [kc, await glKey()]);
+await ev(`Params.rename('a', 'b')`); await settle(600);
+ok('renaming a complex a renames it in a_n', (await ev('__cmwP().steps[0].params.an')) === 'b^n', await ev('__cmwP().steps[0].params.an'));
+ok('… and the value survives the rename', near(await FF(zs), seriesWant({ re: -0.2, im: 0.7 })), await FF(zs));
+
 // ---- the recurrence: u is the rule's own; c on a slider moves the Julia set without a new program
 await openApp({ shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], params: [{ name: 'c', value: -0.75, min: -2, max: 2, step: 0.01 }], rightMode: 'color',
   steps: [{ type: 'recurrence', params: { u0: 'z', g: 'u^2+c', N: 6, cut: 180 }, on: true }] });
@@ -65,6 +84,16 @@ const p1 = await picture();
 info.julia = { p0, p1, g0, g1: await F(zs) };
 ok('a slider on c moves the Julia set: F and the picture change', info.julia.g1 !== g0 && p1 !== p0, info.julia);
 ok('… with the same GPU program (c is a uniform)', (await glKey()) === kj, [kj, await glKey()]);
+// a complex c: F is the orbit u_6 of u² + c from u_0 = z, and the same GPU program (the picture's own check is above)
+{
+  const orbit6 = (c) => { let u = cx(zs); for (let i = 0; i < 6; i++) { const q = cmul(u, u); u = { re: q.re + c.re, im: q.im + c.im }; } return u; };
+  const kk = await glKey();
+  await ev(`Params.set('c', { re: -0.4, im: 0.5 })`); await settle(1500);
+  ok('the rule u² + c with c = −0.4 + 0.5i: F is the orbit', near(await FF(zs), orbit6({ re: -0.4, im: 0.5 }), 1e-6), [await FF(zs), orbit6({ re: -0.4, im: 0.5 })]);
+  ok('… the same GPU program (both parts are uniforms)', (await glKey()) === kk, [kk, await glKey()]);
+  await ev(`Params.set('c', { re: -0.4, im: -0.5 })`); await settle(1500);
+  ok('the conjugate c gives the conjugate orbit', near(await FF(zs), orbit6({ re: -0.4, im: -0.5 }), 1e-6), [await FF(zs), orbit6({ re: -0.4, im: -0.5 })]);
+}
 await ev(`Params.rename('c', 'b')`); await settle(600);
 ok('renaming c renames it in the rule', (await ev('__cmwP().steps[0].params.g')) === 'u^2+b+0', await ev('__cmwP().steps[0].params.g'));
 await grab();

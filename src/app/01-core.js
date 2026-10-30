@@ -245,6 +245,9 @@
       // Plain whatever the style (an old landscape's default 'phase' material, kept without rewriting dc; cleared
       // when a style is picked)
       view: Views.blank(), v6: true, wKey: false, landPlain: false,
+      // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
+      // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
+      cauchyShow: 'both', cauchyPlus: false,
       // exact images (SPEC 10.1): mapped areas drawn per pixel through the inverse of the chain where it has one; an
       // internal switch (no visible option), kept in saved state
       exactImages: true,
@@ -341,7 +344,7 @@
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'sty-icon', 'share-icon');
+    top.classList.remove('cmd-short', 'cmd-cut', 'share-icon');
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
     const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
@@ -349,10 +352,9 @@
       if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
       if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
     }
-    // ([v17 D5] then Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
+    // ([v17 D5] Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
     const ex = $('examplesBtn');
     const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    if (tight()) top.classList.add('sty-icon');
     if (tight()) top.classList.add('share-icon');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
@@ -512,6 +514,8 @@
   function shapeOk(s) {
     if (s.kind === 'formula' || s.kind === 'fcurve') return typeof s.expr === 'string';
     if (s.kind === 'curve' || s.kind === 'polygon') return Array.isArray(s.pts) && s.pts.length >= (s.kind === 'polygon' ? 3 : 2) && s.pts.every(isXY);
+    // ([issue #260] a ray's angle p/q or a turn in [0, 1), an equipotential's level > 1; c: null (M) or a point)
+    if (s.kind === 'dhray' || s.kind === 'dheq') return (s.kind === 'dhray' ? Region.dhAngle(s.theta) != null : isNum(s.r) && s.r > 1) && (s.c == null || isXY(s.c));
     const t = Region.defaultsFor(s.kind, C(0, 0), C(1, 1));
     return Object.keys(t).every((k) => (Array.isArray(t[k]) ? isXY(s[k]) : isNum(s[k])));
   }
@@ -607,6 +611,8 @@
     st.v6 = true;
     st.wKey = !!st.wKey;
     st.landPlain = !!st.landPlain;
+    st.cauchyShow = st.cauchyShow === 'in' || st.cauchyShow === 'out' ? st.cauchyShow : 'both';
+    st.cauchyPlus = !!st.cauchyPlus;
     delete st.deriv;
     st.sheets = !!st.sheets;
     st.exactImages = st.exactImages !== false;

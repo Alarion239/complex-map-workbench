@@ -453,17 +453,20 @@
     const more = h('button', { class: 'icon-btn more', 'data-tip': $t('More'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), 'aria-haspopup': 'menu', html: ICONS.more, onclick: (e) => { stop(e); stepMenu(e.currentTarget, k); } });
     // v15 (DESIGN.md 2.1): a card is its type and a picture; the chain is a listbox, a card an option. Its head shows
     // the index, the type icon and the name (two lines allowed); Bypass and More appear over the name on hover or focus
+    // (#361: Bypass and More are a hover's, for the mouse; the keyboard has the card's keys. An option holds no control a
+    // screen reader can reach, so they are inert until a pointer is over the card: a negative tabindex is not enough)
+    const acts = h('span', { class: 'acts', 'aria-hidden': 'true', inert: true }, byp, more);
     const root = h('div', { class: 'card', 'data-k': k, role: 'option', tabindex: 0, 'aria-label': `f${sub(k)}, ${d.label}`, 'aria-selected': 'false',
       onclick: () => cardClick(k), ondblclick: (e) => { if (e.target.closest && e.target.closest('button')) return; setFocus(S.focus === k ? 0 : k); },
       onkeydown: (e) => chainKey(e, k),
-      onpointerenter: () => hiStep(k, true), onpointerleave: () => hiStep(k, false) });
+      onpointerenter: (e) => { hiStep(k, true); if (acts) acts.inert = false; }, onpointerleave: (e) => { hiStep(k, false); if (acts && e.pointerType === 'mouse') acts.inert = true; } });
     const nm = h('span', { class: 'nm' }, cardName(st, d));
     const head = h('div', { class: 'card-head', draggable: 'true' },
       h('span', { class: 'grip', html: ICONS.grip, 'aria-hidden': 'true' }),
       h('span', { class: 'idx', html: fsub(k) }),
       h('span', { class: 'ty', html: Inspector.typeIcon(st.type), 'aria-hidden': 'true' }),
       nm,
-      h('span', { class: 'acts', 'aria-hidden': 'true' }, byp, more));
+      acts);
     byp.tabIndex = -1; more.tabIndex = -1;
     head.addEventListener('dragstart', (e) => {
       if (e.target.closest && e.target.closest('button')) { e.preventDefault(); return; }
@@ -501,7 +504,7 @@
     for (const [key, name] of BADGES) fl.append(h('span', { class: 'lamp', 'data-lamp': key, hidden: true }, h('span', { class: 'lampname' }, W[key] || name), ' ', h('span', { class: 'lampq' })));
     const t = h('div', { class: 'ftile', role: 'option', tabindex: 0, 'aria-selected': 'false', 'data-tip': $t('F, the whole map: its formula and guarantees'),
       onclick: () => selectStep('F'), onkeydown: (e) => chainKey(e, 'F') },
-    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
+    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), h('span', { class: 'fwm' }, $t('The whole map')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
     return t;
   }
   // the lit names on the F tile: the two strongest (the tooltip and the Inspector list them all)
@@ -730,13 +733,15 @@
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
+    // ([#336] a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    if (q.say) input.setAttribute('aria-label', q.say);
     const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
     // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
     // says what the field is; the symbol keeps its own span, where a step's index goes)
     const word = paramWord(st, q);
-    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
     if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
     return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }

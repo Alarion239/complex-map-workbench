@@ -2,7 +2,7 @@
 // 844 × 390 and 780 × 360 in landscape, English and Russian, touch. Every step: its title and its lead or task show on
 // arrival (no tap); the strip stays in one place; the tool row's buttons and the view switch are not covered by it (the
 // topmost element at their centres, the tour's shade aside, is the button); portrait: the strip is the 68 px row under
-// the header and X is 600 px high at 390 × 844; landscape: the strip sits in the header (X keeps its size) or in a 48 px
+// the header and X is 608 px high at 390 × 844 (600 before #246's 56 px chain bar); landscape: the strip sits in the header (X keeps its size) or in a 48 px
 // row. Then: the Why panel is at most half the screen, scrolls inside, folds on a touch in X and that touch reaches the
 // app; a sheet a step opens starts below the strip. (The v15.1 mini bar and its fold are gone with the callout.)
 // (r3 review: the strip keeps one place per chapter; a chapter whose line needs three lines has a 76 px portrait row, or
@@ -75,7 +75,8 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
   }
   check(`${tag}: the walk saw the steps (at least 40)`, n >= 40, n);
   if (first) {
-    if (h > w) check(`${tag}: portrait, the strip is the row under the header${w === 390 ? '; X is 600 px (592 with a three-line row)' : ''}`, first.mode === 'port' && Math.abs(first.strip[1] - first.head) <= 1 && (w !== 390 || first.paneH === (first.lines === 3 ? 592 : 600)), first);
+    // (#246: the chain bar is 56 px, 8 less than before, and X has them: 608, 600 with a three-line row)
+    if (h > w) check(`${tag}: portrait, the strip is the row under the header${w === 390 ? '; X is 608 px (600 with a three-line row)' : ''}`, first.mode === 'port' && Math.abs(first.strip[1] - first.head) <= 1 && (w !== 390 || first.paneH === (first.lines === 3 ? 600 : 608)), first);
     else check(`${tag}: landscape, the strip in the header (X keeps its size) or a 48 or 56 px row`, (first.mode === 'head' && first.strip[1] >= first.headTop - 1 && first.strip[3] <= first.head + 1 && Math.abs(first.paneH - x0) <= 1) || (first.mode === 'row' && first.strip[3] - first.strip[1] === (first.lines === 3 ? 56 : 48)), [first, x0]);
   }
   // Why: a panel at most half the screen, scrolling inside, folded by a touch in X, which reaches the app

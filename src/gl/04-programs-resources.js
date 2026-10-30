@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -81,10 +81,10 @@
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
-    regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE + REGION_FS(true) },
-    regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE + REGION_FS(true) },
+    regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
+    regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
-    regionSP: { chain: false, vs: () => PRE_VS(true), fs: () => F_UTIL + SHADE + REGION_PRE_FS(true) },
+    regionSP: { chain: false, vs: () => PRE_VS(true), fs: () => F_UTIL + SHADE_GLOBE + REGION_PRE_FS(true) },
     line: { chain: true, vs: () => LINE_VS('', 'chain'), fs: () => FADE + LINE_FS },
     lineC: { chain: false, vs: () => FIN + LINE_VS('', 'tex'), fs: () => FADE + LINE_FS },
     line0: { chain: false, vs: () => FIN + LINE_VS('', 'local'), fs: () => FADE + LINE_FS },
@@ -102,6 +102,8 @@
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
+    // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
+    cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },
     pre: { chain: true, vs: () => QUAD_VS, fs: () => PRE_FS('') },
     preS: { chain: true, vs: () => SPHERE_VS, fs: () => PRE_FS('', true) },
     // (the heights, uPass 0, and the refinement, 1 and 2: one program, one call site of the chain, LAND_TF_VS)
@@ -134,8 +136,8 @@
     landSheetC: { chain: true, sheet: true, vs: () => LAND_SHEET_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(true) },
     probeSheet: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(true), fs: () => MARK_FS },
     mark: { chain: false, vs: () => MARK_VS, fs: () => MARK_FS },
-    sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(false) },
-    sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(true) },
+    sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_FS(false) },
+    sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_FS(true) },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
   };
@@ -154,7 +156,7 @@ float wabs(vec2 w) {
   let libRe = null;
   function libUse(src) {
     if (!libRe) {
-      const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
+      const L = GLChain.LIB;
       const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
@@ -186,7 +188,7 @@ float wabs(vec2 w) {
     const vs = d.vs(ch, mode), fs = d.fs();
     if (!d.chain) return [HEAD + vs, HEAD + fs];
     // (the sheet programs also take the deformation's sheets, chainSheetHom: GLChain's sheetHom)
-    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
+    const lib = GLChain.LIB + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
     const pre = (s) => ['', FIN, lib][libUse(s)];
     return [HEAD + pre(vs) + vs, HEAD + pre(fs) + fs];
   }
@@ -904,7 +906,7 @@ float wabs(vec2 w) {
     if (sph) {
       uM4(P, 'uMVP', st.sphere.MVP);
       u3(P, 'uEye', st.sphere.eye);
-      lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+      globeLight(P, st.sphere);
     } else {
       const v = st.view, dpr = st.dpr || 1;
       u2f(P, 'uRel', v.cx - res.org[0], v.cy - res.org[1]);

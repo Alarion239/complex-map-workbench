@@ -301,7 +301,7 @@
       drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
       lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
       morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-      patternSegs, preimageTargets, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
+      patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
       resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
       sub, syncPlaying, trans, transState, tweens, updateCalcChip,
       get S() { return S; },
@@ -336,7 +336,7 @@
   function pathMarksTex(...args) { return MP.pathMarksTex(...args); }
   function morphCaption(...args) { return MP.morphCaption(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  function syncTransport(...args) { return MP.syncTransport(...args); }
+  function syncTransport(...args) { const r = MP.syncTransport(...args); phoneChain(); return r; }
   function morphReadout(...args) { return MP.morphReadout(...args); }
   function setText(...args) { return MP.setText(...args); }
   function watchFader(...args) { return MP.watchFader(...args); }

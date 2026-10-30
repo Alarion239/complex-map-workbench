@@ -416,6 +416,17 @@
       }
       if (zpSel) { zpSel = null; requestRender('OL'); }
     }
+    // ([#252] a preimage dot of a point of a later plane: Select or Point drags it, so the point (its number) follows)
+    if (tool === 'select' || tool === 'point') {
+      const ph = preHit('L', x, y, ptrTouch ? 22 : 10);
+      const s = ph && S.shapes.find((q) => q.id === ph.id), bn = s && boundNumber(s, 'p'), pr = bn && Params.list().find((q) => q.name === bn);
+      if (ph && !(pr && pr.expr)) {
+        if (bn && preUses(ph.j, ph.s, bn)) { toast($t('A step between uses {x}: drag {x} in its own plane', { x: Params.display(bn) })); return; }
+        drag = { mode: 'pre', id: ph.id, j: ph.j, s: ph.s, bn: bn || null, z0: z, moved: false };
+        setCursor(pane, side);
+        return;
+      }
+    }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
       if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p }; return; }
@@ -1072,6 +1083,7 @@
         requestRender(drag.side === 'L' ? 'L' : 'R');
         return;
       }
+      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R', 'T'); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1428,6 +1440,7 @@
     if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
     if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
+    if (d.mode === 'pre') { if (d.moved) { if (d.bn) Params.rest(d.bn); shapesChanged(true); commit(); } return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;
