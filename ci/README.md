@@ -259,6 +259,7 @@ node ci/glprof.js                                  # shader link times, cold and
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
+CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
@@ -272,6 +273,7 @@ The sandbox has no `google-chrome` and no route to the CDNs, and its GL is softw
 export CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome | head -1)   # Playwright's Chromium; the browser suites look for google-chrome
 export CMW_ANGLE=swiftshader CMW_CHROME_ARGS="--no-sandbox"                              # CPU rendering; no Vulkan flags
 node ci/browser.js --only '^key_popup_cmd' --port 9950                                   # a suite; --no-build skips build.py
+CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'                                # the same with MathJax and the faces from vendor/ (no CDN here; see "No network" below)
 node ci/snapshots.js && node ci/unit.js                                                  # unit tests (see the clone note below)
 npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
 ```
@@ -282,9 +284,20 @@ npm run -s typecheck                                                            
 - **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
 
 **Failures that happen in a sandbox and not in CI** (as reported on the PRs; check one on `main` before you suspect your change):
-- **No network, so no MathJax or faces from their CDNs:** formulas stay raw TeX, and the typeset checks fail (`custom_show_cmd`'s `show: typeset` and `show: whole, at 70 %`). `seasong_cmd` logs `net::ERR_TUNNEL_CONNECTION_FAILED`. Issue #444 proposes serving the vendored copies to the suites.
+- **No network, so no MathJax or faces from their CDNs:** formulas stay raw TeX, and the typeset checks fail. **`CMW_VENDOR=1`** (#457, below) makes the suites get MathJax, jsPDF and the fonts from `vendor/` (the fonts from `vendor/LOCK.json`'s faces) and passes everything else through. It fixes `custom_show_cmd` (`show: typeset`, `show: whole, at 70 %`) and takes `tour_cmd` from 81–84 to 89 of 95 checks, as tiers measured on #457 (SwiftShader, no CDN). It does not fix the timing and software-GL failures below. `seasong_cmd`'s `net::ERR_TUNNEL_CONNECTION_FAILED` console errors (reported on #319) were not part of #457's measurements.
 - **Timing, on a shared CPU with software GL:** `t_constr`'s speed checks (`perpForm`, `touchForm` and `tangentForm`), the frame-count checks in `sound_cmd`, and `land_release_cmd`'s "leaving Landscape frees the refinement".
-- **The tour suites:** `tour_auto_cmd`, `tour_cmd` and `ux165_learn_cmd` failed on `main` in a sandbox while CI ran them green; `ux165_learn_cmd` has thrown `Cannot read properties of null (reading 'l')` and failed with other checks on different runs. `repeat_cmd`'s "Write by zeros and poles" failed in one container and passed in another with the flags above.
+- **The tour suites:** `tour_auto_cmd`, `tour_cmd` and `ux165_learn_cmd` failed on `main` in a sandbox while CI ran them green (with `CMW_VENDOR=1` `tour_cmd` passes 89 of 95, and `tour_auto`, `ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail on timing and software GL, as tiers measured on #457); `ux165_learn_cmd` has thrown `Cannot read properties of null (reading 'l')` and failed with other checks on different runs. `repeat_cmd`'s "Write by zeros and poles" failed in one container and passed in another with the flags above.
+
+**No network (#444).** The test page loads MathJax, the PDF library and the Google Fonts from their CDNs, as the live
+page does. On a machine with no route to them (a cloud sandbox), formulas stay raw TeX and the checks that read typeset
+output fail. `CMW_VENDOR=1` makes the browser daemon (test/cdp_kit/cdpd.js) answer exactly those CDN files from
+`vendor/` (test/cdp_kit/vendor.js; the fonts as @font-face rules over the vendored faces, as the offline page has them)
+and lets every other request through. It is opt-in and never set in CI, which keeps testing the CDN path;
+test/t_vendor_serve.js checks that every CDN URL in src/ and build.py is answered. What it does not fix: in a sandbox
+with SwiftShader (no Vulkan/lavapipe, the CI's GL), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
+holes, the welcome, the palette's Try line are typeset checks) and `custom_show_cmd` passes, but `tour_auto`,
+`ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail there on timing and software-GL
+checks that pass in CI (30 Oct, f4e601a).
 
 ### The Landscape walls suite, by hand
 
