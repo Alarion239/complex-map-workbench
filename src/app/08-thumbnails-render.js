@@ -231,26 +231,53 @@
     for (const [, p] of want) thumbDims(p.canvas);   // (all reads before any canvas resize)
     for (const [k] of want) { try { renderThumb(k); } catch (e) { console.error(e); } }
   }
-  function renderThumbs() {
+  // (#326) the cards are drawn in idle slices, not in one task: the first frames belong to the planes. renderThumbs starts a
+  // job (the quiet-moment wait as before, the sizes read before any canvas is resized), the card nearest the selected step
+  // first; each slice draws cards until its budget is spent and yields (requestIdleCallback, or a short timer). A new
+  // request for the cards (a change of the chain, the shapes or the view: dirty.T, requestRender('T')) or an input drops
+  // the pending slices (thumbJob.token), and the job starts again at its quiet moment: a card already drawn for the
+  // current signature costs nothing. now: draw them all at once (__cmwCardsNow, the tests)
+  const thumbJob = { token: 0, order: /** @type {number[]} */ ([]), left: 0 };
+  const THUMB_SLICE_MS = 12;
+  const thumbIdle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 120 }) : setTimeout(fn, 16));
+  function thumbQuiet() {
+    return !(drag || tweens.length || camTweens.length || (morph.playing && morph.open) || performance.now() - lastInputT < 150);
+  }
+  function renderThumbs(now) {
     // wait for a quiet moment: never during drags, pans or a playing morph
-    if (drag || tweens.length || camTweens.length || (morph.playing && morph.open) || performance.now() - lastInputT < 150) {
+    if (!thumbQuiet()) {
       // (a card held for its exact redraw shows a thin bar: a drag that changes what the cards show, or playback)
-      if ((drag && (!/^(pan[LR]|probe|panR|orbit|pan3)$/.test(drag.mode) || ((cardKind() === 'phase' || cardKind() === 'land') && drag.side !== 'R'))) || (morph.playing && morph.open && cardKind() === 'def')) for (const c of document.querySelectorAll('#pipeline .card')) c.classList.add('stale');
+      if ((drag && (!/^(pan[LR]|probe|panR|orbit|pan3)$/.test(drag.mode) || ((cardKind() === 'phase' || cardKind() === 'land') && drag.side !== 'R'))) || (morph.playing && morph.open && cardKind() === 'def')) for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
+      thumbJob.token++;
       clearTimeout(thumbT);
       thumbT = setTimeout(renderThumbs, 160);
       return;
     }
-    thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
     for (const cv of thumbSeen) if (!cv.isConnected) { thumbRO.unobserve(cv); thumbSeen.delete(cv); } // cards rebuilt
+    const sel = selOf(), ks = [...thumbs.keys()].sort((a, b) => Math.abs(a - sel) - Math.abs(b - sel) || a - b);
+    const token = ++thumbJob.token;
+    thumbJob.order = ks.slice(); thumbJob.left = ks.length;   // (the test hook's: __cmwThumbJob)
+    thumbSlice(token, ks, now === true);
+  }
+  function thumbSlice(token, ks, now) {
+    if (token !== thumbJob.token) return;   // (a newer request or an input took the job over)
+    if (!now && !thumbQuiet()) { thumbJob.token++; clearTimeout(thumbT); thumbT = setTimeout(renderThumbs, 160); return; }
+    thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
     for (const p of thumbs.values()) if (p.canvas.isConnected) thumbDims(p.canvas); // all reads before any canvas resize
-    for (const k of thumbs.keys()) { try { renderThumb(k); } catch (e) { console.error(e); } }
+    const t0 = performance.now();
+    while (ks.length) {
+      const k = ks.shift();
+      try { renderThumb(k); } catch (e) { console.error(e); }
+      thumbJob.left = ks.length;
+      if (!now && ks.length && performance.now() - t0 >= THUMB_SLICE_MS) { thumbIdle(() => thumbSlice(token, ks, false)); return; }
+    }
   }
 
   // ---------------- render scheduling ----------------
   const dirty = { L: false, R: false, OL: false, OR: false, T: false, P: false, G: false }; // G: the legend chip
   let rafId = 0;
   function requestRender(...which) {
-    for (const w of which.length ? which : ['L', 'R']) if (w) dirty[w] = true;
+    for (const w of which.length ? which : ['L', 'R']) if (w) { dirty[w] = true; if (w === 'T') thumbJob.token++; }
     if (!rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
   let thumbT = 0, lastInputT = 0, motionInT = 0;
@@ -440,6 +467,7 @@
     idleReadouts();
     if (dirty.T) {
       dirty.T = false;
+      thumbJob.token++;
       clearTimeout(thumbT);
       thumbT = setTimeout(renderThumbs, 150);
       if (morph.playing && morph.open) missingCards();
