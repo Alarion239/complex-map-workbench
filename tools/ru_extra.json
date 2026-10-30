@@ -150,6 +150,9 @@
  "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
  "Compiling…": "Компиляция…",
  "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
+ "in short": "кратко",
+ "Written in short; the step's own field holds the full formula.": "Записано кратко; поле шага содержит формулу целиком.",
+ "Written in short; each step's own field holds its full formula.": "Записано кратко; поле каждого шага содержит его формулу целиком.",
  "Written in short; the field below holds the formula in full.": "Записано кратко; поле ниже содержит формулу целиком.",
  "Print settings": "Параметры печати",
  "Saved to Downloads: {filename}": "Сохранено в «Загрузки»: %{filename}",
@@ -403,5 +406,7 @@
  "F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.": "У F = 1/z один полюс, в 0, внутри окружности. Внутри интеграл Коши равен F минус главная часть, то есть 0; снаружи он равен главной части, 1/z.",
  "F = z + 1/z: inside the circle the Cauchy integral is z, the part of F that is regular at the pole; outside it is the principal part, 1/z.": "F = z + 1/z: внутри окружности интеграл Коши равен z, части F, регулярной в полюсе; снаружи он равен главной части, 1/z.",
  "e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.": "У e^{1/z} в 0 существенная особенность: в её главной части бесконечно много членов. Поэтому картина строит сам интеграл, точка за точкой, а не F минус конечную главную часть.",
- "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Попробуйте: перетащите окружность так, чтобы особенность в 0 оказалась снаружи: внутри будет F, снаружи 0."
+ "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Попробуйте: перетащите окружность так, чтобы особенность в 0 оказалась снаружи: внутри будет F, снаружи 0.",
+ "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Известное ограничение: в нескольких пикселях от нуля arg <i>F</i> меняется так быстро, что дрожащий палец может пересечь цветовую линию и сыграть ноту.",
+ "Height key: point at it to unfold, click to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой"
 }

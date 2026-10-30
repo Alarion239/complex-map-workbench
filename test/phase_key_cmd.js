@@ -5,6 +5,7 @@
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/phase_key_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = { rows: [] };
+let phaseAria = '';
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -25,7 +26,7 @@ const probe = () => ev(`(() => {
     const q = r(e); if (q.w && q.l < c.r && c.l < q.r && q.t < c.b && c.t < q.b) hits.push((e.id || e.className) + ' ' + Math.round(q.l) + ',' + Math.round(q.t));
   }
   return { onPlot: leg.parentNode === plot, inHead: !!leg.parentNode.classList && leg.parentNode.classList.contains('pane-head'), hidden: leg.hidden, shown: getComputedStyle(cv).display !== 'none' && c.w > 0,
-    top: Math.round(c.t - p.t), right: Math.round(p.r - c.r), inside: c.l >= p.l && c.r <= p.r && c.t >= p.t, hits, cls: leg.className };
+    top: Math.round(c.t - p.t), right: Math.round(p.r - c.r), inside: c.l >= p.l && c.r <= p.r && c.t >= p.t, hits, cls: leg.className, aria: leg.getAttribute('aria-label') || '' };
 })()`);
 for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) {
   await openApp(lang, w);
@@ -39,11 +40,14 @@ for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) 
       ok(`${tag}: Phase: its picture is shown with no hover`, r.shown, r);
       ok(`${tag}: Phase: top right of the plot, inside it`, r.top <= 12 && r.right <= 12 && r.inside, r);
       ok(`${tag}: Phase: it does not touch the readout or the chips`, !r.hits.length, r);
+      ok(`${tag}: Phase: the key has an accessible name`, r.aria.length > 2, r);
+      phaseAria = r.aria;
       await ev(`document.getElementById('leftLegend').click()`); await settle(300);
       const c = await probe();
       ok(`${tag}: Phase: a click leaves the key shown`, c.shown && c.onPlot, c);
     } else {
       ok(`${tag}: Landscape: the height key is the head's chip`, r.inHead && !r.hidden, r);
+      ok(`${tag}: Landscape: the chip is named for the height key, not the colour key`, r.aria.length > 2 && r.aria !== phaseAria && (lang || !/Colour/.test(r.aria)) && (lang || /^Height key/.test(r.aria)), { aria: r.aria, phaseAria });
     }
   }
   await ev(`__cmwSetMain('xy')`); await settle(1500);

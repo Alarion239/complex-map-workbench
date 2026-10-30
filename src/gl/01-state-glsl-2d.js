@@ -256,6 +256,26 @@ vec3 shade(vec3 alb, vec3 n, vec3 v, float ao) {
   return c * s;
 }
 `;
+  // The globe's light (issue #287), in place of SHADE in every program that draws on the sphere (the globe, its phase
+  // portrait, the lifted and pre-mapped regions, the inverse pass), with the same shade() so their bodies are shared.
+  // On the sphere the colour is the data (arg F and |F|, a shape's fill) and a sphere has no up, so turning it must not
+  // change how readable a region is: the key light follows the camera (uKeyDir, a little above and to the left of the
+  // eye: globeLight in 06-draws-3d.js), the ambient is even (no sky and ground), the highlight is small and weak, and
+  // the limb darkens by at most 15 % for roundness. The face we look at shows its colour at about full strength, the
+  // limb away from the key at about 0.68 of it (linear light), from every side. ao is unused (no occlusion on a ball).
+  const SHADE_GLOBE = `
+uniform vec3 uKeyDir;
+vec3 shade(vec3 alb, vec3 n, vec3 v, float ao) {
+  float s = 1.0;
+  if (dot(n, v) < 0.0) { n = -n; s = 0.6; }   // back faces: flipped normal at 0.6
+  float ndl = max(dot(n, uKeyDir), 0.0);
+  float e = 1.0 - max(dot(n, v), 0.0);
+  vec3 c = alb * ((0.80 + 0.22 * ndl) * (1.0 - 0.15 * e * e));
+  vec3 h = normalize(uKeyDir + v);
+  c += 0.05 * pow(max(dot(n, h), 0.0), 96.0);
+  return c * s;
+}
+`;
   const FADE = `
 uniform vec4 uFade; uniform int uFadeMode; uniform float uFadeW;
 float fadeOf(vec2 s) {

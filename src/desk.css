@@ -107,6 +107,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .ihead .fF { font: italic 500 15px/1 var(--f-math); padding: 0 4px; }
 .iform { padding: 10px 12px; margin: 0 0 12px; background: var(--well); border-radius: var(--r-2); font-size: 15px; color: var(--ink); overflow-x: auto; scrollbar-width: thin; }
 .iform .ftex { white-space: nowrap; }
+.shortmark { font: 400 11px/14px var(--f-ui); color: var(--muted); border: 1px solid var(--line); border-radius: var(--r-2); padding: 0 5px; margin-left: 6px; white-space: nowrap; cursor: help; }
+.iform > .shortmark { display: inline-block; margin: 6px 0 0; }
+.iform > .shortmark[hidden] { display: none; }
+.shortmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .iform .ftex.long { white-space: normal; font: var(--t-label); color: var(--muted); }
 .iform .wl { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13.5px; }
 .iform .wl > div { white-space: nowrap; }
@@ -122,8 +126,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #propsPanel .params .inp, #propsPanel .params select.inp { height: 32px; font-size: 13px; padding: 0 10px; }
 #propsPanel .params .pair > .inp:has(+ .argand) { padding-right: 34px; }
 /* [issue #260] Add ray, Add equipotential: the value and its button on one row */
-#propsPanel .params .pf.dh-add .pair { display: flex; gap: 6px; }
-#propsPanel .params .pf.dh-add .pair > .inp { flex: 1 1 auto; min-width: 0; }
+/* ([#358] the value keeps about five characters; a button that does not fit beside it (ru, it) wraps under it and
+   fills that line) */
+#propsPanel .params .pf.dh-add .pair { display: flex; flex-wrap: wrap; gap: 6px; }
+#propsPanel .params .pf.dh-add .pair > .inp { flex: 999 1 64px; min-width: 64px; }
+#propsPanel .params .pf.dh-add .pair > .btn { flex: 1 0 auto; max-width: 100%; }
 #propsPanel .params .icon-btn.argand { width: 28px; height: 28px; right: 2px; }
 #propsPanel .params.matrix2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin: 0 0 10px; padding: 2px 10px; }
 #propsPanel .params.matrix2::before, #propsPanel .params.matrix2::after { top: 0; bottom: 0; height: auto; width: 4px; border-width: 1.25px; }
@@ -267,6 +274,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
    (app.js placeKeys): the key a short chip (glyph and words) that unfolds under the head while pointed at, focused or
    clicked open; the options behind the Display options button. A phone keeps them on the plane (phone.css) */
 .pane-head { position: relative; z-index: 11; overflow: visible; }
+/* ([#337] a chip in the plot (a phone's) drops below the readout it would touch; the pane head's pop-up has its own drop) */
+.plot > .legend-chip { margin-top: var(--lg-drop, 0px); }
 .pane-head > .legend-chip { position: relative; top: auto; right: auto; margin: 0 0 0 4px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 4px; line-height: normal;
   background: transparent; border: 1px solid var(--line); box-shadow: none; overflow: visible; cursor: pointer; font: var(--t-label); color: var(--ink-2); flex: 0 1 auto; min-width: 0; }
 .pane-head > .legend-chip:hover, .pane-head > .legend-chip.open { border-color: var(--line-strong); color: var(--ink); background: var(--well, transparent); }
@@ -276,7 +285,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 7px 7px; box-shadow: inset 0 0 0 1px var(--ink-2); }
 .pane-head > .legend-chip.collapsed::after { content: none; }
 .pane-head > .legend-chip > .lg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px); right: -1px; box-sizing: content-box;
+.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: -1px; box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }

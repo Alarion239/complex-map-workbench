@@ -77,6 +77,9 @@ const inputPh = SI.map((x) => x.w.phase), inputGlobe = SI.map((x) => ((x.w.group
 info.A_input = { n: SI.length, phases: [...new Set(inputPh)], globeDone: Math.max(0, ...inputGlobe) };
 ok('A the warm-up waits while the pointer moves: no globe or Landscape group starts', SI.length > 5 && !inputPh.some((p) => p === 'globe' || p === 'land') && Math.max(...inputGlobe) === 0, info.A_input);
 const doneA = await waitFinished(280000);
+// (the sampler records the hidden bar up to 40 ms later than finished() sees it, more on a busy runner: wait for that
+// sample, or the hiding is missing from the record and A's 'gone within a second' reads tGone null)
+for (let i = 0; doneA && i < 40 && (await ev('(() => { const s = window.__ws[window.__ws.length - 1]; return !!s && s.vis; })()')); i++) await sleep(50);
 const secs = Math.round((Date.now() - tA) / 100) / 10;
 const SA = await ev('window.__ws');
 const wsw = SA.filter((x) => x.w);

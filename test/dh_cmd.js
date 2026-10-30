@@ -116,6 +116,20 @@ ok('c = 1: the equipotential 1.05 is undefined, saying the critical level; 1.3 s
 await ev(`Params.set('c', 0.3)`); await settle(1500);
 info.back = await ev(`__cmwP().shapes.filter((s) => s.kind === 'dheq').map((s) => [s.r, s.undef || null, s.visible])`);
 ok('… and c = 0.3 brings it back', info.back.every((x) => !x[1] && x[2] !== false), info.back);
+
+// [#358] the card's Add rows fit the Inspector in every language: the field keeps about five characters (64 px) and
+// the button stays inside the panel (a long one, ru and it, wraps under the field)
+for (const w of [1280, 1024]) {
+  await openApp({ steps: [{ type: 'dh', params: { N: 64 }, on: true }] });
+  await view(w, 800, false, false); await settle(800);
+  for (const lang of ['en', 'ru', 'it']) {
+    await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+    const rows = await ev(`(() => { const pr = document.getElementById('propsPanel').getBoundingClientRect(); return [...document.querySelectorAll('#propsPanel .pf.dh-add')].map((f) => { const i = f.querySelector('.inp').getBoundingClientRect(), b = f.querySelector('.btn').getBoundingClientRect(); return { inpW: Math.round(i.width), btnL: Math.round(b.left), btnR: Math.round(b.right), panelL: Math.round(pr.left), panelR: Math.round(pr.right) }; }); })()`);
+    info[`fit${w}${lang}`] = rows;
+    ok(`${w} px, ${lang}: the Ray and Level rows keep their fields at least 64 px wide and their buttons inside the panel`, rows.length === 2 && rows.every((r) => r.inpW >= 64 && r.btnL >= r.panelL && r.btnR <= r.panelR), rows);
+  }
+}
+await ev(`I18N.setPref('en'), 1`); await settle(600);
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };

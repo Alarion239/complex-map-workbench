@@ -1017,6 +1017,30 @@
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
     drawLegendSide('L'); drawLegendSide('R');
   }
+  // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
+  // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
+  // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
+  // to the lowest of them; it is recomputed each time the key is shown)
+  function placeKeyPop(box) {
+    const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
+    if (!box || !plot || !box.parentNode) return;
+    const head = box.parentNode.classList.contains('pane-head');
+    const el = head ? box.querySelector(':scope > canvas') : box;
+    box.style.removeProperty('--lg-drop');
+    if (!el || (!head && box.classList.contains('collapsed'))) return;
+    const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
+    for (let i = 0; i < 3; i++) {
+      const c = el.getBoundingClientRect();
+      if (!c.width) return;   // (shown by :hover or .open: not shown, nothing to place)
+      let drop = 0;
+      for (const e of plot.querySelectorAll(sel)) {
+        const r = e.getBoundingClientRect();
+        if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
+      }
+      if (drop <= 0) return;
+      box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
+    }
+  }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   function drawLegendSide(side) {
@@ -1034,9 +1058,14 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      const tip = kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open');
+      const tip = kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open');
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
+    }
+    // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
+    if (kind && box.parentNode && box.parentNode.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
+      const nm = $t('Colour key');
+      if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
     if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
       box.dataset.kind = kind; box.dataset.pal = GLR.palette();
@@ -1271,7 +1300,7 @@
     return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
-  const phoneChain = () => { if (typeof Phone !== 'undefined' && Phone.isOn() && Phone.chain) Phone.chain(); };
+  const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
   // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
   function morphTick(d) {
     const m = morphLen(), T = morph.T, eps = 1e-6;
