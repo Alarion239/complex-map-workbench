@@ -411,5 +411,10 @@
  "Height key: point at it to unfold, click to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
  "Download offline page ({size})": "Скачать офлайн-версию ({size})",
  "{n} MB": "{n} МБ",
- "Skip": "Пропустить"
+ "Skip": "Пропустить",
+ "tour step\u0004Draw a shape": "Нарисуйте фигуру",
+ "tour step\u0004Add a function": "Добавьте функцию",
+ "Zoom in on a zero or a pole.": "Приблизьте нуль или полюс.",
+ "Spread two fingers on a zero or a pole.": "Разведите два пальца на нуле или полюсе.",
+ "All the colours still meet there, however far you zoom.": "Как ни приближайте, все цвета по-прежнему сходятся в этой точке."
 }
