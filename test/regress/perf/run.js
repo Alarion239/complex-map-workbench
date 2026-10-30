@@ -748,17 +748,22 @@ function profileIn(profile, fn) {
     hit.set(id, r);
     return r;
   };
-  let ms = 0, link = 0, run = 0, longest = 0;
+  // (a stretch of fn goes on through the native samples right after it, (program) and the GC, until an idle sample or
+  // other JS: the GPU sync its calls start, e.g. the GL -> 2D copy of a card waiting for the rasteriser, which the
+  // profiler may not attribute to the JS frame that waits; sync: that part)
+  const NATIVE = /^\((program|garbage collector)\)$/;
+  let ms = 0, link = 0, sync = 0, run = 0, longest = 0, inRun = false;
   profile.samples.forEach((id, i) => {
     const d = (profile.timeDeltas[i + 1] || 0) / 1000;   // (a sample lasts until the next one)
     const u = under(id);
-    if (u) { ms += d; run += d; longest = Math.max(longest, run); if (u === 2) link += d; } else run = 0;
+    if (u) { ms += d; run += d; inRun = true; if (u === 2) link += d; } else if (inRun && NATIVE.test(byId.get(id).callFrame.functionName)) { sync += d; run += d; } else { run = 0; inRun = false; }
+    longest = Math.max(longest, run);
   });
-  return { ms, link, longest };
+  return { ms, link, sync, longest };
 }
 async function cardsRebuildUnit() {
   const pre = 'cards.rebuild';
-  const longest = [], over = [], fresh = [], thumbs = [], thumbsLongest = [];
+  const longest = [], over = [], fresh = [], thumbs = [], thumbsLongest = [], sync = [];
   let allDrawn = true, nCards = 0;
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -785,7 +790,7 @@ async function cardsRebuildUnit() {
       const b = await pageNow();
       const { profile } = await B.send('Profiler.stop');
       const th = profileIn(profile, 'renderThumbs');
-      thumbs.push(th.ms); thumbsLongest.push(th.longest);
+      thumbs.push(th.ms); thumbsLongest.push(th.longest); sync.push(th.sync);
       const lt = await B.ev(`__perf.longSince(${a}, ${b})`);
       longest.push(Math.max(0, ...lt.map((t) => t[1])));
       over.push(lt.filter((t) => t[1] > 100).length);
@@ -798,6 +803,7 @@ async function cardsRebuildUnit() {
   // (absolute, the worst edit: a card task over 100 ms fails whatever the reference does; its total is too noisy to gate)
   put(`${pre}.edit.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...thumbsLongest)], { limit: CARDS_TASK_LIMIT, samples: thumbsLongest.map(r3) });
   put(`${pre}.edit.cards_ms`, 'info', 'ms', thumbs);
+  put(`${pre}.edit.cards_sync_ms`, 'info', 'ms', sync);
   put(`${pre}.edit.longest_task_ms`, 'jank_ms', 'ms', longest);
   put(`${pre}.edit.tasks_over_100ms`, 'info', '', over);
   put(`${pre}.edit.fresh_ms`, 'settle_ms', 'ms', fresh);
@@ -823,7 +829,7 @@ async function cardsStartupUnit() {
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
   for (const scene of ['page', 'chain4']) {
     const pre = `cards.startup.${scene}`;
-    const first = [], longestS = [], total = [], link = [];
+    const first = [], longestS = [], total = [], link = [], sync = [];
     let allDrawn = true;
     for (let i = 0; i < REPS; i++) {
       await B.send('Profiler.start');
@@ -836,7 +842,7 @@ async function cardsStartupUnit() {
       while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
       const { profile } = await B.send('Profiler.stop');
       const th = profileIn(profile, 'renderThumbs');
-      longestS.push(th.longest); total.push(th.ms); link.push(th.link);
+      longestS.push(th.longest); total.push(th.ms); link.push(th.link); sync.push(th.sync);
       // (page time 0 is the navigation; the first frame that drew: its end)
       const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
       first.push(f.length ? f[0][6] : null);
@@ -847,6 +853,7 @@ async function cardsStartupUnit() {
     put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });
     put(`${pre}.cards_ms`, 'info', 'ms', total);
     put(`${pre}.cards_link_ms`, 'info', 'ms', link);
+    put(`${pre}.cards_sync_ms`, 'info', 'ms', sync);
     put(`${pre}.all_drawn`, 'check', '', [allDrawn]);
   }
   await B.send('Profiler.disable');
