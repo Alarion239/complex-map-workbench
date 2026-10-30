@@ -22,3 +22,8 @@ type ExactPart = { n: Array<[bigint, bigint]>, d: bigint };
 
 /** A Gaussian integer [re, im] as BigInts (inverse.js, the exact rational parts). */
 type GInt = [bigint, bigint];
+
+/** What the page's `$(id)` returns: an element, with the properties of the form controls, the details, the canvases and
+ *  the range sliders the page reads through it (util.js: `$` is `getElementById`, whose element type the id does not
+ *  narrow). Optional, so that a cast to the control's own type (HTMLInputElement, ...) still overlaps. */
+type PageEl = HTMLElement & { value?: any, checked?: boolean, open?: boolean, disabled?: boolean, width?: any, height?: any, min?: any, max?: any, step?: any, select?: () => void, getContext?: (kind: string, opts?: any) => any };
