@@ -6,7 +6,11 @@ class Pane {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.ocanvas = overlay || canvas;
-    this.octx = overlay ? overlay.getContext('2d') : this.ctx;
+    // (issue #297) the overlay's context is CPU-backed (willReadFrequently): on a GPU-accelerated 2D canvas, Chrome
+    // kept an earlier frame's picture in the overlay after frames that only cleared it (example 7's cut handle stayed
+    // over example 8, about 1 load in 3), although the app drew nothing there; a CPU-backed canvas never did. The
+    // overlay holds only lines, chips and handles, cheap to draw on the CPU; the planes' own canvases stay on the GPU
+    this.octx = overlay ? overlay.getContext('2d', { willReadFrequently: true }) : this.ctx;
     this.view = { cx: 0, cy: 0, s: 80 };
     this.w = 300; this.h = 300; this.dpr = 1;
   }
