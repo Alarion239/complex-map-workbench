@@ -32,8 +32,35 @@
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
-  const svName = (k) => (k === 0 ? 'z' : k === nSteps() ? 'w' : `w${sub(k)}`);
-  const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : k === nSteps() ? '<i>w</i>' : `<i>w</i><sub>${k}</sub>`);
+  // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
+  const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
+  const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
+  // the map from plane k into the colour plane T, by name (#435): F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
+  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html' or 'text'
+  function svMapName(fmt, k = svStage(), T = svT()) {
+    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html';
+    if (!ss.length) return null;
+    if (k === 0 && T === P[P.length - 1]) return h5 ? '<i>F</i>' : 'F';
+    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : `f${sub(s)}`), q = ss.slice().reverse();
+    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}∘${f(q[1])}` : `${f(q[0])}∘⋯∘${f(q[q.length - 1])}`;
+  }
+  // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
+  const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? `${m}(${v})` : v; };
+  // the map from the shown plane into the colour plane as a function: what the probe reads (the identity past it, where
+  // the plane carries shapes and no colour of its own)
+  function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }
+  // what the key's caption calls the colouring, "arg and |f₂|": the map into the colour plane, or the plane's own variable
+  const svKeyName = (k = svStage()) => svMapName('text', k) || svName(k);
+  // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
+  // colour plane the colour is carried by the points, which the role says
+  function svTitleParts() {
+    const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
+    let role;
+    if (!svColoured(k)) role = k > T ? $t('colour of {p}, carried', { p: wHtml(T) }) : $t('shapes only');
+    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: '' });
+    else role = $t('phase of {ofV}', { ofV: map });
+    return { name: svNameHtml(k), role };
+  }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
@@ -396,10 +423,9 @@
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: SV.i + 1, n, where });
   }
-  function svFormulaHtml(k) {
-    if (k === 0) return '<i>z</i>';
-    // (the formula after the name is left out on a phone, whose header has room for the name alone)
-    return `${svNameHtml(k)}<span class="sv-tf"> = <i>f</i><sub>${k}</sub>(${svNameHtml(svPlanes()[svPlanes().indexOf(k) - 1] || 0)})</span>`;
+  function svFormulaHtml() {
+    const { name, role } = svTitleParts();
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role">${role}</span>`;
   }
   function svSeg(cls, label, items, cur, pick) {
     const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
@@ -464,7 +490,7 @@
     const home = document.documentElement.classList.contains('ph') ? $('top') : E.head;
     if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
     const x = SV.g.x, at = Math.round(x);
-    E.title.innerHTML = svFormulaHtml(k);
+    E.title.innerHTML = svFormulaHtml();
     // (on a phone the button is its wheel alone, its words in its label)
     const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
     E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
