@@ -1432,12 +1432,16 @@ unit('mesh', 'CPU mesh build per shape kind (Region.buildMesh) and mesh quality'
 for (const scene of ['default', 'logUHP', 'chain4']) {
   for (const meshN of MESHES) unit(`image.${scene}.m${meshN}`, `Image mode, ${SCENES[scene].label}, mesh ${meshN}: statics, remesh, pan L/R${meshN === 240 ? ', wheel zoom L/R' : ''}`, () => imageUnit(scene, meshN));
 }
+// [#253] shapes of later planes pulled back in X: one pass per plane, one blit
+unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
 // iteration (#6): the default N of the Mandelbrot example in Phase (its pan L is the X -> Y view: the sphere mesh of
 // the escape-test region on the CPU). (No Landscape unit: on a software renderer one orbit of it outlasts the unit's
 // 180 s, which would end the shard's run; landscape.default takes 120 s there)
 unit('phase.mandel', 'Phase mode, the Mandelbrot example (u_12, escape test of 64): pan left and right planes', () => modeUnit('phase.mandel', 'mandel', 'color', 'pan'));
+// the Douady–Hubbard map (#260) at N = 64 with rays and equipotentials of M, in Phase
+unit('phase.dh', 'Phase mode, the Douady–Hubbard map Phi_M (N = 64, rays and equipotentials): pan left and right planes', () => modeUnit('phase.dh', 'dh', 'color', 'pan'));
 unit('sphere.default', 'Sphere (regions): orbit', () => modeUnit('sphere.default', 'default', 'sphere', 'orbit'));
 unit('sphere.logUHP', 'Sphere (regions), unbounded region: orbit', () => modeUnit('sphere.logUHP', 'logUHP', 'sphere', 'orbit'));
 unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, memory`, examplesUnit);

@@ -501,7 +501,7 @@
     for (const [key, name] of BADGES) fl.append(h('span', { class: 'lamp', 'data-lamp': key, hidden: true }, h('span', { class: 'lampname' }, W[key] || name), ' ', h('span', { class: 'lampq' })));
     const t = h('div', { class: 'ftile', role: 'option', tabindex: 0, 'aria-selected': 'false', 'data-tip': $t('F, the whole map: its formula and guarantees'),
       onclick: () => selectStep('F'), onkeydown: (e) => chainKey(e, 'F') },
-    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
+    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), h('span', { class: 'fwm' }, $t('The whole map')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
     return t;
   }
   // the lit names on the F tile: the two strongest (the tooltip and the Inspector list them all)
@@ -736,7 +736,7 @@
     // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
     // says what the field is; the symbol keeps its own span, where a step's index goes)
     const word = paramWord(st, q);
-    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
     if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
     return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }

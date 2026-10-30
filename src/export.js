@@ -7,7 +7,7 @@
 // reads too (mfFigCache, artLandBox) stay the app's.
 const Export = (() => {
   let A = null;
-  let BADGES, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
+  let BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
     focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
     lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers,
     morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
@@ -320,6 +320,9 @@ const Export = (() => {
         // (the grid's name is a translated \text{} at the front of its TeX: review math-3)
         case 'cgrid': return sp('a Cartesian grid on %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\}\s*/, '')) });
         case 'pgrid': return sp('a polar grid in %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\},\s*/, '')) });
+        // ([issue #260] by their equations: arg Φ_M(z) = 2π·θ, |Φ_M(z)| = r)
+        case 'dhray': return sp('the external ray %{m}', { m: M(tex) });
+        case 'dheq': return sp('the equipotential %{m}', { m: M(tex) });
         default: return Region.KINDS[s.kind] ? sp('a %{kind}', { kind: Region.KINDS[s.kind].label.toLowerCase() }) : sp('a shape', {});
       }
     };
@@ -401,7 +404,14 @@ const Export = (() => {
       else if (st === 'phase') r.push(...capT('the colour shows %{arg} (bar).', { arg }));
       else if (st === 'modulus') r.push(...capT('the colour shows %{arg} (bar); lines are level curves of %{F} and of %{arg}.', { arg, F }));
       else if (st === 'grid') r.push(...capT('the colour shows %{arg} (bar); lines are the preimages of the coordinate lines of the image plane.', { arg }));
-      else if (st === 'cauchy') r.push(...capT('the Cauchy integral %{I} over the selected closed curve, which equals %{F} inside and %{zero} outside.', { I: { m: '\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta' }, F: { m: 'F' }, zero: { m: '0' } }));
+      else if (st === 'cauchy') {
+        const cc = cauchyKind ? cauchyKind() : null, I = { m: '\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta' }, Fm = { m: 'F' }, fp = { m: 'f_+' }, fl = { m: 'f_-' }, fm = cc && cc.plus ? { m: '-f_-' } : fl;
+        if (cc && cc.kind === 'split' && cc.show === 'in') r.push(...capT('the Cauchy integral %{I} over the selected closed curve, shown inside the curve, where it equals %{fp} = %{F} minus its principal parts at the poles inside.', { I, fp, F: Fm }));
+        else if (cc && cc.kind === 'split' && cc.show === 'out') r.push(...capT('the Cauchy integral %{I} over the selected closed curve, shown outside the curve, where it equals %{fm}, the sum of the principal parts of %{F} at its poles inside the curve.', { I, fm, F: Fm }));
+        else if (cc && cc.kind === 'split') r.push(...capT('the Cauchy integral %{I} over the selected closed curve, which equals %{fp} inside and %{fm} outside, where %{F} = %{fp} + %{fl} and %{fl} is the sum of the principal parts of %{F} at its poles inside the curve.', { I, fp, fm, fl, F: Fm }));
+        else if (cc && cc.kind === 'numeric') r.push(...capT('the Cauchy integral %{I} over the selected closed curve, computed numerically (%{F} has a singularity inside the curve that is not a pole).', { I, F: Fm }));
+        else r.push(...capT('the Cauchy integral %{I} over the selected closed curve, which equals %{F} inside and %{zero} outside.', { I, F: Fm, zero: { m: '0' } }));
+      }
       else r.push(...capT('the colour shows %{arg} (bar), and the shading steps in %{F} by factors of %{k}, so phase lines and modulus lines meet in near-squares where the map is conformal.', { arg, F, k: { m: `e^{2\\pi/${A.S.sectors || 12}}\\approx ${I18N.texNum(CX.fmtNum(Math.exp(TAU / (A.S.sectors || 12)), 2))}` } }));
       return r;
     };
@@ -815,7 +825,7 @@ const Export = (() => {
       if (chain && chain.some((q) => !q.tex)) chain = null;
     }
     return { shapeList, shapeListGen, nShapes: vis.length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
-      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: A.S.height, phase: lPhase(), dc: A.S.dc, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
+      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
   }
   // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
   const hueBytes = (t) => keyRGB((2 * t - 1) * Math.PI).map((x) => Math.round(255 * x));
@@ -925,7 +935,7 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
+    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
   }
   return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();

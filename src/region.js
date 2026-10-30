@@ -235,6 +235,160 @@ const Region = (() => {
     },
     tex: (s) => $t('\\text{polar grid}, |%{c}|\\le %{r}', { c: zMinus(P(s.c)), r: num(s.r) }),
   };
+  // ----- [issue #260] external rays and equipotentials of the Mandelbrot set (s.c null) or of the Julia set of
+  // z² + c (s.c = [re, im], the step's c; a shared number's name in s.bind.c, as every bound field) -----
+  // dhray: s.theta '1/3' (exact: the angle doubles in integers) or a decimal turn; the ray from |z| = 10⁴ down to 2^−40
+  // of that potential, then its landing point (CX.dhLanding) when it has one. dheq: s.r = |Φ| > 1 (> e^{G_c(0)})
+  // dhAngle('1/3') -> {p, q}, '0.25' -> 0.25, else null
+  function dhAngle(t) {
+    const m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(String(t ?? ''));
+    if (m) { const p = +m[1], q = +m[2]; return q >= 1 && q <= 2 ** 30 && p < q ? { p, q } : null; }
+    const x = Number(t);
+    return String(t ?? '').trim() !== '' && Number.isFinite(x) && x >= 0 && x < 1 ? x : null;
+  }
+  const dhC = (s) => (s.c == null ? null : Array.isArray(s.c) && Number.isFinite(s.c[0]) && Number.isFinite(s.c[1]) ? C(s.c[0], s.c[1]) : undefined);
+  // The traces, by shape (its kind, angle or level and c): DH_MEMO holds each key's best result so far, {curve, full}.
+  // Synchronously (node, or before the app turns on Region.dhAsync) a key is traced in full at once. In the app a key
+  // not yet traced gets a quick curve of exact points at once (the shape's previous curve moved to the new c by
+  // CX.dhFollow, thinned to DH_FOLLOW points; else a coarse trace), and its full trace runs in slices of DH_SLICE_MS
+  // once c has rested for DH_REST_MS (#299 review: a c on Play re-traced every curve on the main thread, 300 ms
+  // frames); Region.dhAsync.ready() then redraws, and dhStamp (part of the app's shape key) tells it the curve changed
+  const DH_MEMO = new Map(), DH_LAST = new Map();
+  const DH_S = 16, DH_LEVELS = 40, DH_FOLLOW = 160, DH_REST_MS = 200, DH_SLICE_MS = 8;
+  const dhMemoSet = (key, v) => { DH_MEMO.delete(key); DH_MEMO.set(key, v); while (DH_MEMO.size > 48) DH_MEMO.delete(DH_MEMO.keys().next().value); };
+  // the key of a shape's trace, and what to trace for it: {key, kindKey (the shape without its c), gen(o), quick}
+  function dhJob(s) {
+    const c = dhC(s);
+    if (c === undefined) return null;
+    const ck = c && [c.re, c.im];
+    if (s.kind === 'dhray') {
+      const th = dhAngle(s.theta);
+      if (th == null) return null;
+      return {
+        key: JSON.stringify(['ray', th, ck]), kindKey: JSON.stringify(['ray', th, s.id]),
+        gen: () => CX.dhRayGen(th, { c, R0: CX.DH_R, S: DH_S, levels: DH_LEVELS }),
+        coarse: () => CX.dhRay(th, { c, R0: CX.DH_R, S: 2, levels: 16 }), c,
+      };
+    }
+    const r = Number(s.r);
+    if (!(r > 1)) return null;
+    return {
+      key: JSON.stringify(['eq', r, ck]), kindKey: JSON.stringify(['eq', r, s.id]),
+      gen: () => CX.dhEquipotentialGen(Math.log(r), { c, tol: 0.01 * r, R0: CX.DH_R }),
+      coarse: () => CX.dhEquipotential(Math.log(r), { c, K: 16, S: 2, tol: Infinity, R0: CX.DH_R }), c,
+    };
+  }
+  // every n-th point of a traced curve (the ends kept), with its angles and potentials, for dhFollow
+  function dhEvery(curve, max) {
+    const P = curve.pts || curve, n = P.length, k = Math.max(1, Math.ceil(n / max));
+    if (k === 1) return curve;
+    const idx = [];
+    for (let i = 0; i < n; i += k) idx.push(i);
+    if (idx[idx.length - 1] !== n - 1) idx.push(n - 1);
+    if (curve.pts) return Object.assign({}, curve, { pts: idx.map((i) => P[i]), pot: idx.map((i) => curve.pot[i]), landed: null, full: false });
+    return Object.assign(idx.map((i) => P[i]), { th: idx.map((i) => curve.th[i]), L: curve.L, c: curve.c });
+  }
+  let dhQueue = [], dhTimer = null;
+  function dhSchedule(job) {
+    dhQueue = dhQueue.filter((q) => q.kindKey !== job.kindKey);
+    dhQueue.push(job);
+    clearTimeout(dhTimer);
+    dhTimer = setTimeout(dhRun, DH_REST_MS);
+  }
+  // the full traces, a slice at a time; a trace whose key a newer request replaced is dropped
+  function dhRun() {
+    dhTimer = null;
+    const t0 = performance.now();
+    while (dhQueue.length && performance.now() - t0 < DH_SLICE_MS) {
+      const q = dhQueue[0];
+      if (!q.it) q.it = q.gen();
+      let r;
+      while (!(r = q.it.next()).done && performance.now() - t0 < DH_SLICE_MS) { /* trace */ }
+      if (!r.done) break;
+      dhQueue.shift();
+      dhMemoSet(q.key, { curve: r.value, full: true });
+      DH_LAST.set(q.kindKey, r.value);
+      if (Region.dhAsync && Region.dhAsync.ready) Region.dhAsync.ready();
+    }
+    if (dhQueue.length) dhTimer = setTimeout(dhRun, 0);
+  }
+  // the best curve for shape s now: the full trace, else (in the app) a quick one, with the full trace scheduled
+  function dhCurve(s) {
+    const job = dhJob(s);
+    if (!job) return null;
+    const have = DH_MEMO.get(job.key);
+    if (have && have.full) return have.curve;
+    if (!Region.dhAsync) {
+      const g = job.gen();
+      let r;
+      while (!(r = g.next()).done) { /* trace */ }
+      dhMemoSet(job.key, { curve: r.value, full: true });
+      DH_LAST.set(job.kindKey, r.value);
+      return r.value;
+    }
+    if (!have) {
+      const last = DH_LAST.get(job.kindKey);
+      let quick = last ? CX.dhFollow(dhEvery(last, DH_FOLLOW), job.c) : null;
+      if (!quick) quick = job.coarse();
+      dhMemoSet(job.key, { curve: quick, full: false });
+      DH_LAST.set(job.kindKey, quick);
+    }
+    dhSchedule(job);
+    return DH_MEMO.get(job.key).curve;
+  }
+  // 'f' when shape s's curve is its full trace, 'q' while it is a quick one ('' for other kinds): the app's shape key
+  // holds it, so a full trace that lands redraws the shape
+  function dhStamp(s) {
+    if (s.kind !== 'dhray' && s.kind !== 'dheq') return '';
+    const job = dhJob(s), have = job && DH_MEMO.get(job.key);
+    return have ? (have.full ? 'f' : 'q') : '';
+  }
+  // the points a view can tell apart: each kept point at least tol from the last one kept (the ends always), so a
+  // ray's thousand points near its landing point are not all mapped and drawn at every frame (the line renderer
+  // evaluates the chain at every vertex)
+  function dhThin(pts, tol) {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length - 1; i++) { const a = out[out.length - 1], b = pts[i]; if (Math.hypot(b.re - a.re, b.im - a.im) >= tol) out.push(b); }
+    if (pts.length > 1) out.push(pts[pts.length - 1]);
+    return out;
+  }
+  // (a fifth of a pixel of the 1440-pixel view)
+  const dhTol = (win) => (win ? Math.max(win.x1 - win.x0, win.y1 - win.y0) / 7200 : 0);
+  function dhRayCurves(s, win) {
+    const r = dhCurve(s);
+    if (!r || !r.pts.length) return [];
+    // (the landing point, of a full trace that reached it)
+    const L = r.full || r.landed ? CX.dhLanding(r, DH_S) : null;
+    const pts = L && !(r.landed && CX.abs(CX.sub(L.z, r.pts[r.pts.length - 1])) === 0) ? r.pts.concat([L.z]) : r.pts;
+    const k = poly(dhThin(pts, dhTol(win)), false);
+    return k ? [k] : [];
+  }
+  function dhEqCurves(s) {
+    const pts = dhCurve(s);
+    const k = pts && pts.length > 2 ? poly(pts, true) : null;
+    return k ? [k] : [];
+  }
+  // arg Φ_M(z) = 2π·θ, arg φ_c(z) = 2π·θ (c by its name when it has one), |Φ_M(z)| = r
+  const dhFn = (s) => {
+    if (s.c == null) return '\\Phi_M(z)';
+    let t = null;
+    if (s.bind && typeof s.bind.c === 'string') { try { t = Expr.toTex(Expr.parse(s.bind.c)).s; } catch (e) { t = null; } }
+    const c = dhC(s);
+    return `\\varphi_{${t || (c ? fmt(c) : 'c')}}(z)`;
+  };
+  const dhTheta = (t) => { const a = dhAngle(t); return a == null ? '?' : typeof a === 'number' ? num(a) : `\\tfrac{${a.p}}{${a.q}}`; };
+  K.dhray = {
+    type: 'curve', label: $t('External ray'),
+    handles: () => [],
+    curves: dhRayCurves,
+    tex: (s) => `\\arg ${dhFn(s)}=2\\pi\\cdot ${dhTheta(s.theta)}`,
+  };
+  K.dheq = {
+    type: 'curve', label: $t('Equipotential'),
+    handles: () => [],
+    curves: dhEqCurves,
+    tex: (s) => `|${dhFn(s)}|=${num(Number(s.r))}`,
+  };
   // ----- areas -----
   K.disc = {
     type: 'area', label: $t('Disc'),
@@ -1934,7 +2088,7 @@ const Region = (() => {
 
   return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, segCurvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
     supportOf, clipPrimitive, shapeClip, convexOf, formulaBox, Globe, curveDesc, traceWin, fcurveTrace,
-    capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf };
+    capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf, dhAngle, dhStamp, dhAsync: null };
 })();
 // SPEC 9.1: the settle-time line refinement (Region.Lines)
 const Lines = Region.Lines;

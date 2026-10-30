@@ -1,7 +1,10 @@
   // ---------------- regions on the GPU ----------------
   let clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 };
   const kindType = (s) => Region.KINDS[s.kind].type;
-  const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr]);
+  // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
+  // traces them in idle slices and asks for the redraw when one lands)
+  const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
+  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -241,7 +244,9 @@
         // strokes. Today's samples are drawn only when the refinement does not fit (the settle job then swaps it in).
         // r.polys keeps today's samples whatever is drawn: labels, chevrons, fits and hit tests read them (SPEC 9.1:
         // every other caller as today); r.lpolys holds the drawn ones (createLines order, dash arcs).
-        const ref = refineNow(s, r, lkey, origin);
+        // ([#299 review] a quick curve of a ray or an equipotential, c moving: not refined at every frame; the full trace
+        // that lands at rest is, as the settle job refines the rest)
+        const ref = Region.dhStamp(s) === 'q' ? null : refineNow(s, r, lkey, origin);
         const lp = ref ? ref.polys : polys;
         GLR.destroy(r.lineRes);
         r.lineRes = lp.length && GLR.ok ? GLR.createLines(lp, origin) : null;
@@ -344,6 +349,8 @@
   }
   function morphRange() { return HR.range(S); }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
+  // (#246) the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
+  const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
   // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
   // morphLen: the end of the transport's time, m steps one after another, or 1.

@@ -30,6 +30,25 @@ const SCENES = {
     },
   },
   // a 4-step chain with a pole, a branch cut and a power (fix-ups on the CPU)
+  // [#253] shapes of planes 1, 2 and 3 of a 3-step chain beside one of the z-plane: X (the z-plane) pulls each
+  // back per pixel through its steps (O(n²) step evaluations a pixel over the planes), Y draws them forward
+  stages3: {
+    label: 'shapes in planes 1-3 of z^2 -> +1 -> exp (preimages pulled back in X)',
+    state: {
+      shapes: [
+        { id: 's1', kind: 'disc', c: [0.2, 0.1], r: 0.5 },
+        { id: 's2', kind: 'disc', c: [1, 0.5], r: 0.6, stage: 1 },
+        { id: 's3', kind: 'halfplane', a: [1.5, 0], b: [1.5, 1], stage: 2 },
+        { id: 's4', kind: 'annulus', c: [0, 0], r1: 2, r2: 5, stage: 3 },
+      ],
+      steps: [
+        { type: 'pown', params: { n: 2 }, on: true },
+        { type: 'add', params: { c: '1' }, on: true },
+        { type: 'exp', params: {}, on: true },
+      ],
+      srcView: { cx: 0, cy: 0, s: 110 },
+    },
+  },
   chain4: {
     label: '4-step chain (translate, square, Cayley, log)',
     state: {
@@ -158,6 +177,17 @@ const SCENES = {
     state: {
       shapes: [{ id: 's1', kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
       steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 }, on: true }],
+      srcView: { cx: -0.6, cy: 0, s: 150 },
+    },
+  },
+  // the Douady–Hubbard map Φ_M (#260) at its N = 64: the GPU program keeps the orbit in an array and goes back by 64
+  // square roots at most; four external rays and two equipotentials of M (CPU curves) ride along
+  dh: {
+    label: 'the Douady–Hubbard map Phi_M (N = 64) with four external rays and two equipotentials',
+    state: {
+      shapes: [['0', 0], ['1/3', 1], ['1/7', 2], ['1/2', 3]].map(([t, i]) => ({ id: 's' + (i + 1), kind: 'dhray', theta: t, c: null }))
+        .concat([1.05, 1.3].map((r, i) => ({ id: 's' + (i + 5), kind: 'dheq', r, c: null }))),
+      steps: [{ type: 'dh', params: { N: 64 }, on: true }],
       srcView: { cx: -0.6, cy: 0, s: 150 },
     },
   },

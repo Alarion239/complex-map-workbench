@@ -66,6 +66,21 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
     {
+      name: $t('Cauchy: a simple pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=\\frac{1}{z}', blurb: $t('F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
+      name: $t('Cauchy: a regular part and a pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=z+\\frac{1}{z}', blurb: $t('F = z + 1/z: inside the circle the Cauchy integral is z, the part of F that is regular at the pole; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
+      name: $t('Cauchy: an essential singularity'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=e^{1/z}', blurb: $t('e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.'), view: { cx: 0, cy: 0, s: 90 },
+      shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
+    },
+    {
       name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
@@ -159,6 +174,21 @@
       name: $t('The Julia set of z² + i'), try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
+    },
+    // [issue #260] the Douady–Hubbard map with external rays and equipotentials of M, and the Böttcher coordinate of a
+    // Julia set whose c is a slider (at the end of the list: the examples before keep their places)
+    {
+      name: $t('The Douady–Hubbard map'), try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
+      shapes: [...['0', '1/3', '2/3', '1/7', '2/7', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: null, ci: i })),
+        ...[1.02, 1.1, 1.5].map((r, i) => ({ kind: 'dheq', r, c: null, ci: 6 + (i % 2) }))],
+      steps: [{ type: 'dh', params: { N: 64 } }], rightMode: 'color',
+    },
+    {
+      name: $t('Böttcher coordinates of a Julia set'), try: $t('Try: press Play beside c under Numbers: the rays follow c; once c leaves M, φ_c is defined only outside the critical level.'), tex: 'w=\\varphi_c(z)', blurb: $t('φ_c maps the basin of ∞ of z ↦ z² + c onto the outside of a disc, z ↦ z² + c to w ↦ w². For c = −1 (the basilica) the rays of angle 1/3 and 2/3 land at the fixed point (1 − √5)/2, and the ray 0 at (1 + √5)/2.'), view: { cx: 0, cy: 0, s: 120 },
+      params: [{ name: 'c', value: -1, min: -2, max: 0.5, step: 0.01 }],
+      shapes: [...['0', '1/3', '2/3', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: [-1, 0], bind: { c: 'c' }, ci: i })),
+        ...[1.05, 1.3].map((r, i) => ({ kind: 'dheq', r, c: [-1, 0], bind: { c: 'c' }, ci: 6 + i }))],
+      steps: [{ type: 'bottcher', params: { c: 'c', N: 64 } }], rightMode: 'color',
     },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
