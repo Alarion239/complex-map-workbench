@@ -283,6 +283,16 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('#271: its touchend does, inside the gesture', e.ctxs.length === 1 && e.ctx().madeIn === 'touchend', e.ctxs.length && e.ctx().madeIn);
   }
   {
+    // while the worklet loads, a later one-shot (Hear's zero ping under a still probe) queues behind the start cue
+    const e = makeEnv({ search: '' });
+    e.fire('keydown', { key: 'm' }); e.made.length = 0;
+    e.Sound.play('morphStart', {}); e.advance(1);
+    const z = e.Sound.play('stepAdd', {});
+    check('#271: a cue asked for while the worklet loads waits behind the queued one', z === true && e.made.length === 0, e.made.join());
+    await flush(); e.advance(1);
+    check('#271: and sounds after it', e.made.join() === 'morphStart,stepAdd', e.made.join());
+  }
+  {
     // a deferred context that is not running yet (Firefox resumes asynchronously): a one-shot waits for its statechange
     const e = makeEnv({ search: '' });
     e.fire('keydown', { key: 'a' }); e.advance(1); await flush();

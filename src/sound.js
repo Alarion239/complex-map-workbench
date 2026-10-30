@@ -1407,7 +1407,10 @@ registerProcessor('cmw-limit', Limit);`;
     if (!d || !AC || !P.on || hidden) return false;
     const tier = o.tier || d.tier;
     if (!o.audition && (!P[tier] || (name === 'snap' && !P.snap))) return false;
-    const cs = canSchedule(!!o.grace, true);
+    let cs = canSchedule(!!o.grace, true);
+    // (behind cues still waiting for the worklet: Hear's zero ping of a still probe must not sound before the start cue
+    // of the M that started the deformation)
+    if (cs === true && pendQ.size && G && G.engine === 'loading') cs = 'wait';
     // (one per catalog entry: a second request while the first waits is refused)
     if (cs === 'wait') { if (pendQ.has(name)) return false; const a = performance.now() / 1000; pendQ.set(name, { o, asked: a, due: a + (o.at || 0) }); return true; }
     if (!cs) return false;
