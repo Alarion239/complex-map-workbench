@@ -204,6 +204,14 @@ await ev(`Sound.set({ sonify: true }); 1`);
     // lines are read after that latency and a margin, with the finger still)
     await sleep((await ev('Sound.HT.HT.confirmMs')) + 40);
     const h = await ev('__hearCount()');
+    // (#266: the lap's own notes finish before the counted hold starts: read until 300 ms pass with no note, and count those
+    // late notes to the lap, so the hold's numbers are the tremor's alone)
+    for (let w = 0; w < 10; w++) {
+      await sleep(300);
+      const c = await ev('__hearCount()');
+      for (const k of ['up', 'down', 'notes', 'merged']) h[k] += c[k];
+      if (!c.notes && !c.merged && !c.up && !c.down) break;
+    }
     const [x0, y0] = P(a0);
     // (`holds` rounds of the ±1.5 px tremor, 1.5 s each, the notes of each counted apart: the 6 px case measures the limit)
     const heldRuns = [];
@@ -234,7 +242,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
   {
     const MAXHELD = 3;
     const q = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 3);
-    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (10 to 12 notes: here the tremor can begin before the last line is confirmed, and that line is then counted with the hold's)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 10 && q.notes + q.merged <= 12, q);
+    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 11 && q.notes + q.merged <= 12, q);
     ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°), so at most ${MAXHELD} notes in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
   }
   await view(1440, 900, false, false);
