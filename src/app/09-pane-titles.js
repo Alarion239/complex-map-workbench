@@ -893,7 +893,10 @@
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
   // (o.still: opened paused at its end, F, for the step glide to start from; #246)
   function openTransport(o) {
-    const still = !!(o && o.still === true);
+    // (#362 opened while ‹ › have Y on a step's plane: the deformation opens paused there, the inspectable version of it)
+    const parked = trans.glide ? (glide.moving() ? glide.target : glide.x) : null;
+    endPeek();
+    const still = parked != null || !!(o && o.still === true);
     if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
     phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
@@ -901,7 +904,7 @@
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
     if (mem) { Object.assign(V.right, mem.v); rightAuto = mem.auto; } else rightAuto = true;
     morph.open = true;
-    morph.T = still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
+    morph.T = parked != null ? Math.min(parked, morphLen()) : still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
     morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
     setPlayIcon();
@@ -1250,6 +1253,26 @@
   // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
   // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
   function glideStep(d) {
+    // (#362 the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
+    if (morph.open) endPeek();
+    if (!morph.open && S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
+    const L = !morph.open && peekSteps();
+    if (L) {
+      if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
+      glide.nudge(d, L.length);
+      glide.last = 0;
+      // (reduced motion: the plane at once)
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) glide.set(glide.target);
+      // (Y's view follows the plane the glide is heading for, each fitted on its own: in the inset a view that held every
+      // plane left the first of them a speck off the centre)
+      if (rightAuto && rImage()) {
+        const j = Math.round(glide.target), at = j === 0 ? L[0] - 1 : L[j - 1];
+        tweenView(V.right, fittedView(paneR, at, []));
+      }
+      requestRender('R');
+      phoneChain();
+      return;
+    }
     if (!morph.open) {
       if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
       if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
@@ -1272,8 +1295,8 @@
   // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
   // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
   function chainState() {
-    const n = nSteps(), open = morphOn(), m = open ? morphLen() : 0;
-    const T = !open ? m : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
+    const n = nSteps(), open = morphOn() || trans.glide, m = open ? morphLen() : 0;
+    const T = !open ? m : trans.glide ? (glide.moving() ? glide.target : glide.x) : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
     let k = n, html = '', name = '';
     // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
     const alone = !open && S.focus > 0;

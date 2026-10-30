@@ -81,7 +81,8 @@ await ev('Phone.close(true); 1'); await settle(400);
 await fresh(390, 844, true, '');
 await ev(`document.querySelector('.ph-cprev').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
 let g = await ev(`(() => { document.querySelector('.ph-cprev').click(); return __cmwGlide(); })()`);
-ok('(c) ‹ opens the deformation paused at its end and aims at the step before', g && g.open && !g.playing && g.max === 3 && g.target === 2, g);
+// (#362 the deformation stays closed: the glide is Y's own, its position is T here)
+ok('(c) ‹ glides Y with the deformation closed, from F, and aims at the step before', g && !g.open && g.peek && !g.playing && g.max === 3 && g.target === 2, g);
 // samples of T while it glides (each 40 ms): it moves at once, monotonically, settles on 2
 const sample = async (ms) => {
   const out = [], t0 = Date.now();
@@ -111,7 +112,8 @@ ok('(c) a press the other way turns T round where it is (no jump)', Math.abs(S1[
 ok('(c) and it settles back on 2', S1[S1.length - 1][1] === 2, S1.slice(-2));
 // quick presses go faster: ‹ ‹ (two steps) peaks faster than one
 const speed = async (n) => {
-  await ev('__cmwMorph({ T: 2 }); 1'); await settle(300);
+  // (each from F on a fresh page: the glide runs in Y with the deformation closed)
+  await fresh(390, 844, true, ''); await settle(600);
   for (let i = 0; i < n; i++) { await glide(-1); await sleep(60); }
   const s = await sample(1500);
   let peak = 0; for (let i = 1; i < s.length; i++) peak = Math.max(peak, Math.abs(s[i][1] - s[i - 1][1]) / Math.max(1, s[i][0] - s[i - 1][0]));
@@ -120,7 +122,9 @@ const speed = async (n) => {
 const v1 = await speed(1), v2 = await speed(2);
 ok('(c) two quick presses go faster than one', v2 > 1.3 * v1, { one: v1, two: v2 });
 // the ends: at 0, ‹ is off
-await ev('__cmwMorph({ T: 0 }); 1'); await settle(500); await glide(); await settle(300);
+await fresh(390, 844, true, '');
+for (let i = 0; i < 3; i++) { await glide(-1); await sleep(2300); }
+await glide(); await settle(300);
 b = await bar();
 ok('(c) at the start the chip is z and ‹ is off', b && b.prevOff && /z/.test(b.chip), b);
 await ev('__cmwMorph({ open: false }); 1'); await settle(500);
@@ -147,8 +151,8 @@ await ev('Phone.close(true); 1'); await settle(500);
 const al = await ev(`({ focus: __cmwState().focus, chip: document.querySelector('.ph-cchip').textContent, alone: document.querySelector('.ph-cchip').classList.contains('alone'), label: document.querySelector('.ph-cchip').getAttribute('aria-label') })`);
 ok('(f) with f₂ shown alone the chip names f₂, marked alone (its accessible name says so)', al.focus === 2 && /f2/.test(al.chip.replace(/\s/g, '')) && al.alone && /Show alone/.test(al.label || ''), al);
 await ev(`document.querySelector('.ph-cprev').click(); 1`); await settle(700);
-const after = await ev(`({ focus: __cmwState().focus, open: __cmwGlide().open, toast: [...document.querySelectorAll('#toastHost .toast, #toastHost > *')].map((e) => e.textContent).join(' | ') })`);
-ok('(f) ‹ then ends Show alone, says so, and glides the whole chain', after.focus === 0 && after.open && /Show alone ended/.test(after.toast), after);
+const after = await ev(`({ focus: __cmwState().focus, peek: __cmwGlide().peek, toast: [...document.querySelectorAll('#toastHost .toast, #toastHost > *')].map((e) => e.textContent).join(' | ') })`);
+ok('(f) ‹ then ends Show alone, says so, and glides the whole chain (Y alone)', after.focus === 0 && after.peek && /Show alone ended/.test(after.toast), after);
 await ev('__cmwMorph({ open: false }); 1'); await settle(500);
 
 // ---- (g) reduced motion: ‹ › go to the step at once, with no sweep
@@ -156,7 +160,7 @@ await fresh(390, 844, true, '');
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await ev(`document.querySelector('.ph-cprev').click(); 1`); await sleep(60);
 const rm = await glide();
-ok('(g) reduced motion: ‹ puts T on the step at once, nothing gliding', rm.open && rm.T === 2 && !rm.moving, rm);
+ok('(g) reduced motion: ‹ puts Y on the step at once, nothing gliding', rm.peek && !rm.open && rm.T === 2 && !rm.moving, rm);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 await ev('__cmwMorph({ open: false }); 1'); await settle(500);
 
