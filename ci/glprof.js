@@ -3,7 +3,7 @@
 // app, cold (a fresh profile, the GPU program cache empty) and then warm (the same profile again: Chrome's program
 // cache), on the machine's own GPU and ANGLE back end (Direct3D 11 on Windows, Metal on the Mac). The GPU gate runs it
 // on its machines (gpu-gate.yml, mode glprof); any machine can run it.
-//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended] [--step-timeout S] [--out FILE] [--cache DIR]
+//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended|mountain] [--step-timeout S] [--out FILE] [--cache DIR]
 // --ref: the build of another commit too (ci/reference.js), the two sides in turn, current, reference, reference,
 // current, ... (--rounds N: N pairs, default 2), each a cold and a warm pass: whatever the machine keeps between runs
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
@@ -11,8 +11,9 @@
 // The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are on by default: their inverse programs too); then on the
 // first example, the views (Phase, Landscape, both Spheres) and the deformation. --walk extended (#238's Windows list)
 // adds: the deformation of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
-// opened (its thumbnails' time), and on every pass the first minute from the page's load (the start-up bar shown, the
-// links pending, the page's long tasks, when the default example's exact image was first drawn). --variant unroll (#238 item 3): a
+// opened (its thumbnails' time), the Mountain King in the Landscape, and on every pass the first minute from the page's load (the start-up bar shown, the
+// links pending, the page's long tasks, when the default example's exact image was first drawn). --walk mountain: after
+// the start only the Mountain King (#395, #355): its first frame, its Landscape and its deformation. --variant unroll (#238 item 3): a
 // second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
 // constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
 // bounds are not undone by it). Each step waits until every link it started has landed (or --step-timeout, default
@@ -33,7 +34,8 @@ const flag = (name) => argv.includes('--' + name);
 const OUT = path.resolve(opt('out', path.join(ROOT, '.ci', 'glprof', 'glprof.json')));
 const CACHE = path.resolve(opt('cache', path.join(os.tmpdir(), 'cmw-glprof-profile')));
 const STEP_S = Number(opt('step-timeout', '1200'));
-const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended';
+const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended', MOUNTAIN = WALK === 'mountain';
+if (!['all', 'quick', 'extended', 'mountain'].includes(WALK)) throw new Error(`--walk ${WALK}: all, quick, extended or mountain`);
 const REF = opt('ref', '');
 const VARIANT = opt('variant', '');
 if (VARIANT && VARIANT !== 'unroll') throw new Error(`--variant ${VARIANT}: only unroll`);
@@ -61,15 +63,29 @@ function exampleIndex(name) {
   const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   return names.indexOf(name);
 }
+// (#238 item 2: the All sheets and the Γ/ζ examples deformed; item 3: a Σ step and a power series)
+const EXTENDED_EXAMPLES = ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series'];
+// (#395, #355) the Mountain King: its first frame (mode 0, colour), its Landscape (landTF and landEdgeS of mode 0) and
+// its deformation (mode 1, colour)
+const MOUNTAIN_KING = 'In the Hall of the Mountain King';
+function mountainKing(landscapeOnly) {
+  const i = exampleIndex(MOUNTAIN_KING);
+  if (i < 0) throw new Error(`no example named ${MOUNTAIN_KING}`);
+  const s = [[`${MOUNTAIN_KING} (example ${i})`, `__cmwExample(${i})`, false, null],
+    [`${MOUNTAIN_KING}: Landscape`, "__cmwSetMain('land')", false, null], [`${MOUNTAIN_KING}: Landscape closed`, "__cmwSetMain('xy')", false, null]];
+  if (!landscapeOnly) s.push([`${MOUNTAIN_KING}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${MOUNTAIN_KING}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
+  return s;
+}
 function extended() {
   const s = [];
-  // (#238 item 2: the All sheets and the Γ/ζ examples deformed; item 3: a Σ step and a power series)
-  for (const nm of ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series']) {
+  for (const nm of EXTENDED_EXAMPLES) {
     const i = exampleIndex(nm);
     if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
     s.push([`${nm} (example ${i})`, `__cmwExample(${i})`, false, null]);
     s.push([`${nm}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${nm}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
   }
+  // (#395: the Mountain King in the Landscape; its deformation is in the examples' walk already)
+  s.push(...mountainKing(true));
   // (item 5: the gallery opened: until every example's thumbnail is drawn, and how many were)
   s.push(['the gallery opened', "(document.getElementById('examplesBtn').click(), true)", false,
     { until: "(() => { const it = [...document.querySelectorAll('.ex-item')]; return it.length > 0 && it.every((e) => { const g = e.querySelector('img, canvas'); return !g || (g.tagName === 'IMG' ? !!g.getAttribute('src') : g.width > 0); }); })()",
@@ -122,9 +138,10 @@ async function pass(name, base, tag) {
     out.steps.push(await settle('start (the default example)'));
     if (EXTENDED) { await sleep(Math.max(0, 61000 - out.steps[0].s * 1000)); out.steps[0].measure = await B.ev('window.__gpStartup ? __gpStartup() : null'); }
     const steps = [];
-    for (let i = 0; i < (QUICK ? 3 : 200); i++) steps.push([`example ${i}`, `__cmwExample(${i})`, true]);
+    // (--walk mountain: only the Mountain King after the start, a few minutes even on WARP)
+    if (!MOUNTAIN) for (let i = 0; i < (QUICK ? 3 : 200); i++) steps.push([`example ${i}`, `__cmwExample(${i})`, true]);
     let exDone = false;
-    for (const [label, js, ex, x] of [...steps, ...walk(), ...(EXTENDED ? extended() : [])]) {
+    for (const [label, js, ex, x] of (MOUNTAIN ? mountainKing(false) : [...steps, ...walk(), ...(EXTENDED ? extended() : [])])) {
       if (ex && exDone) continue;
       // (__cmwExample is false past the last example: the examples are done)
       const t1 = Date.now();

@@ -143,6 +143,8 @@
     selected = null;
     buildShapeList(); requestRender('P');
     undoToast(kind === 'dhray' ? $t('Added the external ray {t}.', { t: p.theta }) : $t('Added the equipotential |Φ| = {r}.', { r: CX.fmtNum(r, 6) }));
+    // ([#398] the tour's event for a ray or a level the user adds from the card)
+    tourEmit('dh-added', { kind });
     return '';
   }
   // (the palette's Add an external ray… / Add an equipotential…: step k in the Inspector, its field focused; with no

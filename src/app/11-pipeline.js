@@ -79,7 +79,10 @@
     if (!st) return;
     if (rp) st.repeat = rp; else delete st.repeat;
     chainChanged(true); commit();
+    repeatMoved(k, rp);
   }
+  // ([#398] the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
+  const repeatMoved = (k, rp) => tourEmit('repeat-changed', { k, n: rp ? rp.n : 0, len: rp ? rp.len : 0, by: rp && rp.by ? rp.by : null });
   let repRO = null;
   function updateRepeats() {
     const host = $('pipeline');
@@ -105,6 +108,7 @@
           if (!rp) return;
           st.repeat = rp;
           chainChanged(false);
+          repeatMoved(k, rp);
         };
         inp.addEventListener('input', () => { clearTimeout(settle); settle = setTimeout(apply, 400); });
         inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
@@ -118,6 +122,7 @@
           if (v === st.repeat.n) return;
           st.repeat = { n: v, len: st.repeat.len };
           show(st); chainChanged(false); commit();
+          repeatMoved(k, st.repeat);
         });
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
@@ -700,7 +705,7 @@
       // with All sheets on, the one view that draws them
       if (q.key === 'k' && q.type === 'int') {
         const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
-        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); };
+        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); tourEmit('sheet-changed', { k, sheet: v }); };
         before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
         extra = h('div', { class: 'sheet-ctl' },
           n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
@@ -722,6 +727,8 @@
       let due = 0;
       const apply = () => { if (due) { clearTimeout(due); due = 0; } upd(raw()); };
       input.addEventListener('input', () => {
+        // ([#398] the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
+        if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
         if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
         const cost = chainCost();
