@@ -115,6 +115,46 @@
     commit();
     tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
   }
+  // [issue #260] an external ray (theta: '1/3') or an equipotential (r > 1) of step k's set: M for Φ_M, the Julia set of
+  // z² + c for φ_c (its c, by name when it is a shared number), as a shape of the plane the step reads (stage k − 1)
+  // (the message when v cannot be used, else '')
+  function dhAddShape(k, kind, v) {
+    const st = S.steps[k - 1], b = built[k - 1];
+    if (!st || !b || b.error || (st.type !== 'dh' && st.type !== 'bottcher')) return $t('Fix this step first');
+    let r = NaN;
+    if (kind === 'dhray' && Region.dhAngle(v) == null) return $t('Enter a fraction p/q or a decimal from 0 to 1, such as 1/3');
+    if (kind === 'dheq') {
+      try { r = Number.isFinite(Number(v)) && String(v).trim() !== '' ? Number(v) : Params.evalReal(v); } catch (e) { r = NaN; }
+      const lo = st.type === 'bottcher' ? b.dh.rho : 1;
+      if (!(r > lo)) return lo > 1 ? $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(lo, 4) }) : $t('The level |Φ| must be more than 1');
+    }
+    const p = kind === 'dhray' ? { theta: String(v).trim() } : { r };
+    p.c = null;
+    if (st.type === 'bottcher') {
+      p.c = [b.vals.c.re, b.vals.c.im];
+      const t = String(st.params.c ?? '').trim();
+      if (Params.namesIn(t).length) p.bind = { c: t };
+    }
+    if (k > 1) p.stage = k - 1;
+    const s = newShape(kind, p);
+    if (k === 1) delete s.stage;
+    addShape(s);
+    // (the step's card stays in the Inspector, so that more rays and levels can follow; the shape is a click away)
+    selected = null;
+    buildShapeList(); requestRender('P');
+    undoToast(kind === 'dhray' ? $t('Added the external ray {t}.', { t: p.theta }) : $t('Added the equipotential |Φ| = {r}.', { r: CX.fmtNum(r, 6) }));
+    return '';
+  }
+  // (the palette's Add an external ray… / Add an equipotential…: step k in the Inspector, its field focused; with no
+  // Inspector on screen, the default ray 1/3 or level 1.1 is added)
+  function dhFocusAdd(k, kind) {
+    selected = null; zpSel = null;
+    setSel(k); syncSel(); buildShapeList(); requestRender('P');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = /** @type {HTMLInputElement | null} */ (document.getElementById(`dh${k}_${kind}`));
+      if (el && el.getClientRects().length) { el.focus(); el.select(); } else dhAddShape(k, kind, kind === 'dhray' ? '1/3' : '1.1');
+    }));
+  }
   function deleteShape(id) {
     const cmMsg = Construct.deleteMessage(id);   // (v16: the cascade's toast)
     if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); setShapes(S.shapes.filter((s) => !del.has(s.id) || s.id === id)); setTargets(S.targets.filter((s) => !del.has(s.id) || s.id === id)); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
@@ -584,7 +624,9 @@
       return f;
     };
     // positive radii, whole counts in range; an invalid value is shown but never applied
-    const LIMITS = { r: [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
+    // ([#299 review] an equipotential of a Julia set: above the critical level of its c, |Φ_M(c)|^{1/2}, too)
+    const dhRho = s.kind === 'dheq' && Array.isArray(s.c) ? CX.dhCritRho(C(s.c[0], s.c[1]), 64) : 1;
+    const LIMITS = { r: s.kind === 'dheq' ? [dhRho * (1 + 1e-9), Infinity, dhRho > 1 ? $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(dhRho, 4) }) : $t('The level |Φ| must be more than 1')] : [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
       r1: [0, Infinity, $t('Radii must be 0 or more')], r2: [0, Infinity, $t('Radii must be 0 or more')],
       n: [1, 60, $t('Use a whole number from 1 to 60')], nc: [1, 60, $t('Use a whole number from 1 to 60')], nr: [1, 60, $t('Use a whole number from 1 to 60')] };
     const numField = (key, label, step = 'any') => {
@@ -644,6 +686,22 @@
         break;
       }
       case 'cgrid': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>')), numField('n', $t('divisions'), 1)); break;
+      // ([issue #260] an external ray: its angle in turns, exact as p/q; an equipotential: its level |Φ| = r; both of M,
+      // or of the Julia set of z² + c when they were added from a Böttcher step: its c, which may be a shared number)
+      case 'dhray': case 'dheq': {
+        const txt = (key, label, check) => {
+          const inp = h('input', { class: 'inp mono', value: String(s[key] ?? ''), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+          const f = h('div', { class: 'field' }, lab(label), inp);
+          const was = String(s[key] ?? '');
+          inp.addEventListener('input', () => { const msg = check(inp.value); showErr(f, inp, msg); if (!msg) { s[key] = inp.value.trim(); shapesChanged(false); } });
+          inp.addEventListener('change', () => { if (inp.classList.contains('bad')) { inp.value = String(s[key] ?? ''); showErr(f, inp, ''); return; } if (String(s[key]) !== was) commit(); });
+          return f;
+        };
+        if (s.kind === 'dhray') box.append(txt('theta', $t('angle <i>θ</i> (turns)'), (v) => (Region.dhAngle(v) == null ? $t('Enter a fraction p/q or a decimal from 0 to 1, such as 1/3') : '')));
+        else box.append(numField('r', $t('level |Φ|')));
+        if (s.c != null) box.append(ptField('c', '<i>c</i>'));
+        break;
+      }
       case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
         const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
