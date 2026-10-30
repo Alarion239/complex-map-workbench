@@ -1,5 +1,5 @@
 'use strict';
-// Writes the split files (app.js, gl.js, figure.js, sound.js) as build.py joins them from their parts (src/<name>/;
+// Writes the split files (app.js, gl.js, figure.js, sound.js, construct.js) as build.py joins them from their parts (src/<name>/;
 // test/src_text.js) to dist/tsc/, which tsc checks in their place (tsconfig.json): a part is not a
 // program of its own, so tsc sees each closure whole, as the page runs it.
 //   node tools/join_src.js          (npm run typecheck runs it first; npm ci and npm install run it too, "prepare")
