@@ -76,7 +76,47 @@ const FWD = {
   zp_disc: (x, y) => { const d = x * x + y * y; return [x - x / d, y + y / d]; },
   // Repeat x 3 of [z^2, + c], c = -0.3 + 0.2i (#229)
   quad3_disc: (x, y) => { let u = x, v = y; for (let k = 0; k < 3; k++) { const t = u * u - v * v - 0.3; v = 2 * u * v + 0.2; u = t; } return [u, v]; },
+  // the Douady–Hubbard map Φ_M (#260) by the Böttcher product Φ_M(c) = c ∏_{k≥1} (1 + c/u_k²)^{1/2^k} (u_1 = c,
+  // u_{k+1} = u_k² + c), each factor on its principal branch: valid where every |c/u_k²| < 1, which this disc's orbits
+  // reach after a few steps; the first factors are taken by the continuation of the whole product along the segment
+  // from c + 20 (far out, where all are small) to c (the factor's argument followed, never jumping by more than π/2)
+  dh_disc: (x, y) => fdh(x, y),
 };
+// log Φ_M(c) - log c = Σ_k 2^{-k} log(1 + c/u_k²) with u_k the orbit of c (u_1 = c); each term's logarithm is the one
+// continued from far out: from the previous point when it is within 0.01 (the samplers go row by row), else along
+// c + 20 t for t from 1 down to 0 in 400 steps; each term kept within half its period (2π / 2^k) of where it was
+const DH_LAST = { x: NaN, y: NaN, t: null };
+function fdhTerms(cx, cy) {
+  const out = [];
+  let ux = cx, uy = cy;
+  for (let k = 1; k <= 60; k++) {
+    const d = ux * ux + uy * uy;
+    if (d > 1e60) break;
+    // c/u² = c conj(u)² / |u|⁴
+    const vx = ux * ux - uy * uy, vy = -2 * ux * uy, qx = (cx * vx - cy * vy) / (d * d), qy = (cx * vy + cy * vx) / (d * d);
+    out.push([0.5 * Math.log((1 + qx) * (1 + qx) + qy * qy) / 2 ** k, Math.atan2(qy, 1 + qx) / 2 ** k, 2 * Math.PI / 2 ** k]);
+    const nx = ux * ux - uy * uy + cx; uy = 2 * ux * uy + cy; ux = nx;
+  }
+  return out;
+}
+function fdhFollow(t, prev) {
+  for (let k = 0; k < t.length && k < prev.length; k++) {
+    while (t[k][1] - prev[k][1] > t[k][2] / 2) t[k][1] -= t[k][2];
+    while (t[k][1] - prev[k][1] < -t[k][2] / 2) t[k][1] += t[k][2];
+  }
+  return t;
+}
+function fdh(x, y) {
+  let prev;
+  if (Math.hypot(x - DH_LAST.x, y - DH_LAST.y) < 0.01) prev = DH_LAST.t;
+  else { prev = fdhTerms(x + 20, y); for (let j = 399; j >= 1; j--) prev = fdhFollow(fdhTerms(x + 20 * j / 400, y), prev); }
+  const t = fdhFollow(fdhTerms(x, y), prev);
+  DH_LAST.x = x; DH_LAST.y = y; DH_LAST.t = t;
+  let lr = 0.5 * Math.log(x * x + y * y), li = Math.atan2(y, x);
+  for (const [a, b] of t) { lr += a; li += b; }
+  const m = Math.exp(lr);
+  return [m * Math.cos(li), m * Math.sin(li)];
+}
 function fatanh(x, y) {
   // (1 + z)/(1 - z) = ((1 + x) + iy)((1 - x) + iy) / |1 - z|^2 = (1 - x^2 - y^2 + 2iy) / ((1 - x)^2 + y^2)
   const d = (1 - x) * (1 - x) + y * y, re = (1 - x * x - y * y) / d, im = 2 * y / d;
@@ -120,6 +160,8 @@ const SAMPLERS = {
   healed_cut: (put, s) => grid(put, -1, 0, 0.6, STEP_PX / s),
   // |F'| = 8 |z| |u_1| |u_2| <= 8 * 1.03 * 1.42 * 2.37 < 28 on the disc (|z| <= |0.2 + 0.1i| + 0.8)
   quad3_disc: (put, s) => grid(put, 0.2, 0.1, 0.8, STEP_PX / (s * 28)),
+  // |Φ_M'| < 2.17 on the disc (sampled at 20000 points: 2.16)
+  dh_disc: (put, s) => grid(put, 0.6, 0.9, 0.3, STEP_PX / (s * 2.5)),
 };
 SAMPLERS.e1z_custom = SAMPLERS.e1z_disc;
 // artanh: z = tanh u over a grid of u (the parametrisation only places the samples: each is mapped with the forward
@@ -178,7 +220,7 @@ const RAND_BOX = {
   zi_H: [-5, 5, 1e-3, 5], expH: [-4, 3, 1e-3, 20], e1z_disc: [-1, 1, -1, 1], e1z_custom: [-1, 1, -1, 1],
   exp_far_disc: [-1, 1, 59, 61], ez2_disc: [2.7, 3.3, 2.7, 3.3], healed_cut: [-1.6, -0.4, -0.6, 0.6],
   atanh_D: [-1, 1, -1, 1], atan_D: [-1, 1, -1, 1], cube_far_deep: [2.5, 3.5, 2.5, 3.5],
-  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2], quad3_disc: [-0.6, 1, -0.7, 0.9],
+  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2], quad3_disc: [-0.6, 1, -0.7, 0.9], dh_disc: [0.3, 0.9, 0.6, 1.2],
 };
 
 
@@ -223,6 +265,41 @@ MEMBERS.quad3_disc = (w) => {
   let zs = [[w.re, w.im]];
   for (let k = 0; k < 3; k++) zs = zs.flatMap(([a, b]) => { const [x, y] = csq(a + 0.3, b - 0.2); return [[x, y], [-x, -y]]; });
   return zs.filter(([x, y]) => Math.hypot(x - 0.2, y - 0.1) < 0.8).map(([x, y]) => ({ re: x, im: y }));
+};
+// Φ_M is one-to-one: the member is the z in the disc with fdh(z) = w, by Newton (the derivative by differences), from
+// the last member found when it was for a w within 0.01, else along the segment from Φ_M(0.6 + 0.9i) to w in 16 steps;
+// none outside the box of fdh of the disc's circle (widened by 0.02), and none unless fdh(z) = w to 1e-10
+const DHM_BOX = (() => {
+  const b = [Infinity, -Infinity, Infinity, -Infinity];
+  for (let i = 0; i < 720; i++) { const a = TAU * i / 720, [u, v] = fdh(0.6 + 0.3 * Math.cos(a), 0.9 + 0.3 * Math.sin(a)); b[0] = Math.min(b[0], u - 0.02); b[1] = Math.max(b[1], u + 0.02); b[2] = Math.min(b[2], v - 0.02); b[3] = Math.max(b[3], v + 0.02); }
+  return b;
+})();
+const DHM_LAST = { w: null, z: null };
+function dhSolve(z, w) {
+  for (let it = 0; it < 40; it++) {
+    const f = fdh(z.re, z.im), h = 1e-7, g = fdh(z.re + h, z.im), d = [(g[0] - f[0]) / h, (g[1] - f[1]) / h], e = [f[0] - w.re, f[1] - w.im], dd = d[0] * d[0] + d[1] * d[1];
+    const dz = { re: (e[0] * d[0] + e[1] * d[1]) / dd, im: (e[1] * d[0] - e[0] * d[1]) / dd };
+    z = { re: z.re - dz.re, im: z.im - dz.im };
+    if (!(Math.hypot(dz.re, dz.im) > 1e-14)) break;
+  }
+  return z;
+}
+// (the check evaluates fdh afresh, along its whole path from far out: a branch followed from the previous point can be
+// wrong near M, where a factor turns by more than half its period within 0.01, and Newton then finds a z on it)
+const fdhFresh = (x, y) => { DH_LAST.x = NaN; return fdh(x, y); };
+MEMBERS.dh_disc = (w) => {
+  if (w.re < DHM_BOX[0] || w.re > DHM_BOX[1] || w.im < DHM_BOX[2] || w.im > DHM_BOX[3]) return [];
+  const ok = (z) => { const f = fdhFresh(z.re, z.im); return Math.hypot(f[0] - w.re, f[1] - w.im) <= 1e-10 * Math.hypot(w.re, w.im); };
+  const fromCentre = () => {
+    const [u0, v0] = fdhFresh(0.6, 0.9);
+    let z = { re: 0.6, im: 0.9 };
+    for (let j = 1; j <= 16; j++) z = dhSolve(z, { re: u0 + (w.re - u0) * j / 16, im: v0 + (w.im - v0) * j / 16 });
+    return z;
+  };
+  let z = DHM_LAST.w && Math.hypot(w.re - DHM_LAST.w.re, w.im - DHM_LAST.w.im) < 0.01 ? dhSolve(DHM_LAST.z, w) : fromCentre();
+  if (!ok(z)) { z = fromCentre(); if (!ok(z)) return []; }
+  DHM_LAST.w = { re: w.re, im: w.im }; DHM_LAST.z = z;
+  return Math.hypot(z.re - 0.6, z.im - 0.9) < 0.3 ? [z] : [];
 };
 // the w-plane scenes: the member is carried as u = w, as their truth does (the self-test paints a mask there)
 MEMBERS.atanh_D = (w) => (Math.abs(w.im) < PI / 4 ? [{ re: w.re, im: w.im }] : []);
