@@ -12,7 +12,7 @@ const Curves = (() => {
   const EPS = 2.220446049250313e-16;
   const TAU = 2 * Math.PI;
   const FAR = 220; // as Region.FAR: unbounded curves reach this many window half-sizes beyond the view
-  const RG = () => (typeof Region !== 'undefined' ? Region : null);
+  const RG = () => Region;
   const hyp = Math.hypot;
   const expandBox = (b, f) => {
     const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, hw = (b.x1 - b.x0) / 2 * f, hh = (b.y1 - b.y0) / 2 * f;

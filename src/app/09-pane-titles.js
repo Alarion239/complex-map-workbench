@@ -1255,7 +1255,7 @@
     return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
-  const phoneChain = () => { if (typeof Phone !== 'undefined' && Phone.isOn() && Phone.chain) Phone.chain(); };
+  const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
   // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
   function morphTick(d) {
     const m = morphLen(), T = morph.T, eps = 1e-6;

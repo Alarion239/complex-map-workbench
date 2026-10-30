@@ -56,8 +56,7 @@ const Inspector = (() => {
       if (!host.classList.contains('temp')) { host.setAttribute('role', 'region'); host.setAttribute('aria-label', $t('Inspector')); }
       selSec = h('section', { class: 'psec insp-sel', 'aria-label': $t('Selection') });
       // (the shared numbers bring their own section: its heading, + and label; the slot only places it)
-      parSec = typeof Params !== 'undefined' ? h('div', { class: 'insp-params' }, h('div', { class: 'params-mount' }))
-        : h('section', { class: 'psec insp-params', 'aria-label': $t('Numbers') }, h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))), h('div', { class: 'params-mount' }));
+      parSec = h('div', { class: 'insp-params' }, h('div', { class: 'params-mount' }));
       host.append(tbar, selSec, parSec);
       cur.sig = null; mounted = false;
       return true;
@@ -65,7 +64,7 @@ const Inspector = (() => {
     // the Parameters slot: the shared numbers (src/params.js) mount themselves here; without them the slot hides
     function mountParams() {
       const el = parSec.querySelector('.params-mount');
-      const has = typeof Params !== 'undefined' && Params && typeof Params.mount === 'function';
+      const has = typeof Params.mount === 'function';
       parSec.hidden = !has;
       // (review regress-7: a rebuilt panel destroys its old mount before it mounts again)
       if (has && !mounted) { mounted = true; try { if (pmount && pmount.destroy) pmount.destroy(); pmount = Params.mount(el); } catch (e) { console.error('Params.mount', e); } }
@@ -592,7 +591,7 @@ const Inspector = (() => {
       mountParams();
       const sel = A.sel();
       // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
-      const cmSig = typeof Construct !== 'undefined' && (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
+      const cmSig = (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
       // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
       const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
       const sig = cmSig || shSig || sigOf(sel);

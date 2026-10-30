@@ -861,7 +861,7 @@ const Figure = (() => {
     }
     return null;
   };
-  const cxTex = (z) => (typeof CX !== 'undefined' && CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
+  const cxTex = (z) => (CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
   // the vector layers of one plane panel: boundaries and curves (mapped by F), points (and their names)
   function planeLayers(o, P, side, F, box, wpt, shapes, srcWin, primeName) {
     const curves = [], points = [], chev = [];
@@ -895,7 +895,7 @@ const Figure = (() => {
     // (v16 review picture-7) with constructions the caption names points (z₀, z₃ …): every point is labelled as the
     // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
     const cmFig = shapes.some((x) => x.def || x.at);
-    const markOf = (s) => (cmFig && typeof Construct !== 'undefined' && Construct.pointMark ? Construct.pointMark(s) : null);
+    const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
       const mk = markOf(s);
@@ -1266,7 +1266,7 @@ const Figure = (() => {
   }
   // zeros and poles of F in a box (Calc.zerosPoles), bounded in time
   function zerosPoles(F, box) {
-    if (typeof Calc === 'undefined' || !Calc.zerosPoles) return [];
+    if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + 400 }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
   async function figPhase(o, P, W, T) {
@@ -1358,7 +1358,7 @@ const Figure = (() => {
     const unit = { x0: 0, x1: r.w, y0: 0, y1: r.h };
     let [i0, i1, j0, j1] = look(r);
     const L0 = r.land;
-    if (L0 && L0.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+    if (L0 && L0.MVP && GLR.M4) {
       // the block's floor corners: the floor labels sit just outside them
       const [ax0, ay0] = L0.aspect || [1, 1];
       for (const [cx0, cy0] of [[-ax0, -ay0], [ax0, -ay0], [ax0, ay0], [-ax0, ay0]]) {
@@ -1385,7 +1385,7 @@ const Figure = (() => {
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
-    if (L && L.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+    if (L && L.MVP && GLR.M4) {
       const proj = (p) => { const c = GLR.M4.apply(L.MVP, p); if (c[3] <= 1e-6) return null; const px = (c[0] / c[3] * 0.5 + 0.5) * L.w, py = (1 - (c[1] / c[3] * 0.5 + 0.5)) * L.h; const ii = px * r.w / L.w, jj = py * r.h / L.h; return [x + (ii - c0) * k * scale, top + (jj - d0) * k * scale]; };
       const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
       const sx = eye[0] < 0 ? -1 : 1, sy = eye[1] < 0 ? -1 : 1;
@@ -1649,7 +1649,7 @@ const Figure = (() => {
   // side. g: the render's camera {MVP, eye, w, h}; r: the raster; c: its crop [c0, c1, d0, d1]; (x, y, k): the image's
   // corner and pt per raster px
   const globeProj = (g, r, c, x, y, k) => {
-    if (!g || typeof GLR === 'undefined' || !GLR.M4 || !A.lift) return () => null;
+    if (!g || !GLR.M4 || !A.lift) return () => null;
     return (w, lift = 1.01) => {
       if (!fin(w)) return null;
       const p = A.lift(w.re, w.im), tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]], l = Math.hypot(...tv) || 1;
@@ -1662,7 +1662,7 @@ const Figure = (() => {
   };
   // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera
   function globeLabels(g, r, c, x, y, k, tp) {
-    if (!g || !A.lift || typeof GLR === 'undefined') return '';
+    if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
     let m = '';
@@ -1701,7 +1701,7 @@ const Figure = (() => {
   // (export review r3, editor-18) the floor marks of a relief: Re and Im ticks along the front edges and their names,
   // through the render's camera L; toPt(ii, jj): raster px -> pt; fr: the panel {x, top, iw, ih}
   function landFloor(L, r, toPt, fr, tp, lp, tick = 2.5) {
-    if (!L || !L.MVP || typeof GLR === 'undefined' || !GLR.M4) return '';
+    if (!L || !L.MVP || !GLR.M4) return '';
     const proj = (p) => { const q = GLR.M4.apply(L.MVP, p); if (q[3] <= 1e-6) return null; const px = (q[0] / q[3] * 0.5 + 0.5) * L.w, py = (1 - (q[1] / q[3] * 0.5 + 0.5)) * L.h; return toPt(px * r.w / L.w, py * r.h / L.h); };
     const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
     const sx = eye[0] < 0 ? -1 : 1, sy = eye[1] < 0 ? -1 : 1;
@@ -1792,7 +1792,7 @@ const Figure = (() => {
       if (b) c = c ? [Math.min(c[0], b[0]), Math.max(c[1], b[1]), Math.min(c[2], b[2]), Math.max(c[3], b[3])] : b;
       // (a relief: its floor too, where the floor marks go; export review r3, editor-18)
       const L = kind === 'land' ? r.land : null;
-      if (L && L.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+      if (L && L.MVP && GLR.M4) {
         const [ax, ay] = L.aspect || [1, 1];
         for (const [x, y] of [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]]) {
           const q = GLR.M4.apply(L.MVP, [x, y, L.floorZ]);
@@ -1988,7 +1988,7 @@ const Figure = (() => {
   }
   // zeros and poles with a time bound of their own
   function zerosPolesIn(F, box, ms) {
-    if (typeof Calc === 'undefined' || !Calc.zerosPoles) return [];
+    if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + ms }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
   // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
@@ -2646,7 +2646,7 @@ const Figure = (() => {
   // {lab, u, v} in fractions of the pane
   const GLOBE_LABS = [['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', null, 1, 0], ['i', null, 0, 1], ['−1', null, -1, 0], ['−i', null, 0, -1]];
   function globeLabelSpots(g) {
-    if (!g || !A.lift || typeof GLR === 'undefined' || !GLR.M4) return [];
+    if (!g || !A.lift || !GLR.M4) return [];
     const out = [];
     for (const [lab, p0, re, im] of GLOBE_LABS) {
       const p = p0 || A.lift(re, im), tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]];
@@ -2672,7 +2672,7 @@ const Figure = (() => {
       if (plan.kind === 'globe' || plan.kind === 'phaseGlobe') for (const q of globeLabelSpots(r.globe)) add([q.u - 0.04 * H / W, q.u + 0.04 * H / W, q.v - 0.04, q.v + 0.04]);
       // (the relief's floor, where the light look prints its grid and labels: its corners through the camera, with air)
       const L = r.land;
-      if (L && L.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+      if (L && L.MVP && GLR.M4) {
         const [ax, ay] = L.aspect || [1, 1];
         for (const [x, y] of [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]]) { const q = GLR.M4.apply(L.MVP, [x * 1.12, y * 1.12, L.floorZ]); if (q[3] > 1e-6) { const u = q[0] / q[3] * 0.5 + 0.5, w = 1 - (q[1] / q[3] * 0.5 + 0.5); add([u, u, w, w]); } }
       }

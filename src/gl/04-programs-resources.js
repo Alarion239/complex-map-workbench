@@ -155,7 +155,7 @@ float wabs(vec2 w) {
   let libRe = null;
   function libUse(src) {
     if (!libRe) {
-      const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
+      const L = GLChain.LIB;
       const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
@@ -169,7 +169,7 @@ float wabs(vec2 w) {
     const vs = d.vs(), fs = d.fs();
     if (!d.chain) return [HEAD + vs, HEAD + fs];
     // (the sheet programs also take the deformation's sheets, chainSheetHom: GLChain's sheetHom)
-    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
+    const lib = GLChain.LIB + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
     const pre = (s) => ['', FIN, lib][libUse(s)];
     return [HEAD + pre(vs) + vs, HEAD + pre(fs) + fs];
   }
