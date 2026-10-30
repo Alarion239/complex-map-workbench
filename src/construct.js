@@ -777,6 +777,7 @@ const Construct = (() => {
     A.tourEmit('construct-added', { op: t.cls === 'cross' ? 'meet' : 'glider' });
     return true;
   }
+  pointDown.told = false;   // (the Snap-off tip, once a session: moveUp)
 
   // ---------------------------------------------------------------- dragging handles onto targets, built things
   function handleMove(d, side, x, y) {
@@ -1109,7 +1110,7 @@ const Construct = (() => {
   // onUp 'move': a glider's target still waiting for its frame is applied before the gesture's undo step; ([v16.5 rail])
   // a free point's drop attaches it
   function moveUp(d) {
-    if (d && d.cmTell && !d.moved && !(/** @type {any} */ (pointDown)).told) { /** @type {any} */ (pointDown).told = true; lastToast = A.toast($t('To place a point next to another, turn Snap off in the tools sheet.')); }
+    if (d && d.cmTell && !d.moved && !pointDown.told) { pointDown.told = true; lastToast = A.toast($t('To place a point next to another, turn Snap off in the tools sheet.')); }
     if (d) clearTimeout(d.cmDwellT);
     if (d && d.cmRaf) { cancelAnimationFrame(d.cmRaf); glideFlush(d); }
     if (d && (d.cmFree || d.fd)) freeUp(d);
