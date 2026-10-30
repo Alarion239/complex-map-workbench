@@ -39,7 +39,11 @@ load = async (...a) => { const r = await load0(...a); await ev(RV); return r; };
 // anti-aliased 1.5 px stroke covers its best pixel in every cross-section by 0.75 or more (a 1.5 px band over a 1 px
 // grid), so these pixels are 8-connected along it; at dpr 1 no pixel of a stroke centred between two pixel rows is
 // within 40/255 of E (its two pixels are 3/4 covered: about 1/4 of |E - K| = 270/255 away), which the old criterion
-// read as gaps. The figure p3rv_stroke_dpr1 (shots/) shows the dpr-1 render 8x with both masks.
+// read as gaps. A stroke pixel must also be one the stroke drew (#287): it differs by more than 8/255 from the same
+// frame rendered without the shapes' strokes (__cmwHideStrokes). Without it, a fill cell of the shape's darker colour next to
+// the casing passed as edge colour once the globe is lit from the camera: near the limb the lit cell comes within
+// 24/255 of the edge colour, as the alternate colour and the edge colour are about 28/255 apart unlit; the old light
+// left that side of the globe dark. The figure p3rv_stroke_dpr1 (shots/) shows the dpr-1 render 8x with both masks.
 const DZI = `(w) => { const a = Math.hypot(w[0], w[1]), L = -Math.log(a); if (!(L > -Math.PI && L <= Math.PI)) return -1; const m = Math.exp(Math.atan2(w[1], w[0])), zx = m * Math.cos(-Math.log(a)), zy = m * Math.sin(-Math.log(a)); return Math.hypot(zx - 0.3, zy - 0.8) < 0.3 ? 1 : -1; }`;
 await load('p3rvS' + Date.now(), { shapes: [H, { id: 's2', kind: 'disc', c: [0.3, 0.8], r: 0.3 }], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 }, pattern: 'sphere', alpha: 0.9, lines: true, unit: false });
 await ev('__cmwSetView("R", "sphere"); __cmwSetView("L", "sphere"); 1'); await settle(3000);
@@ -72,11 +76,15 @@ R.stroke = await ev(`await (async () => {
   const out = { rimPts: rim.length, runs: [] };
   for (const d of [1, 2, 300 / 96]) {
     const E = await __rv.off('R', d), W = E.W, Hh = E.H, D = E.D;
+    // the same frame without the strokes: the pixels the stroke drew (its casing included)
+    __cmwHideStrokes(true); const D0 = (await __rv.off('R', d)).D; __cmwHideStrokes(false);
+    const drew = new Uint8Array(W * Hh);
+    for (let k = 0; k < W * Hh; k++) if (Math.max(Math.abs(D[4 * k] - D0[4 * k]), Math.abs(D[4 * k + 1] - D0[4 * k + 1]), Math.abs(D[4 * k + 2] - D0[4 * k + 2])) > 8) drew[k] = 1;
     // the band within 2.5 CSS px of a rim point
     const band = new Uint8Array(W * Hh), rb = 2.5 * d;
     for (const [x, y] of rim) { const cx = x * d, cy = y * d; for (let j = Math.max(0, Math.floor(cy - rb)); j <= Math.min(Hh - 1, Math.ceil(cy + rb)); j++) for (let i = Math.max(0, Math.floor(cx - rb)); i <= Math.min(W - 1, Math.ceil(cx + rb)); i++) if (Math.hypot(i + 0.5 - cx, j + 0.5 - cy) <= rb) band[j * W + i] = 1; }
     const M = new Uint8Array(W * Hh), M40 = new Uint8Array(W * Hh);
-    for (let k = 0; k < W * Hh; k++) if (band[k]) { if (cover(D, k) >= 0.5) M[k] = 1; if (near40(D, k)) M40[k] = 1; }
+    for (let k = 0; k < W * Hh; k++) if (band[k]) { if (drew[k] && cover(D, k) >= 0.5) M[k] = 1; if (near40(D, k)) M40[k] = 1; }
     const lab = new Int32Array(W * Hh), sizes = [0];
     for (let k0 = 0; k0 < W * Hh; k0++) {
       if (!M[k0] || lab[k0]) continue;

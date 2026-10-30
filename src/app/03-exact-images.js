@@ -5,7 +5,7 @@
   // stage (role L, flat). Thumbnails (role null) draw like the right plane.
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
-  let hideStrokes = false;             // tests: the flat panes' shape strokes left out (the crack test reads the fill under them)
+  let hideStrokes = false;             // tests: the shapes' strokes left out, flat and on the globes (the crack test reads the fill under them, p3_review the stroke's own pixels)
   // the figure export's art layer (figure.js, artRender): fills only (no grid, axes, strokes, points, cuts, rulers,
   // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
   // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
