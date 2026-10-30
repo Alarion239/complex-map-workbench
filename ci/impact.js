@@ -117,6 +117,7 @@ const MAP = [
   ['test/t_*.js', T0],
   ['test/*_cmd.js', { suite: true }],
   ['test/regress/test_compare.py', T0],
+  ['test/{gl_make_test.py,gl_test.js,make_css_fixture.py,css_fixture.js}', T0],   // by-hand pages (dist/gl-test.html, css-fixture.html): no CI job opens them
   ['test/regress/perf/cdp.js', { glsl: 'all', quality: true, perf: true }],   // the Chrome driver of the paired gates
   ['test/regress/quality/**', { quality: true }],
   ['test/regress/compare_quality.py', { quality: true }],
