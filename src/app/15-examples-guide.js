@@ -76,7 +76,7 @@
       steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
     },
     {
-      name: $t('Cauchy: an essential singularity'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=e^{1/z}', blurb: $t('e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Cauchy: an essential singularity'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=e^{1/z}', blurb: $t('e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0.3, 0.2], r: 1 }],
       steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
     },
