@@ -49,9 +49,10 @@ ruff check
   labels (`// v15:`) and the file's history to git.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/cyr.js`, `src/seasong.js`
   (each names its generator at the top).
-- **`vendor/` is written by `tools/vendor.py`** (MathJax and the faces, subset to the characters `src/` uses). A change
-  that adds a character outside the subset fails `test/t_vendor.js`; run `python3 tools/vendor.py` again (it needs npm
-  and `pip install fonttools brotli`) and commit `vendor/`. A character left out falls back to a system face.
+- **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
+  characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
+  `python3 tools/vendor.py` again (it needs npm and `pip install fonttools brotli`) and commit `vendor/`. A character
+  left out falls back to a system face.
 
 ## Tests, notes and evidence
 

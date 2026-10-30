@@ -389,9 +389,10 @@ const I18N = (() => {
   }
 
   // ---------------- the page in another language ----------------
-  // Russian sets <html lang>, the token override in page.html (:root[data-lang="ru"]), and adds the Cyrillic faces
-  // (Roboto Flex: @font-face rules with the fonts inline, a text block build.py writes, #cmw-fonts-ru); Italian sets
-  // <html lang> and data-lang="it" only. English does none of this (it does not even touch <html lang>).
+  // Russian sets <html lang>, the token override in page.html (:root[data-lang="ru"]), and loads the Cyrillic
+  // faces' stylesheet; Italian sets <html lang> and data-lang="it" only. English does none of this (it does not even
+  // touch <html lang>).
+  const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
   // "CMW Comma": the comma of a number set in the mono face, from a proportional face (page.html, review ui-4)
   const FACES = ['500 12px "Roboto Flex"', '600 13px "Roboto Flex"', '400 11px "JetBrains Mono"', '400 11px "CMW Comma"'];
   let fontsHook = null;
@@ -413,17 +414,27 @@ const I18N = (() => {
       if (document.fonts && document.fonts.load) document.fonts.load('400 11px "CMW Comma"', ',').catch(() => []).then(fire);
       return;
     }
-    // page.html's head script adds the faces before the body is painted (review eng-1, eng-2); else they are added
-    // here. The rules are inline, so they exist at once; the faces' loads are then awaited for the canvas text
-    if (!document.getElementById('i18n-fonts')) {
-      const st = document.createElement('style'), src = document.getElementById('cmw-fonts-ru');
-      st.id = 'i18n-fonts';
-      st.textContent = src ? src.textContent : '';
-      document.head.append(st);
+    // the offline page (issue #21) has the faces inline, #cmw-fonts-ru: a style element (page.html's head script adds it
+    // before the body is painted, else it is added here), whose rules exist at once
+    const inline = document.getElementById('cmw-fonts-ru');
+    if (inline) {
+      if (!document.getElementById('i18n-fonts')) document.head.append(Object.assign(document.createElement('style'), { id: 'i18n-fonts', textContent: inline.textContent }));
+      if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', fire);
+      if (!document.fonts || !document.fonts.load) fire();
+      else Promise.all(FACES.map((f) => document.fonts.load(f, f.includes('Comma') ? ',' : 'Жж').catch(() => []))).then(fire);
+      return;
     }
+    // page.html's head script adds the link before the body is painted (review eng-1, eng-2); else it is added here
+    let ln = document.getElementById('i18n-fonts');
+    const had = !!ln;
+    if (!ln) { ln = document.createElement('link'); ln.id = 'i18n-fonts'; ln.rel = 'stylesheet'; ln.href = FONT_CSS; }
+    const loaded = () => {
+      if (!document.fonts || !document.fonts.load) { fire(); return; }
+      Promise.all(FACES.map((f) => document.fonts.load(f, f.includes('Comma') ? ',' : 'Жж').catch(() => []))).then(fire);
+    };
+    if (had && ln.sheet) loaded(); else ln.addEventListener('load', loaded);
     if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', fire);
-    if (!document.fonts || !document.fonts.load) fire();
-    else Promise.all(FACES.map((f) => document.fonts.load(f, f.includes('Comma') ? ',' : 'Жж').catch(() => []))).then(fire);
+    if (!had) document.head.append(ln);
   }
   let applied = false;
   // the reveal: page.html's head script hides #app in Russian until the static text is translated (review eng-1)

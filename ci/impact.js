@@ -310,12 +310,12 @@ function select(files, opts = {}) {
 
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
 function changedFiles(from, head) { return git('diff', '--name-only', '--no-renames', from, head).split('\n').filter(Boolean); }
-// the app's two dist files built at ref and in this checkout are byte for byte the same
+// the app's dist files built at ref and in this checkout are byte for byte the same (the offline page too, #21)
 function sameBuild(ref) {
   const { buildReference } = require('./reference');
   const R = buildReference(ref);
   if (run(PY, ['build.py']) !== 0) throw new Error('this checkout did not build');
-  return ['complex-map-workbench.html', 'test.html'].every((f) => {
+  return ['complex-map-workbench.html', 'complex-map-workbench-offline.html', 'test.html'].every((f) => {
     const a = path.join(ROOT, 'dist', f), b = path.join(R.dist, f);
     return fs.existsSync(a) && fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b));
   });

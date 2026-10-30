@@ -32,8 +32,8 @@
    "bytes": 2108580
   },
   "fonts/archivo-latin-ext-standard-normal.woff2": {
-   "sha256": "2768b0dd615c1e059607e9680af7936c933c5b6c74a72810de7e5c804d09117a",
-   "bytes": 4464
+   "sha256": "f307603fa53fd4a2ae4faf409b945a5d3109805e42aaffbb0775f9d8c24528d1",
+   "bytes": 5436
   },
   "fonts/archivo-latin-standard-normal.woff2": {
    "sha256": "faea9dbcd4927089d027bc572ab87ccf0312514d7e8fe228132a78d199e082cf",
@@ -56,8 +56,8 @@
    "bytes": 11160
   },
   "fonts/stix-two-text-latin-ext-wght-normal.woff2": {
-   "sha256": "b2cdfff99cab408e625e5c7b7f9966878cb7b88779d55702b7eba0d9f54d4134",
-   "bytes": 2424
+   "sha256": "354c8163030b6c93228d25481c85edd5406a351e14f399425f92a0e248c3f264",
+   "bytes": 2752
   },
   "fonts/stix-two-text-latin-wght-normal.woff2": {
    "sha256": "0095a460fb31d9f9d6635579c78694028d34dec37b2daa39b35d0ca18abf3d3c",
@@ -80,8 +80,8 @@
    "bytes": 12144
   },
   "fonts/stix-two-text-latin-ext-wght-italic.woff2": {
-   "sha256": "453e1b59ec886a8e2912773e88b717c182323140e1f3889317556d62757cf2f1",
-   "bytes": 2672
+   "sha256": "3556ebcb4824bf9a81734d0447d6adc7c4402c9c3702011841ecd7098a03ca7c",
+   "bytes": 2972
   },
   "fonts/stix-two-text-latin-wght-italic.woff2": {
    "sha256": "ce9faef60eae5ba03848b2884402bd9529ffba4396025691f824b24488b9bd25",
@@ -112,8 +112,8 @@
    "bytes": 5404
   },
   "fonts/jetbrains-mono-latin-ext-wght-normal.woff2": {
-   "sha256": "d871c167ce26ce114e73752767fc037c2e16d5712bfd9bec752310cdee54c334",
-   "bytes": 1776
+   "sha256": "ae5efec14f079a362370dca5bcafa281a2cd67089109765661a7a71fcee396a0",
+   "bytes": 1888
   },
   "fonts/jetbrains-mono-latin-wght-normal.woff2": {
    "sha256": "a3c8bc7b19a7006670073d32e9ea1806bc14af4257bf080c62e3f263fa7b1f94",
@@ -136,8 +136,8 @@
    "bytes": 36988
   },
   "fonts/roboto-flex-latin-ext-full-normal.woff2": {
-   "sha256": "ae5be2dbcd62d3f17ae1f51d1378d63f6e1f723921a26be9eae3504634f286dc",
-   "bytes": 4896
+   "sha256": "6f4957ace3d78e90c38d0a12c6416abc997325677559f14fd6bb3e1267407987",
+   "bytes": 6116
   },
   "fonts/roboto-flex-latin-full-normal.woff2": {
    "sha256": "d86be2829c65d9992a261399b9914934df039d981b01c32bd315f6a05002d778",
@@ -156,7 +156,7 @@
    "set": "main",
    "stretch": "75% 125%",
    "file": "fonts/archivo-latin-ext-standard-normal.woff2",
-   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+142, U+151, U+303-304, U+2020, U+2113"
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+101, U+142, U+151, U+303-304, U+2020, U+2113"
   },
   {
    "family": "Archivo",
@@ -206,7 +206,7 @@
    "weight": "400 700",
    "set": "main",
    "file": "fonts/stix-two-text-latin-ext-wght-normal.woff2",
-   "unicodeRange": "U+20, U+41, U+A0, U+142, U+151, U+2B2, U+303-304, U+2020, U+2113"
+   "unicodeRange": "U+20, U+41, U+A0, U+101, U+142, U+151, U+2B2, U+303-304, U+2020, U+2113"
   },
   {
    "family": "STIX Two Text",
@@ -254,7 +254,7 @@
    "weight": "400 700",
    "set": "main",
    "file": "fonts/stix-two-text-latin-ext-wght-italic.woff2",
-   "unicodeRange": "U+20, U+41, U+A0, U+142, U+151, U+2B2, U+303-304, U+2020, U+2113"
+   "unicodeRange": "U+20, U+41, U+A0, U+101, U+142, U+151, U+2B2, U+303-304, U+2020, U+2113"
   },
   {
    "family": "STIX Two Text",
@@ -318,7 +318,7 @@
    "weight": "400 700",
    "set": "main",
    "file": "fonts/jetbrains-mono-latin-ext-wght-normal.woff2",
-   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+142, U+151, U+303-304, U+2020, U+2113"
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+101, U+142, U+151, U+303-304, U+2020, U+2113"
   },
   {
    "family": "JetBrains Mono",
@@ -370,7 +370,7 @@
    "set": "ru",
    "stretch": "75% 125%",
    "file": "fonts/roboto-flex-latin-ext-full-normal.woff2",
-   "unicodeRange": "U+20, U+A0, U+142, U+151, U+303-304, U+2020"
+   "unicodeRange": "U+20, U+A0, U+101, U+142, U+151, U+303-304, U+2020"
   },
   {
    "family": "Roboto Flex",
@@ -391,5 +391,5 @@
    "unicodeRange": "U+20, U+A0, U+303-304"
   }
  ],
- "chars": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿıłőʲ̃̄ͰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ΢ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϑϕϱϵϿЀЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяѐёђѓєѕіїјљњћќѝўџӿᴺᵏᵢᶻ​‐‑‒–—―‖‗‘’‚‛“”„‟†‡•‣․‥…‧ ‰‱′″‴‵‶‷‸‹›※‼‽‾‿⁀⁁⁂⁃⁄⁅⁆⁇⁈⁉⁊⁋⁌⁍⁎⁏⁐⁑⁒⁓⁔⁕⁖⁗⁘⁙⁚⁛⁜⁝⁞⁰ⁱ⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₍₎ₖₙₜℂℓ№ℤ⅛←↑→↓↔↦⇧∂∈∉∏∑−∓∖∘√∝∞∠∩∫∮≈≠≤≥⊂⊕⊥⋯⌘⌫▶▸▾○●♫♯⚙✓ⱼ＝"
+ "chars": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿāıłőʲ̃̄ͰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ΢ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϑϕϱϵϿЀЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяѐёђѓєѕіїјљњћќѝўџӿᴺᵏᵢᶻ​‐‑‒–—―‖‗‘’‚‛“”„‟†‡•‣․‥…‧ ‰‱′″‴‵‶‷‸‹›※‼‽‾‿⁀⁁⁂⁃⁄⁅⁆⁇⁈⁉⁊⁋⁌⁍⁎⁏⁐⁑⁒⁓⁔⁕⁖⁗⁘⁙⁚⁛⁜⁝⁞⁰ⁱ⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₍₎ₖₙₜℂℓ№ℤ⅛←↑→↓↦⇧∂∈∉∏∑−∓∖∘√∝∞∠∩∫∮≈≠≤≥⊂⊕⊥⋯⌊⌋⌘⌫▶▸▾○●♫♯⚙✓ⱼ＝"
 }

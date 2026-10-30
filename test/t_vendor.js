@@ -1,7 +1,8 @@
-// Issue #21: the page's typesetter and faces are vendored (tools/vendor.py writes vendor/, build.py reads it only).
-// This test fails when vendor/ does not match its LOCK.json, when a source uses a character the faces were not
-// subset for (run python3 tools/vendor.py again), or when the page loads MathJax or a face from a CDN again.
-// Node, no browser.
+// Issue #21: the offline page's typesetter and faces are vendored (tools/vendor.py writes vendor/, build.py reads it
+// only; the live page keeps its CDNs). This test fails when vendor/ does not match its LOCK.json, when a source uses a
+// character the faces were not subset for (run python3 tools/vendor.py again), or when build.py reaches the network.
+// test/t_publish.js checks the built offline page itself (no CDN left in it) and test/offline_cmd.js opens it with the
+// network off. Node, no browser.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -34,10 +35,8 @@ walk(path.join(ROOT, 'src'));
 ok('the faces cover every character the sources use (else: python3 tools/vendor.py)', missing.size === 0,
   [...missing].map(([c, f]) => `U+${c.codePointAt(0).toString(16).toUpperCase()} ${c} (${f})`));
 
-// nothing is loaded from a CDN at start any more, and the build reads vendor/ only
-const SRC = ['src/page.html', 'src/i18n.js', 'build.py'].map((f) => [f, fs.readFileSync(path.join(ROOT, f), 'utf8')]);
-for (const [f, t] of SRC) ok(`${f}: no Google Fonts or CDN MathJax`, !/fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\/libs\/mathjax/.test(t));
-const build = SRC[2][1];
-ok('build.py reads vendor/ and never the network', /vendor \/ 'LOCK\.json'/.test(build) && !/\burllib\b|\brequests\b|http\.client|\bnpm\b|https?:\/\//.test(build));
+// the build reads vendor/ only (the URLs in build.py are the live page's tags it replaces, never fetched)
+const build = fs.readFileSync(path.join(ROOT, 'build.py'), 'utf8');
+ok('build.py reads vendor/ and never the network', /vendor \/ 'LOCK\.json'/.test(build) && !/\burllib\b|\brequests\b|http\.client|\bnpm\b|\bcurl\b|\bwget\b/.test(build));
 console.log(`t_vendor: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
