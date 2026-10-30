@@ -21,6 +21,7 @@
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
   };
+  const SV_GPU_MASK = false;
   // the glide's time a plane, by speed (a setting kept on this device)
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
@@ -355,9 +356,28 @@
   }
   // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
   function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
-  // the colour plot just drawn into GL's frame (renderColor): only inside the regions, the rest the plane's paper
-  function svMaskColour(pane) {
+  // the colour plot just drawn into GL's frame (renderColor, its draw cst): only inside the regions, the rest the plane's
+  // paper. On the GPU in one frame: the regions write the frame's alpha alone (GLR.alphaOnly), then the colour plot is
+  // kept where that alpha is (dstAlpha). With areas on later planes (pulled back by their own pass) or no alphaOnly,
+  // the 2D path: the plot, the regions' mask drawn apart, and destination-in
+  function svMaskColour(pane, cst) {
     const k = svStage();
+    const later = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area' && shapeStage(s) > k);
+    // (the GPU path is issue G's: on a plane past z its mask comes out empty, so it stays off until G finds why)
+    if (SV_GPU_MASK && GLR.alphaOnly && cst && !later) {
+      // (the forward meshes: the exact images' inverse pass composites its own layers, which an alpha-only mask breaks)
+      const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines, exactImages: S.exactImages };
+      const mp = Object.assign(Object.create(pane), { begin: () => {} });
+      try {
+        setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false); setOpt('exactImages', false);
+        drawScene(mp, stageMap(k), null, { noGrid: true, cache: false, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
+          over: () => { GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
+      } catch (e) { GLR.alphaOnly(false); console.error('steps view mask', e); }
+      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+      pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+      GLR.begin(pane.pw, pane.ph);
+      return;
+    }
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     GLR.blit(cc);
