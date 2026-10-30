@@ -154,7 +154,7 @@ out of 686 metrics, and the two runs failed on different metrics.
 
 ## Screenshots
 
-`notes/i18n/shots-2b/final/`: every view in Russian at 1440 and 390 px, light and dark (62 PNGs):
+`notes/i18n/shots-2b/final/` (removed, see git history at 099e5f1): every view in Russian at 1440 and 390 px, light and dark (62 PNGs):
 - X → Y, Phase, Landscape, both spheres, the deformation
 - a chain card with the guarantees, roots as preimages
 - the palette («tg»), the phone More menu, the Language menu

@@ -103,7 +103,7 @@ The generator reports:
 
 ## Round 2's recording: `r2/round2.m4a`
 
-This section describes round 2's recording, now kept as `round2.m4a`. `notes/sea-song/mountain-king.m4a` has since been
+This section describes round 2's recording, now kept as `round2.m4a`. `notes/sea-song/mountain-king.m4a` (removed, see git history at 099e5f1) has since been
 replaced by the review fixes' recording: 94 cues (90 strings + 4 ticks), at most 4 strings at once, the octave as each
 string's own 2nd partial at −5 dB, no detune, F♯ a just fifth. Its numbers are in `ledger.json` and `review-verify.json`.
 
