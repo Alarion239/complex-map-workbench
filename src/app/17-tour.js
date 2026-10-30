@@ -248,7 +248,7 @@
     sceneSpec: (name) => {
       if (name !== 'song') return null;
       const ex = EX.find((x) => x.song || x.shapes.some((sh) => sh.listen));
-      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, sectors: ex.sectors, song: ex.song, rightMode: ex.rightMode, dc: ex.dc } : null;
+      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, sectors: ex.sectors, song: ex.song, rightMode: ex.rightMode, dc: ex.dc, selected: ex.selected } : null;
     },
     listen: tourListen,
     soundHold: tourSoundHold,

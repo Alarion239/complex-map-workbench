@@ -349,6 +349,8 @@
   }
   function morphRange() { return HR.range(S); }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
+  // (#246) the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
+  const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
   // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
   // morphLen: the end of the transport's time, m steps one after another, or 1.

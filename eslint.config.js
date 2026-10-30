@@ -144,7 +144,7 @@ module.exports = [
     // (wrap.js's imports are used by the parts: the parts, linted as the joined file, report an import nothing uses)
     const imported = [...fs.readFileSync(path.join(__dirname, dir, 'wrap.js'), 'utf8').matchAll(/^import \{ ([^}]+) \} from/gm)].flatMap((m) => m[1].split(',').map((k) => k.trim().split(/\s+as\s+/).pop()));
     return [
-      { files: [`${dir}/wrap.js`], languageOptions, ...(imported.length && { rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: `^(${imported.map((k) => k.replace(/\$/g, '\\$')).join('|')})$` }] } }) },
+      { files: [`${dir}/wrap.js`], languageOptions, ...(imported.length && { rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: `^(${imported.map((k) => k.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')).join('|')})$` }] } }) },
       { files: [`${dir}/[0-9][0-9]-*.js`], processor: closure, languageOptions },
     ];
   }),
