@@ -49,11 +49,15 @@ ruff check
   labels (`// v15:`) and the file's history to git.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/cyr.js`, `src/seasong.js`
   (each names its generator at the top).
+- **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
+  characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
+  `python3 tools/vendor.py` again (it needs npm and `pip install fonttools brotli`) and commit `vendor/`. A character
+  left out falls back to a system face.
 
 ## Tests, notes and evidence
 
 - `test/` holds what CI runs: the unit tests (`t_*.js`), the browser suites (`*_cmd.js`) and `test/regress/`.
-  One-off review scripts go to `notes/` (see `notes/review-archive/`).
+  One-off review scripts go to `notes/`, next to the work they review (the old `notes/review-archive/` is in git history at 099e5f1).
 - `notes/` holds the Markdown specs and decisions, and nothing else that is large: no screenshots, PDFs, built pages or
   other large binaries in git. Attach evidence to the PR or issue instead, and link it from the spec if a decision
   rests on it. `test/` holds only what CI runs (above), never evidence or one-off scripts.

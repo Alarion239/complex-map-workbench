@@ -41,7 +41,8 @@ ok('T1: sound and the sea song', same(select(['src/sound.js', 'src/seasong.js'])
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 for (const f of ['src/i18n.js', 'src/i18n_ru.js', 'tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIGN.md']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
-ok('T1: desk.css -> the desktop shards', same(select(['src/desk.css']).browser, [...AREAS.desktop, 'smoke']));
+// ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
+ok('T1: desk.css -> the desktop and the phone shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']), select(['src/desk.css']).browser);
 ok('T1: page.html -> desktop and phone', same(select(['src/page.html']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
@@ -84,6 +85,19 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/gl/02-glsl-inverse.js -> T2, the inverse GLSL page (src/gl is its input)', g.tier === 'T2' && g.glsl.length && g.glsl.every((j) => j.page === 'inverse') && g.perf, g.glsl);
   ok('a part: src/app/03-exact-images.js -> T2', select(['src/app/03-exact-images.js']).tier === 'T2');
   ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
+  // ([#385] the start-up file in its parts: the params and links, init() and the start stay T3; the constructions'
+  // model and adapter are theirs and core; the test hooks select the suites that call a changed hook)
+  for (const f of ['src/app/18-params.js', 'src/app/20-init.js', 'src/app/22-start.js']) ok(`a part: ${f} -> T3`, select([f]).tier === 'T3');
+  const cm = select(['src/app/19-constructions.js']);
+  ok('a part: src/app/19-constructions.js -> T2, the constructions and the core shards', cm.tier === 'T2' && same(cm.browser, [...new Set([...AREAS.constructions, ...AREAS.core]), 'smoke']), cm.browser);
+  const H = 'src/app/21-test-hooks.js';
+  ok('the test hooks without their diff (--files): T3', select([H]).tier === 'T3' && select([H], { hooksOf: () => null }).tier === 'T3');
+  ok('the test hooks, a diff that names no hook: T3', select([H], { hooksOf: () => [] }).tier === 'T3');
+  const zp = select([H], { hooksOf: () => ['__cmwZp'] });
+  ok('the test hooks: __cmwZp changed -> the shards of the suites that call it (zp_cmd.js among them), not everything', zp.tier === 'T1' && zp.browser.includes('smoke') && zp.browser.length < ALL.length && zp.reasons.some((r) => /zp_cmd\.js/.test(r.effect)), zp.browser);
+  ok('the test hooks: a changed hook no suite calls -> T3 (fail safe), not nothing', (() => { const p = select([H], { hooksOf: () => ['__cmwNoSuiteCallsThis'] }); return p.tier === 'T3' && /no browser suite calls/.test(p.why.join(' ')); })());
+  const ps = select([H], { hooksOf: () => ['__cmwPaneStatus'] });
+  ok('the test hooks: a hook the quality runner calls -> T3', ps.tier === 'T3' && ps.why.some((w) => /run_quality\.js/.test(w)), ps.why);
   ok('the Arb oracle (dev-only) -> T0', select(['tools/arb_reference.py', 'tools/arb_compare.js', 'notes/arb/reference.json']).tier === 'T0');
 }
 // (the name is built here, so that this file does not name it)
@@ -91,6 +105,16 @@ ok('T3: a test file nothing names', select([`test/${['nobody', 'names', 'this'].
 const lab = select(['README.md'], { full: 'the label full-gate' });
 ok('T3: the label full-gate (or a push, the nightly run, a run by hand) forces everything', lab.tier === 'T3' && same(lab.browser, ALL) && lab.why.includes('the label full-gate') && !lab.skipped.length, lab);
 ok('T3: one unknown path among known ones still forces everything', select(['src/tour.js', 'Makefile']).tier === 'T3');
+
+// [#385] the recent merges the analysis named, on the new rows: #370's desk.css diff now runs the phone shards; #375's,
+// #349's and #342's hunks were in init() (now 20-init.js), so they stay T3 until UI wiring moves out of it (#385 step 3)
+{
+  const d370 = select(['src/desk.css', 'test/dh_cmd.js']);
+  ok('#370 (desk.css, dh_cmd.js): the phone shards too', AREAS.phone.every((id) => d370.browser.includes(id)) && d370.tier !== 'T3', d370.browser);
+  for (const [pr, files] of [['#375', ['src/app/09-pane-titles.js', 'src/app/20-init.js', 'src/desk.css', 'test/pane_heads_1024_cmd.js']], ['#349', ['src/app/20-init.js', 'test/phone_landscape_cmd.js']], ['#342', ['src/app/09-pane-titles.js', 'src/app/20-init.js', 'src/desk.css']]]) {
+    ok(`${pr}: a hunk in init() (start-up) -> T3`, select(files).tier === 'T3');
+  }
+}
 
 // the same build
 const sb = select(['src/app/wrap.js', 'src/app/17-tour.js', 'src/tour.js', 'src/cx.js', 'tools/src_parts.py'], { sameBuild: true });

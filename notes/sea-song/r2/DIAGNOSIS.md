@@ -1,6 +1,6 @@
 # Why round 1 sounds out of tune
 
-Measured on round 1's recording, `notes/sea-song/r2/round1.m4a` (a copy of the old `mountain-king.m4a`, 25.2 s,
+Measured on round 1's recording, `notes/sea-song/r2/round1.m4a` (removed, see git history at 099e5f1; a copy of the old `mountain-king.m4a`, 25.2 s,
 48 kHz). Method:
 
 - Decode the recording to WAV and align it with round 1's score. The best offset is 0.179 s, found by correlating

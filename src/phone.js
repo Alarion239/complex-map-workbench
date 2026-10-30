@@ -805,7 +805,10 @@ const Phone = (() => {
     group($t('Scene'), row(I.add || OPEN, $t('New scene'), () => { close(true); A.newScene(); }), row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true), ...sceneRows);
     group($t('Figure'), row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true), ...figRows);
     group($t('Sound'), sndRow, hearRow);
-    group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }));
+    // ([#21] the offline page, on the live page only: A.offlinePage() is null elsewhere)
+    const off = typeof A.offlinePage === 'function' ? A.offlinePage() : null;
+    group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }),
+      off ? row(I.download, off.label, () => { close(true); off.run(); }) : null);
     group($tx('menu group', 'Look'), seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
       seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
     const field = h('input', { class: 'ph-search', type: 'search', enterkeyhint: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: $t('Search tools, functions, help…'), 'aria-label': $t('Search tools, functions, help…') });

@@ -143,6 +143,8 @@
     selected = null;
     buildShapeList(); requestRender('P');
     undoToast(kind === 'dhray' ? $t('Added the external ray {t}.', { t: p.theta }) : $t('Added the equipotential |Φ| = {r}.', { r: CX.fmtNum(r, 6) }));
+    // ([#398] the tour's event for a ray or a level the user adds from the card)
+    tourEmit('dh-added', { kind });
     return '';
   }
   // (the palette's Add an external ray… / Add an equipotential…: step k in the Inspector, its field focused; with no
@@ -421,7 +423,7 @@
     }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     {
-      const out = S.focus === 0 ? '<i>w</i>' : wHtml(rightStage());
+      const out = yAtF() ? '<i>w</i>' : wHtml(rightStage());
       host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
       if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tc = {};
@@ -559,7 +561,7 @@
       if (s.complement) tex = $t('\\text{not }%{tex}', { tex });
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
-      if (isTarget(s)) { const yv = S.focus === 0 ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
+      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
       // ([#253] a shape of a plane of the chain, in that plane's variable)
       else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
@@ -923,7 +925,7 @@
         else { Expr.compileLevel(ast); if (warn.length) setNote(warn.join(' ')); }
         inp.classList.remove('bad');
         TeX.set(prev, Expr.toTex(ast, pl === 'w' ? { s: 'w', p: 4 } : undefined).s);
-        tag.textContent = pl === 'w' ? `w${S.focus === 0 ? '' : sub(rightStage())}-plane` : $t('z-plane');
+        tag.textContent = pl === 'w' ? `w${yAtF() ? '' : sub(rightStage())}-plane` : $t('z-plane');
         return v;
       } catch (e) {
         plan = null;
