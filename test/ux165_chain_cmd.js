@@ -265,9 +265,10 @@ await ev(`document.querySelectorAll('#popHost .examples .ex-item')[1].click()`);
 t = await toasts();
 xb = await ev(`document.getElementById('examplesBtn').innerText.replace(/\\s+/g, ' ').trim()`);
 ok('UX25 opening an example: "Opened Strip to disk." with Undo; the button names it after Examples', /^Opened Strip to disk\.\s*Undo$/.test(t[0] || '') && /^Examples\s*Strip to disk/.test(xb), { t, xb });
-await shot2('ux25-opened-example');
+// (Undo is clicked first: the toast lasts about 2.4 s, and a screenshot taken before the click, with the cards drawing, could outlast it)
 await ev(`[...document.querySelectorAll('#toastHost .toast-act')].find((b) => b.textContent === 'Undo').click()`); await settle(1200);
 ok('UX25 the toast\'s Undo brings the work back', (await P()).steps.length === n0, (await P()).steps.length);
+await shot2('ux25-undone');
 await grab();
 
 // ======================= dark, laptop: the palette and the Inspector =======================

@@ -1280,7 +1280,9 @@
   // (the Cauchy style's draw time: n frames of the left pane, each read back so the GPU has finished; ms per frame)
   /** @type {any} */ (window).__cmwCauchyBench = (n) => { const g = GLR.gl, px = new Uint8Array(4), t0 = performance.now(); for (let i = 0; i < n; i++) { renderColor(paneL); g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); } return (performance.now() - t0) / n; };
   /** @type {any} */ (window).__cmwCauchyOpt = (show, plus) => { setOpt('cauchyShow', show); setOpt('cauchyPlus', !!plus); requestRender('L'); save(); };
-  window.__cmwCardsNow = () => { lastInputT = 0; clearTimeout(thumbT); renderThumbs(); return true; };
+  window.__cmwCardsNow = () => { lastInputT = 0; clearTimeout(thumbT); renderThumbs(true); return true; };
+  // (#326: the last card job's order, and how many of its cards are still to draw)
+  /** @type {any} */ (window).__cmwThumbJob = () => ({ order: thumbJob.order.slice(), left: thumbJob.left });
   // P3 (SPEC 10.6, 12.4 (h)): the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
   // panel drawn off-screen at print size (a PNG data URL)
   window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L', 'R'], widthIn: 7, caption: false }, opt || {}));
