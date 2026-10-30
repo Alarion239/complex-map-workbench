@@ -169,7 +169,8 @@ jobs:
       # (on the Mac: this commit and the reference in turn, twice each, Chrome's Metal cache emptied before each cold
       # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
       # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
-      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || '') }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
+      # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
+      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || '') }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

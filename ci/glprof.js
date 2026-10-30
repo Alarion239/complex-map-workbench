@@ -10,9 +10,9 @@
 // for Chrome outside its profile (see metalCaches); without it a fresh profile is not cold on the Mac (#237).
 // The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are on by default: their inverse programs too); then on the
 // first example, the views (Phase, Landscape, both Spheres) and the deformation. --walk extended (#238's Windows list)
-// adds: the deformation of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the time to
-// the first exact-image draw, the gallery opened (its thumbnails' time), and on every pass the first minute from the
-// page's load (the start-up bar shown, the links pending, the page's long tasks). --variant unroll (#238 item 3): a
+// adds: the deformation of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
+// opened (its thumbnails' time), and on every pass the first minute from the page's load (the start-up bar shown, the
+// links pending, the page's long tasks, when the default example's exact image was first drawn). --variant unroll (#238 item 3): a
 // second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
 // constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
 // bounds are not undone by it). Each step waits until every link it started has landed (or --step-timeout, default
@@ -38,7 +38,8 @@ const REF = opt('ref', '');
 const VARIANT = opt('variant', '');
 if (VARIANT && VARIANT !== 'unroll') throw new Error(`--variant ${VARIANT}: only unroll`);
 if (VARIANT && REF) throw new Error('--variant and --ref: one second side at a time');
-const ROUNDS = Math.max(1, Number(opt('rounds', REF || VARIANT ? '2' : '1')) || 1);
+// (a variant: one round by default, the sides in turn once: a Windows side is about 50 minutes, the job has 300, #369)
+const ROUNDS = Math.max(1, Number(opt('rounds', REF ? '2' : '1')) || 1);
 const CLEAR_METAL = flag('clear-metal-cache') && process.platform === 'darwin';
 
 
@@ -69,9 +70,6 @@ function extended() {
     s.push([`${nm} (example ${i})`, `__cmwExample(${i})`, false, null]);
     s.push([`${nm}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${nm}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
   }
-  // (item 4: the first example again with the exact images on, until the right pane draws with nothing pending)
-  s.push(['exact images: the first visible draw', "(window.__gpX = __cmwExample(1), __cmwSet('exactImages', true), true)", false,
-    { until: "(() => { const p = __cmwPaneStatus('R'); return !!p && !p.pending && !p.compiling && !p.exact; })()" }]);
   // (item 5: the gallery opened: until every example's thumbnail is drawn, and how many were)
   s.push(['the gallery opened', "(document.getElementById('examplesBtn').click(), true)", false,
     { until: "(() => { const it = [...document.querySelectorAll('.ex-item')]; return it.length > 0 && it.every((e) => { const g = e.querySelector('img, canvas'); return !g || (g.tagName === 'IMG' ? !!g.getAttribute('src') : g.width > 0); }); })()",
@@ -79,20 +77,23 @@ function extended() {
   s.push(['the gallery closed', "(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), true)", false, null]);
   return s;
 }
-// (#238 item 8) from the page's first script on: the start-up bar's visibility, the links pending and the long tasks,
-// every 100 ms for 60 s, read with the start step
+// (#238 items 8 and 4) from the page's first script on: the start-up bar's visibility, the links pending and the long
+// tasks, every 100 ms for 60 s, read with the start step; and when the right pane first drew its exact image (the
+// default example has exact images on: their inverse programs, cold on the cold pass) with nothing pending
 const STARTUP = `(() => {
   const t0 = performance.now(), lt = [], tl = [];
+  let exactMs = null;
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) lt.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { /* none */ }
   const tick = () => {
     const b = document.getElementById('warmBar'), G = window.GLR;
     tl.push([Math.round(performance.now() - t0), b ? (b.hidden ? 0 : 1) : -1, G && typeof G.pendingLinks === 'number' ? G.pendingLinks : -1]);
+    if (exactMs == null) { try { const p = window.__cmwPaneStatus && window.__cmwPaneStatus('R'); if (p && !p.pending && !p.compiling && !p.exact && G && G.pendingLinks === 0) exactMs = Math.round(performance.now() - t0); } catch (e) { /* not yet */ } }
     if (performance.now() - t0 < 60000) setTimeout(tick, 100);
   };
   setTimeout(tick, 0);
   window.__gpStartup = () => {
     const on = tl.filter((x) => x[1] === 1);
-    return { barFirstMs: on.length ? on[0][0] : null, barLastMs: on.length ? on[on.length - 1][0] : null, barShownMs: on.length * 100, pendingMax: Math.max(0, ...tl.map((x) => x[2])),
+    return { exactDrawnMs: exactMs, barFirstMs: on.length ? on[0][0] : null, barLastMs: on.length ? on[on.length - 1][0] : null, barShownMs: on.length * 100, pendingMax: Math.max(0, ...tl.map((x) => x[2])),
       longTasks: lt.length, longMax: Math.max(0, ...lt.map((x) => x[1])), longOver200: lt.filter((x) => x[1] > 200).length, samples: tl.length };
   };
 })();`;
@@ -157,7 +158,7 @@ function unrolledDist(dist) {
   let n = 0;
   for (const f of fs.readdirSync(out).filter((x) => /\.(js|html)$/.test(x))) {
     const p = path.join(out, f), a = fs.readFileSync(p, 'utf8');
-    const b = a.replace(/max\(([^,()]+(?:\([^()]*\))?), uNoUnroll\)/g, (m, x) => { n++; return x; }).replace(/ \* uIxOne\b/g, () => { n++; return ''; });
+    const b = a.replace(/max\(\s*([^,()]+?(?:\([^()]*\))?)\s*,\s*uNoUnroll\s*\)/g, (m, x) => { n++; return x; }).replace(/\s*\*\s*uIxOne\b/g, () => { n++; return ''; });
     if (b !== a) fs.writeFileSync(p, b);
   }
   console.log(`[glprof] --variant unroll: ${n} loop guards stripped in ${out}`);
