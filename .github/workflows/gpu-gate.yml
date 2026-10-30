@@ -12,7 +12,9 @@
 # this repository when it has the label `gpu-gate`. The machines' own Chrome, Python and Git are used (ci/RUNNERS.md).
 # By hand with mode glprof: no gates, only the app's shader link times on each machine, cold and warm (ci/glprof.js,
 # issue #72; on the Mac against the reference, the sides in turn): the table in the run's summary and log, the JSON as
-# the artifact glprof-<machine>.
+# the artifact glprof-<machine>. Machines windows-hosted (mode glprof only): the same on GitHub's windows-latest, whose
+# Direct3D 11 renders on WARP but compiles with the same FXC on the CPU, against the reference: an A/B of link times
+# while the laptop is away (#378).
 name: GPU gate
 
 on:
@@ -29,9 +31,9 @@ on:
         required: false
         default: ''
       machines:
-        description: Which machines
+        description: 'Which machines (windows-hosted: mode glprof only, GitHub''s windows-latest, Direct3D 11 on WARP, against the reference)'
         type: choice
-        options: [both, windows, mac]
+        options: [both, windows, mac, windows-hosted]
         default: both
       shards:
         description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
@@ -127,6 +129,10 @@ jobs:
         run: |
           case "${{ inputs.machines }}" in
             windows) echo 'machines=["Windows"]' >> "$GITHUB_OUTPUT" ;;
+            # (GitHub's Windows machine: shader link times only, the gates need our GPUs)
+            windows-hosted)
+              if [ "${{ inputs.mode }}" != glprof ]; then echo "::error::machines windows-hosted runs mode glprof only"; exit 1; fi
+              echo 'machines=["Windows-hosted"]' >> "$GITHUB_OUTPUT" ;;
             mac) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
             *) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
           esac
@@ -160,7 +166,9 @@ jobs:
       fail-fast: false
       matrix:
         machine: ${{ fromJSON(needs.plan.outputs.machines) }}
-    runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
+    # (Windows-hosted: GitHub's windows-latest, where ANGLE's Direct3D 11 renders on WARP but compiles with the same
+    # FXC on the CPU, so a program's link time against the reference's shows on it as on the laptop, #378)
+    runs-on: ${{ fromJSON(matrix.machine == 'Windows-hosted' && '"windows-latest"' || format('["self-hosted","{0}","gpu"]', matrix.machine)) }}
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v5
@@ -169,13 +177,19 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - if: matrix.machine == 'Windows-hosted'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
       - run: npm ci
-      - run: node ci/gpu_probe.js --require-hardware
+      # (GitHub's machine renders in software, WARP: the probe says which renderer; it must still be Direct3D 11)
+      - run: node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '' }}
       # (on the Mac: this commit and the reference in turn, twice each, Chrome's Metal cache emptied before each cold
       # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
       # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
       # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
-      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || '') }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
+      # (Windows-hosted: this commit and the reference, one round, the same step timeout, to fit too)
+      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
