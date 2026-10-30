@@ -336,6 +336,7 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the app's sections inside the sheets: open, flat, 44 px rows */
 :root.ph .ph-sb details.psec { margin: 8px 0 0; padding: 0; background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 :root.ph .ph-sb details.psec > summary { min-height: 44px; padding: 0 4px; }
+:root.ph .ph-sb #secShapes > #clearShapes { top: 0; right: 4px; }   /* (#361: over the header's right end, as it was inside the summary) */
 :root.ph .ph-sb details.psec > .psec-body { padding: 4px 4px 8px; }
 :root.ph .ph-sb #propsPanel { display: block !important; position: static; width: auto; height: auto; max-height: none; padding: 0; margin: 0; border: 0; box-shadow: none; background: none; overflow: visible; }
 :root.ph .ph-sb #propsPanel.temp { position: static; }
