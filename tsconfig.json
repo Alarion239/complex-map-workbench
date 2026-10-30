@@ -1,7 +1,7 @@
 {
   // Type checking of the app's JavaScript (issue #20, phase 1): nothing is compiled or emitted, build.py is unchanged.
   //   npm run typecheck
-  // app.js and gl.js are kept as ordered parts (src/app/, src/gl/; issue #20, phase 2). A part is not a program of its
+  // app.js, gl.js, figure.js, sound.js and construct.js are kept as ordered parts (src/<name>/; issue #20, phase 2). A part is not a program of its
   // own (its top-level names are the closure's, and app.js's TAU, DEG, $ and h would clash with other files' globals),
   // so tsc checks the joined files instead: tools/join_src.js writes them to dist/tsc/ (npm run typecheck runs it
   // first, and npm ci runs it as "prepare"). Errors there are reported at the joined file's lines.
@@ -15,7 +15,7 @@
     "strict": false,
     "skipLibCheck": true
   },
-  "files": ["dist/tsc/app.js", "dist/tsc/gl.js"],
+  "files": ["dist/tsc/app.js", "dist/tsc/gl.js", "dist/tsc/figure.js", "dist/tsc/sound.js", "dist/tsc/construct.js"],
   "include": ["src/*.js", "types/*.d.ts"],
   "exclude": ["src/i18n_ru.js", "src/i18n_it.js", "src/seasong.js"]
 }

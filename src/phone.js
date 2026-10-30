@@ -131,7 +131,7 @@ const Phone = (() => {
     // a card, the region card or the F tile opens the Editor (the app has selected it already)
     $('pipeline').addEventListener('click', (e) => {
       if (!on) return;
-      const t = e.target;
+      const t = /** @type {HTMLElement} */ (e.target);
       if (t.closest('.acts, .conn-add, .add-card, button.icon-btn')) return;
       if (t.closest('.card, .ftile')) open('edit');
     });
@@ -142,8 +142,8 @@ const Phone = (() => {
       if (rc) new MutationObserver(() => { if (els.tabs) setTab(toolTab); syncBadge(); }).observe(rc, { childList: true, characterData: true, subtree: true });
       syncBadge(); }
     if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });   // (v16 [C20])
-    new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = $('undoBtn').disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
-    els.undo.disabled = els.sundo.disabled = $('undoBtn').disabled;
+    new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
+    els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled;
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
@@ -154,11 +154,11 @@ const Phone = (() => {
     // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
     document.addEventListener('click', (e) => {
       if (!on) return;
-      const b = e.target.closest && e.target.closest('.tdock #speedSeg > button.on');
+      const tg = /** @type {HTMLElement} */ (e.target), b = /** @type {HTMLElement | null} */ (tg.closest && tg.closest('.tdock #speedSeg > button.on'));
       if (!b) return;
       const ORDER = ['1.6', '0.8', '3.2'];
       const nx = ORDER[(ORDER.indexOf(b.dataset.v) + 1) % ORDER.length];
-      const t = b.parentNode.querySelector(`button[data-v="${nx}"]`);
+      const t = /** @type {HTMLElement | null} */ (b.parentNode.querySelector(`button[data-v="${nx}"]`));
       if (!t) return;
       e.preventDefault(); e.stopPropagation();
       t.click();
@@ -195,7 +195,7 @@ const Phone = (() => {
     const o = k === 'edit' && nums ? { params: true } : k === 'display' ? { side: els.dispSide || big } : {};
     const body = els.body[k], top = body ? body.scrollTop : 0;
     const FIELDS = 'input:not([type="hidden"]), textarea, select';
-    const fe = document.activeElement;
+    const fe = /** @type {HTMLInputElement | null} */ (document.activeElement);
     const fIn = fe && fe !== document.body && els.sheet.contains(fe) && fe.matches(FIELDS) ? fe : null;
     const at = fIn ? [...els.sheet.querySelectorAll(FIELDS)].indexOf(fIn) : -1;
     let caret = null;
@@ -232,7 +232,7 @@ const Phone = (() => {
     park($('pipeline'), els.body.chain);
     park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
-    for (const id of ['secFormula', 'secShapes']) { const d = $(id); if (d) d.open = true; }
+    for (const id of ['secFormula', 'secShapes']) { const d = /** @type {HTMLDetailsElement} */ ($(id)); if (d) d.open = true; }
     A.showPanels(true);
     syncPanes(); syncTools(); syncNums(); syncSnap();
     chainSeen = ''; chain();
@@ -281,7 +281,7 @@ const Phone = (() => {
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     if (!tabs) return;
     const sb = tabs.querySelector('button[data-mode="sphere"]'), pb = tabs.querySelector('button[data-mode="plane"]');
-    const t = sb && sb.classList.contains('on') ? pb : sb;
+    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
     if (t) t.click();
     setTimeout(syncPanes, 0);
   }
@@ -448,11 +448,11 @@ const Phone = (() => {
   const ROW = ['select', 'point', 'disc', 'polygon'];
   function syncTools() {
     if (!els.undo) return;
-    const onB = document.querySelector('#tools .tool.on, #constructTools .tool.on');
+    const onB = /** @type {HTMLElement | null} */ (document.querySelector('#tools .tool.on, #constructTools .tool.on'));
     const id = onB ? onB.dataset.tool : 'select';
     const sum = document.querySelector('#toolMore > summary');
     if (!sum) return;
-    const lab = sum.querySelector('.tm-open'), ic = sum.querySelector(':scope > .ic-slot');
+    const lab = sum.querySelector('.tm-open'), ic = /** @type {HTMLElement} */ (sum.querySelector(':scope > .ic-slot'));
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
@@ -517,8 +517,8 @@ const Phone = (() => {
   }
   function redoMenu(anchor) {
     A.openMenu(anchor, [
-      { label: $t('Undo'), icon: 'undo', disabled: $('undoBtn').disabled, run: () => $('undoBtn').click() },
-      { label: $t('Redo'), icon: 'redo', disabled: $('redoBtn').disabled, run: () => $('redoBtn').click() },
+      { label: $t('Undo'), icon: 'undo', disabled: /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled, run: () => $('undoBtn').click() },
+      { label: $t('Redo'), icon: 'redo', disabled: /** @type {HTMLButtonElement} */ ($('redoBtn')).disabled, run: () => $('redoBtn').click() },
     ]);
   }
 

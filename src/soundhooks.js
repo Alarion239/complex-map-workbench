@@ -96,7 +96,7 @@ const SoundHooks = (() => {
       const b = $(id);
       if (!b) continue;
       if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
-      const ic = b.querySelector('.snd-ic');
+      const ic = /** @type {HTMLElement | null} */ (b.querySelector('.snd-ic'));
       if (ic && ic.dataset.on !== String(on)) { ic.dataset.on = String(on); ic.innerHTML = on ? SND_ICON_ON : SND_ICON_OFF; }
       // (v16.5 UX70) a small wave on the button while Hear the function is on
       const hv = on && s.sonify ? 'on' : 'off';
@@ -168,12 +168,12 @@ const SoundHooks = (() => {
       $('sndOn').focus({ preventScroll: true });
     };
     more.addEventListener('click', () => openPop(pop.hidden));
-    document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('#soundMore'))) openPop(false); }, true);
+    document.addEventListener('pointerdown', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (!pop.hidden && !pop.contains(t) && !(t.closest && t.closest('#soundMore'))) openPop(false); }, true);
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); openPop(false); more.focus(); } });
-    $('sndOn').addEventListener('change', (e) => { tourSndMine(['on']); SND.set({ on: e.target.checked }); sndSay(e.target.checked ? $t('Sound on.') : $t('Sound off.')); });
+    $('sndOn').addEventListener('change', (e) => { const on = /** @type {HTMLInputElement} */ (e.target).checked; tourSndMine(['on']); SND.set({ on }); sndSay(on ? $t('Sound on.') : $t('Sound off.')); });
     $('sndVol').addEventListener('input', (e) => SND.set({ vol: +(/** @type {HTMLInputElement} */ (e.target)).value / 100 }));
     $('sndVol').addEventListener('change', () => SND.play('toggleOn', { force: true, audition: true }));
-    for (const [id, k] of [['sndUi', 'ui'], ['sndSnap', 'snap'], ['sndEv', 'events'], ['sndSo', 'sonify']]) $(id).addEventListener('change', (e) => { tourSndMine([k]); SND.set({ [k]: e.target.checked }); sndToggleCue(e.target.checked); });
+    for (const [id, k] of [['sndUi', 'ui'], ['sndSnap', 'snap'], ['sndEv', 'events'], ['sndSo', 'sonify']]) $(id).addEventListener('change', (e) => { const on = /** @type {HTMLInputElement} */ (e.target).checked; tourSndMine([k]); SND.set({ [k]: on }); sndToggleCue(on); });
     // Notes / Glide (a preference the tour never holds: not through tourSndMine)
     for (const [id, gl] of [['sndNotes', false], ['sndGlide', true]]) { const r = $(id); if (r) r.addEventListener('change', (e) => { if ((/** @type {HTMLInputElement} */ (e.target)).checked) soundMode(gl); }); }
     // the last pointer's type on a plane (the rope: 5 px behind a finger, 3 px behind a mouse or pen)
@@ -1254,10 +1254,11 @@ const SoundHooks = (() => {
   function sndLandmarks() {
     const v = leftView(), hw = A.paneL.w / (2 * v.s), hh = A.paneL.h / (2 * v.s), key = sndFKey() + '|' + sndVKey();
     if (snd.lms && snd.lmKey === key) return snd.lms;
+    /** @type {ZeroPoleList} */
     let out = [];
     try { out = zerosPolesTimed(sndF(), { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh }, { max: 24 }, 80); } catch (e) { out = []; }
     const L = out.filter((r) => r && r.z && (r.kind === 'zero' || r.kind === 'pole')).sort((p, q) => p.z.re - q.z.re || p.z.im - q.z.im);
-    L.incomplete = !!out.incomplete;
+    /** @type {any} */ (L).incomplete = !!out.incomplete;
     snd.lms = L; snd.lmKey = key; snd.lm = -1;
     return L;
   }

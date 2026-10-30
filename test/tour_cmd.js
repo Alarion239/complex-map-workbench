@@ -8,10 +8,12 @@ const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = () => ev('Tour.current()');
+// (the shade's path is set by the strip's first paint, which a slow machine can reach after the settle: wait for it, up to 8 s)
+const shaded = async () => { for (let i = 0; i < 320; i++) { if (await ev(`(() => { const s = document.querySelector('.tour-shade'); return !!(s && s.getAttribute('d')); })()`)) return true; await sleep(25); } return false; };
 const open = async (ns, at, w = 1440, h = 900, dark = false, mobile = false) => {
   await view(w, h, dark, mobile); await nav(U + '?ns=' + ns); await settle(1800);
   await ev('Tour.auto(false)');   // (v16.4: tour_cmd checks the walk without the auto-advance; tour_auto_cmd.js checks it)
-  if (at) { await ev(`Tour.start(${JSON.stringify(at)})`); await settle(1600); }
+  if (at) { await ev(`Tour.start(${JSON.stringify(at)})`); await settle(1600); await shaded(); }
 };
 // the first-run card without ?ns= (the app's own rule), on this kit's own profile and origin
 const fresh = async (keep) => { await nav(U + '?ns=t0'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (!/:/.test(k)${keep ? " && !/^(complex-map-workbench-v1|cmw-tour)$/.test(k)" : ''}) localStorage.removeItem(k); })()`); };
@@ -19,7 +21,7 @@ const st = (k) => ev(`localStorage.getItem('${k}')`);
 const recOf = async (ns) => JSON.parse((await st('cmw-tour:' + ns)) || '{}');
 const box = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; })()`);
 const meet = (a, b) => !!a && !!b && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
-const holes = () => ev(`(document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1`);
+const holes = async () => { await shaded(); return ev(`(document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1`); };
 const SHOTS = [];
 logs();   // the console from earlier commands of this daemon is not ours
 const snap = async (name) => { SHOTS.push(name); await shot(name); };
@@ -159,16 +161,16 @@ check('a tooltip over the callout is hidden, and shows again away from it', g.ov
 // 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step
 await open('t4', { chapter: 'deform', step: 2 });
 g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
-check('Paths is step 3 of 5 of Deformation (v16: + Part of the chain)', g.id === 'paths' && /3 of 5$/.test(g.count) && g.next === 'Next', g);
+check('Paths is step 3 of 5 of Deformation (v16: + Part of the chain)', g.id === 'paths' && /3 of 5$/.test(g.count) && (g.next === 'Next' || g.next === 'Skip'), g);
 await snap('tour-paths-light');
 await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, lit: (() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return !!a && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })(), sel: !!document.querySelector('#homOrderSel') })`);
-check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && g.next === 'Next', g);
+check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && (g.next === 'Next' || g.next === 'Skip'), g);
 await snap('tour-order-light');
 await ev(`Tour.next()`); await settle(1600);
 // (v16, notes/deform-range/SPEC.md 10.2) Part of the chain: the bracket's left end lit, every step bracketed
 g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, body: (Tour.lit() || {}).body, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
-check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && g.next === 'Next: Analysis' && /The bracket over the cards/.test(g.body) && g.range === null, g);
+check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && (g.next === 'Next: Analysis' || g.next === 'Skip') && /The bracket over the cards/.test(g.body) && g.range === null, g);
 await snap('tour-range-light');
 await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);

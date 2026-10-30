@@ -344,3 +344,13 @@
   function wKeyOn(...args) { return MP.wKeyOn(...args); }
   function renderRight(...args) { return MP.renderRight(...args); }
 
+  // (#385) the Deformation toggle in the top bar
+  function setupMorphButton() {
+    // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
+    const mb = $('morphBtn');
+    if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
+    // a deformation is coming: the homotopy programs (one per map mode, gl.js MAP) start compiling in the background,
+    // so its first frames do not wait for them (the pointer or focus on the toggle, as prestartGlobe)
+    const prestartMorph = () => { try { if (!morph.open && GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } };
+    if (mb) { mb.addEventListener('pointerenter', prestartMorph); mb.addEventListener('focus', prestartMorph); }
+  }

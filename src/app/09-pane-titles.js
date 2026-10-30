@@ -1364,3 +1364,8 @@
     requestRender('R');
   }
 
+  // (#385) the faces arriving late: the right title and the labels again
+  function setupLateFonts() {
+    // fonts may arrive late; redraw labels
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
+  }

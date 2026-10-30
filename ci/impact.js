@@ -56,7 +56,9 @@ const MAP = [
   // ([#385] the start-up file in parts along its seams, joined in name order as before, byte for byte the same build)
   ['src/app/18-params.js', full('the shared numbers and links, under every area')],
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
-  ['src/app/20-init.js', full('the app\'s start-up')],
+  ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
+  ['src/app/19-shell.js', ui('desktop', 'phone')],                                         // the header, its menus, the panels and drawers (#385)
+  ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
   ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
@@ -84,10 +86,12 @@ const MAP = [
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone')],                                               // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
-  ['src/figure.js', ui('export')],                                            // exported figures, and the images shard
+  ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/cyr.js', ui('export', 'i18n')],                                       // Cyrillic outlines in exported figures
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
+  ['src/sound/**', ui('sound')],                                              // sound.js in parts
   ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
+  ['src/construct/**', ui('constructions')],                                  // construct.js in parts (#20), the same
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas
   ['src/commands.js', ui('desktop', 'i18n')],                                 // the command palette (desktop: formulas too)
@@ -99,7 +103,7 @@ const MAP = [
   ['src/page.html', ui('desktop', 'phone')],                                  // the page's markup: both layouts
   ['src/desk.css', ui('desktop', 'phone')],                                   // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,parse,funcs,homrange,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,parse,funcs,natpaths,derivs,homrange,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
@@ -114,6 +118,7 @@ const MAP = [
   ['test/t_*.js', T0],
   ['test/*_cmd.js', { suite: true }],
   ['test/regress/test_compare.py', T0],
+  ['test/{gl_make_test.py,gl_test.js,make_css_fixture.py,css_fixture.js}', T0],   // by-hand pages (dist/gl-test.html, css-fixture.html): no CI job opens them
   ['test/regress/perf/cdp.js', { glsl: 'all', quality: true, perf: true }],   // the Chrome driver of the paired gates
   ['test/regress/quality/**', { quality: true }],
   ['test/regress/compare_quality.py', { quality: true }],

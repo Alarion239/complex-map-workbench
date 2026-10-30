@@ -268,7 +268,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
-          key: glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-${{ hashFiles('src/glsl.js', 'src/gl/**', 'src/funcs.js', 'src/parse.js', 'src/inverse.js', 'test/glsl_test.js', 'test/glsl_test_adv.js', 'test/glsl_inverse_test.js') }}
+          key: glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-${{ hashFiles('src/glsl.js', 'src/gl/**', 'src/funcs.js', 'src/derivs.js', 'src/natpaths.js', 'src/parse.js', 'src/inverse.js', 'test/glsl_test.js', 'test/glsl_test_adv.js', 'test/glsl_inverse_test.js') }}
           restore-keys: |
             glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-
       - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} --tier ${{ matrix.tier || 'all' }} ${{ matrix.sections && format('--sections {0}', matrix.sections) || '' }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}

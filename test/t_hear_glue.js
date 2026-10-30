@@ -188,7 +188,7 @@ const move = (g, z, src = 'pointer') => { const [x, y] = px(z); g.clock += 16; g
 {
   const sbx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
   vm.createContext(sbx);
-  for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, sbx, { filename: f + '.js' });
+  for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['funcs', 'Funcs']]) vm.runInContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, sbx, { filename: f + '.js' });
   const [s1, s2] = SEASONG.steps, fU = sbx.Expr.compile(sbx.Expr.parse(s1.params.expr)), fG = sbx.Expr.compile(sbx.Expr.parse(s2.params.expr));
   const F = (z) => fG(fU(z));
   const g = glue();

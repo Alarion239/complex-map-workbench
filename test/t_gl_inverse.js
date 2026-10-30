@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does)
-const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glsl: 'GLChain', region: 'Region', constr: 'Constr', curves: 'Curves', palette: 'Palette', gl: 'GLR' };
+const NAMES = { cx: 'CX', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glsl: 'GLChain', region: 'Region', constr: 'Constr', curves: 'Curves', palette: 'Palette', gl: 'GLR' };
 for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src'), { esm: 'strip' }) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { Funcs, Inverse, GLChain, GLR } = ctx;
 let bad = 0, n = 0;

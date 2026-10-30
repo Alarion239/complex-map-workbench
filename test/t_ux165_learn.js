@@ -40,7 +40,7 @@ ok('UX90: the welcome lead says what is cleared', w.lead === 'Practice freely: w
 ok('UX90: the lead keeps the strip\'s rule (one sentence, at most 60, a full stop)', plain(w.lead).length <= 60 && /\.$/.test(w.lead));
 ok('UX77: Details adds to the lead (it no longer repeats it)', !w.body.includes(w.lead) && /your own work comes back exactly as it was/.test(w.body), w.body);
 ok('#250: no Details control: its words, its aria-label and its rec.why are gone', !/\$t\('Details'\)/.test(SRC) && !/rec\.why/.test(SRC));
-ok('#250: Move on by itself is a small switch in a laptop\'s row, and the phone\'s sheet keeps it', /ts-autob/.test(SRC) && /ts-auto/.test(SRC));
+ok('#34: Move on by itself is a checkbox in the chapters menu (no timer icon in the strip), and the phone\'s sheet keeps it', !/ts-autob/.test(SRC) && /menuitemcheckbox/.test(SRC) && /ts-auto/.test(SRC));
 const key = step('views', 'key');
 // (#247: the check is a toggle in Y's head, so the task names the check alone; the head's ⋯ is lit when it is behind it)
 ok('UX20: the Phase key step lights the head\'s ⋯ button when the check is behind it', key.anchor[1] === 'rightOpts' && key.try.text === 'Turn on Phase key.', key.try);
