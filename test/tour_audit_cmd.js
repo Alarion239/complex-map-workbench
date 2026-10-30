@@ -70,7 +70,7 @@ const PROBE = `(() => {
   // opens, data-tour-layer naming that step: [v17 D4] the patterns step's Display ▾; still open at a later step, it counts)
   const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]') && !(c && /** @type {HTMLElement} */ (e).dataset.tourLayer === c.chapter + '/' + c.id)).length;
   const pn = rb(document.querySelector('#panes'));
-  return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.w)), minH: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.h)), chapMin: Math.min(...btns.filter((b) => b.n === 'ts-chap').map((b) => Math.min(b.w, b.h))), gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
+  return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.w)), minH: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.h)), chapMin: btns.some((b) => b.n === 'ts-chap') ? Math.min(...btns.filter((b) => b.n === 'ts-chap').map((b) => Math.min(b.w, b.h))) : null, gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
 })()`;
 const runs = [];
 const phoneSize = (w, h) => w < 768 || (w > h && h <= 430);
@@ -102,7 +102,7 @@ for (const cfg of runs) {
     check(`${n}: the strip meets none of the panes, the chain, the tool row and the header's controls`, g.hits.length === 0, g.hits);
     check(`${n}: no lead, task, result or caption cut`, g.cut.length === 0, [g.cut, g.lead]);
     check(`${n}: the title cut only with its full name`, g.titleOk);
-    check(`${n}: the chapter chip is at least 24 px (WCAG 2.5.8), a text control`, !(g.chapMin < 23.5), g.btns);
+    check(`${n}: the chapter chip is at least 24 px (WCAG 2.5.8), a text control`, g.chapMin == null || g.chapMin >= 23.5, g.btns);
     check(`${n}: buttons ${touch || g.mode !== 'desk' ? 44 : 36} px at least, 8 px apart`, g.minW >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && g.minH >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && (g.gap == null || g.gap >= 7.5), [g.btns, g.gap]);
     check(`${n}: text contrast at least 4.5:1, Next's label included`, Object.values(g.con).every((v) => v >= 4.5), g.con);
     if (g.frac != null) check(`${n}: the lit patch holds the anchor`, g.frac >= 0.9, g.frac);
