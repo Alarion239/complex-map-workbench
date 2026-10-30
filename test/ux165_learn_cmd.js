@@ -45,7 +45,7 @@ await ev(`document.querySelector('.tour-lane .btn.primary').click()`); await set
 check('UX21 laptop: Start runs the tour from Basics, and the line has gone', (await ev('Tour.isActive() && Tour.current().chapter === "basics"')) && !(await ev(`!!document.querySelector('.tour-lane')`)));
 // (#250) no Details on a laptop: the strip's text is plain, with the key on Next and the switch beside ×; the welcome lead says the practice is cleared (UX90)
 g = await ev(`({ why: Tour.lit() ? Tour.lit().why : null, details: [...document.querySelectorAll('.tour-strip *')].some((e) => /Details/.test(e.textContent) || /Details/.test(e.getAttribute('aria-label') || '')), key: getComputedStyle(document.querySelector('.ts-next'), '::after').content, autob: !!document.querySelector('.ts-autob') && document.querySelector('.ts-autob').getClientRects().length > 0, textBtn: document.querySelector('.ts-text').getAttribute('role'), lead: (document.querySelector('#tourLead') || {}).textContent })`);
-check('#250: no Details at 1366; Next carries →, Move on by itself is a switch in the row, the text is plain', g.why === false && !g.details && g.key === '"→"' && g.autob && g.textBtn === 'presentation', g);
+check('#250: no Details at 1366; the Next key hint is gone, the timer button is gone (Move on by itself is a switch in the Chapters menu)', g.why === false && !g.details && g.key === 'none' && !g.autob, g);
 check('UX90: the welcome lead says what is cleared', /Practice freely: what you draw here is cleared at the end/.test(g.lead || ''), g.lead);
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(500); await ev('Tour.stop()'); await settle(300);
 await laptop(1440, 900);

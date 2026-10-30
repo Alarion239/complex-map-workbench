@@ -7,7 +7,7 @@
 // bundle, src/i18n.js and src/cyr.js: their I18N, $t, $tx, $tn and CYR are the modules' only globals (with MathJax,
 // which the page loads). The unit tests put the modules on node's global, so they see every top-level name of src/.
 //
-// app.js and gl.js are kept as ordered parts (issue #20, phase 2; test/src_text.js): src/<name>/wrap.js holds the
+// app.js, gl.js, figure.js and sound.js are kept as ordered parts (issue #20, phase 2; test/src_text.js): src/<name>/wrap.js holds the
 // closure's first and last lines, and the parts src/<name>/NN-*.js its body, which build.py joins in order. A part is
 // not a program of its own (its names live in the closure, which the other parts share: a `let` one part declares
 // another assigns, and app.js's own TAU, DEG, $ and h shadow other files' globals), so each part is linted as the
@@ -81,8 +81,8 @@ const rules = {
 // A file may shrink, never grow: lower its number when it shrinks (never raise one), and drop it once it is under
 // 1,500, where the aim above applies again. Moving code out of a file into a new one is how a number goes down.
 const SIZE_BUDGET = {
-  'src/figure.js': 3478, 'src/funcs.js': 2603, 'src/tour.js': 2582, 'src/construct.js': 2464, 'src/constr.js': 2431,
-  'src/glsl.js': 2152, 'src/inverse.js': 2165, 'src/region.js': 1830, 'src/parse.js': 1777, 'src/sound.js': 1590,
+  'src/funcs.js': 2603, 'src/tour.js': 2582, 'src/construct.js': 2464, 'src/constr.js': 2431,
+  'src/glsl.js': 2152, 'src/inverse.js': 2165, 'src/region.js': 1830, 'src/parse.js': 1777,
 };
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and

@@ -81,10 +81,11 @@ The app is a single HTML file built from `src/`:
 python3 build.py
 ```
 
-`build.py` joins the files of `src/` in a fixed order into one `<script>`. `app.js` and `gl.js` are kept as ordered
-parts: `src/app/` and `src/gl/` hold a `wrap.js` (the closure's first and last lines) and the parts `NN-subject.js`,
-which take the place of its `// @parts` line in file name order (`tools/src_parts.py`; `test/src_text.js` joins them
-the same way for the tests).
+`build.py` joins the files of `src/` in a fixed order into one `<script>`. `app.js`, `gl.js`, `figure.js` and
+`sound.js` are kept as ordered parts: `src/app/`, `src/gl/`, `src/figure/` and `src/sound/` hold a `wrap.js` (the
+closure's first and last lines, or a file's header and module block) and the parts `NN-subject.js`, which take the
+place of its `// @parts` line in file name order (`tools/src_parts.py`; `test/src_text.js` joins them the same way
+for the tests).
 
 This writes `dist/complex-map-workbench.html` (the published page, test hooks stripped) and `dist/test.html` (with
 test hooks). The live page is published by GitHub Pages from CI (`.github/workflows/pages.yml`): pushing a release tag

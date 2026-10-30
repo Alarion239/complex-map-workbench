@@ -36,8 +36,9 @@ const tour = select(['src/tour.js']);
 ok('T1: src/tour.js -> the tour shards and smoke', tour.tier === 'T1' && same(tour.browser, [...AREAS.tour, 'smoke']) && !tour.glsl.length && !tour.quality.length && !tour.perf, tour);
 const ph = select(['src/phone.css', 'src/phone.js']);
 ok('T1: src/phone.* -> the phone shards', ph.tier === 'T1' && same(ph.browser, [...AREAS.phone, 'smoke']), ph.browser);
-ok('T1: src/figure.js -> export and images', same(select(['src/figure.js']).browser, [...AREAS.export, 'smoke']));
+ok('T1: src/figure/ (figure.js in parts) -> export and images', same(select(['src/figure/03-views.js']).browser, [...AREAS.export, 'smoke']));
 ok('T1: sound and the sea song', same(select(['src/sound.js', 'src/seasong.js']).browser, ['sound', 'smoke']));
+ok('T1: src/sound/ (sound.js in parts) -> sound', same(select(['src/sound/03-lifecycle-cues.js']).browser, ['sound', 'smoke']));
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 for (const f of ['src/i18n.js', 'src/i18n_ru.js', 'tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIGN.md']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
@@ -93,6 +94,9 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
   const sv = select(['src/app/19-steps-view.js']);
   ok('a part: src/app/19-steps-view.js -> T1, the views, desktop and phone shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone]), 'smoke']), sv);
+  // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
+  ok('a part: src/app/19-shell.js -> the desktop and phone shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+  ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));
   const H = 'src/app/21-test-hooks.js';
   ok('the test hooks without their diff (--files): T3', select([H]).tier === 'T3' && select([H], { hooksOf: () => null }).tier === 'T3');
   ok('the test hooks, a diff that names no hook: T3', select([H], { hooksOf: () => [] }).tier === 'T3');
@@ -110,12 +114,14 @@ ok('T3: the label full-gate (or a push, the nightly run, a run by hand) forces e
 ok('T3: one unknown path among known ones still forces everything', select(['src/tour.js', 'Makefile']).tier === 'T3');
 
 // [#385] the recent merges the analysis named, on the new rows: #370's desk.css diff now runs the phone shards; #375's,
-// #349's and #342's hunks were in init() (now 20-init.js), so they stay T3 until UI wiring moves out of it (#385 step 3)
+// #349's and #342's hunks were in init(), and since step 3 their wiring is in the chain head's, the shell's and the
+// view controls' parts: their areas, not everything
 {
   const d370 = select(['src/desk.css', 'test/dh_cmd.js']);
   ok('#370 (desk.css, dh_cmd.js): the phone shards too', AREAS.phone.every((id) => d370.browser.includes(id)) && d370.tier !== 'T3', d370.browser);
-  for (const [pr, files] of [['#375', ['src/app/09-pane-titles.js', 'src/app/20-init.js', 'src/desk.css', 'test/pane_heads_1024_cmd.js']], ['#349', ['src/app/20-init.js', 'test/phone_landscape_cmd.js']], ['#342', ['src/app/09-pane-titles.js', 'src/app/20-init.js', 'src/desk.css']]]) {
-    ok(`${pr}: a hunk in init() (start-up) -> T3`, select(files).tier === 'T3');
+  for (const [pr, files] of [['#375', ['src/app/09-pane-titles.js', 'src/app/11-pipeline.js', 'src/desk.css', 'test/pane_heads_1024_cmd.js']], ['#349', ['src/app/19-shell.js', 'test/phone_landscape_cmd.js']], ['#342', ['src/app/09-pane-titles.js', 'src/app/05-panes-rulers.js', 'src/desk.css']]]) {
+    const pl = select(files);
+    ok(`${pr}: its wiring in its area's part -> T1, the desktop and phone shards`, pl.tier === 'T1' && [...AREAS.desktop, ...AREAS.phone].every((id) => pl.browser.includes(id)) && pl.browser.length < ALL.length, pl.browser);
   }
 }
 
