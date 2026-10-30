@@ -290,7 +290,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* ([#356] a head too narrow for its view tabs: the chip folds to its glyph (its words stay its accessible name), then
    the head packs closer, then its status light goes; app.js fitTitle) */
 .pane-head > .legend-chip.glyph { gap: 0; padding: 0 4px; }
-.pane-head > .legend-chip.glyph > .lg-sum { display: none; }
+.pane-head > .legend-chip.glyph > .lg-sum { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .pane-head.tight { gap: 2px; }
 .pane-head.tight :is(#leftTabs, #rightTabs) > button { padding: 0 4px; }
 .pane-head.tight > .led { margin: 0 2px; }

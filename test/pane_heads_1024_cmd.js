@@ -1,6 +1,6 @@
 // The heads beside the Inspector at 1024 and 1100 px (issues #356, #357): with the example "Cayley, then cube" and its
 // f₁ card selected, the Inspector open, Y's head keeps "Plane | Sphere" in words (no tab cut; its key chip folds to its
-// glyph first, then the head packs closer, then its status light goes) and the chain head cuts no control ("Clear
+// glyph first, its value kept in its accessible name, then the head packs closer, then its status light goes) and the chain head cuts no control ("Clear
 // chain" inside the head; the heading "Function chain" gives way first, kept for screen readers). At 1280 px nothing
 // folds. en, ru, it. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -15,7 +15,7 @@ const probe = () => ev(`(() => {
   return { insp: !!document.getElementById('propsPanel') && document.getElementById('propsPanel').getClientRects().length > 0,
     tabs: tabs ? [...tabs.children].map((b) => [b.textContent, b.scrollWidth, b.clientWidth]) : null,
     tabsCut: !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1)),
-    chip: R(chip), glyph: !!chip && chip.classList.contains('glyph'), chipName: chip && chip.getAttribute('aria-label'),
+    chip: R(chip), glyph: !!chip && chip.classList.contains('glyph'), chipName: chip && chip.getAttribute('aria-label'), chipSum: chip && chip.querySelector('.lg-sum') ? chip.querySelector('.lg-sum').textContent : null,
     head: R(document.querySelector('#paneR .pane-head')), pipeHead: R(ph), clear: R(cc),
     clearCut: !!(cc && ph && (cc.getBoundingClientRect().right > ph.getBoundingClientRect().right + 0.5 || cc.scrollWidth > cc.clientWidth + 1)),
     pipeOver: !!ph && ph.scrollWidth > ph.clientWidth + 1, title: !!h2 && h2.getBoundingClientRect().width > 2, h2Text: h2 && h2.textContent };
@@ -38,7 +38,8 @@ for (const lang of ['en', 'ru', 'it']) {
     ok(`${at}: the chain head cuts no control (Clear chain inside it)`, !p.clearCut && !p.pipeOver, { clear: p.clear, pipeHead: p.pipeHead });
     if (w === 1280) ok(`${at}: nothing folds at 1280 px (the key chip in words, the heading shown)`, !p.glyph && p.title, { glyph: p.glyph, title: p.title });
     // (a folded chip keeps its words as its name; the hidden heading keeps its text)
-    if (p.glyph) ok(`${at}: the folded key chip keeps its accessible name`, !!p.chipName, p.chipName);
+    // (ux's review: the folded chip's name still says what it shows, "cell 1")
+    if (p.glyph) ok(`${at}: the folded key chip's accessible name keeps its value`, !!p.chipName && !!p.chipSum && p.chipName.startsWith(p.chipSum), [p.chipName, p.chipSum]);
     ok(`${at}: the chain heading keeps its text for screen readers`, !!p.h2Text, p.h2Text);
   }
 }
