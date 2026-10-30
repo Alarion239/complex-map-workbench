@@ -56,6 +56,11 @@ on:
         type: choice
         options: [none, unroll]
         default: none
+      glsl:
+        description: 'Mode gate: all (the GLSL and quality jobs, then perf) or skip (perf alone: on Windows a by-hand run''s GLSL tier takes about 7 hours before perf starts)'
+        type: choice
+        options: [all, skip]
+        default: all
 
 permissions:
   contents: read
@@ -182,7 +187,8 @@ jobs:
   glsl:
     name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
     needs: plan
-    if: inputs.mode != 'glprof'
+    # (glsl skip, by hand: no GLSL and no quality jobs, the perf shards start at once; a measurement, not the full gate)
+    if: inputs.mode != 'glprof' && inputs.glsl != 'skip'
     strategy:
       fail-fast: false
       matrix:
@@ -217,7 +223,7 @@ jobs:
   quality:
     name: Quality (${{ matrix.machine }} GPU)
     needs: [plan, glsl]
-    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof'
+    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.glsl != 'skip'
     strategy:
       fail-fast: false
       matrix:
@@ -281,5 +287,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: echo "plan ${{ needs.plan.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+      # (with glsl skip the GLSL and quality jobs were left out on purpose: only perf is judged then)
+      - if: >-
+          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || needs.perf.result == 'skipped' ||
+          (inputs.glsl != 'skip' && contains(needs.*.result, 'skipped'))
         run: exit 1

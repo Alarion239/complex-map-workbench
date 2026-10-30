@@ -246,4 +246,4 @@ Any other Mac runner problem: open an issue with the label `mac-runner`; Alexand
 | `Google Chrome not found` | Chrome is not in its usual place. Put `CHROME_BIN=<path to chrome>` and `CHROME=<same path>` in the file `.env` in the runner's folder, then restart the runner. |
 | `python` or `git` not found | Install it (section 2), then restart the runner so it sees the new PATH. |
 | Windows: PowerShell refuses to run scripts | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
-| A shard fails with a slowdown you do not believe | Run it again: *Actions → GPU gate → Run workflow* with only that shard (e.g. `views`). Each failing unit is already re-run twice within a job; a slowdown that survives a second run is real. |
+| A shard fails with a slowdown you do not believe | Run it again: *Actions → GPU gate → Run workflow* with only that shard (e.g. `views`) and *glsl* `skip` (else the Windows GLSL jobs, about 7 hours, run first). Each failing unit is already re-run twice within a job; a slowdown that survives a second run is real. |
