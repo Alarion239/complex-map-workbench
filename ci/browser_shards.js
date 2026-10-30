@@ -37,7 +37,7 @@ const SHARDS = [
   { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
-  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
+  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js', 'phone_ctx_tex_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
   { id: 'smoke', suites: ['smoke_cmd.js'] },
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },

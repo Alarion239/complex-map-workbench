@@ -1110,7 +1110,10 @@
         const sel = selected && findShape(selected);
         if (!sel) return null;
         const r = shapeRows.get(sel.id);
-        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def: r ? r.d.textContent : '', used: Construct.usedBy(sel.id).length };
+        // ([#321] a typeset definition as the words its tooltip reads: the cell's text is MathJax's, or the raw TeX
+        // until MathJax has loaded; a construction's definition and an error are plain text already)
+        const def = !r ? '' : r.d.dataset.tex ? texTitle(r.d.dataset.tex) : r.d.textContent;
+        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def, used: Construct.usedBy(sel.id).length };
       },
       ctxAct: (act, id, anchor) => {
         if (act === 'last') polyBack();
