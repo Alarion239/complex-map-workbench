@@ -46,6 +46,16 @@ on:
         type: choice
         options: [gate, glprof]
         default: gate
+      walk:
+        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples)'
+        type: choice
+        options: [all, extended, quick]
+        default: all
+      variant:
+        description: 'Mode glprof: a second side, this build with the loop guards of #206 stripped (unroll), the sides in turn (#238 item 3)'
+        type: choice
+        options: [none, unroll]
+        default: none
 
 permissions:
   contents: read
@@ -158,7 +168,9 @@ jobs:
       - run: node ci/gpu_probe.js --require-hardware
       # (on the Mac: this commit and the reference in turn, twice each, Chrome's Metal cache emptied before each cold
       # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
-      - run: node ci/glprof.js ${{ matrix.machine == 'macOS' && format('--ref {0} --clear-metal-cache', needs.plan.outputs.reference) || '' }}
+      # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
+      # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
+      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || '') }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
