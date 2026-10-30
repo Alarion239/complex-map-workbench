@@ -157,10 +157,11 @@ float levels2(vec4 h, float m0, float m1, float m2, float m3, float m4) {
   // program, the edge pass (uPass 3, LAND_EDGE_VS's work for the cut kind this program was built for, issue #47): one
   // call site of the chain, evalAt, in one loop whose trip count is a uniform, so the program stays about the size of
   // the height pass's and the edge pass costs no second program's link and first draw. kind 'P': the principal map
-  // (mapF), for no cut or the cuts the sheets cannot continue (kind 2, bisection on the height step); 'S' / 'H': the
+  // (mapF), for the cuts the sheets cannot continue (kind 2, bisection on the height step); 'S' / 'H': the
   // continuation of the stages' sheets (chainSheetRange) or the deformation's (chainSheetHom), for a chain whose every
   // cut is one the sheets continue (kind 1): the principal value at z is the continuation at its own centre, so the
   // heights come from the same call. (No return inside a loop: ANGLE's Metal translation lost results, LAND_EDGE_VS.)
+  // 'N': mapF, for a chain that cannot cut in this mode: no edge pass, its code compiled out (D3D11 links the loop slowly)
   const LAND_TF_VS = (kind = 'P') => (kind === 'H' ? `
 vec2 evalAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }
 ` : kind === 'S' ? `
@@ -182,7 +183,7 @@ bool sameBranch(vec2 c, vec2 p) {
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  bool edge = uPass == 3;
+  bool edge = ${kind === 'N' ? 'false' : 'uPass == 3'};
   vec4 none = vec4(0.5, 0.0, 0.0, 0.0);
   // the point of the height passes, or the edge's ends (p, q: +x, +y or the diagonal, uDir) and its bracket
   vec2 z0 = vec2(0.0), z1 = vec2(0.0), wLo = vec2(0.0), wHi = vec2(0.0), wB = vec2(0.0), wc = vec2(0.0), wp = vec2(0.0);

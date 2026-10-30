@@ -170,8 +170,12 @@ float wabs(vec2 w) {
   // mode keeps 'P', and its kind-1 frames use the separate edge program (landEdgeS / landEdgeH)
   function tfKind(ch, mode) {
     const info = ch && ch.info;
-    if (!info || !Array.isArray(info.cutKinds) || mode === 2) return 'P';
+    if (!info || !Array.isArray(info.cutKinds)) return 'P';
     const defo = mode === 1 || mode === 3;
+    // (no step of the chain can cut in this mode, cutModeOf 0: 'N', no edge pass compiled in. D3D11 links the edge loop
+    // around the inlined chain slowly, 30 s for Mobius then z^3 on an Intel Iris Xe, even where pass 3 never runs)
+    if (info.cutKinds.every((c) => !c || (defo ? [c.f, c.h] : [c.f]).every((kd) => !kd || kd === 'none'))) return 'N';
+    if (mode === 2) return 'P';
     let sheet = false;
     for (const c of info.cutKinds) {
       if (!c) continue;
