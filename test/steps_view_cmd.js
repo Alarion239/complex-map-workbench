@@ -55,8 +55,16 @@ const sp = await S();
 ok('parked at 0.5: the deformation there, between z and w₁', Math.abs(sp.x - 0.5) < 1e-9 && sp.moving === true && !sp.anim, sp);
 const hP = await hash('sv_park');
 ok('the parked picture is neither plane\'s', hP !== hZ && hP !== h1, [hP, hZ, h1]);
+ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-rail').getAttribute('aria-valuetext'))`), null);
 await press('ArrowRight'); const sn = await rest();
 ok('→ from 0.5 goes on to w₁', sn.i === 1 && Math.abs(sn.x - 1) < 1e-9, sn);
+// Shift+→: a quarter of a step, and the view stays there
+await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true })); 1`); await settle(400);
+const sq = await S();
+ok('Shift+→ stops a quarter of a step on', Math.abs(sq.x - 1.25) < 1e-9 && !sq.anim, sq);
+await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true, cancelable: true })); 1`); await settle(400);
+const sb = await S();
+ok('Shift+← back settles on w₁', Math.abs(sb.x - 1) < 1e-9 && sb.i === 1 && sb.moving === false, sb);
 // C: the colour plane is w₁
 await press('c'); await settle(500);
 const sc = await S();

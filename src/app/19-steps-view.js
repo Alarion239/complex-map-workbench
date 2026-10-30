@@ -273,7 +273,8 @@
     const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      drawScene(mp, map, null, k == null ? { noGrid: true, cache: false } : { noGrid: true, cache: false, domain: k === 0, plane: k });
+      // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
+      drawScene(mp, map, null, k == null ? { noGrid: true, cache: false } : { noGrid: true, domain: k === 0, plane: k });
       if (k != null) stagePullbacks(mp, k);
     } catch (e) { console.error('steps view mask', e); }
     for (const key of Object.keys(keep)) setOpt(key, keep[key]);
@@ -392,6 +393,7 @@
 
   // ---- the controls: the plane's head and the chain strip ----
   function svLabel() {
+    if (svParked()) return svPlaceText();
     const k = svStage(), T = svT(), n = svPlanes().length;
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: SV.i + 1, n, where });
@@ -432,7 +434,11 @@
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
     $('stage').append(live);
-    SV.els = { bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    const rail = strip.querySelector('.sv-rail');
+    rail.setAttribute('role', 'slider'); rail.setAttribute('tabindex', '0'); rail.setAttribute('aria-label', $t('Place on the chain'));
+    rail.setAttribute('aria-valuemin', '0'); rail.setAttribute('aria-orientation', 'horizontal');
+    if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
+    SV.els = { rail, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -456,35 +462,48 @@
         h('span', { class: 'sv-node', 'aria-hidden': 'true' }), h('span', { class: 'sv-pn', html: svNameHtml(k) })));
     });
   }
+  // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
+  // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
   function svSync() {
     if (!SV.on || !SV.els) return;
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
-    // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
-    const home = document.documentElement.classList.contains('ph') ? $('top') : E.head;
-    if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
-    const x = SV.g.x, at = Math.round(x);
-    E.title.innerHTML = svFormulaHtml(k);
-    // (on a phone the button is its wheel alone, its words in its label)
-    const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
-    E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
-    E.cp.setAttribute('aria-label', cpText);
-    E.cp.setAttribute('aria-pressed', String(k === T));
-    E.cp.classList.toggle('on', k === T);
-    const sname = (E.SURF.find((x) => x[0] === SV.surf) || E.SURF[0])[1];
-    E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
-    for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
-    E.prev.disabled = at <= 0 && !svMoving();
-    E.next.disabled = at >= P.length - 1 && !svMoving();
-    for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
-    // (the ring round the shown plane's node, between two nodes in proportion to the glide)
-    const bs = E.track.querySelectorAll('.sv-plane'), j = Math.max(0, Math.min(bs.length - 1, Math.floor(x + 1e-9))), u = x - j;
-    const A = bs[j], B = bs[Math.min(bs.length - 1, j + 1)];
-    if (A && B) {
-      const ca = A.offsetLeft + A.offsetWidth / 2, cb = B.offsetLeft + B.offsetWidth / 2;
-      E.thumb.style.transform = `translateX(${(ca + (cb - ca) * u).toFixed(1)}px)`;
+    const x = SV.g.x, at = Math.round(x), parked = svParked();
+    const ph = document.documentElement.classList.contains('ph');
+    const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, ph ? 1 : 0, E.sig].join('|');
+    if (sig !== E.headSig) {
+      E.headSig = sig;
+      // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
+      const home = ph ? $('top') : E.head;
+      if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
+      E.title.innerHTML = svFormulaHtml(k);
+      // (on a phone the button is its wheel alone, its words in its label)
+      const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
+      E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
+      E.cp.setAttribute('aria-label', cpText);
+      E.cp.setAttribute('aria-pressed', String(k === T));
+      E.cp.classList.toggle('on', k === T);
+      const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
+      E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
+      for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+      E.prev.disabled = at <= 0 && !svMoving() && !parked;
+      E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
+      for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
+      $('paneL').setAttribute('aria-label', svLabel());
+      // (the thread as a slider: its place in planes, said as a plane or the two it is between)
+      E.rail.setAttribute('aria-valuenow', x.toFixed(2)); E.rail.setAttribute('aria-valuemax', String(P.length - 1));
+      E.rail.setAttribute('aria-valuetext', svPlaceText());
     }
-    $('paneL').setAttribute('aria-label', svLabel());
+    // (the ring round the shown plane's node, between two nodes in proportion to the glide)
+    if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
+    const c = E.centres, j = Math.max(0, Math.min(c.length - 1, Math.floor(x + 1e-9))), u = x - j;
+    if (c.length) E.thumb.style.transform = `translateX(${(c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u).toFixed(1)}px)`;
+  }
+  // where the view is on the thread, in words: a plane, or the two planes it is between
+  function svPlaceText() {
+    const P = svPlanes(), x = SV.g.x;
+    if (!svParked()) return svName(svStage());
+    return $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.min(P.length - 1, Math.ceil(x))]) });
   }
   function svSetT(k) {
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
@@ -585,12 +604,30 @@
     const live = SV.els && SV.els.live;
     if (live) live.textContent = $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.ceil(x)]) });
   }
+  // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
+  function svNudge(d) {
+    const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
+    SV.anim = null;
+    svKeepView();
+    SV.g.set(Math.max(0, Math.min(P.length - 1, Math.round((from + d) * 4) / 4)));
+    SV.g.max = P.length - 1;
+    svLetGo();
+  }
   // ← → move through the planes, C makes the shown plane the colour plane (not while typing, nor on a focused plane,
   // whose arrows move the probe)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
+      // (on the thread itself, a slider: ← → move a quarter of a step and stop there, Home / End go to z and the last plane)
+      const onRail = !!(t && t.classList && t.classList.contains('sv-rail'));
+      if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
+      // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
+      if ((e.shiftKey || onRail) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
+        return;
+      }
       const inField = !!(t && t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], .cm-palette'));
       // (PageUp / PageDown from anywhere but a field, a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
@@ -611,6 +648,17 @@
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
     svApply();
+    setTimeout(svPrestart, 300);
+  }
+  // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
+  // maps' (mode 1) and the carried colour's pre-mapped mesh; at start-up and when the chain changes. (F's GPU carry
+  // hooks its own programs in here)
+  function svPrestart() {
+    try {
+      if (!GLR.ok) return;
+      if (GLR.prestartModes) GLR.prestartModes([1]);
+      if (GLR.prestart) GLR.prestart(['regionP']);
+    } catch (e) { /* (the first glide starts them) */ }
   }
   function setupStepsView() {
     if (!SV.on) return;
@@ -622,4 +670,7 @@
     SV.g.set(0); SV.g.max = svPlanes().length - 1;
     svAdopt();
     svApply();
+    // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
+    for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
+    setTimeout(svPrestart, 1500);
   }
