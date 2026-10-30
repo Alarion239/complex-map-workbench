@@ -514,7 +514,7 @@
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
       const home = ph ? $('top') : E.head;
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
-      E.title.innerHTML = svFormulaHtml(k);
+      E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
       const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
