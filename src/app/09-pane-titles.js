@@ -19,6 +19,17 @@
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    // ([#356] "Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
+    // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
+    // its gaps), and last its status light goes (Russian at 1024 px)
+    const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+    const legIn = !!(leg && hd && leg.parentNode === hd);
+    const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
+    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    if (legIn && !leg.hidden && tabsCut()) {
+      leg.classList.add('glyph');
+      if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
+    }
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
     if (!(pane.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
@@ -51,7 +62,9 @@
   // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
   function fitRightTitle(force) {
     if (paneR) layoutFoot(force);
-    for (const side of ['L', 'R']) if (!paneR || !foot[side].head) fitTitle(side);
+    // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
+    const headed = (side) => { const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'); return !!(f && f.parentElement && f.parentElement.classList.contains('pane-head')); };
+    for (const side of ['L', 'R']) if (!paneR || !headed(side)) fitTitle(side);
   }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
@@ -114,7 +127,6 @@
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
     const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 w`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
-    syncStyleBtn();
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
@@ -1000,6 +1012,30 @@
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() { drawLegendSide('L'); drawLegendSide('R'); }
+  // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
+  // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
+  // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
+  // to the lowest of them; it is recomputed each time the key is shown)
+  function placeKeyPop(box) {
+    const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
+    if (!box || !plot || !box.parentNode) return;
+    const head = box.parentNode.classList.contains('pane-head');
+    const el = head ? box.querySelector(':scope > canvas') : box;
+    box.style.removeProperty('--lg-drop');
+    if (!el || (!head && box.classList.contains('collapsed'))) return;
+    const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
+    for (let i = 0; i < 3; i++) {
+      const c = el.getBoundingClientRect();
+      if (!c.width) return;   // (shown by :hover or .open: not shown, nothing to place)
+      let drop = 0;
+      for (const e of plot.querySelectorAll(sel)) {
+        const r = e.getBoundingClientRect();
+        if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
+      }
+      if (drop <= 0) return;
+      box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
+    }
+  }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   function drawLegendSide(side) {
@@ -1017,7 +1053,8 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      const tip = kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open');
+      // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it)
+      const tip = tx + '. ' + (kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
@@ -1254,7 +1291,7 @@
     return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
-  const phoneChain = () => { if (typeof Phone !== 'undefined' && Phone.isOn() && Phone.chain) Phone.chain(); };
+  const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
   // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
   function morphTick(d) {
     const m = morphLen(), T = morph.T, eps = 1e-6;

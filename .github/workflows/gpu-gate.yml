@@ -46,6 +46,21 @@ on:
         type: choice
         options: [gate, glprof]
         default: gate
+      walk:
+        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples)'
+        type: choice
+        options: [all, extended, quick]
+        default: all
+      variant:
+        description: 'Mode glprof: a second side, this build with the loop guards of #206 stripped (unroll), the sides in turn (#238 item 3)'
+        type: choice
+        options: [none, unroll]
+        default: none
+      glsl:
+        description: 'Mode gate: all (the GLSL and quality jobs, then perf) or skip (perf alone: on Windows a by-hand run''s GLSL tier takes about 7 hours before perf starts)'
+        type: choice
+        options: [all, skip]
+        default: all
 
 permissions:
   contents: read
@@ -158,7 +173,9 @@ jobs:
       - run: node ci/gpu_probe.js --require-hardware
       # (on the Mac: this commit and the reference in turn, twice each, Chrome's Metal cache emptied before each cold
       # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
-      - run: node ci/glprof.js ${{ matrix.machine == 'macOS' && format('--ref {0} --clear-metal-cache', needs.plan.outputs.reference) || '' }}
+      # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
+      # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
+      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || '') }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -170,7 +187,8 @@ jobs:
   glsl:
     name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
     needs: plan
-    if: inputs.mode != 'glprof'
+    # (glsl skip, by hand: no GLSL and no quality jobs, the perf shards start at once; a measurement, not the full gate)
+    if: inputs.mode != 'glprof' && inputs.glsl != 'skip'
     strategy:
       fail-fast: false
       matrix:
@@ -205,7 +223,9 @@ jobs:
   quality:
     name: Quality (${{ matrix.machine }} GPU)
     needs: [plan, glsl]
-    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof'
+    # (!cancelled(), not always(): a failed GLSL job still lets quality run, a cancelled run stops here; always() is
+    # true after a cancel too: cancelled run 41015822380 still queued its quality job on our machines)
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.glsl != 'skip' }}
     strategy:
       fail-fast: false
       matrix:
@@ -234,7 +254,7 @@ jobs:
   perf:
     name: Perf (${{ matrix.machine }} GPU, ${{ matrix.shard }})
     needs: [plan, quality]
-    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' }}
     strategy:
       fail-fast: false
       matrix:
@@ -269,5 +289,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: echo "plan ${{ needs.plan.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+      # (with glsl skip the GLSL and quality jobs were left out on purpose: only perf is judged then)
+      - if: >-
+          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || needs.perf.result == 'skipped' ||
+          (inputs.glsl != 'skip' && contains(needs.*.result, 'skipped'))
         run: exit 1

@@ -439,7 +439,7 @@
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
-  function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
+  function ctxChanged() { if (Phone.isOn && Phone.isOn()) Phone.ctx(); }
   const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
@@ -757,8 +757,15 @@
     if (SND && !target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid')
       box.append(h('div', { class: 'row snd-edit' }, h('button', { type: 'button', class: 'btn', 'data-act': 'listen-along',
         onclick: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) }, $t('Listen along it'))));
+    // (#361: a field's label names its input for a screen reader, by aria-labelledby, not a for: a click on the label,
+    // which scrubs a number, keeps doing only that)
+    for (const f of box.querySelectorAll('.field')) {
+      const l = f.querySelector(':scope > label'), i = f.querySelector(':scope > input');
+      if (l && i && !i.hasAttribute('aria-labelledby')) { l.id = l.id || `fl${++fieldLabelSeq}`; i.setAttribute('aria-labelledby', l.id); }
+    }
     return box;
   }
+  let fieldLabelSeq = 0;
   // ---------------- [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4, issue #26) ----------------
   // On the laptop the selected free shape is edited in the Inspector, with full-width fields, its Used by list and a way
   // back to the step it replaced there; a construction keeps its own view (construct.js). The Shapes list keeps the

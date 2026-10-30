@@ -211,7 +211,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .layout > .panel.right { grid-column: 3; }
 
 /* ---------- 5.1 Header ---------- */
-.top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; reading-flow: flex-visual; }
+/* (#359) no reading-flow here: it took the menu's buttons (display: contents) as one item placed before the views, so Tab went
+   Examples … Help and then the view switch and Deformation; the source order is undo, redo, the views, then the menu */
+.top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; }
 .top > * { flex: 0 0 auto; }
 .top .mark { order: 1; display: block; width: 22px; height: 22px; }
 .hdiv { order: 3; width: 1px; height: 20px; background: var(--line-strong); margin: 0 2px; }
@@ -234,17 +236,14 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 #shareBtn { order: 11; }
 #settingsBtn { order: 13; }
 .top .hw, .top .hc { display: none; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn):not([hidden]) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hw { display: inline; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hc svg { width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn):not([hidden]) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hw { display: inline; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc svg { width: 12px; height: 12px; }
 :root:not(.ph) .top :is(#themeBtn, #toggleLeft, #toggleRight) { display: none; }
 /* (hdrFit: where the header has no room for Share's word, e.g. Russian at 1280 and 1366 px, Share is its icon alone) */
 :root:not(.ph) .top.share-icon #shareBtn { width: 28px; padding: 0; justify-content: center; }
 :root:not(.ph) .top.share-icon #shareBtn :is(.hw, .hc) { display: none; }
-/* (the Phase style gives its word way first, then Share does) */
-:root:not(.ph) .top.sty-icon #styleBtn { width: 28px; padding: 0; justify-content: center; }
-:root:not(.ph) .top.sty-icon #styleBtn :is(.hw, .hc) { display: none; }
 :root.ph .top :is(#shareBtn, #settingsBtn) { display: none !important; }
 .pop.opts-pop.set-pop { width: 320px; align-items: stretch; white-space: normal; max-height: calc(100vh - 64px); overflow-y: auto; }
 .set-pop > .seg { align-self: flex-start; }
@@ -261,10 +260,8 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
    the speaker in the bar while sound is on (one tap silences it) */
 #soundBtn, #soundMore { order: 12; }
 /* Phase colors (issue 8): the button shows the palette's key as a small disc; its menu, a preview of each palette */
-#palBtn, #styleBtn { order: 12; }
-.top #styleBtn[hidden], :root.ph .top #styleBtn { display: none !important; }
-#styleBtn[aria-disabled="true"] { opacity: 0.55; }
-.sty-ic svg, .sty-prev svg { display: block; width: 16px; height: 16px; }
+#palBtn { order: 12; }
+.sty-prev svg { display: block; width: 16px; height: 16px; }
 .mi-ic:has(.sty-prev) { width: 22px; height: 22px; flex-basis: 22px; }
 .mi-ic .sty-prev svg { width: 20px; height: 20px; }
 .pcol-ic { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, conic-gradient(from 90deg, #F58C7E, #F089AC, #DB8FD6, #B99BF5, #8EAAFD, #53B8F7, #1CC3D8, #27C8AF, #6EC580, #A5B953, #CFA93E, #EA9853, #F58C7E)); box-shadow: inset 0 0 0 1px var(--line-strong); }
@@ -353,7 +350,6 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 @media (max-width: 1279px) {
   .top > .vsw > button > span, .top > .defbtn > span { display: none; }
   .top > .vsw > button { padding: 0 8px; }
-  .top > .vsw > button::after { display: none; }
   .top > .defbtn { padding: 0 8px; }
 }
 .hdr-menu { display: contents; }
@@ -386,6 +382,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .psec > summary::-webkit-details-marker { display: none; }
 .psec > summary::marker { content: ""; }
 .psec > summary :is(button, a, input, select) { pointer-events: auto; }
+/* (#361: Clear is not inside the summary, a button in a button; it sits over the header's right end) */
+#secShapes { position: relative; }
+#secShapes > #clearShapes { position: absolute; top: 12px; right: 8px; height: 24px; }
 .psec > summary:focus-visible { outline-offset: -2px; }
 details.psec::details-content { content-visibility: visible; display: contents; }
 .panel h2, .psec h2 { display: flex; align-items: center; gap: 8px; min-height: 24px; margin: 0 0 8px; font: var(--t-heading); color: var(--ink); }
@@ -490,15 +489,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 @container pane (max-width: 519px) {
   .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
   .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
-  .seg.modes:not(#leftTabs, #rightTabs) > button::after { display: none; }
 }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
-.pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button::after { display: none; }
 /* [v16.5 UX37] "Plane | Sphere" in words at every width (the pane title shortens first, app.js fitTitle); a narrow pane
    drops the icons, never the words */
 .pane.narrow :is(#leftTabs, #rightTabs) > button > svg { display: none; }
-.pane.narrow :is(#leftTabs, #rightTabs) > button::after { display: none; }
 .pane.narrow :is(#leftTabs, #rightTabs) > button { padding: 0 8px; }
 :is(#leftTabs, #rightTabs) > button { min-height: 28px; }
 /* the right title stays beside the icon-only modes while it fits (app.js fitRightTitle): first the role text
@@ -1059,16 +1055,19 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   transition: color var(--t-fast) var(--ease-out);
 }
 .seg > button:hover { color: var(--ink); }
-/* the view tabs (Plane | Sphere, X → Y | Phase | Landscape): the word is centred in its tile, the icon hangs to its left and
-   an empty slot of the icon's width on the right balances it; where the icon or the word is hidden the slot goes too */
-.seg.modes > button::after { content: ""; flex: 0 0 14px; }
+/* the view tabs (Plane | Sphere, X → Y | Phase | Landscape): the icon and the word are centred in the tile as a pair, so
+   the gap left of the icon equals the gap right of the word (centring the word alone left the pair off to one side, #335) */
 .seg > button.on, .seg > button[aria-checked="true"] { color: var(--ink); background: var(--seg-on); border-color: var(--line-strong); }
 .seg[style*="--seg-w"] > button.on, .seg[style*="--seg-w"] > button[aria-checked="true"] { background: transparent; border-color: transparent; }
 .seg[style*="--seg-w: 0px"] > button.on, .seg[style*="--seg-w: 0px"] > button[aria-checked="true"] { background: var(--seg-on); border-color: var(--line-strong); }
 .seg > button:focus-visible { outline-offset: -1px; }
 .seg > button:disabled { opacity: 0.4; }
 .seg > button > .mic, .seg > button > svg { width: 14px; height: 14px; flex: 0 0 14px; display: block; }
-.seg.small, .options .seg, .card .seg, .pipe-head .seg, .pop .seg { height: 24px; }
+.seg.small, .options .seg, .card .seg, .pipe-head .seg, .pop .seg { height: 26px; padding: 0 2px; }
+.seg.small::before, .options .seg::before, .card .seg::before, .pipe-head .seg::before, .pop .seg::before { top: 0; bottom: 0; }
+/* (#360) the small controls' segments are 24 px tall, WCAG 2.5.8's minimum target (they touch, so the spacing exception
+   does not apply): a 24 px strip inside the control's 1 px border and no vertical padding; the view switch has 2 px of it */
+.top > .seg.vsw { height: 30px; }
 .seg.small > button, .options .seg > button, .card .seg > button { padding: 0 8px; }
 .seg.modes { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 0 1 auto; min-width: 0; }
 .seg.modes::-webkit-scrollbar { display: none; }
@@ -1281,12 +1280,15 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 
 /* ---------- Display section ---------- */
 .patterns { display: grid; grid-template-columns: repeat(4, 52px); justify-content: space-between; row-gap: 8px; margin-top: 2px; }
+/* (#339) each name has its column's width, not the swatch's: the four columns share the row, so a Russian name wraps
+   between its words ("Квадратная / сетка") and is not hyphenated inside one ("Растяже-ние") */
+.patterns { grid-template-columns: repeat(4, minmax(52px, 1fr)); column-gap: 4px; }
 .pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
 .pat > canvas { display: block; width: 52px; height: 40px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; }
 .pat > span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; }
 /* [v16.5 UX95, UX86] a pattern's name wraps to two lines rather than being cut ("Sphere checker", "Square grid") */
 .pat { white-space: normal; }
-.pat > span { max-width: 62px; text-align: center; line-height: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pat > span { max-width: 100%; text-align: center; line-height: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .pat:hover { color: var(--ink); }
 .pat:hover > canvas { outline-color: var(--line-strong); }
 .pat.on, .pat[aria-checked="true"] { color: var(--ink); }
@@ -2040,7 +2042,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* CSS-generated text: the empty formula preview's word */
 :root[data-lang="ru"] .texprev:empty::before { content: "Предпросмотр"; }
 :root[data-lang="ru"] .pat { white-space: normal; }
-:root[data-lang="ru"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="ru"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* (v15) the five mesh stops («Черновая» … «Максимум») are 242 px of labels in one row; the left panel has 214-226 px
    at 1024-1440 px. The row widened the Display column, so the pattern swatches and «Максимум» ran 3-15 px past the
    panel. In Russian the stops stand at their slider positions (0, 1/4, 1/2, 3/4, 1, thumb-centre corrected as --at
@@ -2109,7 +2111,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
    button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
 :root[data-lang="it"] .pat { white-space: normal; }
-:root[data-lang="it"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
@@ -2147,8 +2149,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
       <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
-      <!-- Phase style (issue #81): the Phase view's style, beside the palette; app.js shows it while X is the Phase view and opens its menu -->
-      <button class="icon-btn" id="styleBtn" hidden title="Phase style" aria-label="Phase style" aria-haspopup="menu"><span class="ic-slot sty-ic" aria-hidden="true"></span><span class="hw"></span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
@@ -2185,7 +2185,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         </div>
       </details>
       <details class="psec" id="secShapes" open>
-        <summary><h2><span class="grow">Shapes</span><button class="btn ghost small" id="clearShapes">Clear</button></h2></summary>
+        <summary><h2><span class="grow">Shapes</span></h2></summary>
+        <button class="btn ghost small" id="clearShapes">Clear</button>
         <div class="psec-body">
           <div class="shapes" id="shapeList"></div>
         </div>

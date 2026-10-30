@@ -680,17 +680,23 @@
     radioKeys($('patternSeg'));
     // on phones the More sheet of tools closes once a tool is picked
     $('tools').addEventListener('click', (e) => { const tm = $('toolMore'); if (tm && tm.open && e.target.closest('.tool')) tm.open = false; });
-    // from 768 px up the panel sections are always open: their summaries are headings, not Tab stops or toggles
-    const phoneMQ = matchMedia('(max-width: 767px)');
+    // off the phone layout the panel sections are always open: their summaries are headings, not Tab stops or toggles.
+    // ([#348] the phone is :root.ph, as Phone sets it, landscape phones up to 1023 px wide included, not a width query;
+    // the sections follow the class when it changes)
+    const isPhone = () => document.documentElement.classList.contains('ph');
+    let wasPhone = null;
     const syncSections = () => {
+      const ph = isPhone();
+      if (ph === wasPhone) return;
+      wasPhone = ph;
       for (const d of document.querySelectorAll('details.psec')) {
         const s = d.querySelector(':scope > summary');
         if (!s) continue;
-        if (phoneMQ.matches) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
+        if (ph) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
       }
     };
-    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!phoneMQ.matches && !d.open) d.open = true; });
-    phoneMQ.addEventListener('change', syncSections);
+    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!isPhone() && !d.open) d.open = true; });
+    new MutationObserver(syncSections).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     syncSections();
     setupGutters();
     setupTooltips();
@@ -781,6 +787,8 @@
       const el = $(id);
       if (!el) continue;
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
+      // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
+      for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
       el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else el.classList.toggle('collapsed'); });
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
@@ -805,6 +813,15 @@
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;
+    // ([#357] the chain head never cuts a control: when its row does not fit (Russian and Italian at 1024 px beside the
+    // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
+    const pipeHead = document.querySelector('.pipe-head');
+    if (pipeHead && typeof ResizeObserver === 'function') {
+      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const ro = new ResizeObserver(fitPipeHead);
+      ro.observe(pipeHead);
+      for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }
+    }
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => {
@@ -840,17 +857,6 @@
         if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { pb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
       });
       syncPalBtn();
-    }
-    // the Phase style (issue #81): the header button's menu
-    const stb = $('styleBtn');
-    if (stb) {
-      stb.setAttribute('aria-expanded', 'false');
-      stb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, styleItems());
-        stb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { stb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
-      syncStyleBtn();
     }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
     // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
@@ -1243,7 +1249,9 @@
   // the level predictLevel would give the right pane's passes (13.14's estimate; no longer a floor) and its estimate
   window.__cmwPredict = () => { const list = S.shapes.filter((x) => x.visible !== false); return predictLevel(list, stageMap(rightStage()), 'R', paneR, lastRecs); };
   // per shape: the line key, whether the settle-time refinement is in (SPEC 9.1), segments and pieces drawn
-  window.__cmwLines = () => [...gpu.entries()].map(([id, r]) => ({ id, refined: !!r.refKey && r.refKey.startsWith(r.lineKey + '|'), segs: r.lineRes ? r.lineRes.n : 0, pieces: r.lpolys ? r.lpolys.length : 0, refMs: r.refMs, running: !!lineJob.running }));
+  window.__cmwLines = () => [...gpu.entries()].map(([id, r]) => ({ id, refined: !!r.refKey && r.refKey.startsWith(r.lineKey + '|'), current: (() => { const sp = lineSpecNow(); return !sp || r.refKey === r.lineKey + '|' + sp.key; })(), segs: r.lineRes ? r.lineRes.n : 0, pieces: r.lpolys ? r.lpolys.length : 0, refMs: r.refMs, running: !!lineJob.running,
+    // ([#325] the drawn polylines' size and a weighted sum of their coordinates: a sliced refinement must give the same)
+    pts: r.lpolys ? r.lpolys.reduce((n, p) => n + p.length, 0) : 0, sum: r.lpolys ? r.lpolys.reduce((a, p) => p.reduce((b, x, i) => b + x * ((i % 7) + 1), a), 0) : 0 }));
   // the cost guard per pane, the timer and the display interval estimate
   window.__cmwGuard = () => ({ R: guard ? guard.state('R') : null, L: guard ? guard.state('L') : null, timer: !!(GLR.timer && GLR.timer.available), inverseDraws: GLR.inverseDraws, log: guardLog.slice() });
   // a fresh cost guard with policy options (GLR.CostGuard opts, e.g. {budget: 1e9}: measure only), for measurements

@@ -76,6 +76,14 @@ const rules = {
   'max-lines': ['warn', { max: 1500, skipBlankLines: true, skipComments: true }],
   'max-lines-per-function': ['warn', { max: 2367, skipBlankLines: true, skipComments: true }],   // src/constr.js; IIFEs (the closures) are not counted
 };
+// the file-size budget (issue #20, ongoing conventions): each file still over the 1,500-line aim at the size it had
+// when the budget was set (max-lines' count: blank and comment lines left out), so max-lines warns only when it grows.
+// A file may shrink, never grow: lower its number when it shrinks (never raise one), and drop it once it is under
+// 1,500, where the aim above applies again. Moving code out of a file into a new one is how a number goes down.
+const SIZE_BUDGET = {
+  'src/figure.js': 3478, 'src/funcs.js': 2603, 'src/tour.js': 2582, 'src/construct.js': 2464, 'src/constr.js': 2431,
+  'src/glsl.js': 2152, 'src/inverse.js': 2165, 'src/region.js': 1830, 'src/parse.js': 1777, 'src/sound.js': 1590,
+};
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and
 // keeps the messages that fall on its lines, moved to the part's line numbers and offsets
@@ -123,6 +131,7 @@ module.exports = [
   { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js'] },
   js.configs.recommended,
   { rules },
+  ...Object.entries(SIZE_BUDGET).map(([f, max]) => ({ files: [f], rules: { 'max-lines': ['warn', { max, skipBlankLines: true, skipComments: true }] } })),
   // the app: ES modules, one per file (an export is a use), bundled by tools/bundle.mjs
   { files: ['src/*.js'], ignores: CLASSIC.map((f) => `src/${f}`), languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
   // the classic scripts before the bundle (src/cyr.js is generated and not linted)

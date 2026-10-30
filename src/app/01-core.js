@@ -344,7 +344,7 @@
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'sty-icon', 'share-icon');
+    top.classList.remove('cmd-short', 'cmd-cut', 'share-icon');
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
     const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
@@ -352,10 +352,9 @@
       if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
       if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
     }
-    // ([v17 D5] then Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
+    // ([v17 D5] Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
     const ex = $('examplesBtn');
     const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    if (tight()) top.classList.add('sty-icon');
     if (tight()) top.classList.add('share-icon');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
