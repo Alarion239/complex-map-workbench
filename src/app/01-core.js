@@ -777,6 +777,9 @@
   const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
   // Y shows F, the whole chain's plane (not a focused step's, not a step the glide rests on)
   const yAtF = () => S.focus === 0 && !(trans.at >= 0);
+  // the stage ‹ › rest Y on (whole chain, none focused), else -1; the map to it is named F_j, the first j steps' composite
+  const parkedAt = () => (S.focus === 0 && trans.at >= 0 ? trans.at : -1);
+  const fNameTex = () => (S.focus === 0 ? (parkedAt() >= 0 ? `F_{${parkedAt()}}` : 'F') : `f_{${S.focus}}`);
   // ---- the panes' views (U-b, panels.md 2): X on the left, Y on the right ----
   // lPlain: X Plane with the shapes (the plane of earlier builds' left pane); lColor: X Plane + Phase (the phase
   // portrait, earlier the right pane's Phase view); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
@@ -803,7 +806,7 @@
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)
   const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
-  const focusF = () => (S.focus === 0 ? stageF(nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
+  const focusF = () => (S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)
