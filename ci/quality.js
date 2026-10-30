@@ -97,6 +97,12 @@ async function main() {
     if (confirmed.length) lines.push('| run | metric | reference → this change |', '|---|---|---|', ...confirmed.map((f) => `| \`${f.run}\` | ${f.metric} | ${esc(f.message)} |`), '');
     const flaky = v.failures.filter((f) => !confirmed.includes(f));
     if (flaky.length) lines.push(`Not confirmed on a second render (noise): ${[...new Set(flaky.map((f) => f.run))].join(', ')}`, '');
+    // ([#385 follow-up] the globes: their pixel diff from the reference's render, reported, never gated)
+    const globes = Object.entries(v.globes || {});
+    if (globes.length) {
+      lines.push('Globes (report only, never gating): the share of pixels that differ from the reference\'s render; the renders and the diff images are in this job\'s artifact (`renders/`, `golden_diff/`).', '',
+        '| globe | pixels that differ |', '|---|---|', ...globes.map(([id, g]) => `| \`${id}\` | ${g == null ? 'not rendered' : `${(g * 100).toFixed(2)} %${g > 0 ? ` (\`cur/golden_diff/${id}.png\`)` : ''}`} |`), '');
+    }
     if (abs) lines.push(`Against the committed baseline (Mac GPU): ${abs.pass ? 'pass' : `**${abs.failures.length} failure(s)**: ` + abs.failures.slice(0, 10).map((f) => `\`${f.run}\` ${f.metric} ${esc(f.message)}`).join('; ')}`, '');
     summary(lines.join('\n'));
     return confirmed.length || (abs && !abs.pass) ? 1 : 0;

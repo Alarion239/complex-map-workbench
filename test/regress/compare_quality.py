@@ -10,6 +10,8 @@ Gated per run (tolerances in quality/tolerances.json):
   spill       must not grow by more than tol          (lower is better)
   parity_acc  must not drop by more than tol          (checker runs; only when both runs scored >= min_n pixels)
   golden_diff must stay <= max                        (bounded controls; absolute, against the golden PNG)
+  the globes (group 'sphere'): their golden_diff is reported (info), never gated, and a globe that did not render
+                                                      is a warning, not a failure (#385 follow-up: report-only)
   opacity_min must not drop by more than tol          (mask-type runs of the SPEC 12.4 scenes)
   color_off   must not grow by more than tol          (SPEC 12.4 scenes: interior pixels in a wrong colour)
   hole_leak   must not grow                            (zi_H*: fill pixels inside the hole |w| < e^-pi)
@@ -149,6 +151,14 @@ def main(argv=None):
             fails.append((rid, 'run', 'missing from the current run'))
             summary[rid] = 'FAIL'
             continue
+        if c.get('group') == 'sphere':
+            # a globe: its pixel diff from the reference (or the golden PNG) is shown, never gated
+            g = c.get('metrics', {}).get('golden_diff')
+            rows.append((rid, 'golden_diff', 0.0, g, None, 'n/a (globe, info)' if g is None else 'globe (info)', False))
+            if not c.get('ok', False):
+                warns.append(f"{rid} (globe, info): did not render: {'; '.join(c.get('problems', [])) or 'not ok'}")
+            summary[rid] = 'INFO'
+            continue
         if b is None:
             # a scene added after the baseline was recorded: shown with its values, not compared with a baseline; but
             # a run that did not render is not new, it is broken
@@ -217,7 +227,7 @@ def main(argv=None):
         summary[rid] = st
 
     # gated metrics: every change; info metrics: only changes beyond their tolerance
-    show = [r for r in rows if a.all or (r[5] not in ('same', 'ok') and not r[5].startswith('n/a'))]
+    show = [r for r in rows if a.all or (r[5] not in ('same', 'ok') and not r[5].startswith('n/a')) or 'globe' in r[5]]
     if show:
         print(f"\n{'run':<26} {'metric':<12} {'baseline':>12} {'current':>12} {'delta(+good)':>10}  {'status'}")
         for rid, k, bv, cv, d, status, _ in show:
@@ -254,8 +264,9 @@ def main(argv=None):
     nf = sum(1 for v in summary.values() if v == 'FAIL')
     ni = sum(1 for v in summary.values() if v == 'IMPROVED')
     nn = sum(1 for v in summary.values() if v == 'NEW')
-    newtxt = f', {nn} NEW (not compared with a baseline)' if nn else ''
-    print(f'\n{n} runs: {nf} failed, {ni} improved, {n - nf - ni - nn} unchanged within tolerance{newtxt}')
+    ng = sum(1 for v in summary.values() if v == 'INFO')
+    newtxt = (f', {nn} NEW (not compared with a baseline)' if nn else '') + (f', {ng} globe(s) reported (not gated)' if ng else '')
+    print(f'\n{n} runs: {nf} failed, {ni} improved, {n - nf - ni - nn - ng} unchanged within tolerance{newtxt}')
     if fails:
         print('\nFAILED:')
         for rid, k, msg in fails:
@@ -268,6 +279,7 @@ def main(argv=None):
             json.dump({'pass': not fails, 'runs': summary, 'failures': [{'run': r, 'metric': k, 'message': m} for r, k, m in fails],
                        'improvements': [{'run': r, 'metric': k, 'baseline': bv, 'current': cv} for r, k, bv, cv in improved],
                        'new': [r for r, _ in news], 'targets': tres, 'targets_enforced': a.enforce_targets,
+                       'globes': {r: cruns[r].get('metrics', {}).get('golden_diff') for r, v in summary.items() if v == 'INFO'},
                        'warnings': warns}, f, indent=1)
     return 1 if fails else 0
 
