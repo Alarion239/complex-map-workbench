@@ -523,12 +523,13 @@ const Figure = (() => {
   };
 
   // ---------- formats ----------
-  const loadScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = res; s.onerror = rej; document.head.append(s); });
+  // (a library the offline page carries as a JSON block, build.py, #393, runs from a Blob URL; else from its CDN)
+  const loadScript = (src, id, b = id && document.getElementById(id)) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = b ? URL.createObjectURL(new Blob([JSON.parse(b.textContent)], { type: 'text/javascript' })) : src; s.async = true; s.onload = res; s.onerror = rej; document.head.append(s); });
   let pdfLibs = null;
   const pdfLib = () => {
     if (!pdfLibs) pdfLibs = (async () => {
-      if (!(window.jspdf && window.jspdf.jsPDF)) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-      if (!(window.svg2pdf && window.svg2pdf.svg2pdf)) await loadScript('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js');
+      if (!(window.jspdf && window.jspdf.jsPDF)) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'cmw-jspdf');
+      if (!(window.svg2pdf && window.svg2pdf.svg2pdf)) await loadScript('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js', 'cmw-svg2pdf');
       return window.jspdf && window.svg2pdf ? { jsPDF: window.jspdf.jsPDF, svg2pdf: window.svg2pdf.svg2pdf } : null;
     })().catch(() => { pdfLibs = null; return null; });
     return pdfLibs;

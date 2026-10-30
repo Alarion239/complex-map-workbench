@@ -39,6 +39,25 @@ for (const lang of ['en', 'ru']) {
   ok(`${lang}: the app started`, await ev(`!!document.querySelector('#app') && !document.documentElement.classList.contains('i18n-wait')`), null);
   ok(`${lang}: no request leaves the page`, JSON.stringify(await asked()) === '[]', await asked());
   ok(`${lang}: the offline page offers no download of itself`, await ev(`!document.querySelector('meta[name="cmw-offline"]')`), null);
+  if (lang !== 'en') continue;
+  // the figure export's PDF library (issue #393): its two blocks started as figure.js starts them (a Blob URL), then a
+  // small SVG drawn into a PDF, all with the network off; the bytes start with %PDF
+  await ev(`window.__offPdf = null; (async () => {
+    const run = (id) => new Promise((res, rej) => { const b = document.getElementById(id), s = document.createElement('script');
+      s.src = URL.createObjectURL(new Blob([JSON.parse(b.textContent)], { type: 'text/javascript' })); s.onload = res; s.onerror = rej; document.head.append(s); });
+    await run('cmw-jspdf'); await run('cmw-svg2pdf');
+    const doc = new window.jspdf.jsPDF({ unit: 'pt', format: [120, 80] });
+    const svg = new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><path d="M10 10 L110 70" stroke="#000"/><circle cx="60" cy="40" r="20" fill="#c33"/></svg>', 'image/svg+xml').documentElement;
+    document.body.append(svg);
+    await window.svg2pdf.svg2pdf(svg, doc, { x: 0, y: 0, width: 120, height: 80 });
+    svg.remove();
+    const out = doc.output();
+    return { head: out.slice(0, 5), bytes: out.length };
+  })().then((r) => { window.__offPdf = r; }, (e) => { window.__offPdf = { error: String(e) }; }); 1`);
+  let pdf = null;
+  for (let i = 0; i < 40 && !pdf; i++) { pdf = await ev('window.__offPdf'); if (!pdf) await sleep(250); }
+  ok('the PDF library runs from the page itself and writes a PDF', pdf && pdf.head === '%PDF-' && pdf.bytes > 500, pdf);
+  ok('the PDF library asked the network for nothing', JSON.stringify(await asked()) === '[]', await asked());
 }
 await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 try { fs.unlinkSync(file); } catch (e) { /* the copy's folder goes with the run */ }

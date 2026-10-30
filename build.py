@@ -173,8 +173,11 @@ fonts += '<script type="text/plain" id="cmw-fonts-ru">\n' + ''.join(font_face(f)
 # (the head's three Google Fonts lines go; the faces come before the head script, which reads #cmw-fonts-ru)
 page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https://fonts\.(?:googleapis|gstatic)\.com[^>]*>\n', '', page)
 assert n_links == 3, f'the Google Fonts links build.py drops: {n_links}'
+# (the figure export's PDF library, jsPDF and svg2pdf.js, as JSON blocks too: figure.js starts them on the first PDF
+# export, issue #393; the live page loads them from their CDNs then)
+pdf_blocks = ''.join(block(i, json.dumps((vendor / 'js' / f).read_text(encoding='utf-8'))) for i, f in [('cmw-jspdf', 'jspdf.umd.min.js'), ('cmw-svg2pdf', 'svg2pdf.umd.min.js')])
 offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8')))
-           + mj_off + '<script>\n' + pub_js + '\n</script>\n')
+           + pdf_blocks + mj_off + '<script>\n' + pub_js + '\n</script>\n')
 save(dist / 'complex-map-workbench-offline.html', offline)
 # the live page names the offline page's size (Settings: Download offline page); the offline page has no such entry
 off_bytes = len(offline.encode())
@@ -186,4 +189,4 @@ test = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 """ + body + "</body></html>\n"
 save(dist / 'test.html', test)
 print('built', len(body), 'bytes; Russian and Italian data blocks', len(data.encode()), 'bytes; bold glyphs', ''.join(keep) or 'none')
-print('published page', len(pub.encode()), 'bytes; offline page', off_bytes, 'bytes (MathJax and', len(fonts.encode()), 'bytes of faces inline)')
+print('published page', len(pub.encode()), 'bytes; offline page', off_bytes, 'bytes (MathJax, the PDF library and', len(fonts.encode()), 'bytes of faces inline)')
