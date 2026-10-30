@@ -33,9 +33,35 @@ for (const [w, h] of [[360, 740], [390, 844], [412, 915], [320, 568]]) {
   const p = await probe();
   ok(`${w}×${h}: a portrait phone has ph and no ph-land`, p.ph && !p.land, p);
 }
+// [#348] the panel's sections follow the phone layout, not a 767 px query: on a phone a summary is a toggle and a Tab stop
+// and a closed section stays closed; off it every section is open and its summary is a heading (tabindex -1)
+// (ev does not wait for a promise: the probe leaves its answer on window, and the check polls for it)
+const secs = async () => {
+  await ev(`window.__sec = null; (async () => { const ds = [...document.querySelectorAll('details.psec')]; const d = ds[0]; if (!d) { window.__sec = { n: 0 }; return; }
+    const s = d.querySelector(':scope > summary'); const tab = s.getAttribute('tabindex'); d.open = false;
+    await new Promise((r) => setTimeout(r, 120)); const closed = !d.open; d.open = true; await new Promise((r) => setTimeout(r, 60));
+    window.__sec = { n: ds.length, tab, closed, heads: ds.filter((x) => { const q = x.querySelector(':scope > summary'); return q && q.getAttribute('tabindex') === '-1'; }).length }; })(), 1`);
+  for (let i = 0; i < 20; i++) { await sleep(100); const r = await ev('window.__sec'); if (r) return r; }
+  return null;
+};
+for (const [w, h] of [[812, 375], [915, 412], [740, 360]]) {
+  await open(w, h);
+  const q = await secs(); info[`sec${w}x${h}`] = q;
+  ok(`${w}×${h}: the panel sections are a phone's (a toggle and a Tab stop, a closed one stays closed)`, q && q.n > 0 && q.heads === 0 && q.tab !== '-1' && q.closed, q);
+}
+// a rotation keeps them a phone's: 375×812 to 812×375 and back
+await open(375, 812);
+await view(812, 375, false, true); await settle(900);
+const rot = await secs(); info.secRot = rot;
+ok('375×812 turned to 812×375: the sections stay a phone\'s', rot && rot.heads === 0 && rot.closed, rot);
+await view(375, 812, false, true); await settle(900);
+const back = await secs();
+ok('… and back to 375×812', back && back.heads === 0 && back.closed, back);
 // a laptop-sized window below 768 px with a mouse (no coarse pointer) keeps the portrait layout, and 1024 px wide is no phone
 await view(700, 360, false, false); await load('plm' + Date.now(), ST); await settle(1200);
 const m = await probe(); ok('700×360 with a mouse: ph, no ph-land (not a phone landscape)', m.ph && !m.land, m);
 await view(1280, 800, false, false); await load('pld' + Date.now(), ST); await settle(1200);
 const d = await probe(); ok('1280×800: no phone layout', !d.ph && !d.land, d);
+const dq = await secs(); info.sec1280 = dq;
+ok('1280×800: the panel sections are always open, their summaries headings', dq && dq.n > 0 && dq.heads === dq.n && !dq.closed, dq);
 return { pass: fails.length === 0, fails, info };

@@ -680,17 +680,23 @@
     radioKeys($('patternSeg'));
     // on phones the More sheet of tools closes once a tool is picked
     $('tools').addEventListener('click', (e) => { const tm = $('toolMore'); if (tm && tm.open && e.target.closest('.tool')) tm.open = false; });
-    // from 768 px up the panel sections are always open: their summaries are headings, not Tab stops or toggles
-    const phoneMQ = matchMedia('(max-width: 767px)');
+    // off the phone layout the panel sections are always open: their summaries are headings, not Tab stops or toggles.
+    // ([#348] the phone is :root.ph, as Phone sets it, landscape phones up to 1023 px wide included, not a width query;
+    // the sections follow the class when it changes)
+    const isPhone = () => document.documentElement.classList.contains('ph');
+    let wasPhone = null;
     const syncSections = () => {
+      const ph = isPhone();
+      if (ph === wasPhone) return;
+      wasPhone = ph;
       for (const d of document.querySelectorAll('details.psec')) {
         const s = d.querySelector(':scope > summary');
         if (!s) continue;
-        if (phoneMQ.matches) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
+        if (ph) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
       }
     };
-    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!phoneMQ.matches && !d.open) d.open = true; });
-    phoneMQ.addEventListener('change', syncSections);
+    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!isPhone() && !d.open) d.open = true; });
+    new MutationObserver(syncSections).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     syncSections();
     setupGutters();
     setupTooltips();

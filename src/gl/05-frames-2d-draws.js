@@ -346,7 +346,7 @@
       if (sph) {
         uM4(P, 'uMVP', st.sphere.MVP);
         u3(P, 'uEye', st.sphere.eye);
-        lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+        globeLight(P, st.sphere);
         originUniforms(P, res.org);
       } else view2D(P, st.view, st.dpr || 1, res.org);
       regionUniforms(P, st, res.org);

@@ -2799,6 +2799,9 @@
  "Try: press Listen, or right-click the circle and choose Listen along.": "Prova: premi «Ascolta», oppure fai clic destro sulla circonferenza e scegli «Ascolta lungo la curva».",
  "Compiling…": "Compilazione…",
  "The formula is long; the field below holds it in full.": "La formula è lunga; il campo qui sotto la contiene per intero.",
+ "in short": "in breve",
+ "Written in short; the step's own field holds the full formula.": "Scritta in breve; il campo del passo contiene la formula per intero.",
+ "Written in short; each step's own field holds its full formula.": "Scritta in breve; il campo di ciascun passo contiene la sua formula per intero.",
  "Written in short; the field below holds the formula in full.": "Scritta in breve; il campo qui sotto contiene la formula per intero.",
  "Print settings": "Impostazioni di stampa",
  "Saved to Downloads: {filename}": "Salvato in Download: {filename}",
@@ -3051,5 +3054,6 @@
  "F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.": "F = 1/z ha un solo polo, in 0, dentro la circonferenza. Dentro, l'integrale di Cauchy è F meno la sua parte principale, qui 0; fuori è la parte principale, 1/z.",
  "F = z + 1/z: inside the circle the Cauchy integral is z, the part of F that is regular at the pole; outside it is the principal part, 1/z.": "F = z + 1/z: dentro la circonferenza l'integrale di Cauchy è z, la parte di F regolare nel polo; fuori è la parte principale, 1/z.",
  "e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.": "e^{1/z} ha in 0 una singolarità essenziale: la sua parte principale ha infiniti termini. L'immagine allora disegna l'integrale stesso, punto per punto, invece di F meno una parte principale finita.",
- "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Prova: trascina la circonferenza finché la singolarità in 0 resta fuori: dentro diventa F, fuori 0."
+ "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Prova: trascina la circonferenza finché la singolarità in 0 resta fuori: dentro diventa F, fuori 0.",
+ "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Un limite noto: a pochi pixel da uno zero arg <i>F</i> varia così in fretta che un dito tremante può attraversare una linea di colore e suonare una nota."
 }
