@@ -85,8 +85,7 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   sr = await styleRow();
   ok(`${tag} Phase: one click on Contours sets it, with no pop-up`, !!sr && (await st()).dc === 'modulus' && (await pops()) === 0 && sr.btns.find((b) => b.v === 'modulus').on, [(await st()).dc, sr || await diag()]);
   if (!sr) continue;
-  const sb = await ev(`(document.querySelector('#styleBtn .hw') || {}).textContent`);
-  ok(`${tag} Phase: the header's style button follows`, sb && sb === (await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').getAttribute('aria-label')`)), sb);
+  ok(`${tag} Phase: the top bar has no style button (#334)`, !(await ev(`!!document.getElementById('styleBtn')`)), tag);
   // n only for the styles it changes, and (#247 option 1) always behind the head's ⋯, which shows it with no title
   const nBehind = async () => {
     if (await ctl('secSel')) return { inline: true };
