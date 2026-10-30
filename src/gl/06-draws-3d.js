@@ -110,7 +110,7 @@
   const edgeName = (cm, m) => (cm === 2 ? 'landEdge2' : m && (m.mode === 1 || m.mode === 3) ? 'landEdgeH' : 'landEdgeS');
   // (issue #47) landTF of chain version ch in map mode `mode` runs the edge pass of cut mode cm itself (uPass 3): then
   // no edge program is compiled or first drawn for it
-  const ownEdge = (ch, mode, cm) => !!cm && tfKind(ch, mode) === (cm === 2 ? 'P' : mode === 1 || mode === 3 ? 'H' : 'S');
+  const ownEdge = (ch, mode, cm) => cm === 1 && tfKind(ch, mode) === 'S';
   // A deformation at t = 0 has no cut yet: the edge pass its t > 0 will need starts compiling now, and is first drawn
   // (a pass that writes nothing) at rest once it has settled, before the play that needs it (r3 review speed-3)
   function edgeAhead(P1, em, st, rf, cmNow, P3now) {

@@ -106,7 +106,7 @@
     preS: { chain: true, vs: () => SPHERE_VS, fs: () => PRE_FS('', true) },
     // (the heights, uPass 0, and the refinement, 1 and 2: one program, one call site of the chain, LAND_TF_VS)
     // (issue #47: and the edge pass, uPass 3, of the cut kind tfKind gives this chain version and map mode)
-    landTF: { chain: true, vs: (ch, mode) => UTIL_V + HEIGHT + LAND_TF_VS(tfKind(ch, mode)), fs: () => TF_FS, tf: true, sheetIf: (ch, mode) => tfKind(ch, mode) === 'H' },
+    landTF: { chain: true, vs: (ch, mode) => UTIL_V + HEIGHT + LAND_TF_VS(tfKind(ch, mode)), fs: () => TF_FS, tf: true },
     // (the refinement's levels and vertices: no chain, compiled once per page, LAND_LV_VS / LAND_RP_VS / LAND_RA_VS)
     landLv: { chain: false, vs: () => LAND_LV_VS, fs: () => TF_FS, tf: true },
     landRP: { chain: false, vs: () => LAND_RP_VS, fs: () => TF_FS, tf: true },
@@ -164,36 +164,29 @@ float wabs(vec2 w) {
     return libRe.test(src) ? 2 : /\bcfin\b/.test(src) ? 1 : 0;
   }
   // (issue #47) the cut kind landTF's own edge pass handles for chain version ch in map mode `mode`, so that the
-  // surface's heights and its edge pass are one program: 'S' / 'H' when every cut a step of the chain can make in this
-  // mode is one the sheets continue (cutModeOf's mode 1: the stages' sheets, chainSheetRange; the deformation's,
-  // chainSheetHom), else 'P' (the principal map: no cut, or cuts of kind 2). A chain that can show both kinds in one
-  // mode keeps 'P', and its kind-1 frames use the separate edge program (landEdgeS / landEdgeH)
+  // surface's heights and its edge pass are one program: 'S' in map mode 0 when every cut a step of the chain can make
+  // is one the stages' sheets continue (cutModeOf's mode 1, chainSheetRange), else 'N': the plain heights (mapF), no
+  // edge pass compiled in, and the frames with cuts use the separate edge program (landEdgeS / landEdgeH / landEdge2).
+  // (D3D11 links the edge loop around the inlined chain slowly: the deformation's landTF of Mobius then z^3 took 18 to
+  // 30 s of link time-share on an Intel Iris Xe, against under 1.7 s for the plain one; glprof runs 40964003719 and
+  // 40998168010)
   function tfKind(ch, mode) {
     const info = ch && ch.info;
-    if (!info || !Array.isArray(info.cutKinds)) return 'P';
-    const defo = mode === 1 || mode === 3;
-    // (no step of the chain can cut in this mode, cutModeOf 0: 'N', no edge pass compiled in. D3D11 links the edge loop
-    // around the inlined chain slowly, 30 s for Mobius then z^3 on an Intel Iris Xe, even where pass 3 never runs)
-    if (info.cutKinds.every((c) => !c || (defo ? [c.f, c.h] : [c.f]).every((kd) => !kd || kd === 'none'))) return 'N';
-    if (mode === 2) return 'P';
+    if (!info || !Array.isArray(info.cutKinds) || (mode || 0) !== 0) return 'N';
     let sheet = false;
     for (const c of info.cutKinds) {
-      if (!c) continue;
-      for (const kd of defo ? [c.f, c.h] : [c.f]) {
-        if (kd === 'other' || kd === 'deriv') return 'P';
-        if (kd && kd !== 'none') sheet = true;
-      }
+      const kd = c && c.f;
+      if (kd === 'other' || kd === 'deriv') return 'N';
+      if (kd && kd !== 'none') sheet = true;
     }
-    if (!sheet) return 'P';
-    if (defo) return info.sheetHom && /\bchainSheetHom\b/.test(info.sheetHom) ? 'H' : 'P';
-    return /\bchainSheetRange\b/.test(info.source || '') ? 'S' : 'P';
+    return sheet && /\bchainSheetRange\b/.test(info.source || '') ? 'S' : 'N';
   }
   function sources(name, ch, mode = 0) {
     const d = DEFS[name];
     const vs = d.vs(ch, mode), fs = d.fs();
     if (!d.chain) return [HEAD + vs, HEAD + fs];
     // (the sheet programs also take the deformation's sheets, chainSheetHom: GLChain's sheetHom)
-    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet || (d.sheetIf && d.sheetIf(ch, mode)) ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
+    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
     const pre = (s) => ['', FIN, lib][libUse(s)];
     return [HEAD + pre(vs) + vs, HEAD + pre(fs) + fs];
   }

@@ -161,7 +161,8 @@ float levels2(vec4 h, float m0, float m1, float m2, float m3, float m4) {
   // continuation of the stages' sheets (chainSheetRange) or the deformation's (chainSheetHom), for a chain whose every
   // cut is one the sheets continue (kind 1): the principal value at z is the continuation at its own centre, so the
   // heights come from the same call. (No return inside a loop: ANGLE's Metal translation lost results, LAND_EDGE_VS.)
-  // 'N': mapF, for a chain that cannot cut in this mode: no edge pass, its code compiled out (D3D11 links the loop slowly)
+  // 'N': mapF, no edge pass, its code compiled out (tfKind: the landTF the app builds unless it is 'S'; D3D11 links
+  // the edge loop slowly)
   const LAND_TF_VS = (kind = 'P') => (kind === 'H' ? `
 vec2 evalAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }
 ` : kind === 'S' ? `
