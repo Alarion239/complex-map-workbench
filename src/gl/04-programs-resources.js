@@ -81,10 +81,10 @@
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
-    regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE + REGION_FS(true) },
-    regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE + REGION_FS(true) },
+    regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
+    regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
-    regionSP: { chain: false, vs: () => PRE_VS(true), fs: () => F_UTIL + SHADE + REGION_PRE_FS(true) },
+    regionSP: { chain: false, vs: () => PRE_VS(true), fs: () => F_UTIL + SHADE_GLOBE + REGION_PRE_FS(true) },
     line: { chain: true, vs: () => LINE_VS('', 'chain'), fs: () => FADE + LINE_FS },
     lineC: { chain: false, vs: () => FIN + LINE_VS('', 'tex'), fs: () => FADE + LINE_FS },
     line0: { chain: false, vs: () => FIN + LINE_VS('', 'local'), fs: () => FADE + LINE_FS },
@@ -135,8 +135,8 @@
     landSheetC: { chain: true, sheet: true, vs: () => LAND_SHEET_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(true) },
     probeSheet: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(true), fs: () => MARK_FS },
     mark: { chain: false, vs: () => MARK_VS, fs: () => MARK_FS },
-    sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(false) },
-    sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(true) },
+    sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_FS(false) },
+    sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_FS(true) },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
   };
@@ -887,7 +887,7 @@ float wabs(vec2 w) {
     if (sph) {
       uM4(P, 'uMVP', st.sphere.MVP);
       u3(P, 'uEye', st.sphere.eye);
-      lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+      globeLight(P, st.sphere);
     } else {
       const v = st.view, dpr = st.dpr || 1;
       u2f(P, 'uRel', v.cx - res.org[0], v.cy - res.org[1]);
