@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -102,6 +102,8 @@
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
+    // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
+    cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },
     pre: { chain: true, vs: () => QUAD_VS, fs: () => PRE_FS('') },
     preS: { chain: true, vs: () => SPHERE_VS, fs: () => PRE_FS('', true) },
     // (the heights, uPass 0, and the refinement, 1 and 2: one program, one call site of the chain, LAND_TF_VS)

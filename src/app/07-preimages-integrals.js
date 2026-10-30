@@ -873,5 +873,16 @@
   function refreshIntPop(...args) { return INT.refreshIntPop(...args); }
   function integrateSelected(...args) { return INT.integrateSelected(...args); }
   function cauchyPlot(...args) { return INT.cauchyPlot(...args); }
+  function cauchyDraw(...args) { return INT.cauchyDraw(...args); }
+  // (#235) what the Cauchy style shows for the selected curve: 'plain' (F inside, 0 outside: no pole inside), 'split'
+  // (poles inside: f+ inside, f- outside), 'numeric' (the quadrature: a singularity the pole count does not cover),
+  // 'undefined' (F is not finite on the curve), or null (no closed curve)
+  function cauchyKind() {
+    const cp = cauchyPlot();
+    if (!cp) return null;
+    const p = cp.plan;
+    const kind = !p ? 'plain' : p.ok ? (p.poles.length ? 'split' : 'plain') : p.why === 'onCurve' ? 'undefined' : 'numeric';
+    return { kind, poles: p && p.ok ? p.poles.length : 0, show: S.cauchyShow, plus: !!S.cauchyPlus, name: cp.name };
+  }
   function plotF(...args) { return INT.plotF(...args); }
 

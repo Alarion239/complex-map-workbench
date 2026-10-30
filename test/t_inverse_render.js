@@ -45,7 +45,11 @@ function render(sc, view, pattern, opts = {}) {
 // scored exactly as run_quality.js scores the app, plus the zooms 12.1 (g) asks for that the suite does not render
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (g) reference renders (the quality suite runs)');
-const allRuns = Q.runs();
+// ([issue #260] a scene whose chain has no inverse plan, Φ_M's dh_disc, is drawn by the app's forward mesh: this
+// renderer has nothing to draw it with. Those runs are left out here, and they must be exactly dh_disc's)
+const noPlan = Q.runs().filter((r) => !planOf(r.scene.steps).ok).map((r) => r.id);
+check('the quality runs with no inverse plan are exactly dh_disc\'s', noPlan.join() === 'dh_disc.mask,dh_disc.pattern', noPlan.join());
+const allRuns = Q.runs().filter((r) => !noPlan.includes(r.id));
 for (const [base, f, variants] of [['expH', 4, ['mask', 'pattern']], ['e1z_disc', 4, ['mask', 'pattern']], ['zi_H', 16, ['polar']]]) {
   const src = Q.SCENES.find((x) => x.name === base);
   if (!src) continue;

@@ -38,6 +38,11 @@ for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['
   const ro = await evr(`['rightReadout'].map((id) => { const e = document.getElementById(id); return e && e.getClientRects().length && / \\/ /.test(e.textContent) ? [id, e.scrollWidth, e.clientWidth] : null; }).filter(Boolean)`);   // (the right plane's scale readout, "w 2 / div": the left one carries the first-run hint's longer text, cut by design)
   ok(`${at}: the right plane's readout is not cut`, ro.length > 0 && ro.every((r) => r[1] <= r[2] + 1), ro);
   await ev('Phone.close(true)'); await settle(300);
+  // the Edit sheet's head row: the step's name is level with the f₂ chip beside it (it sat at the top of its 44 px button)
+  await ev(`Phone.open('edit')`); await settle(800);
+  const lv = await evr(`(() => { const h = document.querySelector('.ph-sheet .insp-step .ihead'); const t = h && h.querySelector('.ttl-btn'), i = h && h.querySelector('.idx'); if (!t || !i || !t.firstChild) return null; const r = document.createRange(); r.selectNodeContents(t.firstChild); const a = r.getBoundingClientRect(), b = i.getBoundingClientRect(); return { text: (a.top + a.bottom) / 2, chip: (b.top + b.bottom) / 2 }; })()`);
+  ok(`${at}: the Edit sheet's step name is level with its chip`, lv && Math.abs(lv.text - lv.chip) <= 3, lv);
+  await ev('Phone.close(true)'); await settle(300);
   // the Numbers sheet: its title once, its Tip in view
   await ev(`Phone.open('edit', { params: true })`); await settle(800);
   const n = await evr(`(() => { const sh = document.querySelector('.ph-sheet'), sb = sh.querySelector('.ph-sb:not([hidden])').getBoundingClientRect(), tip = sh.querySelector('.ph-tip'), tb = tip && tip.getBoundingClientRect(); const heads = [...sh.querySelectorAll('h2')].filter((e) => e.getClientRects().length).map((e) => e.textContent.trim()); return { title: sh.querySelector('.ph-st').textContent, heads, tipIn: !!tb && tb.top >= sb.top && tb.bottom <= sb.bottom + 1, tip: tb && [Math.round(tb.top), Math.round(tb.bottom)], sb: [Math.round(sb.top), Math.round(sb.bottom)] }; })()`);

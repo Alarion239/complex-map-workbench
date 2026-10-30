@@ -251,5 +251,34 @@ for (const lang of ['', 'ru']) {
   ok(`${tag}: each style ≥ 44 × 44 px with its word, inside the sheet, none broken`, sh && sh.btns && sh.btns.every((b) => b.w >= 44 && b.h >= 44 && b.in && b.word && !b.broken.length), sh && sh.btns);
   await ev(`Phone.close(true)`); await settle(300);
 }
+// the tour's Phase key step where Y's head holds no toggle (they are merged into the pattern button's pop-up): the step
+// is visited, not skipped as missing, and it lights the control that holds the key. The runners' wider fonts merged
+// them at 1440 px, where the tour shard runs; here the step is run at four narrower widths with wider titles, and at
+// one of them at least the key must be behind the pattern button, so the merged case is the one checked
+{
+  const runs = [];
+  for (const w of [1280, 1180, 1100, 1024]) {
+    await view(w, 800, false, false);
+    await send('Page.navigate', { url: `${U}?ns=dinlkey${w}${Date.now() % 1000000}` }); await sleep(2500);
+    await ev(`__cmwSetMain('xy'); 1`); await settle(1200);
+    // (the runners' wider fonts, emulated: titles that need more room, so the toggles give way as they did there)
+    await ev(`(() => { const st = document.createElement('style'); st.textContent = '.pane-title { letter-spacing: ${w > 1200 ? 4 : 2}px; }'; document.head.append(st); return 1; })()`); await settle(600);
+    await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'views' }); return 1; })()`); await settle(1500);
+    const ids = [];
+    let lit = null;
+    for (let k = 0; k < 10 && (await ev('Tour.isActive()')); k++) {
+      const c = await ev('Tour.current()');
+      if (!c || c.chapter !== 'views') break;
+      ids.push(c.id);
+      if (c.id === 'key') lit = await ev(`(() => { const L = Tour.lit(), a = L && L.anchor, b = document.querySelector('#wKeyChkR'), k = b && document.body.contains(b) ? (b.closest('label') || b) : document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn'), r = k && k.getBoundingClientRect(); return { a, k: r && { l: r.left, r: r.right }, pat: !!k && k.classList.contains('pat-btn') }; })()`);
+      await ev('Tour.next(); 1'); await settle(900);
+    }
+    await ev('Tour.isActive() ? Tour.stop() : 0; 1'); await settle(300);
+    runs.push({ w, ids, lit });
+    ok(`${w} en X → Y: the tour visits the Phase key step (not skipped as missing)`, ids.includes('key'), ids);
+    ok(`${w} en X → Y: the Phase key step lights the control that holds the key`, lit && lit.a && lit.k && Math.abs(lit.a.l - lit.k.l) < 2 && Math.abs(lit.a.r - lit.k.r) < 2, lit);
+  }
+  ok('the Phase key step was checked with the key behind the pattern button at one width at least', runs.some((r) => r.lit && r.lit.pat), runs.map((r) => [r.w, r.lit && r.lit.pat]));
+}
 await view(1440, 900, false, false);
 return { pass: fails.length === 0, fails };
