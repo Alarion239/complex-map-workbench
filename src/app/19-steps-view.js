@@ -183,47 +183,56 @@
         m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
       }
     }
-    // (the same picture as the last frame, at rest or parked: its mesh, already on the GPU, drawn again (perf on #448))
+    // (perf on #448) the mesh is made once per memo: every grid triangle whose corners have a colour, with its colours
+    // (arg unwrapped within it), on the GPU; a frame only moves its corners (GLR.updatePreMesh: one upload, no new
+    // buffer), and a triangle torn across a cut or a pole, or with a corner H cannot place, collapses to a point. The
+    // same frame again (at rest, parked) is drawn as it is
     const fkey = key + '|' + (H ? SV.g.x.toFixed(6) : 'rest');
-    let res = svCarryRes && svCarryRes.key === fkey && svCarryRes.res.n ? svCarryRes.res : null;
-    if (!res) {
-      const K = 16 / TAU, lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
-      const W = (nx + 1) * (ny + 1);
-      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W), pos: new Float32Array(nx * ny * 12), attr: new Float32Array(nx * ny * 24) };
-      const { qx, qy, ok, pos, attr } = svCarryBuf, gl = m.gl, ga = m.ga;
-      for (let n = 0; n < W; n++) {
-        ok[n] = 0;
-        if (!m.ok[n]) continue;
-        let q = C(m.ax[n], m.ay[n]);
-        if (H) { try { q = H(q); } catch (e) { continue; } if (!q || !CX.isFin(q)) continue; }
-        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
-      }
-      // (into the preallocated arrays: positions and, per vertex, (0, 0, ln|G|, arg G) in the pattern's units)
-      let np = 0, na = 0;
-      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
-      const tri = (A, B, D) => {
-        if (!ok[A] || !ok[B] || !ok[D]) return;
-        // (a triangle torn across a branch cut or a pole is long on the screen: left out)
-        if (d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) return;
-        const a0 = ga[A];
-        for (let c = 0; c < 3; c++) {
-          const n = c === 0 ? A : c === 1 ? B : D;
-          let t = ga[n] - a0;
-          t -= TAU * Math.round(t / TAU);   // (arg unwrapped within the triangle)
-          pos[np++] = qx[n]; pos[np++] = qy[n];
-          attr[na++] = 0; attr[na++] = 0; attr[na++] = gl[n] * K; attr[na++] = (a0 + t) * K;
-        }
+    if (!m.tris) {
+      const K = 16 / TAU, tris = [], attr = [];
+      const add = (A, B, D) => {
+        if (!m.ok[A] || !m.ok[B] || !m.ok[D]) return;
+        const a0 = m.ga[A];
+        tris.push(A, B, D);
+        for (const n of [A, B, D]) { let t = m.ga[n] - a0; t -= TAU * Math.round(t / TAU); attr.push(0, 0, m.gl[n] * K, (a0 + t) * K); }
       };
       for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
         const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
-        tri(n, e, d); tri(n, d, u);
+        add(n, e, d); add(n, d, u);
       }
-      const nt = np / 6;
+      m.tris = Uint32Array.from(tris);
+      m.pos = new Float32Array(tris.length * 2);
+      m.attr = Float32Array.from(attr);
       if (svCarryRes) { GLR.destroy(svCarryRes.res); svCarryRes = null; }
-      if (!nt) return true;
-      res = GLR.createPreMesh({ n: nt, pos: pos.subarray(0, np), attr: attr.subarray(0, na), tri: new Float32Array(nt), origin: [v.cx, v.cy] });
-      if (!res) return false;
-      svCarryRes = { key: fkey, res };
+    }
+    const nt = m.tris.length / 3;
+    if (!nt) return true;
+    let res = svCarryRes && svCarryRes.memo === m && svCarryRes.res.n ? svCarryRes.res : null;
+    if (!res || svCarryRes.key !== fkey) {
+      const W = (nx + 1) * (ny + 1), lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
+      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W) };
+      const { qx, qy, ok } = svCarryBuf, pos = m.pos, T3 = m.tris;
+      for (let n = 0; n < W; n++) {
+        ok[n] = 0;
+        if (!m.ok[n]) continue;
+        if (!H) { qx[n] = m.ax[n] - v.cx; qy[n] = m.ay[n] - v.cy; ok[n] = 1; continue; }
+        let q;
+        try { q = H(C(m.ax[n], m.ay[n])); } catch (e) { continue; }
+        if (!q || !CX.isFin(q)) continue;
+        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
+      }
+      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
+      for (let t = 0, o = 0; t < nt; t++, o += 6) {
+        const A = T3[3 * t], B = T3[3 * t + 1], D = T3[3 * t + 2];
+        if (!ok[A] || !ok[B] || !ok[D] || d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) { pos.fill(3e7, o, o + 6); continue; }
+        pos[o] = qx[A]; pos[o + 1] = qy[A]; pos[o + 2] = qx[B]; pos[o + 3] = qy[B]; pos[o + 4] = qx[D]; pos[o + 5] = qy[D];
+      }
+      if (res) GLR.updatePreMesh(res, pos);
+      else {
+        res = GLR.createPreMesh({ n: nt, pos, attr: m.attr, tri: new Float32Array(nt), origin: [v.cx, v.cy], dynamic: true });
+        if (!res) return false;
+      }
+      svCarryRes = { key: fkey, memo: m, res };
     }
     GLR.begin(pane.pw, pane.ph);
     GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
@@ -686,6 +695,8 @@
     try {
       if (!GLR.ok) return;
       if (GLR.prestartModes) GLR.prestartModes([1]);
+      // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
+      if (GLR.prestartNames) GLR.prestartNames(['region', 'line', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
     } catch (e) { /* (the first glide starts them) */ }
   }
