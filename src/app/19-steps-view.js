@@ -172,8 +172,13 @@
     if (GLR.drawCarried && !window.__svCpu) {
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
       const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
+      // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
+      // to plane a, as smKeyOf for the forward meshes)
+      const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
+      const plan = a > s ? invPlan(s, a) : null;
+      const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
       GLR.begin(pane.pw, pane.ph);
-      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s,
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
     }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');

@@ -542,9 +542,23 @@
     u1f(P, 'uLim', st.lim);
     u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
     dcUniforms(P, st, dpr);
+    // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    u1i(P, 'uKeyOn', k ? 1 : 0);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
-    gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+    if (k) {
+      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
+      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
+      u1i(P, 'uKSingN', sing.length);
+      const dt = gl.isEnabled(gl.DEPTH_TEST);
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
+      gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+      gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS);
+      if (!dt) gl.disable(gl.DEPTH_TEST);
+    } else gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
     return true;

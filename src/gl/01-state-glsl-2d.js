@@ -1037,12 +1037,17 @@ void main() {
 }
 `;
   // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
-  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain
+  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
+  // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
+  // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
   const CARRY_FS = (id) => `
 uniform int uGs; uniform int uGt;
-in vec2 vP;
+${PRE_KEY_UNI}in vec2 vP;
 out vec4 o;
-void main() { o = vec4(dcolor(${id ? 'vP' : 'chainRange(vP, uGs, uGt)'}), 1.0); }
+void main() {
+  vec2 sa = vP;
+${PRE_KEY}  o = vec4(dcolor(${id ? 'vP' : 'chainRange(vP, uGs, uGt)'}), 1.0);
+}
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the
   // closed curve it reproduces F, outside it is 0 (Cauchy's integral formula). Nodes are relative to an origin O, so
