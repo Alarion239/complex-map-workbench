@@ -122,8 +122,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #propsPanel .params .inp, #propsPanel .params select.inp { height: 32px; font-size: 13px; padding: 0 10px; }
 #propsPanel .params .pair > .inp:has(+ .argand) { padding-right: 34px; }
 /* [issue #260] Add ray, Add equipotential: the value and its button on one row */
-#propsPanel .params .pf.dh-add .pair { display: flex; gap: 6px; }
-#propsPanel .params .pf.dh-add .pair > .inp { flex: 1 1 auto; min-width: 0; }
+/* ([#358] the value keeps about five characters; a button that does not fit beside it (ru, it) wraps under it and
+   fills that line) */
+#propsPanel .params .pf.dh-add .pair { display: flex; flex-wrap: wrap; gap: 6px; }
+#propsPanel .params .pf.dh-add .pair > .inp { flex: 999 1 64px; min-width: 64px; }
+#propsPanel .params .pf.dh-add .pair > .btn { flex: 1 0 auto; max-width: 100%; }
 #propsPanel .params .icon-btn.argand { width: 28px; height: 28px; right: 2px; }
 #propsPanel .params.matrix2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin: 0 0 10px; padding: 2px 10px; }
 #propsPanel .params.matrix2::before, #propsPanel .params.matrix2::after { top: 0; bottom: 0; height: auto; width: 4px; border-width: 1.25px; }
