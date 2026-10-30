@@ -182,7 +182,10 @@ await grab();
 await send('Emulation.setUserAgentOverride', { userAgent: ANDROID, acceptLanguage: 'en-US,en' });
 await view(390, 844, false, true);
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-const tap = async (s, wait = 450) => { const c = await ev(`(() => { const e = document.querySelector(${JSON.stringify(s)}); if (!e || !e.getClientRects().length) return null; e.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`); if (!c) return false; await touch(c[0], c[1]); await settle(wait); return true; };
+const tap0 = async (s, wait = 450) => { const c = await ev(`(() => { const e = document.querySelector(${JSON.stringify(s)}); if (!e || !e.getClientRects().length) return null; e.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`); if (!c) return false; await touch(c[0], c[1]); await settle(wait); return true; };
+// (#246: on a phone the chain's cards and Add function are rows of the chain sheet; while it is closed, a tap on one is
+// first the tap on "N steps ▾" that opens it, as a user's)
+const tap = async (s, wait = 450) => { if (await tap0(s, wait)) return true; if (!/#pipeline|#addStepBtn/.test(s) || !(await tap0('.ph-csteps', 600))) return false; return tap0(s, wait); };
 {
   await open('fxP', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)')] });
   await tap('#pipeline .card[data-k="2"]', 1200);

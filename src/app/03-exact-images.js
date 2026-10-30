@@ -717,8 +717,10 @@
       const one = '(\\\\(?:pi|infty|alpha|gamma|zeta|theta)|[A-Za-z0-9]+(?:\\.[0-9]+)?)';
       const t = I18N.notation(tex).replace(new RegExp(`\\\\[dt]?frac\\{${one}\\}\\{${one}\\}`, 'g'), '$1/$2').replace(/\\times(?![A-Za-z])/g, ' × ').replace(/\\operatorname\{([^{}]+)\}\s*/g, '$1 ').replace(/\\(?:left|right)(?![A-Za-z])\.?/g, '').replace(/\\(?:text|mathrm|textrm)\{([^{}]*)\}/g, '$1')
         .replace(/\\(?:overline|bar)\{([^{}]*)\}/g, (m, a) => (a.length === 1 ? a + '\u0304' : `conj(${a})`)).replace(/\\bar\s*([A-Za-z])/g, '$1\u0304');
-      // (× for \times, and a minus sign for '-' except in a Russian word such as «Лог-полярные»)
-      return p(t).replace(/(\d)\.(\d)/g, '$1,$2').replace(/-/g, (m, i, str) => (/[А-Яа-яЁё]/.test(str[i - 1] || '') && /[А-Яа-яЁё]/.test(str[i + 1] || '') ? m : '−'));
+      // (× for \times, and a minus sign for '-' except in a Russian word such as «Лог-полярные»; the decimal comma only
+      // where the language writes one: English keeps 0.5, #321)
+      const pt = p(t);
+      return (I18N.comma() ? pt.replace(/(\d)\.(\d)/g, '$1,$2') : pt).replace(/-/g, (m, i, str) => (/[А-Яа-яЁё]/.test(str[i - 1] || '') && /[А-Яа-яЁё]/.test(str[i + 1] || '') ? m : '−'));
     } catch (e) { return tex; }
   };
   // an example's word label ('trailing edge') is stored in English and translated where it is shown, so a caption in
