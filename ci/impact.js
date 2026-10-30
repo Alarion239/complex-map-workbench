@@ -87,6 +87,7 @@ const MAP = [
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/cyr.js', ui('export', 'i18n')],                                       // Cyrillic outlines in exported figures
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
+  ['src/sound/**', ui('sound')],                                              // sound.js in parts
   ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas
