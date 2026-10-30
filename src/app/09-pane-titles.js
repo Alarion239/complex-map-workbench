@@ -51,7 +51,9 @@
   // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
   function fitRightTitle(force) {
     if (paneR) layoutFoot(force);
-    for (const side of ['L', 'R']) if (!paneR || !foot[side].head) fitTitle(side);
+    // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
+    const headed = (side) => { const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'); return !!(f && f.parentElement && f.parentElement.classList.contains('pane-head')); };
+    for (const side of ['L', 'R']) if (!paneR || !headed(side)) fitTitle(side);
   }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
