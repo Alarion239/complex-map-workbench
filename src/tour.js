@@ -892,7 +892,7 @@ const Tour = (() => {
    under a phone's header, or a landscape phone's header itself (48 px). The text block is the Why button. */
 .tour-strip {
   position: relative; box-sizing: border-box; display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; overflow: hidden;
-  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3, 4px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
   color: var(--ink); font: var(--t-body); text-align: left; overflow-wrap: break-word;
 }
 /* (a desktop's slot holds the strip and the 8 px gap above the panes) */
@@ -900,6 +900,17 @@ const Tour = (() => {
 .tour-strip[data-mode="port"], .tour-strip[data-mode="row"] { border-width: 0 0 1px; border-radius: 0; }
 .tour-strip[data-mode="head"] { border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; }
 .ts-row { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; height: 60px; padding: 0 8px; box-sizing: border-box; }
+/* (#34 T1) a laptop's row is 52 px: Back, the title with its count ("5/10 ▾", the chapters' menu) over the task, then Skip or
+   Next and ×. The text block is plain text there, so its two lines sit on the row's own grid beside the count */
+.tour-strip[data-mode="desk"] .ts-row { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr) auto auto auto; grid-template-rows: 18px 18px; align-content: center; column-gap: 8px; row-gap: 1px; height: 52px; padding: 0 8px 0 4px; }
+.tour-strip[data-mode="desk"] .ts-text { display: contents; }
+.tour-strip[data-mode="desk"] .ts-l1 { grid-column: 2; grid-row: 1; }
+.tour-strip[data-mode="desk"] .ts-chap { grid-column: 3; grid-row: 1; margin-left: -4px; }
+.tour-strip[data-mode="desk"] .ts-l2 { grid-column: 2 / 5; grid-row: 2; font: 400 13px/18px var(--f-ui); color: var(--ink); }
+.tour-strip[data-mode="desk"] .ts-back { grid-column: 1; grid-row: 1 / 3; }
+.tour-strip[data-mode="desk"] .ts-act { grid-column: 5; grid-row: 1 / 3; }
+.tour-strip[data-mode="desk"] .ts-next { grid-column: 6; grid-row: 1 / 3; }
+.tour-strip[data-mode="desk"] .ts-x { grid-column: 7; grid-row: 1 / 3; }
 .tour-strip[data-mode="port"] .ts-row { height: 67px; padding: 0 8px 0 4px; }
 .tour-strip[data-mode="port"] .ts-text { padding: 2px 6px; gap: 0; }
 .tour-strip[data-mode="head"] .ts-row, .tour-strip[data-mode="row"] .ts-row { height: 47px; padding: 0 4px 0 8px; }
@@ -910,9 +921,10 @@ const Tour = (() => {
 .ts-text:hover { background: var(--well, transparent); }
 .ts-text:focus-visible, .tour-strip button:focus-visible, .ts-why button:focus-visible, .ts-why input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ts-l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 13px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tour-strip[data-mode="desk"] .ts-count { display: none; }
-.ts-chap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 4px; height: 36px; min-height: 36px; margin: 0 4px; padding: 0 8px; border: 0; border-radius: var(--r-2, 4px); background: var(--accent-soft, transparent); color: var(--accent); font: 500 12px/18px var(--f-ui); white-space: nowrap; cursor: pointer; }
+.ts-chap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 3px; height: 24px; min-height: 24px; margin: 0; padding: 0 4px; border: 0; border-radius: var(--r-2, 4px); background: none; color: var(--muted); font: 500 12px/18px var(--f-ui); white-space: nowrap; cursor: pointer; }
+.ts-chap:hover { color: var(--ink); background: var(--well, transparent); }
 .ts-chap[hidden] { display: none; }
 .ts-chap svg { width: 12px; height: 12px; }
 .ts-chap[aria-expanded="true"] svg { rotate: 180deg; }
@@ -931,8 +943,8 @@ const Tour = (() => {
 .ts-ring { flex: 0 0 13px; width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--accent); box-sizing: border-box; display: grid; place-items: center; }
 .ts-ring[hidden] { display: none; }
 .ts-ring svg { width: 9px; height: 9px; opacity: 0; transform: scale(0.6); transition: opacity var(--t-med, 200ms) var(--ease-out, ease-out), transform var(--t-med, 200ms) var(--ease-out, ease-out); }
-.ts-l2.done .ts-ring { background: var(--accent); }
-.ts-l2.done .ts-ring svg { opacity: 1; transform: none; color: var(--accent-ink); }
+.ts-l2.done .ts-ring { border-color: transparent; }
+.ts-l2.done .ts-ring svg { opacity: 1; transform: none; width: 14px; height: 14px; color: var(--ok, #2d7a4b); stroke-width: 2.4; }
 .ts-l2.caption .ts-ring { border-style: dotted; }
 .ts-l2.pulse { animation: tour-nudge 320ms var(--ease-std, ease); }
 @keyframes tour-nudge { 30% { translate: 0 -3px; } 60% { translate: 0 1px; } }
@@ -956,16 +968,15 @@ const Tour = (() => {
 .tour-strip .ts-act svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .tour-strip .ts-next { flex: 0 0 auto; position: relative; isolation: isolate; overflow: hidden; height: 36px; min-height: 36px; min-width: 64px; max-width: 220px; padding: 0 14px; white-space: nowrap; text-overflow: ellipsis; }
 .tour-strip .ts-next.ready { box-shadow: inset 0 0 0 2px var(--accent-ink); }
+/* (#34 T1) Next is earned: while the step's task is open the button is a quiet outlined Skip */
+.tour-strip .ts-next.skip { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
+.tour-strip .ts-next.skip:hover { color: var(--ink); background: var(--well, var(--surface)); }
 /* (r3 verify-1: while the countdown runs, the ring leaves out its bottom edge; the bar below is that edge, filling in) */
 .tour-strip .ts-next.ready.counting { box-shadow: inset 0 2px var(--accent-ink), inset 2px 0 var(--accent-ink), inset -2px 0 var(--accent-ink); }
 /* the countdown (r3 review user-4): a bar along Next's bottom edge in Next's own label colour, so it stands off the
    button as the label does, growing from left to right over the countdown (CD_MS); restarted with the countdown, frozen while held */
 .tour-strip .ts-next::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: -1; background: var(--accent-ink); transform-origin: 0 50%; transform: scaleX(0); }
 .tour-strip .ts-next svg { width: 18px; height: 18px; display: block; }
-/* the key that steps forward, on a laptop (a touch screen has no keyboard), and the switch for moving on by itself */
-.tour-strip .ts-next.keycap::after { content: "→"; display: inline-block; margin-left: 8px; min-width: 18px; padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; font: 500 11px/16px var(--f-ui); text-align: center; opacity: 0.85; }
-.tour-strip .ts-autob[aria-pressed="false"] { opacity: 0.45; }
-.tour-strip:not([data-mode="desk"]) .ts-autob { display: none; }
 .tour-strip .ts-ncount { font: 600 16px/1 var(--f-ui); }
 .tour-strip .ts-next.counting::before { animation: tour-fill var(--tour-cd, 1500ms) linear forwards; }
 .tour-strip .ts-next.counting.held::before { animation-play-state: paused; }
@@ -988,8 +999,6 @@ const Tour = (() => {
 /* (r3 review user-3: in a phone's portrait row the act button takes Back's place, which is in Why, so the line keeps
    its width while the Grieg captions play) */
 .tour-strip[data-mode="port"].has-act .ts-back { display: none; }
-/* the progress through the chapter: a 2 px accent line along the strip's bottom edge */
-.ts-prog { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); transition: width var(--t-slow, 320ms) var(--ease-std, ease); pointer-events: none; }
 /* Why: the step's body. Inline under the row on a tablet or a desktop (the strip grows; the panes shrink); on a phone a
    panel that hangs under the strip, over X, at most half the screen, opened only by a tap */
 .ts-why { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 0 16px 10px 58px; font: 400 13px/19px var(--f-ui); color: var(--ink-2); }
@@ -1048,7 +1057,7 @@ const Tour = (() => {
 .tour-menu .tour-new { font: var(--t-caption); color: var(--accent); }
 .tour-menu .mi.tour-continue { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
 .tour-menu .tour-sub { display: block; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .ts-prog, .ts-ring svg, .ts-chev svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ts-ring svg, .ts-chev svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
 `;
   // a polite announcement outside the tour (the suggestion): one shared live region
   function say(text) {
@@ -1068,7 +1077,6 @@ const Tour = (() => {
   const ICON_DOWN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
   const ICON_RIGHT = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
   const ICON_CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
-  const ICON_AUTO = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="5.2"/><path d="M8 9V6.2M6.2 1.8h3.6"/></svg>';
   const ICON_PLAY = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M5 3.5v9l7.5-4.5z"/></svg>';
   const ICON_STOP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/></svg>';
   const ICON_SOUND = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3h-2.5z"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4"/></svg>';
@@ -1177,10 +1185,8 @@ const Tour = (() => {
     const next = el('button', { class: 'btn primary ts-next', type: 'button' }, $t('Next'));
     const x = el('button', { class: 'icon-btn ts-btn ts-x', type: 'button', 'aria-label': $t('End the tour'), title: $t('End the tour') + '  Esc' });
     x.innerHTML = ICON_X;
-    // Move on by itself, on a laptop: a small switch beside × (on a phone it is in the sheet below)
-    const autob = el('button', { class: 'icon-btn ts-btn ts-autob', type: 'button', 'aria-pressed': 'true', 'aria-label': $t('Move on by itself'), title: $t('Move on by itself') });
-    autob.innerHTML = ICON_AUTO;
-    const row = el('div', { class: 'ts-row' }, back, text, chap, act, next, autob, x);
+    // (#34 T1: Move on by itself is in the chapter menu on a laptop, and in the sheet below on a phone)
+    const row = el('div', { class: 'ts-row' }, back, text, chap, act, next, x);
     // the phone's sheet (a panel in the tour's top layer): the step's title, Move on by itself, Back and × End the tour,
     // which the narrow row has no room for
     const wtitle = el('span', { class: 'ts-wtitle', 'aria-hidden': 'true' });
@@ -1190,13 +1196,12 @@ const Tour = (() => {
     const wEnd = el('button', { class: 'btn ghost', type: 'button' }, $t('End the tour'));
     const wend = el('span', { class: 'ts-wend' }, wBack, wEnd);
     const why = el('div', { class: 'ts-why', id: 'tourWhy', hidden: true, 'data-tour': 'why' }, wtitle, el('div', { class: 'ts-foot' }, autoL, wend));
-    const prog = el('span', { class: 'ts-prog', 'aria-hidden': 'true' });
-    const strip = el('section', { class: 'tour-strip', role: 'region', 'aria-label': $t('Guided tour'), 'data-tour': 'strip' }, row, why, prog);
+    const strip = el('section', { class: 'tour-strip', role: 'region', 'aria-label': $t('Guided tour'), 'data-tour': 'strip' }, row, why);
     // the safe-area insets, read from a probe (env() has no script API)
     const safeP = el('div', { 'aria-hidden': 'true', style: 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)' });
     top.append(safeP);
     document.body.append(root, top);
-    return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, chap, title, count, l2, ringI, tin, lead, act, next, autob, x, why, wtitle, autoC, wBack, wEnd, prog, safeP,
+    return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, chap, title, count, l2, ringI, tin, lead, act, next, x, why, wtitle, autoC, wBack, wEnd, safeP,
       holes: null, raf: 0, anim: null, motion: 0, topSet: [], hosts: new Map(), hostOk: new Map(), work: [], moveT: 0, mode: null, whyOpen: false };
   }
 
@@ -1380,7 +1385,6 @@ const Tour = (() => {
     ui.text.addEventListener('click', () => { if (run !== r || !ui.whyPanel) return; if (closedByTap()) return; cdFeed(r, { type: 'cancel' }); setWhy(r, !ui.whyOpen); });
     ui.act.addEventListener('click', () => { if (run === r) actPress(r); });
     ui.autoC.addEventListener('change', () => { if (run === r) setAuto(ui.autoC.checked); });
-    ui.autob.addEventListener('click', () => { if (run === r) setAuto(rec.auto === false); });
     ui.shade.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); });
     const onKey = (e) => {
       if (run !== r || e === fwdKey) return;
@@ -1756,32 +1760,38 @@ const Tour = (() => {
   // Move on by itself (SPEC 2.4): on by default, kept in the tour record; off, the countdown of this showing stops
   function setAuto(on) {
     rec.auto = !!on; save();
-    if (run) { run.ui.autoC.checked = rec.auto; run.ui.autob.setAttribute('aria-pressed', String(rec.auto)); if (!rec.auto) cdFeed(run, { type: 'off' }); }
+    if (run) { run.ui.autoC.checked = rec.auto; if (!rec.auto) cdFeed(run, { type: 'off' }); }
     return rec.auto;
   }
   // Next (r3 review user-7): on a wide screen "Start", "Finish", "Next: <chapter>" or "Next", shortened to "Next →" (the
   // full label its name) when it does not fit or would cut the lead line; on a phone an arrow, its label its name. With
   // reduced motion during a countdown, the seconds left ("Next · 3"; on a phone "3")
   function paintNext(ui) {
-    const n = ui.next, base = n.dataset.base || $t('Next'), cnt = n.dataset.count || '';
+    const n = ui.next, cnt = n.dataset.count || '';
     const ph = !!ui.mode && ui.mode !== 'desk';
+    // (#34 T1) Next is earned: while the step's task is open the button is a quiet, outlined Skip; once it is done, or when
+    // the step has no task, the filled Next
+    const r = run && run.ui === ui ? run : null;
+    const open = !!(r && r.step && tryOf(r.step) && !r.done && r.caption == null);
+    const base = open ? $t('Skip') : n.dataset.base || $t('Next');
     const cap = !ph && keyHints();
     const html = ph ? (cnt ? `<span class="ts-ncount">${esc(cnt)}</span>` : ICON_RIGHT) : null;
     const text = ph ? null : cnt ? $t('Next · {n}', { n: cnt }) : base;
     const aria = ph || cnt ? base : null;
-    const sig = [html, text, aria, cap].join('|');
-    // (a laptop's Next carries the key that steps forward: a cap after its words, in CSS)
+    const sig = [html, text, aria, cap, open].join('|');
+    // (a laptop's Next names the key that steps forward in its tooltip)
     if (n.dataset.sig !== sig) {
       n.dataset.sig = sig;
-      n.classList.toggle('keycap', cap);
+      n.classList.toggle('skip', open);
       if (html != null) n.innerHTML = html; else n.textContent = text;
       if (aria) n.setAttribute('aria-label', aria); else n.removeAttribute('aria-label');
       n.title = ph ? base : cap ? base + '  →' : '';
     }
-    if (ph || cnt || !n.dataset.full) return;
-    // (it does not fit, or it leaves the lead line too little room: never cut)
-    const t = ui.text, cut = t && t.offsetWidth > 0 && (t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1);
-    if ((n.offsetWidth > 0 && n.scrollWidth > n.clientWidth + 0.5) || cut) { n.textContent = $t('Next') + (cap ? '' : ' →'); n.setAttribute('aria-label', base); n.dataset.sig = 'short'; }
+    if (open || ph || cnt || !n.dataset.full) return;
+    // (it does not fit, or it leaves the lead line too little room: never cut; a laptop's text block has no box of its own,
+    // its task line is the one measured)
+    const t = ui.text.offsetWidth > 0 ? ui.text : ui.l2, cut = t && t.offsetWidth > 0 && (t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1);
+    if ((n.offsetWidth > 0 && n.scrollWidth > n.clientWidth + 0.5) || cut) { n.textContent = $t('Next') + ' →'; n.setAttribute('aria-label', base); n.dataset.sig = 'short'; }
   }
 
   // ---------------------------------------------------------------- v16.4: the act button and the sound
@@ -2260,10 +2270,9 @@ const Tour = (() => {
     ui.count.setAttribute('aria-label', `${$t(ch.title)}, ${r.countText}`);
     // (the count in the text gives way to the chapter button where there is room for it)
     ui.chap.hidden = ui.mode !== 'desk';
-    ui.chap.firstChild.textContent = `${$t(ch.title)} · ${r.countText}`;
+    ui.chap.firstChild.textContent = r.countShort;
     ui.chap.setAttribute('aria-label', `${$t(ch.title)}, ${r.countText}. ${$t('Chapters')}`);
     ui.chap.setAttribute('title', $t('Chapters'));
-    ui.prog.style.width = `${(100 * k / Math.max(1, total)).toFixed(1)}%`;
     const nx = seek(r.ci, r.si + 1, 1, isAbsent);
     const nextCh = nx && nx.ci !== r.ci ? CHAPTERS[nx.ci] : null;
     const last = !nx;
@@ -2278,7 +2287,6 @@ const Tour = (() => {
     ui.back.disabled = noBack;
     ui.wBack.hidden = noBack;
     ui.autoC.checked = rec.auto !== false;
-    ui.autob.setAttribute('aria-pressed', String(ui.autoC.checked));
     ui.l2.classList.remove('done', 'caption');
     ui.act.dataset.sig = '';
     syncAct(r, step);
@@ -3019,6 +3027,12 @@ const Tour = (() => {
       kids.push(mi('', `<span class="tour-num">${i + 1}</span><span class="mi-label">${esc(title)}${fresh ? ` <span class="tour-new">${esc($t('New'))}</span>` : ''}</span>${done ? `<span class="tour-done" aria-label="${esc($t('done'))}">${ICON_CHECK}</span>` : ''}<span class="tour-time">${esc(time)}</span>`,
         () => start({ chapter: c.id, opener: anchor }), Object.assign({ 'aria-label': `${title}, ${time}${done ? $t(', done') : ''}` }, here === c ? { 'aria-current': 'step' } : {})));
     });
+    // (#34 T1) the strip's chapter menu also holds Move on by itself, a checkbox, where the timer icon was
+    if (chaptersOnly) {
+      kids.push(el('div', { class: 'msep', role: 'separator' }));
+      const on = rec.auto !== false;
+      kids.push(mi('', `<span class="mi-ic">${on ? ICON_CHECK : ''}</span><span class="mi-label">${esc($t('Move on by itself'))}</span>`, () => setAuto(!on), { role: 'menuitemcheckbox', 'aria-checked': String(on) }));
+    }
     if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
     const keys = !phone();

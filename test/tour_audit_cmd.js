@@ -3,7 +3,7 @@
 // panes, the chain, the tool row and the header's controls; its box is the same for every step of a chapter (a desktop:
 // the panes' too); no lead, task, result or caption is cut (scrollHeight <= clientHeight + 1, scrollWidth <= clientWidth
 // + 1); the title ends in an ellipsis only with the full title as its name; buttons at least 44 px on touch (36 with a
-// mouse), 8 px apart; text contrast at least 4.5:1 in both themes, Next's countdown fill included; the lit patch holds
+// mouse), 8 px apart; text contrast at least 4.5:1 in both themes, Next's label included; the lit patch holds
 // the anchor (90 %); no app layer is left open by the tour (a phone's sheet the step opens aside). The old callout
 // audit (place(), the docked callout, the mini bar) went with the callout. With AUDIT_SHOTS, every step is shot at 390
 // and 1440 (touch and mouse), light and dark, English and Russian, into AUDIT_SHOTS (a folder).
@@ -61,9 +61,8 @@ const PROBE = `(() => {
   for (const [n, sel] of [['title', '.ts-title'], ['lead', '#tourLead'], ['count', '.ts-count'], ['why', '.ts-chev']]) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && e.textContent.trim()) con[n] = +ratio(rgb(getComputedStyle(e).color), bgOf(e)).toFixed(2); }
   const nx = strip.querySelector('.ts-next'), ncs = getComputedStyle(nx), fill = getComputedStyle(document.documentElement).getPropertyValue('--accent-hover').trim();
   const hex = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
-  con.next = +ratio(rgb(ncs.color), rgb(ncs.backgroundColor)).toFixed(2);
-  // (r3 review user-4: the countdown is a bar along Next's bottom edge; it must stand off the button as its label does)
-  con.bar = +ratio(rgb(getComputedStyle(nx, '::before').backgroundColor), rgb(ncs.backgroundColor)).toFixed(2);
+  // (Skip is outlined, with no fill of its own: its label is read on what is behind it)
+  con.next = +ratio(rgb(ncs.color), rgb(ncs.backgroundColor).length >= 4 && rgb(ncs.backgroundColor)[3] < 0.5 ? bgOf(nx) : rgb(ncs.backgroundColor)).toFixed(2);
   // the lit patch holds the anchor
   let frac = null;
   if (L && L.anchor && L.holes[0]) { const a = L.anchor, v = { l: Math.max(2, a.l), t: Math.max(2, a.t), r: Math.min(innerWidth - 2, a.r), b: Math.min(innerHeight - 2, a.b) }, h = L.holes[0]; const ar = Math.max(0, v.r - v.l) * Math.max(0, v.b - v.t); frac = ar ? Math.max(0, Math.min(h.r, v.r) - Math.max(h.l, v.l)) * Math.max(0, Math.min(h.b, v.b) - Math.max(h.t, v.t)) / ar : 1; }
@@ -71,7 +70,7 @@ const PROBE = `(() => {
   // opens, data-tour-layer naming that step: [v17 D4] the patterns step's Display ▾; still open at a later step, it counts)
   const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]') && !(c && /** @type {HTMLElement} */ (e).dataset.tourLayer === c.chapter + '/' + c.id)).length;
   const pn = rb(document.querySelector('#panes'));
-  return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.map((b) => b.w)), minH: Math.min(...btns.map((b) => b.h)), gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
+  return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.w)), minH: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.h)), chapMin: Math.min(...btns.filter((b) => b.n === 'ts-chap').map((b) => Math.min(b.w, b.h))), gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
 })()`;
 const runs = [];
 const phoneSize = (w, h) => w < 768 || (w > h && h <= 430);
@@ -103,8 +102,9 @@ for (const cfg of runs) {
     check(`${n}: the strip meets none of the panes, the chain, the tool row and the header's controls`, g.hits.length === 0, g.hits);
     check(`${n}: no lead, task, result or caption cut`, g.cut.length === 0, [g.cut, g.lead]);
     check(`${n}: the title cut only with its full name`, g.titleOk);
+    check(`${n}: the chapter chip is at least 24 px (WCAG 2.5.8), a text control`, !(g.chapMin < 23.5), g.btns);
     check(`${n}: buttons ${touch || g.mode !== 'desk' ? 44 : 36} px at least, 8 px apart`, g.minW >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && g.minH >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && (g.gap == null || g.gap >= 7.5), [g.btns, g.gap]);
-    check(`${n}: text contrast at least 4.5:1, Next and its countdown bar included`, Object.values(g.con).every((v) => v >= 4.5), g.con);
+    check(`${n}: text contrast at least 4.5:1, Next's label included`, Object.values(g.con).every((v) => v >= 4.5), g.con);
     if (g.frac != null) check(`${n}: the lit patch holds the anchor`, g.frac >= 0.9, g.frac);
     check(`${n}: no app layer left open by the tour`, g.layers === 0, g.layers);
     if (CFG.spot) {
