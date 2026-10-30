@@ -81,8 +81,8 @@ The app is a single HTML file built from `src/`:
 python3 build.py
 ```
 
-`build.py` joins the files of `src/` in a fixed order into one `<script>`. `app.js`, `gl.js` and `figure.js` are kept
-as ordered parts: `src/app/`, `src/gl/` and `src/figure/` hold a `wrap.js` (the closure's first and last lines) and
+`build.py` joins the files of `src/` in a fixed order into one `<script>`. `app.js`, `gl.js`, `figure.js` and
+`construct.js` are kept as ordered parts: `src/app/`, `src/gl/`, `src/figure/` and `src/construct/` hold a `wrap.js` (the closure's first and last lines) and
 the parts `NN-subject.js`,
 which take the place of its `// @parts` line in file name order (`tools/src_parts.py`; `test/src_text.js` joins them
 the same way for the tests).
