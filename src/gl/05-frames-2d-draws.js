@@ -527,6 +527,29 @@
     gl.enable(gl.BLEND);
   }
 
+  // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
+  // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
+  // (st.s, st.T); triangles longer than st.lim on the plane are left out. False when the program is not ready
+  function drawCarried(st) {
+    if (!ok) return false;
+    const P = program(st.s === st.T ? 'carryId' : 'carry', st.map);
+    if (!P) return false;
+    use(P, st.map);
+    const dpr = st.dpr || 1, g = st.mesh;
+    view2D(P, st.view, dpr, null);
+    u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy);
+    u2i(P, 'uN', g.nx, g.ny);
+    u1f(P, 'uLim', st.lim);
+    u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
+    dcUniforms(P, st, dpr);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
+    return true;
+  }
+
   // ---------------- preimages (Preimage mode) ----------------
   const TKIND = { disc: 1, rect: 2, polygon: 3, halfplane: 4, annulus: 5, sector: 6, formula: 7, segment: 11, line: 12, ray: 13, circle: 14, arc: 15, curve: 16, cgrid: 17, pgrid: 18, fcurve: 19 };
   // v16 (notes/constructions-v16/SPEC.md 2.2): a gcircle disc or circle (s._g, A != 0) packs its exact form instead of

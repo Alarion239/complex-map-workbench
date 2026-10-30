@@ -162,10 +162,20 @@
   // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
   // chain stay (svCarry.memo), so a glide's frame evaluates only the step's homotopy H (null at rest)
+
   function svCarry(pane, cc, s, a, H) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
+    // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
+    if (GLR.drawCarried && !window.__svCpu) {
+      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
+      const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
+      GLR.begin(pane.pw, pane.ph);
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s,
+        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
+    }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
     let m = svCarry.memo;
     if (!m || m.key !== key) {
