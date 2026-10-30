@@ -15,7 +15,7 @@ const shots = process.env.SPHERE_LIGHT_SHOTS || '';
 // the mean OKLab L of the upper and the lower half of the globe's disc in #canvasL (device px), and the disc itself
 const MEASURE = `(() => {
   const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height;
-  const c = __cmwCam('L'), D = Math.hypot(c.dist, 0);
+  const c = __cmwCam('L'), D = c.dist;
   const r = Math.tan(Math.asin(1 / D)) / Math.tan(c.fov / 2) * H / 2, cx = W / 2, cy = H / 2;
   const px = cv.getContext('2d').getImageData(0, 0, W, H).data;
   const lin = (u) => (u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
