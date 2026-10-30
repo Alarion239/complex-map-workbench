@@ -719,14 +719,17 @@
       // ([#243] a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
       // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
       // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
-      let due = 0;
-      const apply = () => { if (due) { clearTimeout(due); due = 0; } upd(raw()); };
+      // ([#404] the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
+      // the text is dropped, not given by live() to the new chain's step of the same type at k)
+      let due = 0, typedOn = null;
+      const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
       input.addEventListener('input', () => {
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
         if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
         const cost = chainCost();
         if (q.type !== 'seq' && cost <= 8) { apply(); return; }
         clearTimeout(due);
+        typedOn = live();
         due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
       });
       input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
