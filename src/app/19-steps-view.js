@@ -9,7 +9,8 @@
   // The view reuses the app's views: a plane at or before the colour plane is Phase (or Landscape), one after it X → Y, always on
   // the left pane alone (solo 'L'); leftStage() is the shown plane, focusMap() the map into the colour plane.
   const SV = {
-    on: (() => { try { return new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
+    on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
     i: 0,            // the shown plane, an index into svPlanes()
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
     scope: 'all',    // 'all' | 'in'
@@ -36,9 +37,10 @@
     return v;
   }
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
+  const svMain = (k = svStage()) => (SV.surf === 'land' && svColoured(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
   function svViewFix() {
     const k = svStage(), col = svColoured(k), v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
-    const main = SV.surf === 'land' && col ? 'land' : col ? 'phase' : 'xy';
+    const main = svMain(k);
     let ch = false;
     if (S.focus !== 0) { setFocusStep(0); ch = true; }
     if (morph.open) { morph.open = false; ch = true; }
@@ -54,8 +56,19 @@
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
+    svAdopt();
     if (svViewFix()) setTimeout(svApply, 0);
     svSync();
+  }
+  // a view the steps view did not set (an example, a link, a saved state) opens on its equivalent: X → Y is the
+  // colour plane z with the colour inside the regions, Phase the colour plane F everywhere, Landscape the relief
+  function svAdopt() {
+    const ext = S.view.main;
+    if (ext === svMain()) return;
+    if (ext === 'xy') { SV.T = 0; SV.scope = 'in'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
+    else if (ext === 'phase') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.P.surf === 'sphere' ? 'sphere' : 'plane'; }
+    else if (ext === 'land') { SV.T = -1; SV.scope = 'all'; SV.surf = 'land'; }
+    SV.i = 0; SV.g.set(0);
   }
   function svApply() {
     const k = svStage();
@@ -356,5 +369,6 @@
     svEdgeSwipe();
     svKeys();
     SV.g.set(0); SV.g.max = svPlanes().length - 1;
+    svAdopt();
     svApply();
   }
