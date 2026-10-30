@@ -223,7 +223,9 @@ jobs:
   quality:
     name: Quality (${{ matrix.machine }} GPU)
     needs: [plan, glsl]
-    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.glsl != 'skip'
+    # (!cancelled(), not always(): a failed GLSL job still lets quality run, a cancelled run stops here; always() is
+    # true after a cancel too: cancelled run 41015822380 still queued its quality job on our machines)
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.glsl != 'skip' }}
     strategy:
       fail-fast: false
       matrix:
@@ -252,7 +254,7 @@ jobs:
   perf:
     name: Perf (${{ matrix.machine }} GPU, ${{ matrix.shard }})
     needs: [plan, quality]
-    if: always() && needs.plan.result == 'success' && inputs.mode != 'glprof'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' }}
     strategy:
       fail-fast: false
       matrix:
