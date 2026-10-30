@@ -52,6 +52,10 @@ const CASES = [
   { id: 'z2-t0.5-im', steps: [{ type: 'pown', params: { n: 2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.5, mode: 1 },
   { id: 'z2-t0.25-im', steps: [{ type: 'pown', params: { n: 2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.25, mode: 1 },
   { id: 'zm2-t0.2-im', steps: [{ type: 'pown', params: { n: -2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.2, mode: 1 },
+  // (#168 review) the same page, the log's cut moved 90 -> 180 -> 90: its cuts change kind (other <-> sheet) under the
+  // same chain key, and landTF's kind with them (N <-> S). A landTF compiled at 90 (N: no edge pass) and drawn at 180,
+  // where it should run the edge pass itself, leaves the cut without walls; the program must follow the kind
+  { id: 'log-cut-flip-im', steps: [{ type: 'log', params: { cut: 90, k: 0 }, on: true }], v: { cx: 0, cy: 0, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, flips: [180, 90] },
 ];
 const ONLY = typeof globalThis.__lwOnly === 'object' ? globalThis.__lwOnly : process.env.LW_ONLY ? process.env.LW_ONLY.split(',') : null;
 // the in-page check: the GPU mesh of the pane (N = 256) against the oracle on the CPU (the app's own Funcs)
@@ -229,6 +233,21 @@ for (const [vw, vh, mobile] of [[1440, 900, false], [390, 844, true]]) for (cons
     if (r.refineErr) out.fails.push(`${c.id} ${tag}: ${r.refineErr}`);
     if (r.holes) out.fails.push(`${c.id} ${tag}: ${r.holes} hole edges in the refined mesh`);
     if (r.refinedCurtains) out.fails.push(`${c.id} ${tag}: ${r.refinedCurtains} refined edges across a jump`);
+    // (a case's cut moved on the same page: each surface checked again, its heights against the CPU's too)
+    for (const cut of c.flips || []) {
+      const steps = c.steps.map((st, i) => (i === 0 ? Object.assign({}, st, { params: Object.assign({}, st.params, { cut }) }) : st));
+      const key0 = await ev('(() => { const m = GLR.landMesh(256); return m ? m.key : null; })()');
+      await ev(`__cmwStepParam(0, 'cut', ${cut})`); await settle(1200);
+      for (let k = 0; k < 120; k++) { if (await ev(`(() => { const m = GLR.landMesh(256); return !!(m && m.key !== ${JSON.stringify(key0)} && !/\\|-1$/.test(m.key)); })()`)) break; await sleep(500); }
+      const f = await ev(CHECK(steps, c.h, c.sing || [], c.singR || 0), 120000);
+      const at = `${c.id} ${tag} (cut ${cut})`;
+      out.rows.push(Object.assign({ id: c.id + '@' + cut, tag }, f));
+      if (f.err) { out.fails.push(`${at}: ${f.err}`); continue; }
+      if (f.curtains) out.fails.push(`${at}: ${f.curtains} curtains`);
+      if (f.wallsCut) out.fails.push(`${at}: ${f.wallsCut} continuous walls cut`);
+      if (!f.jumps) out.fails.push(`${at}: the cut was not found`);
+      if (!(f.gpuVsCpuHeight < 1e-3)) out.fails.push(`${at}: GPU heights off the CPU's by ${f.gpuVsCpuHeight} H`);
+    }
   }
   // frame times: orbiting tan z (Re), and the user's case playing (All sheets on and off)
   if (PARTS.includes('perf') && (!ONLY || globalThis.__lwPerf)) {
