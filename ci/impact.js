@@ -28,7 +28,7 @@ const GLSL = require('./glsl');
 const AREAS = {
   phone: ['tour-phone', 'tour-audit-phone', 'phone-swap-1', 'phone-swap-2', 'phone-swap-3', 'ux165-2', 'i18n-phone'],
   tour: ['tour', 'tour-phone', 'tour-audit-phone', 'tour-audit-desktop'],
-  export: ['export-1', 'export-2', 'export-3', 'images'],
+  export: ['export-1', 'export-2', 'export-3', 'export-4', 'images'],
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
