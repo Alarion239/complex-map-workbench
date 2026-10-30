@@ -1,13 +1,13 @@
 # Roadmap
 
-**Live now:** v17.0-beta.9 (waves 1–9, 30 October 2026): the redesign so far, complex shared numbers, iteration, fast
+**Live now:** v17.0-beta.10 (waves 1–10, 30 October 2026): the redesign so far, complex shared numbers, iteration, fast
 Dirichlet series, the ES-module build, shapes and parameter points in every plane, exact preimages of a parameter point
-on rational chains, the phone's step bar, screen-reader and 24 px target fixes, evenly lit globes, and the first
-shader-compile work for Windows.
+on rational chains, the phone's step bar and its ‹ › glide, an offline page you can download, Try lines that close
+themselves, screen-reader and 24 px target fixes, evenly lit globes, and smaller shader programs for Windows.
 
-**Next:** v17.0-beta.10 (wave 10: the colour key always on Phase's plot (#365), the phone's ‹ › glide (#362), the `pointPre`
-fuzz test (#382), and, once Windows link times are in, the Mountain King's smaller program (#355) and Walls (#47)), then v17.0, when the touch rules (#30) and the
-guided tour rework (#34) are done; until then each merged wave is a beta (v17.0-beta.10, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+**Next:** v17.0-beta.11 (wave 11: the Mountain King's `landEdgeS` inlined once (#395, #399), the tour's strip (#34), and,
+when the Windows laptop is back, #170, #238 and #350), then v17.0, when the touch rules (#30) and the guided tour
+rework (#34) are done; until then each merged wave is a beta (v17.0-beta.11, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
 every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
 of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
@@ -17,7 +17,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.9 is live; v17.0 waits for #30 and #34 |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.10 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | planned |
 
 ## Releases
@@ -38,6 +38,7 @@ Each merged wave is a release. Dates are the day the wave PR merged into `main` 
 | v17.0-beta.7 | 2026-10-29 | #304 (e6830d9) | The ES-module switch (#20 phase 4), Hear the function (#234), ζ about 3× cheaper, series edits and number drags without the lag (#243), shapes in a step's plane, forward (#253), a start-up progress bar (#245), Display options without a pop-up (#247), no wordmark in the top bar, a faster tour (#250), Windows GLSL in ten jobs (#169) |
 | v17.0-beta.8 | 2026-10-30 | #346 (62eb93c) | The Douady–Hubbard map Φ_M with external rays and equipotentials (#260), the Cauchy style by the residue theorem with three Cauchy examples 1/z, z + 1/z, e^{1/z} (#235, #293), shapes and parameter points shown in every plane (#253, #252), the phone's chain as ‹ the step › with a sheet and a glide through the deformation (#246), phone sheets and landscape phones fixed (#251), Display options as glyphs only (#247), pane heads laid out once per task (#320), Landscape step cards that never block on a link (#72), a phone selection sheet that reads a shape's description as plain text (#321), tests for complex shared numbers in a_n and recurrences (#327), CodeQL with an advanced setup that leaves test/ out (#330), a quality harness that settles on the right pane's own frame |
 | v17.0-beta.9 | 2026-10-30 | #386 (d598403) | Exact preimages of a parameter point on rational chains, with every preimage listed and following a drag (#291), the line refinement sliced so one slow curve no longer blocks a frame (#325), no Phase style button in the top bar, the style row as glyphs in each plane's head and the view tabs centred (#334, #335), Inspector labels as Unicode, not raw TeX (#336), the Height and Colour keys' pop-up below the readout (#337), the pane heads at 1024 px (#356, #357), the Φ_M card's fields (#358), screen readers and 24 px targets (axe-core suite; #359, #360, #361), every globe lit evenly from the camera (#287), no ghost cut handle after an example switch (#297), the first audio gesture's context created after the click (#271), the Gate that reuses a green push run (#379), the ES-module cleanup and a file-size budget (#20) |
+| v17.0-beta.10 | 2026-10-30 | #409 (#TBD) | An offline page, `complex-map-workbench-offline.html`, published next to the live page and downloadable from Settings (#21, #393), Phase's colour key always on the plot, top right (#365), the phone's ‹ › gliding Y between the steps' planes with no transport, and an export that saves the plane Y shows (#362, #383), every example's Try line closing itself once you do what it asks (#34, #398), a typed Repeat N or step field that stays with its own step through a chain switch (#401, #404), smaller Windows shader programs: the Mountain King's mode-1 program 126 KB instead of 492 KB (#355), Julia's preimage program (#396), and the Landscape's edge pass inside its own program (#47), a fuzz test of exact preimages (#291), Examples first in Tab order (#359), and `notes/` without its old screenshots and PDFs (#20) |
 
 The tag for each release is pushed by Alexander, so a row can exist before its tag does.
 
