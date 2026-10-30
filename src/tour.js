@@ -195,7 +195,7 @@ const Tour = (() => {
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
           body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.',
-          try: { text: 'Zoom in on a zero or a pole.', touch: 'Spread two fingers on a zero or a pole.', on: 'view-moved', test: (e) => !e || e.how === 'zoom', ctl: ['panes'], then: 'All the colours still meet there, however far you zoom.' } },
+          try: { text: 'Zoom in on a zero or a pole.', touch: 'Spread two fingers on a zero or a pole.', on: 'view-moved', test: (e) => !e || e.how === 'zoom', then: 'All the colours still meet there, however far you zoom.' } },
         { id: 'land', anchor: 'panes', title: 'Landscape', before: [['view', 'land'], ['tool', 'select']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.',
           touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.',
