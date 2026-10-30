@@ -16,7 +16,8 @@ name: Gate
 on:
   pull_request:
     # (labeled: the label full-gate runs the whole gate on any pull request; another label restarts the run in its tier.
-    # ready_for_review: a pull request into main runs the whole gate once it is not a draft)
+    # ready_for_review: a pull request into main runs the whole gate once it is not a draft; into another branch it
+    # runs nothing, its commit was gated by its push's run in the same tier, #379)
     types: [opened, synchronize, reopened, labeled, ready_for_review]
   push:
     branches: [main]
@@ -51,7 +52,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: gate-${{ github.event.pull_request.number || github.ref }}
+  # (a pull request into another branch than main marked ready for review: a group of its own, so that it never cancels
+  # its push's run still in progress, #379; it runs nothing, see REPEAT)
+  group: gate-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'ready_for_review' && github.event.pull_request.base.ref != 'main' && '-ready' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -127,8 +130,17 @@ jobs:
           DRAFT: ${{ github.event.pull_request.draft }}
           BASE: ${{ github.event.pull_request.base.ref }}
           REF: ${{ steps.ref.outputs.reference }}
+          # (#379: marked ready for review into another branch than main, the same tier as the draft's run on the same
+          # commit: nothing is selected, the push's run gated it)
+          REPEAT: ${{ github.event.action == 'ready_for_review' && github.event.pull_request.base.ref != 'main' }}
         run: |
           set -eu
+          if [ "$REPEAT" = true ]; then
+            why="marked ready for review into ${BASE}: this commit was gated by its push's run in the same tier; nothing to re-run"
+            printf '%s\n' "tier=none" "why=$why" "browser=[]" "glsl=[]" "quality=[]" "perf=false" "quality_force=" "perf_force=" >> "$GITHUB_OUTPUT"
+            printf '**Tier none**: %s\n' "$why" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           full=''
           if [ "${{ github.event_name }}" != pull_request ]; then full="${{ github.event_name }}"
           elif [ "$FULL_LABEL" = true ]; then full="the label full-gate"
@@ -148,6 +160,8 @@ jobs:
 
   unit:
     name: Unit tests
+    # (not for a pull request into another branch than main marked ready for review: its push's run tested this commit)
+    if: ${{ !(github.event.action == 'ready_for_review' && github.event.pull_request.base.ref != 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -354,6 +368,10 @@ jobs:
     name: Gate
     if: always()
     needs: [plan, unit, glsl, quality, perf, browser]
+    # (actions: read, for tier none's look at the Gate run of the same commit's push, #379)
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -366,12 +384,29 @@ jobs:
           SEL_GLSL: ${{ needs.plan.outputs.glsl != '[]' }}
           SEL_QUALITY: ${{ needs.plan.outputs.quality != '[]' }}
           SEL_BROWSER: ${{ needs.plan.outputs.browser != '[]' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -u
           echo "tier ${TIER:-?}, plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}, browser ${{ needs.browser.result }}"
           printf '**Tier %s**: %s\n\nBrowser shards: %s\n' "${TIER:-?}" "${WHY:-}" "${BROWSER:-[]}" >> "$GITHUB_STEP_SUMMARY"
           bad=0
           [ "${{ needs.plan.result }}" = success ] || { echo "::error::plan: ${{ needs.plan.result }}"; bad=1; }
+          # (tier none, #379: nothing ran here, and this Gate check, the newest on the commit, carries the verdict of the
+          # Gate run of the commit's push instead of a pass of its own: that run passed, or it is still running (its Gate
+          # check, created later, is then the newest); none, or one that failed or was cancelled, fails here too)
+          if [ "${TIER:-}" = none ]; then
+            other=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/gate.yml/runs?head_sha=$HEAD_SHA&per_page=100" \
+              --jq "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID)] | sort_by(.created_at) | last | if . == null then \"none\" else \"\\(.id) \\(.status) \\(.conclusion // \"\")\" end")
+            echo "the Gate run of the push of $HEAD_SHA: $other"
+            case "$other" in
+              *" completed success") echo "Gated by run ${other%% *} on this commit (it passed)." >> "$GITHUB_STEP_SUMMARY" ;;
+              *" completed"*) echo "::error::the Gate run of this commit, ${other%% *}, did not pass ($other): fix it, or re-run it"; bad=1 ;;
+              none) echo "::error::no other Gate run on $HEAD_SHA: push again or run it by hand"; bad=1 ;;
+              *) echo "Run ${other%% *} is still gating this commit; its Gate check decides." >> "$GITHUB_STEP_SUMMARY" ;;
+            esac
+            exit $bad
+          fi
           [ "${{ needs.unit.result }}" = success ] || { echo "::error::unit: ${{ needs.unit.result }}"; bad=1; }
           # a job the plan chose passed; one it did not choose was skipped (perf may be skipped either way: the GPU
           # machines gate speed once they are registered)
