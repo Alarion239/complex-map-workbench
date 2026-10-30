@@ -37,4 +37,39 @@ await ev(`__cmwExample(${iSine})`); await settle(1000);
 ok('another example brings its own line', await lane(), null);
 await ev(`document.getElementById('morphBtn').click()`); await settle(600);
 ok('and the earlier example\'s watch is gone: Deformation does not close the sine line', await lane(), null);
+
+// a line about zooming closes when the plane is zoomed (the wheel), not on another action; one about hovering a pole closes
+// when the pointer reads a point in Y
+const iBound = await byName('/A natural boundary/');
+const iGamma = await byName('/Poles of the Gamma function/');
+ok('the zoom and hover examples exist', iBound >= 0 && iGamma >= 0, { iBound, iGamma });
+const centre = (id) => ev(`(() => { const b = document.getElementById('${id}').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
+await ev(`__cmwExample(${iBound})`); await settle(1500);
+ok('the natural boundary has its line', await lane(), null);
+await ev(`document.getElementById('morphBtn').click()`); await settle(500);
+await ev(`document.getElementById('morphBtn').click()`); await settle(500);
+ok('another action leaves the zoom line', await lane(), null);
+let c = await centre('paneL');
+for (let i = 0; i < 3; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: c.x, y: c.y, deltaX: 0, deltaY: -120 }); await sleep(120); }
+await settle(900);
+ok('zooming closes it', !(await lane()), null);
+await ev(`__cmwExample(${iGamma})`); await settle(1500);
+ok('the Gamma example has its line', await lane(), null);
+await ev(`__cmwSetMain('xy'); 1`); await settle(800);
+c = await centre('paneR');
+for (const dx of [0, 14, 28, 42]) { await move(c.x + dx, c.y + dx / 2); await sleep(120); }
+await settle(700);
+ok('hovering a point in Y closes it', !(await lane()), null);
+// a line about dragging or playing a number closes when that number moves (a for the disc map, c for Boettcher), not before
+const iDisc = await byName('/A disc map moved by a point/');
+const iBott = await byName('/B.ttcher coordinates/');
+ok('the number examples exist', iDisc >= 0 && iBott >= 0, { iDisc, iBott });
+await ev(`__cmwExample(${iDisc})`); await settle(1500);
+ok('the disc map has its line', await lane(), null);
+await ev(`Params.set('a', 0.3)`); await settle(800);
+ok('moving the number a closes it', !(await lane()), null);
+await ev(`__cmwExample(${iBott})`); await settle(1500);
+ok('Böttcher has its line', await lane(), null);
+await ev(`Params.set('c', 0.1)`); await settle(800);
+ok('moving the number c closes it', !(await lane()), null);
 return { pass: fails.length === 0, fails };

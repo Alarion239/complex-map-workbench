@@ -79,7 +79,10 @@
     if (!st) return;
     if (rp) st.repeat = rp; else delete st.repeat;
     chainChanged(true); commit();
+    repeatMoved(k, rp);
   }
+  // ([#398] the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
+  const repeatMoved = (k, rp) => tourEmit('repeat-changed', { k, n: rp ? rp.n : 0, len: rp ? rp.len : 0, by: rp && rp.by ? rp.by : null });
   let repRO = null;
   function updateRepeats() {
     const host = $('pipeline');
@@ -92,12 +95,14 @@
       if (!L) {
         const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
         // (N applies once typing settles, so 12 builds the chain once, not for N = 1 then N = 12; at once on change)
-        let settle = 0;
+        // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+        let settle = 0, typedFor = null;
         const show = (st) => { inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n); };
         const apply = () => {
           clearTimeout(settle);
-          const t = inp.value.trim(), k = +L.dataset.k, st = S.steps[k - 1];
-          if (!st || !st.repeat) return;
+          const t = inp.value.trim(), st = typedFor || S.steps[+L.dataset.k - 1];
+          typedFor = null;
+          if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
           const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
           let rp = null;
           if (ns.length === 1 && Params.get(ns[0]) !== undefined) { if (st.repeat.by !== ns[0]) rp = { n: st.repeat.n, len: st.repeat.len, by: ns[0] }; }
@@ -105,8 +110,9 @@
           if (!rp) return;
           st.repeat = rp;
           chainChanged(false);
+          repeatMoved(S.steps.indexOf(st) + 1, rp);
         };
-        inp.addEventListener('input', () => { clearTimeout(settle); settle = setTimeout(apply, 400); });
+        inp.addEventListener('input', () => { clearTimeout(settle); typedFor = S.steps[+L.dataset.k - 1] || null; settle = setTimeout(apply, 400); });
         inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
         // (the arrow keys step a typed N, as a number field does)
         inp.addEventListener('keydown', (e) => {
@@ -118,6 +124,7 @@
           if (v === st.repeat.n) return;
           st.repeat = { n: v, len: st.repeat.len };
           show(st); chainChanged(false); commit();
+          repeatMoved(k, st.repeat);
         });
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
@@ -700,7 +707,7 @@
       // with All sheets on, the one view that draws them
       if (q.key === 'k' && q.type === 'int') {
         const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
-        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); };
+        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); tourEmit('sheet-changed', { k, sheet: v }); };
         before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
         extra = h('div', { class: 'sheet-ctl' },
           n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
@@ -719,14 +726,19 @@
       // ([#243] a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
       // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
       // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
-      let due = 0;
-      const apply = () => { if (due) { clearTimeout(due); due = 0; } upd(raw()); };
+      // ([#404] the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
+      // the text is dropped, not given by live() to the new chain's step of the same type at k)
+      let due = 0, typedOn = null;
+      const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
       input.addEventListener('input', () => {
+        // ([#398] the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
+        if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
         if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
         const cost = chainCost();
         if (q.type !== 'seq' && cost <= 8) { apply(); return; }
         clearTimeout(due);
+        typedOn = live();
         due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
       });
       input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });

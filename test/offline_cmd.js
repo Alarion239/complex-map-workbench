@@ -39,27 +39,53 @@ for (const lang of ['en', 'ru']) {
   ok(`${lang}: the app started`, await ev(`!!document.querySelector('#app') && !document.documentElement.classList.contains('i18n-wait')`), null);
   ok(`${lang}: no request leaves the page`, JSON.stringify(await asked()) === '[]', await asked());
   ok(`${lang}: the offline page offers no download of itself`, await ev(`!document.querySelector('meta[name="cmw-offline"]')`), null);
+  if (lang !== 'en') continue;
+  // the figure export's PDF library (issue #393): its two blocks started as figure.js starts them (a Blob URL), then a
+  // small SVG drawn into a PDF, all with the network off; the bytes start with %PDF
+  await ev(`window.__offPdf = null; (async () => {
+    const run = (id) => new Promise((res, rej) => { const b = document.getElementById(id), s = document.createElement('script');
+      s.src = URL.createObjectURL(new Blob([JSON.parse(b.textContent)], { type: 'text/javascript' })); s.onload = res; s.onerror = rej; document.head.append(s); });
+    await run('cmw-jspdf'); await run('cmw-svg2pdf');
+    const doc = new window.jspdf.jsPDF({ unit: 'pt', format: [120, 80] });
+    const svg = new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><path d="M10 10 L110 70" stroke="#000"/><circle cx="60" cy="40" r="20" fill="#c33"/></svg>', 'image/svg+xml').documentElement;
+    document.body.append(svg);
+    await window.svg2pdf.svg2pdf(svg, doc, { x: 0, y: 0, width: 120, height: 80 });
+    svg.remove();
+    const out = doc.output();
+    return { head: out.slice(0, 5), bytes: out.length };
+  })().then((r) => { window.__offPdf = r; }, (e) => { window.__offPdf = { error: String(e) }; }); 1`);
+  let pdf = null;
+  for (let i = 0; i < 40 && !pdf; i++) { pdf = await ev('window.__offPdf'); if (!pdf) await sleep(250); }
+  ok('the PDF library runs from the page itself and writes a PDF', pdf && pdf.head === '%PDF-' && pdf.bytes > 500, pdf);
+  ok('the PDF library asked the network for nothing', JSON.stringify(await asked()) === '[]', await asked());
 }
 await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 try { fs.unlinkSync(file); } catch (e) { /* the copy's folder goes with the run */ }
 
-// the live page's Settings: Download offline page, with its size (test.html has no such meta: it is added here)
+// the live page's Settings: Download offline page, with its size (test.html has no such meta: it is added here). On a
+// cold start the app wires #settingsBtn only once its init has run, seconds after load() returns on a software
+// renderer: the pop-down is opened by clicking until it is there (up to 30 s), never read before
 await load('offlineset' + Date.now(), { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
-const label = await ev(`(() => {
-  const m = document.createElement('meta'); m.name = 'cmw-offline'; m.content = '7593031'; document.head.append(m);
-  document.getElementById('settingsBtn').click();
-  const b = [...document.querySelectorAll('.set-pop .set-link')].find((x) => /offline/i.test(x.textContent));
-  const t = b ? b.textContent : null;
-  document.getElementById('settingsBtn').click();
-  return t;
-})()`);
+const settingsLinks = async () => {
+  for (let i = 0; i < 60; i++) {
+    const r = await ev(`(() => {
+      if (!document.querySelector('.set-pop')) { const b = document.getElementById('settingsBtn'); if (b) b.click(); }
+      const pop = document.querySelector('.set-pop');
+      if (!pop) return null;
+      const out = [...pop.querySelectorAll('.set-link')].map((x) => x.textContent);
+      document.getElementById('settingsBtn').click();   // (a re-click closes it)
+      return out;
+    })()`);
+    if (Array.isArray(r)) return r;
+    await sleep(500);
+  }
+  return 'the Settings pop-down never opened';
+};
+await ev(`(() => { const m = document.createElement('meta'); m.name = 'cmw-offline'; m.content = '7593031'; document.head.append(m); return 1; })()`);
+const withMeta = await settingsLinks();
+const label = Array.isArray(withMeta) ? withMeta.find((x) => /offline/i.test(x)) || null : withMeta;
 ok('Settings: Download offline page (7.6 MB)', label === 'Download offline page (7.6 MB)', label);
-const none = await ev(`(() => {
-  document.querySelector('meta[name="cmw-offline"]').remove();
-  document.getElementById('settingsBtn').click();
-  const n = [...document.querySelectorAll('.set-pop .set-link')].filter((x) => /offline/i.test(x.textContent)).length;
-  document.getElementById('settingsBtn').click();
-  return n;
-})()`);
-ok('Settings: no entry without the size (the test page, the offline page)', none === 0, none);
+await ev(`(() => { document.querySelector('meta[name="cmw-offline"]').remove(); return 1; })()`);
+const without = await settingsLinks();
+ok('Settings: no entry without the size (the test page, the offline page)', Array.isArray(without) && without.length > 0 && !without.some((x) => /offline/i.test(x)), without);
 return { pass: fails.length === 0, fails };

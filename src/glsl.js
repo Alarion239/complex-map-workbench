@@ -329,6 +329,10 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
 
   // linear homotopy (1-t) z + t f(z); exact identity at t = 0 even where f overflows float32
   const LIN = (P) => `if (t == 0.0) return z;\n  vec2 w = ${P}_f(z);\n  return z * (1.0 - t) + w * t;`;
+  // a step's path with the t = 1 shortcut, the map itself there (exactly): every path but a straight line's (LIN, whose
+  // z (1 - t) + f(z) t is not f(z) where z is infinite) and a plan that handles t = 1 in its own body (own1, issue #355)
+  const exactAt1 = (pl) => !pl.h.startsWith('if (t == 0.0)');
+  const withOne = (P, pl) => (!exactAt1(pl) || pl.own1 ? pl.h : `if (t == 1.0) return ${P}_f(z);\n  ${pl.h}`);
 
   // Allocates six consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), calli(uExpr, tExpr), write(put, data)}.
   // call applies the path to z, calli to 1/u.
@@ -1012,9 +1016,10 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // z + (t/t0)(H_t0(z) - z), as the CPU
       case 'gzoom': {
         const p = A.cell(), fp = A.cell(), ll = A.cell(), g = A.cell();
-        const H = (tt) => `${p.v} * (1.0 - ${tt}) + ${fp.v} * ${tt} + cmul(cexp(${ll.v} * (${tt} - 1.0)), ${P}_f(${p.v} + (z - ${p.v}) * ${tt}) - ${fp.v}) / ${tt}`;
+        // (issue #355: one call of f, at the point below t0 too and at t = 1, where the path is f(z) itself: FXC
+        // inlines every call, and a formula's f can be tens of KB; the values are the former ones, H(max(t, t0)))
         return {
-          h: `${T0}float t0 = ${g.x};\n  if (t < t0) { vec2 h0 = ${H('t0')};\n    return z + (h0 - z) * (t / t0); }\n  return ${H('t')};`,
+          own1: true, h: `${T0}float t0 = ${g.x}, tt = t == 1.0 ? 1.0 : max(t, t0);\n  vec2 fa = ${P}_f(t == 1.0 ? z : ${p.v} + (z - ${p.v}) * tt);\n  if (t == 1.0) return fa;\n  vec2 h = ${p.v} * (1.0 - tt) + ${fp.v} * tt + cmul(cexp(${ll.v} * (tt - 1.0)), fa - ${fp.v}) / tt;\n  return t < t0 ? z + (h - z) * (t / t0) : h;`,
           write(put, b) { const d = Funcs.natData(b); for (const [cell, k] of [[p, 'p'], [fp, 'fp'], [ll, 'll']]) putC(put, cell, d ? d[k] : C(0, 0)); put(g.c, d && d.t0 ? d.t0 : 1e-3, 0); },
         };
       }
@@ -1114,7 +1119,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     const trig = { sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh', arcsin: 'casin', arccos: 'cacos', arctan: 'catan', arsinh: 'casinh', arcosh: 'cacosh', artanh: 'catanh' };
     if (trig[type]) {
       const np = natPlan(P, b.nat, A);
-      return { sig: [type], f: `return ${trig[type]}(z);`, h: np ? np.h : LIN(P), write() {} };
+      return { sig: [type], f: `return ${trig[type]}(z);`, h: np ? np.h : LIN(P), own1: !!(np && np.own1), write() {} };
     }
     switch (type) {
       case 'mul': {
@@ -1230,7 +1235,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       case 'joukowski': {
         const np = natPlan(P, b.nat, A);
-        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: np ? np.h : LIN(P), write() {} };
+        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: np ? np.h : LIN(P), own1: !!(np && np.own1), write() {} };
       }
       case 'ijouk': {
         const sg = A.cell();
@@ -1246,7 +1251,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // [issue #4] Γ deforms along the generic zoom path (its data are uniforms), ζ along the straight line
       case 'gamma': {
         const np = natPlan(P, b.nat, A);
-        return { sig: [type, b.nat ? b.nat.kind : 'lin'], f: 'return cx_gamma(z);', h: np ? np.h : LIN(P), write(put) { if (np) np.write(put, b); } };
+        return { sig: [type, b.nat ? b.nat.kind : 'lin'], f: 'return cx_gamma(z);', h: np ? np.h : LIN(P), own1: !!(np && np.own1), write(put) { if (np) np.write(put, b); } };
       }
       case 'zeta':
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
@@ -1292,7 +1297,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const shared = type === 'poly' ? { P: cells[0], Q: null } : lists[1].length > 1 ? { P: cells[0], Q: cells[1] } : null;
         const np = natPlan(P, b.nat, A, { shared });
         return {
-          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P), hc: np && np.hc,
+          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc,
           write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); if (np) np.write(put, b); },
         };
       }
@@ -1312,7 +1317,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         f += '  return w;';
         const np2 = natPlan(P, b.nat, A);
         return {
-          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P), hc: np2 && np2.hc,
+          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P), own1: !!(np2 && np2.own1), hc: np2 && np2.hc,
           write(put) {
             putC(put, a, zp.a);
             zc.forEach((c, i) => putC(put, c, zp.zeros[i]));
@@ -1333,7 +1338,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const res = genCustom(ast, P, A, TH, writers, lines, baked, shape);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
@@ -1387,7 +1392,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     for (const { Q, pl } of subs) {
       if (pl.pre) pre += pl.pre;
       pre += `vec2 ${Q}_f(vec2 z) {\n  ${pl.f}\n}\n`;
-      const h = pl.h.startsWith('if (t == 0.0)') ? pl.h : `if (t == 1.0) return ${Q}_f(z);\n  ${pl.h}`;
+      const h = withOne(Q, pl);
       pre += `vec2 ${Q}_h(vec2 z, float t) {\n  ${h}\n}\n`;
     }
     const f = subs.map(({ Q }) => `z = ${Q}_f(z);`).join('\n  ') + '\n  return z;';
@@ -1395,16 +1400,17 @@ vec2 cx_binom(vec2 a, vec2 b) {
     if (n === 1) h += `return ${subs[0].Q}_h(z, t);`;
     else {
       h += `float s = t * ${n}.0;\n  `;
-      subs.forEach(({ Q }, j) => {
-        if (j < n - 1) h += `if (s < ${j + 1}.0) return ${Q}_h(z, s - ${j}.0);\n  z = ${Q}_f(z);\n  `;
-        else h += `return ${Q}_h(z, s - ${j}.0);`;
-      });
+      // (issue #355: a sub-step whose path is its map at 1 goes through the path at min(s - j, 1), so its map is
+      // written once in the path, not again for the later sub-steps: the same values)
+      subs.forEach(({ Q, pl }, j) => { h += j === n - 1 ? `return ${Q}_h(z, s - ${j}.0);` : exactAt1(pl) ? `z = ${Q}_h(z, min(s - ${j}.0, 1.0));\n  if (s < ${j + 1}.0) return z;\n  ` : `if (s < ${j + 1}.0) return ${Q}_h(z, s - ${j}.0);\n  z = ${Q}_f(z);\n  `; });
     }
+    // (own1 below: every sub-step's path is its map at 1, so is this one, and the shortcut that would write every map
+    // again is left out)
     // (the landscape's cut kinds, GLChain cutKinds: a sub-step with such a cut, in its map or its path; a sub-step's
     // path with a principal cut of its own (hc) runs inside the formula's path, which has no local-cut form)
     const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
     return {
-      sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: subs.every(({ pl }) => exactAt1(pl)),
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { for (const { pl } of subs) pl.write(put); },
     };
@@ -1426,7 +1432,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     for (const { Q, pl } of subs) {
       if (pl.pre) pre += pl.pre;
       pre += `vec2 ${Q}_f(vec2 z) {\n  ${pl.f}\n}\n`;
-      const h = pl.h.startsWith('if (t == 0.0)') ? pl.h : `if (t == 1.0) return ${Q}_f(z);\n  ${pl.h}`;
+      const h = withOne(Q, pl);
       pre += `vec2 ${Q}_h(vec2 z, float t) {\n  ${h}\n}\n`;
     }
     const passes = `int(${nc.x})`;
@@ -1709,7 +1715,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       if (plan.pre) src += plan.pre;
       src += `vec2 ${P}_f(vec2 z) {\n  ${plan.f}\n}\n`;
       // at t = 1 every homotopy equals the map itself (exactly so on the CPU up to float64 rounding)
-      const h = plan.h.startsWith('if (t == 0.0)') ? plan.h : `if (t == 1.0) return ${P}_f(z);\n  ${plan.h}`;
+      const h = withOne(P, plan);
       src += `vec2 ${P}_h(vec2 z, float t) {\n  ${h}\n}\n`;
     }
     // a d/dz step is not a map of w: chainStep and chainHom give NaN there (callers mix chainStage(k - 1) and
