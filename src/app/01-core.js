@@ -245,6 +245,9 @@
       // Plain whatever the style (an old landscape's default 'phase' material, kept without rewriting dc; cleared
       // when a style is picked)
       view: Views.blank(), v6: true, wKey: false, landPlain: false,
+      // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
+      // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
+      cauchyShow: 'both', cauchyPlus: false,
       // exact images (SPEC 10.1): mapped areas drawn per pixel through the inverse of the chain where it has one; an
       // internal switch (no visible option), kept in saved state
       exactImages: true,
@@ -512,6 +515,8 @@
   function shapeOk(s) {
     if (s.kind === 'formula' || s.kind === 'fcurve') return typeof s.expr === 'string';
     if (s.kind === 'curve' || s.kind === 'polygon') return Array.isArray(s.pts) && s.pts.length >= (s.kind === 'polygon' ? 3 : 2) && s.pts.every(isXY);
+    // ([issue #260] a ray's angle p/q or a turn in [0, 1), an equipotential's level > 1; c: null (M) or a point)
+    if (s.kind === 'dhray' || s.kind === 'dheq') return (s.kind === 'dhray' ? Region.dhAngle(s.theta) != null : isNum(s.r) && s.r > 1) && (s.c == null || isXY(s.c));
     const t = Region.defaultsFor(s.kind, C(0, 0), C(1, 1));
     return Object.keys(t).every((k) => (Array.isArray(t[k]) ? isXY(s[k]) : isNum(s[k])));
   }
@@ -607,6 +612,8 @@
     st.v6 = true;
     st.wKey = !!st.wKey;
     st.landPlain = !!st.landPlain;
+    st.cauchyShow = st.cauchyShow === 'in' || st.cauchyShow === 'out' ? st.cauchyShow : 'both';
+    st.cauchyPlus = !!st.cauchyPlus;
     delete st.deriv;
     st.sheets = !!st.sheets;
     st.exactImages = st.exactImages !== false;
