@@ -257,6 +257,8 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .set-pop .set-row > .fl { flex: 1 1 auto; font: var(--t-label); }
 .set-pop .set-link { border: 0; background: none; padding: 4px 0; color: var(--accent); font: var(--t-label); cursor: pointer; text-align: left; }
 .set-pop .set-link:hover { text-decoration: underline; }
+/* (#412) the phone's Help rows are touch targets: 44 px, as everything else there; the desk keeps its 24 */
+:root.ph .set-pop .set-link { display: flex; align-items: center; min-height: 44px; align-self: stretch; }
 .set-pop .set-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .set-pop .set-help { display: flex; flex-direction: column; align-items: flex-start; }
 /* Sound (notes/sound/DESIGN.md §2.1): a split button between Theme and Guide, its settings popover, and on a phone
