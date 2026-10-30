@@ -299,8 +299,23 @@ float wabs(vec2 w) {
   // ((#366 prototype) the steps view's glide: the current chain's programs by name and map mode, started in the
   // background (KHR_parallel_shader_compile) so the first glide finds them linked: the region meshes, the lines, their
   // transform feedback, the colour plot and the pull-backs, in modes 0 (a plane) and 1 (a step's homotopy))
+  // (without the extension a link blocks: perf's suggestion on #448, they are linked one at a time in idle time
+  // instead, so the block lands before the first glide rather than in it)
   function prestartNames(names, modes) {
-    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    if (!ok || lost || sideMode || !cur.info) return 0;
+    if (!pcExt) {
+      const todo = [];
+      for (const name of names) for (const m of modes) if (DEFS[name]) todo.push([name, m]);
+      const key = cur.key, idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 2000 }) : (f) => setTimeout(f, 50);
+      const next = () => {
+        if (!ok || lost || sideMode || cur.key !== key || !todo.length) return;
+        const [name, m] = todo.shift();
+        if (!progs.has(progId(name, cur, { mode: m }))) { try { getProg(name, cur, true, { mode: m }); } catch (e) { /* (a program this build has not) */ } }
+        idle(next);
+      };
+      idle(next);
+      return todo.length;
+    }
     let n = 0;
     for (const name of names) for (const m of modes) {
       if (!DEFS[name]) continue;

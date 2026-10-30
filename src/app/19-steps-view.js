@@ -57,6 +57,8 @@
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
     const sig = svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
+    // (another chain loaded with the state, an example or a link: its glide's programs are started too)
+    if (SV.sig != null && sig !== SV.sig) setTimeout(svPrestart, 300);
     svAdopt(SV.sig != null && sig !== SV.sig);
     SV.sig = sig;
     if (svViewFix()) setTimeout(svApply, 0);
