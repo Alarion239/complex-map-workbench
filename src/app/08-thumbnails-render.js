@@ -396,6 +396,25 @@
       // t: they show no t until they are redrawn after the pause (review verify-1, design-13)
       if (morph.playing && cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
     }
+    // (#246) the step glide moves T while it owns it: T is still what it wrote last. Play, the scrubber, a tick, a new
+    // range or focus that moved T take it back, and the glide rests where T is
+    if (glide.moving()) {
+      if (!morph.open || morph.playing || morph.T !== glide.x) glide.set(morph.T);
+      else {
+        // (a step removed or turned off while it glides: the target stays inside the chain as it is now)
+        if (glide.target > morphLen()) glide.to(morphLen(), morphLen());
+        const dt = glide.last ? (ts - glide.last) / 1000 : 1 / 60;
+        glide.last = ts;
+        const still = !glide.step(dt);
+        morph.T = glide.x;
+        dirty.R = true;
+        if (lPaintsF()) dirty.L = true;
+        syncTransport();
+        soundFunctionChanged('t');
+        if (still) { glide.last = 0; scheduleFix(); } else again = true;
+        if (cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
+      }
+    }
     // camera tweens and inertia in 3D views
     for (let i = camTweens.length - 1; i >= 0; i--) {
       const tw = camTweens[i];

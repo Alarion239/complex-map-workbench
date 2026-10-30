@@ -62,6 +62,7 @@
 .ftile.sel { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
 .ftile:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ftile .fF { font: italic 500 26px/1 var(--f-math); }
+.ftile > .fwm { display: none; }   /* (#246: the phone's chain sheet names the row; the laptop's tile is F and its lamps) */
 .ftile .fl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 76px; }
 .ftile .lamp { display: flex; align-items: flex-start; gap: 5px; font: 500 11.5px/13px var(--f-ui); font-stretch: 87.5%; color: var(--ink-2); text-align: left; hyphens: manual; }
 .ftile .lamp::before { content: ""; flex: 0 0 8px; width: 8px; height: 8px; margin-top: 2.5px; border-radius: var(--r-1); background: var(--good); }
