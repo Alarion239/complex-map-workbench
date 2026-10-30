@@ -73,4 +73,10 @@ await drag(rc.x, rc.y, rc.x + 40, rc.y + 10, 6, 15); await settle(300);
 ok('a pan of Y keeps the glide parked', (await layout()).g.peek === true, (await layout()).g);
 await click(rc.x, rc.y); await settle(500);
 ok('a tap on Y ends the glide', (await layout()).g.peek === false, (await layout()).g);
+// in Phase (Y is not shown) ‹ opens the deformation as before: there is no Y to glide
+await ev('__cmwSetMain("phase"); 1'); await settle(900);
+await ev('document.getElementById("morphBtn").getAttribute("aria-pressed") === "true" && document.getElementById("morphBtn").click(); 1'); await settle(500);
+await ev('__cmwGlide(-1)'); await settle(600);
+const ph = await ev('__cmwGlide()');
+ok('in Phase ‹ opens the deformation and does not glide Y', ph.open === true && ph.peek === false, ph);
 return { pass: fails.length === 0, fails, info };

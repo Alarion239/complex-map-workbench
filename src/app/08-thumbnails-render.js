@@ -491,11 +491,11 @@
     if (!trans.glide) return;
     trans.glide = false; trans.k = 0; trans.at = -1; glide.set(0);
     if (rightAuto && rImage()) fitRight(true);
-    scheduleFix(); requestRender('R'); phoneChain();
+    updateFocusUI(); scheduleFix(); requestRender('R'); phoneChain();
   }
   // one frame of the glide; true while it moves
   function stepPeek(ts) {
-    const L = !morph.open && peekSteps();
+    const L = !morph.open && S.view.main === 'xy' && rImage() && peekSteps();
     if (!L) { endPeek(); return false; }
     if (glide.target > L.length) glide.to(L.length, L.length);
     if (glide.moving()) {
@@ -507,7 +507,7 @@
     glide.last = 0;
     if (glide.x >= L.length - 1e-6) { endPeek(); return false; }
     const j = Math.round(glide.x), at = j === 0 ? L[0] - 1 : L[j - 1];
-    if (trans.k || trans.at !== at) { trans.k = 0; trans.at = at; dirty.R = true; scheduleFix(); phoneChain(); }
+    if (trans.k || trans.at !== at) { trans.k = 0; trans.at = at; dirty.R = true; updateFocusUI(); scheduleFix(); phoneChain(); }
     return false;
   }
   function startTransition(k) {
