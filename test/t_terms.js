@@ -7,7 +7,8 @@ const ROOT = path.join(__dirname, '..');
 const GENERATED = new Set(['i18n_ru.js', 'i18n_it.js', 'cyr.js', 'seasong.js']);
 const files = [path.join(ROOT, 'src', 'page.html'),
   ...fs.readdirSync(path.join(ROOT, 'src')).filter((f) => f.endsWith('.js') && !GENERATED.has(f)).map((f) => path.join(ROOT, 'src', f)),
-  ...fs.readdirSync(path.join(ROOT, 'src', 'app')).filter((f) => f.endsWith('.js')).map((f) => path.join(ROOT, 'src', 'app', f))];
+  // (the split files' parts, src/<name>/: app, gl, figure, construct; test/src_text.js)
+  ...require('./src_text').SPLIT.flatMap((f) => require('./src_text').parts(f) || [])];
 // retired variant -> [the term that replaces it, its pattern]
 const RETIRED = {
   'Region tools': ['Draw (the left panel)', /\bRegion tools\b/g],
