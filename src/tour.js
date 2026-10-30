@@ -171,13 +171,14 @@ const Tour = (() => {
         { id: 'chain', anchor: 'chain', also: ['panes'], title: 'The function chain', before: [['focus', 0]],
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
-          touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then Show alone in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
+          // (#246: on a phone the steps are rows of the chain sheet, which the steps button under the planes opens)
+          touch: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.',
+          try: { text: 'Double-click the card $f_1$.', touch: 'Open the chain, tap $f_1$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on CD_MS after it closes)
         { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
-          touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, tap a card and use Move in its ⋯ menu.',
-          try: { text: 'Press {+}, or click the add card.', touch: 'Tap the add card.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
+          touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
+          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
         { id: 'examples', anchor: ['examples', 'moreBtn'], title: 'Examples',
           lead: 'Worked examples, from Joukowski to a residue.',
           body: 'Worked examples, from the Joukowski airfoil to a residue found by integration. Open one whenever you want a starting point.',
@@ -220,6 +221,7 @@ const Tour = (() => {
         // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
         { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
+          touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
           try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'], then: 'Each card now shows its own landscape.' } },
         // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
         // (v16.5 UX17: on a touch screen the step is the editor's: its title and line say so)
@@ -429,10 +431,13 @@ const Tour = (() => {
     // patterns, or the button; on a phone the Display sheet's section)
     display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#rightFoot .pat-btn')),
     patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.pat-pop #patternSeg') || document.querySelector('#rightFoot .pat-btn')),
-    chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
+    // (#246: on a phone the chain, its Add tile and F are rows of the chain sheet; while it is closed, its "N steps ▾"
+    // button in the chain bar, which opens it)
+    chain: '.pipe-wrap', addStep: () => inChainSheet('#addStepBtn'), panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
-    bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : document.querySelector('#pipeline'); },
+    // (#246: on a phone the chain is the chain sheet's; while it is closed, its "N steps ▾" in the chain bar)
+    bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : inChainSheet('#pipeline'); },
     // (v15: the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
     // which the app's api.anchor does for these names)
     rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
@@ -462,7 +467,7 @@ const Tour = (() => {
     // (v15.1) the selected step's Show alone button (v16.5 UX85: no longer a lens) in the Inspector's head: in a phone's sheet
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: '#pipeline .ftile', sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
+    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
     // v16.1 (notes/v16-user5/AS-BUILT-tour.md): the control a step's task needs, exactly. A tool is its own button where
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name
@@ -472,7 +477,7 @@ const Tour = (() => {
     splitBtn: '#propsPanel .insp-step .split-offer:not([hidden]) .so-btn',
     // the card f₁; the card f₂, whose ⋯ shows on it (on a phone, where a card has none, f₂'s ⋯ in the Editor sheet that
     // a tap on the card opens)
-    card1: '#pipeline .card[data-k="1"]',
+    card1: () => inChainSheet('#pipeline .card[data-k="1"]'),
     card2Menu: () => (phoneLayout() && vis1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || vis1('#pipeline .card[data-k="2"]'),
     // the slider of the first shared number; the deformation's t slider and Play
     paramSlider: () => vis1('#propsPanel .prm-row input[type="range"]'),
@@ -484,6 +489,8 @@ const Tour = (() => {
   function vis1(sel) { for (const e of document.querySelectorAll(sel)) if (visible(e)) return e; return null; }
   // Y's display options: its ⋯ button, or the pattern button when the toggles are merged into the patterns' pop-up (#247)
   function yOpts() { return document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn'); }
+  // (#246) a control of the chain: itself, or on a phone with the chain sheet closed, the button that opens it
+  function inChainSheet(sel) { return !document.documentElement.classList.contains('ph') ? document.querySelector(sel) : vis1(sel) || vis1('.ph-csteps'); }
   const phoneLayout = () => document.documentElement.classList.contains('ph');
   function toolBtn(id) {
     const q = `[data-tool="${id}"]`;

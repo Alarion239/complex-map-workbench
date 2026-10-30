@@ -349,10 +349,11 @@ check('palette: Tour: Analysis starts it; the tour loads its scene through the a
 await snap('tour-analysis-light');
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(400);
 
-// 12. phone: the strip is a 68 px row under the header; X is 600 px; nothing scrolls sideways (v16.4)
+// 12. phone: the strip is a 68 px row under the header; X is 608 px (600 before #246's 56 px chain bar); nothing scrolls sideways (v16.4)
 await open('t8', { chapter: 'basics', step: 1 }, 390, 844, false, true);
 g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(), h = document.querySelector('header.top').getBoundingClientRect(); return { mode: document.querySelector('.tour-strip').dataset.mode, top: c.top, h: c.height, cw: Math.round(c.width), head: h.bottom, paneT: p.top, paneH: Math.round(p.height), overP: c.top < p.bottom && c.bottom > p.top, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
-check('phone: the strip under the header, full width, 68 px, X 600 px below it, no horizontal scroll', g.mode === 'port' && Math.abs(g.top - g.head) <= 1 && g.h === 68 && g.cw === 390 && !g.overP && g.paneH === 600 && g.noHScroll, g);
+// (#246: the chain bar is 56 px, 8 less than before, and X has them: 608)
+check('phone: the strip under the header, full width, 68 px, X 608 px below it, no horizontal scroll', g.mode === 'port' && Math.abs(g.top - g.head) <= 1 && g.h === 68 && g.cw === 390 && !g.overP && g.paneH === 608 && g.noHScroll, g);
 await snap('tour-phone-x');
 await open('t8b', { chapter: 'basics', step: 4 }, 390, 844, true, true);
 g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), d = document.querySelector('#tools > .tool[data-tool="disc"]').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, disc: { l: d.left, t: d.top, r: d.right, b: d.bottom }, stripOnTop: !!(top && top.closest('.tour-strip')) }; })()`);
