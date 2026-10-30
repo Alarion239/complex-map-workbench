@@ -728,36 +728,34 @@ async function morphOpenUnit() {
 // long the cards took to be fresh, and whether every card was drawn
 const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
 const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
-// a CPU profile -> {ms, longest}: the time in samples whose stack holds fn, and the longest run of consecutive such samples
-// (link: the part of ms in a program link, the link status read that waits for it: GPU work that a software renderer
-// does on the main thread)
+// a CPU profile -> {ms, link, sync, longest}: the time in samples whose stack holds fn, and the longest run of
+// consecutive such samples
+// (link: the part of ms in a program link, the link status read that waits for it; sync: the part in a GPU read-back,
+// a card's GL -> 2D copy (the gl layer's blit) and the browser's own read-backs, so a GPU's sync wait shows by name)
 const LINK_FN = /^(getProgramParameter|linkProgram|finishLink)$/;
+const SYNC_FN = /^(blit|readPixels|createImageBitmap|toDataURL)$/;
 function profileIn(profile, fn) {
   const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map(), hit = new Map();
   for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
-  // 0: not under fn, 1: under fn, 2: under fn and in a link
+  // null: not under fn; else {link, sync}: what the stack below fn holds
   const under = (id) => {
     if (hit.has(id)) return hit.get(id);
-    let p = id, r = 0, link = false;
+    let p = id, r = null, link = false, sync = false;
     while (p != null) {
       const f = byId.get(p).callFrame.functionName;
       if (LINK_FN.test(f)) link = true;
-      if (f === fn) { r = link ? 2 : 1; break; }
+      if (SYNC_FN.test(f)) sync = true;
+      if (f === fn) { r = { link, sync }; break; }
       p = parent.get(p);
     }
     hit.set(id, r);
     return r;
   };
-  // (a stretch of fn goes on through the native samples right after it, (program) and the GC, until an idle sample or
-  // other JS: the GPU sync its calls start, e.g. the GL -> 2D copy of a card waiting for the rasteriser, which the
-  // profiler may not attribute to the JS frame that waits; sync: that part)
-  const NATIVE = /^\((program|garbage collector)\)$/;
-  let ms = 0, link = 0, sync = 0, run = 0, longest = 0, inRun = false;
+  let ms = 0, link = 0, sync = 0, run = 0, longest = 0;
   profile.samples.forEach((id, i) => {
     const d = (profile.timeDeltas[i + 1] || 0) / 1000;   // (a sample lasts until the next one)
     const u = under(id);
-    if (u) { ms += d; run += d; inRun = true; if (u === 2) link += d; } else if (inRun && NATIVE.test(byId.get(id).callFrame.functionName)) { sync += d; run += d; } else { run = 0; inRun = false; }
-    longest = Math.max(longest, run);
+    if (u) { ms += d; run += d; longest = Math.max(longest, run); if (u.link) link += d; if (u.sync) sync += d; } else run = 0;
   });
   return { ms, link, sync, longest };
 }
