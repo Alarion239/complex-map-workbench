@@ -1,6 +1,0 @@
-Cayley(H) at w = 1, float32 emulation: zoom   plain(centre+offset) boundary err / IoU     anchored first step
-  x64       pixel 8.2e-5   0.029 / 1.0000            0.029 / 1.0000
-  x1024     pixel 5.1e-6   0.032 / 1.0000            0.031 / 1.0000
-  x16384    pixel 3.2e-7   0.000 / 1.0000            0.000 / 1.0000
-  x262144   pixel 2.0e-8   0.000 / 0.9903            0.000 / 1.0000
-  x4194304  pixel 1.3e-9   0.000 / 0.8835            0.000 / 1.0000
