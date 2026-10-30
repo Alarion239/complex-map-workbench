@@ -967,6 +967,7 @@ const Tour = (() => {
 .tour-strip .ts-act { flex: 0 0 auto; height: 36px; min-height: 36px; min-width: 36px; padding: 0 12px; gap: 6px; white-space: nowrap; }
 .tour-strip .ts-act svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .tour-strip .ts-next { flex: 0 0 auto; position: relative; isolation: isolate; overflow: hidden; height: 36px; min-height: 36px; min-width: 64px; max-width: 220px; padding: 0 14px; white-space: nowrap; text-overflow: ellipsis; }
+.tour-strip .ts-next { transition: none; }  /* Skip and Next swap in place; no fade between their two looks */
 .tour-strip .ts-next.ready { box-shadow: inset 0 0 0 2px var(--accent-ink); }
 /* (#34 T1) Next is earned: while the step's task is open the button is a quiet outlined Skip */
 .tour-strip .ts-next.skip { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
