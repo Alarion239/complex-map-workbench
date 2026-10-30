@@ -6,7 +6,7 @@
 'use strict';
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const ROOT = path.join(__dirname, '..');
-const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
+const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
 function load(dir, files, lang) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);

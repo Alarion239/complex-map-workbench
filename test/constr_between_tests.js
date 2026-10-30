@@ -9,7 +9,7 @@
 'use strict';
 const path = require('path');
 module.exports = function ({ K, ok }) {
-  const K163 = require(path.join(__dirname, '../notes/v16.3-candidate/src/constr.js'));
+  const K163 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.3-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const isInf = K.isInf;
   const isXY = (z) => Array.isArray(z) && Number.isFinite(z[0]) && Number.isFinite(z[1]);
   const bits = (a, b) => isXY(a) && isXY(b) && Object.is(a[0], b[0]) && Object.is(a[1], b[1]);

@@ -34,6 +34,9 @@ ruff check
 
 - `npm test` runs every unit test (`test/t_*.js`) through `ci/unit.js`. The browser, GLSL, quality and perf gates
   run in CI (`ci/README.md`).
+- Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
+  versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
+  test whose snapshot is missing fails and says so (#427).
 - `lint`, `typecheck` and `ruff` are report-only for now (`.github/workflows/lint.yml`): don't add new findings in the
   code you touch, and fix the ones next to it when it's cheap. See issue #20 for the plan to bring them to zero.
 

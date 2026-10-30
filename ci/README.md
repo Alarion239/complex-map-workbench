@@ -306,7 +306,7 @@ Settings (environment variables):
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
-| `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history |
+| `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |

@@ -103,6 +103,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('the test hooks: a changed hook no suite calls -> T3 (fail safe), not nothing', (() => { const p = select([H], { hooksOf: () => ['__cmwNoSuiteCallsThis'] }); return p.tier === 'T3' && /no browser suite calls/.test(p.why.join(' ')); })());
   const ps = select([H], { hooksOf: () => ['__cmwPaneStatus'] });
   ok('the test hooks: a hook the quality runner calls -> T3', ps.tier === 'T3' && ps.why.some((w) => /run_quality\.js/.test(w)), ps.why);
+  ok('the by-hand pages (gl-test, css-fixture: no CI job opens them) -> T0, not T3', ['test/gl_make_test.py', 'test/gl_test.js', 'test/make_css_fixture.py', 'test/css_fixture.js'].every((f) => select([f]).tier === 'T0'));
   ok('the Arb oracle (dev-only) -> T0', select(['tools/arb_reference.py', 'tools/arb_compare.js', 'notes/arb/reference.json']).tier === 'T0');
 }
 // (the name is built here, so that this file does not name it)
