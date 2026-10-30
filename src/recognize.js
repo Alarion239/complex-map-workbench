@@ -353,7 +353,7 @@ const Recognize = (() => {
     if (fz !== undefined) return fz;
     // 1. rational in z: P/Q coprime, exact where the constants are; refused when a common root was divided out (the
     //    formula is 0/0 there, a catalog step would fill the point in)
-    if (typeof Inverse !== 'undefined' && Inverse.rationalForm) {
+    if (Inverse.rationalForm) {
       const rf = Inverse.rationalForm(n);
       const cur = rf.ok ? (rf.removed && rf.removed.length ? 'rem' : 'ok') : rf.notRational ? 'no' : 'bad';
       const kind = same_('rat', cur);
@@ -617,4 +617,7 @@ const Recognize = (() => {
   }
   return { chain, ratChain, key, generic, hasParam, DEG };
 })();
-if (typeof module !== 'undefined') module.exports = Recognize;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Inverse } from './inverse.js';
+export { Recognize, Recognize as 'module.exports' };

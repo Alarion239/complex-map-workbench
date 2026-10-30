@@ -4,7 +4,7 @@
 // suspended-context rule, the silent off, Esc). v15.2 (notes/sound/AS-BUILT-v152.md): palette B's parts (variation,
 // repetition, clean edges), the scrub's landmarks, the phase harp (its low Ds count the winding number), curves sing
 // (the loudest harmonic is 4 + W). Run: node test/t_sound.js
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const vm = require('vm');
 global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
 const C = CX.C, TAU = 2 * Math.PI;
@@ -41,16 +41,21 @@ const expF = (z) => { const r = Math.exp(z.re); return C(r * Math.cos(z.im), r *
   r = Calc.argStep(id, C(0, 0), null, C(1, 0), null);
   check('argStep from a zero: why end', !r.exact && r.why === 'end', JSON.stringify(r));
   // the wall-clock deadline (review: the 3 ms per event held even when the cost estimate is off): a slow F across
-  // sin(1/z)'s essential singularity stops at the deadline, as 'budget', whatever the call budget
+  // sin(1/z)'s essential singularity stops at the deadline, as 'budget', whatever the call budget. Promptly is counted
+  // in work, not in time (a shared machine can stall the process for milliseconds at any point): the calls of F that
+  // start after the deadline, at most the 16 between two looks at the clock (calc.js) and 8 leaf evaluations already
+  // under way (24 calls of 20 µs: half a millisecond over)
   {
-    const slow = (z) => { const t = performance.now(); while (performance.now() - t < 0.02) { /* 20 µs a call */ } const q = CX.inv(z); return C(Math.sin(q.re) * Math.cosh(q.im), Math.cos(q.re) * Math.sinh(q.im)); };
-    const t0 = performance.now();
-    r = Calc.argStep(slow, C(-0.3, 0.02), null, C(0.3, 0.02), null, { budget: 1e6, deadline: t0 + 3 });
-    const dt = performance.now() - t0;
-    check('argStep deadline: stops near 3 ms as budget', !r.exact && r.why === 'budget' && dt < 6, JSON.stringify({ why: r.why, evals: r.evals, dt }));
-    const t1 = performance.now();
-    const m = Calc.orderAt(slow, C(0, 0), 0.05, { budget: 1e6, deadline: t1 + 3 });
-    check('orderAt deadline: null within about 3 ms', m === null && performance.now() - t1 < 6, performance.now() - t1);
+    let calls = [];
+    const slow = (z) => { const t = performance.now(); calls.push(t); while (performance.now() - t < 0.02) { /* 20 µs a call */ } const q = CX.inv(z); return C(Math.sin(q.re) * Math.cosh(q.im), Math.cos(q.re) * Math.sinh(q.im)); };
+    const late = (dl) => calls.filter((t) => t > dl).length, LATE = 16 + 8;
+    const d0 = performance.now() + 3;
+    r = Calc.argStep(slow, C(-0.3, 0.02), null, C(0.3, 0.02), null, { budget: 1e6, deadline: d0 });
+    check('argStep deadline: stops at 3 ms as budget, at most 16 + 8 calls of F after it', !r.exact && r.why === 'budget' && late(d0) <= LATE, JSON.stringify({ why: r.why, evals: r.evals, late: late(d0) }));
+    calls = [];
+    const d1 = performance.now() + 3;
+    const m = Calc.orderAt(slow, C(0, 0), 0.05, { budget: 1e6, deadline: d1 });
+    check('orderAt deadline: null, at most 16 + 8 calls of F after it', m === null && late(d1) <= LATE, JSON.stringify({ m, calls: calls.length, late: late(d1) }));
   }
   // a budget: e^(50 z) turns 50 radians along a unit step
   r = Calc.argStep((z) => expF(CX.scale(z, 50)), C(0, 0), null, C(0, 0.3), null, { budget: 20 });
@@ -116,6 +121,8 @@ function makeEnv(opts = {}) {
   class AC {
     constructor() {
       env.ctxs.push(this);
+      // (#271: the event in which the timer that created it was set, if a timer did)
+      this.madeIn = env.inTimer ? env.inTimer.ev : 'sync:' + (env.inEvent || '');
       this.state = opts.startSuspended ? 'suspended' : 'running'; this.currentTime = 0; this.sampleRate = 48000; this.baseLatency = 0.005; this.outputLatency = 0;
       this.sources = []; this.destination = this.node();
       this.resumeNever = false;
@@ -151,22 +158,22 @@ function makeEnv(opts = {}) {
     navigator: { userActivation: { get hasBeenActive() { return true; }, get isActive() { return env.userActive; } } },
     document: { visibilityState: 'visible', addEventListener: (t, f) => { (env.listeners['doc:' + t] = env.listeners['doc:' + t] || []).push(f); } },
     performance: { now: () => env.clock },
-    setTimeout: (f, ms) => { env.timers.push({ f, at: env.clock + (ms || 0) }); return env.timers.length; },
+    setTimeout: (f, ms) => { env.timers.push({ f, at: env.clock + (ms || 0), ev: env.inEvent || (env.inTimer && env.inTimer.ev ? 'timer' : '') }); return env.timers.length; },
     clearTimeout: (id) => { if (id && env.timers[id - 1]) env.timers[id - 1].f = null; },
     URL: { createObjectURL: () => 'blob:x' }, Blob: function () {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sandbox);
+  vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
   for (const k in env.Sound.CATALOG) { const d = env.Sound.CATALOG[k], m = d.make; d.make = (Pt, o) => { env.made.push(k); return m(Pt, o); }; }
-  env.fire = (t, e = {}) => { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); };
+  env.fire = (t, e = {}) => { env.inEvent = t; try { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); } finally { env.inEvent = ''; } };
   env.advance = (ms) => {
     const end = env.clock + ms;
     for (;;) {
       let next = null;
       for (const tm of env.timers) if (tm.f && tm.at <= end && (!next || tm.at < next.at)) next = tm;
       if (!next) break;
-      env.clock = next.at; const f = next.f; next.f = null; f();
+      env.clock = next.at; const f = next.f; next.f = null; env.inTimer = next; try { f(); } finally { env.inTimer = null; }
     }
     env.clock = end;
     for (const c of env.ctxs) if (c.state === 'running') c.currentTime += ms / 1000;
@@ -187,8 +194,20 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('v15 default: nothing plays before a gesture', e.Sound.play('toggleOn', {}) === false && e.Sound.play('stepAdd', {}) === false && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('v15 default: Esc is not an activation', e.ctxs.length === 0);
-    e.fire('pointerdown');
-    check('v15 default: the first click creates the context', e.ctxs.length === 1 && e.ctx().state === 'running');
+    // (#271) a click: pointerdown (a mouse's arms only the 250 ms backstop), pointerup and click (each re-arms the 0 ms
+    // timer, so the one that runs was set inside the click's own event); no context inside any handler
+    e.fire('pointerdown', { pointerType: 'mouse' }); e.fire('pointerup', { pointerType: 'mouse' });
+    e.made.length = 0;
+    const q1 = e.Sound.play('morphStart', {}), q2 = e.Sound.play('morphStart', { force: true });
+    e.fire('click');
+    check('v15 default: the first click creates no context inside its handlers', e.ctxs.length === 0);
+    check('#271: a cue asked for in that click is queued, a second of the same name refused', q1 === true && q2 === false && e.made.length === 0, `${q1} ${q2}`);
+    e.advance(1);
+    check('v15 default: the first click creates the context, in the next task', e.ctxs.length === 1 && e.ctx().state === 'running');
+    check('#271: by a timer set inside the click (WebKit carries the gesture only to such a timer)', e.ctx().madeIn === 'click', e.ctx().madeIn);
+    check('#271: the queued cue waits for the worklet to settle', e.made.length === 0, e.made.join());
+    await flush(); e.advance(1);
+    check('#271: then sounds once, on the new clock', e.made.join() === 'morphStart', e.made.join());
     check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
   }
   // v15.2 the deformation scrub (palette B, notes/sound/v2/DESIGN.md §3 with board-fixes.md): the texture follows the
@@ -233,18 +252,65 @@ const flush = () => new Promise((r) => setImmediate(r));
     const e = makeEnv();
     check('engine: off by default under ?ns=', e.Sound.prefs().on === false && e.Sound.state().audio === 'none');
     e.fire('pointerdown'); e.fire('click');
-    check('engine: no cue, no context while off', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.heightVoice() === null && e.ctxs.length === 0);
+    check('engine: no cue, no context while off', e.Sound.play('toggleOn', { force: true }) === false && e.ctxs.length === 0);
     check('engine: off → no AudioContext at all', e.ctxs.length === 0);
   }
   // a remembered "on" waits for a click or key of this page load
   {
     const e = makeEnv({ search: '', store: { 'cmw-sound': JSON.stringify({ on: true, vol: 0.7, ui: true, snap: false, events: true, sonify: true }) } });
     check('remembered on: no context at load', e.ctxs.length === 0 && e.Sound.prefs().on);
-    check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.Sound.heightVoice() === null && e.ctxs.length === 0);
+    check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('remembered on: Esc is not an activation', e.ctxs.length === 0);
-    e.fire('pointerdown');
+    e.fire('pointerdown'); e.advance(300);
     check('remembered on: the first click creates it', e.ctxs.length === 1 && e.ctx().state === 'running');
+  }
+  // #271: what the deferred start keeps. A caller other than play() creates the context at once, as before; a hush
+  // drops the queue; once a context exists (old iOS: not running after the deferred start), a gesture resumes it
+  // synchronously
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown');
+    check('#271: a count-bearing bell in the click creates the context at once', e.Sound.turn({ tier: 'events' }) !== false && e.ctxs.length === 1);
+    e.advance(300);
+    check('#271: and the deferred start adds none', e.ctxs.length === 1);
+  }
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown', { pointerType: 'touch' }); e.advance(300);
+    check('#271: a touch pointerdown (not an activation) arms nothing', e.ctxs.length === 0);
+    e.fire('pointerup', { pointerType: 'touch' }); e.fire('touchend'); e.advance(1);
+    check('#271: its touchend does, inside the gesture', e.ctxs.length === 1 && e.ctx().madeIn === 'touchend', e.ctxs.length && e.ctx().madeIn);
+  }
+  {
+    // while the worklet loads, a later one-shot (Hear's zero ping under a still probe) queues behind the start cue
+    const e = makeEnv({ search: '' });
+    e.fire('keydown', { key: 'm' }); e.made.length = 0;
+    e.Sound.play('morphStart', {}); e.advance(1);
+    const z = e.Sound.play('stepAdd', {});
+    check('#271: a cue asked for while the worklet loads waits behind the queued one', z === true && e.made.length === 0, e.made.join());
+    await flush(); e.advance(1);
+    check('#271: and sounds after it', e.made.join() === 'morphStart,stepAdd', e.made.join());
+  }
+  {
+    // a deferred context that is not running yet (Firefox resumes asynchronously): a one-shot waits for its statechange
+    const e = makeEnv({ search: '' });
+    e.fire('keydown', { key: 'a' }); e.advance(1); await flush();
+    const c = e.ctx(); c.resumeNever = true; await c.suspend(); e.made.length = 0;
+    check('#271: a cue on a deferred context not yet running is queued', e.Sound.play('stepAdd', {}) === true && e.made.length === 0);
+    c.resumeNever = false; c.resume(); await flush();
+    check('#271: and sounds at its statechange', e.made.join() === 'stepAdd', e.made.join());
+    e.advance(2000); c.resumeNever = true; await c.suspend(); e.made.length = 0;
+    check('#271: after 1.5 s it is refused, as before', e.Sound.play('stepAdd', {}) === false && e.made.length === 0);
+  }
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown'); e.made.length = 0;
+    e.Sound.play('stepAdd', {}); e.Sound.hush(); e.advance(300);
+    check('#271: a hush before the deferred start drops the queued cue', e.ctxs.length === 1 && e.made.length === 0, e.made.join());
+    e.ctx().suspend();
+    e.fire('pointerdown');
+    check('#271: with a context, a gesture resumes it inside the handler', e.ctx().state === 'running' && e.ctxs.length === 1);
   }
   // the lsk namespace: a ?ns= page keeps its own setting
   {
@@ -264,7 +330,6 @@ const flush = () => new Promise((r) => setImmediate(r));
     e.made.length = 0;
     for (let i = 0; i < 40; i++) { e.advance(130); e.Sound.play('cut', {}); e.Sound.play('zero', { order: 1 }); e.Sound.tick({ k: i % 5 }); e.Sound.turn({ dir: 1 }); }
     check('default tiers: no pointer cue at all', e.made.length === 0, e.made.join());
-    check('default tiers: no voice, no harp', e.Sound.heightVoice() === null && e.Sound.harp(0.3, {}) === null && e.Sound.harp(1.3, {}) === null);
     // snap ticks have their own switch
     check('snap: off by default', e.Sound.play('snap', {}) === false);
     e.Sound.set({ snap: true }); e.advance(200);
@@ -327,7 +392,6 @@ const flush = () => new Promise((r) => setImmediate(r));
     let ok = 0;
     for (let i = 0; i < 24; i++) { if (e.Sound.play('toggleOn', {}) === true) ok++; if (e.Sound.turn({ dir: 1 }) === true) ok++; e.advance(50); }
     check('suspended: 24 requests, none scheduled', ok === 0 && e.made.length === 0, `${ok} ${e.made.join()}`);
-    check('suspended: no voice created, no harp note', e.Sound.heightVoice() === null && e.Sound.harp(0.1, {}) === null);
     // the one exception: a single sound inside an active gesture
     e.userActive = true;
     const g1 = e.Sound.play('toggleOn', { force: true, grace: true }), g2 = e.Sound.play('toggleOff', { force: true, grace: true });
@@ -340,16 +404,14 @@ const flush = () => new Promise((r) => setImmediate(r));
     const c = e.ctx();
     for (const k of ['toggleOn', 'stepAdd', 'error']) { e.Sound.play(k, { force: true }); }
     const cues = [...e.Sound.debug().G.active];
-    const v = e.Sound.heightVoice(); v.set(0.1, 0, undefined, 12); v.gate(true);
-    // a harp run (fallback strings: buffers)
-    e.Sound.harpReset(0.02); for (let i = 1; i <= 6; i++) { e.advance(16); e.Sound.harp(0.02 + 0.1 * i, { dt: 0.016 }); }
+    // a composition's harp run (fallback strings: buffers)
+    e.Sound.harpAlong([0.02, 0.12, 0.22, 0.32, 0.42, 0.52, 0.62], [0, 0, 0, 0, 0, 0, 0], 0.1, {});
     const strings = [...e.Sound.debug().G.active].filter((s) => !cues.includes(s));
     check('sources sounding before Esc', cues.length > 0 && strings.length > 0, `${cues.length} ${strings.length}`);
     cues.push(...strings);
     e.Sound.hush();
     const T = c.currentTime;
     check('Esc: every cue source stopped within 80 ms', cues.every((s) => s.stopped != null && s.stopped <= T + 0.08), cues.map((s) => s.stopped).slice(0, 4));
-    check('Esc: the voice is gated off (τ 4 ms)', e.Sound.debug().live === 1);
     check('Esc: the bus fades on raised cosines (no step)', e.Sound.debug().G.bus.gain.calls.some((x) => x[0] === 'curve'));
     check('Esc: the setting stays on', e.Sound.prefs().on === true);
     e.advance(500);
@@ -359,7 +421,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('off: every source stopped', c.sources.every((s) => s.stopped != null));
     e.advance(100);
     check('off: the context is suspended', c.state === 'suspended');
-    check('off: nothing plays after', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.heightVoice() === null && e.Sound.harp(5.3, {}) === null);
+    check('off: nothing plays after', e.Sound.play('toggleOn', { force: true }) === false);
   }
   // the tracker driven by t at a fixed z (notes/sound/DEFORMATION.md): Sound.pathStep and Sound.turns, as the app uses
   // them while the deformation plays or is scrubbed under a still probe
@@ -578,73 +640,6 @@ const flush = () => new Promise((r) => setImmediate(r));
     const st = S.Harp(); let phi = 0.4; S.harpStep(st, null, 0, phi, {});
     for (let i = 1; i <= 360; i++) { phi = 0.4 + 3 * i / 360; S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h: 0.1 * 2.5 / TAU }); }
     check('sound-3: with the band, 3 laps round a zero still give 3 low Ds', st.up === 3 && st.down === 0, JSON.stringify(st));
-  }
-  // verify-1 (v15.2.1): a probe seated inside the band of a line (a long press) that goes round a zero and stops where it
-  // began sounds the lap's D at the end (the pointer's harp has a lap: Harp(true)). F = z, r px from the zero, 1 px a
-  // unit, the app's band (2.5 px of arg F); a touch inside 8 px is in the D-only zone (shaky)
-  {
-    const S = makeEnv().Sound;
-    const touchLap = (r, deg, o = {}) => {
-      const st = S.Harp(true), h = Math.min(0.125, (1 / r) * 2.5 / TAU), dir = o.dir || 1, laps = o.laps || 1, N = 48;
-      let phi = deg / 360; S.harpStep(st, null, 0, phi, {});
-      for (let i = 1; i <= N * laps; i++) { phi = deg / 360 + dir * i / N; S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h, shaky: r < 8 }); }
-      const lap = { up: st.up, down: st.down, notes: st.notes };
-      // then held at the lap's end, trembling ±1.5 px at about 9 Hz for 3 s: no note, the count unchanged
-      const x0 = r * Math.cos(TAU * phi), y0 = r * Math.sin(TAU * phi);
-      let prev = phi;
-      for (let k = 1; k <= 180; k++) {
-        const t = k / 60, x = x0 + 1.5 * Math.sin(TAU * 9 * t), y = y0 + 1.5 * Math.sin(TAU * 8.3 * t + 1);
-        let d = Math.atan2(y, x) / TAU - prev; d -= Math.round(d); prev += d;
-        S.harpStep(st, null, 3 + t, prev, { dt: 1 / 60, h: Math.min(0.125, (1 / Math.hypot(x, y)) * 2.5 / TAU), shaky: r < 8 });
-      }
-      return { lap, held: { up: st.up - lap.up, down: st.down - lap.down, notes: st.notes - lap.notes } };
-    };
-    for (const [r, deg] of [[15, 3], [15, 5], [15, 8], [15, 15], [15, 25], [30, 3], [60, 3], [12, 0.5]]) {
-      const q = touchLap(r, deg);
-      check(`verify-1: a touch lap ${r} px from a zero, from ${deg}° above the D line: 1 low D, 5 notes; held there: nothing`, q.lap.up === 1 && q.lap.down === 0 && q.lap.notes === 5 && q.held.notes === 0, JSON.stringify(q));
-    }
-    const q6 = touchLap(6, 5.7);
-    check('verify-1: a touch lap 6 px from a zero (the D-only zone), from 5.7°: its D sounds (was silent)', q6.lap.up === 1 && q6.lap.down === 0 && q6.lap.notes === 1 && q6.held.notes === 0, JSON.stringify(q6));
-    const qd = touchLap(15, 3, { dir: -1 }), qb = touchLap(15, -3, { dir: -1 }), q2 = touchLap(15, 8, { laps: 2 });
-    check('verify-1: a falling lap from 3° above and from 3° below the D line: 1 low D down each', qd.lap.down === 1 && qd.lap.up === 0 && qb.lap.down === 1 && qb.lap.up === 0, JSON.stringify({ qd, qb }));
-    check('verify-1: two laps from 8°: 2 low Ds', q2.lap.up === 2 && q2.lap.down === 0 && q2.lap.notes === 10, JSON.stringify(q2));
-    // a probe that goes most of the way round and comes back (no lap): no D; the held finger of sound-3: still nothing
-    const st = S.Harp(true), h = (1 / 15) * 2.5 / TAU; let phi = 0.01; S.harpStep(st, null, 0, phi, {});
-    for (let i = 1; i <= 80; i++) { phi = 0.01 + 0.9 * Math.sin(Math.PI * i / 80); S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h }); }
-    check('verify-1: 0.9 turn out and back from 3.6°: 0 low Ds', st.up === 0 && st.down === 0, JSON.stringify(st));
-    const hs = S.Harp(true); let ph = null, pv = null;
-    for (let k = 0; k < 600; k++) {
-      const t = k / 60, x = 10 + 1.5 * Math.sin(TAU * 9 * t), y = 1.5 * Math.sin(TAU * 8.3 * t + 1);
-      const a = Math.atan2(y, x) / TAU; if (ph === null) ph = a; else { let d = a - pv; d -= Math.round(d); ph += d; } pv = a;
-      S.harpStep(hs, null, t, ph, { dt: 1 / 60, h: (1 / Math.hypot(x, y)) * 2.5 / TAU });
-    }
-    check('verify-1: with the lap, a held finger near a zero still plucks nothing', hs.notes === 0, JSON.stringify(hs));
-  }
-  // math-4: a drawn loop that starts on the D line (arg F within the band of 0) and closes there: harpClose brings the
-  // count to W (it played W − 1 before); a loop that only wiggles across nothing stays at 0
-  {
-    const e = makeEnv();
-    e.Sound.set({ on: true, sonify: true }, { quiet: true }); e.advance(10);
-    const S = e.Sound;
-    const lap = (start, W, wig) => {
-      S.harpReset(start); S.harpCount();
-      let c0 = null;
-      const N = 60;
-      for (let i = 0; i <= N; i++) {
-        e.advance(16);
-        const phi = wig ? start + 0.05 * Math.sin(Math.PI * i / N) : start + W * i / N;
-        S.harp(phi, { dt: 0.016 });
-        if (i === 0) c0 = S.harpState().c;
-      }
-      S.harpClose(c0 + 5 * W, {});
-      return S.harpCount();
-    };
-    for (const [start, W] of [[0.001, 1], [0.003, 1], [-0.002, 1], [0.001, -1], [0.003, 2], [0.4, 1]]) {
-      const r = lap(start, W, false);
-      check(`math-4: a loop from arg ${start} turn, W = ${W}: low Ds up − down = W`, r.up - r.down === W, JSON.stringify(r));
-    }
-    const r = lap(0.001, 0, true);
-    check('math-4: a wiggle from arg 0.001 turn up and back: 0 Ds', r.up === 0 && r.down === 0, JSON.stringify(r));
   }
   // curves sing: the phase along a closed curve played as one period; its loudest harmonic is 4 + W (D5 for 0, F♯5 for
   // 1, A5 for 2, A4 for −1), and the spectral centre is exactly W

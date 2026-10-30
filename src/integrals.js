@@ -337,7 +337,7 @@ const Integrals = (() => {
     }
     return true;
   }
-  // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?}]. The curve
+  // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?, piece?}]. The curve
   // is the shape prefer (the one under the pointer) when it passes there, else the nearest (issue #13: one integral,
   // not one per curve in reach)
   function integralItems(pane, side, x, y, cx, cy, prefer) {
@@ -346,8 +346,15 @@ const Integrals = (() => {
     const near = [all.find((n) => n.s.id === prefer) || all[0]];
     const names = shapeNames();
     // (v16.5 V03: the label, its variable and its closed-curve test are intLabel's, shared with the palette)
+    /** @type {{ label: string, run: () => any, listen?: boolean, piece?: boolean }[]} */
     const items = near.map(({ s }) => ({ label: intLabel(s, names), run: () => openIntegralPop(s.id, cx, cy) }));
-    if (SND) for (const { s } of near) if ((A.sndP.on && A.sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
+    if (SND) {
+      for (const { s } of near) {
+        if ((A.sndP.on && A.sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play || snd.prep ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play || snd.prep ? sndStopPlay(true) : sndListenAsk(s)) });
+        // (a composed curve, once Listen along plays the function: its score has its own item)
+        if (SND.along && !snd.play && sndListenOf(s)) items.push({ piece: true, label: $t('Play the composition (Grieg, arranged on this curve)'), run: () => sndListenAsk(s, true) });
+      }
+    }
     return items;
   }
   // TEMP-DEBUG-HOOK
@@ -540,6 +547,8 @@ const Integrals = (() => {
     if (!s && list.length > 1) { toast(touchUI() ? $t('Pick a curve to integrate along: hold a finger on it, then choose Integrate.') : $t('Pick a curve to integrate along: select it, or right-click it.')); return null; }
     return integrateShape(list[0].id);
   }
+  // what the last full plan found (see cauchyPlot): the shape, the F it was for, its memo, a pending full check
+  const planMemo = { shape: null, sk: '', fk: '', memo: null, force: false, t: 0 };
   function cauchyPlot() {
     if (!hasCalc('cauchyNodes')) return null;
     const geom = integralGeom();
@@ -558,8 +567,58 @@ const Integrals = (() => {
     const nodes = new Float32Array(4 * n);
     let o = 0;
     for (const p of parts) { nodes.set(p, o); o += p.length; }
-    cauchyCache.key = key; cauchyCache.val = n ? { nodes, n, name: g.name } : null;
+    // (#235) the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
+    // checked against the quadrature at a few points (Calc.cauchyPlan); else the nodes above draw. At most 16 poles of
+    // order 4, which the shader's uniforms hold. The search and the check cost 10 to 150 ms, so a curve dragged or an F
+    // changed a little (a slider) keeps the last plan's poles, counts the winding numbers again, follows the poles by
+    // Newton's method (Calc.cauchyPlanFast, cauchyTrack) and is checked in full 300 ms after the last change
+    let plan = null;
+    if (n && hasCalc('cauchyPlan')) {
+      // (sk: the chain's structure, its steps' kinds and their formulas; fk adds the numbers: a slider changes fk, an edit of a
+      // formula or a step changes sk, and then the poles are looked for again)
+      const sk = A.S.steps.map((st) => st.type + (st.on === false ? '-' : '') + Object.values(st.params || {}).filter((v) => typeof v === 'string' && !/^[-+0-9.eE]*$/.test(v)).join('~')).join('|') + '|' + A.S.focus;
+      const fk = A.chainSig[nSteps()] + '|' + A.S.focus, loops = { loops: g.comps.map((c) => c.flat) }, pm = planMemo;
+      try {
+        if (!pm.force && pm.shape === g.s.id && pm.sk === sk && pm.memo && hasCalc('cauchyPlanFast')) {
+          const memo = pm.fk === fk ? pm.memo : Calc.cauchyTrack(F, pm.memo);
+          plan = memo ? Calc.cauchyPlanFast(F, loops, memo) : null;
+          if (plan) { pm.memo = memo; pm.fk = fk; }
+        }
+        if (!plan) { plan = Calc.cauchyPlan(F, loops); pm.shape = g.s.id; pm.sk = sk; pm.fk = fk; pm.memo = plan.memo || null; pm.force = false; clearTimeout(pm.t); pm.t = 0; }
+      } catch (e) { plan = { ok: false, why: 'unverified' }; pm.memo = null; }
+      if (plan.fast) {
+        clearTimeout(pm.t);
+        pm.t = setTimeout(() => { pm.t = 0; pm.force = true; cauchyCache.key = ''; A.requestRender('L'); }, 300);
+      }
+      if (plan.ok && (plan.poles.length > 16 || plan.poles.some((q) => q.order > 4))) plan = { ok: false, why: 'tooMany' };
+    }
+    cauchyCache.key = key; cauchyCache.val = n ? { nodes, n, name: g.name, plan, edgesAt: new Map() } : null;
     return cauchyCache.val;
+  }
+  // what the GL draws: cauchyPlot, with, when the formula holds, the polygon's edges simplified to a quarter of a pixel
+  // at this zoom (kept per half octave; at most 2048 edges, the texture row) and what to show
+  let forceQuad = false;   // (tests: draw the quadrature's nodes where the formula holds, to compare the two)
+  const setCauchyQuad = (v) => { forceQuad = !!v; };
+  function cauchyDraw(scale) {
+    const cp = cauchyPlot();
+    if (cp && cp.plan && cp.plan.why === 'onCurve') return Object.assign({}, cp, { nodes: new Float32Array(0), n: 0 });   // (not defined: F plain, with a note)
+    if (!cp || !cp.plan || !cp.plan.ok || forceQuad) return cp;
+    const b = scale > 0 ? Math.round(2 * Math.log2(scale)) : 0;
+    let e = cp.edgesAt.get(b);
+    if (!e) {
+      let tol = 0.25 / Math.pow(2, b / 2), loops;
+      for (let k = 0; k < 12; k++, tol *= 2) {
+        loops = cp.plan.loops.map((l) => Calc.simplifyLoop(l, tol));
+        if (loops.reduce((m, l) => m + l.length, 0) <= 2048) break;
+      }
+      e = new Float64Array(4 * loops.reduce((m, l) => m + l.length, 0));
+      let o = 0;
+      for (const l of loops) for (let i = 0; i < l.length; i++) { const p = l[i], q = l[(i + 1) % l.length]; e[o++] = p.re; e[o++] = p.im; e[o++] = q.re; e[o++] = q.im; }
+      if (cp.edgesAt.size > 8) cp.edgesAt.clear();
+      cp.edgesAt.set(b, e);
+    }
+    const v = A.S.cauchyShow;
+    return Object.assign({}, cp, { edges: e, show: v === 'in' ? 1 : v === 'out' ? 2 : 0, sign: A.S.cauchyPlus ? 1 : -1 });
   }
   // what the Phase, Landscape and Sphere (phase) views plot, at t = end (a derivative is a d/dz step of the chain)
   const plotF = () => focusF();
@@ -568,5 +627,11 @@ const Integrals = (() => {
     A = api;
     ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
-  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, plotF };
+  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();
+import { $, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Calc } from './calc.js';
+import { Region } from './region.js';
+import { Curves } from './curves.js';
+export { Integrals };

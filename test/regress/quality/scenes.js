@@ -389,6 +389,90 @@ BASE.zp_disc = {
     srcSdf: (z) => ZPD.r - Math.hypot(z.re - ZPD.c[0], z.im - ZPD.c[1]),
   },
 };
+// Repeat × N (#6): z^2 + c three times (the block [z^2, + c] under Repeat, N = 3) of a disc around the critical point
+// 0, so the map folds it onto itself. Truth: every branch of the three square roots, w -> +-sqrt(w - c), 8 candidates.
+const Q3 = { c: [0.2, 0.1], r: 0.8 }, Q3C = C(-0.3, 0.2);
+BASE.quad3_disc = {
+  shapes: [{ kind: 'disc', c: Q3.c, r: Q3.r }],
+  steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.3+0.2i' }, repeat: { n: 3, len: 2 } }],
+  srcView: { cx: 0.2, cy: 0.1, s: 150 },
+  truth: {
+    desc: 'some branch of (z^2 + c)^{-3} of w in the disc',
+    pre: (w) => {
+      let zs = [w];
+      for (let k = 0; k < 3; k++) zs = zs.flatMap((u) => { const s = csqrt(sub(u, Q3C)); return [s, C(-s.re, -s.im)]; });
+      return zs;
+    },
+    region: (z) => Math.hypot(z.re - Q3.c[0], z.im - Q3.c[1]) < Q3.r,
+    dF: (z) => { let u = z, d = 1; for (let k = 0; k < 3; k++) { d *= 2 * abs(u); u = add(mul(u, u), Q3C); } return d; },
+    srcSdf: (z) => Q3.r - Math.hypot(z.re - Q3.c[0], z.im - Q3.c[1]),
+  },
+};
+// The Douady–Hubbard map Φ_M (#260) of a disc outside M near the 1/4 limb (min |Φ_M| on it 1.026): this file's own
+// Böttcher coordinate (the orbit of 0 to |u| > 1e8, then back by the square root nearest each orbit point) and its own
+// inverse: the external ray of arg w traced from |c| = 64 down to |w| (Newton on u_m(c) = w^{2^m}, the target beyond
+// 1e8; T. Kawahira, 2009), 8 steps per halving of the potential, then checked forward to 1e-10
+const DHM = (() => {
+  function phi(c) {
+    const orb = [c];
+    let u = c;
+    for (let k = 0; abs(u) <= 1e8; k++) { if (k > 4000) return null; u = add(mul(u, u), c); orb.push(u); }
+    let p = mul(u, csqrt(add(C(1), div(div(c, u), u))));
+    for (let k = orb.length - 2; k >= 0; k--) {
+      const r = csqrt(p), o = orb[k];
+      p = r.re * o.re + r.im * o.im >= 0 ? r : C(-r.re, -r.im);
+    }
+    return p;
+  }
+  const L0 = Math.log(64), TGT = Math.log(1e8);
+  function inv(w) {
+    const Lw = Math.log(abs(w)), th = Math.atan2(w.im, w.re) / TAU;
+    if (!(Lw > 1e-9)) return null;
+    const n = Math.max(1, Math.ceil(8 * Math.log2(L0 / Lw)));
+    let c = C(64 * Math.cos(TAU * th) - 0.5, 64 * Math.sin(TAU * th));
+    for (let j = 1; j <= n; j++) {
+      const L = L0 * Math.pow(Lw / L0, j / n);
+      let m = 0;
+      while (L * 2 ** m < TGT) m++;
+      let a = th;
+      for (let i = 0; i < m; i++) { a *= 2; a -= Math.floor(a); }
+      const t = cexp(C(L * 2 ** m, TAU * a));
+      for (let it = 0; it < 60; it++) {
+        let u = c, d = C(1);
+        for (let k = 0; k < m; k++) { const ud = mul(u, d); d = C(2 * ud.re + 1, 2 * ud.im); u = add(mul(u, u), c); }
+        const dc = div(sub(u, t), d);
+        c = sub(c, dc);
+        if (!(abs(dc) > 1e-15 * abs(c))) break;
+      }
+    }
+    const back = phi(c);
+    return back && abs(sub(back, w)) <= 1e-10 * abs(w) ? c : null;
+  }
+  return { phi, inv };
+})();
+const DH_D = { c: [0.6, 0.9], r: 0.3 };
+// (Φ_M is one-to-one, so the image of the disc is inside Φ_M of its circle: w beyond that circle's bounding box,
+// sampled at 1440 points and widened by 0.02, has no preimage in the disc, and its ray is not traced)
+const DH_BOX = (() => {
+  const b = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+  for (let i = 0; i < 1440; i++) {
+    const a = TAU * i / 1440, w = DHM.phi(C(DH_D.c[0] + DH_D.r * Math.cos(a), DH_D.c[1] + DH_D.r * Math.sin(a)));
+    b.x0 = Math.min(b.x0, w.re - 0.02); b.x1 = Math.max(b.x1, w.re + 0.02); b.y0 = Math.min(b.y0, w.im - 0.02); b.y1 = Math.max(b.y1, w.im + 0.02);
+  }
+  return b;
+})();
+BASE.dh_disc = {
+  shapes: [{ kind: 'disc', c: DH_D.c, r: DH_D.r }],
+  steps: [{ type: 'dh', params: { N: 64 } }],
+  srcView: { cx: 0.6, cy: 0.9, s: 300 },
+  truth: {
+    desc: 'Φ_M^{-1}(w), the external ray of arg w traced to |w|, in the disc',
+    pre: (w) => { if (w.re < DH_BOX.x0 || w.re > DH_BOX.x1 || w.im < DH_BOX.y0 || w.im > DH_BOX.y1) return []; const z = DHM.inv(w); return z ? [z] : []; },
+    region: (z) => Math.hypot(z.re - DH_D.c[0], z.im - DH_D.c[1]) < DH_D.r,
+    dF: (z) => { const h = 1e-6, a = DHM.phi(C(z.re + h, z.im)), b = DHM.phi(C(z.re - h, z.im)); return a && b ? abs(sub(a, b)) / (2 * h) : 1; },
+    srcSdf: (z) => DH_D.r - Math.hypot(z.re - DH_D.c[0], z.im - DH_D.c[1]),
+  },
+};
 const scene = (base, name, group, rightView, note, variants) => Object.assign({ name, base, group, rightView, note }, BASE[base], variants ? { variants } : {});
 const LOGH_VIEW = { cx: -0.18, cy: PI / 2, s: 97 };   // the app's auto-fit of this scene (rounded)
 
@@ -439,6 +523,10 @@ const SCENES = [
   scene('jouk_custom', 'jouk_custom', 'rational', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil as the custom formula (z + 1/z)/2: the same image as the catalog step', ['mask', 'pattern']),
   // the zeros-and-poles step: (z^2 - 1)/z by its zeros +-1 and pole 0 (RAT2, two sheets over a fold)
   scene('zp_disc', 'zp_disc', 'rational', { cx: 0, cy: 2.19, s: 250 }, 'zeros-and-poles step, zeros +-1 and pole 0: (z^2-1)/z of the disc |z - 1.2i| < 0.8 (folded onto itself)', ['mask', 'pattern']),
+  // Repeat × N (#6): a block of steps run three times, the inverse renderer's ops three times over (8 branches)
+  scene('quad3_disc', 'quad3_disc', 'rational', { cx: 0.25, cy: 0.5, s: 80 }, 'Repeat x 3 of [z^2, + (-0.3+0.2i)] of the disc |z - (0.2+0.1i)| < 0.8 (contains 0): degree 8, folded', ['mask', 'pattern']),
+  // the Douady–Hubbard map (#260): no inverse enumerator, so the image is the CPU mesh of the disc mapped forward
+  scene('dh_disc', 'dh_disc', 'conformal', { cx: 1.067, cy: 0.868, s: 400 }, 'the Douady–Hubbard map Phi_M of the disc |z - (0.6+0.9i)| < 0.3 by the 1/4 limb (|Phi_M| > 1.026 on it)', ['mask', 'pattern']),
 ];
 
 // display settings shared by every scene: no coordinate net, unit circle, view outline or region outline; alpha 1
@@ -476,7 +564,7 @@ function cellOf(sc) {
 // the saved app state of a scene variant (written to localStorage before the app opens)
 function stateOf(sc, variant) {
   const shapes = sc.shapes.map((s, i) => Object.assign({ id: 's' + (i + 1), ci: 0, visible: true }, JSON.parse(JSON.stringify(s))));
-  const steps = sc.steps.map((st) => ({ type: st.type, params: Object.assign({}, st.params), on: true }));
+  const steps = sc.steps.map((st) => Object.assign({ type: st.type, params: Object.assign({}, st.params), on: true }, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
   return Object.assign({ v3: true, v4: true, v5: true, nextId: 50, targets: [] }, DISPLAY, {
     pattern: VARIANTS[variant], shapes, steps, srcView: Object.assign({}, sc.srcView), clipWin: boxOf(sc.srcView),
     rightView: sc.rightView ? Object.assign({}, sc.rightView) : null,

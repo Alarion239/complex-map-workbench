@@ -37,7 +37,8 @@ ok('a card\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move l
 ok('menu keys (⌘D, ⌘], ⌘[) are empty on a touch screen (phone UX17)', /const modK = \(k\) => \(touchUI\(\) \? '' :/.test(APP));
 
 // ---- chain UX71 wording + learn UX71 Stop
-ok('X\'s chip: "choose Show F to draw" (chain) with the listening Stop (learn)', APP.includes("choose Show F to draw.')") && /if \(!msg\) \{ msg = listenChipMsg\(\); if \(msg\) act = \{ stop: true \}; \}/.test(APP) && !APP.includes('choose Whole chain to draw'));
+// (#253: a step's plane on the globe says Plane draws in it, or Show F)
+ok('X\'s chip: "choose Plane to draw in this plane, or Show F" (chain) with the listening Stop (learn)', APP.includes("choose Plane to draw in this plane, or Show F.')") && /if \(!msg\) \{ msg = listenChipMsg\(\); if \(msg\) act = \{ stop: true \}; \}/.test(APP) && !APP.includes('choose Whole chain to draw'));
 
 // ---- chain UX25 + learn UX74 in the Examples list
 const og = fnBody(APP, 'openGallery');
@@ -81,7 +82,8 @@ ok('editDown: rail\'s Point-tool move and plane\'s handleAt both present', fnBod
 
 // ---- phone guide + chain UX85 / UX65
 ok('the phone guide names the button Show alone (chain UX85) and finds Numbers (chain UX65)', APP.includes("The editor's <b>Show alone</b> button") && !APP.includes('Show this step alone') && APP.includes('`Shared numbers|Numbers`'));
-ok('the tour\'s chain step on touch says Show alone (chain over phone)', TOUR.includes("touch: 'Tap the card $f_1$, then Show alone in the sheet.'") && !TOUR.includes('Show this step alone'));
+// (#246: on a phone the steps are rows of the chain sheet: the task opens it first, and still says Show alone)
+ok('the tour\'s chain step on touch says Show alone (chain over phone)', TOUR.includes("touch: 'Open the chain, tap $f_1$, then Show alone.'") && !TOUR.includes('Show this step alone'));
 
 // ---- the tour's shared notes
 const INT = fs.readFileSync(path.join(__dirname, '../notes/tour/INTEGRATION.md'), 'utf8');

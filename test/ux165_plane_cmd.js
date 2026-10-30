@@ -206,7 +206,7 @@ await section('L48', async () => {
   ok('UX52 a tool change clears it', !(await ev(`!!document.querySelector('#draftChipL .cm-warn')`)));
   // UX51 / UX55: the chip's three choices in words; UX100: the kept curve as a token
   const segs = await ev(`[...document.querySelectorAll('#draftChipL .cm-seg .cm-sb')].map((b) => b.getAttribute('aria-label'))`);
-  ok('UX55 the chip offers Whole | Inside | Outside, as the Inspector does', JSON.stringify(segs) === '["Whole","Inside","Outside"]', segs);
+  ok('UX55 the chip offers Whole | Inside | Outside | Between, as the Inspector does', JSON.stringify(segs) === '["Whole","Inside","Outside","Between"]', segs);
   const L = await W(0, 1.5);
   await click(L[0] + 40, L[1]); await settle(120);
   const p1 = await W(-1, -1.5), p2 = await W(1, -1.5);
@@ -472,11 +472,12 @@ await section('L86', async () => {
   await key('2'); await settle(900);
   // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
   // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
-  const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
-  const ph = await ev(`[...document.querySelectorAll('[data-dc], .options button, .options [role=radio], #dcSeg > button')].map((b) => b.textContent.trim()).filter((t) => /grid/i.test(t))`);
+  // (#247: the row shows "Grid"; the style's name, its accessible name and tooltip, stays "Pulled-back grid")
+  const ph = await ev(`[...document.querySelectorAll('[data-dc], .options button, .options [role=radio], #dcSeg > button')].map((b) => (b.getAttribute('aria-label') || b.textContent).trim()).filter((t) => /grid/i.test(t))`);
   ok('UX86 the Phase style is "Pulled-back grid"', ph.includes('Pulled-back grid'), ph);
-  await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200);
+  await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200);
   await key('1'); await settle(400);
 });
 
@@ -493,7 +494,7 @@ await section('P51', async () => {
   ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point \(on Line 1 or anywhere\) · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
   // (D3: on a phone the three choices are in the context bar, in words, and the chip drops its copy: one place)
   const barSeg = await ev(`[...document.querySelectorAll('.ph-ctseg > button')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().height)])`);
-  ok('UX51 phone: Whole | Inside | Outside in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 3 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
+  ok('UX51 phone: Whole | Inside | Outside | Between in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 4 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
   ok('UX51 phone chip: the × takes taps 44 × 44', info.p51.x44, info.p51);
   await shot('ux51-phone-chip');
   // UX15 on the phone: the Undo at the thumb takes the last pick
@@ -510,10 +511,10 @@ await section('P51', async () => {
   ok('UX94 phone: Snap is a switch (a track after the word), not a filled pill', sw && sw.after === '""' && sw.w === '30px', sw);
   await shot('ux94-phone-snap');
   await key('Escape'); await settle(200);
-  // UX95: the Display sheet's region section is "Regions" ([v17 D5, #82]: a heading of the sheet, no longer the left
+  // UX95: the Display sheet's region section is "Shapes" (#35) ([v17 D5, #82]: a heading of the sheet, no longer the left
   // panel's #secDisplay)
-  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
-  ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
+  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Shapes') && !hs.includes('Display') ? 'Shapes' : hs.join('|'); })()`);
+  ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Shapes', disp);
 });
 
 // ------------------------------------------------------------------- layout: the two-line readout, Snap, the touch ×
@@ -631,6 +632,106 @@ await section('RU', async () => {
   await shot('ux-ru-hyper-chip');
   await key('Escape');
   await ev(`localStorage.setItem('cmw-lang', 'en'); 1`);
+});
+
+// ------------------------------------------------------------------------------------------------------------ D9 (touch)
+await section('D9', async () => {
+  let stage = 'start';
+  try {
+  await phone();
+  await load(NS + 'dn', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, { id: 'p1', kind: 'point', p: [1.5, -1.2], ci: 2, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 60 }, snap: false, nextId: 60 });
+  await settle(900);
+  const sh = async (id) => (await ST()).list.find((s) => s.id === id);
+  const o0 = await W(0, 0);
+  stage = 'first'; // the first press on a disc only selects it; a drag from it pans the plane
+  await tdrag(o0[0], o0[1], o0[0] + 40, o0[1] + 30, 8);
+  const o1 = await W(0, 0), d = await sh('d1');
+  ok('D9 touch: a drag from an unselected disc selects it and pans the plane (the disc stays)', (await ST()).selected === 'd1' && d.c[0] === 0 && d.c[1] === 0 && Math.abs(o1[0] - o0[0] - 40) < 4, [o0, o1, d]);   // (x only: the context bar that the selection brings makes the plane shorter)
+  stage = 'second';
+  await tdrag(o1[0], o1[1], o1[0] + 30, o1[1], 8);
+  const d2 = await sh('d1'), o2 = await W(0, 0);
+  ok('D9 touch: the selected disc then moves with a drag', d2.c[0] > 0.3 && Math.abs(o2[0] - o1[0]) < 4, [d2.c, o1, o2]);
+  stage = 'point'; //: a drag moves it at once
+  const pp = await W(1.5, -1.2);
+  await tdrag(pp[0], pp[1], pp[0] + 30, pp[1] - 20, 8);
+  const p1 = await sh('p1');
+  ok('D9 touch: a drag from an unselected point moves it', p1.p[0] > 1.8, p1.p);
+  stage = 'two'; // in hand, and draw nothing
+  await tool('disc');
+  const n0 = (await ST()).list.length, o3 = await W(0, 0);
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 150, y: 330, id: 1 }, { x: 250, y: 330, id: 2 }] });
+  for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 150, y: 330 + i * 6, id: 1 }, { x: 250, y: 330 + i * 6, id: 2 }] }); await sleep(16); }
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(200);
+  const o4 = await W(0, 0);
+  ok('D9 touch: two fingers pan with a drawing tool, and draw nothing', Math.abs(o4[1] - o3[1] - 48) < 6 && (await ST()).list.length === n0, [o3, o4, n0, (await ST()).list.length]);
+  stage = 'edge';
+  const box = await ev(`(() => { const b = document.getElementById('paneL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
+  await tdrag(box[0] + 6, box[1] + 200, box[0] + 60, box[1] + 240, 8);
+  ok('D9 touch: a press in the outer 16 px draws nothing (it pans)', (await ST()).list.length === n0, (await ST()).list.length);
+  stage = 'drawn'; //; a press elsewhere draws
+  const q = await W(-2, 0.5), q2 = await W(-1.4, 1.1);
+  await tdrag(q[0], q[1], q2[0], q2[1], 8);
+  const n1 = (await ST()).list.length, dr = (await ST()).list[n1 - 1];
+  info.d9dr = dr; info.d9n = [n0, n1];
+  const mid = await W(dr.c[0], dr.c[1]);
+  await tdrag(mid[0], mid[1], mid[0] + 24, mid[1] + 24, 8);
+  const dr2 = (await ST()).list.find((x) => x.id === dr.id);
+  ok('D9 touch: a drawing tool, a press on the disc just drawn moves it (no new shape)', n1 === n0 + 1 && (await ST()).list.length === n1 && Math.abs(dr2.c[0] - dr.c[0]) > 0.2, [n0, n1, dr.c, dr2.c]);
+  const far = await W(1.6, 1.6), far2 = await W(2.2, 1.9);
+  await tdrag(far[0], far[1], far2[0], far2[1], 8);
+  ok('D9 touch: a press elsewhere draws', (await ST()).list.length === n1 + 1, [(await ST()).list.length, n1]);
+  } catch (e) { fails.push({ name: 'D9 stage ' + stage, got: String(e && e.message || e).slice(0, 300) }); }
+});
+
+// ------------------------------------------------------------------------------------------------------------ D9 (laptop)
+await section('D9L', async () => {
+  let stage = 'start';
+  try {
+  await laptop();
+  await load(NS + 'dl', { shapes: [{ id: 'd1', kind: 'disc', c: [-2, -1.5], r: 0.4, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: true, nextId: 60 });
+  await settle(900);
+  // a drag with Alt held throughout (the kit's drag takes no modifiers)
+  const adrag = async (x0, y0, x1, y1, mods) => {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0, modifiers: mods });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1, modifiers: mods });
+    for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 8, y: y0 + (y1 - y0) * i / 8, button: 'left', buttons: 1, modifiers: mods }); await sleep(16); }
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', buttons: 0, clickCount: 1, modifiers: mods });
+    await settle(200);
+  };
+  stage = 'draw';
+  await tool('disc');
+  const n0 = (await ST()).list.length;
+  const a = await W(1, 1), a2 = await W(1.6, 1);
+  await adrag(a[0], a[1], a2[0], a2[1], 0);
+  const n1 = (await ST()).list.length, dr = (await ST()).list[n1 - 1];
+  ok('D9 laptop: a drawing tool draws a disc', n1 === n0 + 1, [n0, n1]);
+  stage = 'move';
+  const mid = await W(dr.c[0] + 0.2, dr.c[1]), mid2 = await W(dr.c[0] + 0.2, dr.c[1] + 0.8);
+  await adrag(mid[0], mid[1], mid2[0], mid2[1], 0);
+  const dr2 = (await ST()).list.find((x) => x.id === dr.id);
+  ok('D9 laptop: a press on the disc just drawn moves it (no new shape)', (await ST()).list.length === n1 && Math.abs(dr2.c[1] - dr.c[1]) > 0.5, [dr.c, dr2.c, (await ST()).list.length]);
+  stage = 'alt';
+  const cc = await W(dr2.c[0] + 0.15, dr2.c[1]), e2 = await W(dr2.c[0] + 0.55, dr2.c[1]);
+  const startZ = [dr2.c[0] + 0.15, dr2.c[1]];
+  await adrag(cc[0], cc[1], e2[0], e2[1], 1);
+  const l3 = (await ST()).list, nw = l3[l3.length - 1];
+  ok('D9 laptop: Alt + press draws a new shape even on the disc just drawn', l3.length === n1 + 1 && nw.id !== dr.id, [l3.length, n1]);
+  const off = (v) => Math.abs(v * 4 - Math.round(v * 4));   // (the grid snaps to quarters here: a raw point is off it)
+  ok('D9 laptop: what Alt places does not snap', nw && nw.c && (nw.c[0] !== startZ[0] || nw.c[1] !== startZ[1]) && Math.hypot(nw.c[0] - startZ[0], nw.c[1] - startZ[1]) < 0.05 && (off(nw.c[0]) > 0.01 || off(nw.c[1]) > 0.01), [nw && nw.c, startZ]);
+  stage = 'altselect';
+  await tool('select');
+  const hz = await W(startZ[0] + 0.12, startZ[1] + 0.1);   // (inside both discs, away from their handles)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: hz[0], y: hz[1] });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: hz[0], y: hz[1], button: 'left', buttons: 1, clickCount: 1, modifiers: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: hz[0], y: hz[1], button: 'left', buttons: 0, clickCount: 1, modifiers: 1 });
+  await settle(200);
+  const sel1 = (await ST()).selected;
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: hz[0], y: hz[1], button: 'left', buttons: 1, clickCount: 1, modifiers: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: hz[0], y: hz[1], button: 'left', buttons: 0, clickCount: 1, modifiers: 1 });
+  await settle(200);
+  const sel2 = (await ST()).selected;
+  ok('D9 laptop: with Select, Alt-click still cycles the shapes under it', !!sel1 && !!sel2 && sel1 !== sel2, [sel1, sel2]);
+  } catch (e) { fails.push({ name: 'D9 laptop stage ' + stage, got: String(e && e.message || e).slice(0, 300) }); }
 });
 
 await grab();

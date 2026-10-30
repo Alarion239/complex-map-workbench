@@ -46,15 +46,28 @@ reaches our machines.
   [Python 3.12](https://www.python.org/downloads/) (Windows: tick *Add python.exe to PATH*), and Git
   ([git-scm.com](https://git-scm.com/) on Windows; on the Mac, `xcode-select --install`). The jobs install their own
   Node into the runner's folder; Chrome, Python and Git must be on the machine.
+  The jobs run `npm ci` themselves (the build will bundle with esbuild), so a runner needs Node and npm, nothing else to install.
 - **An account:** a separate user account for the runner is safest (a job can read what that account can read).
   Your own account works too. Either way, that account must **stay logged in**: Chrome reaches the GPU only from a
   logged-in desktop session. A locked screen is fine.
 - **Power:** keep the machine plugged in and stop it from sleeping on power:
   - Windows: *Settings → System → Power & battery → Screen and sleep*, "When plugged in, put my device to sleep
     after" **Never**.
+  - **A laptop: closing the lid must not sleep it.** *Control Panel → Hardware and Sound → Power Options → Choose
+    what closing the lid does*, "When I close the lid", *Plugged in*: **Do nothing** (or in an administrator
+    PowerShell: `powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0; powercfg /setactive SCHEME_CURRENT`).
+    The idle setting above does not cover the lid. On 2026-10-28 the Windows laptop slept with its lid closed for 53
+    minutes in the middle of a GLSL job: GitHub marked the job failed 3 minutes later, and the runner, once awake,
+    kept working on the job for another 23 minutes before it took the next one, while every other GPU job waited
+    (#169). Keep it plugged in too: the settings *on battery* are separate (the laptop's own: sleep after 3 minutes).
   - Mac: *System Settings → Battery → Options*, turn on **Prevent automatic sleeping on power adapter when the display
     is off** (on a desktop Mac: *Energy*).
-- **Disk:** about 5 GB free (two builds of the app, browser profiles, results).
+    In Terminal the same, with Power Nap off: `sudo pmset -c sleep 0 powernap 0` (check with `pmset -g`). A MacBook
+    with its lid closed sleeps anyway unless an external display is attached: keep the lid open.
+- **Disk:** about 5 GB free (two builds of the app, browser profiles, results). The GLSL job also keeps a shader
+  cache in the runner's folder, `_work/_tool/cmw-glsl-cache` (a Chrome profile; 20-50 KB per compiled program, tens
+  of MB per version of the shader code): it is what keeps that job short on Windows (ci/README.md, `CMW_GLSL_CACHE`).
+  Deleting it is safe; the next run compiles everything again, which on the Windows laptop takes hours.
 
 ## 3. The Windows laptop
 
@@ -131,8 +144,10 @@ of our users have. To pin one: *Settings → System → Display → Graphics →
 ### Replacing an x64 runner with the arm64 build
 
 On Apple silicon the runner must be the **ARM64** package. The **x64** one also runs there, under Rosetta: then the
-jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's timings are not the machine's. The
-**gpu probe** step warns when it runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`). To replace it:
+jobs' Node (setup-node fetches the runner's architecture: `_work/_tool/node/<version>/x64`) and the Chrome it starts
+are Intel builds translated on the fly, so the GPU gate's timings are not the machine's. On 2026-10-28 `mac-gpu` was
+such a runner (its probe: `darwin x64 · Apple M4`; #62). The **gpu probe** step now stops every GPU gate job that
+runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`), with the error *Rosetta*. To replace it:
 
 1. Make sure no job is running on it (*Actions*: nothing *In progress* on `mac-gpu`), or set `GPU_RUNNERS` to
    `false` for the time being (section 1, step 4).
@@ -148,11 +163,14 @@ jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's 
    folder aside: `mv ~/actions-runner ~/actions-runner-x64`.
 3. Install the **ARM64** package as in steps 1–4 above (*New self-hosted runner* → **macOS** → **ARM64**), with the
    same name `mac-gpu` and the label `gpu`.
-4. Check that Node is a native build too (an x64 Node installed from the Intel package runs under Rosetta as well):
-   `file "$(which node)"` should say `arm64`, and `node -p process.arch` should print `arm64`. If not, install the
-   arm64 Node 22 and restart the runner (`./svc.sh stop && ./svc.sh start`).
-5. Run the GPU gate once by hand (section 5): **gpu probe** shows `darwin arm64` and the Metal renderer, and no
-   Rosetta warning. Then delete `~/actions-runner-x64`, and set `GPU_RUNNERS` back to `true` if you turned it off.
+4. Check that the runner is native: `file ~/actions-runner/bin/Runner.Listener` says `arm64`, and on GitHub
+   *Settings → Actions → Runners → mac-gpu* lists the label **ARM64** (an x64 runner shows **X64**). The jobs' Node
+   comes from the runner's own folder, so the new folder gets an arm64 one by itself; the Node installed on the Mac
+   is not what the jobs run.
+5. Run the GPU gate once by hand (section 5), machines **mac**: **gpu probe** shows `darwin arm64` and the Metal
+   renderer, and `"rosetta": false`. Then delete `~/actions-runner-x64` (it holds the x64 runner, its x64 Node and
+   its shader cache, which the Mac does not need: its GLSL pages take minutes cold), and set `GPU_RUNNERS` back to
+   `true` if you turned it off.
 
 ## 5. Check the GPU, then turn it on
 
@@ -170,6 +188,18 @@ jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's 
 
 The first run builds two copies of the app and runs every shard on both machines. On a GPU a shard takes a few
 minutes, so the whole gate takes roughly one to two hours per machine; the two machines work in parallel.
+The Windows laptop's GLSL job is the exception the first time: Direct3D 11 compiles every shader program on the CPU
+(the glsl page alone takes hours a side; one program took 12 minutes), where the Mac takes 7 minutes for all three
+pages. Every chain runs there only on the nightly run and by hand, in ten jobs (the glsl page in eighths, adv and
+inverse whole; ci/README.md, GLSL tiers): one job for all of it ran over 170 minutes on the glsl page's first side
+alone. A cold nightly run takes about 4-6 hours of the laptop's time in all (its jobs run one after another
+on the one runner), and jobs queued behind it wait. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
+*Disk*), so the next goes further, and from then on only programs whose code changed compile: 1/64 of the glsl page
+took 103 s cold and 7 s warm. To warm the cache in one go, run on the laptop, in a checkout of `main` (hours; not
+while the runner has a GLSL job):
+`$env:CMW_GLSL_CACHE='C:\actions-runner\_work\_tool\cmw-glsl-cache'; node ci/glsl.js --ref HEAD~1 --force`.
+Each page prints a line a minute while it runs, with how busy Chrome's GPU process was (busy: compiling; idle with an
+idle page: stuck).
 
 ## 6. Everyday use
 
@@ -179,19 +209,41 @@ minutes, so the whole gate takes roughly one to two hours per machine; the two m
   every metric that got worse, and a list of improvements. The raw results (JSON) are the run's artifacts.
 - **A machine is off:** its jobs wait in the queue for up to 24 hours, then GitHub cancels them. Cancel the run if
   you know it will not come back, or turn the gate off (`GPU_RUNNERS` to `false`).
+- **A lost job** (the machine slept, rebooted or lost its GPU mid-run, or a page reports *stalled*): re-run it
+  (*Re-run failed jobs*), do not debug it. A new push or run on the same branch replaces a pull request's or a
+  by-hand run anyway; a failure that comes back on the re-run is real.
 - **While a run is on the machine:** avoid heavy work on it (a build, a game, another browser test). Both sides of
   each comparison run back to back, so a busy machine slows both, but it adds noise.
+- **Shader link times (mode glprof) on the Mac:** the job builds this commit and the reference and runs them in turn
+  (this, reference, reference, this), each a cold and a warm pass, and reports every run, each side's mean and the
+  programs side by side. macOS keeps the Metal shaders it compiled for Chrome outside Chrome's profile, in
+  `$(getconf DARWIN_USER_CACHE_DIR)com.google.Chrome.helper/com.apple.metal/` (the GPU process is a Chrome helper;
+  about 13 MB after a cold pass, 23 MB after the warm one), so a fresh profile alone is not cold there: a later Chrome
+  links the same shader source about 5 times faster (#237). Before each cold pass the job empties that folder and
+  Chrome's other `com.apple.metal*` folders there, and prints each one it removed with its size; nothing else is
+  touched, and macOS recreates them as Chrome compiles. With it, two runs of the same two builds measured 12.1-12.8 s
+  and 11.8-12.4 s of cold link time (time-shared) per run; without it, the same order measured 2.3-10.3 s, depending
+  only on what the run before had compiled. (The warm pass, a second Chrome right after the cold one, does not get
+  faster from it: it measures Chrome's own program cache.) Compare the two sides of one run, not runs of different days.
 - **Updates:** the runner updates itself. Keep Chrome, Node and Python updated as usual.
 - **Removing a machine:** *Settings → Actions → Runners → (the runner) → Remove*, then on the machine
   `.\config.cmd remove --token <TOKEN>` (Windows) or `./svc.sh uninstall && ./config.sh remove --token <TOKEN>` (Mac).
 
 ## Troubleshooting
 
+Any other Mac runner problem: open an issue with the label `mac-runner`; Alexander's local agent on the Mac picks it up.
+
 | symptom | fix |
 |---|---|
 | Jobs stay *Queued* | The machine is asleep, logged out, or its runner is not started (section 3 step 4, section 4 step 4). *Settings → Actions → Runners* shows *Offline*. |
+| Jobs stay *Queued* while the runner is online | It is busy: the runner window's last line is `Running job: …`. After the machine slept during a job, that job may already show as failed on GitHub while the runner still works on it; it lets go of it by itself (23 minutes on 2026-10-28), or close the runner window and start `run.cmd` again. Its log is in `C:\actions-runner\_diag\Worker_*.log`. |
+| A job fails after about 6 minutes: "The job was not acquired by Runner of type self-hosted even after multiple attempts" (runner id 0) | The runner could not acquire the job in time. Look in `_diag/Runner_*.log` for `409 Conflict` on acquire and slow token fetches, and time the token host over IPv4 and IPv6: `curl -4 -o /dev/null -w '%{time_total}\n' https://vstoken.actions.githubusercontent.com`, then the same with `-6`. On the Mac on 2026-10-29 the host resolved to an IPv6 address its network could not route, and the runner's .NET client waited 75 s before it fell back to IPv4 (curl falls back at once), by which time GitHub had withdrawn the job (81 conflicts in a row). Fix: add `DOTNET_SYSTEM_NET_DISABLEIPV6=1` to the runner's `.env` and restart the runner (`./svc.sh stop && ./svc.sh start`); it touches only the runner, and removing the line undoes it. (A sleeping machine shows differently: jobs stay *Queued*, the runner is *Offline*, or "lost communication" in the middle of a job.) |
+| "A self-hosted runner lost communication with the server" | The machine (the Windows laptop) slept or went offline in the middle of a job (#169): section 2, *Power*. Or the runner was closed or restarted during the job: on 2026-10-29 at 21:40 UTC the runner on the laptop stopped 23 minutes into `main`'s Windows GLSL job, and its logon task started a new one; the job failed 10 minutes later. Before you close or restart a runner, check that it runs no job: on Windows `Get-Process Runner.Worker` finds nothing, and the runner window's last line is `Listening for Jobs`. |
+| "Sleep" warning in **gpu probe** (Windows) | The laptop runs on battery, or closing its lid sleeps it even on power. The job still runs, but it is lost if the laptop sleeps: section 2, *Power*. |
+| A cancelled run stays *Queued* | A job that waits for a self-hosted runner is cancelled only when a runner takes it, or after 24 hours, and the run holds its concurrency group (the next push to `main` waits behind it). Force it: `gh api -X POST repos/Alarion239/complex-map-workbench/actions/runs/<run id>/force-cancel`. |
 | "No GPU" in **gpu probe** | See section 5, step 3. |
+| "Rosetta" in **gpu probe** (Mac) | The runner is the x64 package, translated on Apple silicon: install the ARM64 one (section 4, *Replacing an x64 runner with the arm64 build*). |
 | `Google Chrome not found` | Chrome is not in its usual place. Put `CHROME_BIN=<path to chrome>` and `CHROME=<same path>` in the file `.env` in the runner's folder, then restart the runner. |
 | `python` or `git` not found | Install it (section 2), then restart the runner so it sees the new PATH. |
 | Windows: PowerShell refuses to run scripts | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
-| A shard fails with a slowdown you do not believe | Run it again: *Actions → GPU gate → Run workflow* with only that shard (e.g. `views`). Each failing unit is already re-run twice within a job; a slowdown that survives a second run is real. |
+| A shard fails with a slowdown you do not believe | Run it again: *Actions → GPU gate → Run workflow* with only that shard (e.g. `views`) and *glsl* `skip` (else the Windows GLSL jobs, about 7 hours, run first). Each failing unit is already re-run twice within a job; a slowdown that survives a second run is real. |

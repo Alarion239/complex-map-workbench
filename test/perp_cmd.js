@@ -415,7 +415,9 @@ await section('C', async () => {
   // v16.4.1: with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
   // keeps the whole text on two lines, not cut, as v16.4 showed it)
   const ruChip = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`);
-  ok('C RU chip before the curve (one line without «Esc — отмена» when that fits; with the Whole | Inside icons it does not, so the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
+  // (#35: a chip that would wrap drops the tool's name first, which the pane head's chip shows, and keeps «Esc — отмена»
+  // when that fits one line; else, as before, without «Esc — отмена» on one line, or the whole text on two)
+  ok('C RU chip before the curve (one line without the tool\'s name, else without «Esc — отмена», when that fits; with the Whole | Inside icons the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Esc — отмена' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
   const u = await W(Math.cos(0.9), Math.sin(0.9));
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
@@ -664,7 +666,7 @@ await section('I', async () => {
   await load(NS + 'i1', SD); await settle(900);
   await tool('perp');
   info.segChip = await ev(`[...document.querySelectorAll('#draftChipL .cm-sb')].map((b) => [b.getAttribute('aria-label'), b.title, b.getAttribute('aria-pressed')])`);
-  ok('I1 the chip has Whole | Inside | Outside (Whole on; v16.5 UX55: the Inspector\'s three), with its tooltip', JSON.stringify(info.segChip.map((x) => x[0])) === '["Whole","Inside","Outside"]' && info.segChip[0][2] === 'true' && /^Inside: only the arc inside the curve/.test(info.segChip[1][1]), info.segChip);
+  ok('I1 the chip has Whole | Inside | Outside | Between (Whole on; v16.5 UX55: the Inspector\'s three), with its tooltip', JSON.stringify(info.segChip.map((x) => x[0])) === '["Whole","Inside","Outside","Between"]' && info.segChip[0][2] === 'true' && /^Inside: only the arc inside the curve/.test(info.segChip[1][1]), info.segChip);
   await segOn('Inside');
   const u = await W(Math.cos(0.9), Math.sin(0.9));
   await click(u[0] + 2, u[1] - 1); await settle(150);
@@ -744,7 +746,7 @@ await section('I', async () => {
   await ev(`__cmwCI({}) && 1`);
   await ev(`(() => { const r = document.querySelector('.shape[data-id="${K1}"] .shape-name') || document.querySelector('.shape[data-id="${K1}"]'); r && r.click(); return 1; })()`); await settle(300);
   info.inspSides = await ev(`[...document.querySelectorAll('.cm-iside button')].map((b) => b.textContent.trim() + (b.classList.contains('on') ? '*' : ''))`);
-  ok('I2 the Inspector: Whole | Inside | Outside, Inside on', JSON.stringify(info.inspSides) === '["Whole","Inside*","Outside"]', info.inspSides);
+  ok('I2 the Inspector: Whole | Inside | Outside | Between, Inside on', JSON.stringify(info.inspSides) === '["Whole","Inside*","Outside","Between"]', info.inspSides);
   const steps = [];
   for (const [lab, want] of [['Outside', -1], ['Whole', 0], ['Inside', 1]]) {
     const h0 = await hist();
@@ -902,7 +904,7 @@ await section('I', async () => {
   info.ruMenu = await menuItems();
   await key('Escape');
   // (v16.5 fix rail-4: C, the shown unit circle made a shape, is «единичная окружность» in the row, no number)
-  ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри","Снаружи"]' && /^гиперболическая прямая внутри кривой: единичная окружность; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
+  ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри","Снаружи","Между"]' && /^гиперболическая прямая внутри кривой: единичная окружность; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи","Между"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
   await shot('seg-d1440-light-ru');
   await view(1440, 900, true, false); await settle(500);
   await shot('seg-d1440-dark-ru');
@@ -1013,7 +1015,7 @@ await section('J', async () => {
   await click(u[0] + 1, u[1]); await settle(250);
   info.jChip1 = await ev(`(() => { const s = document.querySelector('#draftChipL .cm-seg'), el = document.querySelector('#draftChipL'), pl = el && el.parentElement; return s && { cls: s.className, txt: [...s.querySelectorAll('.cm-sb')].map((b) => b.textContent), chip: document.querySelector('#draftChipL .cm-t').textContent, right: el.getBoundingClientRect().right, plot: pl.getBoundingClientRect().right }; })()`);
   await shot('seg-fix-d1440-chip', { x: 0, y: 0, width: 760, height: 160, scale: 1 });
-  ok('J6 1440: once C is picked the chip reads "Whole | Inside" in words, inside its plane; Whole\'s tooltip says what it does (user-4)', info.jChip1 && !/cm-icons/.test(info.jChip1.cls) && JSON.stringify(info.jChip1.txt) === '["Whole","Inside","Outside"]' && info.jChip1.right <= info.jChip1.plot && info.jChip0 && info.jChip0.txt[0][1] === 'Whole: the whole circle', [info.jChip0, info.jChip1]);
+  ok('J6 1440: once C is picked the chip reads "Whole | Inside" in words, inside its plane; Whole\'s tooltip says what it does (user-4)', info.jChip1 && !/cm-icons/.test(info.jChip1.cls) && JSON.stringify(info.jChip1.txt) === '["Whole","Inside","Outside","Between"]' && info.jChip1.right <= info.jChip1.plot && info.jChip0 && info.jChip0.txt[0][1] === 'Whole: the whole circle', [info.jChip0, info.jChip1]);
   await key('Escape'); await tool('select');
   // J7 the phone: the chips' segment buttons take taps 40 px tall (user-5), the 3-point chip too
   await view(390, 844, false, true);
@@ -1025,12 +1027,12 @@ await section('J', async () => {
   await tile('perp');
   const cp = await W(Math.cos(2.2), Math.sin(2.2));
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cp[0], y: cp[1], id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(300);
-  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await hits('#draftChipL .cm-sb') };
+  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await ev(`[...document.querySelectorAll('.ph-ctseg > .ph-cb')].map((b) => { const q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2; const at = (dy) => { const e = document.elementFromPoint(x, y + dy); return !!e && e.closest('.ph-cb') === b; }; return { h: Math.round(q.height), up: at(-18), down: at(18) }; })`) };   // (D3: on a phone the three choices are in the context bar's second row; the chip drops its copy)
   await shot('seg-fix-p390-chip');
   await key('Escape'); await settle(200);
   await tile('circle3');
   info.jPhone.c3 = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), hits: await hits('#draftChipL .cm-sb') };
-  ok('J7 phone: the Orthogonal chip\'s buttons take taps 18 px above and below their centre (40 px tall), same look (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h <= 24) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
+  ok('J7 phone: the Orthogonal choices (in the context bar) take taps 18 px above and below their centre, 44 px tall; the 3-point chip keeps its 40 px buttons (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 4 && info.jPhone.perp.every((b) => b.up && b.down && b.h >= 44) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
   // list break), keeps it before "in the z-plane"; Russian keeps it before «и»

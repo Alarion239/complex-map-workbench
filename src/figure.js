@@ -33,6 +33,12 @@ const Figure = (() => {
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
+  XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
+    const t0 = Date.now();
+    const tick = () => { if (XD.ready()) resolve(true); else if (!alive() || Date.now() - t0 > ms) resolve(false); else setTimeout(tick, 100); };
+    tick();
+  });
 
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
@@ -855,7 +861,7 @@ const Figure = (() => {
     }
     return null;
   };
-  const cxTex = (z) => (typeof CX !== 'undefined' && CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
+  const cxTex = (z) => (CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
   // the vector layers of one plane panel: boundaries and curves (mapped by F), points (and their names)
   function planeLayers(o, P, side, F, box, wpt, shapes, srcWin, primeName) {
     const curves = [], points = [], chev = [];
@@ -889,7 +895,7 @@ const Figure = (() => {
     // (v16 review picture-7) with constructions the caption names points (z₀, z₃ …): every point is labelled as the
     // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
     const cmFig = shapes.some((x) => x.def || x.at);
-    const markOf = (s) => (cmFig && typeof Construct !== 'undefined' && Construct.pointMark ? Construct.pointMark(s) : null);
+    const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
       const mk = markOf(s);
@@ -1260,7 +1266,7 @@ const Figure = (() => {
   }
   // zeros and poles of F in a box (Calc.zerosPoles), bounded in time
   function zerosPoles(F, box) {
-    if (typeof Calc === 'undefined' || !Calc.zerosPoles) return [];
+    if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + 400 }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
   async function figPhase(o, P, W, T) {
@@ -1352,7 +1358,7 @@ const Figure = (() => {
     const unit = { x0: 0, x1: r.w, y0: 0, y1: r.h };
     let [i0, i1, j0, j1] = look(r);
     const L0 = r.land;
-    if (L0 && L0.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+    if (L0 && L0.MVP && GLR.M4) {
       // the block's floor corners: the floor labels sit just outside them
       const [ax0, ay0] = L0.aspect || [1, 1];
       for (const [cx0, cy0] of [[-ax0, -ay0], [ax0, -ay0], [ax0, ay0], [-ax0, ay0]]) {
@@ -1379,7 +1385,7 @@ const Figure = (() => {
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
-    if (L && L.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+    if (L && L.MVP && GLR.M4) {
       const proj = (p) => { const c = GLR.M4.apply(L.MVP, p); if (c[3] <= 1e-6) return null; const px = (c[0] / c[3] * 0.5 + 0.5) * L.w, py = (1 - (c[1] / c[3] * 0.5 + 0.5)) * L.h; const ii = px * r.w / L.w, jj = py * r.h / L.h; return [x + (ii - c0) * k * scale, top + (jj - d0) * k * scale]; };
       const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
       const sx = eye[0] < 0 ? -1 : 1, sy = eye[1] < 0 ? -1 : 1;
@@ -1643,7 +1649,7 @@ const Figure = (() => {
   // side. g: the render's camera {MVP, eye, w, h}; r: the raster; c: its crop [c0, c1, d0, d1]; (x, y, k): the image's
   // corner and pt per raster px
   const globeProj = (g, r, c, x, y, k) => {
-    if (!g || typeof GLR === 'undefined' || !GLR.M4 || !A.lift) return () => null;
+    if (!g || !GLR.M4 || !A.lift) return () => null;
     return (w, lift = 1.01) => {
       if (!fin(w)) return null;
       const p = A.lift(w.re, w.im), tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]], l = Math.hypot(...tv) || 1;
@@ -1656,7 +1662,7 @@ const Figure = (() => {
   };
   // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera
   function globeLabels(g, r, c, x, y, k, tp) {
-    if (!g || !A.lift || typeof GLR === 'undefined') return '';
+    if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
     let m = '';
@@ -1695,7 +1701,7 @@ const Figure = (() => {
   // (export review r3, editor-18) the floor marks of a relief: Re and Im ticks along the front edges and their names,
   // through the render's camera L; toPt(ii, jj): raster px -> pt; fr: the panel {x, top, iw, ih}
   function landFloor(L, r, toPt, fr, tp, lp, tick = 2.5) {
-    if (!L || !L.MVP || typeof GLR === 'undefined' || !GLR.M4) return '';
+    if (!L || !L.MVP || !GLR.M4) return '';
     const proj = (p) => { const q = GLR.M4.apply(L.MVP, p); if (q[3] <= 1e-6) return null; const px = (q[0] / q[3] * 0.5 + 0.5) * L.w, py = (1 - (q[1] / q[3] * 0.5 + 0.5)) * L.h; return toPt(px * r.w / L.w, py * r.h / L.h); };
     const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
     const sx = eye[0] < 0 ? -1 : 1, sy = eye[1] < 0 ? -1 : 1;
@@ -1786,7 +1792,7 @@ const Figure = (() => {
       if (b) c = c ? [Math.min(c[0], b[0]), Math.max(c[1], b[1]), Math.min(c[2], b[2]), Math.max(c[3], b[3])] : b;
       // (a relief: its floor too, where the floor marks go; export review r3, editor-18)
       const L = kind === 'land' ? r.land : null;
-      if (L && L.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+      if (L && L.MVP && GLR.M4) {
         const [ax, ay] = L.aspect || [1, 1];
         for (const [x, y] of [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]]) {
           const q = GLR.M4.apply(L.MVP, [x, y, L.floorZ]);
@@ -1982,7 +1988,7 @@ const Figure = (() => {
   }
   // zeros and poles with a time bound of their own
   function zerosPolesIn(F, box, ms) {
-    if (typeof Calc === 'undefined' || !Calc.zerosPoles) return [];
+    if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + ms }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
   // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
@@ -2262,7 +2268,14 @@ const Figure = (() => {
       else {
         const dc = c.dc || 'enhanced', lv = $t('the thin lines are the level sets $\\arg %{f}\\in\\frac{\\pi}{6}\\mathbb{Z}$', { f });
         if (dc === 'classic') s += $t(': brightness increases with $|%{f}|$, so zeros are black and poles white.', { f });
-        else if (dc === 'cauchy') s += $t(': the Cauchy integral $\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over the selected closed curve, which equals $F$ inside and $0$ outside.');
+        else if (dc === 'cauchy') {
+          const cc = c.cauchy, I = '\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta';
+          if (cc && cc.kind === 'split' && cc.show === 'in') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, shown inside the curve, where it equals $f_+ = F$ minus its principal parts at the poles inside.', { I });
+          else if (cc && cc.kind === 'split' && cc.show === 'out') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, shown outside the curve, where it equals $%{fm}$, the sum of the principal parts of $F$ at its poles inside the curve.', { I, fm: cc.plus ? '-f_-' : 'f_-' });
+          else if (cc && cc.kind === 'split') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, which equals $f_+$ inside and $%{fm}$ outside, where $F = f_+ + f_-$ and $f_-$ is the sum of the principal parts of $F$ at its poles inside the curve.', { I, fm: cc.plus ? '-f_-' : 'f_-' });
+          else if (cc && cc.kind === 'numeric') s += $t(': the Cauchy integral $%{I}$ over the selected closed curve, computed numerically ($F$ has a singularity inside the curve that is not a pole).', { I });
+          else s += $t(': the Cauchy integral $\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over the selected closed curve, which equals $F$ inside and $0$ outside.');
+        }
         else if (dc === 'modulus') s += $t(': the color shows $\\arg %{f}$ (key at right); the lines are level curves of $|%{f}|$ and of $\\arg %{f}$.', { f });
         else if (dc === 'grid') s += $t(': the color shows $\\arg %{f}$ (key at right); the lines are the preimages of the coordinate lines of the image plane.', { f });
         else if (dc === 'phase') s += $t(': the color shows $\\arg %{f}$ (key at right) and %{lv}.', { f, lv });
@@ -2405,7 +2418,11 @@ const Figure = (() => {
   // captionTex, name, view, Wtex, ...} or null when cancelled
   async function build(opts) {
     if (!A) throw new Error('Figure is not attached');
-    if (!XD.ready()) throw new Error('MathJax is still loading');
+    // (an export or a rebuild that comes before MathJax is ready waits for it; null when the caller has gone, an error after the timeout)
+    if (!XD.ready() && !(await XD.whenReady(20000, (opts && opts.alive) || undefined))) {
+      if (opts && opts.alive && !opts.alive()) return null;
+      throw new Error('MathJax did not load in time');
+    }
     const o = Object.assign(defaults(), opts || {});
     const P = Object.assign({}, PRESET[o.for] || PRESET.article);
     const size = sizeOf(o), Wtex = size.pt, W = XD.bp(Wtex);
@@ -2629,7 +2646,7 @@ const Figure = (() => {
   // {lab, u, v} in fractions of the pane
   const GLOBE_LABS = [['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', null, 1, 0], ['i', null, 0, 1], ['−1', null, -1, 0], ['−i', null, 0, -1]];
   function globeLabelSpots(g) {
-    if (!g || !A.lift || typeof GLR === 'undefined' || !GLR.M4) return [];
+    if (!g || !A.lift || !GLR.M4) return [];
     const out = [];
     for (const [lab, p0, re, im] of GLOBE_LABS) {
       const p = p0 || A.lift(re, im), tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]];
@@ -2655,7 +2672,7 @@ const Figure = (() => {
       if (plan.kind === 'globe' || plan.kind === 'phaseGlobe') for (const q of globeLabelSpots(r.globe)) add([q.u - 0.04 * H / W, q.u + 0.04 * H / W, q.v - 0.04, q.v + 0.04]);
       // (the relief's floor, where the light look prints its grid and labels: its corners through the camera, with air)
       const L = r.land;
-      if (L && L.MVP && typeof GLR !== 'undefined' && GLR.M4) {
+      if (L && L.MVP && GLR.M4) {
         const [ax, ay] = L.aspect || [1, 1];
         for (const [x, y] of [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]]) { const q = GLR.M4.apply(L.MVP, [x * 1.12, y * 1.12, L.floorZ]); if (q[3] > 1e-6) { const u = q[0] / q[3] * 0.5 + 0.5, w = 1 - (q[1] / q[3] * 0.5 + 0.5); add([u, u, w, w]); } }
       }
@@ -3097,7 +3114,8 @@ const Figure = (() => {
   function makePreview(cv, ui) {
     const g = cv.getContext('2d', { alpha: false });
     let run = null, raf = 0, clock = 0, pos0 = 0;
-    const P = { playing: false, i: 0, shown: false, drawn: -1 };
+    // (first: the frame drawn first in this run, -1 until one is)
+    const P = { playing: false, i: 0, shown: false, drawn: -1, first: -1 };
     const tkey = (t) => t.toFixed(9);
     // the next slot for a frame's render: just after the screen's frame (so a render of 5-15 ms fits before the next
     // one). A hidden page draws nothing: the fill waits until the page is shown again (review vp-7)
@@ -3153,7 +3171,7 @@ const Figure = (() => {
       g.globalAlpha = 1; g.drawImage(bs[0], 0, 0, cv.width, cv.height);
       if (bs.length > 1) { g.globalAlpha = e.k; g.drawImage(bs[1], 0, 0, cv.width, cv.height); g.globalAlpha = 1; }
       pvStats.draws++; P.drawn = i;
-      if (!P.shown) { P.shown = true; ui.shown(true); }
+      if (!P.shown) { P.shown = true; P.first = i; ui.shown(true); }
       return true;
     }
     const show = (i) => { P.i = i; P.drawn = -1; if (run) ahead(run, i); draw(i); ui.tick(i); };
@@ -3161,6 +3179,9 @@ const Figure = (() => {
       raf = 0;
       const q = run;
       if (!q || !P.playing) return;
+      // (time does not run before the first picture is shown: on a slow machine the poster's frame is still rendering, and the
+      // preview must open on it, not on a frame the clock has since passed)
+      if (!P.shown) { pos0 = P.i; clock = now; }
       const i = Math.max(0, Math.floor(pos0 + (now - clock) * q.fps / 1000)) % q.times.length;
       if (i !== P.i) { P.i = i; ui.tick(i); }
       ahead(q, i);
@@ -3213,7 +3234,7 @@ const Figure = (() => {
         mime: 'image/webp', ready: 0, pw, ph, dead: false, id: ++pvStats.runs, lazy: !!o.lazy, order: [], full: [], urgent: [], qpos: 0, wake: null, unhide: null, cssW: o.cssW,
       };
       pvStats.live++;
-      P.i = at; P.drawn = -1; P.shown = false;
+      P.i = at; P.drawn = -1; P.shown = false; P.first = -1;
       if (o.keep) { g.drawImage(o.keep, 0, 0, pw, ph); P.shown = true; } else ui.shown(false);
       ui.size(pw, ph, plan.W, plan.H, raw); ui.tick(at); ui.fill(0, U.length);
       // the order: the frame in view, both ends, then every 16th, 8th, ... frame (lazy: the frame in view only)
@@ -3295,7 +3316,7 @@ const Figure = (() => {
     return {
       start, stop, play, pause, seek, draw, resize,
       toggle: () => (P.playing ? pause() : play()),
-      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
+      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, first: P.first, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
       // (tests) the picture the preview shows at timeline index i, once its own frames are kept, as PNG data
       frame: async (i) => {
         const q = run;
@@ -3569,7 +3590,7 @@ const Figure = (() => {
     // behind one button, so the sheet opens on the format and the buttons; elsewhere the rows sit in the grid as before.
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
-    printBtn.setAttribute('aria-expanded', printBox.dataset.open);
+    printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
     const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
@@ -3803,6 +3824,9 @@ const Figure = (() => {
     const rebuild = async () => {
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
+      wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
+      // (once MathJax is in, the line says what the build is doing now)
+      if (!XD.ready()) XD.whenReady(20000, () => my === token && !closed).then((on) => { if (on && my === token && !wait.hidden) wait.textContent = $t('Typesetting…'); });
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));
         if (my !== token || !f) return;
@@ -3820,7 +3844,8 @@ const Figure = (() => {
         facts.append(h('b', null, dims), $t(' · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}', { x: I18 ? I18.num(T[0]) : T[0], x2: I18 ? I18.num(T[1]) : T[1], tsz, choice: f.ink === 'bw' ? $t('gray only') : $t('print color'), choice2: f.for === 'homework' ? $t('stays under its problem ([H])') : f.star ? $t('figure* across both columns') : $t('floats [tbp]') }));
         if (f.info && f.info.hiddenZP) facts.append(h('div', { class: 'xf-warn' }, $t('Most zeros and poles are on the far side of the sphere in these frames: turn the globe so they face you, then export again.')));
       } catch (e) {
-        console.error(e);
+        // (MathJax that never came is a known condition the message below reports, not an error of the page)
+        (/MathJax/.test(String(e && e.message)) ? console.warn : console.error)(e);
         if (my === token) { wait.hidden = false; wait.textContent = /MathJax/.test(String(e && e.message)) ? $t('The typesetter is still loading; try again in a moment.') : $t('The figure could not be made.'); }
         return;
       } finally { if (my === token) { st.building = false; scroll.classList.remove('busy'); } }
@@ -3955,7 +3980,18 @@ const Figure = (() => {
   // the share sheet takes files here (a phone's browser); a laptop keeps Save
   const canShareFiles = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && matchMedia('(pointer: coarse)').matches;
   // the export menu's Copy figure again / Save figure again: the last destination, with the remembered settings
+  // (MathJax may still be loading: build waits for it up to 20 s with no dialog to show it, so the menu item says so, and a
+  // second press while it waits is ignored)
+  let againBusy = false;
   async function again(what) {
+    if (againBusy) return false;
+    againBusy = true;
+    try {
+      if (!XD.ready()) A.toast($t('Preparing formulas…'));
+      return await againRun(what);
+    } finally { againBusy = false; }
+  }
+  async function againRun(what) {
     const set = loadSet();
     // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
     // and for Copy, the last figure is made again; export review r3, video-3)
@@ -3985,3 +4021,9 @@ const Figure = (() => {
     geom: { senseAt, chevronAt, fitBox },
   };
 })();
+import { CX } from './cx.js';
+import { Calc } from './calc.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+import { Construct } from './construct.js';
+export { Figure };

@@ -27,7 +27,7 @@ const Inverse = (() => {
   const B_DEFAULT = 8;         // compositing buffer (4.2)
   const CLIP_PAD = 1.5;        // px: anti-aliasing margin of the shape clips of member lines and rays (a candidate within
                                // 1 px of the shape can still cover: facing rule, 4.2)
-  const RG = () => (typeof Region !== 'undefined' ? Region : (typeof require === 'function' ? require('./region.js') : null));
+  const RG = () => Region;
   const sgn = (x) => (x < 0 ? -1 : 1);
   const cx = (re, im) => ({ re, im });
 
@@ -72,7 +72,7 @@ const Inverse = (() => {
       fam: { type: 'fin', count: an }, poles: n < 0 ? [ZERO] : [], infPre: n > 0,
       infAt: (w) => n < 0 && isZero(w),
       pre: (w) => {
-        if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0 })] : [];
+        if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0, mult: an })] : [];
         const q = n > 0 ? w : CX.inv(w);
         const r = Math.pow(abs(q), 1 / an), t = Math.atan2(q.im, q.re), out = [];
         for (let j = 0; j < an; j++) {
@@ -251,10 +251,12 @@ const Inverse = (() => {
           const qq = scale(add(B, sd), -0.5);
           roots = (qq.re === 0 && qq.im === 0) ? [ZERO] : [div(qq, A), div(Cc, qq)];
         }
+        // (B = C = 0: the double root 0, listed once with its multiplicity; the one root of a w at infinity is simple)
+        const dbl = roots.length === 1 && abs(A) > 1e-14 * (abs(B) + abs(Cc));
         return roots.map((u, m) => {
           const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
           const fp = div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu));
-          return ONEM(u, CX.inv(fp), { m });
+          return ONEM(u, CX.inv(fp), dbl ? { m, mult: 2 } : { m });
         });
       },
     });
@@ -1336,6 +1338,39 @@ const Inverse = (() => {
     }
     return cur;
   }
+  // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
+  // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
+  // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
+  // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
+  function pointPre(plan, p, cap = LEAF_CAP) {
+    if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
+    let total = 1;
+    for (const o of plan.ops) {
+      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin')) return { exact: false, reason: 'a step with infinitely many branches' };
+      total *= o.fam ? o.fam.count : 1;
+      if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
+    }
+    let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
+    for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
+      const o = plan.ops[i], next = [];
+      const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
+      for (const { z: w, m } of cur) {
+        // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
+        for (const mem of o.pre(w)) {
+          if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
+          const each = m * (mem.mult || 1);
+          // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
+          // is only good to about √ε of its value after a step before it, so the merge is within 1e-7, as the holes)
+          const q = next.find((r) => abs(sub(r.z, mem.u)) <= 1e-7 * (1 + abs(mem.u)));
+          if (q) q.m += each; else next.push({ z: mem.u, m: each });
+        }
+      }
+      cur = next;
+    }
+    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
+  }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
   // enumerated only inside expandBox(win, 3).
@@ -1356,6 +1391,29 @@ const Inverse = (() => {
         for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(z);
       }
       pts = dedupe(pts);
+      pts.sort((a, b) => (boxDist(win, a) - boxDist(win, b)) || (abs(sub(a, cz)) - abs(sub(b, cz))));
+      for (const z of pts.slice(0, cap)) out.push({ z, kind });
+    }
+    return out;
+  }
+  // [issue #276] Inverse.singularAfter(plan, win, sing, cap): the singular points of a chain whose last step has no plan
+  // (ζ takes each value infinitely often) but names all of its own, finitely many, sing(ub, ref, cap) -> [{z, kind}] in
+  // its input plane (ub: the box of expandBox(win, 3) there, null when unbounded; ref: the image of win's centre). plan
+  // is that of the steps before it (ok; it may have no ops) and injective, so the points pulled back are finitely many
+  // too and the set is complete along a line's whole reach, as the lines' jump scan would find it. Its points and the
+  // step's, pulled back to the z-plane, as singular() gives them; null otherwise (the lines then scan)
+  function singularAfter(plan, win, sing, cap = 16) {
+    if (!plan || !plan.ok || !plan.injective) return null;
+    const ops = plan.ops, zb = expandBox(win, 3), bt = new Map();
+    const cz = C((win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2);
+    const { refs, out: ref } = ops.length ? refsOf(plan, win) : { refs: [], out: cz };
+    const out = ops.length ? singular(plan, win, ['undef', 'branch', 'pole'], cap) : [];
+    const own = sing(boxThrough(ops, ops.length, zb), ref, cap);
+    if (!own) return null;
+    const by = new Map();
+    for (const e of own) { if (!by.has(e.kind)) by.set(e.kind, []); by.get(e.kind).push(e.z); }
+    for (const [kind, src] of by) {
+      const pts = (ops.length ? pullBack(ops, refs, ops.length, src, zb, cap, bt) : dedupe(src)).filter((z) => z && isFin(z));
       pts.sort((a, b) => (boxDist(win, a) - boxDist(win, b)) || (abs(sub(a, cz)) - abs(sub(b, cz))));
       for (const z of pts.slice(0, cap)) out.push({ z, kind });
     }
@@ -2338,7 +2396,7 @@ const Inverse = (() => {
         const flr = (Math.abs(qx.re) + Math.abs(qy.re)) * (6 / PI);
         const sw = sawAA(lr, flr) * (1 - moire(flr, flr)) + 0.5 * moire(flr, flr);
         const L = 0.62 + 0.14 * sw;
-        if (typeof GLR !== 'undefined' && GLR.phaseRGB) col = GLR.phaseRGB(th, L);
+        if (GLR.phaseRGB) col = GLR.phaseRGB(th, L);
         else {
           const h = (th / TAU + 1) % 1, v = L;
           const f = (n) => { const kk = (n + h * 6) % 6; return v - v * 0.55 * Math.max(0, Math.min(kk, 4 - kk, 1)); };
@@ -2470,7 +2528,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, inverseKey, prepare, enumerate, sheetKey, front, singular, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
@@ -2483,4 +2541,8 @@ const Inverse = (() => {
     _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2 },
   };
 })();
-if (typeof module !== 'undefined') module.exports = Inverse;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+export { Inverse, Inverse as 'module.exports' };

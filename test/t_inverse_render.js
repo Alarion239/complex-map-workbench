@@ -16,10 +16,12 @@ const PNG_DIR = process.argv.includes('--png') ? process.argv[process.argv.index
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, info); } }
 const t0All = Date.now();
-const St = (s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params || {}), on: true });
+// (a scene's steps as the app holds them, a repeat on its block's last step included: Funcs.applyRepeats)
+const St = (s) => Object.assign({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params || {}), on: true }, s.repeat ? { repeat: Object.assign({}, s.repeat) } : {});
+const builtOf = (steps) => Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
 function planOf(stepList) {
   const steps = stepList.map(St);
-  return Inverse.planChain(steps, steps.map(Funcs.build));
+  return Inverse.planChain(steps, builtOf(steps));
 }
 const savePng = (name, rgba) => {
   if (!PNG_DIR) return;
@@ -43,7 +45,11 @@ function render(sc, view, pattern, opts = {}) {
 // scored exactly as run_quality.js scores the app, plus the zooms 12.1 (g) asks for that the suite does not render
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (g) reference renders (the quality suite runs)');
-const allRuns = Q.runs();
+// ([issue #260] a scene whose chain has no inverse plan, Φ_M's dh_disc, is drawn by the app's forward mesh: this
+// renderer has nothing to draw it with. Those runs are left out here, and they must be exactly dh_disc's)
+const noPlan = Q.runs().filter((r) => !planOf(r.scene.steps).ok).map((r) => r.id);
+check('the quality runs with no inverse plan are exactly dh_disc\'s', noPlan.join() === 'dh_disc.mask,dh_disc.pattern', noPlan.join());
+const allRuns = Q.runs().filter((r) => !noPlan.includes(r.id));
 for (const [base, f, variants] of [['expH', 4, ['mask', 'pattern']], ['e1z_disc', 4, ['mask', 'pattern']], ['zi_H', 16, ['polar']]]) {
   const src = Q.SCENES.find((x) => x.name === base);
   if (!src) continue;
@@ -205,7 +211,7 @@ console.log('--- (h) golden emulation');
   // the forward draw: Region.buildMesh at Q = 60, the L = 4 GPU template, the 0.2-edge midpoint test, linear source
   // interpolation inside each sub-triangle, its footprint, mesh order, alpha 1 (notes/proto/lead-inv/golden_cmp.js)
   function forward(sc, view, pattern) {
-    const steps = sc.steps.map(St), built = steps.map(Funcs.build);
+    const steps = sc.steps.map(St), built = builtOf(steps);
     const F = (z) => { for (const b of built) z = b.f(z); return z; };
     const mesh = Region.buildMesh(sc.shapes[0], Q.boxOf(sc.srcView), 60);
     const cell = Q.cellOf(sc), look = Object.assign({}, LOOKF, { pattern, cell });

@@ -60,7 +60,7 @@ const Phone = (() => {
     undoKey(els.sundo);
     const head = h('div', { class: 'ph-sh' }, els.grab, els.mark, els.title, h('span', { class: 'grow' }), els.snap, els.sundo, els.close);
     els.body = {};
-    for (const k of ['edit', 'tools', 'display', 'more']) els.body[k] = h('div', { class: 'ph-sb', 'data-k': k, hidden: true });
+    for (const k of ['edit', 'tools', 'display', 'more', 'chain']) els.body[k] = h('div', { class: 'ph-sb', 'data-k': k, hidden: true });
     els.sheet = h('div', { class: 'ph-sheet ph-only', role: 'dialog', 'aria-modal': 'false', hidden: true }, head, ...Object.values(els.body));
     document.body.append(els.scrim, els.sheet);
     grabber(head);
@@ -76,21 +76,38 @@ const Phone = (() => {
     // page.html's #regionsHome ([v17 D5, #82]: no longer a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
-    els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
-    els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
-    // the chain bar: Numbers first
+    els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
+    // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
+    // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
+    // Landscape, where it says where the styles live; the sheet has no "This view" title)
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+      h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
+    els.body.display.append(els.style, els.viewOpts, els.regionsH, els.regions);
+    els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
+    els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
+    // the chain sheet's first row: Numbers
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
+    // (#246, the owner's option B) the chain bar is one row: ‹, the plane the deformation is at (the step whose plane it
+    // is; a tap opens that step's sheet), ›, and "3 steps ▾", which opens the chain as a sheet (Numbers, the whole map,
+    // z and the steps as rows, Add function); Deformation stays at the row's end. ‹ › glide the deformation from one
+    // step's plane to the next (A.glide: never blocking, faster on quick presses, turning round with no jump); their
+    // first touch compiles its programs, so the first glide does not wait for them
+    const warm = () => A.prestart();
+    els.cprev = h('button', { class: 'ph-cstep ph-cprev', type: 'button', 'aria-label': $t('Previous step'), html: I.chevL, onclick: () => A.glide(-1), onpointerdown: warm, onfocus: warm });
+    els.cnext = h('button', { class: 'ph-cstep ph-cnext', type: 'button', 'aria-label': $t('Next step'), html: I.chevR, onclick: () => A.glide(1), onpointerdown: warm, onfocus: warm });
+    els.cchip = h('button', { class: 'ph-cchip', type: 'button', onclick: () => { if (chainK == null) open('chain'); else A.cardClick(chainK); } },
+      h('span', { class: 'ph-cf' }), h('span', { class: 'ph-cn' }));
+    els.csteps = h('button', { class: 'ph-csteps', type: 'button', 'aria-haspopup': 'dialog', onclick: () => open('chain') }, h('span', { class: 'ph-cc' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: I.chevD }));
+    els.crow = h('div', { class: 'ph-crow ph-only' }, els.cprev, els.cchip, els.cnext, els.csteps);
+    els.body.chain.addEventListener('pointerdown', chainDrag);
     // the context bar: above the tool row, only while something is selected or under way (D3)
     els.ctx = h('div', { class: 'ph-ctx ph-only', role: 'region', 'aria-live': 'polite', hidden: true });
     document.body.append(els.ctx);
-    // a message (a toast, with its Undo) takes that row for as long as it shows, and the planes give it up: the drawing stays put
+    // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
-    if (th) new MutationObserver(() => {
-      const had = rootEl.classList.contains('ph-toast-on'), now = on && !!th.firstElementChild;
-      if (had === now) return;
-      rootEl.classList.toggle('ph-toast-on', now);
-      Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; }
-    }).observe(th, { childList: true });
+    if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
+    document.addEventListener('pointerdown', () => { fingers++; }, true);
+    for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
@@ -131,7 +148,7 @@ const Phone = (() => {
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
     for (const id of ['leftTabs', 'rightTabs', 'viewSwitch']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
-    if (typeof Params !== 'undefined' && Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
+    if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
     // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
@@ -153,11 +170,16 @@ const Phone = (() => {
   const TOUR = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 5.4v5.2L10.6 8z" fill="currentColor"/></svg>';
   const OPEN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 4.5v8h11v-6H8L6.5 4.5z"/></svg>';
   const HOLD = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5" /></svg>';
+  const INFO = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.7"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>';
+  // a tip taught where people look: a line with its small icon, at the end of a sheet's content (never on the plane)
+  const tip = (icon, text) => h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: icon }), h('span', null, text));
   const SWAP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/></svg>';
 
   // ---------------- mode ----------------
   function sync() {
-    const p = matchMedia(MQP).matches, l = !p && matchMedia(MQL).matches;
+    // (a landscape phone is landscape whatever its width: 568 to 767 px wide ones, below 768, took the portrait layout, with
+    // 184 px of a 360 px height for the plane and a sheet that showed only its head; #295)
+    const l = matchMedia(MQL).matches, p = !l && matchMedia(MQP).matches;
     const want = p || l;
     if (want === on && l === land) return;
     // (a rotation: the panes are synced first, so a landscape layout's side-by-side panes get their inset back in
@@ -201,15 +223,19 @@ const Phone = (() => {
     // the Inspector's host goes into the Editor, the region sections into More tools and Display; the Deformation
     // toggle closes the chain bar; Numbers opens it
     park($('propsPanel'), els.body.edit);
+    els.body.edit.append(els.editTip);
     park($('secShapes'), els.shapesPane);
     park($('secFormula'), els.shapesPane);
     const wrap = document.querySelector('.pipe-wrap');
-    park(els.nums, wrap, $('pipeline'));
+    park(els.crow, wrap, $('pipeline'));
+    park(els.nums, els.body.chain);
+    park($('pipeline'), els.body.chain);
     park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
     for (const id of ['secFormula', 'secShapes']) { const d = $(id); if (d) d.open = true; }
     A.showPanels(true);
     syncPanes(); syncTools(); syncNums(); syncSnap();
+    chainSeen = ''; chain();
     A.resize();
     reconcile();   // (v15.1: the inset shows its plane's own view, the desktop's or the saved one, at its size)
   }
@@ -359,12 +385,26 @@ const Phone = (() => {
   // its selection changes; the bar is rebuilt only when what it shows changes.
   let ctxKey = '';
   function ctxSync() { ctx(true); }
+  // The planes give the bar its room (and a message its row) only while no finger is down: a plane that shrinks under a
+  // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
+  let fingers = 0, layoutT = 0;
+  function barLayout() {
+    if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
+    clearTimeout(layoutT);
+    const th = $('toastHost'), c = rootEl.classList;
+    const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
+    if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
+    c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
+    syncPanes(); A.resize();
+  }
   function ctx(force) {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (a sheet, the deformation's transport or the tour's own layer has the bottom)
-    if (kind || A.morphOn()) st = null;
+    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
+    // one is no second layout change for the planes)
+    if (A.morphOn()) st = null;
+    els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;
     if (key === ctxKey && force && !!st === !els.ctx.hidden) return;
@@ -388,22 +428,20 @@ const Phone = (() => {
         : btn('', '⌫ ' + $t('Undo pick'), () => A.ctxAct('undopick'), st.undo ? {} : { disabled: true });
       const x = btn('ico', '×', () => A.ctxAct('xcancel'), { 'aria-label': $t('Cancel') });
       if (st.seg) {
-        // (the orthogonal circle: Whole, Inside or Outside, in words, on a second row)
+        // (the orthogonal circle: Whole, Inside, Outside or Between, in words, on a second row)
         const sg = h('div', { class: 'ph-ctseg', role: 'radiogroup', 'aria-label': $t('Whole or inside') });
-        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')]]) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
+        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')], ['between', $tx('side', 'Between')]].filter(([v]) => !st.segs || st.segs.includes(v))) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
         kids = [text(st.text), undo, x, sg];
       } else kids = [text(st.text), undo, x];
     } else if (st && st.kind === 'listen') {
       kids = [text($t('Listening along the curve')), btn('prim', $t('Stop'), () => A.ctxAct('stop'))];
     }
     els.ctx.replaceChildren(...kids);
-    const was = !els.ctx.hidden, wasTall = rootEl.classList.contains('ph-ctx-tall');
     const tall = !!(st && st.kind === 'construct' && st.seg);
     els.ctx.hidden = !kids.length;
     els.ctx.classList.toggle('tall', tall);
     if (kids.length) { els.ctx.dataset.k = st.kind; }
-    // (the planes only re-fit when the bar comes, goes or changes height, not each time its words change)
-    if (was !== !!kids.length || wasTall !== tall) { rootEl.classList.toggle('ph-ctx-on', !!kids.length); rootEl.classList.toggle('ph-ctx-tall', tall); Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; } }
+    barLayout();
   }
 
   // ---------------- the tool row ----------------
@@ -440,7 +478,7 @@ const Phone = (() => {
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     // v16.5 UX40: the long press, taught where people look (never on the plane)
-    ct.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
+    ct.push(tip(HOLD, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.')));
     els.tiles.replaceChildren(...tiles);
     els.ctiles.replaceChildren(...ct);
     setTab(toolTab);
@@ -487,7 +525,7 @@ const Phone = (() => {
   // ---------------- Numbers ----------------
   function syncNums() {
     if (!els.nums) return;
-    const list = typeof Params !== 'undefined' ? Params.list() : [];
+    const list = Params.list();
     const names = list.map((p) => (Params.display ? Params.display(p.name) : p.name));
     els.nums.replaceChildren(h('span', { class: 'ph-na', html: '<i>a</i> =' }),
       h('span', { class: 'ph-nn', html: names.length ? names.map((n) => `<i>${n}</i>`).join(', ') : $t('Numbers') }));
@@ -502,7 +540,8 @@ const Phone = (() => {
     rootEl.style.setProperty('--ph-hp', hp + 'px');
     // the sheet's height less the tool row's: how far the chain bar rides up with it
     const row = ($('secDraw') && $('secDraw').getBoundingClientRect().height) || 56;
-    rootEl.style.setProperty('--ph-ride', Math.max(0, H - (56 + hp + 64) - row) + 'px');
+    const bar = parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-chain')) || 56;
+    rootEl.style.setProperty('--ph-ride', Math.max(0, H - (56 + hp + bar) - row) + 'px');
   }
   function open(k, opt = {}) {
     if (!on) return;
@@ -527,6 +566,7 @@ const Phone = (() => {
     if (k === 'more') fillMore();
     if (k === 'tools') { if (opt.tab) toolTab = opt.tab; fillTiles(); syncSnap(); }
     if (k === 'display') fillDisplay(opt.side || big);
+    if (k === 'chain') { chainSeen = ''; chain(); }
     // (Edit in the context bar: the selected shape's row, with its editor, comes into view)
     if (k === 'tools' && opt.edit) setTimeout(() => { const r = document.querySelector(`#shapeList .shape[data-id="${opt.edit}"]`); if (r) r.scrollIntoView({ block: 'nearest' }); }, 0);
     if (k === 'edit') A.renderInspector();
@@ -627,21 +667,91 @@ const Phone = (() => {
     const guard = () => { clearTimeout(gT); els.sheet.dataset.guard = '1'; gT = setTimeout(() => { delete els.sheet.dataset.guard; }, 400); };
     for (const ev of ['mousedown', 'click']) els.sheet.addEventListener(ev, (e) => { if (els.sheet.dataset.guard && !e.target.closest('.ph-sh')) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
-  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu') });
+  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
+
+  // ---------------- the chain row and the chain sheet (#246) ----------------
+  let chainSeen = '', chainK = null;
+  function chain() {
+    if (!on || !els.crow) return;
+    const c = A.chainState();
+    // (the step buttons in the sheet's rows: Bypass and More, hover-only on a laptop, are plain buttons here)
+    if (kind === 'chain') for (const a of els.body.chain.querySelectorAll('#pipeline .card .acts[aria-hidden]')) { a.removeAttribute('aria-hidden'); a.inert = false; for (const b of a.querySelectorAll('button')) b.tabIndex = 0; }
+    const key = `${c.key}|${c.prev}|${c.next}|${I18N.lang}`;
+    if (key === chainSeen) return;
+    chainSeen = key;
+    chainK = c.n ? (c.k === -1 ? 'F' : c.k) : null;
+    els.cchip.querySelector('.ph-cf').innerHTML = c.n ? c.html : `${A.icons.plus}`;
+    els.cchip.querySelector('.ph-cn').textContent = c.n ? c.name : $t('Add function');
+    const f = els.cchip.querySelector('.ph-cf').textContent.trim();
+    els.cchip.setAttribute('aria-label', c.n ? (c.name ? `${f}, ${c.name}` : f) + (c.alone ? `, ${$t('Show alone')}` : '') : $t('Add function'));
+    els.cchip.classList.toggle('alone', !!c.alone);
+    els.cprev.disabled = !c.prev; els.cnext.disabled = !c.next;
+    // (no steps: the chevron alone, the chip beside it says Add function)
+    els.csteps.querySelector('.ph-cc').textContent = c.n ? $tn('{n} step', '{n} steps', c.n) : '';
+    els.csteps.setAttribute('aria-label', $t('Function chain') + ', ' + $tn('{n} step', '{n} steps', c.n));
+    fitChip();
+  }
+  // (the step's name gives way when the chip has no room for it, Russian at 360 px: f₂ alone, never a cut word; the
+  // name stays the chip's accessible name and the chain sheet's row)
+  function fitChip() {
+    const cn = els.cchip && els.cchip.querySelector('.ph-cn');
+    if (!cn) return;
+    cn.hidden = false;
+    if (cn.clientWidth > 0 && cn.scrollWidth > cn.clientWidth + 1) cn.hidden = true;
+  }
+  // a step's row dragged by its grip, up or down the sheet: the rows it passes make room, and the drop moves the step
+  // (a touch screen has no drag and drop; the laptop's cards keep theirs)
+  function chainDrag(e) {
+    const grip = e.target.closest && e.target.closest('#pipeline .card .grip');
+    const card = grip && grip.closest('.card'), k = card ? +card.dataset.k : 0;
+    if (!(k > 0) || e.button > 0) return;
+    e.preventDefault();
+    const cards = [...els.body.chain.querySelectorAll('#pipeline .card[data-k]:not(.region-card)')];
+    const rs = cards.map((c) => c.getBoundingClientRect()), me = rs[k - 1], step = rs.length > 1 ? rs[1].top - rs[0].top : me.height;
+    const y0 = e.clientY, body = els.body.chain, s0 = body.scrollTop;
+    let to = k;
+    card.classList.add('ph-drag');
+    try { grip.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+    const move = (ev) => {
+      // (near the sheet's top or bottom edge the sheet scrolls, so a long chain's row can go anywhere in one drag)
+      const sb = body.getBoundingClientRect();
+      if (ev.clientY > sb.bottom - 48) body.scrollTop += 12; else if (ev.clientY < sb.top + 48) body.scrollTop -= 12;
+      const dy = ev.clientY - y0 + (body.scrollTop - s0), cy = me.top + me.height / 2 + dy;
+      card.style.transform = `translateY(${dy}px)`;
+      to = 1 + rs.filter((r, i) => i !== k - 1 && r.top + r.height / 2 < cy).length;
+      cards.forEach((c, i) => { const j = i + 1; if (j === k) return; c.style.transform = k < to && j > k && j <= to ? `translateY(${-step}px)` : to < k && j >= to && j < k ? `translateY(${step}px)` : ''; });
+    };
+    const end = (ev) => {
+      grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', end); grip.removeEventListener('pointercancel', end);
+      card.classList.remove('ph-drag');
+      for (const c of cards) c.style.transform = '';
+      if (ev.type === 'pointerup' && to !== k) A.moveStep(k, to - k);
+    };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+  }
 
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
+  function paintStyle() {
+    const st = A.styleState();
+    els.style.hidden = !st.show || !st.land;
+    if (els.style.hidden) return;
+    els.style.querySelector('.ph-ic').innerHTML = st.svg;
+    els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
+    els.style.setAttribute('aria-disabled', String(st.land));
+  }
   function fillDisplay(side) {
     els.dispSide = side;
+    paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
     homeDisplay();
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
-    els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg;
     // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     if (mesh) els.body.display.append(mesh);
+    els.body.display.append(els.dispTip);
   }
   function homeDisplay() {
     const home = $('regionsHome');
@@ -847,12 +957,12 @@ const Phone = (() => {
     els.title || void 0;
     const mq = [matchMedia(MQP), matchMedia(MQL)];
     for (const m of mq) m.addEventListener('change', sync);
-    window.addEventListener('resize', () => { if (on && kind) geometry(); });
+    window.addEventListener('resize', () => { if (on && kind) geometry(); if (on) fitChip(); });
     sync();
     backInit();
   }
   return {
-    init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, chain, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
@@ -860,3 +970,6 @@ const Phone = (() => {
     // TEMP-DEBUG-HOOK
   };
 })();
+import { $, h } from './util.js';
+import { Params } from './params.js';
+export { Phone };

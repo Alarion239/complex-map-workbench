@@ -147,3 +147,18 @@ Built into v15.2.
 
 ## Decision (2026-10-25 02:20)
 The user accepted the open items: loops with W = 3 and W = 7 keep their notes (v15.2 sound-6), and no change after the phone listen (sound-7). Quote: "I like everything that is waiting on mee, you can proceed. No need to change anything".
+
+## The user's decision: hear the function (2026-10-28)
+
+"i want to hear the function, not actively just make music fit the math." Everything audible under Hear the function
+is caused by F through a fixed, documented map, plus declared timbre choices and declared safety limits. Built from
+the offline prototype's variants `final-notes` (a marimba note at each colour line arg F crosses, pitch class 12k/n
+semitones above D, loudness from |F|, the held note repeated at band edges of |F|, a crack and two muted notes at a
+branch cut, zero and pole order cues) and `final-glide` (one continuous voice whose pitch class is arg F), plus a
+declared limiter: every constant and its reason is in perfwin/sound/polish/FINAL.md and compare.js; the build plan is
+perfwin/sound/impl/SOUND-PLAN.md. The phase harp (option 2 above) is superseded; curves sing (option 4) stays.
+
+The app side: the probe follows the hand through a rope (3 px behind a mouse or pen, 5 px behind a finger) so a
+resting hand's tremor plays nothing; a click on a still point (on touch the long press, on the keyboard Q) plays that
+point; the sound menu chooses Notes or Glide (a preference of this device, never in the work or a link); Listen along
+plays the function at 250 screen pixels a second, and a composed curve's score is "Play the composition".

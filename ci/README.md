@@ -42,11 +42,14 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
 | **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
-| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-init-constructions.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
+| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
   first row whose pattern matches a path decides what it selects. A test helper or fixture selects the suites and
-  unit tests whose source names it; a path nothing matches is T3 (fail safe). Every GLSL page whose inputs
+  unit tests whose source names it; a path nothing matches is T3 (fail safe). The app's test hooks
+  (`src/app/21-test-hooks.js`, `window.__cmw*`) select the shards of the suites that call a hook the diff changes,
+  read from the diff (#385); a changed line outside every hook, a hook something other than the browser suites and
+  unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -54,12 +57,27 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A/A runs:** a paired job (quality, perf) chosen by a path outside the app (its runner, its scenes, `ci/quality.js`,
   `ci/perf_shard.js`) runs with `--force` when the app is unchanged, the same app on both sides, so the changed suite
   runs instead of reporting "nothing to compare" (the plan's outputs `quality_force`, `perf_force`).
+- **Which pages a quality run compared:** each side stamps the hash of the `test.html` its server served
+  (`app_sha1`, `app_sha1_source: served`; `checkout` only when the body could not be read), and the summary prints
+  both. Different builds show different hashes. The same hash on a run that was not forced warns: both servers served
+  one build, so the comparison compared nothing (#254).
+- **Settle times on GPU laptops:** on a real D3D11 laptop (Iris Xe) the same scene's settle time swings from about
+  1.4 s to 93 s, depending on which shader programs the driver is still compiling (#72, #238). A scene that does not
+  settle within `run_quality.js --timeout-ms` (30 s) fails, and the second render on both sides usually clears it as
+  noise. A runner that times out often can raise the limit with `CMW_QUALITY_TIMEOUT_MS` (suggested: 120000 on the GPU
+  laptops), which `ci/quality.js` passes on; the hosted runners and the Mac keep 30 s.
 - **The summary** of the plan job shows the tier, each changed path with the row that matched and what it selected,
   the jobs that run, and what was skipped. The **Gate** job passes when every job the plan chose passed and the rest
   were skipped.
 - **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
   other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
   and so does every later push while it is not a draft.
+- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing once its
+  push's run on that commit has passed: the job *ready* finds the newest other Gate run of this PR on the same commit,
+  and only if it passed does the plan select no job (tier `none`), the unit job skip, and the **Gate** job check that
+  run again and carry its verdict. Queued, running, failed, cancelled or none: the run is the usual one, so a green
+  Gate never stands on a commit before a gate passed there. Either way it has a concurrency group of its own and never
+  cancels the push's run (#379, `test/t_gate_ready.js`).
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
@@ -80,10 +98,52 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
 | **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build; their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
-| **GLSL** (Windows in 11 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
+| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
+
+### GLSL tiers
+
+Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
+hours there; macOS takes minutes. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a chain moves
+no other):
+
+- **core**: every hand-written chain (catalog defaults, natural paths, regressions, errors, d/dz, the special
+  functions, series, recurrences, repeats, ...) and a fixed eighth of each random family; on the `adv` page its
+  chains and the `keys` section.
+- **deep**: the rest of the random families, the `adv` page's `direct` and `compile` sections, and the chains in
+  `SLOW` (the slowest on Windows).
+
+The Gate (`gate.yml`, GitHub's machines):
+
+| run | Windows | macOS |
+|---|---|---|
+| a pull request (also a wave PR into `main`, and the whole gate) | core | all |
+| a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
+| a pull request with the label `glsl-deep` | all | all |
+
+The GPU gate (`gpu-gate.yml`, our machines). Its Windows laptop compiles on one core (FXC): the glsl page alone took
+over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
+runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
+
+| run | Windows | macOS |
+|---|---|---|
+| a pull request (the label `gpu-gate`), a push to `main` | core, one job | all |
+| the nightly run, a run by hand | all, ten jobs | all |
+
+A page whose shader code and tests are the same as the reference's is not run unless forced: the nightly run always
+is, a run by hand only with its *force* input, so a by-hand run covers every chain only with *force*. The cold cost
+of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first nightly
+runs after this change is that cost first, not a regression.
+
+**A release tag** needs a green run of every chain (`all`) on the commit's `main`, on both systems: the GPU gate's
+nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run.
+
+`ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
+minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's
+timeout. The Gate (`gate.yml`) runs on GitHub's machines only and never waits for one of ours; the GPU gate's pull
+request and by-hand runs replace the one before them on the same branch.
 
 ### Paired gates
 
@@ -179,7 +239,9 @@ worse (reference → this change, with the rule it broke), what improved, and th
 
 *Actions → Gate (or GPU gate) → Run workflow*: choose the branch, optionally the reference (a commit or branch), only
 some perf shards (e.g. `views,phone`), and *force* to run the paired gates when the app did not change (an A/A run of
-the same app on both sides shows the noise). The Gate's *perf* box runs the perf suite on GitHub's machines (Windows,
+the same app on both sides shows the noise). The GPU gate's *glsl* input, `skip`, leaves out the GLSL and quality jobs
+so that the perf shards start at once: by hand the Windows GLSL tier is ten jobs, about 7 hours, ahead of perf (a
+measurement then, not the full gate). The Gate's *perf* box runs the perf suite on GitHub's machines (Windows,
 and macOS advisory) even when the GPU machines gate speed, e.g. while one of them is away.
 
 ## Locally
@@ -191,6 +253,8 @@ node ci/snapshots.js && node ci/unit.js            # unit tests (snapshots: old 
 node ci/glsl.js                                    # GLSL conformance in headless Chrome
 node ci/quality.js --ref origin/main               # image quality, paired against main (--shard 1/3 for a part)
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
+node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
+node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard
@@ -226,6 +290,9 @@ Settings (environment variables):
 | `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
+| `CMW_GLSL_CACHE` | a folder kept between runs for `ci/glsl.js`'s Chrome profile, with the GPU program cache on: a shader program compiled before (same source) is not compiled again. The GPU gate sets it on its machines ([RUNNERS.md](RUNNERS.md)); delete the folder to start cold |
+| `CMW_GLSL_STALL_MIN` | minutes without CPU in the browser after which `ci/glsl.js` closes it and reports the page as stalled (default: never; the GPU gate sets 20) |
+| `CMW_GLSL_PROGRESS_S` | seconds between `ci/glsl.js`'s progress lines while a page runs (default 60): the minutes so far, and how busy the GPU process and the page were |
 | `CMW_SPEED_SCALE` | scales the construction tests' absolute speed limits (set on the development Mac); CI uses 3 |
 | `CMW_PORT`, `CMW_BASE` | the server some browser suites open (`ci/browser.js` sets both to its own) |
 | `PYTHON` | the Python the scripts call (default `python3`; `python` on Windows) |
@@ -241,7 +308,9 @@ Settings (environment variables):
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |
+| `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js/cyr.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |

@@ -1,5 +1,5 @@
   // ---------- exact images: the per-pixel inverse pass (SPEC 4.2-4.3) ----------
-  // Program text: HEAD + GLChain.LIB + inverse.lib + UTIL (+ SHADE on the globe) + INV_HEAD + inverse.walker +
+  // Program text: HEAD + GLChain.LIB + inverse.lib + UTIL (+ SHADE_GLOBE on the globe) + INV_HEAD + inverse.walker +
   // INV_MAIN. INV_HEAD defines what the generated walker calls: the member ranges (ixRangeAdd / ixRangeLog, with the
   // shape's clip primitive), the early stop (ixStopAdd / ixStopLog), the sheet key and invLeaf (coverage of one
   // candidate: the region's signed distance in px, the range level, the facing rule, then admission into the
@@ -130,7 +130,7 @@ vec3 ixKindLevel(vec2 z) {
     float dm = 1e38;
     vec2 qn = z;
     vec2 b = ixRec(s + n - 1).xy;
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 64 * uIxOne; i++) {
       if (i >= n) break;
       vec2 a = ixRec(s + i).xy;
       if ((a.y > z.y) != (b.y > z.y) && z.x < (b.x - a.x) * (z.y - a.y) / (b.y - a.y) + a.x) inside = !inside;

@@ -8,9 +8,9 @@
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
-    // ([v17 D4] the head's Display button shows its word unless the title needs that room: then only its icon, as
-    // narrow as the options button it replaced, e.g. Y's head at 1366 px with the chain empty and Add function there)
-    const disp = pane.querySelector('.pane-head .disp-btn');
+    // ([v17 D4; #247] the head's pattern button shows its caret unless the title needs that room: then its swatch alone,
+    // e.g. Y's head at 1366 px with the chain empty and Add function there)
+    const disp = pane.querySelector('.pane-head .pat-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
     // (and Y's Add function button, in the head while the chain is empty, shrinks to its plus after the Display button)
     const emp = side === 'R' ? $('emptyRight') : null;
@@ -19,6 +19,17 @@
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    // ([#356] "Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
+    // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
+    // its gaps), and last its status light goes (Russian at 1024 px)
+    const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+    const legIn = !!(leg && hd && leg.parentNode === hd);
+    const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
+    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    if (legIn && !leg.hidden && tabsCut()) {
+      leg.classList.add('glyph');
+      if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
+    }
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
     if (!(pane.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
@@ -46,7 +57,15 @@
     }
     t.classList.add('terse');
   }
-  function fitRightTitle() { fitTitle('L'); fitTitle('R'); }
+  // (#247: a title that changed width changes the room for the head's controls: they are laid out again first)
+  // (#320: a title in a pane head is fitted by its strip's layout, layoutFootSide, only when what it depends on changed;
+  // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
+  function fitRightTitle(force) {
+    if (paneR) layoutFoot(force);
+    // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
+    const headed = (side) => { const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'); return !!(f && f.parentElement && f.parentElement.classList.contains('pane-head')); };
+    for (const side of ['L', 'R']) if (!paneR || !headed(side)) fitTitle(side);
+  }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
   // the pane titles (panels.md 2): X is the domain of the map in focus, Y its codomain
@@ -113,6 +132,7 @@
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
+    phoneChain();
     // (the last active step turned off or removed ends the deformation, and with it the merge)
     if (morph.open && !morphRange().steps.length) { closeTransport(); return; }
     if (Views.merged(S.view, morphOn()) !== layoutMg) applyLayout();
@@ -180,19 +200,38 @@
     sel.value = value;
     return sel;
   }
-  function checkEl(id, checked, label, onchange) {
+  // (#247: with an icon, a check that the pane head shows as an icon toggle, its word the tooltip and its accessible name;
+  // a phone's sheet and the ⋯ pop-up show the word)
+  function checkEl(id, checked, label, onchange, icon) {
     const inp = h('input', { type: 'checkbox', id, onchange: (e) => onchange(e.target.checked) });
     inp.checked = !!checked;
-    return h('label', { class: 'check' }, inp, h('span', null, label));
+    if (!icon) return h('label', { class: 'check' }, inp, h('span', null, label));
+    return h('label', { class: 'check ic-tg', 'data-tip': label }, inp, h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: icon }), h('span', { class: 'tg-l' }, label));
   }
   const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Pulled-back grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
+  // (#247) the Phase style as one row: each style its glyph (STYLE_SVG), alone in the pane head (option 1: the name its
+  // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here
+  // and Cauchy its short word (Russian «Коши», not «Интеграл Коши», which a 54 px button at 360 px broke mid-word), the
+  // whole name the tooltip, the accessible name and the header menu's item
+  function styleSeg() {
+    const word = (v, name) => (v === 'grid' ? $t('Grid') : v === 'cauchy' ? $tx('style', 'Cauchy') : name);
+    const el = seg('dcSeg', S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, word(v, name))], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
+    el.classList.add('sty-seg');
+    for (const b of /** @type {HTMLElement[]} */ ([...el.children])) {
+      const d = DC_STYLES.find((p) => p[0] === b.dataset.v);
+      b.setAttribute('aria-label', d[1]);
+      b.removeAttribute('title');
+      b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
+    }
+    return el;
+  }
   // the idle hint of a globe (panels.md 3, 9): on an editable globe a drawing tool's drag draws, so the hint names the
   // tool's gesture and how to turn; Select drags shapes and turns on empty space; a tool that does not draw here
   // (Annulus, Sector, Polar grid: the pane chip says so) and a globe that takes no drawing turn with a drag
   function globeHint(side) {
     const TURN = $t('Drag to turn; ∞ is at the north pole');
     if (!globeEdit(side) || tool === 'formula' || GLOBE_OFF.has(tool)) return TURN;
-    if (tool === 'select') return $t('Drag to turn, a shape to move it; ∞ is at the north pole');
+    if (tool === 'select') return touchUI() ? $t('Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole') : $t('Drag to turn, a shape to move it; Space turns; ∞ is at the north pole');
     const lab = ((TOOLS.find((t) => t[0] === tool) || [])[1] || '').toLowerCase();
     const tg = side === 'R' ? $t('target ') : '';
     // (v16.5 UX17: on a touch screen a tap places, and two fingers turn)
@@ -250,71 +289,194 @@
   const foot = { L: footOf(), R: footOf() };
   phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
+  // (#247) on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
+  // X's; a phone's Display sheet lends it itself
+  const unitSide = () => (S.view.main === 'xy' ? 'R' : 'L');
+  // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
+  function unitHome(f) {
+    const u = $('unitBox'), home = $('regionsHome');
+    if (u && home && f && f.contains(u)) home.append(u);
+  }
+  function unitKid(side) {
+    const u = $('unitBox');
+    if (!u || side !== unitSide()) return null;
+    // (its icon and toggle look, once: the word stays its name and the tooltip's)
+    const l = u.querySelector('label.check');
+    if (l && !l.classList.contains('ic-tg')) {
+      l.classList.add('ic-tg'); l.setAttribute('data-tip', $t('Unit circle'));
+      const w = l.querySelector(':scope > span'); if (w) w.classList.add('tg-l');
+      l.insertBefore(h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: ICONS.unit }), w);
+    }
+    return u;
+  }
+  const headRO = new WeakSet();   // (the pane heads observed for their width)
+  // (#320: a strip is laid out once per task, after the handler that asked for it and before the frame: opening the
+  // Deformation asked for it five times a side (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
+  // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
+  // microtask, force if any asked for it; nothing paints in between)
+  const footDue = { L: 0, R: 0 };
+  let footFlush = false;
   function layoutFootSide(side, force) {
+    footDue[side] = Math.max(footDue[side], force ? 2 : 1);
+    if (footFlush) return;
+    footFlush = true;
+    queueMicrotask(() => {
+      footFlush = false;
+      for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
+    });
+  }
+  function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
-    const phone = phoneMQ.matches;
-    // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys; there every option is behind the Display
-    // button, so no bar lies over the plot. [v17 D4] The head always has it: it also holds the regions' display)
+    // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
+    const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
+    // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys, so no bar lies over the plot. [#247] There its
+    // controls are inline, compact (icon toggles, the style's glyphs), as many as the head has room for beside a title
+    // kept readable; the rest go behind a ⋯ button. In the X → Y view the head also has the shapes' pattern button)
     const inHead = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (!f || !pane || (!ft.kids.length && !inHead)) return;
     if (inHead && f.hidden) f.hidden = false;
-    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead) return;
-    ft.head = inHead;
-    let n = ft.kids.length;
-    if (phone || inHead) n = 0;
+    // (a head whose width changes on its own, the panels or the fonts settling after the first layout, lays its row out
+    // again, and so does one whose key chip fills in after it (the Phase key at 1280 px left the title shortened): the
+    // cache key below holds both widths, so an unchanged head costs nothing)
+    if (inHead && !headRO.has(f.parentElement) && typeof ResizeObserver === 'function') {
+      headRO.add(f.parentElement);
+      // (only a change of a pixel or more: a sub-pixel settle cannot ping-pong with the layout it starts)
+      const lastW = new Map();
+      const ro = new ResizeObserver((es) => {
+        let moved = false;
+        for (const e of es) { const w = e.contentRect.width; if (!(Math.abs(w - (lastW.has(e.target) ? lastW.get(e.target) : -1)) < 1)) { lastW.set(e.target, w); moved = true; } }
+        // (#320: the widths the observer reports are the layout's key, read with no forced layout)
+        ft.roW = [...lastW.values()].map((w) => Math.round(w)).join(',');
+        if (moved && f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
+      });
+      ro.observe(f.parentElement);
+      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+      if (leg) ro.observe(leg);
+    }
+    // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
+    // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
+    // and the toggles, so the plane's title keeps its room)
+    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf');
+    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
+    ft.order = kids;
+    if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
+    // (#320: first a key of what the layout depends on that needs no layout read and no write: the head's and its key
+    // chip's widths as the observer reported them, the title's words, which items of the head show, the controls, the
+    // view; unchanged, the strip and the title are as they were laid out and fitted, and nothing is touched. Opening the
+    // Deformation retitles the panes and lays both strips out again: each call stripped the title's classes and read
+    // its widths first, several forced layouts a click)
+    let pre = null;
+    if (inHead) {
+      const hd = f.parentElement, t = $(side === 'L' ? 'leftTitle' : 'rightTitle');
+      pre = [phone, kids.length, pane.w, S.view.main, ft.roW || '', t ? t.innerHTML : '', [...hd.children].map((c) => (/** @type {HTMLElement} */ (c).hidden ? 0 : 1)).join(''), I18N.lang].join('|');
+      if (!force && ft.roW && pre === ft.pre) return;
+    }
+    ft.pre = null;   // (kept only once this layout is done, below)
+    // (in the head: its width and the title's whole width, which the room for the controls depends on, are part of the key)
+    // (and its role's whole width, "phase of F(z) = …", which fitTitle shortens when the room runs out)
+    let headW = 0, titleW = 0, roleW = 0, legW = 0;
+    if (inHead) {
+      const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pt = t && t.querySelector('.ptitle'), pr = t && t.querySelector('.prole');
+      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+      if (t) { t.classList.remove('terse', 'short', 'notag'); f.parentElement.parentElement.classList.remove('tiny'); }   // (fitTitle fits it after)
+      headW = f.parentElement.clientWidth; titleW = pt ? pt.scrollWidth : 0; roleW = pr ? pr.scrollWidth + 8 : 0;
+      legW = leg && leg.parentNode === f.parentElement ? Math.round(leg.getBoundingClientRect().width) : 0;
+    }
+    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.roleW === roleW && ft.legW === legW && ft.nk === kids.length) { if (inHead) { fitTitle(side); ft.pre = pre; } return; }
+    ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
+    if (ft.nk !== kids.length) ft.widths = null;
+    ft.nk = kids.length;
+    const pat = inHead && S.view.main === 'xy' ? patternBtn(side) : null;
+    let n = kids.length;
+    if (phone) n = 0;
     else {
       if (!ft.widths) {
         // natural widths, measured once per build with every control inline on one row
-        if (f.childElementCount !== ft.kids.length || [...f.children].some((c, i) => c !== ft.kids[i])) f.replaceChildren(...ft.kids);
+        if (f.childElementCount !== kids.length || [...f.children].some((c, i) => c !== kids[i])) f.replaceChildren(...kids);
         f.classList.add('measuring');
-        const ws = ft.kids.map((c) => c.getBoundingClientRect().width);
+        const ws = kids.map((c) => c.getBoundingClientRect().width);
         f.classList.remove('measuring');
-        if (ws.some((x) => !(x > 0))) { ft.n = n; return; } // plane not shown: keep everything inline for now
+        if (ws.some((x) => !(x > 0))) { ft.n = n; if (pat) f.prepend(pat); return; } // plane not shown: keep everything inline for now
         ft.widths = ws;
       }
-      const avail = pane.w - 60, gap = 8, pad = 10, btn = 24 + gap;
+      let avail;
+      const gap = inHead ? 4 : 8, pad = inHead ? 0 : 10, btn = (inHead ? 26 : 24) + gap;
+      if (inHead) {
+        // the head's room: what the title, the free space after it and the strip take now (the rest of the head is
+        // fixed), less a title that stays readable (its whole width, at most 180 px) and the pattern button
+        const head = f.parentElement, t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), hs = getComputedStyle(head);
+        let room = head.clientWidth - parseFloat(hs.paddingLeft) - parseFloat(hs.paddingRight), shown = 0;
+        for (const c of head.children) {
+          if (!c.getClientRects().length) continue;
+          shown++;
+          if (c === t || c === f || c.classList.contains('grow')) continue;
+          const cs = getComputedStyle(c);
+          room -= c.getBoundingClientRect().width + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
+        }
+        room -= Math.max(0, shown - 1) * (parseFloat(hs.columnGap) || 0) + 2;   // (the gaps, the strip's own margin)
+        // (the Phase head, its style row first, keeps its whole title, its role too: the toggles go behind ⋯, the unit
+        // circle first, before the title gives up letters; #247 option 1. The row itself always stays, below)
+        const whole = kids.length > 0 && kids[0].id === 'dcSeg';
+        avail = room - (whole ? titleW + roleW + 12 : Math.min(180, titleW + 12)) - (pat ? 34 + gap : 0) - 4;
+      } else avail = pane.w - 60;
       let used = pad;
-      for (n = 0; n < ft.kids.length; n++) {
+      for (n = 0; n < kids.length; n++) {
+        if (inHead && isNote(kids[n])) break;
         const next = used + (n ? gap : 0) + ft.widths[n];
-        const more = n + 1 < ft.kids.length ? btn : 0;
+        const more = n + 1 < kids.length ? btn : 0;
         if (next + more > avail) break;
         used = next;
       }
+      // (in the head a first control that is a segmented row, the Phase style or the Landscape's height, always stays:
+      // one click is the point of the row; a head short of room cuts the title down instead, fitTitle)
+      if (inHead && n === 0 && kids.length && kids[0].classList.contains('seg')) n = 1;
     }
     ft.w = pane.w; ft.phone = phone;
-    if (n === ft.n && !force) return;
+    if (n === ft.n && !force) { if (inHead) { fitTitle(side); ft.pre = pre; } return; }   // (the title's classes were cleared above: fitted again)
     ft.n = n;
-    const rest = ft.kids.slice(n);
+    const rest = kids.slice(n);
     let b = null;
-    // ([v17 D4] in the pane head a labelled Display ▾ button, plan/ux-audit/REPORT.md D4; under the plot the sliders)
-    if (inHead) {
-      b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
-        h('span', { class: 'disp-i', 'aria-hidden': 'true', html: ICONS.sliders }), h('span', { class: 'disp-l' }, $tx('button', 'Display')), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
-      // ([v17 D5, #82] in the X → Y view, the regions' pattern at a glance: a small swatch before the word)
-      if (S.view.main === 'xy') { const sw = h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }); b.prepend(sw); drawPatternSwatch(sw, S.pattern); }
-      b.addEventListener('click', () => openFootPop(b, false, side));
-    } else if (rest.length) {
-      b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
+    // (in a head with the pattern button and nothing else inline, Y's in the X → Y view, the controls that do not fit go
+    // into the pattern's pop-up above the patterns: one button, as narrow as the Display button was)
+    const merged = !!pat && n === 0 && rest.length > 0;
+    ft.merged = merged;
+    if (rest.length && !merged) {
+      // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
+      b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
     }
-    const open = ft.pop && ft.pop.isConnected;
-    f.replaceChildren(...ft.kids.slice(0, n), ...(b ? [b] : []));
+    const open = ft.pop && ft.pop.isConnected && (ft.pop.dataset.of !== 'pattern' || ft.pop.dataset.merged === '1');
+    if (unit && rest.includes(unit)) unitHome(f);
+    f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
-    if (inHead) fitTitle(side);   // (the head's room changed with the button: the title is fitted again)
-    if (open) { if (b) openFootPop(b, true, side); else closePalette(); }
+    if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
+    if (open) {
+      // (the open pop-up follows its controls: the pattern's while they are merged into it, else the ⋯'s)
+      if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
+      else if (b) openFootPop(b, true, side); else closePalette();
+    }
   }
-  function openFootPop(btn, refresh, side = 'R') {
-    const ft = foot[side];
-    if (!refresh && ft.pop && ft.pop.isConnected) { closePalette(); btn.focus(); return; } // anchor re-click closes
+  // ([v17 D5, #82; #247] in the X → Y view the shapes' pattern, a swatch in the pane head: its pop-up holds the regions'
+  // display, page.html's #regionsBox (pattern, cell, grid lines, chevrons, opacity), lent while it is open)
+  function patternBtn(side) {
+    const p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+    const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
+      h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
+    drawPatternSwatch(b.firstChild, S.pattern);
+    b.addEventListener('click', () => openFootPop(b, false, side, true));
+    return b;
+  }
+  function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
+    const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
+    if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
-    const rest = ft.kids.slice(ft.n);
-    // ([v17 D4, D5 #82] from the pane head: this view's options and the unit circle, then, in the X → Y view only, the
-    // regions' display: pattern, cell, grid lines, chevrons, opacity (they change nothing in Phase or Landscape). Both
-    // are lent from page.html's #regionsHome and go back when the popover closes; mesh quality is in Settings)
+    // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the pattern button's, the regions'
+    // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
-    const unit = head ? $('unitBox') : null, regions = head && S.view.main === 'xy' ? $('regionsBox') : null;
-    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions')), regions] : [])] : rest;
-    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
+    const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
+    const regions = regionsOnly ? $('regionsBox') : null;
+    const kids = regionsOnly ? [...rest, ...(regions ? [regions] : [])] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
@@ -331,9 +493,10 @@
     }
     // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
     const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (v16.5 UX20: from the pane head, the popover hangs under the button, its right edge on the button's)
-    const fromHead = !!btn.closest('.pane-head');
-    const x0 = fromHead ? r.right - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
+    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the pattern
+    // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
+    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
+    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
     let y = fromHead ? -1 : r.top - ph - 6;
     if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
     pop.dataset.side = y < r.top ? 'top' : 'bottom';
@@ -511,6 +674,7 @@
   function buildFoot(side) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot');
     if (!f) return;
+    unitHome(f);
     f.innerHTML = '';
     f.className = 'options';
     const ft = foot[side];
@@ -522,10 +686,10 @@
     if (morphOn() && rImage()) {
       // (the merged deformation plane: no options of its own; the transport is docked under it)
     } else if (rImage()) {
-      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }));
+      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }, ICONS.fov));
       // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
       // as a value in Y (its one switch, merged-views review)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }); kl.dataset.tip = $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
+      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }, '<span class="pcol-ic"></span>'); kl.dataset.tip = $t('Phase key') + ': ' + $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
     } else if (rGlobe()) {
       f.append(
         checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { setViewOpt('R', 'eq', v); requestRender('R'); save(); }),
@@ -688,14 +852,22 @@
     }
     if (lPhase()) {
       const land = lLand();
-      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => { setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save(); }, $t('Phase style')));
+      if (!land) f.append(styleSeg());
       if (S.dc === 'cauchy' && lColor()) {
-        const cp = cauchyPlot(), Fh = fnHtml();
-        f.append(h('span', { class: 'foot-note', html: cp ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name }) : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') }));
+        const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
+        // (#235: with poles inside the curve, which halves show; the words say what the picture is)
+        if (kind === 'split') f.append(seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')));
+        const noteHtml = !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+          : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
+          : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
+          : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
+          : $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name });
+        f.append(h('span', { class: 'foot-note', html: noteHtml }));
       }
-      f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
-      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }));
+      // (#247: n, the sectors per turn, only for the styles it changes: Tiles, Contours, Cauchy's Tiles, the relief's)
+      if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines));
     }
     if (lGlobe()) {
       f.append(checkEl('eqChkL', xView().eq, $t('Equator'), (v) => { xView().eq = v; requestRender('L'); save(); }), resetCamBtn(camL, CAML));
@@ -719,7 +891,12 @@
   const defMem = { y: null, d: null, dkey: '' };
   const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]) + rangeKey();
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
-  function openTransport() {
+  // (o.still: opened paused at its end, F, for the step glide to start from; #246)
+  function openTransport(o) {
+    // (#362 opened while ‹ › have Y on a step's plane: the deformation opens paused there, the inspectable version of it)
+    const parked = trans.glide ? (glide.moving() ? glide.target : glide.x) : null;
+    endPeek();
+    const still = parked != null || !!(o && o.still === true);
     if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
     phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
@@ -727,9 +904,10 @@
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
     if (mem) { Object.assign(V.right, mem.v); rightAuto = mem.auto; } else rightAuto = true;
     morph.open = true;
-    morph.T = 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
-    morph.playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    morph.T = parked != null ? Math.min(parked, morphLen()) : still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
+    morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
+    setPlayIcon();
     soundFunctionChanged(); sndRelayout();
     if (draft && draft.target) draft = null;
     // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
@@ -837,6 +1015,30 @@
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() { drawLegendSide('L'); drawLegendSide('R'); }
+  // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
+  // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
+  // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
+  // to the lowest of them; it is recomputed each time the key is shown)
+  function placeKeyPop(box) {
+    const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
+    if (!box || !plot || !box.parentNode) return;
+    const head = box.parentNode.classList.contains('pane-head');
+    const el = head ? box.querySelector(':scope > canvas') : box;
+    box.style.removeProperty('--lg-drop');
+    if (!el || (!head && box.classList.contains('collapsed'))) return;
+    const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
+    for (let i = 0; i < 3; i++) {
+      const c = el.getBoundingClientRect();
+      if (!c.width) return;   // (shown by :hover or .open: not shown, nothing to place)
+      let drop = 0;
+      for (const e of plot.querySelectorAll(sel)) {
+        const r = e.getBoundingClientRect();
+        if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
+      }
+      if (drop <= 0) return;
+      box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
+    }
+  }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   function drawLegendSide(side) {
@@ -854,7 +1056,8 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      const tip = kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open');
+      // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it)
+      const tip = tx + '. ' + (kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
@@ -1045,6 +1248,73 @@
     const Fn = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
+  // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
+  // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
+  // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
+  // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
+  function glideStep(d) {
+    // (#362 the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
+    if (morph.open) endPeek();
+    if (!morph.open && S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
+    const L = !morph.open && peekSteps();
+    if (L) {
+      if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
+      glide.nudge(d, L.length);
+      glide.last = 0;
+      // (reduced motion: the plane at once)
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) glide.set(glide.target);
+      // (Y's view follows the plane the glide is heading for, each fitted on its own: in the inset a view that held every
+      // plane left the first of them a speck off the centre)
+      if (rightAuto && rImage()) {
+        const j = Math.round(glide.target), at = j === 0 ? L[0] - 1 : L[j - 1];
+        tweenView(V.right, fittedView(paneR, at, []));
+      }
+      requestRender('R');
+      phoneChain();
+      return;
+    }
+    if (!morph.open) {
+      if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
+      if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
+      openTransport({ still: true });
+      if (!morph.open) return;
+      glide.set(morph.T);
+    } else if (morph.playing || !glide.moving() || glide.x !== morph.T) {
+      // (Play, the scrubber or a tick moved T last: the glide starts from where T is now)
+      if (morph.playing) { morph.playing = false; snd.morphArm = false; setPlayIcon(); }
+      glide.set(morph.T);
+    }
+    glide.nudge(d, morphLen());
+    glide.last = 0;
+    morph.seg = null; morph.u = 0; morph.hold = 0;
+    // (reduced motion: the step at once, no sweep, as Play does not start by itself there)
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.T = glide.target; glide.set(morph.T); syncTransport(); scheduleFix(); }
+    requestRender('R', 'L');
+  }
+  // (#246) what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
+  // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
+  // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
+  function chainState() {
+    const n = nSteps(), open = morphOn() || trans.glide, m = open ? morphLen() : 0;
+    const T = !open ? m : trans.glide ? (glide.moving() ? glide.target : glide.x) : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
+    let k = n, html = '', name = '';
+    // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
+    const alone = !open && S.focus > 0;
+    if (alone) k = S.focus;
+    else if (open && allAtOnce()) k = j ? -1 : 0;
+    else if (open) k = j ? morphRange().steps[j - 1] : 0;
+    if (k === -1 || (k === n && !n)) { html = '<i>F</i>'; name = $t('The whole map'); }
+    else if (k === 0) {
+      const rp = open ? rangeParts() : null;
+      html = rp ? rangeStart('html') : '<i>z</i>'; name = rp ? '' : $t('Shapes');
+    } else {
+      const st = S.steps[k - 1];
+      html = isDeriv(k) ? 'd/dz' : fsub(k); name = st ? cardName(st, defOf(st)) : '';
+    }
+    return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
+  }
+  // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
+  const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
   // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
   function morphTick(d) {
     const m = morphLen(), T = morph.T, eps = 1e-6;

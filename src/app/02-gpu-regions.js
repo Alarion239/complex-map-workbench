@@ -1,7 +1,10 @@
   // ---------------- regions on the GPU ----------------
   let clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 };
   const kindType = (s) => Region.KINDS[s.kind].type;
-  const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr]);
+  // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
+  // traces them in idle slices and asks for the redraw when one lands)
+  const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
+  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -189,6 +192,7 @@
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
   function shapeGPU(s) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
+    const win = winOf(s);
     let r = gpu.get(s.id);
     if (!r) { r = { fix: {} }; gpu.set(s.id, r); }
     const t = kindType(s);
@@ -197,13 +201,13 @@
       const base = baseRes(s, r);
       let bb = null;
       try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
-      const ww = clipWin.x1 - clipWin.x0, wh = clipWin.y1 - clipWin.y0;
+      const ww = win.x1 - win.x0, wh = win.y1 - win.y0;
       const stretched = !bb || (bb.x1 - bb.x0) > 3 * ww || (bb.y1 - bb.y0) > 3 * wh;
-      const key = sk + '|' + base + (stretched ? '|' + JSON.stringify(clipWin) : '');
+      const key = sk + '|' + base + (stretched ? '|' + JSON.stringify(win) : '');
       if (r.meshKey !== key) {
         let mesh = null;
         const tb = performance.now();
-        try { mesh = Region.buildMesh(s, clipWin, base); s._err = null; } catch (err) { s._err = err.message; mesh = null; }
+        try { mesh = Region.buildMesh(s, win, base); s._err = null; } catch (err) { s._err = err.message; mesh = null; }
         // (the build time at each resolution: the drag-time cap reads the full-resolution one)
         (r.buildMs || (r.buildMs = {}))[base] = performance.now() - tb;
         retireMesh(r);
@@ -224,7 +228,7 @@
     // a curve formula that no longer classifies as a curve (old saved state, a newer parser) says why in its row
     if (s.kind === 'fcurve') { try { Region.curveDesc(s); s._err = null; } catch (e) { s._err = e.message; } }
     if (t !== 'point') {
-      const lkey = sk + '|' + JSON.stringify(clipWin) + (s.kind === 'formula' ? '|' + r.meshKey : '');
+      const lkey = sk + '|' + JSON.stringify(win) + (s.kind === 'formula' ? '|' + r.meshKey : '');
       if (r.lineKey !== lkey) {
         // a pair still on screen (the hold) or on its way to it (the live job's mesh) keeps the strokes it was drawn
         // with: fill and strokes then change together, when the new mesh's fix-up lands (a re-centred clipWin, a drag)
@@ -232,15 +236,17 @@
           (r.lpool || (r.lpool = new Map())).set(r.lineKey, { lineRes: r.lineRes, lineKey: r.lineKey, open: r.open, lpolys: r.lpolys, lorigin: r.lorigin, arcs: r.arcs });
           r.lineRes = null;
         }
-        const polys = sourceCurves(s, r.mesh).map((c) => Region.sampleCurve(c, clipWin)).filter((p) => p.length >= 4);
+        const polys = sourceCurves(s, r.mesh).map((c) => Region.sampleCurve(c, win)).filter((p) => p.length >= 4);
         // sent relative to the window centre (precision far from 0 and at deep zoom)
-        const origin = [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
+        const origin = [(win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2];
         // P4 review: the refined samples (SPEC 9.1) are built right here when they fit the frame's budget (a shape
         // drag, a new clipWin after a left-plane pan or zoom, an edit), so motion frames and rest frames draw the same
         // strokes. Today's samples are drawn only when the refinement does not fit (the settle job then swaps it in).
         // r.polys keeps today's samples whatever is drawn: labels, chevrons, fits and hit tests read them (SPEC 9.1:
         // every other caller as today); r.lpolys holds the drawn ones (createLines order, dash arcs).
-        const ref = refineNow(s, r, lkey, origin);
+        // ([#299 review] a quick curve of a ray or an equipotential, c moving: not refined at every frame; the full trace
+        // that lands at rest is, as the settle job refines the rest)
+        const ref = Region.dhStamp(s) === 'q' ? null : refineNow(s, r, lkey, origin);
         const lp = ref ? ref.polys : polys;
         GLR.destroy(r.lineRes);
         r.lineRes = lp.length && GLR.ok ? GLR.createLines(lp, origin) : null;
@@ -259,6 +265,60 @@
 
   // ---------------- maps (what each view shows) ----------------
   const stageMap = (k) => ({ mode: 0, a: 0, b: k });
+  // [#253] a shape drawn in an intermediate plane: s.stage = k (absent: the z-plane, stage 0). It is drawn in its own
+  // plane and, forward only, in every later one: shapeMap turns a view's map of the z-plane's shapes ({mode 0, a 0,
+  // b j}) into this shape's ({a k, b j}), or null where it is not drawn (j < k, a d/dz between, a homotopy)
+  const shapeStage = (s) => (s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0);
+  function shapeMap(s, map) {
+    const k = shapeStage(s);
+    if (!k) return map;
+    if ((map.mode || 0) !== 0 || (map.a || 0) !== 0) return null;
+    const b = map.b || 0;
+    return k <= b && !derivIn(k, b) ? { mode: 0, a: k, b } : null;
+  }
+  // its CPU map into plane k, given F, the map of the z-plane's shapes into it (null: not drawn there; k undefined: a
+  // homotopy, where only the z-plane's shapes are drawn)
+  function shapeF(s, F, k) {
+    const j = shapeStage(s);
+    if (!j) return F;
+    return Number.isInteger(k) && j <= k && !derivIn(j, k) ? rangeF(j, k) : null;
+  }
+  // the window a shape is meshed and sampled in: the z-plane's (clipWin) or its plane's (stageWins: X's view the last
+  // time X showed that plane; before that the shape's own box, with room around it)
+  const stageWins = new Map();
+  function winOf(s) {
+    const k = shapeStage(s);
+    if (!k) return clipWin;
+    const w = stageWins.get(k);
+    if (w && goodWin(w)) return w;
+    let bb = null;
+    try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
+    if (bb && Number.isFinite(bb.x0) && Number.isFinite(bb.y1)) {
+      const h = Math.max(bb.x1 - bb.x0, bb.y1 - bb.y0, 1e-3) * 1.5, cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+      return { x0: cx - h, x1: cx + h, y0: cy - h, y1: cy + h };
+    }
+    return clipWin;
+  }
+  // the window of plane k (the z-plane's for 0)
+  const stageWin = (k) => (k > 0 ? stageWins.get(k) || viewBox(leftView()) : clipWin);
+  // the shapes X edits: those of the plane it shows (the z-plane's at focus 0)
+  const planeShapes = () => { const k = leftStage(); return S.shapes.filter((s) => shapeStage(s) === k); };
+  // X shows plane k (> 0): its window follows X's view as clipWin follows it for the z-plane (rounded, kept while the
+  // view stays within it)
+  function noteStageWin(k, b) {
+    if (!(k > 0)) return;
+    const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
+    if (!(q > 0) || !Number.isFinite(q)) return;
+    const nb = { x0: Math.floor(b.x0 / q) * q, x1: Math.ceil(b.x1 / q) * q, y0: Math.floor(b.y0 / q) * q, y1: Math.ceil(b.y1 / q) * q };
+    if (!goodWin(nb)) return;
+    const o = stageWins.get(k);
+    if (o && goodWin(o)) {
+      const ow = o.x1 - o.x0, nw = nb.x1 - nb.x0;
+      const shift = Math.max(Math.abs((nb.x0 + nb.x1 - o.x0 - o.x1) / 2), Math.abs((nb.y0 + nb.y1 - o.y0 - o.y1) / 2));
+      if (!(nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw))) return;
+    }
+    stageWins.set(k, nb);
+  }
   // the focused map at t = end, on the left plane (a focused d/dz step's stage is a map of z)
   const endMap = () => (S.focus === 0 ? { mode: 0, a: 0, b: nSteps() } : focusDeriv() ? { mode: 0, a: 0, b: S.focus } : { mode: 0, a: S.focus - 1, b: S.focus });
   // what the right plane plots over the left plane (Phase, Landscape, the phase sphere): the focused map, or, while
@@ -289,6 +349,8 @@
   }
   function morphRange() { return HR.range(S); }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
+  // (#246) the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
+  const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
   // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
   // morphLen: the end of the transport's time, m steps one after another, or 1.
@@ -421,7 +483,8 @@
     for (let i = 0; i < nv; i++) {
       const w = F(C(SRC[2 * i], SRC[2 * i + 1]));
       W[2 * i] = w.re; W[2 * i + 1] = w.im;
-      if ((i & 63) === 63 && due()) { yield; t0 = performance.now(); }
+      // ([#243] every 8 images: one of a series summed to 4096 terms takes about a millisecond)
+      if ((i & 7) === 7 && due()) { yield; t0 = performance.now(); }
     }
     const LIM = 1e12;
     const ok = (x, y) => Math.abs(x) < LIM && Math.abs(y) < LIM;
@@ -494,7 +557,7 @@
   async function runFixInner(token) {
     for (const tg of fixTargets()) {
       for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) !== 'area') continue;
+        if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;   // ([#253] a later plane's shapes: forward, no fix-ups)
         const r = gpu.get(s.id);
         if (!r || !r.mesh || !r.meshRes) continue;
         // the dragged shape's fix-ups are the live driver's (liveFix), also for the tail after the pointer-up
@@ -570,9 +633,15 @@
     for (let k = (m.a || 0) + 1; k <= (m.b || 0); k++) { if (isDeriv(k)) list.push({ deriv: true }); else if (stepFn(k)) list.push(built[k - 1].props); }
     try { return !!Funcs.composeProps(list).injective; } catch (e) { return false; }
   }
+  // (issue #72, I) a still map whose area programs have had nothing to draw this long (the chain's first version still
+  // linking: seconds on Direct3D 11) is drawn from a SphereMesh meanwhile, the CPU-mapped mesh with programs that do
+  // not carry the chain; not before, so a fast link never shows it
+  // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
+  const SM_LINKING_MS = 250, SM_LINK_WORK = 20000;
   // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null
   function smNeed(s, r, role, m) {
     if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L')) return null;
+    if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
       // (a shape drawn exactly at both ends shows today's GPU image while paused inside the step: the mesh changed
@@ -658,7 +727,8 @@
     if (!why) return null;
     const v = smView(kind, pane, R);
     if (!v) return null;
-    const ck = smContent(s, role, kind, m), ck0 = smContent(s, role, kind, m, false);
+    const lk = why === 'linking' ? '|link' : '';
+    const ck = smContent(s, role, kind, m) + lk, ck0 = smContent(s, role, kind, m, false) + lk;
     // (the stand-in during a rebuild may come from another meshing window: a left pan re-centred clipWin, which
     // changes the mesh's sheet order but not the image: still far nearer to it than today's GPU draw)
     let best = null, old = null;
@@ -673,7 +743,8 @@
       if (!offRender && sm.want.get(slot)) { const j = sm.jobs.get(sm.want.get(slot)); if (j && j.ck === ck) smCancel(j); sm.want.delete(slot); }
       return { e: best, why };
     }
-    if (allowJob && !offRender) smRequest(slot, ck, s, role, kind, m, v, why);
+    // (a linking chain's stand-in is asked for whatever the exact path's state: its own program waits on the same links)
+    if ((allowJob || why === 'linking') && !offRender) smRequest(slot, ck, s, role, kind, m, v, why);
     return old ? { old, why } : { why };
   }
   function smCancel(job) {
@@ -697,9 +768,9 @@
         left: smLeft(),
         view: v, Kmax: SphereMesh.kOf(S.alpha),
         pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
-        maxWork: smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
+        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
-      sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
+      sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
     }
     smPumpLater();
   }
@@ -784,7 +855,7 @@
     sm.exportPartial = 0; sm.lastExport = [];
     for (const { role, pane, map } of panes) {
       for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) !== 'area') continue;
+        if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;
         const r = gpu.get(s.id) || shapeGPU(s);
         if (pathOf(s, map, role, 'flat', { status: true }).path !== 'forward') continue;
         const m = normalizeMap(map);
@@ -852,8 +923,16 @@
     let sing = null, sk = 'scan|' + chainSig[top];
     if (plan.ok) {
       try { sing = Inverse.singular(plan, clipWin, ['undef', 'branch', 'pole'], 16); } catch (e) { sing = []; }
-      sk = sing.map((e) => e.kind[0] + Math.round(e.z.re / q) + ',' + Math.round(e.z.im / q)).join(';');
+    } else {
+      // ([issue #276] a last step with no plan that names all of its singular points (ζ), after injective steps with
+      // one: those points pulled back, so the lines need no jump scan, which evaluated the chain up to 2048 times per
+      // curve on every pan or zoom; anything else still scans)
+      const b = built[top - 1], st = S.steps[top - 1];
+      if (b && !b.error && st && st.on !== false && typeof b.sing === 'function') {
+        try { sing = Inverse.singularAfter(invPlan(0, top - 1), clipWin, b.sing, 16); } catch (e) { sing = null; }
+      }
     }
+    if (sing) sk = sing.map((e) => e.kind[0] + Math.round(e.z.re / q) + ',' + Math.round(e.z.im / q)).join(';');
     const struct = ks.map((k) => k + ':' + S.steps.slice(0, k).map((st) => (st.on === false ? '-' : st.type)).join(',')).join('/');
     return { Fs: ks.map((k) => stageF(k)), sing, key: struct + '|' + sk };
   }
@@ -866,11 +945,16 @@
     return lineSpecC.spec;
   }
   // the refined polylines of shape s (every curve; today's samples for a curve whose refinement throws)
-  function refinePolys(s, mesh, spec, origin) {
+  // (pc: a pacer, [#325 review] refineNow's frame budget: null when the refinement did not finish within it)
+  function refinePolys(s, mesh, spec, origin, pc) {
     const polys = [];
     for (const c of sourceCurves(s, mesh, { reach: 'sphere' })) {
       let ps = [];
-      try { ps = Region.Lines.refine([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048 }); } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
+      try {
+        const st = Region.Lines.refineGen([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048, pc }).next();
+        if (!st.done) return null;
+        ps = st.value;
+      } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
       for (const p of ps) if (p.length >= 4) polys.push(p);
     }
     return polys;
@@ -886,10 +970,16 @@
     if (!spec) return null;
     const now = performance.now();
     if (now - lineBudget.t > 12) { lineBudget.t = now; lineBudget.ms = 0; }
-    if (!force && lineBudget.ms + (r.refMs || 0) > (drag ? LINE_CAP : LINE_FRAME)) return null;
-    const polys = refinePolys(s, r.mesh, spec, origin);
+    const cap = drag ? LINE_CAP : LINE_FRAME;
+    if (!force && lineBudget.ms + (r.refMs || 0) > cap) return null;
+    // ([#325 review] judged by the last cost, a new key or a pan toward a pole could still cost a whole refinement in
+    // one frame: it stops at the frame's budget instead, drawn unrefined, and the line job refines it, setting its cost)
+    const left = cap - lineBudget.ms;
+    const polys = refinePolys(s, r.mesh, spec, origin, force ? null : { due: () => performance.now() - now > left });
     const ms = performance.now() - now;
-    r.refMs = ms; lineBudget.ms += ms;
+    lineBudget.ms += ms;
+    if (!polys) { r.refMs = Infinity; return null; }
+    r.refMs = ms;
     return { polys, key: lkey + '|' + spec.key };
   }
   // the figure export (prepareExport): every visible shape's lines refined for the current spec, one shape at a time,
@@ -902,7 +992,7 @@
       if (!alive()) return false;
       const spec = lineSpecNow();
       if (!spec) return true;
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
       const r = gpu.get(s.id);
       if (!r || !r.lineKey || r.refKey === r.lineKey + '|' + spec.key) continue;
       const origin = r.lorigin || [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
@@ -932,7 +1022,7 @@
     if (!spec) return;
     const todo = [];
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
       const r = gpu.get(s.id);
       if (!r || !r.lineKey || r.refKey === r.lineKey + '|' + spec.key) continue;
       todo.push([s, r]);
@@ -941,21 +1031,30 @@
     lineJob.running = token; updateLeds();
     let t0 = performance.now();
     // yield to the page, wait out any motion; true when this job went stale meanwhile
+    // ([#325] a background task, not setTimeout(0): its 4 ms clamp would double a sliced curve's time)
     const rest = async () => {
-      await yieldNow();
+      await yieldTask();
       while (lineWait() > 0 && token === lineJob.token) await yieldNow(40);
       t0 = performance.now();
       return token !== lineJob.token;
     };
+    // ([#325] one curve's refinement is sliced too: refineGen yields once the slice is spent (a few map evaluations
+    // apart, each asking the clock); the same polylines as Lines.refine)
+    const pc = { due: () => performance.now() - t0 > LINE_SLICE };
     try {
       const origin = [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
       for (const [s, r] of todo) {
         const lkey = r.lineKey, key = lkey + '|' + spec.key;
         const curves = sourceCurves(s, r.mesh, { reach: 'sphere' });
         const polys = [];
+        // (its refinement's own time, the slices summed: refineNow's estimate of it next time)
+        let work = 0;
         for (const c of curves) {
           let ps = [];
-          try { ps = Region.Lines.refine([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048 }); } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
+          try {
+            const g = Region.Lines.refineGen([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048, pc });
+            for (;;) { const t = performance.now(), st = g.next(); work += performance.now() - t; if (st.done) { ps = st.value; break; } if (await rest()) return; }
+          } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
           for (const p of ps) if (p.length >= 4) polys.push(p);
           if (performance.now() - t0 > LINE_SLICE && await rest()) return;
         }
@@ -963,7 +1062,7 @@
         if (r.lineKey !== lkey || gpu.get(s.id) !== r) continue;     // rebuilt meanwhile: its own job follows
         // the same samples as drawn (bounded curves away from singular points): nothing to upload
         swapLines(r, polys, origin);
-        r.refKey = key;
+        r.refKey = key; r.refMs = work;
         if (performance.now() - t0 > LINE_SLICE && await rest()) return;
       }
     } finally {

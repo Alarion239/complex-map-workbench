@@ -12,7 +12,7 @@
       else if (pc.t === 'half') out.push(3, pc.a[0], pc.a[1], 0, pc.d[0], pc.d[1], 0, 0);
       else if (pc.t === 'g') {
         let G = pc.G;
-        if (formAnchor && typeof Constr !== 'undefined' && Constr.reanchor) G = Constr.reanchor(G, formAnchor);
+        if (formAnchor && Constr.reanchor) G = Constr.reanchor(G, formAnchor);
         out.push(4, G.o[0], G.o[1], G.A, G.B[0], G.B[1], G.C, 0);
       }
       else out.push(0, 0, 0, 0, 0, 0, 0, 0);
@@ -39,7 +39,7 @@
       const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
       recs.set(s.id, rec);
       let prim = null;
-      try { prim = typeof Region !== 'undefined' && Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
+      try { prim = Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
       const pk = packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
@@ -47,7 +47,7 @@
       if (s.kind === 'formula') {
         if (want.length >= MAX_INV_FORMS) { rec.ok = false; rec.reason = 'fifth formula shape'; }
         else {
-          const src = typeof GLChain !== 'undefined' && GLChain.levelGLSL ? GLChain.levelGLSL(s.expr, 'ilev' + want.length) : null;
+          const src = GLChain.levelGLSL ? GLChain.levelGLSL(s.expr, 'ilev' + want.length) : null;
           if (!src || !src.ok) { rec.ok = false; rec.reason = 'formula GLSL'; }
           else { rec.formSlot = want.length; want.push(src.source); wantExpr.push(String(s.expr)); wantIds.push(s.id); }
         }
@@ -126,20 +126,22 @@
   let coldNonce = 0;
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
-    const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
+    const L = GLChain.LIB;
     let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (extra && extra.pre || '');
     if (coldNonce && !extra) {
       const tag = `uIxNonce${coldNonce++}_${Math.floor(Math.random() * 1e9)}`;
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
     if (gl.isContextLost && gl.isContextLost()) return;      // not a failure: the restore recompiles
     const p = e.p;
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const linked = gl.getProgramParameter(p, gl.LINK_STATUS);
+    profWaited(e);
+    if (!linked) {
       const log = (!gl.getShaderParameter(e.vs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.vs))
         || (!gl.getShaderParameter(e.fs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.fs)) || gl.getProgramInfoLog(p) || 'link failed';
       gl.deleteShader(e.vs); gl.deleteShader(e.fs); gl.deleteProgram(p);
@@ -204,7 +206,7 @@
     }
     if (e.state === 'ready') return { state: 'ready', P: e };
     if (e.state === 'error') return { state: 'error', reason: e.error };
-    return { state: 'pending', reason: 'compiling' };
+    return { state: 'pending', reason: 'compiling', id };
   }
   // a ready inverse program of the current chain, view kind and formula bundle for another B class (never starts a
   // compile): a larger B first (exact for any alpha), else the largest smaller one (its front B sheets exact, the rest
@@ -336,7 +338,7 @@
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -423,7 +425,7 @@
       if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
       else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
     }
-    if (pr.state === 'pending') { framePending = true; return 'pending'; }
+    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
     if (pr.state !== 'ready') return 'error';
     const P = pr.P, inv = cur.info.inverse;
     P.warm = true;
@@ -515,7 +517,7 @@
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
-      lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+      globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
@@ -777,7 +779,7 @@
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -813,16 +815,34 @@
     // globe passes drawn with a scissor (globeScissorOf) and their scissored device px (tests)
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
     // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program)
-    _src: { REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    _src: { warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
     createMesh, createSkip, setSkip, createLines, destroy, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
-    // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows)
-    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed }; },
+    // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
+    // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
+    // and that program has not landed yet
+    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
+    // (issue #72) false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
+    // the draw that asks for it
+    get parallelCompile() { return !!pcExt; },
+    // whether programs `names` of the current chain (static ones by name) are linked for map; never starts one (with no
+    // chain there is no chain program to wait for: true, and the card draws as it would)
+    linked(names, map) { return !cur.info || names.every((n) => { const e = DEFS[n] && progs.get(progId(n, cur, map)); return !!e && e.state === 'ready'; }); },
+    // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)
+    get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
+    // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
+    pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
+    // (issue #72, I) ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
+    // hold on its links
+    bareMs, holdLinks,
+    // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
+    // waits for the final picture (the quality harness's settle, onReady's redraw) still waits
+    markPending() { framePending = true; },
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },

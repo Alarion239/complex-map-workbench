@@ -35,7 +35,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     if (!g.centred && !g.none) check(`${w}×${h} ${g.id}: the lit patch holds the anchor`, g.frac >= 0.9 && g.area > 40, g);
     // (issue #34 T2: a step whose control changes a plane or a card lights that too, not the button alone: two lit
     // areas, or one that holds both the control and what it changes)
-    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'views/switch', 'deform/toggle', 'deform/paths', 'deform/order', 'branches/inverse'].includes(g.id) && w === 1440) {
+    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'basics/chain', 'views/switch', 'deform/toggle', 'deform/paths', 'deform/order', 'deform/range', 'branches/inverse'].includes(g.id) && w === 1440) {
       const more = g.nHoles >= 2 || (g.hole[2] - g.hole[0]) > 3 * (g.anchor[2] - g.anchor[0]);
       check(`${w}×${h} ${g.id}: the control and what it changes are lit`, more, g);
     }

@@ -1,0 +1,233 @@
+{
+ "_about": "v16.5: Hear the function (the marimba notes and the Glide, perfwin/sound/impl/SOUND-PLAN.md 4.2): the popover, the palette, the announcements. id -> {en, ru, note}. Read last by tools/make_ru_table.py (V165_HEAR_HERE), so it overrides v152-sound.json and v164-tour.json. Note names in solfege (re for D).",
+ "hear.popover": {
+  "en": "Silent while you rest. Each time arg <i>F</i> crosses one of the picture's colour lines, a marimba note sounds: red is D, and each line round the Phase key is the next step of a circular scale (a semitone with 12 sectors), so a loop round a zero climbs and round a pole falls. Louder where |<i>F</i>| is larger; while the colour holds, the note sounds again at each band edge of |<i>F</i>|. A branch cut cracks, then plays the colours on either side; glass pings mark a zero, felt thumps a pole. Click a still point (on touch, hold it) to hear it. A closed loop sings its winding number as one note.",
+  "ru": "Тишина, пока указатель стоит. Всякий раз, когда arg <i>F</i> пересекает одну из цветных линий картинки, звучит нота маримбы: красная линия — ре, а каждая следующая линия по кругу шкалы фазы — следующая ступень круговой гаммы (полутон при 12 секторах), так что петля вокруг нуля поднимается, а вокруг полюса опускается. Чем больше |<i>F</i>|, тем громче; пока цвет не меняется, нота звучит снова на каждой границе полосы |<i>F</i>|. Разрез трещит, затем звучат цвета по обе его стороны; стеклянный звон отмечает нуль, глухой удар — полюс. Щёлкните по неподвижной точке (на сенсорном экране — удерживайте её), чтобы услышать её. Замкнутая петля поёт своё число оборотов одной нотой.",
+  "note": "S1: #sndSo's line (data-i18n=html), replaces v152s.popover_hear"
+ },
+ "hear.as": {
+  "en": "Hear the function as",
+  "ru": "Слушать функцию как",
+  "note": "S2: the Notes / Glide radiogroup's label"
+ },
+ "hear.notes": {
+  "en": "Notes",
+  "ru": "Ноты",
+  "note": "S3: the radio"
+ },
+ "hear.notes_d": {
+  "en": "A marimba note at each colour line",
+  "ru": "Нота маримбы на каждой цветной линии",
+  "note": "S3: its line"
+ },
+ "hear.glide": {
+  "en": "Glide",
+  "ru": "Скольжение",
+  "note": "S4: the radio"
+ },
+ "hear.glide_d": {
+  "en": "One continuous voice whose pitch is the colour, while F changes",
+  "ru": "Один непрерывный голос, высота которого — цвет, пока F меняется",
+  "note": "S4: its line"
+ },
+ "hear.glide_no": {
+  "en": "Glide needs a browser with AudioWorklet.",
+  "ru": "Для скольжения нужен браузер с AudioWorklet.",
+  "note": "S5"
+ },
+ "hear.keys": {
+  "en": "Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.",
+  "ru": "Shift + M включает и выключает звук; Esc останавливает воспроизведение. На активной плоскости: стрелки перемещают указатель, Q — сыграть точку, Z — перейти к следующему нулю или полюсу, O — назвать порядок в этой точке, D — описать вид, Enter — нарисовать петлю, L — прослушать вдоль неё.",
+  "note": "S6: the popover's key hint (the old one, phase2b fx.snd.keys, stays shipped)"
+ },
+ "hear.pal_notes": {
+  "en": "Hear the function: notes",
+  "ru": "Слушать функцию: ноты",
+  "note": "S7: palette"
+ },
+ "hear.pal_glide": {
+  "en": "Hear the function: glide",
+  "ru": "Слушать функцию: скольжение",
+  "note": "S7: palette"
+ },
+ "hear.say_notes": {
+  "en": "Hear the function: notes.",
+  "ru": "Слушать функцию: ноты.",
+  "note": "S8: announcement"
+ },
+ "hear.say_glide": {
+  "en": "Hear the function: glide.",
+  "ru": "Слушать функцию: скольжение.",
+  "note": "S8: announcement"
+ },
+ "hear.cut": {
+  "en": "Branch cut: F jumps by a factor {factor}.",
+  "ru": "Разрез: F скачком умножается на {factor}.",
+  "note": "S21: a branch cut on the probe (at most once per 1.5 s)"
+ },
+ "hear.piece_item": {
+  "en": "Play the composition (Grieg, arranged on this curve)",
+  "ru": "Сыграть композицию (Григ, переложенный на эту кривую)",
+  "note": "S9: the curve menu, a composed curve"
+ },
+ "hear.piece_chip": {
+  "en": "Playing the composition · Esc stops",
+  "ru": "Звучит композиция · Esc — стоп",
+  "note": "S10: the chip over X (desktop)"
+ },
+ "hear.piece_chip_ph": {
+  "en": "Playing the composition",
+  "ru": "Звучит композиция",
+  "note": "S10: the chip over X (phone)"
+ },
+ "hear.piece_say": {
+  "en": "Playing the composition: Grieg's theme, arranged on this curve. Listen along plays the function itself. Esc stops.",
+  "ru": "Звучит композиция: тема Грига, переложенная на эту кривую. «Слушать вдоль кривой» играет саму функцию. Esc — стоп.",
+  "note": "S11: announcement"
+ },
+ "hear.hint_desk": {
+  "en": "Right-click the spiral, then Listen along or Play the composition.",
+  "ru": "Правой кнопкой по спирали: «Слушать вдоль кривой» или «Сыграть композицию».",
+  "note": "S13: the example's hint (desktop)"
+ },
+ "hear.hint_ph": {
+  "en": "Hold the spiral, then Listen along or Play the composition.",
+  "ru": "Удерживайте спираль: «Слушать вдоль кривой» или «Сыграть композицию».",
+  "note": "S13: the example's hint (touch)"
+ },
+ "hear.speed": {
+  "en": "Listening along at {speed} pixels a second: the curve is too long or too short for 250.",
+  "ru": "Прослушивание вдоль кривой со скоростью {speed} пикселей в секунду: для 250 кривая слишком длинная или слишком короткая.",
+  "note": "S20: Listen along outside 250 px/s (its 1 s floor or 30 s cap)"
+ },
+ "tour.scene_lines": {
+  "en": "Phase lines",
+  "ru": "Линии фазы",
+  "note": "T7: the scenes harp and harpLoop (was Phase harp)"
+ },
+ "tour.strings.title": {
+  "en": "Phase lines are notes",
+  "ru": "Линии фазы — ноты",
+  "note": "T4"
+ },
+ "tour.strings.body": {
+  "en": "The portrait's lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line the pointer crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.",
+  "ru": "Линии портрета, через каждые $30^\\circ$ по $\\arg F$, — ноты на полутон друг от друга; ре — там, где $F>0$. «Слушать функцию» играет каждую линию, которую пересекает указатель, нотой маримбы. Против часовой стрелки вокруг нуля гамма поднимается, вокруг полюса — опускается.",
+  "note": "T5"
+ },
+ "tour.strings.touch": {
+  "en": "The portrait's lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line your finger crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.",
+  "ru": "Линии портрета, через каждые $30^\\circ$ по $\\arg F$, — ноты на полутон друг от друга; ре — там, где $F>0$. «Слушать функцию» играет каждую линию, которую пересекает палец, нотой маримбы. Против часовой стрелки вокруг нуля гамма поднимается, вокруг полюса — опускается.",
+  "note": "T5 (touch)"
+ },
+ "tour.loop.body": {
+  "en": "Listen along a closed curve plays the same notes, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.",
+  "ru": "«Слушать вдоль кривой» на замкнутой кривой играет те же ноты, а затем поёт одну ноту — её число оборотов $W$: нули минус полюсы внутри. Эта окружность один раз обходит нуль $1$, поэтому $W=1$ и звучит фа-диез.",
+  "note": "T8"
+ },
+ "tour.settings.body": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно здесь или клавишами {Shift}{M}. Чтобы слушать функцию, включите это здесь: каждая цветная линия, которую пересекает $\\arg F$, звучит нотой.",
+  "note": "S17-S19"
+ },
+ "tour.settings.narrow": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. To hear the function, turn it on there: each colour line that $\\arg F$ crosses plays a note.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно в этом меню. Чтобы слушать функцию, включите это там: каждая цветная линия, которую пересекает $\\arg F$, звучит нотой.",
+  "note": "S17-S19"
+ },
+ "tour.settings.touch": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно здесь. Чтобы слушать функцию, включите это здесь: каждая цветная линия, которую пересекает $\\arg F$, звучит нотой.",
+  "note": "S17-S19"
+ },
+ "guide.sound": {
+  "en": "<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Click a still point, hold it on touch, or press {x8} on the keyboard probe, to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x8} plays the point, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
+  "ru": "Звук (кнопка <b>Звук</b> в верхней панели, {x}) включён по умолчанию и начинает звучать после вашего первого щелчка или нажатия клавиши; ваш выбор хранится только на этом устройстве. Стрелка рядом с кнопкой открывает настройки громкости и состава звуков: интерфейс и математические события (деформация, число оборотов замкнутой петли), оба включены по умолчанию, и <b>Слушать функцию под указателем</b> (выключено, пока вы это не включите). Пока указатель стоит, звука нет. В режиме <b>Ноты</b> всякий раз, когда arg <i>F</i> пересекает одну из цветных линий картинки, звучит нота маримбы: красная линия — ре, а каждая следующая — следующая ступень круговой гаммы, поэтому петля вокруг нуля порядка <i>m</i> <i>m</i> раз поднимается по кругу гаммы, а вокруг полюса опускается. Чем больше |<i>F</i>|, тем громче (примерно от −8 дБ в нулях до +4 дБ в полюсах, без роста дальше примерно 10<sup>±3</sup>), а пока цвет не меняется, нота звучит снова всякий раз, когда |<i>F</i>| пересекает границу полосы. Разрез — это треск, а затем цвета по обе его стороны; стеклянный звон отмечает нуль, глухой удар — полюс, по одному на порядок. В режиме <b>Скольжение</b> один голос поёт сам цвет, пока <i>F</i> меняется. Чтобы услышать неподвижную точку, щёлкните по ней, на сенсорном экране удерживайте её, а на клавиатуре нажмите {x8}. Затем замкнутая петля поёт своё число оборотов одной нотой (ре для 0, фа-диез для 1, ля для 2, ля ниже для −1), а пока идёт деформация, нота последней петли меняется в тот момент, когда её пересекает нуль или полюс. {x2} останавливает всё, что звучит. С клавиатуры: перейдите клавишей Tab на левую плоскость; стрелки перемещают указатель, {x8} играет точку, {x3} переходит к следующему нулю или полюсу, {x4} сообщает его порядок, {x5} описывает вид, {x6} рисует петлю, а {x7} включает прослушивание вдоль неё. Если программа чтения с экрана работает в режиме просмотра, пользуйтесь кнопкой: сочетание {x} может не дойти до страницы.",
+  "note": "S16: the guide, Sound (the harp sentences replaced; {x8}: Q plays the point)"
+ },
+ "mk.blurb": {
+  "en": "Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle's menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, and the branch cut just before every downbeat is the drum.",
+  "ru": "Эдвард Григ, «Пер Гюнт» (1875) в исполнении функции. Вдоль единичной окружности arg F поднимается ступенями, по одной на каждую ноту темы, и звук играет каждую цветовую линию, которую он пересекает. Выберите «Слушать вдоль кривой» в меню окружности (щелчок правой кнопкой, на сенсорном экране — долгое нажатие): за каждый оборот тема звучит дважды, во второй раз быстрее, а разрез перед каждой сильной долей — это барабан.",
+  "note": "The Mountain King example's blurb: a function now (mk-app.patch)."
+ },
+ "mk.guide": {
+  "en": "<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, walks the curve at an even pace and plays what the pointer would play there: a note for each colour line arg <i>F</i> crosses, louder where |<i>F</i>| is larger, and a crack at each branch cut. A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a function: along the unit circle its arg <i>F</i> rises in steps, one for each note of the theme, so the colour lines it crosses are the melody, and nothing else is added. Each step is a pair of branch points, one just inside the circle and one just outside, so |<i>F</i>| stays constant along it. Each lap of the circle plays the theme twice, the second time faster, and the branch cut just before each downbeat is the drum.",
+  "ru": "<b>Кривая как мелодия.</b> Пункт <b>Слушать вдоль кривой</b> в меню кривой проходит кривую в ровном темпе и играет то, что играл бы там указатель: ноту на каждую цветную линию, которую пересекает arg <i>F</i>, громче там, где |<i>F</i>| больше, и треск на каждом разрезе. Последняя нота замкнутой петли — её число оборотов. Пример «В пещере горного короля» (по Эдварду Григу) — это функция: вдоль единичной окружности её arg <i>F</i> растёт ступенями, по одной на каждую ноту темы, поэтому пересекаемые цветовые линии и есть мелодия, и ничего не добавлено. Каждая ступень — пара точек ветвления, одна чуть внутри окружности, другая чуть снаружи, поэтому |<i>F</i>| на ней постоянен. Каждый оборот окружности играет тему дважды, во второй раз быстрее, а разрез перед каждой сильной долей — это барабан.",
+  "note": "The guide's melody paragraph: Listen along plays the function (the harp sentences replaced); the Mountain King a function."
+ },
+ "mk.tour_body": {
+  "en": "Grieg's theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut before each downbeat is the drum.",
+  "ru": "Тема Грига в исполнении функции: вдоль единичной окружности $\\arg F$ поднимается ступенями, по одной на каждую ноту. «Слушать вдоль кривой» проходит окружность в ровном темпе и играет каждую цветовую линию, которую пересекает $\\arg F$; разрез перед каждой сильной долей — барабан.",
+  "note": "The tour's song step body (mk-app.patch)."
+ },
+ "mk.tour_then": {
+  "en": "Every note was $\\arg F$ crossing one of its colour lines.",
+  "ru": "Каждая нота — это пересечение $\\arg F$ одной из его цветовых линий.",
+  "note": "The tour's song step, Try it's then."
+ },
+ "mk.hint": {
+  "en": "Right-click the circle, then Listen along.",
+  "ru": "Правой кнопкой по окружности: «Слушать вдоль кривой».",
+  "note": "The Mountain King's open hint (desktop), the curve now a circle; as fix.mk_hint."
+ },
+ "mk.hint_ph": {
+  "en": "Hold the circle, then Listen along.",
+  "ru": "Удерживайте палец на окружности и выберите «Слушать вдоль кривой».",
+  "note": "The same on a phone; as fix.mk_hint_ph."
+ },
+ "tour.song.cap2": {
+  "en": "Each step is two branch points, one each side of the circle.",
+  "ru": "Каждая ступень — две точки ветвления, по обе стороны окружности.",
+  "note": "The tour's song step, a caption at 0.2 of the function's Listen along (capFrac): a step of the theme wheel (mk-app.patch, round 2)."
+ },
+ "tour.song.cap3": {
+  "en": "The crack is the branch cut. The theme again, faster.",
+  "ru": "Треск — это разрез. Снова тема, быстрее.",
+  "note": "The tour's song step, a caption at 0.29 (the second statement's downbeat, the crack)."
+ },
+ "tour.song.cap4": {
+  "en": "The second lap is the same circle: the same notes.",
+  "ru": "Второй круг — та же окружность, и те же ноты.",
+  "note": "The tour's song step, a caption at 0.51 (the second lap)."
+ },
+ "guide.reading": {
+  "en": "<b>Reading the sound.</b> Silence means nothing is changing under the probe. More notes a second means arg <i>F</i> is turning faster; a faster run is never louder, and the note repeated while the colour holds comes at most 8 times a second. The lines heard are the Phase key's sectors, which <b>Tiles</b> and <b>Contours</b> draw. Left and right are only where the probe is on the screen: they say nothing about <i>F</i>. On <i>Y</i>, two glasses gliding into one mean that two preimages of <i>w</i> meet. In Glide the voice is louder where |<i>F</i>| is larger. <b>Listen along</b> walks a curve at 250 screen pixels a second at the current zoom. Everything you hear is caused by <i>F</i> through this fixed map; the instruments, the room and a safety limiter are the only choices added.",
+  "ru": "<b>Как читать звук.</b> Тишина значит, что под указателем ничего не меняется. Больше нот в секунду значит, что arg <i>F</i> поворачивается быстрее; быстрый пробег никогда не звучит громче, а нота, повторяемая, пока цвет не меняется, звучит не чаще 8 раз в секунду. Слышимые линии — это секторы шкалы фазы, их рисуют стили <b>Плитки</b> и <b>Линии уровня</b>. Слева и справа — только положение указателя на экране: об <i>F</i> это ничего не говорит. На <i>Y</i> два стеклянных звука, сливающиеся в один, означают, что встречаются два прообраза <i>w</i>. В режиме «Скольжение» голос громче там, где |<i>F</i>| больше. <b>Слушать вдоль кривой</b> проходит кривую со скоростью 250 экранных пикселей в секунду при текущем масштабе. Всё, что вы слышите, вызвано <i>F</i> через этот неизменный закон; добавлены только инструменты, акустика комнаты и защитный ограничитель.",
+  "note": "The guide's Sound section, the legend (spec 2): what each thing heard means, after the Sound paragraph."
+ },
+ "hear.prep": {
+  "en": "Preparing to listen along: F takes a moment here.",
+  "ru": "Готовим прослушивание вдоль кривой: здесь F считается не сразу.",
+  "note": "Listen along on a costly F (the Mountain King's): its samples are made in slices between frames; said once before it plays."
+ },
+ "hear.prep.chip": {
+  "en": "Preparing to listen along: {p} %",
+  "ru": "Готовим прослушивание: {p} %",
+  "note": "X's chip while Listen along prepares a costly F's samples (phone: no room for Esc)."
+ },
+ "hear.prep.chipEsc": {
+  "en": "Preparing to listen along: {p} % · Esc stops",
+  "ru": "Готовим прослушивание: {p} % · Esc — стоп",
+  "note": "X's chip while Listen along prepares a costly F's samples (desktop)."
+ },
+ "hear.qoff": {
+  "en": "Hear the function under the pointer is off: turn it on in the Sound menu to hear the point.",
+  "ru": "«Слушать функцию под указателем» выключено: включите в меню звука, чтобы услышать точку.",
+  "note": "Q pressed on the keyboard probe while Hear the function is off; said by the screen reader."
+ },
+ "guide.touch.sound": {
+  "en": "<b>Sound</b>, in the ⋯ menu, is on by default and starts with your first tap; your choice stays on this device. Its Settings set the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on; then hold a finger on a plane and slide it. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Hold a still point to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it.",
+  "ru": "<b>Звук</b> (в меню ⋯) включён по умолчанию и начинает звучать после вашего первого касания; ваш выбор хранится только на этом устройстве. Его «Настройки» задают громкость и состав звуков: интерфейс и математические события (деформация, число оборотов замкнутой петли), оба включены по умолчанию, и <b>Слушать функцию под указателем</b> (выключено, пока вы это не включите; затем удерживайте палец на плоскости и ведите его). Пока палец стоит, звука нет. В режиме <b>Ноты</b> всякий раз, когда arg <i>F</i> пересекает одну из цветных линий картинки, звучит нота маримбы: красная линия — ре, а каждая следующая — следующая ступень круговой гаммы, поэтому петля вокруг нуля порядка <i>m</i> <i>m</i> раз поднимается по кругу гаммы, а вокруг полюса опускается. Чем больше |<i>F</i>|, тем громче (примерно от −8 дБ в нулях до +4 дБ в полюсах, без роста дальше примерно 10<sup>±3</sup>), а пока цвет не меняется, нота звучит снова всякий раз, когда |<i>F</i>| пересекает границу полосы. Разрез — это треск, а затем цвета по обе его стороны; стеклянный звон отмечает нуль, глухой удар — полюс, по одному на порядок. В режиме <b>Скольжение</b> один голос поёт сам цвет, пока <i>F</i> меняется. Чтобы услышать неподвижную точку, удерживайте её. Затем замкнутая петля поёт своё число оборотов одной нотой (ре для 0, фа-диез для 1, ля для 2, ля ниже для −1), а пока идёт деформация, нота последней петли меняется в тот момент, когда её пересекает нуль или полюс.",
+  "note": "the phone guide's Sound paragraph (v16.5 UX17, guideTouch), the marimba: the desktop paragraph's middle without the keyboard"
+ },
+ "ex.try.circle.touch": {
+  "en": "Try: press Listen, or hold the circle and choose Listen along.",
+  "ru": "Попробуйте: нажмите «Слушать» или удерживайте окружность и выберите «Слушать вдоль кривой».",
+  "note": "UX74, the example's Try line: the Mountain King played by its function is a circle"
+ },
+ "ex.try.circle": {
+  "en": "Try: press Listen, or right-click the circle and choose Listen along.",
+  "ru": "Попробуйте: нажмите «Слушать» или щёлкните окружность правой кнопкой и выберите «Слушать вдоль кривой».",
+  "note": "UX74, the example's Try line: the Mountain King played by its function is a circle"
+ }
+}

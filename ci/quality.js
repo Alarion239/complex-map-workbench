@@ -32,9 +32,13 @@ function shardRuns() {
   return { names, ids: all.filter((id) => names.includes(id.split('.')[0])) };
 }
 const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+// the settle timeout of a scene (run_quality.js --timeout-ms, 30 s by default): a GPU laptop compiling shaders can take
+// longer (ci/README.md), so a runner may raise it with CMW_QUALITY_TIMEOUT_MS
+const TIMEOUT_MS = Number(process.env.CMW_QUALITY_TIMEOUT_MS) || 0;
 async function quality(base, out, only, golden) {
   const a = [RUNNER, '--base-url', base.replace(/\/$/, ''), '--out', out, '--only', only.join(',')];
   if (golden) a.push('--golden', golden);
+  if (TIMEOUT_MS > 0) a.push('--timeout-ms', String(TIMEOUT_MS));
   const rc = await runAsync(process.execPath, a);   // (async: the servers are in this process)
   if (rc >= 2 || !fs.existsSync(path.join(out, 'metrics.json'))) throw new Error(`the quality runner failed (exit ${rc}) for ${out}`);
 }
@@ -46,8 +50,14 @@ function compare(baseline, current, json) {
   return readJson(json);
 }
 
+// each side's app hash, as its runner stamped it (the page its server served, #254)
+function appOf(dir) {
+  try { const m = readJson(path.join(dir, 'metrics.json')).meta || {}; return { sha: m.app_sha1 || 'unknown', source: m.app_sha1_source || 'checkout' }; } catch (e) { return { sha: 'unknown', source: '?' }; }
+}
+
 async function main() {
-  if (!argv.includes('--force') && sameApp(ref)) {
+  const forced = argv.includes('--force');
+  if (!forced && sameApp(ref)) {
     summary(`### ${title}\n\nNo change to the app (src/, build.py) since \`${ref}\`: nothing to compare.\n`);
     return 0;
   }
@@ -75,8 +85,15 @@ async function main() {
     }
     let abs = null;
     if (argv.includes('--absolute')) abs = compare(null, d('cur'), d('compare-absolute.json'));
+    // the two sides' pages: different builds must show different hashes; the same hash on a run that was not forced (the
+    // app differs from the reference) means both servers served one build, and the comparison compared nothing
+    const ra = appOf(d('ref')), ca = appOf(d('cur'));
+    const sameBuild = ra.sha === ca.sha && ra.sha !== 'unknown';
+    console.log(`app: reference ${ra.sha.slice(0, 12)} (${ra.source}), this change ${ca.sha.slice(0, 12)} (${ca.source})`);
+    if (sameBuild && !forced) console.log(`::warning::the reference and this change served the same test.html (${ra.sha.slice(0, 12)}) though the app differs from ${ref}: check the reference build`);
     const lines = [`### ${title}: ${confirmed.length || (abs && !abs.pass) ? '❌ worse than the reference' : '✅ not worse than the reference'}`, '',
-      `Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`), ${scenes.length} scenes, ${Object.keys(v.runs).length} runs; ${v.improvements.length} metric(s) improved.`, ''];
+      `Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`), ${scenes.length} scenes, ${Object.keys(v.runs).length} runs; ${v.improvements.length} metric(s) improved.`,
+      `Pages: reference \`${ra.sha.slice(0, 12)}\` (${ra.source}), this change \`${ca.sha.slice(0, 12)}\` (${ca.source})${sameBuild ? (forced ? ': the same build (a forced run)' : ': ⚠️ **the same page on both sides**, though the app differs from the reference') : ''}.`, ''];
     if (confirmed.length) lines.push('| run | metric | reference → this change |', '|---|---|---|', ...confirmed.map((f) => `| \`${f.run}\` | ${f.metric} | ${esc(f.message)} |`), '');
     const flaky = v.failures.filter((f) => !confirmed.includes(f));
     if (flaky.length) lines.push(`Not confirmed on a second render (noise): ${[...new Set(flaky.map((f) => f.run))].join(', ')}`, '');

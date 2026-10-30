@@ -235,6 +235,160 @@ const Region = (() => {
     },
     tex: (s) => $t('\\text{polar grid}, |%{c}|\\le %{r}', { c: zMinus(P(s.c)), r: num(s.r) }),
   };
+  // ----- [issue #260] external rays and equipotentials of the Mandelbrot set (s.c null) or of the Julia set of
+  // z² + c (s.c = [re, im], the step's c; a shared number's name in s.bind.c, as every bound field) -----
+  // dhray: s.theta '1/3' (exact: the angle doubles in integers) or a decimal turn; the ray from |z| = 10⁴ down to 2^−40
+  // of that potential, then its landing point (CX.dhLanding) when it has one. dheq: s.r = |Φ| > 1 (> e^{G_c(0)})
+  // dhAngle('1/3') -> {p, q}, '0.25' -> 0.25, else null
+  function dhAngle(t) {
+    const m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(String(t ?? ''));
+    if (m) { const p = +m[1], q = +m[2]; return q >= 1 && q <= 2 ** 30 && p < q ? { p, q } : null; }
+    const x = Number(t);
+    return String(t ?? '').trim() !== '' && Number.isFinite(x) && x >= 0 && x < 1 ? x : null;
+  }
+  const dhC = (s) => (s.c == null ? null : Array.isArray(s.c) && Number.isFinite(s.c[0]) && Number.isFinite(s.c[1]) ? C(s.c[0], s.c[1]) : undefined);
+  // The traces, by shape (its kind, angle or level and c): DH_MEMO holds each key's best result so far, {curve, full}.
+  // Synchronously (node, or before the app turns on Region.dhAsync) a key is traced in full at once. In the app a key
+  // not yet traced gets a quick curve of exact points at once (the shape's previous curve moved to the new c by
+  // CX.dhFollow, thinned to DH_FOLLOW points; else a coarse trace), and its full trace runs in slices of DH_SLICE_MS
+  // once c has rested for DH_REST_MS (#299 review: a c on Play re-traced every curve on the main thread, 300 ms
+  // frames); Region.dhAsync.ready() then redraws, and dhStamp (part of the app's shape key) tells it the curve changed
+  const DH_MEMO = new Map(), DH_LAST = new Map();
+  const DH_S = 16, DH_LEVELS = 40, DH_FOLLOW = 160, DH_REST_MS = 200, DH_SLICE_MS = 8;
+  const dhMemoSet = (key, v) => { DH_MEMO.delete(key); DH_MEMO.set(key, v); while (DH_MEMO.size > 48) DH_MEMO.delete(DH_MEMO.keys().next().value); };
+  // the key of a shape's trace, and what to trace for it: {key, kindKey (the shape without its c), gen(o), quick}
+  function dhJob(s) {
+    const c = dhC(s);
+    if (c === undefined) return null;
+    const ck = c && [c.re, c.im];
+    if (s.kind === 'dhray') {
+      const th = dhAngle(s.theta);
+      if (th == null) return null;
+      return {
+        key: JSON.stringify(['ray', th, ck]), kindKey: JSON.stringify(['ray', th, s.id]),
+        gen: () => CX.dhRayGen(th, { c, R0: CX.DH_R, S: DH_S, levels: DH_LEVELS }),
+        coarse: () => CX.dhRay(th, { c, R0: CX.DH_R, S: 2, levels: 16 }), c,
+      };
+    }
+    const r = Number(s.r);
+    if (!(r > 1)) return null;
+    return {
+      key: JSON.stringify(['eq', r, ck]), kindKey: JSON.stringify(['eq', r, s.id]),
+      gen: () => CX.dhEquipotentialGen(Math.log(r), { c, tol: 0.01 * r, R0: CX.DH_R }),
+      coarse: () => CX.dhEquipotential(Math.log(r), { c, K: 16, S: 2, tol: Infinity, R0: CX.DH_R }), c,
+    };
+  }
+  // every n-th point of a traced curve (the ends kept), with its angles and potentials, for dhFollow
+  function dhEvery(curve, max) {
+    const P = curve.pts || curve, n = P.length, k = Math.max(1, Math.ceil(n / max));
+    if (k === 1) return curve;
+    const idx = [];
+    for (let i = 0; i < n; i += k) idx.push(i);
+    if (idx[idx.length - 1] !== n - 1) idx.push(n - 1);
+    if (curve.pts) return Object.assign({}, curve, { pts: idx.map((i) => P[i]), pot: idx.map((i) => curve.pot[i]), landed: null, full: false });
+    return Object.assign(idx.map((i) => P[i]), { th: idx.map((i) => curve.th[i]), L: curve.L, c: curve.c });
+  }
+  let dhQueue = [], dhTimer = null;
+  function dhSchedule(job) {
+    dhQueue = dhQueue.filter((q) => q.kindKey !== job.kindKey);
+    dhQueue.push(job);
+    clearTimeout(dhTimer);
+    dhTimer = setTimeout(dhRun, DH_REST_MS);
+  }
+  // the full traces, a slice at a time; a trace whose key a newer request replaced is dropped
+  function dhRun() {
+    dhTimer = null;
+    const t0 = performance.now();
+    while (dhQueue.length && performance.now() - t0 < DH_SLICE_MS) {
+      const q = dhQueue[0];
+      if (!q.it) q.it = q.gen();
+      let r;
+      while (!(r = q.it.next()).done && performance.now() - t0 < DH_SLICE_MS) { /* trace */ }
+      if (!r.done) break;
+      dhQueue.shift();
+      dhMemoSet(q.key, { curve: r.value, full: true });
+      DH_LAST.set(q.kindKey, r.value);
+      if (Region.dhAsync && Region.dhAsync.ready) Region.dhAsync.ready();
+    }
+    if (dhQueue.length) dhTimer = setTimeout(dhRun, 0);
+  }
+  // the best curve for shape s now: the full trace, else (in the app) a quick one, with the full trace scheduled
+  function dhCurve(s) {
+    const job = dhJob(s);
+    if (!job) return null;
+    const have = DH_MEMO.get(job.key);
+    if (have && have.full) return have.curve;
+    if (!Region.dhAsync) {
+      const g = job.gen();
+      let r;
+      while (!(r = g.next()).done) { /* trace */ }
+      dhMemoSet(job.key, { curve: r.value, full: true });
+      DH_LAST.set(job.kindKey, r.value);
+      return r.value;
+    }
+    if (!have) {
+      const last = DH_LAST.get(job.kindKey);
+      let quick = last ? CX.dhFollow(dhEvery(last, DH_FOLLOW), job.c) : null;
+      if (!quick) quick = job.coarse();
+      dhMemoSet(job.key, { curve: quick, full: false });
+      DH_LAST.set(job.kindKey, quick);
+    }
+    dhSchedule(job);
+    return DH_MEMO.get(job.key).curve;
+  }
+  // 'f' when shape s's curve is its full trace, 'q' while it is a quick one ('' for other kinds): the app's shape key
+  // holds it, so a full trace that lands redraws the shape
+  function dhStamp(s) {
+    if (s.kind !== 'dhray' && s.kind !== 'dheq') return '';
+    const job = dhJob(s), have = job && DH_MEMO.get(job.key);
+    return have ? (have.full ? 'f' : 'q') : '';
+  }
+  // the points a view can tell apart: each kept point at least tol from the last one kept (the ends always), so a
+  // ray's thousand points near its landing point are not all mapped and drawn at every frame (the line renderer
+  // evaluates the chain at every vertex)
+  function dhThin(pts, tol) {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length - 1; i++) { const a = out[out.length - 1], b = pts[i]; if (Math.hypot(b.re - a.re, b.im - a.im) >= tol) out.push(b); }
+    if (pts.length > 1) out.push(pts[pts.length - 1]);
+    return out;
+  }
+  // (a fifth of a pixel of the 1440-pixel view)
+  const dhTol = (win) => (win ? Math.max(win.x1 - win.x0, win.y1 - win.y0) / 7200 : 0);
+  function dhRayCurves(s, win) {
+    const r = dhCurve(s);
+    if (!r || !r.pts.length) return [];
+    // (the landing point, of a full trace that reached it)
+    const L = r.full || r.landed ? CX.dhLanding(r, DH_S) : null;
+    const pts = L && !(r.landed && CX.abs(CX.sub(L.z, r.pts[r.pts.length - 1])) === 0) ? r.pts.concat([L.z]) : r.pts;
+    const k = poly(dhThin(pts, dhTol(win)), false);
+    return k ? [k] : [];
+  }
+  function dhEqCurves(s) {
+    const pts = dhCurve(s);
+    const k = pts && pts.length > 2 ? poly(pts, true) : null;
+    return k ? [k] : [];
+  }
+  // arg Φ_M(z) = 2π·θ, arg φ_c(z) = 2π·θ (c by its name when it has one), |Φ_M(z)| = r
+  const dhFn = (s) => {
+    if (s.c == null) return '\\Phi_M(z)';
+    let t = null;
+    if (s.bind && typeof s.bind.c === 'string') { try { t = Expr.toTex(Expr.parse(s.bind.c)).s; } catch (e) { t = null; } }
+    const c = dhC(s);
+    return `\\varphi_{${t || (c ? fmt(c) : 'c')}}(z)`;
+  };
+  const dhTheta = (t) => { const a = dhAngle(t); return a == null ? '?' : typeof a === 'number' ? num(a) : `\\tfrac{${a.p}}{${a.q}}`; };
+  K.dhray = {
+    type: 'curve', label: $t('External ray'),
+    handles: () => [],
+    curves: dhRayCurves,
+    tex: (s) => `\\arg ${dhFn(s)}=2\\pi\\cdot ${dhTheta(s.theta)}`,
+  };
+  K.dheq = {
+    type: 'curve', label: $t('Equipotential'),
+    handles: () => [],
+    curves: dhEqCurves,
+    tex: (s) => `|${dhFn(s)}|=${num(Number(s.r))}`,
+  };
   // ----- areas -----
   K.disc = {
     type: 'area', label: $t('Disc'),
@@ -354,7 +508,6 @@ const Region = (() => {
     const src = String(s.expr);
     let d = curveDescs.get(src);
     if (d) { curveDescs.delete(src); curveDescs.set(src, d); return d; }
-    if (typeof Curves === 'undefined') throw new Error($t('Curve formulas are not available in this build'));
     d = Curves.fromFormula(src);
     curveDescs.set(src, d);
     while (curveDescs.size > 32) curveDescs.delete(curveDescs.keys().next().value);
@@ -411,7 +564,7 @@ const Region = (() => {
   // fields (Constr.formOfFields: disc, circle, half-plane, line), else null (other kinds, or no constr.js)
   function formOf(s) {
     if (s && s._g) return s._g;
-    return typeof Constr !== 'undefined' && Constr.formOfFields ? Constr.formOfFields(s) : null;
+    return Constr.formOfFields ? Constr.formOfFields(s) : null;
   }
   // the level -f/2 of a form: positive inside, the signed distance near the curve at any radius (float64, relative
   // to the anchor o, so no centre far away enters)
@@ -433,7 +586,7 @@ const Region = (() => {
   }
   // (review regress-2: constructions only, s._g; a plain v15 circle or disc keeps v15.1's sampling and cost)
   function bigCircle(s, win) {
-    if (!win || !s._g || !(s.kind === 'circle' || s.kind === 'disc') || typeof Constr === 'undefined' || !Constr.sampleMR) return null;
+    if (!win || !s._g || !(s.kind === 'circle' || s.kind === 'disc') || !Constr.sampleMR) return null;
     const G = formOf(s);
     if (!G || G.A === 0) return null;
     const diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
@@ -476,7 +629,7 @@ const Region = (() => {
   }
   // o: {reach: 'far' (default: every caller but the settle-time line refinement) | 'sphere'} (SPEC 9.1)
   function curvesOf(s, win, o) {
-    if (s._seg && s._g && typeof Constr !== 'undefined' && Constr.segCurves) return segCurvesOf(s._seg, win, o);
+    if (s._seg && s._g && Constr.segCurves) return segCurvesOf(s._seg, win, o);
     const k = K[s.kind];
     const big = bigCircle(s, win);
     if (big) return [big];
@@ -829,7 +982,14 @@ const Region = (() => {
   // o.tail (SPEC 9.1, settle only): a long curve with c.reach continues its geometric tails (ratio REF_RATIO) past its
   // FAR ends toward c.reach until stop(z) is true, stop = o.tail() fresh per tail (the stage maps left TAIL_LIM, or
   // their images stopped moving); the samples up to the FAR ends are today's.
-  function sampleCurve(c, win, o) {
+  // ([#325] the line job's work is resumable: its generators yield wherever o.pc / caps.pc says the time slice is
+  // spent, pc.due(); the synchronous forms drain them with NOPACE, which never is: the same evaluations in the same
+  // order, so the same polylines)
+  const NOPACE = { due: () => false };
+  const drain = (g) => { for (;;) { const r = g.next(); if (r.done) return r.value; } };
+  function sampleCurve(c, win, o) { return drain(sampleCurveGen(c, win, o)); }
+  function* sampleCurveGen(c, win, o) {
+    const pc = (o && o.pc) || NOPACE;
     const diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
     const step = diag / 700;
     if (c.gsamp) return c.gsamp(win, step);
@@ -858,7 +1018,7 @@ const Region = (() => {
       if (mkTail) {
         // the same recurrence past the ends (parameters relative to a and d: precise far out), up to the reach ends
         const tr = (z) => ((z.re - a.re) * d.re + (z.im - a.im) * d.im) / (L * L);
-        const ext = (tEnd, sgn, dt0, zEnd) => {
+        const ext = function* (tEnd, sgn, dt0, zEnd) {
           const pts = [];
           let t = sgn < 0 ? 0 : 1, h = dt0;
           if (!(sgn < 0 ? tEnd < 0 : tEnd > 1)) return pts;
@@ -869,10 +1029,11 @@ const Region = (() => {
             const z = (sgn < 0 ? t <= tEnd : t >= tEnd) ? zEnd : c.f(t);
             pts.push(z);
             if (z === zEnd || tail(z)) break;
+            if (pc.due()) yield;
           }
           return pts;
         };
-        const pre = ext(tr(c.reach[0]), -1, dtA, c.reach[0]).reverse(), post = ext(tr(c.reach[1]), 1, dt, c.reach[1]);
+        const pre = (yield* ext(tr(c.reach[0]), -1, dtA, c.reach[0])).reverse(), post = yield* ext(tr(c.reach[1]), 1, dt, c.reach[1]);
         for (const z of pre) push(z);
         for (const t of ts) push(c.f(t));
         for (const z of post) push(z);
@@ -982,7 +1143,7 @@ const Region = (() => {
     // that are unresolved under every map, both ends outside expandBox(win, CUT_BOX). A single unresolved segment (a
     // pole crossed far out: the image continues on the other side) is kept.
     const CUT_BOX = 4;
-    function cutUnresolved(pts, Fs, win) {
+    function* cutUnresolved(pts, Fs, win, pc) {
       const n = pts.length / 2;
       if (!Fs.length || n < 4) return pts;
       const box = expandBox(win, CUT_BOX), cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
@@ -992,14 +1153,15 @@ const Region = (() => {
       for (let i = 0; i < n; i++) { const d = Math.hypot(pts[2 * i] - cx, pts[2 * i + 1] - cy); if (d < best) { best = d; m = i; } }
       const bad = (i, j) => out(i) && out(j) && Fs.every((F) => unresolved(F, P(i), P(j)));
       // the last kept index walking from m in direction sgn
-      const walk = (sgn) => {
+      const walk = function* (sgn) {
         let run = 0;
         for (let i = m; sgn > 0 ? i + 1 < n : i > 0; i += sgn) {
           if (bad(i, i + sgn)) { if (++run >= 3) return i - sgn * 2; } else run = 0;
+          if (pc.due()) yield;
         }
         return sgn > 0 ? n - 1 : 0;
       };
-      const hi = walk(1), lo = walk(-1);
+      const hi = yield* walk(1), lo = yield* walk(-1);
       if (lo === 0 && hi === n - 1) return pts;
       return pts.slice(2 * lo, 2 * hi + 2);
     }
@@ -1010,9 +1172,9 @@ const Region = (() => {
     // every map are halved (one it keeps unresolved is a pole crossed far out); at most FAR_DEPTH halvings per segment
     // and FAR_EVAL map evaluations per curve. Inside the window today's samples (diag / 700) are kept as they are.
     const BEND = 1 / 32, FAR_DEPTH = 6, FAR_EVAL = 8192;
-    function resolveFar(pts0, Fs, win) {
+    function* resolveFar(pts0, Fs, win, pc) {
       if (!Fs.length || pts0.length < 4) return pts0;
-      const pts = wrapCut(pts0, Fs, win), n = pts.length / 2;
+      const pts = yield* wrapCut(pts0, Fs, win, pc), n = pts.length / 2;
       let ev = 0;
       const img = (x, y) => { ev += Fs.length; const z = C(x, y); return Fs.map((F) => F(z)); };
       const inWin = (x, y) => x >= win.x0 && x <= win.x1 && y >= win.y0 && y <= win.y1;
@@ -1030,10 +1192,11 @@ const Region = (() => {
       };
       const out = [pts[0], pts[1]];
       let changed = false, Wa = img(pts[0], pts[1]);
-      const split = (ax, ay, A, bx, by, B, depth) => {
+      const split = function* (ax, ay, A, bx, by, B, depth) {
         if (depth < FAR_DEPTH && ev < FAR_EVAL) {
           const mx = (ax + bx) / 2, my = (ay + by) / 2, M = img(mx, my);
-          if (bent(A, B, M)) { changed = true; split(ax, ay, A, mx, my, M, depth + 1); split(mx, my, M, bx, by, B, depth + 1); return; }
+          if (pc.due()) yield;
+          if (bent(A, B, M)) { changed = true; yield* split(ax, ay, A, mx, my, M, depth + 1); yield* split(mx, my, M, bx, by, B, depth + 1); return; }
         }
         out.push(bx, by);
       };
@@ -1041,21 +1204,22 @@ const Region = (() => {
         const ax = pts[2 * i], ay = pts[2 * i + 1], bx = pts[2 * i + 2], by = pts[2 * i + 3];
         if (inWin(ax, ay) && inWin(bx, by)) { out.push(bx, by); Wa = null; continue; }
         const A = Wa || img(ax, ay), B = img(bx, by);
-        split(ax, ay, A, bx, by, B, 0);
+        yield* split(ax, ay, A, bx, by, B, 0);
         Wa = B;
+        if (pc.due()) yield;
       }
       return changed ? new Float64Array(out) : pts;
     }
     // walking out of the window on each side, the samples end once the image has turned by WRAP under every map past
     // expandBox(win, CUT_BOX) (the run stop's rule: exp along a vertical line draws the unit circle again and again, 8 more turns in its
     // tails); what follows draws the same curve again
-    function wrapCut(pts, Fs, win) {
+    function* wrapCut(pts, Fs, win, pc) {
       const n = pts.length / 2, box = expandBox(win, CUT_BOX);   // (never inside the cut test's box)
       const inWin = (i) => { const x = pts[2 * i], y = pts[2 * i + 1]; return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1; };
       const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
       let m = 0, best = Infinity;
       for (let i = 0; i < n; i++) { const d = Math.hypot(pts[2 * i] - cx, pts[2 * i + 1] - cy); if (d < best) { best = d; m = i; } }
-      const walk = (sgn) => {
+      const walk = function* (sgn) {
         const st = Fs.map(() => ({ w: null, dir: NaN, turn: 0 }));
         for (let i = m; sgn > 0 ? i < n : i >= 0; i += sgn) {
           const z = C(pts[2 * i], pts[2 * i + 1]), out = !inWin(i);
@@ -1071,10 +1235,11 @@ const Region = (() => {
             if (!(q.turn > WRAP)) all = false;
           });
           if (all) return i;
+          if (pc.due()) yield;
         }
         return sgn > 0 ? n - 1 : 0;
       };
-      const hi = walk(1), lo = walk(-1);
+      const hi = yield* walk(1), lo = yield* walk(-1);
       return lo === 0 && hi === n - 1 ? pts : pts.slice(2 * lo, 2 * hi + 2);
     }
     // the smallest offset along u from q that float32 still separates from q in origin-relative GPU coordinates
@@ -1088,13 +1253,13 @@ const Region = (() => {
     }
     // a formula contour that ends on an open side of the mesh's outer box continues as a ray (its last segment's
     // direction) toward the reach box, with geometric spacing and the tail stop
-    function rayEnds(pts, c, win, mk) {
+    function* rayEnds(pts, c, win, mk, pc) {
       const ob = c.outer, op = c.openSides || {}, tol = 2 * (c.cell || 0) + 1e-9 * Math.max(ob.x1 - ob.x0, ob.y1 - ob.y0);
       const onOpen = (z) => (op.x0 && Math.abs(z.re - ob.x0) <= tol) || (op.x1 && Math.abs(z.re - ob.x1) <= tol) || (op.y0 && Math.abs(z.im - ob.y0) <= tol) || (op.y1 && Math.abs(z.im - ob.y1) <= tol);
       const n = pts.length / 2;
       if (n < 2) return pts;
       const P = (i) => C(pts[2 * i], pts[2 * i + 1]);
-      const ray = (e, prev) => {
+      const ray = function* (e, prev) {
         const d = CX.sub(e, prev), h0 = CX.abs(d), stop = mk ? mk(e) : null;
         if (!(h0 > 0)) return [];
         const u = CX.scale(d, 1 / h0), cl = clipLine(e, u, expandBox(win, REACH), 0);
@@ -1107,11 +1272,12 @@ const Region = (() => {
           const z = add(e, CX.scale(u, t));
           out.push(z);
           if (stop && stop(z)) break;
+          if (pc.due()) yield;
         }
         return out;
       };
-      const head = onOpen(P(0)) ? ray(P(0), P(1)).reverse() : [];
-      const tailP = onOpen(P(n - 1)) ? ray(P(n - 1), P(n - 2)) : [];
+      const head = onOpen(P(0)) ? (yield* ray(P(0), P(1))).reverse() : [];
+      const tailP = onOpen(P(n - 1)) ? yield* ray(P(n - 1), P(n - 2)) : [];
       if (!head.length && !tailP.length) return pts;
       const out = new Float64Array(pts.length + 2 * (head.length + tailP.length));
       let k = 0;
@@ -1121,7 +1287,8 @@ const Region = (() => {
       return out;
     }
     // the jump scan of an ineligible chain: located singular points [{z, on: true, w (bracket width)}]
-    function jumpScan(pts, F, maxEval) {
+    const jumpScan = (pts, F, maxEval) => drain(jumpScanGen(pts, F, maxEval, NOPACE));
+    function* jumpScanGen(pts, F, maxEval, pc) {
       const n = pts.length / 2;
       if (n < 2 || !F) return [];
       let ev = 0;
@@ -1131,7 +1298,8 @@ const Region = (() => {
       const us = [];
       for (let u = 0; u < n - 1; u += stride) us.push(u);
       us.push(n - 1);
-      const W = us.map((u) => Fz(u));
+      const W = [];
+      for (const u of us) { W.push(Fz(u)); if (pc.due()) yield; }
       const found = [];
       for (let k = 0; k + 1 < us.length && ev < maxEval; k++) {
         let u0 = us[k], u1 = us[k + 1], w0 = W[k], w1 = W[k + 1];
@@ -1139,6 +1307,7 @@ const Region = (() => {
         let bad = !fin(w0) || !fin(w1) || !fin(wm);
         const chord = bad ? 0 : Math.hypot(w1.re - w0.re, w1.im - w0.im);
         if (!bad) bad = Math.hypot(wm.re - (w0.re + w1.re) / 2, wm.im - (w0.im + w1.im) / 2) > 0.25 * chord && chord > 0;
+        if (pc.due()) yield;
         if (!bad || ev + 40 > maxEval) continue;
         // 40 bisection steps toward the half with the non-finite value or the larger change
         const big = (a, b) => (!fin(a) || !fin(b) ? Infinity : Math.hypot(b.re - a.re, b.im - a.im));
@@ -1146,6 +1315,7 @@ const Region = (() => {
         for (let it = 0; it < 40; it++) {
           const m = (a0 + a1) / 2, w = Fz(m);
           if (big(wa, w) >= big(w, wb)) { a1 = m; wb = w; } else { a0 = m; wa = w; }
+          if (pc.due()) yield;
         }
         // a real jump keeps a large change (or a non-finite value) over the final bracket; a smooth bend does not
         const jump = big(wa, wb);
@@ -1157,7 +1327,8 @@ const Region = (() => {
     }
     // insertion on a straight polyline (lines, rays, segments, polygons, formula contours): per segment, the inserted
     // points with their order keys (offset of p's foot in the segment, signed distance); breaks where a curve passes p
-    function insertStraight(pts, sps, caps) {
+    function* insertStraight(pts, sps, caps) {
+      const pc = caps.pc || NOPACE;
       const n = pts.length / 2;
       const P = (i) => C(pts[2 * i], pts[2 * i + 1]);
       const segs = [];
@@ -1197,6 +1368,7 @@ const Region = (() => {
               const z = add(q, CX.scale(sg.u, sgn * dk));
               ins[j].push({ tb: tq, sub: sgn * dk, z });
               if (stop && stop(z)) break;
+              if (pc.due()) yield;
               continue;
             }
             if (dk === room) continue;               // the vertex itself
@@ -1209,6 +1381,7 @@ const Region = (() => {
             const z = sgn < 0 ? add(s2.b, CX.scale(s2.u, -rem)) : add(s2.a, CX.scale(s2.u, rem));
             ins[i].push({ tb, sub: 0, z });
             if (stop && stop(z)) break;
+            if (pc.due()) yield;
           }
         }
       }
@@ -1228,7 +1401,8 @@ const Region = (() => {
       return out;
     }
     // insertion on a smooth parametric curve (circles, arcs): in its parameter, uniform samples i / n as today
-    function insertParam(c, n, sps, caps) {
+    function* insertParam(c, n, sps, caps) {
+      const pc = caps.pc || NOPACE;
       const ss = [];
       for (let i = 0; i <= n; i++) ss.push({ s: i / n });
       let budget = caps.maxInsert;
@@ -1261,6 +1435,7 @@ const Region = (() => {
             const s1 = wrap(sp0 + sgn * dk / speed);
             ss.push({ s: s1 });
             if (stop && stop(c.f(s1))) break;
+            if (pc.due()) yield;
           }
         }
         if (on) ss.push({ s: sp0, brk: true });
@@ -1367,31 +1542,33 @@ const Region = (() => {
       }
       return data;
     }
-    function refine(curves, F, sing, caps = {}) {
-      const win = caps.win;
+    // caps.pc: a pacer (refineGen yields where pc.due()); refine runs it through
+    const refine = (curves, F, sing, caps = {}) => drain(refineGen(curves, F, sing, caps));
+    function* refineGen(curves, F, sing, caps = {}) {
+      const win = caps.win, pc = caps.pc || NOPACE;
       const Fs = (Array.isArray(F) ? F : F ? [F] : []).filter((f) => typeof f === 'function');
       const stop = Fs.length ? tailStop(Fs) : null;
       const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
-      const cp = { R, origin: caps.origin || null, maxInsert: caps.maxInsert ?? 8192, stop };
+      const cp = { R, origin: caps.origin || null, maxInsert: caps.maxInsert ?? 8192, stop, pc };
       const maxEval = caps.maxEval ?? 2048;
       const out = [];
       for (const c of curves) {
         if (!c) continue;
-        let pts = sampleCurve(c, win, { tail: stop });
-        if (c.long && c.reach) pts = resolveFar(cutUnresolved(pts, Fs, win), Fs, win);
-        if (c.pts && c.outer && !c.closed) pts = rayEnds(pts, c, win, stop);
+        let pts = yield* sampleCurveGen(c, win, { tail: stop, pc });
+        if (c.long && c.reach) pts = yield* resolveFar(yield* cutUnresolved(pts, Fs, win, pc), Fs, win, pc);
+        if (c.pts && c.outer && !c.closed) pts = yield* rayEnds(pts, c, win, stop, pc);
         if (pts.length < 4) continue;
-        let list = sing ? sing.slice().sort((a, b) => boxDist(win, a.z) - boxDist(win, b.z)) : jumpScan(pts, Fs[0], maxEval);
+        let list = sing ? sing.slice().sort((a, b) => boxDist(win, a.z) - boxDist(win, b.z)) : yield* jumpScanGen(pts, Fs[0], maxEval, pc);
         const sps = nearPoints(pts, list, R);
         if (!sps.length) { out.push(pts); continue; }
         const straight = !!(c.long || c.pts || (c.a && c.b));
-        if (straight) { for (const q of insertStraight(pts, sps, cp)) out.push(new Float64Array(q)); continue; }
+        if (straight) { for (const q of yield* insertStraight(pts, sps, cp)) out.push(new Float64Array(q)); continue; }
         const n = pts.length / 2 - 1;
-        for (const q of insertParam(c, n, sps, cp)) out.push(q instanceof Float64Array ? q : new Float64Array(q));
+        for (const q of yield* insertParam(c, n, sps, cp)) out.push(q instanceof Float64Array ? q : new Float64Array(q));
       }
       return out;
     }
-    return { refine, REACH, TAIL_LIM, jumpScan, arcs, unresolved };
+    return { refine, refineGen, REACH, TAIL_LIM, jumpScan, arcs, unresolved };
   })();
 
   function defaultsFor(kind, z0, z1) {
@@ -1934,8 +2111,12 @@ const Region = (() => {
 
   return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, segCurvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
     supportOf, clipPrimitive, shapeClip, convexOf, formulaBox, Globe, curveDesc, traceWin, fcurveTrace,
-    capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf };
+    capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf, dhAngle, dhStamp, dhAsync: null };
 })();
 // SPEC 9.1: the settle-time line refinement (Region.Lines)
 const Lines = Region.Lines;
-if (typeof module !== 'undefined') module.exports = Region;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Constr } from './constr.js';
+import { Curves } from './curves.js';
+export { Lines, Region, Region as 'module.exports' };

@@ -14,6 +14,18 @@
   let sideMode = false, side = null;
   const sideChs = new Map();
   let frameErr = '', framePending = false;
+  // the programs of the current chain that a draw drew a stand-in for (an earlier version, the deformation's start, or
+  // nothing), program id -> chain key, until each lands, fails or is dropped: frameStatus().waiting, over every pane of
+  // the frame (pending is only the last begin's or viewport's: the Sphere view draws two panes); frameCompiling: since
+  // the last begin or viewport (pending also holds a ready program's deferred first draw, which is no compile)
+  const waitOn = new Map();
+  let frameCompiling = false;
+  function standIn(id) { if (!sideMode && id) { waitOn.set(id, cur.key); frameCompiling = true; } }
+  function waitingNow() {
+    const mk = sideMode && side ? side.cur.key : cur.key;   // (in GLR.side mode, cur is the side chain's: the main chain's waits stay)
+    for (const [id, k] of waitOn) { const e = progs.get(id); if (!e || e.state !== 'pending' || k !== mk) waitOn.delete(id); }
+    return waitOn.size > 0;
+  }
   const live = new Set(); // resources that may hold map caches (freed on context loss)
 
   const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -54,11 +66,31 @@ precision highp sampler2D;
   const POST_OF = `
 vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
 `;
+  // (issue #72) modes 1-3 of a chain without d/dz (every chain but those, hasStages): one walk of the chain, k = 1..n, each step through one call of
+  // chainAt (or chainStep): FXC inlines every call, and the bodies below as chainRange + chainHom + postOf carried a
+  // copy of every step per call (6 to 8 per program, 17 with paths built of others). The same steps in the same order:
+  // mode 1 (base, hi) in full, hi along its path at t (none at t <= 0), then the post (b, post] in full (hi <= b
+  // whenever there is a post); mode 3 (base, a] in full, (a, b] along their paths, the post; mode 2 the stages a and
+  // b, each from base (homrange.js's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
+  // LIB), so the walk stays a loop.
+  const WALK = (n, how) => `vec2 z = s;
+  for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
+    int how = ${how};
+    z = chainAt(k, z, uT, how);
+  }
+  return z;`;
+  const POST = '(uPost > uB && k > uB && k <= uPost) ? 1 : 0';
   const MAP_PLAIN = [
-    'return chainRange(s, uA, uB);',
-    'vec2 z = chainRange(s, uBase, uHi - 1); return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));',
-    'vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT);',
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+    () => 'return chainRange(s, uA, uB);',
+    (n) => WALK(n, `k <= uBase ? 0 : k < uHi ? 1 : k == uHi ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
+    (n) => `vec2 z = s, z0 = s, z1 = s;
+  for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
+    if (k > uBase && k <= max(uA, uB)) z = chainStep(k, z);
+    if (k == uA) z0 = z;
+    if (k == uB) z1 = z;
+  }
+  return mix(z0, z1, uT);`,
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
   ];
   const MAP_STAGE = [
     'return chainRange(s, uA, uB);',
@@ -77,7 +109,10 @@ bool derivIn(int a, int b) {
   return false;
 }
 `;
-  const hasStages = (info) => !!info && /\bchainStage\b/.test(info.source || '') && /\bchainIsDeriv\b/.test(info.source || '');
+  // (MAP_STAGE for a chain with a d/dz step only: every chain has chainStage and chainIsDeriv, which without one are
+  // chainRange and false, and there MAP_STAGE's bodies are MAP_PLAIN's)
+  const hasStages = (info) => !!info && /\bchainStage\b/.test(info.source || '') && /\bchainIsDeriv\b/.test(info.source || '')
+    && !/bool chainIsDeriv\(int k\) \{\s*return false;/.test(info.source || '');
   const hasSheets = (info) => !!info && /\bchainSheetRange\b/.test(info.source || '');
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
@@ -87,7 +122,7 @@ bool derivIn(int a, int b) {
 const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
 ${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
 vec2 mapPoint(vec2 s) {
-  ${(st ? MAP_STAGE : MAP_PLAIN)[mode]}
+  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
@@ -218,6 +253,26 @@ vec3 shade(vec3 alb, vec3 n, vec3 v, float ao) {
   vec3 h = normalize(uKeyDir + v);
   c += uSpecK * pow(max(dot(n, h), 0.0), uSpecE) * step(1e-4, ndl);
   c += uRimK * pow(1.0 - max(dot(n, v), 0.0), 3.0) * uSky;
+  return c * s;
+}
+`;
+  // The globe's light (issue #287), in place of SHADE in every program that draws on the sphere (the globe, its phase
+  // portrait, the lifted and pre-mapped regions, the inverse pass), with the same shade() so their bodies are shared.
+  // On the sphere the colour is the data (arg F and |F|, a shape's fill) and a sphere has no up, so turning it must not
+  // change how readable a region is: the key light follows the camera (uKeyDir, a little above and to the left of the
+  // eye: globeLight in 06-draws-3d.js), the ambient is even (no sky and ground), the highlight is small and weak, and
+  // the limb darkens by at most 15 % for roundness. The face we look at shows its colour at about full strength, the
+  // limb away from the key at about 0.68 of it (linear light), from every side. ao is unused (no occlusion on a ball).
+  const SHADE_GLOBE = `
+uniform vec3 uKeyDir;
+vec3 shade(vec3 alb, vec3 n, vec3 v, float ao) {
+  float s = 1.0;
+  if (dot(n, v) < 0.0) { n = -n; s = 0.6; }   // back faces: flipped normal at 0.6
+  float ndl = max(dot(n, uKeyDir), 0.0);
+  float e = 1.0 - max(dot(n, v), 0.0);
+  vec3 c = alb * ((0.80 + 0.22 * ndl) * (1.0 - 0.15 * e * e));
+  vec3 h = normalize(uKeyDir + v);
+  c += 0.05 * pow(max(dot(n, h), 0.0), 96.0);
   return c * s;
 }
 `;
@@ -974,6 +1029,54 @@ void main() {
   // a sum that cancels to float32 rounding is 0 (outside the curve): no phase, a neutral grey instead of noise
   if (!(wabs(s) > 2e-5 * m)) c = mix(uPlane, vec3(0.5), 0.6);
   o = vec4(c, 1.0);
+}
+`;
+  // the Cauchy integral by the residue theorem (issue #235): Phi(z) = n(z) F(z) - sum_k n_k PP_k(z), n the winding number
+  // of the curve about z (the signed crossings of the ray towards +x with the polygon's edges, an exact integer), PP_k the
+  // principal part of F at its pole p_k inside (up to order 4, coefficients a_-1 ... a_-4 from the CPU). Outside the
+  // curve n = 0 and Phi = -sum_k n_k PP_k, so a curve with no pole inside has an exactly neutral outside. A chain
+  // program (mapF is F): it compiles for a chain when the style is first shown. Edges relative to an origin O (the
+  // curve's centre), as the quadrature's nodes, so z - p keeps float32 precision near the curve.
+  // uShow.x: 0 both halves, 1 only inside (f+), 2 only outside; uShow.y: the outside's sign, -1 f- = sum n PP (F = f+ + f-),
+  // +1 the integral itself (-f-)
+  const CAUCHYF_FS = `
+uniform vec2 uCenter; uniform vec2 uRelC; uniform vec2 uInvScale; uniform vec4 uVp;
+uniform highp sampler2D uEdges; uniform int uEdgeN;
+uniform int uPoleN; uniform vec4 uPole[16]; uniform vec4 uCoef[32]; uniform vec2 uShow;
+out vec4 o;
+vec2 cmx(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+void main() {
+  vec2 off = (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
+  vec2 z = uCenter + off, zr = uRelC + off;
+  int wn = 0;
+  for (int j = 0; j < uEdgeN; j++) {
+    vec4 e = texelFetch(uEdges, ivec2(j, 0), 0);
+    float side = (e.z - e.x) * (zr.y - e.y) - (zr.x - e.x) * (e.w - e.y);
+    if (e.y <= zr.y) { if (e.w > zr.y && side > 0.0) wn++; }
+    else if (e.w <= zr.y && side < 0.0) wn--;
+  }
+  bool inside = wn != 0;
+  vec3 grey = mix(uPlane, vec3(0.5), 0.6);
+  if ((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)) { o = vec4(grey, 1.0); return; }
+  vec2 pp = vec2(0.0);
+  for (int k = 0; k < max(16, uNoUnroll); k++) {   // (a bound no compiler can know: FXC links a loop, not 16 copies, #72)
+    if (k >= uPoleN) break;
+    vec4 P = uPole[k];
+    vec2 d = zr - P.xy;
+    float d2 = dot(d, d);
+    if (d2 < 1e-20 * (1.0 + dot(P.xy, P.xy))) { o = vec4(grey, 1.0); return; }
+    vec2 u = vec2(d.x, -d.y) / d2;
+    vec2 t = u, s = cmx(uCoef[2 * k].xy, t);
+    if (P.z > 1.5) { t = cmx(t, u); s += cmx(uCoef[2 * k].zw, t); }
+    if (P.z > 2.5) { t = cmx(t, u); s += cmx(uCoef[2 * k + 1].xy, t); }
+    if (P.z > 3.5) { t = cmx(t, u); s += cmx(uCoef[2 * k + 1].zw, t); }
+    pp += P.w * s;
+  }
+  vec2 nf = inside ? float(wn) * mapF(z) : vec2(0.0);
+  vec2 w = inside ? nf - pp : -uShow.y * pp;
+  // a value that cancels to float32 rounding (F against its own principal parts) is 0: neutral, not noise
+  if (!(wabs(w) > 4e-6 * (wabs(nf) + wabs(pp)))) { o = vec4(grey, 1.0); return; }
+  o = vec4(dcolor(w), 1.0);
 }
 `;
   // ---------- preimages: where w = F(z) lands in target shapes of the w-plane (Preimage mode) ----------

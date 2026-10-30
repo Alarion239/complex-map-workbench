@@ -17,10 +17,10 @@
 // Part 2 (v16 CORE, below "v16 CORE"): the app's shapes. A shape may carry s.at (bound handles) and s.def (a
 // construction: circle3, meet, glider, midpoint, bisector); Constr.recompute writes their concrete fields, the
 // runtime form s._g, s.cundef / s.cHid (undefined) and s._atInf (a point at infinity), in topological order.
-(function (root, factory) {
-  const M = factory();
-  if (typeof module === 'object' && module.exports) module.exports = M; else root.Constr = M;
-})(typeof self !== 'undefined' ? self : this, function () {
+const Constr = (function (factory) {
+  const M = factory(); if (typeof window !== 'undefined') window.Constr = M;
+  return M;
+})(function () {
   const EPS = 2 ** -53;
   const INF = 'inf';                       // the point at infinity
   const isInf = (p) => p === INF;
@@ -842,7 +842,7 @@
   }
   // the position handles of a shape (Region.handlesOf when the app's Region is loaded; the same keys otherwise)
   function handlePos(s, h) {
-    if (typeof Region !== 'undefined' && Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) {
+    if (Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) {
       try { const hs = Region.handlesOf(s); for (const [k, z] of hs) if (k === h) return [z.re, z.im]; } catch (e) { /* */ }
       return null;
     }
@@ -852,7 +852,7 @@
     return isXY(s[h]) ? s[h].slice() : null;
   }
   const handleKeys = (s) => {
-    if (typeof Region !== 'undefined' && Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) { try { return Region.handlesOf(s).map((x) => x[0]); } catch (e) { return []; } }
+    if (Region.handlesOf && Region.KINDS && Region.KINDS[s.kind]) { try { return Region.handlesOf(s).map((x) => x[0]); } catch (e) { return []; } }
     const out = [];
     for (const k of ['p', 'a', 'b', 'm', 'c']) if (isXY(s[k])) out.push(k);
     if (Array.isArray(s.pts)) s.pts.forEach((_, i) => out.push('v' + i));
@@ -1098,7 +1098,7 @@
       else { const g = geomOf(G); push(circlePiece(g.c, g.r, 0, 0, TAU, G)); }
       if (out[0] && s.def && (s.def.op === 'circle3' || s.def.op === 'perp' || (s.def.op === 'touch' && !(s.def.args[2] && s.def.args[2].inf)))) out[0].c3 = true;
       // [v16.4 segments] Inside C only: the arc (its carrier's kind, G and c3 kept), t from 0 to 1 between its ends
-      if (out[0] && s._seg && s.def && s.def.op === 'perp' && s.def.seg) Object.assign(out[0], { seg: s._seg, closed: false, period: 0 });
+      if (out[0] && s._seg && s.def && s.def.op === 'perp' && (s.def.seg || s.def.between)) Object.assign(out[0], { seg: s._seg, closed: false, period: 0 });
       return out.filter((p) => p && p.kind);
     }
     switch (s.kind) {
@@ -1830,6 +1830,15 @@
         const fin = [P, Q].filter((z) => !isInf(z));
         if (fin.length === 2) { G.e = abs(sub(fin[1], fin[0])); withPts(G, fin); }
         if (G.o[0] === 0 && G.o[1] === 0) G.thru0 = true;
+        // [issue #70] Between z0 and z1: the segment of K from P to Q (the side follows P: nothing stored)
+        if (def.between === 1 && def.fill !== 'in') {
+          const sd = betweenOf(G, pc.G, P, Q, !!def.flip);
+          if (sd.undef) { delete s._seg; return fail(U(sd.undef)); }
+          s._g = G; s._seg = sd;
+          const rr = setKind(s, sd.kind, sd.fields);
+          res.ch = true; res.kindChanged = rr.kindChanged;
+          return res;
+        }
         // [v16.4 segments SPEC 2] Inside C only: the arc of K on the side seg of Gc, its ends K ∩ C
         if ((def.seg === 1 || def.seg === -1) && def.fill !== 'in') {
           const sd = segOf(G, pc.G, Gc, def.seg, P, Q, !!def.flip);
@@ -2020,6 +2029,11 @@
     q.u0 = u[i0]; q.D = span1(u[i0], u[1 - i0]);
     if (!(q.D > 0)) return { undef: 'nomeet' };
     q.ends = [cpz(m[i0]), cpz(m[1 - i0])]; q.m = [cpz(m[0]), cpz(m[1])];
+    return segTail(q);
+  }
+  // the rest of a seg object once its ends, u0 and D are known: its middle, its size, and the shape's fields (the middle of
+  // the arc, or its quarter when the middle is infinity)
+  function segTail(q) {
     let mid = segAtU(q, q.u0 + q.D / 2);
     if (!isXY(mid)) mid = segAtU(q, q.u0 + q.D / 4);
     const fe = q.ends.filter(isXY);
@@ -2029,6 +2043,29 @@
     if (fe.length === 2) { q.kind = 'arc'; q.fields = { a: q.ends[0].slice(), m: mid.slice(), b: q.ends[1].slice(), c: undefined, r: undefined, complement: undefined }; }
     else { q.kind = 'ray'; q.fields = { a: fe[0].slice(), b: mid.slice(), m: undefined, c: undefined, r: undefined, complement: undefined }; }
     return q;
+  }
+  // [issue #70] "Between z0 and z1": the true hyperbolic segment of K from P to Q (no tails): of the two arcs of K between
+  // them, the one that K's two meets with C do not cut (P and Q on the same side of C, inside or outside). On opposite
+  // sides each arc holds a meet: undefined ('betweenSides'). A point on C is an end of the segment. The same seg object as
+  // segOf's (ends, u0, D, H, k), so gliders, crossings, hit tests, the images and the globe treat it as that arc.
+  function betweenOf(G, GcP, P, Q, flip) {
+    if (isInf(P) || isInf(Q)) return { undef: 'lineInf' };
+    const m = meets(G, GcP);
+    if (!m || m[0] == null || m[1] == null) return { undef: 'nomeet' };
+    const dist = abs(sub(Q, P));
+    if (!(dist > 0)) return { undef: 'coincide' };
+    const k = (flip ? -1 : 1) * dist;
+    const q = { G, H: reanchorAt(G, P), k };
+    const uP = segU(q.H, k, P), uQ = segU(q.H, k, Q), um = m.map((z) => segU(q.H, k, z));
+    // a meet strictly inside the arc from a to b (increasing u), with a margin so a meet at an end does not count
+    const cut = (a, b) => um.some((u) => { const v = span1(a, u), D = span1(a, b); return v > 1e-12 && v < D - 1e-12; });
+    const fwd = cut(uP, uQ), back = cut(uQ, uP);
+    if (fwd === back) return { undef: 'betweenSides' };
+    const [a, b] = fwd ? [uQ, uP] : [uP, uQ];
+    q.u0 = a; q.D = span1(a, b);
+    if (!(q.D > 0)) return { undef: 'coincide' };
+    q.ends = fwd ? [cpz(Q), cpz(P)] : [cpz(P), cpz(Q)]; q.m = [cpz(m[0]), cpz(m[1])];
+    return segTail(q);
   }
   // the form a perpendicular circle's side is measured against: C's piece form, a constructed C's flip undone
   const gcOf = (C, pc) => (pc && pc.G ? (C && C.def && C.def.flip && FLIPPED.includes(C.def.op) ? flipG(pc.G) : pc.G) : null);
@@ -2085,6 +2122,8 @@
   function setSeg(state, id, seg, env) {
     const e = index(state).get(id), s = e && e.s, d = s && s.def;
     if (!d || d.op !== 'perp') return null;
+    // (Whole while Between is on: Between goes off)
+    if (d.between === 1 && !(seg === 1 || seg === -1)) return setBetween(state, id, false, env);
     const was = d.seg === 1 || d.seg === -1 ? d.seg : 0, now = seg === 1 || seg === -1 ? seg : 0;
     if (was === now) return [];
     const info = segSides(state, id, env), Gc = info && info.Gc;
@@ -2097,7 +2136,7 @@
       if (!was && now * (isInf(z) ? Gc.A : fOf(Gc, z)) <= 0) return cpz(z);
       return mirrorIn(Gc, z) || cpz(z);
     });
-    if (now) { d.seg = now; d.fill = 'none'; } else delete d.seg;
+    if (now) { d.seg = now; d.fill = 'none'; delete d.between; } else delete d.seg;
     recompute(state, { all: true }, env);
     if (!s.cundef) {
       const ctx = makeCtx(state, env, null), p3 = now ? null : pts3In(ctx, s, e.plane);
@@ -2106,6 +2145,35 @@
         if (!pc) return;
         const mr = !now && pc.c3 && p3 && p3 !== 'inf' ? p3 : null;
         // (off, infinity: K's u = 1/2 when K's map is the M(R) one; else its t stays)
+        if (isInf(w) && !now) { if (mr && mr.mr) g.t = 0.5; return; }
+        const pr = projectPiece(pc, w, mr);
+        if (pr && Number.isFinite(pr.t)) g.t = pr.t;
+      });
+      recompute(state, { all: true }, env);
+    }
+    return gl.map((g) => g.id);
+  }
+  // [issue #70] Constr.setBetween(state, id, on, env): Between z0 and z1 on (true) or off on the perpendicular circle id (on
+  // clears Inside C only: the two are one choice). Its gliders move so none leaves the drawn curve: on, a glider off the
+  // segment goes to its nearer end; off, every glider keeps its point. One state change (the caller records one undo
+  // step). Returns the ids of K's gliders, or null
+  function setBetween(state, id, on, env) {
+    const e = index(state).get(id), s = e && e.s, d = s && s.def;
+    if (!d || d.op !== 'perp') return null;
+    const was = d.between === 1, now = !!on;
+    if (was === now && !(now && (d.seg === 1 || d.seg === -1))) return [];
+    const gl = lists(state)[e.plane].filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
+    const want = gl.map((g) => { const z = g._atInf ? INF : g.p; return g.cundef || !(isInf(z) || isXY(z)) ? null : cpz(z); });
+    if (now) { d.between = 1; delete d.seg; d.fill = 'none'; } else delete d.between;
+    recompute(state, { all: true }, env);
+    if (!s.cundef) {
+      const ctx = makeCtx(state, env, null), p3 = now ? null : pts3In(ctx, s, e.plane);
+      gl.forEach((g, i) => {
+        let w = want[i];
+        const pc = w && ctx.piecesOf(s)[g.def.args[0].part];
+        if (!pc) return;
+        if (now && pc.seg && !onPiece(pc, w)) w = chordal(w, pc.seg.ends[0]) <= chordal(w, pc.seg.ends[1]) ? cpz(pc.seg.ends[0]) : cpz(pc.seg.ends[1]);
+        const mr = !now && pc.c3 && p3 && p3 !== 'inf' ? p3 : null;
         if (isInf(w) && !now) { if (mr && mr.mr) g.t = 0.5; return; }
         const pr = projectPiece(pc, w, mr);
         if (pr && Number.isFinite(pr.t)) g.t = pr.t;
@@ -2466,7 +2534,7 @@
     // a perpendicular circle: the M(R) map anchored at P, scaled by |PQ|, its sign undoing the flip
     // (z(t) = mR(K at P, sg |PQ| tan(pi t)): P at 0, the point opposite P at 1/2, infinity there for a line)
     if (cs && cs.def && cs.def.op === 'perp') {
-      if (cs.def.seg && cs._seg) return null;           // (Inside C only: the arc's own t, 0 to 1 between its ends)
+      if ((cs.def.seg || cs.def.between) && cs._seg) return null;           // (Inside C only, or Between: the arc's own t, 0 to 1 between its ends)
       const R = cs.def.args.slice(1).map((r) => resolveIn(ctx, r, plane));
       if (R.some((x) => x.undef)) return 'inf';
       const fin = R.filter((x) => !x.inf).map((x) => x.z);
@@ -2563,6 +2631,9 @@
           if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.flip != null) d.flip = !!d.flip;
           // [v16.4 segments] Inside C only: a perpendicular circle drawn as a curve, seg 1 or -1 (Region wins)
           if (ok && 'seg' in d && !(d.op === 'perp' && (d.seg === 1 || d.seg === -1) && d.fill !== 'in')) delete d.seg;
+          // [issue #70] Between z0 and z1: between 1 on a perpendicular circle drawn as a curve; it wins over seg
+          if (ok && 'between' in d && !(d.op === 'perp' && d.between === 1 && d.fill !== 'in')) delete d.between;
+          if (ok && d.between === 1) delete d.seg;
           if (ok && d.op === 'glider' && !Number.isFinite(s.t)) s.t = 0;
           if (ok && d.seed != null && !isXY(d.seed)) delete d.seed;
         }
@@ -2720,6 +2791,7 @@
       op: d ? d.op : (s.at ? 'bound' : null), args: d ? d.args.slice() : [], at: s.at ? Object.assign({}, s.at) : null,
       fill: d && ['circle3', 'perp', 'touch'].includes(d.op) ? (d.fill === 'in' ? 'in' : 'none') : null, flip: d ? !!d.flip : null,
       seg: d && d.op === 'perp' ? (d.seg === 1 || d.seg === -1 ? d.seg : 0) : null,
+      between: d && d.op === 'perp' ? (d.between === 1 ? 1 : 0) : null,
       index: d && (d.op === 'meet' || d.op === 'tangent') ? d.index : null, family, t: d && d.op === 'glider' ? s.t : null,
       inf: !!s._atInf, undef: s.cundef || null, note: s._note || null,
     };
@@ -2765,7 +2837,9 @@
     // v16 review fixes
     orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, tangentNear, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
     // v16.4: Inside C only (notes/orthogonal-circle/segments/SPEC.md)
-    segOf, segAt, segSideOf, segSides, setSeg, segCurves, mirrorIn, gcOf, onCarrier,
+    segOf, betweenOf, segAt, segSideOf, segSides, setSeg, setBetween, segCurves, mirrorIn, gcOf, onCarrier,
     get lastRecompute() { return lastRecompute; },
   };
 });
+import { Region } from './region.js';
+export { Constr, Constr as 'module.exports' };

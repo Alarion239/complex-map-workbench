@@ -291,6 +291,8 @@ const fmt = (z) => CX.fmt(z, 8);
     if (st.type === 'conj') { check('conj has no derivative', !!r.error, JSON.stringify(r)); continue; }
     // d/dz is an operator on the chain (its derivative is a second d/dz step), not a map with a derivative formula
     if (st.type === 'deriv') { check('d/dz has no single-step derivative', !!r.error, JSON.stringify(r)); continue; }
+    // ([issue #260] Φ_M and φ_c: no formula for Φ′, so d/dz after them is numerical, and they say so)
+    if (st.type === 'dh' || st.type === 'bottcher') { check(`${st.type}: no derivative formula, d/dz numerically`, !!r.error && /numerically/.test(r.error), JSON.stringify(r)); continue; }
     if (r.error) { check(`derivative of ${nm}`, false, r.error); continue; }
     const db = Funcs.build(r.step);
     if (db.error) { check(`derivative step of ${nm} builds`, false, db.error); continue; }
@@ -314,6 +316,9 @@ const fmt = (z) => CX.fmt(z, 8);
     check(`levelGLSL ${s}`, g.ok && /^float tgtLevel\(vec2 z\)/.test(g.source), g.source);
   }
   check('levelGLSL accepts text', GLChain.levelGLSL('|z-1|<2', 'L2').ok);
+  // ([issue #6] the Mandelbrot set's escape test: a recurrence inside a region formula, its loop bounded by N)
+  const gm = GLChain.levelGLSL(Expr.parse('|iter(u^2+z, u, 0, 64)| \\le 2', { allowRel: true }), 'mLevel');
+  check('levelGLSL of a recurrence (the Mandelbrot set)', gm.ok && /for \(int j = 0; j < int\(/.test(gm.source), gm.source);
   check('levelGLSL rejects a non-region', !GLChain.levelGLSL(Expr.parse('z^2'), 'L3').ok);
 }
 console.log(`${n - bad}/${n} passed; bad: ${bad}`);

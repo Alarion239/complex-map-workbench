@@ -48,6 +48,14 @@ P._local(list);
   eq(P.namesIn('a, -a; 2k1 + \\beta'), ['a', 'k1', 'β'], 'namesIn a list');
   eq(P.namesIn('principal'), [], 'a word holds no names');
   eq(P.namesIn('sin z'), [], 'sin z holds no names');
+  // [#240] a field's bound letters are never names: a series' n, a recurrence's u
+  eq(P.unknownIn('1/n!', { bound: ['n'] }), [], 'unknownIn 1/n! in a_n: no n');
+  eq(P.unknownIn('b^n', { bound: ['n'] }), ['b'], 'b^n in a_n: b only');
+  eq(P.unknownIn('u^2+z+1', { bound: ['u'] }), [], 'u^2+z+1 in a rule: no u');
+  eq(P.unknownIn('u^2+q', { bound: ['u'] }), ['q'], 'u^2+q in a rule: q only');
+  ok(/index of a series/.test(P.check('n').error || ''), 'n is refused as a number: ' + JSON.stringify(P.check('n')));
+  ok(!P.check('n1').error, 'n₁ is a name');
+  ok(/recurrence/.test(P.check('u', { bound: ['u'] }).error || '') && !P.check('u').error, 'u refused where a field binds it, a name elsewhere');
 
   // (c) clashes
   for (const [nm, re] of [['z', /variable/], ['w', /variable/], ['x', /Re z/], ['y', /Re z/], ['r', /ρ or R/], ['i', /imaginary/], ['e', /Euler/], ['θ', /arg z/], ['theta', /arg z/], ['pi', /constant/], ['π', /constant/], ['sin', /function/], ['ab', /function or a word/], ['ж', /Latin/], ['', /Type a name/], ['z1', /variable/]]) {
@@ -136,6 +144,62 @@ P._local(list);
   const k2 = GLChain.build([cu], [b2]).key;
   ok(k1 === k2, 'GPU key independent of the value (custom)');
   eq([b1.f(C(1, 0)).re, b2.f(C(1, 0)).re], [1.5, 3], 'CPU custom map follows the value');
+  // [#241] a number inside a series' a_n or a recurrence's rule: the CPU map follows its value, the GPU key does not
+  for (const [what, sq, z] of [['series a_n = a^n', st('series', { kind: 'power', an: 'a^n', c: '0' }), C(0.3, 0.1)], ['recurrence u^2 + a', st('recurrence', { u0: 'z', g: 'u^2+a', N: 5 }), C(0.2, 0.1)]]) {
+    P.set('a', 0.5);
+    const s1 = Funcs.build(sq), q1 = GLChain.build([sq], [s1]).key;
+    P.set('a', -0.3);
+    const s2 = Funcs.build(sq), q2 = GLChain.build([sq], [s2]).key;
+    ok(!s1.error && !s2.error, `${what} builds: ${s1.error || s2.error}`);
+    ok(q1 === q2, `${what}: GPU key independent of the value`);
+    ok(CX.abs(CX.sub(s1.f(z), s2.f(z))) > 1e-3, `${what}: CPU map follows the value`);
+  }
+  // [#327] a COMPLEX number inside a_n and a recurrence's rule: the CPU maps are the closed forms for each value, the GPU
+  // key does not depend on the value (real or complex), and the uniforms carry its imaginary part. The Dirichlet
+  // coefficients and the recurrence's constant are written as they are, so those are checked as (re, im) pairs; a power
+  // or Laurent series scales its coefficients, so there only the change of the uniforms is checked
+  {
+    const A1 = { re: 0.5, im: 0.3 }, A2 = { re: -0.2, im: 0.7 };
+    const ac = (a) => C(a.re, a.im), one = C(1, 0), cm = CX.mul, cs = CX.sub, ca = CX.add, cdiv = CX.div;
+    const near = (u, v) => CX.abs(cs(u, v)) < 1e-9 * Math.max(1, CX.abs(v));
+    // a pair (re, im) of consecutive floats in the filled uniforms (Float32: 1e-6 is a safe tolerance)
+    const hasPair = (f, re, im) => f.some((x, i) => i + 1 < f.length && Math.abs(x - re) < 1e-6 && Math.abs(f[i + 1] - im) < 1e-6);
+    const fillOf = (sq, b) => { const g = GLChain.build([sq], [b]); return { key: g.key, f: Array.from(g.fill(new Float32Array(g.slots * 4))) }; };
+    const orbit = (g, z0, N) => { let u = z0; for (let i = 0; i < N; i++) u = g(u); return u; };
+    const z1 = C(0.4, -0.2), z2 = C(0.8, -0.5), z3 = C(0.2, 0.1), s3 = C(3, 1);
+    const cases = [
+      ['power a^n = 1/(1 − a z)', st('series', { kind: 'power', an: 'a^n', c: '0' }), z1, (a) => cdiv(one, cs(one, cm(a, z1)))],
+      ['power conj(a)^n = 1/(1 − ā z)', st('series', { kind: 'power', an: '\\overline{a}^n', c: '0' }), z1, (a) => cdiv(one, cs(one, cm(CX.conj(a), z1)))],
+      ['power |a|^n = 1/(1 − |a| z)', st('series', { kind: 'power', an: '|a|^n', c: '0' }), z1, (a) => cdiv(one, cs(one, cm(C(CX.abs(a), 0), z1)))],
+      ['Laurent a^|n| = 1/(1 − a z) + (a/z)/(1 − a/z)', st('series', { kind: 'laurent', an: 'a^{|n|}', c: '0' }), z2, (a) => ca(cdiv(one, cs(one, cm(a, z2))), cdiv(cdiv(a, z2), cs(one, cdiv(a, z2))))],
+      ['Dirichlet a^n = Li_s(a)', st('series', { kind: 'dirichlet', an: 'a^n', c: '0' }), s3, (a) => { let t = C(0, 0), p = one; for (let k = 1; k <= 200; k++) { p = cm(p, a); t = ca(t, cm(p, CX.exp(CX.scale(s3, -Math.log(k))))); } return t; }, (a) => [[a.re, a.im]]],
+      ['recurrence u² + a, N = 3', st('recurrence', { u0: 'z', g: 'u^2+a', N: 3 }), z3, (a) => orbit((u) => ca(cm(u, u), a), z3, 3), (a) => [[a.re, a.im]]],
+      ['recurrence a u (1 − u), N = 3', st('recurrence', { u0: 'z', g: 'a*u*(1-u)', N: 3 }), z3, (a) => orbit((u) => cm(cm(a, u), cs(one, u)), z3, 3), (a) => [[a.re, a.im]]],
+    ];
+    for (const [what, sq, z, want, pairs] of cases) {
+      const keys = [], fills = [];
+      for (const av of [A1, A2, 0.5]) {
+        P.set('a', av);
+        const b = Funcs.build(sq);
+        ok(!b.error, `${what}, a = ${JSON.stringify(av)} builds: ${b.error}`);
+        if (b.error) continue;
+        const a = typeof av === 'number' ? C(av, 0) : ac(av);
+        ok(near(b.f(z), want(a)), `${what}: the CPU map is the closed form for a = ${JSON.stringify(av)}: ${JSON.stringify(b.f(z))} vs ${JSON.stringify(want(a))}`);
+        const fo = fillOf(sq, b);
+        keys.push(fo.key); fills.push(fo.f);
+      }
+      ok(keys.length === 3 && keys[0] === keys[1] && keys[1] === keys[2], `${what}: one GPU key for two complex values and a real one`);
+      if (fills.length === 3) {
+        ok(fills[0].join() !== fills[1].join(), `${what}: the uniforms differ between the two complex values`);
+        ok(fills[0].join() !== fills[2].join(), `${what}: the imaginary part reaches the uniforms (a = 0.5 + 0.3i against a = 0.5)`);
+      }
+      if (pairs && fills.length === 3) {
+        for (const [re, im] of pairs(A1)) ok(hasPair(fills[0], re, im), `${what}: the uniforms of a = 0.5 + 0.3i hold (${re.toFixed(3)}, ${im.toFixed(3)})`);
+        for (const [re, im] of pairs(A2)) ok(hasPair(fills[1], re, im), `${what}: the uniforms of a = −0.2 + 0.7i hold (${re.toFixed(3)}, ${im.toFixed(3)})`);
+      }
+    }
+  }
+  P.set('a', 2);
   const mb = st('mobius', { b: 'a' });
   const km1 = GLChain.build([mb], [Funcs.build(mb)]).key;
   P.set('a', -3);
@@ -191,6 +255,87 @@ P._local(list);
     try { P.readScene(bad); } catch (e) { msg = e.message; }
     ok(re.test(msg), `bad scene ${bad}: ${msg}`);
   }
+  // an example's number keeps the user's number it stands in for (ex.was), in the saved state
+  const sx = P.sanitize([{ name: 'N', value: 8, min: 1, max: 30, step: 1, ex: { was: { name: 'N', value: 3, min: 1, max: 9, step: 1, ex: true } } }, { name: 'M', value: 2, ex: true }, { name: 'K', value: 1, ex: { was: 7 } }]);
+  eq(sx[0].ex, { was: { name: 'N', value: 3, min: 1, max: 9, step: 1 } }, 'sanitize keeps ex.was, as a plain number');
+  eq(sx[1].ex, true, 'ex: true stays');
+  eq(sx[2].ex, true, 'a damaged ex.was is dropped, ex stays');
+  eq(P.sanitize(JSON.parse(JSON.stringify(sx))), sx, 'sanitize with ex.was is idempotent');
+  // (h) complex numbers: a = 1 + i, formulas, real-only fields, resolve and save round trips
+  list.length = 0;
+  ok(P.add('a', { value: 1 }) && P.get('a') === 1 && !P.isComplex('a'), 'a real number stays real');
+  eq(P.set('a', '1 + i'), '', 'a free number can be typed as a complex number');
+  eq(P.getC('a'), { re: 1, im: 1 }, 'getC reads {re, im}');
+  eq(P.get('a'), 1, 'get keeps the real part');
+  ok(P.isComplex('a') && P.list()[0].im === 1, 'the entry holds im');
+  eq(val('a'), [1, 1], 'a formula reads a as 1 + i');
+  eq(val('a^2'), [0, 2], 'a² = 2i');
+  eq(val('Re a'), [1, 0], 'Re a'); eq(val('Im a'), [1, 0], 'Im a');
+  ok(Math.abs(val('|a|')[0] - Math.SQRT2) < 1e-12, '|a|');
+  ok(Math.abs(val('arg a')[0] - Math.PI / 4) < 1e-12, 'arg a');
+  eq(val('conj a'), [1, -1], 'conj a');
+  eq(val('\\bar{a}'), [1, -1], '\\bar{a}');
+  eq(val('\\overline{a}'), [1, -1], '\\overline{a}');
+  eq(P.add('b', { value: 2 }) && P.set('b', 'a^2'), '', 'a number by formula may be complex');
+  eq(P.getC('b'), { re: 0, im: 2 }, 'b = a² = 2i');
+  P.set('a', '1 - i');
+  eq(P.getC('b'), { re: 0, im: -2 }, 'b follows a');
+  let e = ''; try { P.evalReal('a'); } catch (x) { e = x.message; }
+  ok(/a is complex: use Re a, Im a or \|a\|/.test(e), 'a real-only field names the number: ' + e);
+  e = ''; try { P.evalReal('i'); } catch (x) { e = x.message; }
+  ok(/must be real/.test(e), 'a complex constant without a name keeps the old message');
+  eq(P.evalReal('Re a + Im a'), 0, 'real-only fields read Re a and Im a');
+  eq(P.evalVal('a + 1'), { re: 2, im: -1 }, 'evalVal');
+  eq(P.set('a', 0.5), '', 'a real value clears the imaginary part');
+  ok(!('im' in P.list()[0]) && !P.isComplex('a'), 'back to real: no im saved');
+  P.set('a', { re: -0.5, im: 0.3 });
+  for (const [re, im, txt] of [[0.5, 0.3, '0.5+0.3'], [-0.5, -0.3, '-0.5-0.3'], [0, 0.3, '0.3'], [0, 1, ''], [0, -1, '-'], [2, 1, '2+'], [1e-7, -2e-9, '1e-7-2e-9'], [-0, 0.5, '0.5']]) {
+    P.set('a', { re, im });
+    const r = P.resolve('a');
+    ok(r === `(${txt}i)`, `resolve ${re},${im}: ${r}`);
+    const v = Expr.constValue(r);
+    ok(v.re === re && v.im === im, `resolve round trip ${re},${im}: ${v.re},${v.im}`);
+  }
+  P.set('a', 0.5);
+  eq(P.resolve('2a'), '2(0.5)', 'a real number resolves as before');
+  eq(P.resolve('a', { a: { re: 1, im: -1 } }), '(1-i)', 'resolve with a value override');
+  P.set('a', { re: 1, im: 2 });
+  const san2 = P.sanitize(JSON.parse(JSON.stringify(P.list())));
+  eq(san2.find((q) => q.name === 'a').im, 2, 'sanitize keeps im');
+  eq(P.sanitize([{ name: 'k', value: 1, im: 'x' }, { name: 'm', value: 1, im: 0 }]).map((q) => 'im' in q), [false, false], 'sanitize drops a bad or zero im');
+  eq(P.sanitize(san2), san2, 'sanitize with im is idempotent');
+  const cstate = { shapes: [], steps: [{ type: 'custom', params: { expr: 'a z' }, on: true }], params: san2 };
+  eq(await P.decodeLink(await P.encodeLink(cstate)), cstate, 'a link with a complex number round-trips');
+  eq(P.readScene(P.scene(cstate)), cstate, 'a scene with a complex number round-trips');
+  // an older build reads the real part only: value is still the real part, nothing else is required of it
+  eq(san2.find((q) => q.name === 'a').value, 1, 'the real part is the saved value');
+  // inline: deleting a complex number writes its value into the formulas
+  P.inline('a');
+  eq(P.list().find((q) => q.name === 'b').expr, '(1+2i)^2', 'inline writes the complex value');
+  ok(P.tex('a') !== undefined, 'tex of a name');
+  // comparisons name a complex shared number instead of reading its real part (Re z < a, a = 0.5 + 0.3i)
+  list.length = 0;
+  P.add('a', { value: { re: 0.5, im: 0.3 } });
+  const rel = (src) => Expr.classifyRelation(Expr.parse(src, { allowRel: true }));
+  for (const src of ['Re z < a', 'a z < 1', 'Re z < 2a', 'Im z >= conj a']) {
+    const r = rel(src);
+    ok(r.dim === 'error' && /a is complex: use Re a, Im a or \|a\|/.test(r.error), `comparison ${src}: ${JSON.stringify(r)}`);
+    let m = ''; try { Expr.compileLevel(Expr.parse(src, { allowRel: true })); } catch (e) { m = e.message; }
+    ok(/a is complex/.test(m), `compileLevel ${src}: ${m}`);
+  }
+  for (const src of ['Re z < Re a', '|z - a| < 2', 'Re(z a) < 1', 'Im z < arg a', 'Re z < i', 'Re z < |a|']) ok(rel(src).dim === 'area', `comparison ${src} stays an area: ${JSON.stringify(rel(src))}`);
+  ok(rel('Re z = a').dim === 'error', 'an equation with a complex number keeps its own message');
+  P.set('a', 0.5);
+  ok(rel('Re z < a').dim === 'area', 'the same comparison reads once a is real');
+  // a number that is playing and becomes complex stops (and one that becomes real again)
+  global.requestAnimationFrame = () => 0;
+  P.add('q', { value: 1 });
+  P.togglePlay('q');
+  ok(P.isPlaying('q'), 'q plays');
+  P.set('q', '1 + i');
+  ok(!P.isPlaying('q'), 'editing a playing number into a complex value stops its play');
+  P.set('q', 2);
+  ok(!P.isPlaying('q'), 'and a real value does not restart it');
   console.log(`${n - fails}/${n} passed`);
   if (fails) process.exit(1);
 })().catch((e) => { console.error(e); process.exit(1); });

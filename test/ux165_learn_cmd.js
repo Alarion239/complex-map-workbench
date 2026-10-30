@@ -43,9 +43,9 @@ await shot('ux165-ux21-laptop');
 await laptop(1366, 768, true); await settle(300); await shot('ux165-ux21-laptop-dark'); await laptop();
 await ev(`document.querySelector('.tour-lane .btn.primary').click()`); await settle(1500);
 check('UX21 laptop: Start runs the tour from Basics, and the line has gone', (await ev('Tour.isActive() && Tour.current().chapter === "basics"')) && !(await ev(`!!document.querySelector('.tour-lane')`)));
-// (v16.5 UX77) Details folded at first on a laptop; the welcome lead says the practice is cleared (UX90)
-g = await ev(`({ why: Tour.lit() ? Tour.lit().why : null, wl: (document.querySelector('.ts-wlw') || {}).textContent, lead: (document.querySelector('#tourLead') || {}).textContent })`);
-check('UX77: Details starts folded at 1366, and is called Details', g.why === false && /Details/.test(g.wl || ''), g);
+// (#250) no Details on a laptop: the strip's text is plain, with the key on Next and the switch beside ×; the welcome lead says the practice is cleared (UX90)
+g = await ev(`({ why: Tour.lit() ? Tour.lit().why : null, details: [...document.querySelectorAll('.tour-strip *')].some((e) => /Details/.test(e.textContent) || /Details/.test(e.getAttribute('aria-label') || '')), key: getComputedStyle(document.querySelector('.ts-next'), '::after').content, autob: !!document.querySelector('.ts-autob') && document.querySelector('.ts-autob').getClientRects().length > 0, textBtn: document.querySelector('.ts-text').getAttribute('role'), lead: (document.querySelector('#tourLead') || {}).textContent })`);
+check('#250: no Details at 1366; Next carries →, Move on by itself is a switch in the row, the text is plain', g.why === false && !g.details && g.key === '"→"' && g.autob && g.textBtn === 'presentation', g);
 check('UX90: the welcome lead says what is cleared', /Practice freely: what you draw here is cleared at the end/.test(g.lead || ''), g.lead);
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(500); await ev('Tour.stop()'); await settle(300);
 await laptop(1440, 900);
@@ -54,7 +54,7 @@ await fresh('ux165w'); await settle(1500);
 await ready();
 await ev(`Tour.start({ chapter: 'views' })`); await settle(1500);
 for (let i = 0; i < 20 && !(await ev('!!Tour.lit()')); i++) await sleep(250);
-check('UX77: Details folded at 1440 x 900 too (it opened from 1280 x 800 up)', (await ev('Tour.lit() && Tour.lit().why')) === false);
+check('#250: no sheet at 1440 x 900 either', (await ev('Tour.lit() && Tour.lit().why')) === false && (await ev(`!document.querySelector('#tourWhy') || !document.querySelector('#tourWhy').isConnected`)));
 await ev('Tour.stop()'); await settle(300);
 await laptop();
 
@@ -79,7 +79,8 @@ grab();
 // ---------------------------------------------------------------- UX20: keys and options in the pane head
 await laptop();
 await fresh('ux165a'); await settle(1800);
-g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => c.classList.contains('opts-btn')) }; })()`);
+g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => { const r = c.getBoundingClientRect(), hd = c.closest('.pane-head'), h = hd && hd.getBoundingClientRect(); return !!h && r.top >= h.top - 1 && r.bottom <= h.bottom + 1; }) }; })()`);
+// (#247: the head's controls are inline, compact, every one inside the head)
 check('UX20 laptop X → Y: the pattern key and the options are in Y\'s pane head, nothing of theirs on the plot', g.legHead && g.footHead && g.inPlot === 0 && /^cell /.test(g.sum || '') && g.onlyBtn, g);
 let lb = await box('#rightLegend');
 await move(lb.l + 8, lb.t + 8); await settle(500);
@@ -88,9 +89,12 @@ check('UX20: the key unfolds under the head only while pointed at (invited)', g.
 await shot('ux165-ux20-key-hover');
 await move(300, 300); await settle(300);
 check('UX20: and folds again', await ev(`getComputedStyle(document.querySelector('#rightLegend > canvas')).display === 'none'`));
-await ev(`document.querySelector('#rightFoot .opts-btn').click()`); await settle(400);
-g = await ev(`(() => { const p = document.querySelector('.opts-pop'); if (!p) return null; const b = p.getBoundingClientRect(), h = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { phaseKey: !!p.querySelector('#wKeyChkR'), under: b.top >= h.bottom - 1 }; })()`);
-check('UX20: Display options in the head opens View outline and Phase key under it', g && g.phaseKey && g.under, g);
+// (#247: View outline and Phase key are toggles in Y's head, or behind its ⋯ when the head has no room, or, when the head
+// holds no toggle at all, in the pattern button's pop-up above the patterns (one button); never over the plot)
+const inlineKey = await ev(`(() => { const k = document.getElementById('wKeyChkR'), l = k && k.closest('label'); return !!(l && l.getClientRects().length && l.closest('#paneR .pane-head')); })()`);
+if (!inlineKey) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400); }
+g = await ev(`(() => { const k = document.getElementById('wKeyChkR'), f = document.getElementById('fovChk'), l = k && k.closest('label'), p = document.querySelector('.opts-pop'), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); if (!l) return null; const b = (p || l).getBoundingClientRect(); return { phaseKey: l.getClientRects().length > 0, fov: !!f, inHead: !!l.closest('.pane-head'), under: !p || b.top >= hd.bottom - 1, titles: p ? p.querySelectorAll('.opts-h').length : 0 }; })()`);
+check('UX20/#247: View outline and Phase key in Y\'s head, or in its ⋯ pop-up under it, with no title', g && g.phaseKey && g.fov && (g.inHead || g.under) && g.titles === 0, g);
 await key('Escape'); await settle(200);
 for (const v of ['phase', 'land']) {
   await ev(`__cmwSetMain('${v}')`); await settle(2200);
@@ -180,9 +184,9 @@ const palOpen = await ev(`!!document.querySelector('#popHost .pop')`);
 const tt = await box('.tour-strip .ts-text');
 await tap(tt.l + 30, tt.t + 10); await settle(500);
 g = await ev(`({ pal: !!document.querySelector('#popHost .pop'), why: Tour.lit() && Tour.lit().why, active: Tour.isActive() })`);
-check('UX89 phone: a tap on the strip that closes the open function list neither opens Details nor ends anything', palOpen && !g.pal && g.why === false && g.active, Object.assign({ palOpen }, g));
+check('UX89 phone: a tap on the strip that closes the open function list neither opens the sheet nor ends anything', palOpen && !g.pal && g.why === false && g.active, Object.assign({ palOpen }, g));
 await tap(tt.l + 30, tt.t + 10); await settle(500);
-check('UX89: the next tap on the strip opens Details as before', (await ev('Tour.lit() && Tour.lit().why')) === true);
+check('UX89: the next tap on the strip opens the sheet as before', (await ev('Tour.lit() && Tour.lit().why')) === true);
 await ev('Tour.stop()'); await settle(300);
 grab();
 

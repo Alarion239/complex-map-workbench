@@ -4,8 +4,8 @@
 // without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
 // (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
 if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof /** @type {any} */ (globalThis).$t !== 'function') {
-  if (typeof require === 'function') require('./i18n.js');
-  else {
+  // (an ES module: node's tests get this English fallback; the page runs i18n.js before the bundle)
+  {
     const fill = (s, p) => {
       if (!p) return s;
       const tex = /[$\\]/.test(s);
@@ -267,10 +267,12 @@ const CX = (() => {
   function zetaEM(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    const ms = neg(s);
-    let sum = ZERO;
-    for (let k = 1; k < N; k++) sum = add(sum, exp(scale(ms, Math.log(k))));
-    const lnN = Math.log(N), Nms = exp(scale(ms, lnN));   // N^{−s}
+    // ([issue #277] k^{−s} from the multiplicative table, one exp per prime: about half the cost, to rounding)
+    const { re, im } = powTable(s, N);
+    let sr = 0, si = 0;
+    for (let k = 1; k < N; k++) { sr += re[k]; si += im[k]; }
+    let sum = C(sr, si);
+    const Nms = C(re[N], im[N]);   // N^{−s}
     sum = add(sum, scale(Nms, 0.5));
     sum = add(sum, div(scale(Nms, N), sub(s, ONE)));
     // the Bernoulli terms: P_j = s(s+1)…(s+2j−2), N^{−s−2j+1}
@@ -287,10 +289,12 @@ const CX = (() => {
   function zetaEMd(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    const ms = neg(s);
-    let sum = ZERO;
-    for (let k = 2; k < N; k++) { const lk = Math.log(k); sum = sub(sum, scale(exp(scale(ms, lk)), lk)); }
-    const lnN = Math.log(N), Nms = exp(scale(ms, lnN)), s1 = sub(s, ONE);
+    // (k^{−s} from the multiplicative table, as zetaEM)
+    const { re, im } = powTable(s, N);
+    let sr = 0, si = 0;
+    for (let k = 2; k < N; k++) { const lk = Math.log(k); sr -= re[k] * lk; si -= im[k] * lk; }
+    let sum = C(sr, si);
+    const lnN = Math.log(N), Nms = C(re[N], im[N]), s1 = sub(s, ONE);
     sum = sub(sum, scale(Nms, 0.5 * lnN));
     // d/ds N^{1−s}/(s − 1) = −N^{1−s} (log N/(s − 1) + 1/(s − 1)²)
     const r = inv(s1);
@@ -329,6 +333,321 @@ const CX = (() => {
     const one = sub(ONE, s);
     const L = add(add(add(scale(s, Math.LN2), scale(sub(s, ONE), LOG_PI)), logSin(scale(s, Math.PI / 2))), lgamma(one));
     return mul(exp(L), zetaEM(one));
+  }
+  // ---- the Böttcher coordinate of z ↦ z² + c and the Douady–Hubbard map Φ_M(c) = φ_c(c) (issue #260) ----
+  // φ_c(z0): iterate w_{k+1} = w_k² + c from w_0 = z0 until |w_n| > DH_R (NaN when that takes more than N steps), take
+  // φ_c(w_n) = w_n √(1 + c/w_n²) (the next factor of φ_c(w) = w ∏_k (1 + c/w_k²)^{2^{−k−1}} changes it by a relative
+  // |c|/(4|w_n|⁴), below 1e−16 |c|), and go back to w_0 by n square roots (φ_c(w_{k+1}) = φ_c(w_k)²), each the root
+  // nearest the orbit point w_k: φ_c(w)/w → 1 at ∞, and this is the branch continued from ∞ (checked against the
+  // continuation on 300 random points, and at the 10 points of tools/dh_reference.py to 50 digits)
+  const DH_R = 1e4;
+  function bottcher(z0, c, N) {
+    const orb = [z0];
+    let w = z0;
+    for (let k = 0; Math.hypot(w.re, w.im) <= DH_R; k++) {
+      if (k >= N) return C(NaN, NaN);
+      w = add(mul(w, w), c);
+      orb.push(w);
+    }
+    let p = mul(w, sqrt(add(ONE, div(div(c, w), w))));
+    for (let k = orb.length - 2; k >= 0; k--) {
+      const r = sqrt(p), o = orb[k];
+      p = r.re * o.re + r.im * o.im >= 0 ? r : neg(r);
+    }
+    return p;
+  }
+  // e^{G_c(0)} = |Φ_M(c)|^{1/2}, the critical potential's radius (1 when the critical orbit stays bounded for N steps):
+  // φ_c is the conformal map of {G_c > G_c(0)} only, so the Julia map is NaN where |φ_c| ≤ this
+  function dhCritRho(c, N) { const p = bottcher(c, c, N); return isFin(p) ? Math.sqrt(abs(p)) : 1; }
+  function bottcherJ(z, c, N, rho = dhCritRho(c, N)) { const p = bottcher(z, c, N); return isFin(p) && abs(p) > rho ? p : C(NaN, NaN); }
+
+  // ---- external rays and equipotentials (Kawahira's continuation, issue #260) ----
+  // frac(2^m θ): θ a number (doubling is exact in floating point) or exactly {p, q} (0 ≤ p < q ≤ 2^30)
+  function dhAngle(theta, m) {
+    if (typeof theta === 'number') {
+      let x = theta - Math.floor(theta);
+      for (let i = 0; i < m; i++) { x *= 2; if (x >= 1) x -= 1; }
+      return x;
+    }
+    let p = ((theta.p % theta.q) + theta.q) % theta.q;
+    for (let i = 0; i < m; i++) p = (2 * p) % theta.q;
+    return p / theta.q;
+  }
+  // Newton in x on w_m(x) = t, from w_0 = x: the parameter (c null: w_{k+1} = w_k² + x, so w_m ≈ Φ_M(x)^{2^m}) or the
+  // point of K_c (w_{k+1} = w_k² + c, w_m = φ_c(x)^{2^m}). null when it does not settle
+  function dhNewton(x, m, t, c) {
+    let dx = ONE;
+    for (let it = 0; it < 64; it++) {
+      let w = x, d = ONE;
+      const cc = c || x;
+      for (let k = 0; k < m; k++) {
+        const wd = mul(w, d);
+        d = c ? scale(wd, 2) : C(2 * wd.re + 1, 2 * wd.im);
+        w = add(mul(w, w), cc);
+      }
+      dx = div(sub(w, t), d);
+      if (!isFin(dx)) return null;
+      x = sub(x, dx);
+      if (abs(dx) <= 1e-14 * Math.max(abs(x), 1e-3)) return x;
+    }
+    // (rounding can keep the last steps above 1e−14 where w_m(x) is very steep)
+    return abs(dx) <= 1e-11 * Math.max(abs(x), 1e-3) ? x : null;
+  }
+  // the ray's target is taken where |w_m| ≥ e^DH_TGT = 1e8, where w_m = φ^{2^m} to double precision (a smaller m left
+  // errors of 1e−3 near M)
+  const DH_TGT = Math.log(1e8);
+  // The external ray of angle θ: its points from potential log R0 down to log R0 / 2^levels (or to o.to), S per halving
+  // of the potential, each by Newton from the one before. o.c null: the parameter ray of M (points c); else the dynamic
+  // ray of K_c (points z), which stops above the critical potential. {pts, pot (log |Φ| of each), full (all levels),
+  // landed (the point, when it reached a landing point to rounding)}
+  function* dhRayGen(theta, o = {}) {
+    const c = o.c || null, levels = o.levels ?? 40, S = o.S ?? 32, L0 = Math.log(o.R0 ?? 64);
+    // (o.Lc: the critical level, when the caller has it: an equipotential's rays share it)
+    const Lc = o.Lc ?? (c ? Math.log(dhCritRho(c, 4000)) : 0);
+    const to = Math.max(o.to ?? 0, Lc * (1 + 1e-9));
+    const a0 = TAU * dhAngle(theta, 0), R0 = Math.exp(L0);
+    // (Φ_M(c) = c + 1/2 + O(1/c), φ_c(z) = z + O(1/z))
+    let x = C(R0 * Math.cos(a0) - (c ? 0 : 0.5), R0 * Math.sin(a0));
+    const pts = [], pot = [];
+    let step = Infinity, full = true, landed = null;
+    for (let j = 0; j <= levels * S; j++) {
+      // (a slice point every 32 steps, for the app's idle tracing)
+      if (j && !(j & 31)) yield;
+      let L = L0 * Math.pow(2, -j / S);
+      const last = L <= to;
+      if (last) { if (to <= 0 || to >= L0) { full = !(to > 0); break; } L = to; }
+      let m = 0;
+      while (L * 2 ** m < DH_TGT) m++;
+      const a = TAU * dhAngle(theta, m), rr = Math.exp(L * 2 ** m);
+      const y = dhNewton(x, m, C(rr * Math.cos(a), rr * Math.sin(a)), c);
+      // (a jump far beyond the last step went to another ray)
+      if (!y || abs(sub(y, x)) > 8 * step + 1e-11 * Math.max(abs(x), 1e-3)) {
+        // (a ray that has come within rounding of a Misiurewicz point, −2 for θ = 1/2, cannot go on in doubles: there
+        // it has landed)
+        if (j > S && step <= 1e-13 * Math.max(abs(x), 1e-3)) landed = x;
+        full = false;
+        break;
+      }
+      if (j > 0) step = abs(sub(y, x));
+      x = y;
+      pts.push(y); pot.push(L);
+      if (last) { full = false; break; }
+    }
+    return { pts, pot, theta, c, full: full && pts.length === levels * S + 1, landed };
+  }
+  // a generator run to its end (the synchronous form of the tracers)
+  const drain = (g) => { for (;;) { const r = g.next(); if (r.done) return r.value; } };
+  const dhRay = (theta, o) => drain(dhRayGen(theta, o));
+  // A ray's landing point, from its points at depths D = (6/11, 8/11, 1) of the levels traced, fitted to c∞ + a D^{−q}:
+  // at a parabolic root the ray converges like 1/D (the 1/3 ray: 0.07 from −3/4 at 44 levels, the fit 5e−3), at a
+  // Misiurewicz point geometrically (the fit is then the last point). {z, err: |z − the last point|}, or null
+  function dhLanding(ray, S = 32) {
+    if (ray.landed) return { z: ray.landed, err: 0 };
+    const n = ray.pts.length - 1, D3 = n / S;
+    if (!ray.full || D3 < 11) return null;
+    const D = [Math.round(D3 * 6 / 11), Math.round(D3 * 8 / 11), D3], c = D.map((d) => ray.pts[Math.round(d * S)]);
+    const d1 = sub(c[1], c[0]), d2 = sub(c[2], c[1]), rho = abs(d2) / abs(d1);
+    if (!(abs(d1) > 0)) return { z: c[2], err: 0 };
+    let lo = 0.2, hi = 4, q = 1;
+    for (let i = 0; i < 80; i++) {
+      q = (lo + hi) / 2;
+      const f = (D[1] ** -q - D[2] ** -q) / (D[0] ** -q - D[1] ** -q);
+      if (f > rho) lo = q; else hi = q;
+    }
+    const a = scale(d2, 1 / (D[2] ** -q - D[1] ** -q));
+    const z = sub(c[2], scale(a, D[2] ** -q));
+    return { z, err: abs(sub(z, c[2])) };
+  }
+  // The equipotential of potential L (|Φ_M| = e^L, or |φ_c| = e^L with o.c), closed: the ray points at L over K angles,
+  // a gap wider than o.tol halved (6 times at most) by the point at the middle angle: Newton from the chord's midpoint,
+  // kept when its own Böttcher angle is that angle, else traced along its ray. The points, with .th (each one's angle)
+  // and .L, so that dhFollow can move them to another c
+  function* dhEquipotentialGen(L, o = {}) {
+    const c = o.c || null, K = o.K ?? 128, tol = o.tol ?? 0.01, ro = { c, S: o.S ?? 8, levels: 64, to: L, R0: o.R0, Lc: c ? Math.log(dhCritRho(c, 4000)) : 0 };
+    let m = 0;
+    while (L * 2 ** m < DH_TGT) m++;
+    const rr = Math.exp(L * 2 ** m);
+    const ray = function* (th) { const r = yield* dhRayGen(th, ro); return r.pts.length && r.pot[r.pot.length - 1] === L ? r.pts[r.pts.length - 1] : null; };
+    const at = function* (th, guess) {
+      const a = TAU * dhAngle(th, m), y = dhNewton(guess, m, C(rr * Math.cos(a), rr * Math.sin(a)), c);
+      if (y) {
+        const p = bottcher(y, c || y, 4000), d = arg(p) / TAU - th;
+        if (isFin(p) && Math.abs(d - Math.round(d)) < 1e-9) return y;
+      }
+      return yield* ray(th);
+    };
+    const out = [], ths = [];
+    const fill = function* (t0, z0, t1, z1, depth) {
+      if (depth >= 6 || !z0 || !z1 || abs(sub(z1, z0)) <= tol) return;
+      const tm = (t0 + t1) / 2, zm = yield* at(tm, scale(add(z0, z1), 0.5));
+      yield* fill(t0, z0, tm, zm, depth + 1);
+      if (zm) { out.push(zm); ths.push(tm); }
+      yield* fill(tm, zm, t1, z1, depth + 1);
+    };
+    const zs = [];
+    for (let k = 0; k <= K; k++) { zs.push(k < K ? yield* ray(k / K) : zs[0]); yield; }
+    for (let k = 0; k < K; k++) {
+      if (zs[k]) { out.push(zs[k]); ths.push(k / K); }
+      yield* fill(k / K, zs[k], (k + 1) / K, zs[k + 1], 0);
+    }
+    return Object.assign(out, { th: ths, L, c });
+  }
+  const dhEquipotential = (L, o) => drain(dhEquipotentialGen(L, o));
+  // A traced ray or equipotential moved to the nearby parameter c: each point by Newton from where it was, at its own
+  // angle and potential (exact points of the new curve, at the cost of one Newton solve each). null when a point does not
+  // settle, a segment grows past 4 times the longest old one (a jump to another ray), or (an equipotential) the level is
+  // not above the new critical one
+  function dhFollow(curve, c) {
+    const n = curve.pts ? curve.pts.length : curve.length, P = curve.pts || curve;
+    if (!n) return null;
+    if (curve.L != null && c && !(curve.L > Math.log(dhCritRho(c, 4000)))) return null;
+    const out = [];
+    let longest = 0;
+    for (let i = 1; i < n; i++) longest = Math.max(longest, abs(sub(P[i], P[i - 1])));
+    for (let i = 0; i < n; i++) {
+      const L = curve.pot ? curve.pot[i] : curve.L, th = curve.pot ? curve.theta : curve.th[i];
+      let m = 0;
+      while (L * 2 ** m < DH_TGT) m++;
+      const a = TAU * dhAngle(th, m), rr = Math.exp(L * 2 ** m);
+      // (from where it was, moved as its neighbour moved: a ray's deep points follow its landing point)
+      const y = dhNewton(i ? add(P[i], sub(out[i - 1], P[i - 1])) : P[i], m, C(rr * Math.cos(a), rr * Math.sin(a)), c);
+      if (!y || (i && abs(sub(y, out[i - 1])) > 4 * longest + 1e-9)) return null;
+      out.push(y);
+    }
+    return curve.pot ? Object.assign({}, curve, { pts: out, c, landed: null }) : Object.assign(out, { th: curve.th, L: curve.L, c });
+  }
+
+  // ---- Dirichlet series Σ a_k k^{−s} (issues #242, #244) ----
+  // k^{−w} for k = 1 … K: completely multiplicative, so one exp per prime and a product for the others (the smallest
+  // prime factor table grows on demand). A few ulps from the direct exp at most. The table is shared: valid until the
+  // next call
+  /** @type {{ n: number, p: Int32Array }} */
+  const SPF = { n: 0, p: new Int32Array(0) };
+  function spf(K) {
+    if (SPF.n < K) {
+      const n = Math.max(K, 2 * SPF.n, 4096), p = new Int32Array(n + 1);
+      for (let i = 2; i <= n; i++) if (!p[i]) for (let j = i; j <= n; j += i) if (!p[j]) p[j] = i;
+      SPF.n = n; SPF.p = p;
+    }
+    return SPF.p;
+  }
+  let PT = { re: new Float64Array(0), im: new Float64Array(0) };
+  /** @param {{re: number, im: number}} w @param {number} K */
+  function powTable(w, K) {
+    if (PT.re.length <= K) PT = { re: new Float64Array(2 * K + 2), im: new Float64Array(2 * K + 2) };
+    const P = spf(K), re = PT.re, im = PT.im;
+    re[1] = 1; im[1] = 0;
+    for (let k = 2; k <= K; k++) {
+      const p = P[k];
+      if (p === k) { const L = Math.log(k), m = Math.exp(-w.re * L), t = -w.im * L; re[k] = m * Math.cos(t); im[k] = m * Math.sin(t); } else {
+        const j = k / p;
+        re[k] = re[p] * re[j] - im[p] * im[j]; im[k] = re[p] * im[j] + im[p] * re[j];
+      }
+    }
+    return PT;
+  }
+  // the form of the coefficients a (a_k for k = lo, lo + 1, …): from some K0 on, a_k = b_{(k − K0) mod q} k^p, with a period
+  // q ≤ DIR_Q and a real power p (1, 1/n², (−1)^n, i^n, n² cos(πn/2) and the characters), checked to 1e-11 over the
+  // second half of a at least, and at most DIR_HEAD other terms before K0. {q, p, b, B, K0, lo, head} (head: a_k k^{−p}
+  // for k < K0; B = Σ b_r, exactly 0 when it vanishes to rounding: the series then converges for Re s > p, else for
+  // Re s > p + 1), or null
+  const DIR_Q = 24, DIR_HEAD = 64;
+  function dirichletForm(lo, a) {
+    const n = a.length, jE = n - 1;
+    if (n < 64) return null;
+    const make = (q, p, b, jH) => {
+      let B = ZERO, m = 0;
+      for (const x of b) { B = add(B, x); m += abs(x); }
+      if (abs(B) <= 1e-12 * m) B = ZERO;
+      return { q, p, b, B, K0: lo + jH, lo, head: a.slice(0, jH).map((x, i) => scale(x, Math.pow(lo + i, -p))) };
+    };
+    // (coefficients that end in zeros: a Dirichlet polynomial)
+    let last = jE;
+    while (last >= 0 && isZero(a[last])) last--;
+    if (last < n / 2) return last < DIR_HEAD ? make(1, 0, [ZERO], last + 1) : null;
+    for (let q = 1; q <= DIR_Q; q++) {
+      // p from two terms of one residue: the largest in the last period and the one about half the terms before it
+      let j1 = jE;
+      for (let j = jE - 1; j > jE - q; j--) if (abs(a[j]) > abs(a[j1])) j1 = j;
+      const j0 = j1 - q * Math.floor(n / 2 / q);
+      let p = Math.log(abs(a[j1]) / abs(a[j0])) / Math.log((lo + j1) / (lo + j0));
+      if (!Number.isFinite(p)) continue;
+      if (Math.abs(p - Math.round(2 * p) / 2) < 1e-9) p = Math.round(2 * p) / 2;
+      // b by the residue of the index j = k − lo (K0 − lo is a multiple of q)
+      const b = [];
+      let bm = 0;
+      for (let j = jE - q + 1; j <= jE; j++) { b[j % q] = scale(a[j], Math.pow(lo + j, -p)); bm = Math.max(bm, abs(b[j % q])); }
+      // (to 1e-11 of the term, or 1e-12 of the sequence's size there: sin(πn/2) is 1e-13, not 0, at large even n)
+      const near = (x, k) => { const kp = Math.pow(k, p), y = scale(b[(k - lo) % q], kp); return Math.hypot(x.re - y.re, x.im - y.im) <= 1e-11 * Math.max(abs(x), abs(y)) + 1e-12 * bm * kp; };
+      let j = jE;
+      while (j >= 0 && near(a[j], lo + j)) j--;
+      const jH = Math.ceil((j + 1) / q) * q;
+      // (b again from the first period kept: the formula's values are most exact at small n, as (−1)^n, an exp past n = 1100)
+      if (jH <= DIR_HEAD && jH <= n / 2) return make(q, p, b.map((x, r) => scale(a[jH + r], Math.pow(lo + jH + r, -p))), jH);
+    }
+    return null;
+  }
+  // (e^u − 1)/u, accurate near u = 0
+  function expm1Over(u) {
+    if (u.re === 0 && u.im === 0) return ONE;
+    const em = Math.expm1(u.re), h = Math.sin(u.im / 2);
+    return div(C(em * Math.cos(u.im) - 2 * h * h, (em + 1) * Math.sin(u.im)), u);
+  }
+  // Σ_{k ≥ lo} a_k k^{−s} for coefficients of that form, where it converges (Re w > 1, or > 0 when B = 0; w = s − p):
+  // {S, A} (A: the sum of the sizes of what was added, for the cancellation test). Per residue r, Σ_{m ≥ N} (X_r + qm)^{−w}
+  // by Euler–Maclaurin in m, as zetaEM: X^{−w} (X/(q(w − 1)) + ½ + Σ_{j≤M} B₂ⱼ/(2j)! P_j (q/X)^{2j−1}), X = K0 + r + qN,
+  // P_j = w(w+1)…(w+2j−2), N = |Im w| + 15. The poles X_r^{1−w}/(q(w − 1)) are summed as
+  // X_0^{1−w} (B/(w − 1) − Σ b_r d_r (e^{(1−w)d_r} − 1)/((1−w)d_r))/q, d_r = log(X_r/X_0), so they cancel exactly when
+  // B = 0 (η, characters): no 0/0 at w = 1
+  function dirichletEM(F, s) {
+    const w = sub(s, C(F.p, 0)), q = F.q, b = F.b, K0 = F.K0, nb = b.every(isZero);
+    const N = Math.ceil(Math.abs(w.im)) + 15, X0 = K0 + q * N, K = nb ? K0 : X0 + q - 1;
+    const { re, im } = powTable(w, K);
+    let Sr = 0, Si = 0, A = 0;
+    F.head.forEach((h, i) => { const k = F.lo + i, tr = h.re * re[k] - h.im * im[k], ti = h.re * im[k] + h.im * re[k]; Sr += tr; Si += ti; A += Math.hypot(tr, ti); });
+    if (nb) return { S: C(Sr, Si), A };
+    for (let k = K0, r = 0; k < X0; k++, r = r + 1 === q ? 0 : r + 1) {
+      const x = b[r], tr = x.re * re[k] - x.im * im[k], ti = x.re * im[k] + x.im * re[k];
+      Sr += tr; Si += ti; A += Math.hypot(tr, ti);
+    }
+    // P_j, then per residue the bracket ½ + Σ c_j P_j h^{2j−1} (h = q/X) by Horner in h²
+    const P = [w];
+    for (let j = 1; j < EM_C.length; j++) P.push(mul(P[j - 1], mul(add(w, C(2 * j - 1, 0)), add(w, C(2 * j, 0)))));
+    const w1 = sub(w, ONE), u0 = neg(w1);
+    let pole = isZero(F.B) ? ZERO : div(F.B, w1);
+    for (let r = 0; r < q; r++) {
+      if (isZero(b[r])) continue;
+      const X = X0 + r, h = q / X, h2 = h * h;
+      let br = ZERO;
+      for (let j = EM_C.length - 1; j >= 0; j--) br = add(scale(br, h2), scale(P[j], EM_C[j]));
+      br = add(scale(br, h), C(0.5, 0));
+      const t = mul(b[r], mul(C(re[X], im[X]), br));
+      Sr += t.re; Si += t.im; A += abs(t);
+      if (r) { const d = Math.log1p(r / X0); pole = sub(pole, scale(mul(b[r], expm1Over(scale(u0, d))), d)); }
+    }
+    pole = scale(mul(pole, C(re[X0], im[X0])), X0 / q);
+    return { S: C(Sr + pole.re, Si + pole.im), A: A + abs(pole) };
+  }
+  // Σ a_k k^{−s} over the coefficients a (from k = lo) for coefficients of no such form, absolutely convergent for
+  // Re s > σ: s ↦ {S, A} summed until the rest, at most G k^{σ−Re s}/(Re s − σ) with G the largest |a_j| j^{1−σ} past
+  // k (past a: that of its last 64), is below tol of the sum; null when it is still above end of it after all of a
+  function dirichletPartial(lo, a, sigma, tol, end) {
+    const n = a.length, K = lo + n - 1, G = new Float64Array(n + 1);
+    G[n] = Math.max(...a.slice(-64).map((x, j) => abs(x) * Math.pow(K - 63 + j, 1 - sigma)));
+    for (let j = n - 1; j >= 0; j--) G[j] = Math.max(G[j + 1], abs(a[j]) * Math.pow(lo + j, 1 - sigma));
+    return (s) => {
+      const { re, im } = powTable(s, K), sp = s.re - sigma;
+      let Sr = 0, Si = 0, A = 0;
+      for (let j = 0; j < n; j++) {
+        const x = a[j], k = lo + j;
+        if (x.re === 0 && x.im === 0) continue;
+        const tr = x.re * re[k] - x.im * im[k], ti = x.re * im[k] + x.im * re[k];
+        Sr += tr; Si += ti; A += Math.hypot(tr, ti);
+        if (j >= 8 && (j & 7) === 0 && G[j + 1] * Math.pow(k, -sp) / sp <= tol * Math.hypot(Sr, Si)) break;
+        if (j === n - 1 && !(G[n] * Math.pow(k, -sp) / sp <= end * Math.hypot(Sr, Si))) return null;
+      }
+      return { S: C(Sr, Si), A };
+    };
   }
   // Möbius matrices [a,b,c,d] and the one-parameter path A^t (A normalised to SL2).
   // The same map scaled by a power of two (exact), so that its largest entry has magnitude about 1.
@@ -562,8 +881,9 @@ const CX = (() => {
   return {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
-    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX,
+    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX, dirichletForm, dirichletEM, dirichletPartial, powTable, DIR_Q, DIR_HEAD,
+    DH_R, bottcher, bottcherJ, dhCritRho, dhAngle, dhRay, dhRayGen, dhLanding, dhEquipotential, dhEquipotentialGen, dhFollow,
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
-if (typeof module !== 'undefined') module.exports = CX;
+export { CX, CX as 'module.exports' };

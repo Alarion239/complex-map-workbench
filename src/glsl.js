@@ -13,6 +13,10 @@ const GLChain = (() => {
   // Internal helpers are prefixed cx_ to stay out of the includer's namespace.
   const LIB = `
 const float CX_PI = 3.141592653589793;
+// [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
+// loop a loop. ANGLE's Direct3D 11 back end hands the code to FXC, which unrolls a loop of constant trip count (its
+// body copied N times; its link time grows much faster than the code). highp: declared alike in both stages.
+uniform highp int uNoUnroll;
 const float CX_TAU = 6.283185307179586;
 const float CX_HALF_PI = 1.5707963267948966;
 float cx_inf() { return uintBitsToFloat(0x7f800000u); }
@@ -122,7 +126,7 @@ vec2 cpow(vec2 z, vec2 w, float theta, float k) {
 vec2 cx_ipow32(vec2 z, bool neg, highp int m) {
   vec2 r = vec2(1.0, 0.0);
   vec2 b = neg ? cinv(z) : z;
-  for (int j = 0; j < 32; j++) {
+  for (int j = 0; j < max(32, uNoUnroll); j++) {
     if (j > 0 && m <= 0) break;
     if ((m & 1) == 1) r = cmul(r, b);
     b = cmul(b, b);
@@ -357,6 +361,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable (as many as the CPU takes, so both
   // stop at the same point and agree where the series converges slowly)
   const SER_GPU = 96, SER_GPU_LOOP = 512;
+  // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
+  // the special functions' library is linked only for their calls)
+  const DIR_TMAX = 120, EM6 = '0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10';
   // the terms' float32 rounding (about 1.2e-7 of the sum of their sizes M) above 5e-4 of 1 + |S|: cancelled (the GLSL
   // test skips the same points: its cancellation probe)
   const SER_CANCEL = (M, S) => `${M} * 1.2e-7 > 5e-4 * (1.0 + cx_abs(${S}))`;
@@ -394,7 +401,14 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     return { out: plan.up ? trustedR(plan.up, 1, NG, plan.R) : Infinity, in: plan.down ? trustedR(plan.down, -1, NG, plan.r) : 0 };
   }
   // ---- custom formulas: mirror Expr.compile ----
-  function genCustom(ast, P, A, TH, writers, lines, shape = []) {
+  // a subtree that holds a shared number (its value is a uniform, never in the program key)
+  const hasParam = (n) => (n.t === 'num' ? n.param != null : Object.keys(n).some((k) => {
+    const x = n[k];
+    return !!x && typeof x === 'object' && (Array.isArray(x) ? x.some((y) => !!y && !!y.t && hasParam(y)) : !!x.t && hasParam(x));
+  }));
+  // baked: when given (a custom step, whose key holds it), constant exponents are specialized and their kinds pushed
+  // here; without it (d/dz, whose key holds its own source) they stay uniforms through cx_powk
+  function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = []) {
     let tmp = 0, out = lines;
     const dep = Expr.depends;
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
@@ -402,6 +416,10 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const idxVar = [];
     let sums = 0;
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
+    // a loop's trip count as a uniform (a cell its writer fills with n, or with n() at write time), never a constant:
+    // D3D's FXC (ANGLE on Windows) unrolls a loop with a constant bound, so a long series body becomes hundreds of copies
+    // and minutes of compiling; a uniform bound keeps it a loop
+    const uBound = (n) => { const c = A.cell(); writers.push((put) => put(c.c, typeof n === 'function' ? n() : n, 0)); return `int(${c.x})`; };
     const UN = {
       sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh',
       asin: 'casin', acos: 'cacos', atan: 'catan', asinh: 'casinh', acosh: 'cacosh', atanh: 'catanh', exp: 'cexp',
@@ -426,18 +444,18 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const s0 = A.slot(), sl = [s0];
         for (let k = 1; k < NG; k++) sl.push(A.slot());
         if (!sl.every((x, k) => x.s === s0.s + k)) throw new Error('GLChain: series slots not consecutive');
-        const ep = A.cell(), sc = A.cell();
+        const ep = A.cell(), sc = A.cell(), nk = uBound(() => Math.min(NG, sd.e.length));
         slots.push({ sg, sd, h, s0, ep, sc });
         const t = sg > 0 ? 'p' : 'm', u = `${id}_u${t}`, H = `${id}_H${t}`, M = `${id}_M${t}`;
         // u = w/s outside (s/w inside); Horner: H = Σ b_k v^k with v = u^p, times u^{e0}; M the same sum of |b_k| |v|^k
         out.push(`  vec2 ${u} = ${sg > 0 ? `${id}_w / ${sc.x}` : `cdiv(vec2(${sc.x}, 0.0), ${id}_w)`};`);
         if (h) {
           out.push(`  vec2 ${u}v = cx_ipowi(${u}, ${ep.y}), ${H} = vec2(0.0); float ${u}a = cx_abs(${u}v), ${M} = 0.0;
-  for (int k = ${NG - 1}; k >= 0; k--) { vec4 q = uChain[${s0.s} + k]; ${H} = cmul(${H}, ${u}v) + q.xy; ${M} = ${M} * ${u}a + cx_abs(q.xy); }
+  for (int k = ${nk} - 1; k >= 0; k--) { vec4 q = uChain[${s0.s} + k]; ${H} = cmul(${H}, ${u}v) + q.xy; ${M} = ${M} * ${u}a + cx_abs(q.xy); }
   ${H} = cmul(${H}, cx_ipowi(${u}, ${ep.x})); ${M} *= pow(max(cx_abs(${u}), 1e-30), ${ep.x});`);
         } else {
           out.push(`  vec2 ${H} = vec2(0.0), ${u}P = vec2(1.0, 0.0); float ${M} = 0.0;
-  for (int k = 0; k < ${NG}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; ${u}P = cmul(${u}P, cx_ipowi(${u}, q.z)); vec2 t = cmul(q.xy, ${u}P); ${H} += t; ${M} += cx_abs(t); }`);
+  for (int k = 0; k < ${nk}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; ${u}P = cmul(${u}P, cx_ipowi(${u}, q.z)); vec2 t = cmul(q.xy, ${u}P); ${H} += t; ${M} += cx_abs(t); }`);
         }
         return { H, M };
       };
@@ -471,32 +489,90 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       });
       return S;
     }
-    // Σ a(n) n^{−z} (Expr's dirichlet plan): SER_GPU terms, a_k and log k in slots; the rest as the integral when the
-    // coefficients are constant along the tail, else NaN where it may exceed 1e-4 of the sum; NaN for Re z ≤ σ
+    // Σ a(n) n^{−z} (Expr's dirichlet plan), by the plan's kind in a uniform (mode), so new coefficients never recompile:
+    //  1. coefficients b_{n mod q} n^p from K0 on (CX.dirichletForm): Euler–Maclaurin per residue, as CX.dirichletEM with
+    //     N = |Im w| + 10 and six Bernoulli terms (cx_zetaEM's), the head terms a_n n^{−p} and the b_r in slots; NaN for
+    //     |Im w| > CX_ZETA_TMAX (cx_zeta's blank);
+    //  0. any other: SER_GPU terms, a_k and log k in slots, NaN where the rest may exceed 1e-4 of the sum (G K^{σ−Re z}/(Re z − σ),
+    //     G the largest |a_j| j^{1−σ} past them);
+    //  2. a coefficient undefined: NaN.
+    // NaN for Re z ≤ σ and where the terms cancel by more than three digits
     function dirichletGL(n, plan, id) {
       const NG = SER_GPU, s0 = A.slot(), sl = [s0];
       for (let k = 1; k < NG; k++) sl.push(A.slot());
       if (!sl.every((x, k) => x.s === s0.s + k)) throw new Error('GLChain: series slots not consecutive');
-      const g1 = A.slot(), aT = A.cell();
+      const g1 = A.slot(), g2 = A.slot(), F = () => plan.form;
+      const nk = uBound(() => (plan.form || plan.bad != null ? 0 : Math.min(plan.a.length, NG)));
+      const nh = uBound(() => (F() ? F().head.length : 0)), nq = uBound(() => (F() ? F().q : 0));
+      const nc = uBound(DIR_TMAX + 10);
       shape.push('D');
-      const S = `${id}_S`, M = `${id}_M`;
-      out.push(`  vec2 ${S} = vec2(0.0); float ${M} = 0.0;
-  for (int k = 0; k < ${NG}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; vec2 t = cmul(q.xy, cexp(-z * q.z)); ${S} += t; ${M} += cx_abs(t); }
-  { vec4 g = ${g1.v}; float sp = z.x - (g.x - 1.0);
-    if (g.y > 0.5) ${S} += cmul(${aT.v}, cdiv(cexp((vec2(1.0, 0.0) - z) * log(g.z + 0.5)), z - vec2(1.0, 0.0)));
-    else if (!(g.w * pow(g.z, 1.0 - sp) / (sp - 1.0) <= 1e-4 * cx_abs(${S}))) ${S} = ${NAN};
-    if (!(z.x > g.x + 1e-6) || ${SER_CANCEL(M, S)}) ${S} = ${NAN}; }`);
+      const S = `${id}_S`, M = `${id}_M`, w = `${id}_w`;
+      out.push(`  vec2 ${S} = vec2(0.0); float ${M} = 0.0; vec4 ${id}_g = ${g1.v}, ${id}_h = ${g2.v};
+  if (${id}_g.y > 1.5) ${S} = ${NAN};
+  else if (${id}_g.y > 0.5) {
+    vec2 ${w} = z - vec2(${id}_h.x, 0.0), wm = ${w} - vec2(1.0, 0.0);
+    float q = ${id}_h.y, K0 = ${id}_h.z;
+    int N = int(ceil(abs(${w}.y))) + 10;
+    for (int k = 0; k < ${nh}; k++) { vec4 a = uChain[${s0.s} + k]; vec2 t = cmul(a.xy, cexp(-${w} * a.z)); ${S} += t; ${M} += cx_abs(t); }
+    for (int m = 0; m < ${nc}; m++) {
+      if (m >= N) break;
+      for (int r = 0; r < ${nq}; r++) {
+        vec2 b = uChain[${s0.s} + ${nh} + r].xy;
+        if (b == vec2(0.0)) continue;
+        vec2 t = cmul(b, cexp(-${w} * log(K0 + float(r) + q * float(m)))); ${S} += t; ${M} += cx_abs(t);
+      }
+    }
+    // the tails: X^{−w} (½ + Σ c_j P_j (q/X)^{2j−1}) per residue, and the poles X_0^{1−w} (B/(w − 1) − Σ b_r d_r E((1 − w) d_r))/q
+    // (d_r = log(X_r/X_0) by its atanh series, E(u) = (e^u − 1)/u by its Taylor series for |u| < 1/2)
+    float X0 = K0 + q * float(N);
+    const float ${id}_c[6] = float[6](${EM6});
+    vec2 P[6];
+    P[0] = ${w};
+    for (int j = 1; j < 6; j++) P[j] = cmul(P[j - 1], cmul(${w} + vec2(float(2 * j - 1), 0.0), ${w} + vec2(float(2 * j), 0.0)));
+    vec2 pole = ${id}_g.zw == vec2(0.0) ? vec2(0.0) : cdiv(${id}_g.zw, wm);
+    for (int r = 0; r < ${nq}; r++) {
+      vec2 b = uChain[${s0.s} + ${nh} + r].xy;
+      if (b == vec2(0.0)) continue;
+      float X = X0 + float(r), h = q / X, h2 = h * h;
+      vec2 br = vec2(0.0);
+      for (int j = 5; j >= 0; j--) br = br * h2 + ${id}_c[j] * P[j];
+      br = br * h + vec2(0.5, 0.0);
+      vec2 t = cmul(b, cmul(cexp(-${w} * log(X)), br)); ${S} += t; ${M} += cx_abs(t);
+      if (r > 0) {
+        float y = float(r) / (2.0 * X0 + float(r)), y2 = y * y, d = 2.0 * y * (1.0 + y2 * (1.0 / 3.0 + y2 * (0.2 + y2 / 7.0)));
+        vec2 u = -wm * d, E;
+        if (cx_abs(u) < 0.5) E = vec2(1.0, 0.0) + cmul(u, vec2(0.5, 0.0) + cmul(u, vec2(1.0 / 6.0, 0.0) + cmul(u, vec2(1.0 / 24.0, 0.0) + cmul(u, vec2(1.0 / 120.0, 0.0) + cmul(u, vec2(1.0 / 720.0, 0.0) + u / 5040.0)))));
+        else E = cdiv(cexp(u) - vec2(1.0, 0.0), u);
+        pole -= cmul(b, E) * d;
+      }
+    }
+    pole = cmul(pole, cexp(-${w} * log(X0))) * (X0 / q);
+    ${S} += pole; ${M} += cx_abs(pole);
+    if (abs(${w}.y) > ${DIR_TMAX}.0) ${S} = ${NAN};
+  } else {
+    for (int k = 0; k < ${nk}; k++) { vec4 q = uChain[${s0.s} + k]; vec2 t = cmul(q.xy, cexp(-z * q.z)); ${S} += t; ${M} += cx_abs(t); }
+    float sp = z.x - ${id}_g.x;
+    if (!(${id}_h.w * pow(${id}_h.z, -sp) / sp <= 1e-4 * cx_abs(${S}))) ${S} = ${NAN};
+  }
+  if (!(z.x > ${id}_g.x + 1e-6) || ${SER_CANCEL(M, S)}) ${S} = ${NAN};`);
       writers.push((put) => {
-        const K = Math.min(plan.a.length, NG), lo = Math.round(Math.exp(plan.L[0]));
-        const tail = plan.a.slice(Math.max(0, K - 16), K), last = tail[tail.length - 1];
-        const flat = tail.every((x) => CX.abs(CX.sub(x, last)) <= 1e-14 * CX.abs(last));
-        for (let k = 0; k < NG; k++) {
-          const c = s0.c + 2 * k;
-          if (k >= K) { put(c, 0, 0); put(c + 1, 0, 0); continue; }
-          put(c, plan.a[k].re, plan.a[k].im); put(c + 1, plan.L[k], 1);
+        const Fm = plan.form, sig = Number.isNaN(plan.sigma) ? 0 : Math.max(-1e30, plan.sigma);
+        const slot = (k, x, y, zz) => { put(s0.c + 2 * k, x, y); put(s0.c + 2 * k + 1, zz, 1); };
+        for (let k = 0; k < NG; k++) slot(k, 0, 0, 0);
+        if (plan.bad != null) { put(g1.c, 0, 2); put(g1.c + 1, 0, 0); put(g2.c, 0, 0); put(g2.c + 1, 0, 0); return; }
+        if (Fm) {
+          Fm.head.forEach((x, k) => slot(k, x.re, x.im, Math.log(Fm.lo + k)));
+          Fm.b.forEach((x, r) => slot(Fm.head.length + r, x.re, x.im, 0));
+          put(g1.c, sig, 1); put(g1.c + 1, Fm.B.re, Fm.B.im);
+          put(g2.c, Fm.p, Fm.q); put(g2.c + 1, Fm.K0, 0);
+          return;
         }
-        put(g1.c, plan.sigma, flat ? 1 : 0); put(g1.c + 1, lo + K - 1, Math.max(...tail.map((x) => CX.abs(x))));
-        put(aT.c, last.re, last.im);
+        const K = Math.min(plan.a.length, NG);
+        for (let k = 0; k < K; k++) slot(k, plan.a[k].re, plan.a[k].im, Math.log(plan.lo + k));
+        let G = 0;
+        for (let j = K; j < plan.a.length; j++) G = Math.max(G, CX.abs(plan.a[j]) * Math.pow(plan.lo + j, 1 - plan.sigma));
+        put(g1.c, sig, 0); put(g1.c + 1, 0, 0);
+        put(g2.c, 0, 0); put(g2.c + 1, plan.lo + K - 1, G);
       });
       return S;
     }
@@ -507,52 +583,75 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     function loopGL(n, id) {
       const prod = n.op === 'prod';
       shape.push(prod ? 'Lp' : 'L');
-      const lo = g(n.lo), hi = g(n.hi);
+      const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
       out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
   float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
-      const run = (from, dir) => {
-        const k = `${id}_k${dir > 0 ? 'p' : 'm'}`, saved = out, inner = [];
-        out = inner;
-        idxVar.push({ v: n.v, k });
-        let t;
-        try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
-        const lim = dir > 0 ? `${k} > ${id}_hi` : `${k} < ${id}_lo`, inf = dir > 0 ? `${id}_hi > 1e30` : `${id}_lo < -1e30`;
-        // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
-        // and the same over both halves, leave
-        // the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
-        out.push(`  { int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-  for (int j = 0; j < ${SER_GPU_LOOP}; j++) {
-    float ${k} = ${from} ${dir > 0 ? '+' : '-'} float(j);
-    if (${lim}) { done = true; break; }
-${inner.map((x) => '  ' + x).join('\n')}
-    vec2 t = ${t};
-    ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
-    if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
-    if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
-    if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
-    tl = u; kl = abs(${k});
-    // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
-    if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
-    if (d > 0.0) dz = d;
-    if (${inf} && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
-  }
-  if (!done && ${inf} && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
-    float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
-    vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
-    if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
-  }
-  if (!done) ${OK} = false; }`);
-      };
-      out.push(`  if (${id}_lo < -1e30 && ${id}_hi > 1e30) {`);
-      run('0.0', 1); run('-1.0', -1);
-      out.push(`  } else if (${id}_lo < -1e30) {`);
-      run(`${id}_hi`, -1);
-      out.push('  } else {');
-      run(`${id}_lo`, 1);
-      out.push('  }');
+      // one loop body for every case (a constant-bound loop written out per case was four copies of the term code, which
+      // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
+      // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
+      // values, not constants, so the loops stay loops
+      const k = `${id}_k`, saved = out, inner = [];
+      out = inner;
+      idxVar.push({ v: n.v, k });
+      let t;
+      try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
+      // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
+      // the sum, as the CPU does: Expr's tailOf)
+      out.push(`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
+  for (int sd = 0; sd < ${id}_nsd; sd++) {
+    float from = ${id}_nsd == 2 ? (sd == 0 ? 0.0 : -1.0) : ${LO} < -1e30 ? ${HI} : ${LO};
+    float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
+    bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
+    int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
+    for (int j = 0; j < ${cap}; j++) {
+      float ${k} = from + dir * float(j);
+      if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
+${inner.map((x) => '    ' + x).join('\n')}
+      vec2 t = ${t};
+      ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
+      if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
+      if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
+      if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
+      tl = u; kl = abs(${k});
+      // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
+      if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
+      if (d > 0.0) dz = d;
+      if (inf && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
+    }
+    if (!done && inf && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
+      float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
+      vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
+      if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
+    }
+    if (!done) ${OK} = false;
+  }`);
       out.push(`  if (!${OK}${prod ? '' : ` || ${SER_CANCEL(M, S)}`}) ${S} = ${NAN};`);
       return S;
+    }
+    // [issue #6] a recurrence, as Expr's: N (a uniform, so dragging it never recompiles) steps of at most ITER_CAP, its
+    // rule generated inside the loop; ∞ once |u| passes 1e18 (float32 squares it in cx_abs), NaN for a bad N. The loop's
+    // bound is N itself, not a constant, so a compiler that unrolls constant loops (FXC behind ANGLE) cannot
+    function genIter(n) {
+      const id = `${P}_r${sums++}`, u = `${id}_u`, N = `${id}_n`;
+      shape.push('I');
+      const u0 = g(n.lo), nn = g(n.hi);
+      const saved = out, inner = [];
+      out = inner;
+      idxVar.push({ v: n.v, k: u, cx: true });
+      let t;
+      try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      out.push(`  vec2 ${u} = ${u0}; float ${N} = ${nn}.x;
+  if (!(${N} >= 0.0 && ${N} <= ${Expr.ITER_CAP}.0 && ${N} == floor(${N}))) ${u} = ${NAN};
+  else for (int j = 0; j < int(${N}); j++) {
+    float m = cx_abs(${u});
+    if (!(m <= 1e18)) { ${u} = m > 1e18 ? vec2(cx_inf()) : ${NAN}; break; }
+${inner.map((x) => '  ' + x).join('\n')}
+    ${u} = ${t};
+  }`);
+      return u;
     }
     function genSum(n) {
       const id = `${P}_s${sums++}`;
@@ -573,8 +672,9 @@ ${inner.map((x) => '  ' + x).join('\n')}
         case 'idx': {
           const e = [...idxVar].reverse().find((x) => x.v === n.v);
           if (!e) throw new Error(`GLChain: index ${n.v} outside its sum`);
-          return `vec2(${e.k}, 0.0)`;
+          return e.cx ? e.k : `vec2(${e.k}, 0.0)`;
         }
+        case 'iter': return genIter(n);
         case 'binom': { const a = g(n.a), b = g(n.b); return tv(`cx_binom(${a}, ${b})`); }
         case 'sum': return genSum(n);
         case 'var':
@@ -592,6 +692,39 @@ ${inner.map((x) => '  ' + x).join('\n')}
         case 'mul': { const a = g(n.a), b = g(n.b); return tv(`cmul(${a}, ${b})`); }
         case 'div': { const a = g(n.a), b = g(n.b); return tv(`cdiv(${a}, ${b})`); }
         case 'pow': {
+          if (!dep(n.b) && baked && !hasParam(n.b)) {
+            // a constant exponent without a shared number: its kind, and an integer's value, go into the program key
+            // (baked; Expr.compile takes constants at their principal value whatever the cut), so only the branch of
+            // cx_powk that it takes is compiled. Direct3D's FXC inlines all three branches at every call
+            // site and unrolls cx_ipow32's 32 rounds: 0.5 to 1.4 s of compile per power (sound/impl/CUSTOM-PLAN.md P1).
+            // (Measured on Iris Xe, D3D11, 16 call sites in one program: cx_powk 6.8 to 16 s, cx_ipow32 alone 0.15 to
+            // 0.45 s, cpowr or cx_powg alone 0.6 to 2.2 s, so the cost is the three branches together. cx_ipow32 keeps
+            // its constant-bound loop: the same rounds with the test at the end of the loop took 0.9 to 2.1 s.)
+            const a = g(n.a);
+            // (classified at cut 0, written at the step's cut th: the same value, a constant is principal whatever the cut)
+            const v = constOf(n.b, 0);
+            if (v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096) {
+              // cx_ipow32's rounds written out for this n: the same cmul calls in the same order, so the same values
+              baked.push(['i', v.re]);
+              if (v.re === 0) return 'vec2(1.0, 0.0)';   // (z^0 = 1 at ∞ and NaN too, as Expr.compile gives)
+              let m = Math.abs(v.re), b = v.re < 0 ? tv(`cinv(${a})`) : a, r = 'vec2(1.0, 0.0)';
+              for (;;) {
+                if (m & 1) r = tv(`cmul(${r}, ${b})`);
+                m >>= 1;
+                if (m <= 0) return r;
+                b = tv(`cmul(${b}, ${b})`);
+              }
+            }
+            const cell = A.cell();
+            if (v.im === 0) {
+              baked.push(['r']);
+              writers.push((put, th) => put(cell.c, constOf(n.b, th).re, 0));
+              return tv(`cpowr(${a}, ${cell.x}, ${TH}, 0.0)`);
+            }
+            baked.push(['c']);
+            writers.push((put, th) => putC(put, cell, constOf(n.b, th)));
+            return tv(`cx_powg(${a}, ${cell.v}, ${TH}, 0.0)`);
+          }
           if (!dep(n.b)) {
             const a = g(n.a);
             const s = A.slot();
@@ -645,8 +778,8 @@ ${inner.map((x) => '  ' + x).join('\n')}
 
 
   // ---- [issue #4] Γ, ψ, ζ and ζ′ in float32, after CX.lgamma, CX.digamma, CX.zeta, CX.zetaDeriv: put in front of a
-  // chain's (or a region formula's) source only when it calls them, so no other program compiles them (SPECIAL_RE)
-  const SPECIAL_LIB = `
+  // chain's (or a region formula's) source only when it calls them, so no other program compiles them (specialLib)
+  const GAMMA_LIB = `
 // sin(πz) and sin(πs/2) with the real part reduced by the period first (float32 keeps the phase)
 vec2 cx_pimod(vec2 z) { return vec2(CX_PI * (z.x - 2.0 * floor(0.5 * z.x)), CX_PI * z.y); }
 vec2 cx_halfpimod(vec2 s) { return vec2(CX_HALF_PI * (s.x - 4.0 * floor(0.25 * s.x)), CX_HALF_PI * s.y); }
@@ -670,11 +803,13 @@ vec2 cx_lgamma1(vec2 z) {
   ser += cdiv(vec2(-0.000005395239384953, 0.0), z + vec2(6.0, 0.0));
   return clog(cdiv(ser * 2.5066282746310005, z), CX_PI, 0.0) - tmp;
 }
-// log Γ(z): the reflection log π − log sin(πz) − log Γ(1 − z) for Re z < 1/2; a pole: Re = +inf
+// log Γ(z): the reflection log π − log sin(πz) − log Γ(1 − z) for Re z < 1/2; a pole: Re = +inf. (issue #72) One call
+// of cx_lgamma1, its argument chosen first: FXC (Direct3D 11) inlines every call, and the Lanczos body was there twice
 vec2 cx_lgamma(vec2 z) {
-  if (z.x >= 0.5) return cx_lgamma1(z);
-  if (z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf(), 0.0);
-  return vec2(1.1447298858494002, 0.0) - cx_logsin(cx_pimod(z)) - cx_lgamma1(vec2(1.0, 0.0) - z);
+  bool refl = z.x < 0.5;
+  if (refl && z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf(), 0.0);
+  vec2 L = cx_lgamma1(refl ? vec2(1.0, 0.0) - z : z);
+  return refl ? vec2(1.1447298858494002, 0.0) - cx_logsin(cx_pimod(z)) - L : L;
 }
 // Γ(z): exp(log Γ); beyond float32 the point at infinity (cx_isinf)
 vec2 cx_gamma(vec2 z) {
@@ -692,11 +827,14 @@ vec2 cx_digamma(vec2 z) {
     acc = -CX_PI * cinv(ctan(cx_pimod(z)));
     z = vec2(1.0, 0.0) - z;
   }
-  for (int i = 0; i < 12; i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
+  for (int i = 0; i < max(12, uNoUnroll); i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
   vec2 w2 = cinv(cmul(z, z));
   vec2 ser = cmul(w2, vec2(1.0 / 12.0, 0.0) + cmul(w2, vec2(-1.0 / 120.0, 0.0) + cmul(w2, vec2(1.0 / 252.0, 0.0) + cmul(w2, vec2(-1.0 / 240.0, 0.0)))));
   return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
 }
+`;
+  // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
+  const ZETA_LIB = `
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
 const float CX_EMC[6] = float[6](0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10);
@@ -705,7 +843,7 @@ vec2 cx_zetaEM(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 1; k < 200; k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
+  for (int k = 1; k < max(200, uNoUnroll); k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN);
   sum += 0.5 * Nms + cdiv(Nms * fN, s - vec2(1.0, 0.0));
@@ -721,7 +859,7 @@ vec2 cx_zetaEMd(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 2; k < 200; k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
+  for (int k = 2; k < max(200, uNoUnroll); k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN), r = cinv(s - vec2(1.0, 0.0));
   sum -= 0.5 * lnN * Nms + cmul(Nms * fN, r * lnN + cmul(r, r));
@@ -734,44 +872,49 @@ vec2 cx_zetaEMd(vec2 s) {
   }
   return sum + cmul(bt, Nms);
 }
-// ζ(s): Euler–Maclaurin for Re s >= 0; the functional equation 2^s π^{s-1} sin(πs/2) Γ(1 − s) ζ(1 − s), in log form
+// ζ(s): Euler–Maclaurin for Re s >= 0; the functional equation 2^s π^{s-1} sin(πs/2) Γ(1 − s) ζ(1 − s), in log form.
+// (issue #72) cx_zetaEM, its 200-term loop and all, is called once (at s or at 1 − s)
 vec2 cx_zeta(vec2 s) {
   if (!cfin(s) || abs(s.y) > CX_ZETA_TMAX) return vec2(cx_nan());
-  if (s.x >= 0.0) return cx_zetaEM(s);
-  if (s.y == 0.0 && s.x == 2.0 * floor(0.5 * s.x)) return vec2(0.0);
+  bool fe = s.x < 0.0;
+  if (fe && s.y == 0.0 && s.x == 2.0 * floor(0.5 * s.x)) return vec2(0.0);
   vec2 one = vec2(1.0, 0.0) - s;
+  vec2 Z = cx_zetaEM(fe ? one : s);
+  if (!fe) return Z;
   vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(cx_halfpimod(s)) + cx_lgamma1(one);
   if (L.x > 88.7) return vec2(cx_inf());
-  return cmul(cexp(L), cx_zetaEM(one));
+  return cmul(cexp(L), Z);
 }
 // ζ′(s): for Re s < 0, from ζ = χ ζ(1 − s): χ (L′ ζ(1 − s) − ζ′(1 − s)), near the real axis without the log form
 vec2 cx_zetad(vec2 s) {
   if (!cfin(s) || abs(s.y) > CX_ZETA_TMAX) return vec2(cx_nan());
-  if (s.x >= 0.0) return cx_zetaEMd(s);
-  vec2 one = vec2(1.0, 0.0) - s, z1 = cx_zetaEM(one), z1d = cx_zetaEMd(one);
+  // (issue #72: cx_zetaEMd and cx_lgamma1 called once each)
+  vec2 one = vec2(1.0, 0.0) - s, z1d = cx_zetaEMd(s.x >= 0.0 ? s : one);
+  if (s.x >= 0.0) return z1d;
+  vec2 z1 = cx_zetaEM(one), lg1 = cx_lgamma1(one);
   vec2 base = vec2(0.6931471805599453 + 1.1447298858494002, 0.0) - cx_digamma(one);
   vec2 hs = cx_halfpimod(s);
   if (abs(s.y) < 1.0) {
-    vec2 A = cexp(s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_lgamma1(one));
+    vec2 A = cexp(s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + lg1);
     vec2 sn = csin(hs), cs = ccos(hs);
     return cmul(A, cmul(cmul(sn, base), z1) + CX_HALF_PI * cmul(cs, z1) - cmul(sn, z1d));
   }
-  vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(hs) + cx_lgamma1(one);
+  vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(hs) + lg1;
   if (L.x > 88.7) return vec2(cx_inf());
   vec2 Ld = base + CX_HALF_PI * cinv(ctan(hs));
   return cmul(cexp(L), cmul(Ld, z1) - z1d);
 }
 `;
   // [issue #5] the series' helpers: w^e for an integer e held as a float (binary powers, at most 31 squarings; |e| past
-  // 2^31 only for |w| <= 1, where it is 0, or 1 on the circle), n! and the binomial coefficient
-  const SERIES_LIB = `
+  // 2^31 only for |w| <= 1, where it is 0, or 1 on the circle)
+  const IPOWI_LIB = `
 vec2 cx_ipowi(vec2 w, float e) {
   if (e == 0.0) return vec2(1.0, 0.0);
   if (e == 1.0) return w;
   float n = abs(e);
   vec2 r = vec2(1.0, 0.0), b = w;
   if (n > 2147483647.0) { float a = cx_abs(w); r = a < 1.0 ? vec2(0.0) : a == 1.0 ? vec2(1.0, 0.0) : vec2(cx_inf()); return r; }
-  for (int i = 0; i < 31; i++) {
+  for (int i = 0; i < max(31, uNoUnroll); i++) {
     if (mod(n, 2.0) == 1.0) r = cmul(r, b);
     n = floor(0.5 * n);
     if (n == 0.0) break;
@@ -779,11 +922,29 @@ vec2 cx_ipowi(vec2 w, float e) {
   }
   return e < 0.0 ? cinv(r) : r;
 }
-vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
-vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_lgamma(b + vec2(1.0, 0.0)) - cx_lgamma(a - b + vec2(1.0, 0.0))); }
 `;
-  const SPECIAL_RE = /\bcx_(gamma|lgamma|digamma|zeta|zetad|ipowi|fact|binom)\(/;
-  const withSpecial = (src) => (SPECIAL_RE.test(src) ? SPECIAL_LIB + SERIES_LIB + src : src);
+  // n! and the binomial coefficient (they need Γ's part)
+  const FACT_LIB = `
+vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
+// (issue #72: the three log Γ through one call site)
+vec2 cx_binom(vec2 a, vec2 b) {
+  vec2 acc = vec2(0.0);
+  for (int i = 0; i < max(3, uNoUnroll); i++) {
+    vec2 L = cx_lgamma((i == 0 ? a : i == 1 ? b : a - b) + vec2(1.0, 0.0));
+    acc = i == 0 ? L : acc - L;
+    if (i == 2) break;
+  }
+  return cexp(acc);
+}
+`;
+  // (issue #72) the parts a source calls and those they need, in order: Γ no longer brings ζ
+  // along, nor w^e (a series) Γ and ζ
+  const specialLib = (src) => {
+    const zeta = /\bcx_zetad?\(/.test(src), fact = /\bcx_(fact|binom)\(/.test(src);
+    const gamma = zeta || fact || /\bcx_(gamma|lgamma|digamma)\(/.test(src);
+    return (gamma ? GAMMA_LIB : '') + (zeta ? ZETA_LIB : '') + (/\bcx_ipowi\(/.test(src) ? IPOWI_LIB : '') + (fact ? FACT_LIB : '');
+  };
+  const withSpecial = (src) => specialLib(src) + src;
 
   // ---- natural paths (Funcs: ZOOM, joukHom, ratPath, genericZoomNat): h bodies in z and t, mirroring the CPU ----
   // nat: the built step's descriptor {kind, fn | n | dp, dq}; returns {h, write(put, b)} or null (no GPU path: the
@@ -1089,6 +1250,38 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
       }
       case 'zeta':
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
+      // [issue #260] Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
+      // uniform; neither loop unrolls, issue #72), then back by the square root nearest each orbit point. float32 holds
+      // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform. (The escape test on |w|²
+      // and the roots by length(), whose argument stays below 10⁸ here, not by cx_abs and csqrtp: 1.7 times faster on
+      // SwiftShader; the root keeps csqrtp's form, with no cancellation)
+      case 'dh': case 'bottcher': {
+        const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
+        const NM = Funcs.DH_NMAX;
+        return {
+          sig: [type],
+          f: `vec2 orb[${NM + 1}];
+  vec2 c = ${jc ? jc.v : 'z'}, w = z;
+  int n = -1;
+  for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
+    orb[k] = w;
+    if (dot(w, w) > 1e8) { n = k; break; }
+    if (float(k) >= ${nn.x}) break;
+    w = cmul(w, w) + c;
+  }
+  if (n < 0) return vec2(cx_nan());
+  vec2 p = cmul(w, csqrtp(vec2(1.0, 0.0) + cdiv(cdiv(c, w), w)));
+  for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
+    if (j > n) break;
+    float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o = orb[n - j];
+    p = dot(r, o) >= 0.0 ? r : -r;
+  }
+  ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;`,
+          h: LIN(P),
+          write(put) { put(nn.c, v.N, jc ? b.dh.rho : 0); if (jc) putC(put, jc, v.c); },
+        };
+      }
       case 'poly': case 'rational': {
         const lists = type === 'poly' ? [CX.polyTrim(v.co)] : [CX.polyTrim(v.p), CX.polyTrim(v.q)];
         const cells = lists.map((co) => co.map(() => A.cell()));
@@ -1129,16 +1322,18 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
         };
       }
       case 'series':
+      case 'recurrence':
       case 'custom': {
-        if (b.rec) return recPlan(P, b, A);
+        if (b.rec) return b.repeat ? repPlan(P, b, A) : recPlan(P, b, A);
         const ast = b.ast || Expr.parse(v.expr);
         const cut = A.cell();
         const TH = cut.x;
         const writers = [], lines = [], shape = [];
-        const res = genCustom(ast, P, A, TH, writers, lines, shape);
+        const baked = [];
+        const res = genCustom(ast, P, A, TH, writers, lines, baked, shape);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
@@ -1147,11 +1342,34 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
   }
 
   // The program key of a formula: its tree without positions or spelling (z^{i} and z^i, \\frac12 and 1/2 are one key),
-  // a shared number by its name (its value is a uniform), any other constant by its value (the sheet code bakes in an
-  // integer exponent)
+  // a shared number by its name, and no number's value: every number is a uniform (genCustom, genCustomPair and
+  // derivPlan write constants at fill time), so changing one does not compile again. What the code is built from
+  // goes in beside it: the exponents genCustom bakes in (its baked list), those the sheet code bakes in (pairBaked),
+  // and d/dz's own source (build).
   function astSig(n) {
     return JSON.stringify(n, (k, x) => (k === 'pos' || k === 'len' || k === 'lit' || k === 's' || k === 'name' ? undefined
-      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : [x.v.re, x.v.im]) : x));
+      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : '#')
+        // ([issue #6] a recurrence's constant N is a uniform: a new N is the same program)
+        : x && typeof x === 'object' && x.t === 'iter' && !Expr.depends(x.hi) ? Object.assign({}, x, { hi: '#N' }) : x));
+  }
+  // What the sheet code (genCustomPair) builds from the values of constant exponents without a shared number, in tree
+  // order: Funcs.branchNode null (an integer, |n| <= 4096) writes the integer into cipow; any other exponent is a
+  // branch node, 'n', whose value and sheet count are uniforms. An exponent with a shared number is always a branch
+  // node there (paramPow), whatever its value, so the code does not depend on it and a slider never compiles again
+  function pairBaked(ast) {
+    const out = [];
+    const walk = (n) => {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!n.t) return;
+      for (const k of Object.keys(n)) if (n[k] && typeof n[k] === 'object') walk(n[k]);
+      if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && !hasParam(n.b)) {
+        const bn = Funcs.branchNode ? Funcs.branchNode(n) : null;
+        out.push(bn ? 'n' : Expr.compile(n.b)(C(0, 0)).re);
+      }
+    };
+    walk(ast);
+    return out;
   }
   // A formula recognized as catalog steps (Funcs: b.rec): each step's own plan, as functions of their own (P r j), and
   // the step as their composition; its homotopy runs the steps' own homotopies in turn, step j on [j/n, (j+1)/n]
@@ -1191,6 +1409,37 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
       write(put) { for (const { pl } of subs) pl.write(put); },
     };
   }
+  // [issue #6] Repeat × N (Funcs.repeatBuilt: b.rec runs the block's last step, then the block N − 1 times): the block's
+  // steps once each, as functions of their own (P r j), and a loop whose trip count N − 1 is a uniform, so a new N (a
+  // typed N, a shared number's slider) is the same program. The path runs the 1 + (N − 1) len steps in turn, each on
+  // an equal part of t, as the CPU's does
+  function repPlan(P, b, A) {
+    const rp = b.repeat, block = rp.block;
+    const subs = block.map((sb, j) => {
+      const Q = `${P}r${j}`;
+      const pl = stepPlan(Q, sb, A);
+      if (!pl) throw new Error('GLChain: no plan for a repeated step');
+      return { Q, pl };
+    });
+    const len = subs.length, last = subs[len - 1].Q, nc = A.cell();
+    let pre = '';
+    for (const { Q, pl } of subs) {
+      if (pl.pre) pre += pl.pre;
+      pre += `vec2 ${Q}_f(vec2 z) {\n  ${pl.f}\n}\n`;
+      const h = pl.h.startsWith('if (t == 0.0)') ? pl.h : `if (t == 1.0) return ${Q}_f(z);\n  ${pl.h}`;
+      pre += `vec2 ${Q}_h(vec2 z, float t) {\n  ${h}\n}\n`;
+    }
+    const passes = `int(${nc.x})`;
+    const f = `z = ${last}_f(z);\n  for (int k = 0; k < ${passes}; k++) {\n    ${subs.map(({ Q }) => `z = ${Q}_f(z);`).join('\n    ')}\n  }\n  return z;`;
+    const h = `if (t <= 0.0) return z;\n  if (t >= 1.0) return ${P}_f(z);\n  float s = t * (1.0 + ${nc.x} * ${len}.0);\n  if (s < 1.0) return ${last}_h(z, s);\n  z = ${last}_f(z); s -= 1.0;\n`
+      + `  for (int k = 0; k < ${passes}; k++) {\n${subs.map(({ Q }) => `    if (s < 1.0) return ${Q}_h(z, s);\n    z = ${Q}_f(z); s -= 1.0;`).join('\n')}\n  }\n  return z;`;
+    const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
+    return {
+      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
+      write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
+    };
+  }
   // A step's cuts that the sheets cannot continue (inverse trig functions, the Joukowski branches, arg in a formula):
   // fo in its map, ho in its path at 0 < t < 1 (a path through the map itself inherits the map's)
   const NONSHEET_CUT = /\b(?:casin|cacos|catan|casinh|cacosh|catanh|csqrtp|cx_atanhS|cx_asinS|cx_atanS|cx_asinhS)\s*\(|vec2\(carg\(/;
@@ -1203,7 +1452,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
   // ---- d/dz: derivative of one step (for the exact chain rule) ----
   // {f: body of vec2 P_df(vec2 z), write} from Funcs.derivAst (exact numbers, the step's cut), or null
   function derivPlan(P, b, A) {
-    if (typeof Funcs === 'undefined' || typeof Funcs.derivAst !== 'function') return null;
+    if (typeof Funcs.derivAst !== 'function') return null;
     const d = Funcs.derivAst(b, { stable: true });
     if (!d || d.error) return null;
     const cut = A.cell();
@@ -1232,6 +1481,14 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
       gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad',
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
+    // (an exponent with a shared number, z^{a}: a branch node whatever a is, its value and sheet count read when the
+    // uniforms are filled; an integer a is one sheet, a digit of radix 1 that takes nothing from c, and cpow on any
+    // sheet is z^a. So the code, and the key (astSig, pairBaked), do not depend on a. The price: an integer a goes
+    // through cpow (exp and log, about 1e-4 relative at large |z|) where a typed integer takes cipow, in the sheet view only)
+    const paramPow = (b) => {
+      const vOf = () => constOf(b), intOf = (v) => v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096;
+      return { kind: 'powc', get v() { return vOf(); }, get n() { const v = vOf(); return intOf(v) ? 1 : Funcs.sheetCount(v); } };
+    };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
     // (v16.1 review math-3: the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
     function node(bn, inC) {
@@ -1264,7 +1521,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
           return pair(op(a[0], b[0]), op(a[1], b[1]));
         }
         case 'pow': {
-          const bn = Funcs.branchNode(n);
+          const bn = !dep(n.b) && hasParam(n.b) ? paramPow(n.b) : Funcs.branchNode(n);
           if (!dep(n.b)) {
             const a = g(n.a);
             if (!bn) { const k = constOf(n.b).re; return both((x) => `cipow(${x}, ${k})`, a); }
@@ -1380,7 +1637,8 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
     }
     const ast = b.ast || Expr.parse(v.expr);
     // no branch node: single-valued, both points go through P_f (and no uniforms are spent on a pair version)
-    const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || ['a', 'b'].some((k) => hasNode(n[k])));
+    // (an exponent with a shared number is a node whatever its value: genCustomPair's paramPow)
+    const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && hasParam(n.b)) || ['a', 'b'].some((k) => hasNode(n[k])));
     if (!hasNode(ast)) return null;
     const writers = [], lines = [];
     const { res, rads } = genCustomPair(ast, `${P}_p`, A, writers, lines, (v.cut ?? 180) * Math.PI / 180);
@@ -1463,6 +1721,19 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
     src += 'vec2 chainHom(int i, vec2 z, float t) {\n';
     for (const { P, k } of maps) src += `  if (i == ${k}) return ${P}_h(z, t);\n`;
     for (const k of dks) src += `  if (i == ${k}) return vec2(cx_nan());\n`;
+    src += '  return z;\n}\n';
+    // (issue #72) chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
+    // map and path written once. The map modes 1-3 (gl.js MAP) walk the chain in one loop through it: ANGLE's
+    // Direct3D 11 back end hands the code to FXC, which inlines every call, so chainRange, chainHom and postOf each
+    // carried a copy of every step (6 to 8, and more, per deformation program). A path with the t = 1 shortcut is
+    // the map at t = 1 (exactly), so in full it is the path at 1 and the map is not written again; a straight-line
+    // path (no shortcut: z (1 - t) + f(z) t is not f(z) where z is infinite) calls the map itself.
+    src += 'vec2 chainAt(int k, vec2 z, float t, int how) {\n  if (how == 0) return z;\n';
+    for (const { P, k, plan } of maps) {
+      src += plan.h.startsWith('if (t == 0.0)') ? `  if (k == ${k}) return how == 1 ? ${P}_f(z) : ${P}_h(z, t);\n`
+        : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
+    }
+    for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
     // all at once (mode 3): every step's homotopy at the same t, H_t = h_{b,t} o ... o h_{a+1,t}, through chainHom (so
     // the step functions are not inlined a second time; a d/dz gives NaN there, an off or failed step the identity)
@@ -1617,7 +1888,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
     }
 
     // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
-    if (SPECIAL_RE.test(src) || SPECIAL_RE.test(sh)) src = SPECIAL_LIB + SERIES_LIB + src;
+    src = specialLib(src + sh) + src;
     let cache = null;
     function values() {
       if (cache) return cache;
@@ -1628,7 +1899,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
       for (const sp of spl.values()) sp.write(put);
       return (cache = vals);
     }
-    const sheetList = typeof Funcs !== 'undefined' && Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
+    const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken now (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
@@ -1900,6 +2171,13 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec2 q = P.x > 0.0 ? w : cinv(w);
   float r = pow(cx_abs(q), P.z), th = (carg(q) + CX_TAU * float(b)) * P.z;
   vec2 u = r * vec2(cos(th), sin(th));
+  // one Newton step for u^n = q, u += (q / u^(n-1) - u) / n (products only): pow is exp2(log2(x) y) on the GPU, good
+  // to about 1e-4, and that moved the image's edge by 1e-4 |w| (400 px for z^3 at |w| = 98, s = 3e4: issue #72, the
+  // quality scene cube_far_deep); the step squares the error, to float32's own
+  vec2 un = vec2(1.0, 0.0);
+  for (int i = 1; i < max(16, uNoUnroll); i++) { if (float(i) >= P.y) break; un = cmul(un, u); }
+  vec2 u1 = u + (cdiv(q, un) - u) / P.y;
+  if (ixFin(u1)) u = u1;
   return ixApply(L, u, cdiv(u, P.x * w), ${NOR});
 }
 `;
@@ -2108,7 +2386,6 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
-    if (typeof Inverse === 'undefined') return { ok: false, reason: 'no inverse enumerator', key: null };
     // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
     const ops = [], sigs = [];
     steps.forEach((st, i) => {
@@ -2171,4 +2448,8 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 
   return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
 })();
-if (typeof module !== 'undefined') module.exports = GLChain;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Funcs } from './funcs.js';
+import { Inverse } from './inverse.js';
+export { GLChain, GLChain as 'module.exports' };

@@ -1,5 +1,11 @@
 # Tour round 3: the Sound chapter (Grieg and the harp)
 
+> **v16.5 (2026-10-28, Hear the function):** the Sound chapter's steps now describe the marimba notes, not the harp.
+> `song` plays the Mountain King's Listen along, which is the function itself (the example is a function since
+> v16.5), with captions at fractions of its playback (`capFrac`); `strings` ("Phase lines are notes") counts red's
+> line crossed up and down (event `hear-turn`, was `harp-turn`); `loop` and `settings` say notes. The scenes `harp`
+> and `harpLoop` keep their ids and are shown as "Phase lines". notes/tour/INTEGRATION.md has the events.
+
 Designer: sound angle. Read-only on `src/`; the tour and the example were run in headless Chrome on v16.2 (`work/xvtr/dist`,
 port 9833, desktop 1440 × 900 and phone 390 × 844 with Android emulation and touch). The "before" screenshots are in
 `sound-shots/`.

@@ -725,6 +725,260 @@ const Calc = (() => {
     return out;
   }
 
-  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, points, argStep, orderAt };
+  // ---------------- the Cauchy integral by the residue theorem (issue #235) ----------------
+  // For F meromorphic on and inside the closed polygon γ, with poles p_k (none on γ), and z off γ and not a pole,
+  //   (1/2πi) ∮γ F(ζ)/(ζ − z) dζ = n(γ, z) F(z) − Σ_k n(γ, p_k) PP_{p_k}(z),
+  // PP_p the principal part of F at p, n the winding number (the residue of F(ζ)/(ζ − z) at p is −PP_p(z)). No integral
+  // over γ is needed, and n counts exactly, for a hand-drawn or self-crossing curve too. cauchyPlan finds the data
+  // (poles inside, their orders and principal parts), and checks it against the quadrature at a few points: where F
+  // has a singularity that the pole count does not cover (e^(1/z)) or a branch cut, the check fails and the caller
+  // keeps the quadrature (cauchyNodes).
+  // the winding number of a closed polygon about z (an integer; z off the polygon): the signed crossings of the ray
+  // from z towards +Re, counted by the half-open rule so a vertex on the ray is counted once
+  function windingAt(pts, z) {
+    let w = 0;
+    const n = pts.length;
+    for (let k = 0; k < n; k++) {
+      const a = pts[k], b = pts[(k + 1) % n];
+      const side = (b.re - a.re) * (z.im - a.im) - (z.re - a.re) * (b.im - a.im);
+      if (a.im <= z.im) { if (b.im > z.im && side > 0) w++; }
+      else if (b.im <= z.im && side < 0) w--;
+    }
+    return w;
+  }
+  // (over several closed polygons, a region's boundary and its holes: the winding numbers add)
+  const windingSum = (loops, z) => loops.reduce((w, l) => w + windingAt(l, z), 0);
+  const distToLoops = (loops, z) => Math.min(...loops.map((l) => distToLoop(l, z)));
+  function distToLoop(pts, z) {
+    let d = Infinity;
+    const n = pts.length;
+    for (let k = 0; k < n; k++) {
+      const a = pts[k], b = pts[(k + 1) % n], dx = b.re - a.re, dy = b.im - a.im, L = dx * dx + dy * dy;
+      const t = L > 0 ? Math.max(0, Math.min(1, ((z.re - a.re) * dx + (z.im - a.im) * dy) / L)) : 0;
+      d = Math.min(d, Math.hypot(z.re - a.re - t * dx, z.im - a.im - t * dy));
+    }
+    return d;
+  }
+  // a closed polygon with no vertex farther than tol from the simplified one (Douglas–Peucker from the vertex nearest
+  // the centre of mass's far side): the winding number of any point more than tol from the polygon is unchanged
+  function simplifyLoop(poly, tol) {
+    const pts = loop(poly), n = pts.length;
+    if (n <= 4 || !(tol > 0)) return pts;
+    let far = 0, fd = -1;
+    for (let k = 1; k < n; k++) { const d = Math.hypot(pts[k].re - pts[0].re, pts[k].im - pts[0].im); if (d > fd) { fd = d; far = k; } }
+    const keep = new Uint8Array(n);
+    keep[0] = 1; keep[far] = 1;
+    const run = (i0, i1) => {   // the open chain pts[i0..i1] (indices mod n), iteratively
+      const stack = [[i0, i1]];
+      while (stack.length) {
+        const [lo, hi] = stack.pop();
+        if (hi - lo < 2) continue;
+        const A = pts[lo % n], B = pts[hi % n], dx = B.re - A.re, dy = B.im - A.im, L = Math.hypot(dx, dy);
+        let m = -1, md = tol;
+        for (let k = lo + 1; k < hi; k++) {
+          const Q = pts[k % n];
+          const d = L > 0 ? Math.abs((Q.re - A.re) * dy - (Q.im - A.im) * dx) / L : Math.hypot(Q.re - A.re, Q.im - A.im);
+          if (d > md) { md = d; m = k; }
+        }
+        if (m >= 0) { keep[m % n] = 1; stack.push([lo, m], [m, hi]); }
+      }
+    };
+    run(0, far); run(far, n);
+    return pts.filter((_, k) => keep[k]);
+  }
+  // the principal part of F at p (order m): a_{-j} = (1/2πi) ∮ F(ζ)(ζ − p)^(j−1) dζ = mean of F(p + r e^(iθ)) r^j e^(ijθ),
+  // by the trapezoid rule on a circle with no other singularity inside, which converges geometrically. coefs[j − 1]
+  // = a_{-j}, for j = 1 … m + 1 (the last one should vanish: the check that the order is right)
+  function laurentCoefs(F, p, r, m, N = 64) {
+    const out = [];
+    for (let j = 1; j <= m + 1; j++) out.push(C(0, 0));
+    for (let t = 0; t < N; t++) {
+      const th = TAU * t / N, c = Math.cos(th), s = Math.sin(th), w = F(C(p.re + r * c, p.im + r * s));
+      if (!fin(w)) return null;
+      for (let j = 1; j <= m + 1; j++) {
+        const cj = Math.cos(j * th), sj = Math.sin(j * th), rj = Math.pow(r, j);
+        out[j - 1].re += rj * (w.re * cj - w.im * sj) / N;
+        out[j - 1].im += rj * (w.re * sj + w.im * cj) / N;
+      }
+    }
+    return out;
+  }
+  function ppAt(coefs, p, z) {
+    let re = 0, im = 0;
+    const dx = z.re - p.re, dy = z.im - p.im, d2 = dx * dx + dy * dy;
+    let ur = dx / d2, ui = -dy / d2, pr = 1, pi = 0;   // 1/(z − p), and its powers
+    for (const a of coefs) {
+      const tr = pr * ur - pi * ui, ti = pr * ui + pi * ur;
+      pr = tr; pi = ti;
+      re += a.re * pr - a.im * pi; im += a.re * pi + a.im * pr;
+    }
+    return C(re, im);
+  }
+  // -> {ok: true, pts, poles: [{z, order, n, a: [{re, im} × order]}], probes} | {ok: false, why}: why 'curve' (no
+  // closed polygon), 'onCurve' (F is not finite on γ, or a pole lies on it: the integral is not defined),
+  // 'unverified' (the formula disagrees with the quadrature: a singularity of a kind the pole count does not cover,
+  // a branch cut, a missed pole). opts.max (poles, default 32), opts.tol (the check, default 1e-6)
+  function cauchyPlan(F, poly, opts = {}) {
+    // poly: one closed polygon, or {loops: [polygon, ...]} (a region's boundary and its holes: the winding numbers add)
+    const loops = (poly && poly.loops ? poly.loops : [poly]).map(loop).filter((l) => l.length >= 3);
+    if (!loops.length) return { ok: false, why: 'curve' };
+    const bb = boxOf(loops);
+    if (!(bb.scale > 0) || !Number.isFinite(bb.scale)) return { ok: false, why: 'curve' };
+    // F finite on γ (the vertices and the midpoints of the edges)
+    for (const pts of loops) for (let k = 0; k < pts.length; k++) {
+      const a = pts[k], b = pts[(k + 1) % pts.length];
+      if (!fin(F(a)) || !fin(F(C(0.5 * (a.re + b.re), 0.5 * (a.im + b.im))))) return { ok: false, why: 'onCurve' };
+    }
+    // zerosPoles can miss a pole that lies close to a zero (their turns cancel in a cell): a finer grid finds it, so the
+    // check below, which notices the miss, is tried again on a finer one before the plan gives up
+    /** @type {any} */
+    let last = { ok: false, why: 'unverified' };
+    for (const grid of opts.grids || [32, 64, 128, 256]) {
+      last = planWith(F, loops, bb, grid, opts);
+      if (last.ok || last.why !== 'unverified') return last;
+    }
+    // (what the fast path keeps: this F and curve do not verify, until the next full check)
+    last.memo = { box: expandBox(bb), all: [], verdict: 'unverified' };
+    return last;
+  }
+  function boxOf(loops) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const l of loops) for (const q of l) { x0 = Math.min(x0, q.re); x1 = Math.max(x1, q.re); y0 = Math.min(y0, q.im); y1 = Math.max(y1, q.im); }
+    const W = x1 - x0, H = y1 - y0;
+    return { x0, x1, y0, y1, W, H, scale: Math.hypot(W, H) };
+  }
+  // the box the poles are looked for in: the curve's, a quarter of its size wider on each side, so that a curve that is
+  // dragged a little (or grows) finds the poles it newly takes in without another search
+  const expandBox = (bb) => { const pad = 0.25 * Math.max(bb.W, bb.H) + 1e-3 * bb.scale; return { x0: bb.x0 - pad, x1: bb.x1 + pad, y0: bb.y0 - pad, y1: bb.y1 + pad }; };
+  // the principal part at a pole of order m on a circle of radius r, or null when F is not finite there or its a_{-(m+1)}
+  // does not vanish (the order is not m)
+  function principalPart(F, z, r, order) {
+    const a = laurentCoefs(F, z, r, order);
+    if (!a) return null;
+    const top = a.pop();   // a_{-(m+1)}: zero when the order is m; compared on the circle, where term j weighs |a_j| r^-j
+    const termMax = Math.max(...a.map((c, j) => CX.abs(c) * Math.pow(r, -(j + 1))), 1e-300);
+    return CX.abs(top) * Math.pow(r, -(order + 1)) > 1e-6 * termMax ? null : a;
+  }
+  // the radius of the circle for a pole's principal part: a third of the way to the nearest other pole, or to the edge
+  // of the box the poles were looked for in (a singularity beyond it is no nearer than that)
+  function ringOf(q, all, box) {
+    let R = Infinity;
+    for (const f of all) if (f !== q) R = Math.min(R, Math.hypot(f.z.re - q.z.re, f.z.im - q.z.im));
+    const wide = Math.max(box.x1 - box.x0, box.y1 - box.y0), edge = Math.min(q.z.re - box.x0, box.x1 - q.z.re, q.z.im - box.y0, box.y1 - q.z.im);
+    if (edge > 1e-6 * wide) R = Math.min(R, edge);
+    return 0.3 * (Number.isFinite(R) ? R : wide);
+  }
+  function planWith(F, loops, bb, grid, opts) {
+    const { x0, x1, y0, y1, W, H, scale } = bb;
+    const max = opts.max || 32, tol = opts.tol || 1e-6;
+    // the poles in the curve's box (and a margin), their principal parts, and those the curve winds round
+    const box = expandBox(bb);
+    let found = [];
+    try { found = zerosPoles(F, box, { max: max + 8, grid }).filter((f) => f.kind === 'pole'); } catch (e) { found = []; }
+    if (found.length > max) return { ok: false, why: 'unverified' };
+    const all = found.map((f) => ({ z: f.z, order: Math.max(1, f.mult || 1), a: null, r: 0 }));
+    // (a pole the curve does not wind round has no term: if its principal part cannot be found (a branch point close to
+    // it) that does not spoil the plan; the fast path asks for the plan in full if the curve takes it in)
+    for (const q of all) { q.r = ringOf(q, all, box); q.a = principalPart(F, q.z, q.r, q.order); }
+    const inside = [];
+    for (const q of all) {
+      if (distToLoops(loops, q.z) <= 1e-7 * scale) return { ok: false, why: 'onCurve' };
+      const wn = windingSum(loops, q.z);
+      if (wn) { if (!q.a) return { ok: false, why: 'unverified' }; inside.push({ z: q.z, order: q.order, n: wn, a: q.a }); }
+    }
+    const ppSum = (z) => { let re = 0, im = 0; for (const q of inside) { const v = ppAt(q.a, q.z, z); re += q.n * v.re; im += q.n * v.im; } return C(re, im); };
+    // the check against the quadrature: four points outside γ (Φ = −Σ n PP), two inside (Φ = n F − Σ n PP). A long thin
+    // curve may get no inside point; the outside points alone check the principal parts, which is what matters
+    const probes = [];
+    const c0 = C(0.5 * (x0 + x1), 0.5 * (y0 + y1));
+    for (let k = 0; k < 4; k++) {
+      for (let f = 1.2; f < 40; f *= 1.6) {
+        const z = C(c0.re + f * scale * Math.cos(0.4 + k * Math.PI / 2), c0.im + f * scale * Math.sin(0.4 + k * Math.PI / 2));
+        if (windingSum(loops, z) === 0 && distToLoops(loops, z) > 0.05 * scale) { probes.push(z); break; }
+      }
+    }
+    let nIn = 0;
+    for (let i = 0; i < 12 && nIn < 2; i++) for (let j = 0; j < 12 && nIn < 2; j++) {
+      const z = C(x0 + (i + 0.37) * W / 12, y0 + (j + 0.61) * H / 12);
+      if (windingSum(loops, z) !== 0 && distToLoops(loops, z) > 0.03 * scale && inside.every((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) > 0.03 * scale)) { probes.push(z); nIn++; }
+    }
+    const worst = [];
+    for (const z of probes) {
+      let q = C(0, 0), qb = 0;
+      for (const l of loops) { const v = cauchy(F, l, z); q = C(q.re + v.re, q.im + v.im); qb += v.errBound || 0; }
+      if (!fin(q)) return { ok: false, why: 'unverified' };
+      q.errBound = qb;
+      const nz = windingSum(loops, z), pp = ppSum(z);
+      let e = C(-pp.re, -pp.im);
+      if (nz) { const fz = F(z); if (!fin(fz)) continue; e = C(nz * fz.re - pp.re, nz * fz.im - pp.im); }
+      const err = Math.hypot(q.re - e.re, q.im - e.im);
+      worst.push(err);
+      if (!(err <= tol * (1 + Math.hypot(q.re, q.im)) + (q.errBound || 0) * 10)) return { ok: false, why: 'unverified' };
+    }
+    return { ok: true, loops, poles: inside, probes: worst, memo: { box, all, verdict: 'ok' } };
+  }
+  // The same plan for the same F and a curve that moved or changed (a drag, an edit), without the search or the check:
+  // the poles and their principal parts are F's alone, so only the winding numbers are counted again. memo is what
+  // cauchyPlan or the last call returned (its .memo); null when the curve has left the box the poles were looked for in
+  // (the caller then plans in full). The plan is as good as the last full one until the curve takes in a pole the search
+  // missed, which the check, run again at rest, finds. An F and curve that did not verify stay unverified.
+  function cauchyPlanFast(F, poly, memo) {
+    const loops = (poly && poly.loops ? poly.loops : [poly]).map(loop).filter((l) => l.length >= 3);
+    if (!loops.length || !memo) return null;
+    const bb = boxOf(loops), B = memo.box;
+    if (!(bb.scale > 0) || bb.x0 < B.x0 || bb.x1 > B.x1 || bb.y0 < B.y0 || bb.y1 > B.y1) return null;
+    if (memo.verdict !== 'ok') return { ok: false, why: 'unverified', fast: true, memo };
+    const inside = [];
+    for (const q of memo.all) {
+      if (distToLoops(loops, q.z) <= 1e-7 * bb.scale) return { ok: false, why: 'onCurve', fast: true, memo };
+      const wn = windingSum(loops, q.z);
+      if (wn) { if (!q.a) return null; inside.push({ z: q.z, order: q.order, n: wn, a: q.a }); }
+    }
+    return { ok: true, loops, poles: inside, probes: [], fast: true, memo };
+  }
+  // The memo for an F that changed a little (a slider): each pole is followed by Newton's method on 1/F from where it was,
+  // and its principal part is found again. null when a pole moved far, or a principal part no longer has its order:
+  // the caller then plans in full.
+  function cauchyTrack(F, memo) {
+    if (!memo) return null;
+    if (memo.verdict !== 'ok') return memo;
+    const all = [];
+    for (const q of memo.all) {
+      let z = q.z;
+      for (let it = 0; it < 12; it++) {
+        const f0 = F(z);
+        if (!fin(f0)) return null;
+        const h = 1e-6 * (1 + CX.abs(z)), g = (w) => { const v = F(w); return CX.div(C(1, 0), v); };
+        const g0 = g(z), gp = g(C(z.re + h, z.im)), gm = g(C(z.re - h, z.im));
+        if (!fin(g0) || !fin(gp) || !fin(gm)) return null;
+        const d = C((gp.re - gm.re) / (2 * h), (gp.im - gm.im) / (2 * h));
+        if (CX.abs(d) < 1e-300) return null;
+        // (1/F has a zero of the pole's order m there: Newton's step to it is 1/m of the way, so m times the step)
+        const st = CX.scale(CX.div(g0, d), q.order);
+        z = C(z.re - st.re, z.im - st.im);
+        if (CX.abs(st) < 1e-9 * (1 + CX.abs(z))) break;   // (Newton converges quadratically: this step leaves an error far below rounding)
+        if (it === 11) return null;
+      }
+      if (Math.hypot(z.re - q.z.re, z.im - q.z.im) > 0.3 * q.r) return null;
+      all.push({ z, order: q.order, a: null, r: q.r });
+    }
+    for (const q of all) {
+      q.r = ringOf(q, all, memo.box);
+      q.a = principalPart(F, q.z, q.r, q.order);
+      if (!q.a && memo.all.find((o) => o.z && Math.hypot(o.z.re - q.z.re, o.z.im - q.z.im) < 0.3 * o.r && o.a)) return null;   // (one that had a principal part and has none: the order changed)
+    }
+    return { box: memo.box, all, verdict: 'ok' };
+  }
+  // Φ(z) from a plan: n F(z) − Σ n PP (z off γ and not a pole), the CPU twin of the plot, for tests and the captions
+  function cauchyValue(F, plan, z) {
+    const nz = windingSum(plan.loops, z);
+    let re = 0, im = 0;
+    if (nz) { const f = F(z); re = nz * f.re; im = nz * f.im; }
+    for (const q of plan.poles) { const v = ppAt(q.a, q.z, z); re -= q.n * v.re; im -= q.n * v.im; }
+    return C(re, im);
+  }
+
+  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, cauchyPlan, cauchyPlanFast, cauchyTrack, cauchyValue, windingAt, windingSum, simplifyLoop, laurentCoefs, points, argStep, orderAt };
 })();
-if (typeof module !== 'undefined') module.exports = Calc;
+import { CX } from './cx.js';
+export { Calc, Calc as 'module.exports' };

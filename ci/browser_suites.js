@@ -75,6 +75,8 @@ const t = (re, measured) => ({ re, measured });
 const advanced = (d) => typeof (Array.isArray(d) ? d[0] : d) === 'number';
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
+  'series_edit_cmd.js': [t(/^timing: /)],
+  'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
   'export_cmd.js': [t(/^a figure builds in under 2\.5 s/), t(/no main-thread task of 50 ms or more/), t(/^preview: it advances at the video's frame rate/),
@@ -82,6 +84,7 @@ const TIMING = {
     t(/^dark theme: a video and a filmstrip flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^video in a hidden page: made at a pace close to a visible one/, (d) => d && d.hv && d.vv && d.hv.frames === d.vv.frames)],
   'deform_nat_cmd.js': [t(/: 60 fps while playing \(p95 under 20 ms\)$/)],
+  'deform_dirichlet_cmd.js': [t(/^timing: /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
@@ -115,15 +118,14 @@ const SOFTWARE = {
     (d) => d && d.id === 'sphere' && d.holes === 2 && d.mark === false)],
   // (the deformation's clock gains at most 0.1 a frame, app.js: at a few frames a second the per-frame checks see few
   // frames, though every frame in which t moved had its voice update)
-  'sound_cmd.js': [s(/^deformation: (A Phase, still pointer, M|A Phase, Play|D merged plane): a voice update in every frame t moved$|^deformation: B the tone follows every frame$/,
+  'sound_cmd.js': [s(/^deformation: (A Phase, still pointer, M|A Phase, Play|D merged plane): a voice update in every frame t moved$|^deformation: B the tone follows every frame$|^deformation: D merged plane: a hear update in every frame t moved$/,
     'every frame in which t moved had its voice update (none missed); only the number of frames is short at a few frames a second',
     (d) => d && d.missed === 0 && d.moved > 0),
-    // (or, right after Landscape's first open of the deformation, 3 frames or fewer in the 2.6 s, too few for t to move:
+    // (v16.5, Hear the function: the Landscape is heard as the planes are, its Height voice and contour ticks retired.
+    // Or, right after Landscape's first open of the deformation, 3 frames or fewer in the 2.6 s, too few for t to move:
     // the first frame's step is 0)
-    s(/^deformation: E Landscape: the Height voice, a voice update in every frame t moved$/, 'every frame in which t moved had its Height voice update (none missed); only the number of frames is short',
-      (d) => d && d.kind === 'height' && d.per && d.per.missed === 0 && (d.per.moved > 0 || (typeof d.nFrames === 'number' && d.nFrames <= 3))),
-    s(/^deformation: E Landscape: one contour tick per level of \|H_t\| crossed$/, 'the run had not reached its end in the suite\'s window (no arrival), so fewer levels were crossed; no frame missed and no extra tick',
-      (d) => d && d.kind === 'height' && d.per && d.per.missed === 0 && Array.isArray(d.made) && !d.made.includes('morphEnd') && d.made.filter((x) => x === 'contour').length <= d.ticksWant)],
+    s(/^deformation: E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved$/, 'every frame in which t moved had its hear update (none missed); only the number of frames is short',
+      (d) => d && d.harp && d.per && d.per.missed === 0 && (d.per.moved > 0 || (typeof d.nFrames === 'number' && d.nFrames <= 3)))],
   'sound_v152_cmd.js': [
     s(/^deformation: the loop sings while t runs/, 'W is 0 at first and 1 at the end, and the loop sang in every frame; only the frame count is short (27, needs more than 40)',
       (d) => d && Array.isArray(d.first) && d.first[1] === 0 && Array.isArray(d.last) && d.last[1] === 1 && d.singing === d.n),

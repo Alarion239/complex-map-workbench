@@ -11,7 +11,7 @@ const MorphPaths = (() => {
     drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
     lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
     morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-    patternSegs, preimageTargets, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
+    patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
     resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
     sub, syncPlaying, trans, transState, tweens, updateCalcChip;
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
@@ -1103,13 +1103,16 @@ const MorphPaths = (() => {
     else {
       pane.setView(V.right);
       paper(pane);
-      const k = rightStage();
+      // (#362 the glide rests on the plane after a step, not on F)
+      const k = trans.at >= 0 ? trans.at : rightStage();
       const F = trans.k ? transState().F : stageF(k);
       const key = wKeyOn() && GLR.ok ? { noGrid: true, under: keyUnder(pane) } : null;
       if (GLR.ok) drawScene(pane, trans.k ? transState().map : stageMap(k), trans.k ? null : 'R', Object.assign({ cache: !trans.k }, key)); else noGL(pane);
       // a transition draws its homotopy forward; the stage it ends on is drawn inverse: its program compiles meanwhile
       // (after the chain's forward programs), so the last frame is exact instead of a forward stand-in (P2 review)
       if (trans.k && GLR.ok) requestInverseFor(stageMap(k));
+      // ([#253] the shapes of a later plane: their preimages in this one)
+      if (!trans.k && GLR.ok) stagePullbacks(pane, k);
       // the w-plane targets: fills (a pass of the preimage shader with the identity map), outlines, points
       if (hasTargets()) {
         const areas = preimageTargets(true);
@@ -1117,11 +1120,12 @@ const MorphPaths = (() => {
         strokeTargets(pane);
       }
       // (the image of X's view rectangle: only X Plane has one; the globe shows all of X, the landscape a trimmed box)
-      if (A.S.fov !== false && !trans.k && lFlat()) drawFov(pane, focusF());
+      if (A.S.fov !== false && !trans.k && !trans.glide && lFlat()) drawFov(pane, focusF());
       if (!trans.k) drawCutBanks(pane, k);
-      drawChevrons(pane, F);
+      drawChevrons(pane, F, trans.k ? undefined : k);
       if (A.S.focus > 0) drawCuts(pane, k, false, true);
-      drawPoints(pane, F, { primes: k });
+      drawPoints(pane, F, { primes: k, k: trans.k ? undefined : k });
+      if (!trans.k) { updatePre('R', pane, k); drawPre(pane, 'R', k); }
       if (hasTargets()) drawPoints(pane, (z) => z, { list: A.S.targets, target: true });
       drawRulers(pane, 'R');
     }
@@ -1138,7 +1142,12 @@ const MorphPaths = (() => {
 
   function init(api) {
     A = api;
-    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
+    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
   }
   return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
 })();
+import { $, DEG, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+export { MorphPaths };

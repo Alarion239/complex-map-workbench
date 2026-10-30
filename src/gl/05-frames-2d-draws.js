@@ -59,7 +59,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+      frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
     gl.viewport(0, 0, pw, ph);
@@ -76,7 +76,7 @@
     if (preActive) { preActive = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
     if (halfOpen && halfOpen.pre) halfOpen = null;
     fw = w; fh = h; vpX = x; vpY = y;
-    frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     gl.viewport(x, y, w, h);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, w, h);
@@ -273,11 +273,13 @@
     fadeUniforms(P, st.fade);
   }
   // tfEntry's answer while the current chain's transform-feedback program is still compiling (and no earlier one is
-  // ready): the draw then uses whichever direct program is already ready, without starting another compile
+  // ready): the draw then uses whichever direct program is already ready, without starting another compile. One of an
+  // earlier version (or none) is a stand-in: the frame is pending until the transform-feedback program tf lands.
   const PENDING = {};
-  function readyProg(name, map) {
+  function readyProg(name, map, tf) {
     const P = getProg(name, cur, false, map);
     if (P || sideMode) return P;
+    if (tf) { framePending = true; standIn(progId(tf, cur, map)); }
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
@@ -336,7 +338,7 @@
       const pend = e === PENDING;
       if (pend) e = null;
       const name = ident ? 'region0' : (sph ? 'regionS' : 'region') + (e ? 'C' : '');
-      let P = pend ? readyProg(name, st.map) : program(name, st.map);
+      let P = pend ? readyProg(name, st.map, 'tfRegion') : program(name, st.map);
       if (!P && !ident && !e && (e = stand(res, true, L, st.map, pend ? 'tfRegion' : name))) P = program(sph ? 'regionSC' : 'regionC');
       if (!P) return;
       use(P, st.map);
@@ -344,7 +346,7 @@
       if (sph) {
         uM4(P, 'uMVP', st.sphere.MVP);
         u3(P, 'uEye', st.sphere.eye);
-        lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+        globeLight(P, st.sphere);
         originUniforms(P, res.org);
       } else view2D(P, st.view, st.dpr || 1, res.org);
       regionUniforms(P, st, res.org);
@@ -379,7 +381,7 @@
       const pend = e === PENDING;
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
-      let P = pend ? readyProg(nameOf(), st.map) : program(nameOf(), st.map);
+      let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
       if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
@@ -464,14 +466,50 @@
     nodeKey = c.nodes; nodeO = [ox, oy];
     return n;
   }
+  // the residue theorem's data (#235; st.cauchy.plan = {poles: [{z, order <= 4, n, a: [{re, im}]}]}, st.cauchy.edges =
+  // Float64Array [ax, ay, bx, by] * m: the polygon's edges, simplified to a fraction of a pixel): the edges as a texture
+  // row relative to their centre, the poles and their principal parts as uniforms. -> {n edges, origin}
+  let edgeTex = null, edgeKey = null, edgeO = [0, 0], edgeN = 0;
+  function cauchyEdges(c) {
+    gl.activeTexture(gl.TEXTURE4);
+    if (edgeTex && edgeKey === c.edges) { gl.bindTexture(gl.TEXTURE_2D, edgeTex); return; }
+    const E = c.edges, m = Math.min(Math.floor(E.length / 4), maxTex);
+    let ox = 0, oy = 0;
+    for (let j = 0; j < m; j++) { ox += E[4 * j]; oy += E[4 * j + 1]; }
+    ox = m ? ox / m : 0; oy = m ? oy / m : 0;
+    if (!Number.isFinite(ox + oy)) ox = oy = 0;
+    edgeN = m;
+    const d = new Float32Array(Math.max(1, m) * 4);
+    for (let j = 0; j < m; j++) { d[4 * j] = E[4 * j] - ox; d[4 * j + 1] = E[4 * j + 1] - oy; d[4 * j + 2] = E[4 * j + 2] - ox; d[4 * j + 3] = E[4 * j + 3] - oy; }
+    if (!edgeTex) edgeTex = floatTex();
+    gl.bindTexture(gl.TEXTURE_2D, edgeTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, m), 1, 0, gl.RGBA, gl.FLOAT, d);
+    edgeKey = c.edges; edgeO = [ox, oy];
+  }
   function drawColorPlot(st) {
     if (!ok) return;
-    const cz = st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
-    const P = program(cz ? 'cauchy' : 'color', st.map);
+    const cp = st.cauchy && st.cauchy.plan && st.cauchy.edges && st.cauchy.edges.length >= 4 ? st.cauchy : null;
+    const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
+    const P = program(cp ? 'cauchyF' : cz ? 'cauchy' : 'color', st.map);
     if (!P) return;
     use(P, st.map);
     const dpr = st.dpr || 1;
-    if (cz) {
+    if (cp) {
+      cauchyEdges(cp);
+      u1i(P, 'uEdgeN', edgeN);
+      const poles = cp.plan.poles.slice(0, 16), pd = new Float32Array(64), cd = new Float32Array(128);
+      poles.forEach((q, k) => {
+        pd[4 * k] = q.z.re - edgeO[0]; pd[4 * k + 1] = q.z.im - edgeO[1]; pd[4 * k + 2] = Math.min(4, q.order); pd[4 * k + 3] = q.n;
+        for (let j = 0; j < 4 && j < q.a.length; j++) { cd[4 * k + 2 * j] = q.a[j].re; cd[4 * k + 2 * j + 1] = q.a[j].im; }
+      });
+      u1i(P, 'uPoleN', poles.length);
+      if (P.loc.uPole) gl.uniform4fv(P.loc.uPole, pd);
+      if (P.loc.uCoef) gl.uniform4fv(P.loc.uCoef, cd);
+      u2f(P, 'uShow', cp.show || 0, cp.sign || -1);
+      u2f(P, 'uCenter', st.view.cx, st.view.cy);
+      u2f(P, 'uRelC', st.view.cx - edgeO[0], st.view.cy - edgeO[1]);
+    } else if (cz) {
       const n = cauchyNodes(cz);
       gl.bindTexture(gl.TEXTURE_2D, nodeTex);   // unit 4
       u1i(P, 'uNodeN', n);
@@ -500,7 +538,7 @@
   const gKind = (t) => (t && t._g && t._g.A !== 0 && (t.kind === 'disc' || t.kind === 'circle') ? (t.kind === 'disc' ? 8 : 20) : 0);
   function packForm(t) {
     let G = t._g;
-    if (formAnchor && typeof Constr !== 'undefined' && Constr.reanchor && !G.thru0) G = Constr.reanchor(G, formAnchor);
+    if (formAnchor && Constr.reanchor && !G.thru0) G = Constr.reanchor(G, formAnchor);
     const gx = G.B[0] - G.A * G.o[0], gy = G.B[1] - G.A * G.o[1], gl = Math.hypot(gx, gy) || 1;
     const A = [G.o[0], G.o[1], G.A, G.C], B = [G.B[0], G.B[1], -gy / gl, gx / gl];
     return [...A, ...B].every(Number.isFinite) ? { kind: gKind(t), A, B, size: 2 / Math.abs(G.A), pts: null } : null;
@@ -531,7 +569,9 @@
       const disp = 'float formulaLevel(int f, vec2 w) {\n' + forms.map((_, i) => `  if (f == ${i}) return tlev${i}(w);\n`).join('') + '  return -1.0;\n}\n';
       DEFS[name] = { chain: true, vs: () => (sph ? SPHERE_VS : QUAD_VS), fs: () => PRE_FS(src + disp, sph) };
       preNames.push(name);
-      while (preNames.length > 4) dropDef(preNames.shift());
+      // (a frame may draw a pass per later plane on the flat plane and on the globe, and the targets' pass: 16 formula
+      // programs, so one plane's never evicts another's within a frame and nothing relinks every frame)
+      while (preNames.length > 16) dropDef(preNames.shift());
     } else {
       preNames.splice(preNames.indexOf(name), 1);
       preNames.push(name);
@@ -545,7 +585,7 @@
       const m = /float\s+([A-Za-z_]\w*)\s*\(\s*vec2/.exec(t.levelSrc);
       if (m) return t.levelSrc.replace(new RegExp('\\b' + m[1] + '\\b', 'g'), name);
     }
-    if (typeof GLChain === 'undefined' || typeof GLChain.levelGLSL !== 'function' || !t.expr) return null;
+    if (typeof GLChain.levelGLSL !== 'function' || !t.expr) return null;
     const r = GLChain.levelGLSL(t.expr, name);
     return r && r.ok ? r.source : null;
   }
@@ -556,7 +596,7 @@
   // (positive inside) | null}. Isolated zeros (|z^2 - 1| = 0) have no stroke.
   function curveForms(t) {
     let d = null;
-    try { d = typeof Region !== 'undefined' && Region.curveDesc ? Region.curveDesc(t) : null; } catch (e) { d = null; }
+    try { d = Region.curveDesc ? Region.curveDesc(t) : null; } catch (e) { d = null; }
     if (!d) return [];
     const out = [];
     for (const pc of d.pieces) {
@@ -607,7 +647,7 @@
     else if (kind === 15) {
       // the arc through a, m, b (Region.arc3): ccw from its start over span degrees
       const m = xyOf(t.m);
-      const arc = typeof Region !== 'undefined' && Region.arc3 ? Region.arc3(CX.C(a[0], a[1]), CX.C(m[0], m[1]), CX.C(b[0], b[1])) : null;
+      const arc = Region.arc3 ? Region.arc3(CX.C(a[0], a[1]), CX.C(m[0], m[1]), CX.C(b[0], b[1])) : null;
       if (!arc || !arc.center) { kind = 11; A = [a[0], a[1], b[0], b[1]]; }
       else {
         const cx = arc.center.re, cy = arc.center.im, TAU = 2 * Math.PI;

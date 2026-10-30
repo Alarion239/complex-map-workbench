@@ -22,12 +22,12 @@
     'ShiftM', 'CtrlK', 'CtrlZ',
     // function names and math words the formula language and the Russian notation use (GLOSSARY 1.4, 2.4)
     'Re', 'Im', 'arg', 'Arg', 'Res', 'exp', 'ln', 'Ln', 'log', 'sin', 'cos', 'tg', 'ctg', 'sec', 'cosec', 'csc', 'sh', 'ch', 'th', 'cth', 'arcsin', 'arccos', 'arctg',
-    'arcctg', 'arsh', 'arch', 'arth', 'arcth', 'sqrt', 'conj', 'abs', 'mod', 'dz', 'dw', 'id', 'const', 'sinc', 'Log', 'Sqrt', 'erf', 'Gamma', 'zeta', 'pi', 'inf',
+    'arcctg', 'arsh', 'arch', 'arth', 'arcth', 'sqrt', 'conj', 'abs', 'mod', 'dz', 'dw', 'id', 'const', 'sinc', 'Log', 'Sqrt', 'erf', 'Gamma', 'zeta', 'Li', 'pi', 'inf', 'iter',
     'and', 'or', 'not', 'ad', 'bc', 'az', 'cz', 'lg', 'tan', 'cot', 'sinh', 'cosh', 'tanh', 'coth', 'arctan', 'asin', 'acos', 'atan', 'acot', 'arccot',
   ]);
   const ATTRS = ['title', 'aria-label', 'placeholder', 'data-tip', 'data-desc', 'alt', 'aria-description', 'aria-roledescription', 'aria-valuetext'];
-  // math and code: MathJax output, canvases, the LaTeX code boxes, key chips, the wordmark, inputs' own values
-  const SKIP = 'script, style, noscript, mjx-container, svg, canvas, kbd, code, pre, textarea, i, var, [data-i18n="no"], .wordmark, .kbd, .ftag, .tex-src, .xf-code';
+  // math and code: MathJax output, canvases, the LaTeX code boxes, key chips, the app's name (the hidden h1), inputs' own values
+  const SKIP = 'script, style, noscript, mjx-container, svg, canvas, kbd, code, pre, textarea, i, var, [data-i18n="no"], .kbd, .ftag, .tex-src, .xf-code';
   const left = new Map();
   let state = '';
   const desc = (el) => {

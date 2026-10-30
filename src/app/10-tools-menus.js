@@ -77,8 +77,9 @@
     draft = null;
     Construct.toolChanged();   // (v16)
     for (const b of document.querySelectorAll('.tool[data-tool]')) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // shapes are drawn in the z-plane (Image also draws targets in the right plane at any focus)
-    if (id !== 'select' && leftStage() > 0 && !targetsEditable()) setFocus(0);
+    // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
+    // plane at any focus)
+    if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
     if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
@@ -99,6 +100,8 @@
   function newShape(kind, params, target) {
     const ci = target ? TARGET_CI[S.targets.length % TARGET_CI.length] : S.shapes.length % 8;
     const s = Object.assign({ id: 's' + takeId(), kind, ci, visible: true }, params);
+    // [#253] a shape drawn while X shows an intermediate plane belongs to it
+    if (!target && leftStage() > 0 && lFlat() && !('stage' in s)) s.stage = leftStage();
     return s;
   }
   // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
@@ -111,6 +114,46 @@
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
     tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
+  }
+  // [issue #260] an external ray (theta: '1/3') or an equipotential (r > 1) of step k's set: M for Φ_M, the Julia set of
+  // z² + c for φ_c (its c, by name when it is a shared number), as a shape of the plane the step reads (stage k − 1)
+  // (the message when v cannot be used, else '')
+  function dhAddShape(k, kind, v) {
+    const st = S.steps[k - 1], b = built[k - 1];
+    if (!st || !b || b.error || (st.type !== 'dh' && st.type !== 'bottcher')) return $t('Fix this step first');
+    let r = NaN;
+    if (kind === 'dhray' && Region.dhAngle(v) == null) return $t('Enter a fraction p/q or a decimal from 0 to 1, such as 1/3');
+    if (kind === 'dheq') {
+      try { r = Number.isFinite(Number(v)) && String(v).trim() !== '' ? Number(v) : Params.evalReal(v); } catch (e) { r = NaN; }
+      const lo = st.type === 'bottcher' ? b.dh.rho : 1;
+      if (!(r > lo)) return lo > 1 ? $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(lo, 4) }) : $t('The level |Φ| must be more than 1');
+    }
+    const p = kind === 'dhray' ? { theta: String(v).trim() } : { r };
+    p.c = null;
+    if (st.type === 'bottcher') {
+      p.c = [b.vals.c.re, b.vals.c.im];
+      const t = String(st.params.c ?? '').trim();
+      if (Params.namesIn(t).length) p.bind = { c: t };
+    }
+    if (k > 1) p.stage = k - 1;
+    const s = newShape(kind, p);
+    if (k === 1) delete s.stage;
+    addShape(s);
+    // (the step's card stays in the Inspector, so that more rays and levels can follow; the shape is a click away)
+    selected = null;
+    buildShapeList(); requestRender('P');
+    undoToast(kind === 'dhray' ? $t('Added the external ray {t}.', { t: p.theta }) : $t('Added the equipotential |Φ| = {r}.', { r: CX.fmtNum(r, 6) }));
+    return '';
+  }
+  // (the palette's Add an external ray… / Add an equipotential…: step k in the Inspector, its field focused; with no
+  // Inspector on screen, the default ray 1/3 or level 1.1 is added)
+  function dhFocusAdd(k, kind) {
+    selected = null; zpSel = null;
+    setSel(k); syncSel(); buildShapeList(); requestRender('P');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = /** @type {HTMLInputElement | null} */ (document.getElementById(`dh${k}_${kind}`));
+      if (el && el.getClientRects().length) { el.focus(); el.select(); } else dhAddShape(k, kind, kind === 'dhray' ? '1/3' : '1.1');
+    }));
   }
   function deleteShape(id) {
     const cmMsg = Construct.deleteMessage(id);   // (v16: the cascade's toast)
@@ -228,6 +271,9 @@
     if (s.kind === 'point' && s.label) return exLabel(s.label);
     // (an example's named curve: the melody's spiral, notes/sea-song)
     if (s.kind === 'curve' && s.nameKey === 'spiral') return $t('Spiral');
+    // (the circle's own kind label, Region.KINDS: a translation call for the word here would be make_ru_table's first
+    // call site of it, nearest the tool button's entry, whose hyphenated Russian would then name every circle)
+    if (s.kind === 'curve' && s.nameKey === 'circle') return kindLabel('circle');
     const nk = nameKind(s);
     return $t('{kind} {n}', { kind: kindLabel(nk), n: counts[nk] });
   }
@@ -366,7 +412,13 @@
     // ([v16.5 UX27] the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
     const counts = {}, pv = { n: 0 };
-    S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; host.append(shapeRow(s, rowName(s, counts, pv), false)); });
+    // ([#253] then the shapes of each plane of the chain they were drawn in, by its name: "In the plane w₁")
+    const rows = [];
+    S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; rows.push([s, shapeRow(s, rowName(s, counts, pv), false)]); });
+    for (const k of [...new Set([0, ...S.shapes.map(shapeStage)])].sort((x, y) => x - y)) {
+      if (k) host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In the plane {w}</span>', { w: wHtml(k) }) }));
+      for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
+    }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     {
       const out = S.focus === 0 ? '<i>w</i>' : wHtml(rightStage());
@@ -387,7 +439,7 @@
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
-  function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
+  function ctxChanged() { if (Phone.isOn && Phone.isOn()) Phone.ctx(); }
   const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
@@ -433,7 +485,7 @@
         const now = performance.now();
         if (!touchUI() && e && e.target && e.target.closest && e.target.closest('.shape-name .k') && lastNameClick.id === s.id && now - lastNameClick.t < 450) { lastNameClick = { id: null, t: 0 }; startRename(s); return; }
         lastNameClick = { id: s.id, t: now };
-        selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R', 'P'); },
+        selected = selected === s.id ? null : s.id; zpSel = null; if (!target && selected === s.id && shapeStage(s) !== leftStage()) setFocus(shapeStage(s) ? shapeStage(s) + 1 : 0); buildShapeList(); requestRender('L', 'R', 'P'); },
       onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L', 'R'); },
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
@@ -508,6 +560,8 @@
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
       if (isTarget(s)) { const yv = S.focus === 0 ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
+      // ([#253] a shape of a plane of the chain, in that plane's variable)
+      else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
       if (Construct.row(s, r)) continue;   // (v16: definitions, reasons)
       const er = s.undef || s._err;
@@ -570,7 +624,9 @@
       return f;
     };
     // positive radii, whole counts in range; an invalid value is shown but never applied
-    const LIMITS = { r: [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
+    // ([#299 review] an equipotential of a Julia set: above the critical level of its c, |Φ_M(c)|^{1/2}, too)
+    const dhRho = s.kind === 'dheq' && Array.isArray(s.c) ? CX.dhCritRho(C(s.c[0], s.c[1]), 64) : 1;
+    const LIMITS = { r: s.kind === 'dheq' ? [dhRho * (1 + 1e-9), Infinity, dhRho > 1 ? $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(dhRho, 4) }) : $t('The level |Φ| must be more than 1')] : [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
       r1: [0, Infinity, $t('Radii must be 0 or more')], r2: [0, Infinity, $t('Radii must be 0 or more')],
       n: [1, 60, $t('Use a whole number from 1 to 60')], nc: [1, 60, $t('Use a whole number from 1 to 60')], nr: [1, 60, $t('Use a whole number from 1 to 60')] };
     const numField = (key, label, step = 'any') => {
@@ -630,6 +686,22 @@
         break;
       }
       case 'cgrid': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>')), numField('n', $t('divisions'), 1)); break;
+      // ([issue #260] an external ray: its angle in turns, exact as p/q; an equipotential: its level |Φ| = r; both of M,
+      // or of the Julia set of z² + c when they were added from a Böttcher step: its c, which may be a shared number)
+      case 'dhray': case 'dheq': {
+        const txt = (key, label, check) => {
+          const inp = h('input', { class: 'inp mono', value: String(s[key] ?? ''), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+          const f = h('div', { class: 'field' }, lab(label), inp);
+          const was = String(s[key] ?? '');
+          inp.addEventListener('input', () => { const msg = check(inp.value); showErr(f, inp, msg); if (!msg) { s[key] = inp.value.trim(); shapesChanged(false); } });
+          inp.addEventListener('change', () => { if (inp.classList.contains('bad')) { inp.value = String(s[key] ?? ''); showErr(f, inp, ''); return; } if (String(s[key]) !== was) commit(); });
+          return f;
+        };
+        if (s.kind === 'dhray') box.append(txt('theta', $t('angle <i>θ</i> (turns)'), (v) => (Region.dhAngle(v) == null ? $t('Enter a fraction p/q or a decimal from 0 to 1, such as 1/3') : '')));
+        else box.append(numField('r', $t('level |Φ|')));
+        if (s.c != null) box.append(ptField('c', '<i>c</i>'));
+        break;
+      }
       case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
         const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
@@ -685,8 +757,15 @@
     if (SND && !target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid')
       box.append(h('div', { class: 'row snd-edit' }, h('button', { type: 'button', class: 'btn', 'data-act': 'listen-along',
         onclick: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) }, $t('Listen along it'))));
+    // (#361: a field's label names its input for a screen reader, by aria-labelledby, not a for: a click on the label,
+    // which scrubs a number, keeps doing only that)
+    for (const f of box.querySelectorAll('.field')) {
+      const l = f.querySelector(':scope > label'), i = f.querySelector(':scope > input');
+      if (l && i && !i.hasAttribute('aria-labelledby')) { l.id = l.id || `fl${++fieldLabelSeq}`; i.setAttribute('aria-labelledby', l.id); }
+    }
     return box;
   }
+  let fieldLabelSeq = 0;
   // ---------------- [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4, issue #26) ----------------
   // On the laptop the selected free shape is edited in the Inspector, with full-width fields, its Used by list and a way
   // back to the step it replaced there; a construction keeps its own view (construct.js). The Shapes list keeps the

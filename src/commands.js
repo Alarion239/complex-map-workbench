@@ -13,7 +13,7 @@ const Commands = (() => {
     integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
     morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
     replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
-    setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle,
+    setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
     stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox;
   const FN_INFO = {
     mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
@@ -37,6 +37,10 @@ const Commands = (() => {
     gamma: [$t('Meromorphic; poles at 0, −1, −2, …; Γ(n + 1) = n!'), $t('gamma Γ factorial euler special function')],
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
+    recurrence: [$t('z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method'), $t('recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n')],
+    // [issue #260]
+    dh: [$t('The conformal map of the outside of the Mandelbrot set onto the outside of the unit disk; its external rays and equipotentials'), $t('douady hubbard mandelbrot riemann map external ray equipotential bottcher Φ phi')],
+    bottcher: [$t('φ_c: the conformal map of the basin of ∞ of z² + c onto the outside of a disk; external rays of the Julia set'), $t('bottcher böttcher julia basin external ray equipotential filled julia set φ phi')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
     poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
     rational: [$t('Quotient of two polynomials'), $t('rational p/q')],
@@ -44,6 +48,15 @@ const Commands = (() => {
     custom: [$t('Any formula in LaTeX or plain text'), $t('custom formula latex expression')],
     deriv: [$t('Derivative of the chain so far: w = (previous stage)′'), $t('derivative differentiate prime d/dz dz derivative of the chain')],
   };
+  // [issue #260] the external rays and equipotentials of the chain's first Φ_M or φ_c step (its Inspector fields)
+  function dhActs() {
+    const k = A.S.steps.findIndex((st) => st.on !== false && (st.type === 'dh' || st.type === 'bottcher')) + 1;
+    if (!k) return [];
+    return [
+      [$t('Add an external ray to f{x}…', { x: sub(k) }), () => A.dhFocusAdd(k, 'dhray'), '', $t('external ray, ray, angle, landing point, douady, hubbard, mandelbrot, julia, bottcher')],
+      [$t('Add an equipotential to f{x}…', { x: sub(k) }), () => A.dhFocusAdd(k, 'dheq'), '', $t('equipotential, level curve, potential, green function, douady, hubbard, mandelbrot, julia, bottcher')],
+    ];
+  }
   const defaultPropsCache = new Map();
   function defaultProps(type) {
     if (!defaultPropsCache.has(type)) {
@@ -109,7 +122,7 @@ const Commands = (() => {
             // an equation: a curve in the z-plane (the app's own shapes when recognized exactly)
             const plan = curvePlan(q, viewBox(A.S.srcView));
             items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: $t('Add this curve'), desc: $t('Adds {what} in the z-plane', { what: plan.what }), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
-          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { A.shapeVia = null; } } }); }
+          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this shape'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { A.shapeVia = null; } } }); }
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
@@ -176,7 +189,7 @@ const Commands = (() => {
     items.push(...(items.oneType ? fns.filter((x) => x.type !== items.oneType) : fns));
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
-      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
+      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add shape'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
       EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (v16.5 UX03: searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       A.S.steps.forEach((st, i) => {
@@ -259,9 +272,11 @@ const Commands = (() => {
         ...(A.S.focus > 0 ? [[$t('Show F'), () => setFocus(0), '', $t('show f, whole chain, all steps, back, alone'), 1]] : []),
         [$t('Sound on/off'), () => soundToggle(), '⇧M'],
         [$t('Hear the function on/off'), () => soundHear(), ''],
+        ...(Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
         ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
         ...Construct.paletteActs(),   // (v16: the four tools; Make free, Use complement)
+        ...dhActs(),
       ];
       for (const [label, run, key, alias, searched] of acts) if (!ql ? !searched : score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
       // (v16.5 UX03: the drawing tools, with their keys, and the guide's sections, found by what they are for)
@@ -293,7 +308,7 @@ const Commands = (() => {
     cgrid: $t('grid, grid lines'), pgrid: $t('polar grid, rays and circles'),
   });
   const GUIDE_SECS = () => [
-    [$t('Regions'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
+    [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
     [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
     [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
     [$t('Deformation'), $t('deformation, homotopy, morph, animate, play')], [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
@@ -311,7 +326,7 @@ const Commands = (() => {
   // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
   function withNewName(name, fn) {
     if (typeof Expr.setNames !== 'function') return fn();
-    Expr.setNames({ get: (n) => (n === name ? 1 : Params.get(n)), display: Params.display });
+    Expr.setNames({ get: (n) => (n === name ? 1 : Params.read(n)), display: Params.display });
     try { return fn(); } finally { Params.install(); }
   }
   // (v16.5 UX23) the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
@@ -710,7 +725,22 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();
+import { $, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Funcs } from './funcs.js';
+import { Region } from './region.js';
+import { Curves } from './curves.js';
+import { Palette } from './palette.js';
+import { Axes, Pane } from './view.js';
+import { Figure } from './figure.js';
+import { Sound } from './sound.js';
+import { Tour } from './tour.js';
+import { Inspector } from './inspector.js';
+import { Construct } from './construct.js';
+import { Params } from './params.js';
+export { Commands };

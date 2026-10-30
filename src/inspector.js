@@ -23,7 +23,7 @@ const Inspector = (() => {
     deriv: sv('<path d="M2.5 13.5c3 0 5-2 6-6s2.5-5 5-5"/><path d="M5 10.5l6-6" stroke-opacity=".45"/>'),
   };
   const FAMILY = { exp: 'exp', log: 'log', mobius: 'mobius', blaschke: 'mobius', recip: 'mobius', zp: 'zp', mul: 'linear', add: 'linear', affine: 'linear',
-    pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
+    pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', dh: 'special', bottcher: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
   const typeIcon = (type) => ICON[FAMILY[type] || (/^a?(sin|cos|tan|sinh|cosh|tanh|sec|csc|cot)h?$/.test(type) ? 'trig' : 'custom')];
   const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
@@ -34,6 +34,12 @@ const Inspector = (() => {
   const STRONG = ['mobius', 'polynomial', 'rational', 'conformal', 'entire', 'homeo', 'proper', 'analytic'];
   // types whose catalog formula, with the coefficients indexed, reads as the generic form of the step
   const GENERIC = new Set(['mul', 'add', 'affine', 'mobius']);
+  // a formula this long (TeX characters) is not typeset in a well or a row: unreadable at any size that fits, and
+  // MathJax takes a second or more for it; the well says so and the rows name it, as F's expanded formula does
+  const LONG = 700;
+  // a step's formula as the Inspector shows it: its display form when it has one (Funcs.build: params.show), else its
+  // formula; tex the same for a TeX argument a = {s, p}
+  const shownTex = (b, a) => (b.show || b.tex)(a);
 
   function create(A) {
     const { h, $t, $tx, $tn, ICONS, TeX, sub, fsub } = A;
@@ -50,8 +56,7 @@ const Inspector = (() => {
       if (!host.classList.contains('temp')) { host.setAttribute('role', 'region'); host.setAttribute('aria-label', $t('Inspector')); }
       selSec = h('section', { class: 'psec insp-sel', 'aria-label': $t('Selection') });
       // (the shared numbers bring their own section: its heading, + and label; the slot only places it)
-      parSec = typeof Params !== 'undefined' ? h('div', { class: 'insp-params' }, h('div', { class: 'params-mount' }))
-        : h('section', { class: 'psec insp-params', 'aria-label': $t('Numbers') }, h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))), h('div', { class: 'params-mount' }));
+      parSec = h('div', { class: 'insp-params' }, h('div', { class: 'params-mount' }));
       host.append(tbar, selSec, parSec);
       cur.sig = null; mounted = false;
       return true;
@@ -59,7 +64,7 @@ const Inspector = (() => {
     // the Parameters slot: the shared numbers (src/params.js) mount themselves here; without them the slot hides
     function mountParams() {
       const el = parSec.querySelector('.params-mount');
-      const has = typeof Params !== 'undefined' && Params && typeof Params.mount === 'function';
+      const has = typeof Params.mount === 'function';
       parSec.hidden = !has;
       // (review regress-7: a rebuilt panel destroys its old mount before it mounts again)
       if (has && !mounted) { mounted = true; try { if (pmount && pmount.destroy) pmount.destroy(); pmount = Params.mount(el); } catch (e) { console.error('Params.mount', e); } }
@@ -155,7 +160,9 @@ const Inspector = (() => {
       // (the head keeps the name whole: Show alone and More; Inverse and Bypass are in More)
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl ttl-btn', role: 'button', tabindex: 0, 'data-tip': $t('Replace this step'), 'aria-label': $t('Replace f{x} {name}', { x: sub(k), name: d.label }), 'aria-haspopup': 'dialog', onclick: (e) => A.replacePalette(e.currentTarget, k), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); A.replacePalette(e.currentTarget, k); } } }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
-      const form = h('div', { class: 'iform' }, ftex);
+      const flong = h('div', { class: 'ftex long', hidden: true }, $t('The formula is long; the field below holds it in full.'));
+      // (#361: it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
+      const form = h('div', { class: 'iform', tabindex: 0, role: 'group', 'aria-label': $t('Formula') }, ftex, flong);
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
@@ -164,9 +171,9 @@ const Inspector = (() => {
       const det = h('div', { class: 'isub' });
       // v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps shows how it is built, after
       // its fields and before the note line, with one button that splits it into those steps
-      const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true, role: 'region' }) : null;
+      const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true }) : null;
       const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, split, note, nums);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, err, note, nums, det, params, split, typing: false };
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, typing: false };
       if (split) {
         split.open = foldOpen();
         // (v16.1: the tour's unfolding, below, is not the viewer's fold)
@@ -209,7 +216,9 @@ const Inspector = (() => {
       const n = sp.steps.length, one = sp.kind === 'one';
       const name = one ? A.Funcs.DEFS[sp.steps[0].type].label : '';
       // (the rows in the step's own input variable, as its heading: w₆ ↦ w₆² ↦ … for f₇, review steps-9)
-      const v = A.wvar(k - 1), rv = one ? null : A.Funcs.splitRowsVar(sp, v) || sp;
+      const v = A.wvar(k - 1), rv0 = one ? null : A.Funcs.splitRowsVar(sp, v) || sp;
+      // (a step with a display form ends its rows with that form, not with the typed formula again)
+      const rv = rv0 && b.show && rv0.rows ? { rows: rv0.rows, eq: b.show({ s: v, p: 4 }).s } : rv0;
       const key = JSON.stringify([sp.kind, sp.steps, rv && rv.eq, v, I18N.lang]);
       if (box.dataset.key !== key) {
         box.dataset.key = key;
@@ -221,11 +230,13 @@ const Inspector = (() => {
         box.append(sum);
         if (!one) {
           const ol = h('ol', { class: 'so-rows' });
-          fillRows(ol, rv.rows, rv.eq);
           box.append(ol);
           // a long chain repeats a growing expression in every row: when a row does not fit even at 70 %, the block
-          // shows each step once instead, named (u₁ = z², u₂ = u₁ + 1, w₁ = sin u₂: review steps-3)
-          fitRows(ol, () => { const sub = A.Funcs.splitSubRows(sp, v, A.wvar(k)); if (sub) { ol.classList.add('subst'); fillRows(ol, sub, null); fitRows(ol); } });
+          // shows each step once instead, named (u₁ = z², u₂ = u₁ + 1, w₁ = sin u₂: review steps-3); a row of LONG
+          // characters or more cannot fit, so that is decided before anything is typeset
+          const subst = () => { const sub = A.Funcs.splitSubRows(sp, v, A.wvar(k)); if (!sub) return false; ol.classList.add('subst'); fillRows(ol, sub, null); fitRows(ol); return true; };
+          const tooLong = rv.rows.some((r) => r.tex.length >= LONG) || (rv.eq || '').length >= LONG;
+          if (!(tooLong && subst())) { fillRows(ol, rv.rows, rv.eq, rv !== rv0); fitRows(ol, subst); }
         } else if (sp.steps[0].type === 'mobius') {
           // a fraction: the simple moves it is made of, read only (z ↦ z − 1 ↦ 1/(z − 1) ↦ 3/(z − 1) ↦ 3/(z − 1) + 2:
           // review steps-5)
@@ -258,16 +269,31 @@ const Inspector = (() => {
       go();
     }
     // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
-    function fillRows(ol, rows, eq) {
+    // the quiet mark on a line written with a step's display form: "in short", the full-formula explanation in its tooltip
+    // and its accessible description (the step's own card says the same in its note)
+    function shortMark(forF) {
+      const tip = forF ? $t('Written in short; each step\'s own field holds its full formula.') : $t('Written in short; the step\'s own field holds the full formula.');
+      return h('span', { class: 'shortmark', role: 'note', 'data-tip': tip, 'aria-description': tip, tabindex: '0' }, $t('in short'));
+    }
+    function fillRows(ol, rows, eq, showMark) {
       ol.innerHTML = '';
       const sub = ol.classList.contains('subst');
       rows.forEach((r, i) => {
         const last = i === rows.length - 1;
         const t = h('span', { class: 'so-tex' });
         const li = h('li', { class: 'so-row' }, h('span', { class: 'so-map', 'aria-hidden': 'true' }, i && !sub ? '↦' : ''), t, h('span', { class: 'so-name' }, i || sub ? r.name : ''));
+        // (the last row ends with the step's display form, not the typed formula: says so)
+        if (last && eq && !sub && showMark) li.lastChild.append(shortMark());
         ol.append(li);
-        TeX.set(t, last && eq ? `${r.tex}=${eq}` : r.tex);
+        TeX.set(t, rowTex(last && eq ? `${r.tex}=${eq}` : r.tex));
       });
+    }
+    // a row of LONG characters or more keeps its left side (u₁ =, w₂ =) and elides the rest, so the row still names its
+    // step and is never cut mid-formula; a row without one (z ↦ …) shows the ellipsis alone
+    function rowTex(tex) {
+      if (tex.length < LONG) return tex;
+      const m = /^[a-zA-Z](?:_\{\d+\})?=/.exec(tex);
+      return (m ? m[0] : '') + '\\cdots';
     }
     // a long row: smaller, down to 70 %; tooLong() when one still does not fit there (once the TeX is typeset)
     function fitRows(ol, tooLong) {
@@ -280,9 +306,14 @@ const Inspector = (() => {
         let over = false;
         for (const t of ts) {
           t.style.fontSize = '';
-          const w = t.scrollWidth, avail = t.clientWidth;
+          const li = t.parentNode;
+          if (li) li.classList.remove('stack');
+          let w = t.scrollWidth, avail = t.clientWidth;
           if (!(avail > 0) || w <= avail + 0.5) continue;
-          const f = Math.floor((avail / w) * 100);
+          let f = Math.floor((avail / w) * 100);
+          // (a row that does not fit at 70 % puts its name on a line of its own, as on the phone, and gets the width)
+          if (f < 70 && li) { li.classList.add('stack'); w = t.scrollWidth; avail = t.clientWidth; f = Math.floor((avail / w) * 100); }
+          if (f >= 100) continue;
           if (f < 70) over = true;
           t.style.fontSize = Math.max(70, f) + '%';
         }
@@ -307,7 +338,25 @@ const Inspector = (() => {
           }
         }
       } else for (const q of d.params || []) if (q.key !== 'cut' || hasCut(st, k)) params.append(A.paramField(st, k, q, 'i'));
+      if ((st.type === 'dh' || st.type === 'bottcher') && A.dhAdd) params.append(...dhAdds(k));
       indexLabels(params, k);
+    }
+    // [issue #260] Φ_M and φ_c: an external ray of angle θ (turns, exact as p/q) and an equipotential |Φ| = r of the
+    // step's set, added as shapes of the plane the step reads (Enter or the button; a value it cannot use is flagged)
+    function dhAdds(k) {
+      const row = (word, sym, val, kind, label) => {
+        const id = `dh${k}_${kind}`;
+        const inp = h('input', { class: 'inp mono', id, value: val, spellcheck: 'false', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off' });
+        const go = () => {
+          const msg = A.dhAdd(k, kind, inp.value);
+          inp.classList.toggle('bad', !!msg); inp.setAttribute('aria-invalid', String(!!msg));
+          if (msg) inp.setAttribute('data-tip', msg); else inp.removeAttribute('data-tip');
+        };
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+        const lab = h('label', { class: 'pl worded', for: id }, h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps', html: sym }));
+        return h('div', { class: 'pf worded wide dh-add' }, lab, h('div', { class: 'pair' }, inp, h('button', { type: 'button', class: 'btn', onclick: go }, label)));
+      };
+      return [row($t('Ray'), '<i>θ</i>', '1/3', 'dhray', $t('Add ray')), row($t('Level'), '|Φ|', '1.1', 'dheq', $t('Add equipotential'))];
     }
     // (v16.5 UX33) a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
     function hasCut(st, k) {
@@ -335,11 +384,15 @@ const Inspector = (() => {
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
         // (a field that uses shared numbers shows their names: Funcs.build keeps them, issue #11)
-        const num = b.tex({ s: A.wvar(k - 1), p: 4 }).s;
+        // (a display form stands for the formula here; a formula of LONG characters or more is not typeset: the well
+        // says that the field holds it)
+        const num = shownTex(b, { s: A.wvar(k - 1), p: 4 }).s;
+        const long = !b.show && num.length >= LONG;
+        if (E.flong.hidden !== !long) { E.flong.hidden = !long; E.ftex.hidden = long; }
         const gen = genericTex(st, k);
         const full = `w_{${k}}=` + (gen && gen.replace(/\s/g, '') !== num.replace(/\s/g, '') ? `${gen}=${num}` : num), short = `w_{${k}}=${num}`;
         // (the generic form and the values do not fit: the values alone, then smaller)
-        fitPick(E.ftex, full, full === short ? null : short);
+        if (!long) fitPick(E.ftex, full, full === short ? null : short);
         const drags = b.cuts.some((x) => x.editable) ? $t('Drag the seam in the input plane') : null;
         // (the split offer says what the note's "Same as …" says: the note drops it while the offer shows)
         const offer = fillSplit(E, k);
@@ -355,7 +408,8 @@ const Inspector = (() => {
           }
         }
         // (v16.5 UX33: the cut and the sheet are in their fields, so the note no longer repeats them: A.branchTag left out)
-        const n = [b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
+        const shortNote = b.show ? $t('Written in short; the field below holds the formula in full.') : null;
+        const n = [shortNote, b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
         const nt = n ? n + '.' : '';
         if (E.note.textContent !== nt) E.note.textContent = nt;
       } else {
@@ -404,7 +458,9 @@ const Inspector = (() => {
         else { const t = h('span'); chain.push([k, t]); li.append(t); }
         wl.append(li);
       });
-      const form = h('div', { class: 'iform' }, ftex, flong, wl.childElementCount ? wl : null);
+      const smark = shortMark(true);
+      smark.hidden = true;
+      const form = h('div', { class: 'iform' }, ftex, smark, flong, wl.childElementCount ? wl : null);
       const warn = h('div', { class: 'ierr', role: 'status' });
       const lamps = {};
       const glist = h('div', { class: 'iglist' });
@@ -449,26 +505,32 @@ const Inspector = (() => {
         h('p', null, $t('Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.')),
         h('p', null, $t('The list is sound but not complete. For example, log followed by exp returns z, yet neither step is rational, so "rational" is not claimed.')));
       const root = h('div', { class: 'insp-F' }, head, form, warn, glist, none, not, dom, steps, how);
-      return { kind: 'F', root, ftex, flong, chain, warn, lamps, none, not, domEls, domLbl, rows, act };
+      return { kind: 'F', root, ftex, flong, smark, chain, warn, lamps, none, not, domEls, domLbl, rows, act };
     }
     function fillF(E) {
       const act = A.activeSteps(), built = A.built(), S = A.S();
       const P = A.Funcs.composeProps(act.map((k) => built[k - 1].props));
       const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
+      // (composed from the steps' display forms where they have one)
       let arg = { s: 'z', p: 4 };
-      for (const k of act) arg = built[k - 1].tex(arg);
-      const long = arg.s.length >= 700;
+      for (const k of act) arg = shownTex(built[k - 1], arg);
+      const long = arg.s.length >= LONG;
       E.flong.hidden = !long; E.ftex.hidden = long;
+      // (F's line says so when a step it is composed of is written in its display form)
+      const sm = !long && act.some((k) => built[k - 1].show);
+      if (E.smark.hidden !== !sm) E.smark.hidden = !sm;
       // (review design-4: an expanded F wider than the well is written in terms of the last w, as the mockup does,
       // with the w list under it; then smaller, never cut)
       const last = act.length > 1 && E.chain.length ? act[act.length - 1] : 0;
       let byW = false;
-      if (!long) byW = fitPick(E.ftex, `F(z)=${arg.s}`, last ? `F(z)=w_{${last}}=${built[last - 1].tex({ s: A.wvar(last - 1), p: 4 }).s}` : null) === 1;
+      // (a step's line of LONG characters or more reads w_k = f_k(w_{k−1}): its own card shows it)
+      const wLine = (k) => { const s = shownTex(built[k - 1], { s: A.wvar(k - 1), p: 4 }).s; return `w_{${k}}=` + (s.length < LONG ? s : `f_{${k}}(${A.wvar(k - 1)})`); };
+      if (!long) byW = fitPick(E.ftex, `F(z)=${arg.s}`, last ? `F(z)=${wLine(last)}` : null) === 1;
       for (const [k, t] of E.chain) {
         const li = t.parentNode;
         if (li) li.hidden = byW && k === last;
         // (review verify-9: in display style, at the size of F's line, when it fits; else in text style)
-        if (!(byW && k === last)) { const wt = `w_{${k}}=${built[k - 1].tex({ s: A.wvar(k - 1), p: 4 }).s}`; fitPick(t, `\\displaystyle ${wt}`, wt, false); }
+        if (!(byW && k === last)) { const wt = wLine(k); fitPick(t, `\\displaystyle ${wt}`, wt, false); }
       }
       const warns = [];
       S.steps.forEach((st, i) => { if (st.on !== false && built[i].error) warns.push($t('Step {x} has an error and is skipped until fixed.', { x: i + 1 })); });
@@ -511,7 +573,7 @@ const Inspector = (() => {
     }
     // ---- the region ----
     function buildRegion() {
-      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Region')));
+      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Shapes')));
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
       // (v16.5 UX17: on a touch screen, the phone's places)
@@ -543,7 +605,7 @@ const Inspector = (() => {
       mountParams();
       const sel = A.sel();
       // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
-      const cmSig = typeof Construct !== 'undefined' && (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
+      const cmSig = (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
       // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
       const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
       const sig = cmSig || shSig || sigOf(sel);
@@ -582,3 +644,6 @@ const Inspector = (() => {
   }
   return { create, typeIcon, regionIcon, STRONG };
 })();
+import { Construct } from './construct.js';
+import { Params } from './params.js';
+export { Inspector };

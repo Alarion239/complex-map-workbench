@@ -39,13 +39,13 @@ ok('Phase is full width', Lp.wL > 2 * split, { wL: Lp.wL, split });
 const chrome = await ev(`({ paneR: getComputedStyle(document.getElementById('paneR')).display, gutter: getComputedStyle(document.getElementById('gutterCol')).display, leftSolo: document.getElementById('leftSolo').hidden, title: document.getElementById('leftTitle').textContent })`);
 ok('Phase: no second pane, no gutter, no expand button', chrome.paneR === 'none' && chrome.gutter === 'none' && chrome.leftSolo === true, chrome);
 ok('Phase title', /z-plane\s*phase of F/.test(chrome.title), chrome.title);
-// (v16.5 UX20: on a desktop the plane's option bar left the picture: its controls are in the Display options popover
-// of the pane head; a real click opens it, and it is closed again after the checks)
-const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .opts-btn'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
-const closeOpts = async () => { await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200); };
+// (v16.5 UX20: on a desktop the plane's option bar left the picture: #247: its controls are in the pane head, those that
+// do not fit behind the head's ⋯ button; a real click opens that, and it is closed again after the checks)
+const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn:not(.pat-btn)').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
+const closeOpts = async () => { await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200); };
 await openOpts();
-ok('Phase strip (v16.5 UX20: in Display options): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
+ok('Phase strip (#247: in the pane head): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
 await closeOpts();
 ok('Phase legend, no Key switch there (review: it acted on a hidden pane)', await ev(`!document.getElementById('leftLegend').hidden && document.getElementById('wKeyRow').hidden`), null);
 await key('3'); await settle(900);
@@ -224,7 +224,7 @@ R.figGlobeDef = await figDialog();
 ok('globe deformation exports a filmstrip of globes of H_t (or the paths, or one frame)', R.figGlobeDef.view === 'xyR' && R.figGlobeDef.images === 4 && R.figGlobeDef.deform.join() === 'Filmstrip,Paths,One frame' && /^The deformation \$H_t\$ on the Riemann sphere/.test(R.figGlobeDef.cap), R.figGlobeDef);
 await key('3', 8); await settle(500); await key('m'); await settle(600);
 // a chain with a d/dz step (no deformation figure): the merged plane, one panel of H_t
-await ev(`__cmwExample(12); 1`); await settle(1200);
+await ev(`__cmwExample(15); 1`); await settle(1200);   // (The derivative in the chain: after the three Cauchy examples, #293)
 await key('1'); await settle(500);
 await key('m'); await settle(900); await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(600);
 R.figDeriv = await figDialog();
@@ -244,9 +244,9 @@ const tm = await ev('__cmwTime(1)');
 ok('__cmwTime times both panes in X → Y', tm.left > 0 && tm.right > 0, tm);
 
 // 7. every example opens in the view it was made for (the old rightMode, migrated)
-const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Sheets of the logarithm': 'land' };
+const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Cauchy: a simple pole': 'phase', 'Cauchy: a regular part and a pole': 'phase', 'Cauchy: an essential singularity': 'phase', 'Sheets of the logarithm': 'land' };
 const exs = [];
-for (let i = 0; i < 14; i++) {
+for (let i = 0; i < 17; i++) {
   await ev(`__cmwExample(${i}); 1`); await sleep(500);
   const name = await ev(`(document.querySelector('#examplesBtn .exlabel') || {}).textContent || ''`);
   const vv = await vw(), ll = await lay();

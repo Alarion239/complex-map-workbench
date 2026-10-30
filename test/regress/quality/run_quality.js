@@ -181,10 +181,16 @@ const PAGE_HELPERS = `window.__qreg = {
     for (let i = 0; i < u.length; i++) { h = Math.imul(h ^ u[i], 16777619) >>> 0; g = (g + u[i]) >>> 0; }
     return h.toString(16) + ':' + g.toString(16) + ':' + u.length;
   },
+  // (issue #72) the right pane's own last frame (__cmwPaneStatus), when the app has it: GLR.frameStatus() is the last
+  // begin's, which a card or the left pane may have drawn after the right one. That pane is busy while its frame waited
+  // for a program, or drew a shape with a stand-in while the shape's inverse program compiled (a gate scores the exact
+  // image, never its stand-in). ids: the programs still compiling, reported when the run does not settle
   busy() {
     const led = document.getElementById('rightLed');
     const st = typeof GLR !== 'undefined' && GLR.frameStatus ? GLR.frameStatus() : null;
-    return { led: led ? led.className : '', pending: !!(st && st.pending), glErr: st && st.error || '' };
+    const ps = typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus('R') : null;
+    const ids = typeof GLR !== 'undefined' && GLR.pending ? GLR.pending().map((e) => e.id.split('|')[0] + (e.key === 'static' ? '' : '|' + e.id.split('|').pop())) : [];
+    return { led: led ? led.className : '', pending: ps ? ps.pending || ps.exact > 0 : !!(st && st.pending), exact: ps ? ps.exact : null, own: !!ps, ids, glErr: st && st.error || '' };
   },
   capture() {
     const c = document.getElementById('canvasR');
@@ -256,7 +262,10 @@ function evalRun(run, r, outDir, writeRender = true) {
   // runs added for SPEC 12.4 record how they were scored (the original mask / pattern runs keep their format)
   if (run.strict) Object.assign(out, { classifier: run.kind, parity_mode: run.parity, alpha: run.alpha, strict: true });
   if (writeRender) fs.writeFileSync(path.join(outDir, 'renders', run.id + '.png'), PNG.encode(W, H, rgba));
-  if (!r.settled) out.problems.push(`did not settle within the timeout (last change at ${r.settleMs} ms)`);
+  if (!r.settled) {
+    const b = r.busy;
+    out.problems.push(`did not settle within the timeout (last change at ${r.settleMs} ms` + (b ? `; led '${b.led}', pending ${b.pending}${b.exact ? `, ${b.exact} shape(s) waiting for the inverse program` : ''}, compiling: ${(b.ids || []).join(', ') || 'none'}` : '') + ')');
+  }
   let viewKnown = true;
   if (!cap.geo.o) {
     // no __cmwW2S hook: assume the pinned view (centered in the canvas) and say so
@@ -334,13 +343,25 @@ async function main() {
   if (opt.override) for (const r of runs) Object.assign(r.state, opt.override);
   if (!runs.length) { console.error('no scenes match ' + opt.only); process.exit(2); }
   for (const d of ['renders', 'maps', 'golden_diff']) { fs.rmSync(path.join(opt.out, d), { recursive: true, force: true }); fs.mkdirSync(path.join(opt.out, d), { recursive: true }); }
-  const appFile = path.join(ROOT, 'dist', 'test.html');
-  const appSha = fs.existsSync(appFile) ? crypto.createHash('sha1').update(fs.readFileSync(appFile)).digest('hex') : 'unknown';
-  try { const r = await fetch(opt.base + '/test.html'); if (!r.ok) throw new Error('HTTP ' + r.status); } catch (e) {
+  // the app's hash: the page this run renders, as the server at --base-url serves it (a paired run serves the reference
+  // and this checkout from two servers, so each side stamps its own); the checkout's dist/test.html only when the body
+  // could not be read, and app_sha1_source says which (#254)
+  const sha1 = (buf) => crypto.createHash('sha1').update(buf).digest('hex');
+  let appSha = null, appShaSource = 'served';
+  try {
+    const r = await fetch(opt.base + '/test.html');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    try { const body = Buffer.from(await r.arrayBuffer()); if (body.length) appSha = sha1(body); } catch (e) { /* the checkout's file below */ }
+  } catch (e) {
     console.error(`the app is not served at ${opt.base}/test.html (${e.message}); start the static server for dist/ first`); process.exit(2);
   }
+  if (!appSha) {
+    const appFile = path.join(ROOT, 'dist', 'test.html');
+    appSha = fs.existsSync(appFile) ? sha1(fs.readFileSync(appFile)) : 'unknown';
+    appShaSource = 'checkout';
+  }
   const B = await startChrome();
-  const met = { meta: { suite: 'cmw-image-quality', version: 1, date: new Date().toISOString(), browser: B.version, viewport: VIEWPORT, base_url: opt.base, app_sha1: appSha,
+  const met = { meta: { suite: 'cmw-image-quality', version: 1, date: new Date().toISOString(), browser: B.version, viewport: VIEWPORT, base_url: opt.base, app_sha1: appSha, app_sha1_source: appShaSource,
     band_px: M.BAND, parity_min_cell_px: M.PARITY_MIN_CELL, parity_min_edge_px: M.PARITY_MIN_EDGE, golden_thr: GOLDEN_THR, stable_ms: opt.stableMs }, runs: {} };
   if (opt.override) met.meta.state_override = opt.override;
   const t0 = Date.now();

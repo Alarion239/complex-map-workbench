@@ -144,18 +144,23 @@
     }
     ctx.restore();
   }
+  // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
+  // as they are)
+  const primesOf = (s, p) => (p > 0 ? Math.max(0, p - shapeStage(s)) : p || 0);
   function drawPoints(pane, F, opt = {}) {
     if (artMode) return;
     const ctx = pane.ctx;
     let pi = 0;
     const labels = [];
-    if (!opt.thin) labelCurves(pane, F, opt.list || S.shapes);   // labels keep off these curves
-    for (const s of opt.list || S.shapes) {
+    // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
+    const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
+    if (!opt.thin) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
+    for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
       const mk = Construct.pointMark(s);   // (v16: 'helper' | 'ring' | null)
       const idx = mk === 'helper' ? -1 : pi++;
       if (s._atInf) continue;
-      const w = F(C(s.p[0], s.p[1]));
+      const w = (opt.list ? F : shapeF(s, F, opt.k))(C(s.p[0], s.p[1]));
       if (!CX.isFin(w)) continue;
       const [x, y] = pane.w2s(w);
       if (x < -20 || y < -20 || x > pane.w + 20 || y > pane.h + 20) continue;
@@ -166,16 +171,16 @@
         const rr = mk === 'helper' ? (opt.thin ? 2 : 2.75) : (opt.thin ? 2.4 : 3.5);
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         ctx.strokeStyle = ink.edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
-        if (!opt.thin && s.id === selected && opt.domain) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-        if (!opt.thin && mk !== 'helper') labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, opt.primes || 0), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+        if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
+        if (!opt.thin && mk !== 'helper') labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
         continue;
       }
       ctx.fillStyle = ink.edge;
       ctx.strokeStyle = TH.halo;
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, opt.thin ? 2.6 : 4, 0, TAU); ctx.stroke(); ctx.fill();
-      if (!opt.thin && s.id === selected && opt.domain) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, opt.primes || 0), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+      if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
+      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
     }
     if (labels.length) placeLabels(ctx, pane, labels);
   }
@@ -321,12 +326,14 @@
     ctx.restore();
   }
   // orientation chevrons: at mid-length of open curves and at angle 0 of closed boundaries
-  function drawChevrons(pane, F) {
+  function drawChevrons(pane, F0, k) {
     if (artMode) return;
     if (!S.chev) return;
     const ctx = pane.ctx;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || s.kind === 'cgrid' || s.kind === 'pgrid') continue;
+      const F = shapeF(s, F0, k);   // ([#253] a later plane's shape: its image, from its own plane)
+      if (!F) continue;
       const r = gpu.get(s.id);
       if (!r || !r.polys) continue;
       ctx.strokeStyle = shapeInk(s).edge; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
@@ -646,7 +653,8 @@
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
-    setStepAt(k - 1, { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false });
+    // ([issue #6] the same function written another way: a repeat it ends stays)
+    setStepAt(k - 1, Object.assign({ type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     zpSel = null;
     chainChanged(true);
     setFocus(k);

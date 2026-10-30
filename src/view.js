@@ -1,13 +1,16 @@
 'use strict';
 // A 2D complex-plane pane: view transform, resizing, axes.
 class Pane {
-  static keepTop = false;
   // canvas: the drawn plane; overlay (optional): a transparent canvas on top for probes and handles
   constructor(canvas, overlay) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.ocanvas = overlay || canvas;
-    this.octx = overlay ? overlay.getContext('2d') : this.ctx;
+    // (issue #297) the overlay's context is CPU-backed (willReadFrequently): on a GPU-accelerated 2D canvas, Chrome
+    // kept an earlier frame's picture in the overlay after frames that only cleared it (example 7's cut handle stayed
+    // over example 8, about 1 load in 3), although the app drew nothing there; a CPU-backed canvas never did. The
+    // overlay holds only lines, chips and handles, cheap to draw on the CPU; the planes' own canvases stay on the GPU
+    this.octx = overlay ? overlay.getContext('2d', { willReadFrequently: true }) : this.ctx;
     this.view = { cx: 0, cy: 0, s: 80 };
     this.w = 300; this.h = 300; this.dpr = 1;
   }
@@ -22,8 +25,6 @@ class Pane {
       this.canvas.width = pw; this.canvas.height = ph;
       if (this.ocanvas !== this.canvas) { this.ocanvas.width = pw; this.ocanvas.height = ph; }
     }
-    // (Pane.keepTop: the phone's context bar took or gave back the plane's bottom rows; the drawing stays where it was)
-    if (Pane.keepTop && Math.abs(this.w - w) < 0.5 && this.h !== h && this.view && this.view.s > 0) this.view.cy += (this.h - h) / (2 * this.view.s);
     this.w = w; this.h = h; this.dpr = dpr;
     return changed;
   }
@@ -272,4 +273,5 @@ const Views = (() => {
   }
   return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, LEGACY, MAIN, SURF_L, SURF_R };
 })();
-if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
+import { CX } from './cx.js';
+export { Axes, Pane, Views };

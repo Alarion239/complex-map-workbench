@@ -80,7 +80,8 @@ for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/for
   'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
-const RU = (() => { let tab = {}; const src = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
 const EVENTS_USED = new Set();
 for (const s of steps) {
@@ -105,7 +106,10 @@ for (const s of steps) {
   if (s.lead) ok(`${id}: lead, one sentence, at most 60, a full stop`, one(s.lead) && T.plainCopy(s.lead, 'Ctrl').length <= 60 && /\.$/.test(s.lead), s.lead);
   if (s.try && s.try.then) ok(`${id}: result line, one sentence, at most 60, a full stop`, one(s.try.then) && T.plainCopy(s.try.then, 'Ctrl').length <= 60 && /\.$/.test(s.try.then), s.try.then);
   for (const [sec, c] of s.captions || []) ok(`${id}: caption at ${sec} s, at most two sentences, 60, a full stop`, Number.isFinite(sec) && sentences(c) <= 2 && T.plainCopy(c, 'Ctrl').length <= 60 && /\.$/.test(c), c);
-  if (s.captions) ok(`${id}: captions ascending, within the piece (22.97 s), on a listen step`, s.captions.every((c, i) => i === 0 || c[0] > s.captions[i - 1][0]) && s.captions.every((c) => c[0] >= 0 && c[0] < 22.97) && s.act === 'listen', s.captions.map((c) => c[0]));
+  // (v16.5: capFrac, the captions of the function's Listen along, at fractions of its duration in [0, 1); else
+  // seconds within the composition's 22.97 s)
+  if (s.captions) ok(`${id}: captions ascending, within the piece (${s.capFrac ? 'fractions of it' : '22.97 s'}), on a listen step`, s.captions.every((c, i) => i === 0 || c[0] > s.captions[i - 1][0]) && s.captions.every((c) => c[0] >= 0 && c[0] < (s.capFrac ? 1 : 22.97)) && s.act === 'listen', s.captions.map((c) => c[0]));
+  if (id === 'sound/song') ok(`${id}: the function's Listen along, so its captions are fractions of its duration`, s.capFrac === true, s.capFrac);
   if (s.act != null) ok(`${id}: act is listen or sound`, ['listen', 'sound'].includes(s.act), s.act);
   if (s.hear != null) ok(`${id}: hear is true, in the Sound chapter`, s.hear === true && s.ch === 'sound');
   if (s.try && s.try.after) { const c = CH.find((x) => x.id === s.ch); const i = c.steps.findIndex((x) => x.id === s.try.after), j = c.steps.findIndex((x) => x.id === s.id); ok(`${id}: try.after names an earlier task step of its chapter`, i >= 0 && i < j && !!c.steps[i].try, s.try.after); }
@@ -114,6 +118,8 @@ for (const s of steps) {
   for (const t of [s.lead, s.try && s.try.text, s.try && s.try.touch, s.try && s.try.then, ...(s.captions || []).map((c) => c[1])].filter(Boolean)) {
     const ru = RU[t];
     ok(`${id}: Russian of "${t.slice(0, 30)}" at most 64 as read`, typeof ru === 'string' && T.plainCopy(ru, 'Ctrl').length <= 64, ru);
+    // (the Italian too, in the Sound chapter, whose strings are this branch's)
+    if (s.ch === 'sound') { const it = IT[t]; ok(`${id}: Italian of "${t.slice(0, 30)}" at most 64 as read`, typeof it === 'string' && T.plainCopy(it, 'Ctrl').length <= 64, it); }
   }
   for (const a of s.before || []) {
     ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'deform', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);
@@ -212,6 +218,9 @@ check('plain mod', T.plainCopy('Press {mod}{K}.', '⌘'), 'Press ⌘K.');
 check('tex |Im z|<π/2', T.texPlain('|\\operatorname{Im} z|<\\pi/2'), '|Im z| < π/2');
 check('tex frac', T.texPlain('F(z)=\\frac{e^z-1}{e^z+1}'), 'F(z) = (eᶻ-1)/(eᶻ+1)');
 check('tex power', T.texPlain('z^3-1'), 'z³-1');
+// ([issue #260] the shapes of the Douady–Hubbard map: Φ and φ as letters, not the words Phi and varphi)
+check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg Φ_M(z) = 2π· 1/3');
+check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ_-1(z)| = 1.05');
 check('tex sub', T.texPlain('f_2\\circ f_1'), 'f₂∘ f₁');
 check('tex neq pm', T.texPlain('z\\neq\\pm i'), 'z ≠ ±i');
 check('tex oint', T.texPlain('\\oint=2\\pi i\\operatorname{Res}_i F=\\pi'), '∮ = 2π i Resᵢ F = π');
@@ -228,11 +237,12 @@ ok('every step reads without a backslash', steps.every((s) => !/\\/.test(T.plain
 const CD = (evs) => { let st = T.cdInit(); for (const [t, e] of evs) st = T.countdown(st, e, t); return st; };
 // the time the countdown fires: the first t (ms, in 50 ms ticks) at which left() reaches 0, else null within 20 s
 const fireAt = (evs) => { const sorted = evs.slice().sort((a, b) => a[0] - b[0]); let st = T.cdInit(), k = 0; for (let t = 0; t <= 20000; t += 50) { while (k < sorted.length && sorted[k][0] <= t) st = T.countdown(st, sorted[k++][1], sorted[k - 1][0]); const L = T.cdLeft(st, t); if (L === 0) return t; } return null; };
-check('countdown: done -> 3000', fireAt([[0, { type: 'done' }]]), 3000);
-check('countdown: input at 2000 changes nothing (3000; the pointer or keys never restart it)', fireAt([[0, { type: 'done' }], [2000, { type: 'input' }]]), 3000);
-check('countdown: hold from 1000 to 4000 -> 7000', fireAt([[0, { type: 'done' }], [1000, { type: 'hold', kind: 'pointer' }], [4000, { type: 'release', kind: 'pointer' }]]), 7000);
-check('countdown: two holds, the last release starts it', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'layer' }], [800, { type: 'hold', kind: 'pointer' }], [1500, { type: 'release', kind: 'pointer' }], [2500, { type: 'release', kind: 'layer' }]]), 5500);
-check('countdown: done while held (the palette open) -> 3 s after the release', fireAt([[0, { type: 'hold', kind: 'layer' }], [200, { type: 'done' }], [4000, { type: 'release', kind: 'layer' }]]), 7000);
+const CDM = T.CD_MS;   // (the countdown's length: 1.5 s; every time below is from it)
+check('countdown: done -> CD_MS', fireAt([[0, { type: 'done' }]]), CDM);
+check('countdown: input at 1000 changes nothing (CD_MS; the pointer or keys never restart it)', fireAt([[0, { type: 'done' }], [1000, { type: 'input' }]]), CDM);
+check('countdown: hold from 1000 to 4000 -> 4000 + CD_MS', fireAt([[0, { type: 'done' }], [1000, { type: 'hold', kind: 'pointer' }], [4000, { type: 'release', kind: 'pointer' }]]), 4000 + CDM);
+check('countdown: two holds, the last release starts it', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'layer' }], [800, { type: 'hold', kind: 'pointer' }], [1500, { type: 'release', kind: 'pointer' }], [2500, { type: 'release', kind: 'layer' }]]), 2500 + CDM);
+check('countdown: done while held (the palette open) -> CD_MS after the release', fireAt([[0, { type: 'hold', kind: 'layer' }], [200, { type: 'done' }], [4000, { type: 'release', kind: 'layer' }]]), 4000 + CDM);
 check('countdown: cancel -> never', fireAt([[0, { type: 'done' }], [1000, { type: 'cancel' }]]), null);
 check('countdown: cancelled before done -> never', fireAt([[0, { type: 'cancel' }], [500, { type: 'done' }]]), null);
 check('countdown: a step reached with Back, or the last of a chapter -> never', fireAt([[0, { type: 'done', never: true }]]), null);
@@ -246,12 +256,12 @@ check('countdown: Move on by itself off -> a door only ticks', [fireAt([[0, { ty
   ok('sound/song: the task names ▶ and has a sound-off variant', /▶/.test(s1.try.text) && /sound on/.test(s1.try.off));
   ok('basics/preimages: the touch task names the ring and a hint answers a pan of Y', /ring/.test(pr.try.touch) && pr.try.hint && pr.try.hint.on === 'view-moved' && pr.try.hint.test({ pane: 'R' }) && !pr.try.hint.test({ pane: 'L' })); }
 check('countdown: a door -> 700 (300 with reduced motion), held by nothing', [fireAt([[0, { type: 'done', door: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true }]]), fireAt([[0, { type: 'hold', kind: 'pointer' }], [0, { type: 'done', door: true }], [100, { type: 'input' }]])], [700, 300, 700]);
-check('countdown: an input before done changes nothing', fireAt([[0, { type: 'input' }], [100, { type: 'done' }]]), 3100);
-check('countdown: input while held changes nothing', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'listen' }], [1000, { type: 'input' }], [2000, { type: 'release', kind: 'listen' }]]), 5000);
+check('countdown: an input before done changes nothing', fireAt([[0, { type: 'input' }], [100, { type: 'done' }]]), 100 + CDM);
+check('countdown: input while held changes nothing', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'listen' }], [1000, { type: 'input' }], [2000, { type: 'release', kind: 'listen' }]]), 2000 + CDM);
 { const st = CD([[0, { type: 'done' }], [100, { type: 'hold', kind: 'why' }]]); check('countdown: the state of a held countdown', [st.phase, st.holds, T.cdLeft(st, 500)], ['held', ['why'], null]); }
-check('countdown: a second done is ignored', fireAt([[0, { type: 'done' }], [2000, { type: 'done' }]]), 3000);
-check('countdown: fire only while running', [CD([[0, { type: 'fire' }]]).phase, CD([[0, { type: 'done' }], [3000, { type: 'fire' }]]).phase], ['idle', 'fired']);
-check('CD_MS', T.CD_MS, 3000);
+check('countdown: a second done is ignored', fireAt([[0, { type: 'done' }], [1000, { type: 'done' }]]), CDM);
+check('countdown: fire only while running', [CD([[0, { type: 'fire' }]]).phase, CD([[0, { type: 'done' }], [CDM, { type: 'fire' }]]).phase], ['idle', 'fired']);
+check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 // the harp's laps: a low D up and one down, whichever point gave which
 { const m = {}; check('harp: a bare event ticks; up alone does not; up then down does', [T.harpUpDown(undefined), T.harpUpDown({ dir: 1 }, m), T.harpUpDown({ dir: 1 }, m), T.harpUpDown({ dir: -1 }, m)], [true, false, false, true]); }
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
@@ -274,8 +284,8 @@ check('ms tokens', [T.ms('240ms', 0), T.ms('0.24s', 0), T.ms(' 0ms ', 9), T.ms('
 
 // ---- the persisted record
 const R = T.normRec;
-check('fresh record', R(null), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null });
-check('malformed record', R({ v: 'x', shown: null, outcome: 'maybe', done: 3, last: { ch: 4 }, auto: 'no', why: 1 }), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null });
+check('fresh record', R(null), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
+check('malformed record', R({ v: 'x', shown: null, outcome: 'maybe', done: 3, last: { ch: 4 }, auto: 'no', why: 1, open: 'yes' }), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
 check('Move on by itself off and Why chosen are kept', [R({ auto: false }).auto, R({ why: false }).why, R({ why: true }).why], [false, false, true]);
 ok('fresh: suggest', T.shouldSuggest(R(null)));
 ok('shown twice, ignored: suggest again', T.shouldSuggest(R({ shown: 2 })));
@@ -315,7 +325,23 @@ ok('dismissed in storage: seen', Tour.isSeen() === true);
 ok('dismissed: the namespace without it is not seen', (() => { Tour.init({ storageKey: (k) => `${k}:other` }); return Tour.isSeen() === false; })());
 Tour.init(api);
 Tour.reset();
-check('reset forgets the record', JSON.parse(localStorage.getItem('cmw-tour:ns1')), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null });
+check('reset forgets the record', JSON.parse(localStorage.getItem('cmw-tour:ns1')), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
+const lsKept = global.localStorage;
+// (#34, UX76) a tour that was running when the page went away (open, no live heartbeat elsewhere) was cut short: the next
+// page's init says so once, and clears the mark; another page's fresh heartbeat means that tour is still running there
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }) });
+Tour.init(api);
+ok('a tour cut short by a reload: init finds it', Tour._t.cutShort() === true);
+ok('... and clears the mark (offered once)', JSON.parse(localStorage.getItem('cmw-tour:ns1')).open === false);
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }),
+  'cmw-tour-live:ns1': JSON.stringify({ page: 'elsewhere', t: Date.now() }) });
+Tour.init(api);
+ok('a tour still running in another tab is not cut short', Tour._t.cutShort() === false && JSON.parse(localStorage.getItem('cmw-tour:ns1')).open === true);
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 } }) });
+Tour.init(api);
+ok('a tour that was ended is not cut short', Tour._t.cutShort() === false);
+global.localStorage = lsKept;
+Tour.init(api);
 ok('reset: not seen', Tour.isSeen() === false);
 global.localStorage = fakeStorage({ 'cmw-tour:ns1': '{not json', 'cmw-tour-stash:ns1': '{also not' });
 let threw = false;

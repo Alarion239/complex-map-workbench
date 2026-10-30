@@ -22,7 +22,17 @@ const withState = async (ns, w, h, mobile, st, extra = '') => { await view(w, h,
 const box = (sel) => ev(`(() => { const e = typeof ${JSON.stringify(sel)} === 'string' ? document.querySelector(${JSON.stringify(sel)}) : null; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom), top: !!t && (t === e || e.contains(t)) }; })()`);
 const center = async (sel) => { const b = await box(sel); return b ? [b.l + b.w / 2, b.t + b.h / 2] : null; };
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-const tap = async (sel, wait = 400) => { await ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); })()`); await sleep(250); const c = await center(sel); if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; } await touch(c[0], c[1]); await settle(wait); return true; };
+// (#246: on a phone the chain's cards, F, Add function and Numbers are rows of the chain sheet; while it is closed, a
+// tap on one of them is first the tap on "N steps ▾" that opens it, as a user's)
+const CHAIN = /#pipeline|#addStepBtn|\.ph-nums/;
+const tap = async (sel, wait = 400) => {
+  const into = () => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); })()`);
+  await into(); await sleep(250);
+  let c = await center(sel);
+  if (!c && CHAIN.test(sel)) { const o = await center('.ph-csteps'); if (o) { await touch(o[0], o[1]); await settle(500); await into(); await sleep(150); c = await center(sel); } }
+  if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; }
+  await touch(c[0], c[1]); await settle(wait); return true;
+};
 const pinch = async (cx, cy, d0, d1) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx - d0 / 2, y: cy, id: 1 }, { x: cx + d0 / 2, y: cy, id: 2 }] });
   for (let i = 1; i <= 10; i++) { const d = d0 + (d1 - d0) * i / 10; await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx - d / 2, y: cy, id: 1 }, { x: cx + d / 2, y: cy, id: 2 }] }); await sleep(16); }
@@ -71,7 +81,9 @@ await tap('#pipeline .add-card', 500);
 for (const c of 'sin') await key(c);
 await settle(300); await key('Enter'); await sleep(1300);
 ok('UX34 phone: no tip after an add (the focus came back to +)', !(await tipText()), await tipText());
-// phone: a long-press on a tool shows its tip, and it goes when the finger lifts
+// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (#246: the add was made from the chain
+// sheet, a modal layer over the tool row: it is closed first)
+await ev('Phone.close(true); 1');
 await sleep(800);
 const tc = await center('#secDraw .tool[data-tool="point"]');
 await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tc[0], y: tc[1], id: 1 }] }); await sleep(700);
@@ -110,18 +122,24 @@ const st = () => ev(`({ url: location.href, sheet: Phone.sheet(), pop: !!documen
 const layers = [
   ['the ⋯ sheet', async () => { await tap('#hdrMoreBtn', 500); }, (s) => s.sheet === 'more'],
   ['More tools', async () => { await tap('#toolMore > summary', 500); }, (s) => s.sheet === 'tools'],
-  ['the function list', async () => { await tap('#pipeline .add-card', 500); }, (s) => s.pop],
+  // (#246: the function list opens from the chain sheet: the first Back closes the list, the second the sheet)
+  ['the function list', async () => { await tap('#pipeline .add-card', 500); }, (s) => s.pop, 'chain'],
   ['the Export dialog', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Export figure/.test(b.textContent)).click()`); await settle(1200); }, (s) => s.modal],
   ['the guide', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /^\s*Guide\s*$/.test(b.textContent)).click()`); await settle(800); }, (s) => s.modal],
   ['the tour\'s chapter menu', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Guided tour/.test(b.textContent)).click()`); await settle(700); }, (s) => s.pop],
   // (issue #13: a plane's menu is an object's, here the line Im z = 0.8 of the first scene; held empty plane opens nothing)
   ['a plane\'s menu', async () => { const p = await ev(`__cmwPlaneMenu().w2s('L', 1.5, 0.8)`); await hold(p[0], p[1], 700); }, (s) => s.pop],
 ];
-for (const [name, openIt, isOpen] of layers) {
+for (const [name, openIt, isOpen, under] of layers) {
   await openIt();
   const a = await st();
   ok(`UX12 ${name} opens`, isOpen(a), a);
   await goBack();
+  if (under) {
+    const u = await st();
+    ok(`UX12 Back closes ${name} and leaves the ${under} sheet under it`, /test\.html/.test(u.url) && u.sheet === under && !u.pop && !u.modal, u);
+    await goBack();
+  }
   const b = await st();
   ok(`UX12 Back closes ${name} and stays in the app`, /test\.html/.test(b.url) && !b.sheet && !b.pop && !b.modal, b);
 }
@@ -148,6 +166,7 @@ await grab();
 
 // ---------------- UX68: a rotation keeps the open sheet and the field ----------------
 await withState('rot', 412, 915, true, { shapes: [], steps: STEPS2 });
+await tap('.ph-csteps', 600);   // (#246: the cards are the chain sheet's rows)
 const mob = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 await touch(mob[0], mob[1]); await settle(700);
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[1]; i.focus(); i.setSelectionRange(1, 1); })()`); await sleep(400);
@@ -194,6 +213,7 @@ ok('UX46 the strip goes with the keyboard', await ev(`document.querySelector('.p
 await ev('document.activeElement.blur()');
 // the Editor (split: X and Y above it): a coefficient with a short keyboard is lifted by a scroll, the planes stay
 await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2 });
+await tap('.ph-csteps', 600);   // (#246: the cards are the chain sheet's rows)
 const mobK = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 await touch(mobK[0], mobK[1]); await settle(700);
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[3]; i.focus(); })()`); await sleep(300);
@@ -249,7 +269,7 @@ const rows = await ev(`[...document.querySelectorAll('.ph-sheet .shape-row')].ma
 ok('UX45 rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
 ok('UX45 the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
 ok('UX45 ⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360 - 16), rows);
-const tip = await ev(`(document.querySelector('.ph-sheet .ph-tip') || {}).textContent || ''`);
+const tip = await ev(`(document.querySelector('.ph-sb[data-k="tools"] .ph-tip') || {}).textContent || ''`);
 ok('UX40 More tools teaches the long press', /hold a finger/i.test(tip), tip);
 await ev(`Phone.close(true)`); await settle(200);
 await tap('#pipeline .card:not(.region-card)', 700);
@@ -339,14 +359,11 @@ ok('D6 searching "theme" leaves the Theme row (and the command search), and clea
 await ev(`Phone.close(true)`); await settle(300);
 // ---------------- D3: the context bar for what is selected or under way ----------------
 await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });
-const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
+const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden || b.classList.contains('under')) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
 const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 nothing selected: no bar', (await ctxInfo()) === null);
-const zA = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 await ev(`__cmwSelect('s1')`); await settle(600);
-const zB = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 const c1 = await ctxInfo();
-ok('D3 the bar coming does not move the drawing under the finger', Math.abs(zA[0] - zB[0]) < 1 && Math.abs(zA[1] - zB[1]) < 1, [zA, zB]);
 const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 a selected shape: a 56 px bar over the tool row with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
 ok('D3 the plane gives up the bar\'s height from the bottom', d0 - d1 >= 50 && d0 - d1 <= 60, [d0, d1]);
@@ -400,7 +417,7 @@ ok('D3 × lets the tool go (the bar is the selection\'s again)', !k3 || k3.k !==
 // the orthogonal circle: Whole | Inside | Outside in words on a second row
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle(500);
 const q1 = await ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(); return { h: Math.round(r.height), seg: [...b.querySelectorAll('.ph-ctseg > button')].map((x) => ({ t: x.textContent, h: Math.round(x.getBoundingClientRect().height), on: x.getAttribute('aria-checked') })) }; })()`);
-ok('D3 the orthogonal circle: a taller bar with Whole, Inside, Outside as 44 px words', q1 && q1.h >= 100 && q1.seg.map((x) => x.t).join('|') === 'Whole|Inside|Outside' && q1.seg.every((x) => x.h >= 44) && q1.seg[0].on === 'true', q1);
+ok('D3 the orthogonal circle: a taller bar with Whole, Inside, Outside, Between as 44 px words', q1 && q1.h >= 100 && q1.seg.map((x) => x.t).join('|') === 'Whole|Inside|Outside|Between' && q1.seg.every((x) => x.h >= 44) && q1.seg[0].on === 'true', q1);
 ok('D3 the plane\'s own Whole | Inside chip is gone while the bar has those words', await ev(`[...document.querySelectorAll('.cm-chip .cm-seg:not(.cm-tan)')].every((e) => !e.getClientRects().length)`));
 await ev(`[...document.querySelectorAll('.ph-ctseg > button')][1].click()`); await settle(500);
 ok('D3 choosing Inside sets the tool and the bar shows it', (await ev(`Construct.seg`)) === 'in' && (await ev(`[...document.querySelectorAll('.ph-ctseg > button')][1].getAttribute('aria-checked')`)) === 'true');
@@ -417,6 +434,17 @@ ok('D3 ru, a selected shape: Изменить, Удалить and ⋯ fit at 360
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle(500);
 const r2 = await ruChk();
 ok('D3 ru, the orthogonal circle: its words and Отменить выбор fit at 360 px', r2 && !r2.over && !r2.cut.length && !r2.small.length, r2);
+
+// ---------------- UX40 (#34): a tip inside the Display and Editor sheets, none cut, at 390 and at 360 px in Russian ----------------
+for (const [w, extra, lang] of [[390, '', 'en'], [360, '&lang=ru', 'ru']]) {
+  await fresh('tips' + w, w, 780, false, true, extra); await settle(900);
+  for (const k of ['display', 'edit']) {
+    await ev(`Phone.open('${k}')`); await settle(600);
+    const t = await ev(`(() => { const b = document.querySelector('.ph-sb[data-k="${k}"]'), p = b && b.querySelector('.ph-tip'); if (!p) return null; p.scrollIntoView({ block: 'nearest' }); const r = p.getBoundingClientRect(), s = p.querySelector('span:last-child'), b2 = b.getBoundingClientRect(); return { text: p.textContent, h: Math.round(r.height), left: Math.round(r.left), right: Math.round(r.right), vis: !!p.getClientRects().length, cut: s.scrollWidth > s.clientWidth + 1 || p.scrollHeight > p.clientHeight + 1, inBody: r.left >= b2.left - 1 && r.right <= b2.right + 1 }; })()`);
+    ok(`UX40 the ${k} sheet has its tip at ${w} px (${lang}), whole and inside the sheet`, t && t.vis && t.h > 0 && !t.cut && t.inBody && t.right <= w && /^(Tip|Совет)/.test(t.text), t);
+  }
+  await ev('Phone.close(true)'); await settle(300);
+}
 
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });

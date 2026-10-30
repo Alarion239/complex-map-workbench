@@ -45,8 +45,22 @@
   const dirOf = (az, el) => { const a = az * Math.PI / 180, e = el * Math.PI / 180; return [Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), Math.sin(e)]; };
   const bearing = (b) => 90 - b;
   const KEY_DIR = dirOf(bearing(135), 50), FILL_DIR = dirOf(bearing(-45), 20);
-  let sceneLight = null;
-  const defaultLight = (dark) => ({ sky: toLin3(hexRGB(dark ? '#9FB2C0' : '#E6EEF4')), ground: toLin3(hexRGB(dark ? '#3A3F44' : '#8C9296')) });
+  // The globe's key light (issue #287; SHADE_GLOBE in 01-state-glsl-2d.js): it follows the camera, 25 deg above and
+  // 20 deg to the left of the line of sight in the camera's own frame (lookAt's: world z up), so the face we look at
+  // is lit the same from every side. cam: the drawSphere camera ({yaw, pitch, tx, ty, tz}, camera()'s defaults).
+  const GLOBE_KEY_EL = 25 * Math.PI / 180, GLOBE_KEY_AZ = 20 * Math.PI / 180;
+  function globeKey(cam) {
+    const c = Object.assign({ yaw: -38 * Math.PI / 180, pitch: 30 * Math.PI / 180 }, cam);
+    const z = [Math.cos(c.pitch) * Math.cos(c.yaw), Math.cos(c.pitch) * Math.sin(c.yaw), Math.sin(c.pitch)];   // toward the eye
+    let x = [-z[1], z[0], 0];                                                                                   // up x z: screen right
+    const xl = Math.hypot(x[0], x[1]);
+    x = xl > 1e-9 ? [x[0] / xl, x[1] / xl, 0] : [1, 0, 0];
+    const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];               // z x x: screen up
+    const ce = Math.cos(GLOBE_KEY_EL), se = Math.sin(GLOBE_KEY_EL), ca = Math.cos(GLOBE_KEY_AZ), sa = Math.sin(GLOBE_KEY_AZ);
+    return [0, 1, 2].map((k) => ce * ca * z[k] + se * y[k] - ce * sa * x[k]);
+  }
+  // the light of a program that draws on the globe (its uKeyDir; sph: drawSphere's {MVP, eye, key})
+  const globeLight = (P, sph) => u3(P, 'uKeyDir', (sph && sph.key) || globeKey(null));
   function lightUniforms(P, lt, specK, specE, rimK) {
     u3(P, 'uKeyDir', KEY_DIR);
     u3(P, 'uFillDir', FILL_DIR);
@@ -1340,7 +1354,7 @@
     if (cx0 <= 0 && cy0 <= 0 && cx1 >= fw && cy1 >= fh) return null;
     return [cx0, cy0, cx1 - cx0, cy1 - cy0];
   }
-  // st: {map, mode ('image'|'color'), cam, style, sectors, grid, colors:{plane, gridMajor, axis, ink, accent?, hemiSky?, hemiGround?},
+  // st: {map, mode ('image'|'color'), cam, style, sectors, grid, colors:{plane, gridMajor, axis, ink, accent?},
   //      regions:[{res, st} | {inv, fwd: [{res, st}], onResult}], lines:[{res, st}], plane:bool, probe:{w}, dpr,
   //      pre:{map, targets, halo?, haloA?, wGrid?} (drawPreimage over the globe)}
   // A region entry with inv is an exact image (SPEC 4.6, 10.3): drawInverse's st (viewKind 'globe' and this frame's
@@ -1352,6 +1366,8 @@
   function drawSphere(st) {
     if (!ok) return null;
     const { MVP, eye } = camera(st.cam, fw, fh);
+    // (every pass on the globe gets this frame's camera and its key light: globeLight)
+    const sph = { MVP, eye, key: globeKey(st.cam) };
     const c = st.colors || {};
     const plane = col3(c.plane, col3(st.shell, '#FCFDFD'));
     const dark = lum(plane) < 0.18;
@@ -1359,10 +1375,6 @@
     const axis = col3(c.axis, col3(st.ink, dark ? '#94A8B3' : '#2E3D47'));
     const accent = col3(c.accent, dark ? '#52B7D3' : '#0A6A87');
     const dpr = st.dpr || Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-    const lt = defaultLight(dark);
-    if (c.hemiSky) lt.sky = toLin3(col3(c.hemiSky));
-    if (c.hemiGround) lt.ground = toLin3(col3(c.hemiGround));
-    sceneLight = lt;
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(true);
@@ -1379,7 +1391,7 @@
       // the lattice's tiers in the grid colour (its coverage is what the shader uses)
       u1i(P, 'uNet', st.net === 'cart' ? 1 : st.net === 'polar' ? 0 : 2);
       u3(P, 'uMinor', gridMajor); u3(P, 'uMed', gridMajor); u3(P, 'uMajor', gridMajor);
-      lightUniforms(P, lt, 0.18, 40, 0.12);
+      globeLight(P, sph);
       const g = sphere();
       gl.disable(gl.BLEND);
       gl.bindVertexArray(g.vao);
@@ -1387,8 +1399,9 @@
       gl.bindVertexArray(null);
       gl.enable(gl.BLEND);
     }
-    // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid})
-    if (st.pre && P) drawPreimage(Object.assign({}, st.pre, { sphere: { MVP, eye }, dpr, view: null }));
+    // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid}), or a
+    // list of them, one per map ([#253] the shapes of each later plane)
+    if (P) for (const pr of Array.isArray(st.pre) ? st.pre : st.pre ? [st.pre] : []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null }));
     // lifted regions and their edges: tested against the globe, never against each other (a casing written to
     // depth would otherwise hide parts of its own stroke)
     gl.depthMask(false);
@@ -1397,21 +1410,21 @@
         let res = 'error';
         try {
           const sc = r.inv.globeBox ? globeScissorOf(r.inv.globeBox, MVP, eye, 4) : null;
-          res = drawInverse(Object.assign({}, r.inv, { viewKind: 'globe', sphere: { MVP, eye }, scissor: sc }));
+          res = drawInverse(Object.assign({}, r.inv, { viewKind: 'globe', sphere: sph, scissor: sc }));
         } catch (err) { res = 'error'; if (r.onError) r.onError(err); }
         gl.depthMask(false);
         if (r.onResult) r.onResult(res);
         if (res === 'drawn') continue;
-        for (const f of r.fwd || []) { if (f.pre) drawPreMapped(f.pre, Object.assign({}, f.st, { sphere: { MVP, eye } })); else drawRegion(f.res, Object.assign({}, f.st, { sphere: { MVP, eye } })); }
+        for (const f of r.fwd || []) { if (f.pre) drawPreMapped(f.pre, Object.assign({}, f.st, { sphere: sph })); else drawRegion(f.res, Object.assign({}, f.st, { sphere: sph })); }
         continue;
       }
-      if (r.pre) { drawPreMapped(r.pre, Object.assign({}, r.st, { sphere: { MVP, eye } })); continue; }
-      drawRegion(r.res, Object.assign({}, r.st, { sphere: { MVP, eye } }));
+      if (r.pre) { drawPreMapped(r.pre, Object.assign({}, r.st, { sphere: sph })); continue; }
+      drawRegion(r.res, Object.assign({}, r.st, { sphere: sph }));
     }
-    for (const l of st.lines || []) drawLines(l.res, Object.assign({}, l.st, { sphere: { MVP, eye } }));
+    for (const l of st.lines || []) drawLines(l.res, Object.assign({}, l.st, { sphere: sph }));
     // st.post: drawPreimage passes over everything drawn so far (P3b: the targets on the w-globe and a draft, each
     // exact per pixel through the identity map)
-    for (const q of st.post || []) if (q && P) drawPreimage(Object.assign({}, q, { sphere: { MVP, eye }, dpr, view: null }));
+    for (const q of st.post || []) if (q && P) drawPreimage(Object.assign({}, q, { sphere: sph, dpr, view: null }));
     // equatorial plane, depth-clipped so the sphere sits half through it
     if (st.plane) {
       const Dp = program('disc');
