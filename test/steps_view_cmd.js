@@ -55,7 +55,7 @@ const sp = await S();
 ok('parked at 0.5: the deformation there, between z and w₁', Math.abs(sp.x - 0.5) < 1e-9 && sp.moving === true && !sp.anim, sp);
 const hP = await hash('sv_park');
 ok('the parked picture is neither plane\'s', hP !== hZ && hP !== h1, [hP, hZ, h1]);
-ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-rail').getAttribute('aria-valuetext'))`), null);
+ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-thumb').getAttribute('aria-valuetext'))`), null);
 await press('ArrowRight'); const sn = await rest();
 ok('→ from 0.5 goes on to w₁', sn.i === 1 && Math.abs(sn.x - 1) < 1e-9, sn);
 // Shift+→: a quarter of a step, and the view stays there

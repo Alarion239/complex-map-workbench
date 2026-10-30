@@ -3,7 +3,7 @@
 // app, cold (a fresh profile, the GPU program cache empty) and then warm (the same profile again: Chrome's program
 // cache), on the machine's own GPU and ANGLE back end (Direct3D 11 on Windows, Metal on the Mac). The GPU gate runs it
 // on its machines (gpu-gate.yml, mode glprof); any machine can run it.
-//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended|mountain] [--step-timeout S] [--out FILE] [--cache DIR]
+//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended|mountain|steps] [--step-timeout S] [--out FILE] [--cache DIR]
 // --ref: the build of another commit too (ci/reference.js), the two sides in turn, current, reference, reference,
 // current, ... (--rounds N: N pairs, default 2), each a cold and a warm pass: whatever the machine keeps between runs
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
@@ -13,7 +13,7 @@
 // adds: the deformation of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
 // opened (its thumbnails' time), the Mountain King in the Landscape, and on every pass the first minute from the page's load (the start-up bar shown, the
 // links pending, the page's long tasks, when the default example's exact image was first drawn). --walk mountain: after
-// the start only the Mountain King (#395, #355): its first frame, its Landscape and its deformation. --variant unroll (#238 item 3): a
+// the start only the Mountain King (#395, #355): its first frame, its Landscape and its deformation. --walk steps (#439): the steps view (stepsWalk). --variant unroll (#238 item 3): a
 // second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
 // constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
 // bounds are not undone by it). Each step waits until every link it started has landed (or --step-timeout, default
@@ -34,8 +34,8 @@ const flag = (name) => argv.includes('--' + name);
 const OUT = path.resolve(opt('out', path.join(ROOT, '.ci', 'glprof', 'glprof.json')));
 const CACHE = path.resolve(opt('cache', path.join(os.tmpdir(), 'cmw-glprof-profile')));
 const STEP_S = Number(opt('step-timeout', '1200'));
-const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended', MOUNTAIN = WALK === 'mountain';
-if (!['all', 'quick', 'extended', 'mountain'].includes(WALK)) throw new Error(`--walk ${WALK}: all, quick, extended or mountain`);
+const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended', MOUNTAIN = WALK === 'mountain', STEPS = WALK === 'steps';
+if (!['all', 'quick', 'extended', 'mountain', 'steps'].includes(WALK)) throw new Error(`--walk ${WALK}: all, quick, extended, mountain or steps`);
 const REF = opt('ref', '');
 const VARIANT = opt('variant', '');
 if (VARIANT && VARIANT !== 'unroll') throw new Error(`--variant ${VARIANT}: only unroll`);
@@ -74,6 +74,26 @@ function mountainKing(landscapeOnly) {
   const s = [[`${MOUNTAIN_KING} (example ${i})`, `__cmwExample(${i})`, false, null],
     [`${MOUNTAIN_KING}: Landscape`, "__cmwSetMain('land')", false, null], [`${MOUNTAIN_KING}: Landscape closed`, "__cmwSetMain('xy')", false, null]];
   if (!landscapeOnly) s.push([`${MOUNTAIN_KING}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${MOUNTAIN_KING}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
+  return s;
+}
+// --walk steps (#439): the steps view (?view=steps) on the default example, the zeros of zeta and the Mountain King: a
+// glide over a step from z (the carried colour while gliding, map mode 1), a quarter-step scrub parked between two
+// planes, and the colour plane set to z, then a glide to the plane after it (the carried colour at rest past the
+// colour plane): the carry, mesh, region and line programs a glide links. The keys are the view's own (svKeys)
+const svKey = (key, shift) => `(document.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', shiftKey: ${!!shift}, bubbles: true })), true)`;
+function stepsWalk() {
+  const s = [];
+  for (const nm of [null, 'Zeros of the zeta function', MOUNTAIN_KING]) {
+    const i = nm ? exampleIndex(nm) : 0;
+    if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
+    const tag = nm ? `${nm} (example ${i})` : 'the default example';
+    s.push([`steps: ${tag}`, `(__cmwExample(${i}), ${svKey('PageUp')}, ${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
+    s.push([`steps: ${tag}: glide to the next plane`, svKey('PageDown'), false, null]);
+    s.push([`steps: ${tag}: scrub a quarter step`, svKey('ArrowRight', true), false, null]);
+    s.push([`steps: ${tag}: back to z`, `(${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
+    s.push([`steps: ${tag}: colour from z`, svKey('c'), false, null]);
+    s.push([`steps: ${tag}: the next plane, past the colour plane`, svKey('PageDown'), false, null]);
+  }
   return s;
 }
 function extended() {
@@ -118,7 +138,7 @@ async function pass(name, base, tag) {
   const B = await launch(EXTENDED ? { cache: CACHE, inject: STARTUP } : { cache: CACHE });
   const out = { pass: name, renderer: '', steps: [] };
   try {
-    await B.nav(`${base}test.html?glprof&ns=glprof${Date.now()}`);
+    await B.nav(`${base}test.html?glprof${STEPS ? '&view=steps' : ''}&ns=glprof${Date.now()}`);
     await B.until('typeof GLR === "object" && typeof GLR.profile === "function" && typeof __cmwExample === "function"', 120000);
     out.renderer = await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'), x = g && g.getExtension('WEBGL_debug_renderer_info'); return x ? g.getParameter(x.UNMASKED_RENDERER_WEBGL) : ''; })()`);
     let seen = 0;
@@ -139,9 +159,9 @@ async function pass(name, base, tag) {
     if (EXTENDED) { await sleep(Math.max(0, 61000 - out.steps[0].s * 1000)); out.steps[0].measure = await B.ev('window.__gpStartup ? __gpStartup() : null'); }
     const steps = [];
     // (--walk mountain: only the Mountain King after the start, a few minutes even on WARP)
-    if (!MOUNTAIN) for (let i = 0; i < (QUICK ? 3 : 200); i++) steps.push([`example ${i}`, `__cmwExample(${i})`, true]);
+    if (!MOUNTAIN && !STEPS) for (let i = 0; i < (QUICK ? 3 : 200); i++) steps.push([`example ${i}`, `__cmwExample(${i})`, true]);
     let exDone = false;
-    for (const [label, js, ex, x] of (MOUNTAIN ? mountainKing(false) : [...steps, ...walk(), ...(EXTENDED ? extended() : [])])) {
+    for (const [label, js, ex, x] of (MOUNTAIN ? mountainKing(false) : STEPS ? stepsWalk() : [...steps, ...walk(), ...(EXTENDED ? extended() : [])])) {
       if (ex && exDone) continue;
       // (__cmwExample is false past the last example: the examples are done)
       const t1 = Date.now();
