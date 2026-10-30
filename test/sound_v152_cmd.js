@@ -217,16 +217,15 @@ await ev(`Sound.set({ sonify: true }); 1`);
     const heldRuns = [];
     for (let h2 = 0; h2 < holds; h2++) {
       for (let k = 0; k < 90; k++) { const t = k / 60; await T('touchMove', [[x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)]]); await sleep(16); }
-      heldRuns.push((await ev('__hearCount()')).notes);
+      { const c = await ev('__hearCount()'); heldRuns.push(c.notes + c.merged); }
     }
-    const held = { notes: heldRuns[0] };
     // (v16.5: the probe is roped 5 px behind the finger; when the finger lifts it jumps onto the finger's point, so the
     // lap's last crossings, its D among them, sound at the lift. The finger is back at the lap's end, then lifts: the
     // lap's count is its stroke's and the lift's, the hold's tremor counted apart)
     await T('touchMove', [P(a0)]); await sleep(16);
     await T('touchEnd', []); await sleep(300);
     const lift = await ev('__hearCount()');
-    return { up: h.up + lift.up, down: h.down + lift.down, notes: h.notes + lift.notes, merged: h.merged + lift.merged, held: held.notes, heldRuns, lift };
+    return { up: h.up + lift.up, down: h.down + lift.down, notes: h.notes + lift.notes, merged: h.merged + lift.merged, held: heldRuns[0], heldRuns, lift };
   };
   R.touchLaps = {};
   // (v16.5: a lap of z crosses the 12 colour lines once, the red one, its D, last: 11 or 12 notes, the probe roped 5 px
@@ -242,8 +241,8 @@ await ev(`Sound.set({ sonify: true }); 1`);
   {
     const MAXHELD = 3;
     const q = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 3);
-    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (10 to 12 notes: at 6 px the lap sometimes loses a line, 10 notes in 6 of 10 runs, the held tremor already apart)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 10 && q.notes + q.merged <= 12, q);
-    ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°), so at most ${MAXHELD} notes in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
+    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (10 to 12 notes: at 6 px the 5 px rope lags about 56° of arg, so the lift's jump crosses two lines at once and one can go uncounted; 10 notes in 6 of 10 runs)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 10 && q.notes + q.merged <= 12, q);
+    ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°), so at most ${MAXHELD} notes (merged ones included) in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
   }
   await view(1440, 900, false, false);
   await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: 'en-US,en' });
