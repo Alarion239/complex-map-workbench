@@ -777,6 +777,7 @@ const Construct = (() => {
     A.tourEmit('construct-added', { op: t.cls === 'cross' ? 'meet' : 'glider' });
     return true;
   }
+  pointDown.told = false;   // (the Snap-off tip, once a session: moveUp)
 
   // ---------------------------------------------------------------- dragging handles onto targets, built things
   function handleMove(d, side, x, y) {
@@ -1690,15 +1691,15 @@ const Construct = (() => {
       if (!el) continue;
       const tool = A.tool();
       const on = cs === side;
-      let box = el.querySelector('.cm-chip');
-      if (!on) { if (box) { box.remove(); el.classList.remove('cm-on'); el.firstElementChild && (el.firstElementChild.hidden = false); } continue; }
+      let box = /** @type {HTMLElement | null} */ (el.querySelector('.cm-chip'));
+      if (!on) { if (box) { box.remove(); el.classList.remove('cm-on'); el.firstElementChild && (/** @type {HTMLElement} */ (el.firstElementChild).hidden = false); } continue; }
       if (!box) {
         box = document.createElement('span');
         box.className = 'cm-chip';
         el.append(box);
       }
       el.classList.add('cm-on');
-      if (el.firstElementChild && el.firstElementChild !== box) el.firstElementChild.hidden = true;
+      if (el.firstElementChild && el.firstElementChild !== box) /** @type {HTMLElement} */ (el.firstElementChild).hidden = true;
       const plot = el.parentElement, pw = plot ? plot.clientWidth : 0, narrow = pw > 0 && pw < 560;
       chipNarrow[side] = narrow;
       // ([v16.5 fix rail-9] until wave 2's D10 puts it in the pane head, a desktop's chip never sits where the picks go:
@@ -1779,7 +1780,7 @@ const Construct = (() => {
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
         if (segBox && !chipTouch() && plot) {
           // (the words fit when the text stays on one line and the chip inside its plane)
-          const t = box.firstElementChild, fs = parseFloat(getComputedStyle(t).fontSize) || 12;
+          const t = /** @type {HTMLElement} */ (box.firstElementChild), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
           if (t.offsetHeight > 2.6 * fs || el.getBoundingClientRect().right > plot.getBoundingClientRect().right - 8) segBox.replaceWith(mkSeg(true));
         }
         // [v16.3.1] a chip that wraps keeps one line without its keyboard tail ("Esc cancels", or v16.5's "⌫ undo pick ·
@@ -2410,7 +2411,7 @@ const Construct = (() => {
   // rows of the shapes linked to the hovered (or, on touch, the selected) one take --accent-soft
   function markLinks(id) {
     const ids = id && find(id) && (find(id).def || find(id).at || graph().users(id).size) ? linked(id) : null;
-    for (const el of document.querySelectorAll('#shapeList .shape[data-id]')) el.classList.toggle('cm-link-on', !!ids && ids.has(el.dataset.id) && el.dataset.id !== id);
+    for (const el of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#shapeList .shape[data-id]'))) el.classList.toggle('cm-link-on', !!ids && ids.has(el.dataset.id) && el.dataset.id !== id);
   }
 
   // ---------------------------------------------------------------- the plane menu's group (SPEC 11)
@@ -2454,7 +2455,7 @@ const Construct = (() => {
   }
   function hitShape(side, x, y) {
     const pane = A.setView(side), z = pane.s2w(x, y), tol = 7 / pane.view.s;
-    const list = (side === 'R' ? S().targets : S().shapes).filter((s) => s.visible !== false).slice().reverse().sort((a, b) => (b.kind === 'point') - (a.kind === 'point'));
+    const list = (side === 'R' ? S().targets : S().shapes).filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
     for (const s of list) { try { if (Region.hitTest(s, z, tol, A.win(side))) return s; } catch (e) { /* */ } }
     return null;
   }
