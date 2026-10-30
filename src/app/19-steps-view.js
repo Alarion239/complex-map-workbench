@@ -25,6 +25,8 @@
   // the glide's time a plane, by speed (a setting kept on this device)
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
+  SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   function svPlanes() { return [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
@@ -94,6 +96,7 @@
   function svGo(i, now) {
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
+    svPause(false);
     svKeepView();
     // (the landscape has no frames between two planes: it changes plane at once)
     if (now || svReduced() || SV.surf === 'land') { SV.anim = null; SV.g.set(i); svArrive(); return; }
@@ -117,8 +120,8 @@
     if (live) live.textContent = svLabel();
   }
   // (parked: left between two planes on the thread, the picture of the deformation there)
-  const svParked = () => !SV.anim && !(SV.drag && SV.drag.moved) && Math.abs(SV.g.x - Math.round(SV.g.x)) > 1e-6;
-  const svMoving = () => !!SV.anim || SV.g.moving() || !!(SV.drag && SV.drag.moved) || svParked();
+  const svParked = () => !SV.anim && !SV.play && !(SV.drag && SV.drag.moved) && Math.abs(SV.g.x - Math.round(SV.g.x)) > 1e-6;
+  const svMoving = () => !!SV.anim || !!SV.play || SV.g.moving() || !!(SV.drag && SV.drag.moved) || svParked();
   // one plane on (d = ±1) from where the view is: from between two planes, the next one that way
   function svStep(d) {
     if (SV.anim) { svGo(SV.anim.to + d); return; }
@@ -129,6 +132,7 @@
   function svFrame(ts) {
     if (!SV.on) return false;
     if (SV.drag && SV.drag.moved) { dirty.L = true; svSync(); return false; }
+    if (SV.play && !SV.play.slide) return svPlayFrame();
     if (SV.anim) {
       const A = SV.anim, v = Math.min(1, (performance.now() - A.t0) / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
       SV.g.set(A.from + (A.to - A.from) * e);
@@ -455,13 +459,16 @@
     bar.append(title, cp, scope, surf, surf1);
     head.prepend(bar);
     // the chain strip: ‹, a segment per plane with the step between, ›
+    const play = h('button', { type: 'button', class: 'sv-nav sv-play', onclick: () => { if (SV.sheetHeld) { SV.sheetHeld = false; return; } svTogglePlay(); } });
     const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svStep(-1) }, '‹');
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
+    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next, speed);
+    const loop = h('button', { type: 'button', class: 'btn small sv-loop', 'aria-pressed': String(SV.loop), 'data-tip': $t('Start over at the end'), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+    const band = h('div', { class: 'sv-band', role: 'group', hidden: '' }, h('button', { type: 'button', class: 'sv-bandx', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => svClearRange() }, '×'));
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), next, speed, loop);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -473,8 +480,9 @@
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { rail, play, loop, band, speed, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
+    svPlayHold();
   }
   // the strip's planes and steps, rebuilt when the chain changes
   function svBuildTrack() {
@@ -505,7 +513,7 @@
     svBuildTrack();
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
-    const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, ph ? 1 : 0, E.sig].join('|');
+    const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, SV.play ? 1 : 0, SV.loop ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
     if (sig !== E.headSig) {
       E.headSig = sig;
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
@@ -527,12 +535,14 @@
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
       E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
-      E.slider.setAttribute('aria-valuetext', svPlaceText());
+      E.slider.setAttribute('aria-valuetext', svPlaceText() + svRangeText());
+      svPlaySync();
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
     const c = E.centres, j = Math.max(0, Math.min(c.length - 1, Math.floor(x + 1e-9))), u = x - j;
     if (c.length) E.thumb.style.transform = `translateX(${(c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u).toFixed(1)}px)`;
+    svBandSync(c);
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
   function svPlaceText() {
@@ -560,21 +570,24 @@
       return ns.length - 1;
     };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-fchip')) return;
-      SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
+      if (e.button !== 0 || e.target.closest('.sv-fchip, .sv-bandx')) return;
+      const d = SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
+      svRangeDown(d, e, rail, posX);
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
     });
     // (a press on the thread away from the planes and the chips goes there too)
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
-      if (e.target.closest('.sv-fchip, .sv-plane')) return;
+      if (e.target.closest('.sv-fchip, .sv-plane, .sv-bandx')) return;
+      svOutsideBand(posX(e));
       SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
     rail.addEventListener('pointermove', (e) => {
       const d = SV.drag;
       if (!d || d.id !== e.pointerId || !d.strip) return;
+      if (svRangeMove(d, e, posX)) return;
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
-      if (!d.moved) { svKeepView(); SV.anim = null; }
+      if (!d.moved) { svPause(false); svKeepView(); SV.anim = null; }
       d.moved = true;
       SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
       requestRender('L');
@@ -583,6 +596,7 @@
       const d = SV.drag;
       if (!d || d.id !== e.pointerId || !d.strip) return;
       SV.drag = null;
+      if (svRangeUp(d, rail)) { e.preventDefault(); return; }
       if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); }
     };
     rail.addEventListener('pointerup', up);
@@ -600,6 +614,7 @@
       const edge = e.clientX - r.left < EDGE ? 'L' : r.right - e.clientX < EDGE ? 'R' : null;
       if (!edge) return;
       e.stopImmediatePropagation(); e.preventDefault();
+      svPause(false);
       svKeepView();
       SV.anim = null;
       SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge, t0: performance.now() };
@@ -642,12 +657,13 @@
   }
   // a dialog, a menu, a popover, a pop-up or a phone sheet is open over the page (its keys are its own)
   function svLayerOpen() {
-    if (document.querySelector('#popHost > *, .modal-bg, dialog[open], .snd-pop:not([hidden]), .ph-sheet:not([hidden])')) return true;
+    if (document.querySelector('#popHost > *, .modal-bg, dialog[open], .snd-pop:not([hidden]), .ph-sheet:not([hidden]), .sv-sheet:not([hidden])')) return true;
     try { return !!document.querySelector(':popover-open'); } catch (e) { return false; }
   }
   // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
   function svNudge(d) {
     const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
+    svPause(false);
     SV.anim = null;
     svKeepView();
     SV.g.set(Math.max(0, Math.min(P.length - 1, Math.round((from + d) * 4) / 4)));
@@ -662,6 +678,8 @@
       const t = /** @type {HTMLElement} */ (e.target);
       // (on the thread itself, a slider: ← → move a quarter of a step and stop there, Home / End go to z and the last plane)
       const onRail = !!(t && t.classList && t.classList.contains('sv-thumb'));
+      // (Shift+← → on the ring: the range, a plane at a time, #438)
+      if (onRail && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); e.stopImmediatePropagation(); svRangeExtend(e.key === 'ArrowRight' ? 1 : -1); return; }
       if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
       // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
@@ -672,6 +690,9 @@
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
         return;
       }
+      // (K or M plays and pauses; Esc pauses, or else clears the range, #438)
+      if ((e.key === 'k' || e.key === 'K' || e.key === 'm' || e.key === 'M') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
+      if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
       if (!page && t && t.closest && t.closest('canvas')) return;
@@ -704,6 +725,207 @@
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
     } catch (e) { /* (the first glide starts them) */ }
+  }
+  // ---- play along the thread (#438): ▶, Loop, the range ----
+  // The speed is A's setting (SV.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
+  // range's end (or the last plane) in a straight line, with no stop at the planes; Loop starts over at the range's start
+  // (or z). The landscape (no frames between planes) and reduced motion step a plane at a time instead (2 s under reduced
+  // motion, with the live region saying each plane).
+  const svPerPlane = () => SV_SPEEDS[SV.speed] || 900;
+  // the range a…b (S.homRange: steps a…b are the band from w_{a−1} to w_b) as planes {lo, hi}, or null; the plane at or
+  // before a stage
+  const svIdxAt = (s) => { let r = 0; svPlanes().forEach((k, i) => { if (k <= s) r = i; }); return r; };
+  function svRange() {
+    const r = SV.on ? homRangeOk() : null;
+    return r ? { a: r.a, b: r.b, lo: svIdxAt(r.a - 1), hi: svIdxAt(r.b) } : null;
+  }
+  const svRangeText = () => { const R = svRange(), P = svPlanes(); return R ? $t(', range {a} to {b}', { a: svName(P[R.lo]), b: svName(P[R.hi]) }) : ''; };
+  // set the range between planes lo and hi (snapped to planes; the same plane twice clears it); a drag's snaps are previews
+  function svSetRange(lo, hi, preview) {
+    const P = svPlanes();
+    svPause(false);
+    if (hi < lo) [lo, hi] = [hi, lo];
+    lo = Math.max(0, lo); hi = Math.min(P.length - 1, hi);
+    setHomRange(lo === hi ? null : { a: P[lo] + 1, b: P[hi] }, { preview, force: !preview });
+    svSync();
+  }
+  function svClearRange() {
+    if (!svRange()) return;
+    setHomRange(null, { force: true });
+    svSync();
+    if (SV.els && SV.els.live) SV.els.live.textContent = $t('Range cleared');
+  }
+  function svRangeExtend(d) {
+    const R = svRange(), P = svPlanes(), at = Math.round(SV.g.x);
+    const lo = R ? (d < 0 ? R.lo - 1 : R.lo) : (d > 0 ? at : at - 1), hi = R ? (d > 0 ? R.hi + 1 : R.hi) : (d > 0 ? at + 1 : at);
+    if (lo < 0 || hi > P.length - 1) return;
+    svSetRange(lo, hi, false);
+    if (SV.els && SV.els.live) SV.els.live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, '');
+  }
+  // a click on the thread outside the band clears the range
+  function svOutsideBand(x) { const R = svRange(); if (R && (x < R.lo - 0.5 || x > R.hi + 0.5)) svClearRange(); }
+  // the band's place: from the node of its first plane to the node of its last, written when the range or the layout changed
+  function svBandSync(c) {
+    const E = SV.els, R = svRange(), key = R && c.length ? `${R.lo}|${R.hi}|${c[R.lo]}|${c[R.hi]}` : '';
+    if (key === E.bandKey) return;
+    E.bandKey = key;
+    E.band.hidden = !key;
+    if (!key) return;
+    const P = svPlanes();
+    E.band.style.left = (c[R.lo] - 14) + 'px';
+    E.band.style.width = (c[R.hi] - c[R.lo] + 28) + 'px';
+    E.band.setAttribute('aria-label', $t('Range {a} to {b}', { a: svName(P[R.lo]), b: svName(P[R.hi]) }));
+  }
+  // Shift-drag (mouse) or hold-then-drag (touch) along the thread: the range
+  function svRangeDown(d, e, rail, posX) {
+    const from = () => Math.round(posX({ clientX: d.px }));
+    if (e.shiftKey && e.pointerType === 'mouse') { d.rangeFrom = from(); return; }
+    if (e.pointerType === 'mouse') return;
+    // (a touch: held still until the ring fills, then it drags the range; moved first, it is the scrub as ever)
+    rail.classList.add('hold');
+    d.hold = setTimeout(() => {
+      d.hold = 0;
+      if (SV.drag !== d || d.moved) return;
+      d.rangeFrom = from();
+      rail.classList.remove('hold'); rail.classList.add('arm');
+      try { navigator.vibrate && navigator.vibrate(12); } catch (_) { /* (no haptics) */ }
+    }, 450);
+  }
+  function svRangeMove(d, e, posX) {
+    if (d.rangeFrom == null) {
+      if (d.hold && Math.abs(e.clientX - d.px) >= 6) { clearTimeout(d.hold); d.hold = 0; SV.els.rail.classList.remove('hold'); }
+      return false;
+    }
+    if (!d.rangeMoved && Math.abs(e.clientX - d.px) < 6) return true;
+    d.rangeMoved = true;
+    svSetRange(d.rangeFrom, Math.round(posX(e)), true);
+    return true;
+  }
+  // (true when the press was a range's)
+  function svRangeUp(d, rail) {
+    if (d.hold) { clearTimeout(d.hold); d.hold = 0; }
+    rail.classList.remove('hold', 'arm');
+    if (d.rangeFrom == null) return false;
+    SV.dragEndT = performance.now();
+    if (d.rangeMoved) { const R = svRange(); setHomRange(R ? { a: R.a, b: R.b } : null, { force: true }); svSync(); const live = SV.els.live; if (live) live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, ''); }
+    return true;
+  }
+  function svSetLoop(on) {
+    SV.loop = on;
+    try { localStorage.setItem('cmw-sv-loop', on ? '1' : '0'); } catch (_) { /* (no storage) */ }
+    svSync();
+  }
+  // ▶ and ⏸, the loop's state
+  function svPlaySync() {
+    const E = SV.els, on = !!SV.play, label = on ? $t('Pause') : $t('Play');
+    E.play.textContent = on ? '⏸' : '▶';
+    E.play.setAttribute('aria-label', label);
+    E.play.setAttribute('data-tip', `${label}  K`);
+    E.play.setAttribute('aria-pressed', String(on));
+    E.loop.setAttribute('aria-pressed', String(SV.loop));
+    E.loop.classList.toggle('on', SV.loop);
+    if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
+  }
+  function svTogglePlay() { if (SV.play) svPause(true); else svPlay(); }
+  function svPlay() {
+    const P = svPlanes();
+    if (P.length < 2 || SV.play) return;
+    const R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;
+    svKeepView();
+    const x = SV.anim ? SV.anim.to : SV.g.x;
+    SV.anim = null; SV.g.set(x); SV.g.max = P.length - 1;
+    // (at the end, or past it: from the start)
+    const from = x >= end - 1e-6 ? start : x;
+    draft = null; probe = null;
+    if (svReduced() || SV.surf === 'land') {
+      SV.g.set(Math.round(from));
+      SV.play = { slide: true, start, end, timer: 0 };
+      svSlide(true);
+    } else {
+      SV.g.set(from);
+      SV.play = { from, to: end, start, t0: performance.now(), ms: svPerPlane() * (end - from) };
+    }
+    svSync();
+    requestRender('L');
+  }
+  // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
+  function svSlide(first) {
+    const A = SV.play;
+    if (!A || !A.slide) return;
+    const i = Math.round(SV.g.x);
+    if (!first) {
+      if (i >= A.end) { if (!SV.loop) { svPause(true); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
+      SV.i = Math.round(SV.g.x);
+      svApply();
+      if (SV.els.live) SV.els.live.textContent = svLabel();
+    }
+    A.timer = setTimeout(() => svSlide(false), svReduced() ? 2000 : svPerPlane());
+    svSync();
+  }
+  // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's
+  // kind follows it, as at a plane's arrival), and at the end it stops, or starts over
+  function svPlayFrame() {
+    const A = SV.play, now = performance.now(), v = Math.min(1, (now - A.t0) / A.ms);
+    SV.g.set(A.from + (A.to - A.from) * v);
+    const r = Math.round(SV.g.x);
+    if (r !== SV.i && v < 1) { SV.i = r; svApply(); }
+    dirty.L = true;
+    svSync();
+    if (v < 1) return true;
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.g.set(A.start); SV.i = A.start; svApply(); return true; }
+    SV.play = null;
+    svArrive();
+    svSync();
+    return false;
+  }
+  // a new speed while it plays: from here on at it
+  function svPlayRebase() {
+    const A = SV.play;
+    if (!A || A.slide) return;
+    A.from = SV.g.x; A.t0 = performance.now(); A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
+  }
+  // stop: settle where it is (a plane near, or parked between two), as a scrub let go; quiet: another move took over
+  function svPause(settle) {
+    const A = SV.play;
+    if (!A) return;
+    SV.play = null;
+    if (A.slide) clearTimeout(A.timer);
+    if (settle) { if (A.slide) { svArrive(); } else svLetGo(); }
+    svSync();
+  }
+  // a phone's Playback sheet (a long press on ▶): the speed and the loop
+  function svSheet() {
+    const E = SV.els;
+    if (!E.sheet) {
+      const scrim = h('div', { class: 'sv-scrim', onclick: () => svSheetClose() });
+      const sel = h('select', { class: 'sv-speed', 'aria-label': $t('Speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } E.speed.value = SV.speed; } },
+        ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v }, t)));
+      const lp = h('button', { type: 'button', class: 'btn sv-loop', 'aria-pressed': String(SV.loop), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+      const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-label': $t('Playback'), hidden: '' },
+        h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('div', { class: 'sv-sheet-r' }, lp));
+      sh.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); } });
+      scrim.hidden = true;
+      document.body.append(scrim, sh);
+      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetLoop: lp });
+    }
+    E.sheetSpeed.value = SV.speed;
+    E.sheet.hidden = false; E.scrim.hidden = false;
+    E.sheetSpeed.focus();
+    svPlaySync();
+  }
+  function svSheetClose() { const E = SV.els; if (!E.sheet) return; E.sheet.hidden = true; E.scrim.hidden = true; E.play.focus(); }
+  // (a long press on ▶ on a touch screen opens the sheet; the release then is not a press)
+  function svPlayHold() {
+    const b = SV.els.play;
+    let t = 0;
+    b.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      SV.sheetHeld = false;
+      t = setTimeout(() => { t = 0; SV.sheetHeld = true; svSheet(); }, 550);
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => { if (t) { clearTimeout(t); t = 0; } });
+    b.addEventListener('contextmenu', (e) => { if (document.documentElement.classList.contains('ph')) e.preventDefault(); });
   }
   function setupStepsView() {
     if (!SV.on) return;

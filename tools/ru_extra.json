@@ -441,5 +441,17 @@
  "Normal": "Обычно",
  "Slow": "Медленно",
  "Slower": "Очень медленно",
- "Place on the chain": "Место в цепочке"
+ "Place on the chain": "Место в цепочке",
+ "Play": "Воспроизвести",
+ "Pause": "Пауза",
+ "Loop": "Повтор",
+ "Start over at the end": "В конце начать сначала",
+ "Clear the range": "Снять диапазон",
+ "Clear the range  Esc": "Снять диапазон  Esc",
+ "Range cleared": "Диапазон снят",
+ "Range {a} to {b}": "Диапазон от {a} до {b}",
+ ", range {a} to {b}": ", диапазон от {a} до {b}",
+ "Playback": "Воспроизведение",
+ "Speed": "Скорость",
+ "Done": "Готово"
 }
