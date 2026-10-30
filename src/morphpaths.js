@@ -1103,7 +1103,8 @@ const MorphPaths = (() => {
     else {
       pane.setView(V.right);
       paper(pane);
-      const k = rightStage();
+      // (#362 the glide rests on the plane after a step, not on F)
+      const k = trans.at >= 0 ? trans.at : rightStage();
       const F = trans.k ? transState().F : stageF(k);
       const key = wKeyOn() && GLR.ok ? { noGrid: true, under: keyUnder(pane) } : null;
       if (GLR.ok) drawScene(pane, trans.k ? transState().map : stageMap(k), trans.k ? null : 'R', Object.assign({ cache: !trans.k }, key)); else noGL(pane);
@@ -1119,7 +1120,7 @@ const MorphPaths = (() => {
         strokeTargets(pane);
       }
       // (the image of X's view rectangle: only X Plane has one; the globe shows all of X, the landscape a trimmed box)
-      if (A.S.fov !== false && !trans.k && lFlat()) drawFov(pane, focusF());
+      if (A.S.fov !== false && !trans.k && !trans.glide && lFlat()) drawFov(pane, focusF());
       if (!trans.k) drawCutBanks(pane, k);
       drawChevrons(pane, F, trans.k ? undefined : k);
       if (A.S.focus > 0) drawCuts(pane, k, false, true);
