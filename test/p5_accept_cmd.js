@@ -47,7 +47,7 @@ const loadReady = async (ns, st, ms = 120000) => {
     // (an evaluation that comes back as an exception: the page's main thread is busy or the page is gone)
     if (!Array.isArray(missing)) missing = { page: JSON.stringify(missing).slice(0, 200) };
     if (Array.isArray(missing) && missing.length === 0) break;
-    if (Date.now() - t0 > ms) throw new Error(`the app's test hooks are not defined ${ms / 1000} s after load(${ns}): ${JSON.stringify(missing)}`);
+    if (Date.now() - t0 > ms) { const where = await ev('({ href: location.href, readyState: document.readyState })').catch((e) => String(e).slice(0, 80)); throw new Error(`the app's test hooks are not defined ${ms / 1000} s after load(${ns}): ${JSON.stringify(missing)}; the page: ${JSON.stringify(where)}`); }
     await sleep(250);
   }
   await watchDraws();
@@ -145,7 +145,7 @@ for (const [name, steps, shapes, srcView, rightView, cls] of CRACK) {
 }
 
 // ---- 12.3: the classification is view-independent (1x, 4x, 1/4x right-view zoom), every quality scene ----
-R.verdict = { n: 0, forward: 0, differ: [] };
+R.verdict = { n: 0, forward: 0, differ: [], stalled: [] };
 const seen = new Set();
 for (const run of Q.runs()) {
   if (seen.has(run.scene.name) || !run.scene.rightView) continue;
@@ -154,23 +154,25 @@ for (const run of Q.runs()) {
   for (const k of [1, 4, 0.25]) {
     const st = Object.assign({}, run.state, { exactImages: false, rightView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
     await loadReady('p5v' + Date.now(), st);
-    await sleep(900);
     // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
     // is asked for here: the first may have come before) and the LED rests)
     await ev('window.__p5f = window.__p5w.frames; __cmwHideStrokes(false); 1');
-    for (let i = 0; i < 240; i++) { const b = await ev('({ led: document.getElementById("rightLed").className, drew: window.__p5w.frames > window.__p5f, pending: GLR.frameStatus().pending })'); if (b.drew && !b.pending && !/busy/.test(b.led)) break; await sleep(250); }
+    let rested = false;
+    for (let i = 0; i < 240 && !rested; i++) { const b = await ev('({ led: document.getElementById("rightLed").className, drew: window.__p5w.frames > window.__p5f, pending: GLR.frameStatus().pending })'); rested = b.drew && !b.pending && !/busy/.test(b.led); if (!rested) await sleep(250); }
+    if (!rested) R.verdict.stalled.push(`${run.scene.name} @${k}`);
     v.push(JSON.stringify(await ev('__cmwSmVerdict("R")')));
   }
   R.verdict.n++;
   if (v[0] !== v[1] || v[0] !== v[2]) R.verdict.differ.push({ scene: run.scene.name, v });
   if (/unbounded|trouble/.test(v[0])) R.verdict.forward++;
 }
+ok('12.3: every load drew a frame and rested before its verdict was read', R.verdict.stalled.length === 0, R.verdict.stalled.slice(0, 4));
 ok('12.3: the SphereMesh verdict is the same at 1x, 4x and 1/4x for every quality scene', R.verdict.differ.length === 0, R.verdict.differ.slice(0, 4));
 
 // ---- 8.8: a left pan that re-centres clipWin; the stand-in is the old mesh, never the GPU image ----
 await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }));
 await settle(120000, { entries: 1, built: 1 });
-await meshDrawn('__cmwHideStrokes(false); 1');
+ok('8.8: the app drew the mesh before the rest frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest0');
 const rL = await ev('(() => { const r = document.getElementById("canvasL").getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()');
 const cxL = rL[0] + rL[2] / 2, cyL = rL[1] + rL[3] / 2;
@@ -195,7 +197,7 @@ for (let i = 0; i < 40; i++) {
   await sleep(150);
 }
 const st1 = await settle(120000, { entries: 1, built: 2 });
-await meshDrawn('__cmwHideStrokes(false); 1');
+ok('8.8: the app drew the rebuilt mesh before the rest frame after it was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest1');
 await ev('__cmwSet("exactImages", true); 1');
 const truthOk = await exactDrawn();
@@ -215,7 +217,7 @@ ok('8.8: frames during the rebuild match the exact image (<= 0.5 % of pixels > 3
 // ---- the forward image of exp(H) (checker, alpha 0.85) against the exact inverse image ----
 await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }));
 await settle(120000, { entries: 1, built: 1 });
-await meshDrawn('__cmwHideStrokes(false); 1');
+ok('exp(H) forward vs inverse: the app drew the mesh before the forward frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('fwd');
 await ev('__cmwSet("exactImages", true); 1');
 const invOk = await exactDrawn();
@@ -233,7 +235,7 @@ for (const [name, steps, shapes, srcView, rightView, pattern] of [
 ]) {
   await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView, rightView }, solid, { pattern, alpha: 1 }));
   await settle(120000, { entries: 1, built: 1 });
-  await meshDrawn('__cmwHideStrokes(false); 1');
+  ok(`${name} forward vs inverse: the app drew the mesh before the forward frame was grabbed`, await meshDrawn('__cmwHideStrokes(false); 1'));
   await grab('fwd');
   await ev('__cmwSet("exactImages", true); 1');
   const exact = await exactDrawn();
