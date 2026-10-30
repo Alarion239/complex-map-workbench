@@ -1033,7 +1033,7 @@ const Curves = (() => {
       if (p[0] !== p[2 * n - 2] || p[1] !== p[2 * n - 1]) p.push(p[0], p[1]);
       if (signedArea(p) < 0) reversePts(p);
     }
-    const result = out.filter((c) => c.pts.length >= 4);
+    const result = /** @type {any[] & { info?: any }} */ (out.filter((c) => c.pts.length >= 4));
     // nothing crosses zero: is g touched instead (the sides meet without crossing)? Newton on the gradient from the
     // grid's smallest local minima of |g| / |terms|
     if (!result.length && top && !over()) {
@@ -1188,7 +1188,7 @@ const Curves = (() => {
       if (min) cand.push([v, i, j, big]);
     }
     cand.sort((p, q) => p[0] - q[0]);
-    const out = [], hh = Math.max(hx, hy);
+    const out = /** @type {ZeroPoleList} */ ([]), hh = Math.max(hx, hy);
     for (const [, i, j, big] of cand.slice(0, 600)) {
       let x = B.x0 + i * hx, y = B.y0 + j * hy, ok = false;
       for (let it = 0; it < 80; it++) {
@@ -1271,7 +1271,7 @@ const Curves = (() => {
     const ast = src !== null ? Expr.parse(src, { allowRel: true }) : input;
     const cls = Expr.classifyRelation(ast);
     if (cls.dim !== 'curve') {
-      const e = new CurveError(cls.dim === 'area' ? $t('This formula is an area (it has no equation): add it as a region') : cls.error, 0);
+      const e = /** @type {any} */ (new CurveError(cls.dim === 'area' ? $t('This formula is an area (it has no equation): add it as a region') : cls.error, 0));
       e.dim = cls.dim;
       throw e;
     }

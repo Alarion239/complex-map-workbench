@@ -6,11 +6,11 @@
 'use strict';
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const ROOT = path.join(__dirname, '..');
-const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
+const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
 function load(dir, files, lang) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
-  const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs' };
+  const NAMES = { cx: 'CX', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs' };
   for (const f of files) {
     const p = path.join(dir, f + '.js');
     vm.runInContext(require('./src_text').source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: p });
@@ -19,8 +19,8 @@ function load(dir, files, lang) {
   return ctx;
 }
 const base = load(BASE, ['cx', 'parse', 'funcs']);
-const en = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', 'cx', 'parse', 'funcs'], null);
-const ru = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', 'cx', 'parse', 'funcs'], 'ru');
+const en = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', 'cx', 'parse', 'derivs', 'natpaths', 'funcs'], null);
+const ru = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', 'cx', 'parse', 'derivs', 'natpaths', 'funcs'], 'ru');
 let fails = 0, checks = 0;
 const ok = (c, msg) => { checks++; if (!c) { fails++; if (fails < 40) console.log('FAIL', msg); } };
 
