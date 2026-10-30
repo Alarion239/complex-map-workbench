@@ -63,7 +63,7 @@
     const { h, toast } = A;
     const set = loadSet();
     const view = A.viewKind();
-    const opener = document.activeElement;
+    const opener = /** @type {HTMLElement | null} */ (document.activeElement);
     let token = 0, fig = null, capEdited = null, closed = false;
     const st = { set, view, building: false };
     dlg = st;
