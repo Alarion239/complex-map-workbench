@@ -10,18 +10,18 @@ const base = await ev('location.origin');
 const steps = [{ type: 'pown', params: { n: 2 } }, { type: 'exp', params: {} }, { type: 'pown', params: { n: 3 } }];
 const lsKey = `complex-map-workbench-v1:${ns}`;
 const saved = () => ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)})); return o && o.sv; })()`);
-const sv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow' };
+const sv = { at: 1.4, T: 2, scope: 'in', surf: 'plane' };
 await load(ns, { steps, sv });
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500);
 let st = await ev('__cmwSteps()');
 info.open = st;
 ok('opens parked between planes (fractional at)', st.on && Math.abs(st.x - 1.4) < 1e-6, st);
-ok('opens on its colour plane, scope and speed', st.T === 2 && st.scope === 'in' && st.speed === 'slow', st);
+ok('opens on its colour plane and scope', st.T === 2 && st.scope === 'in', st);
 await ev('__cmwSteps({ park: 2.25 })'); await sleep(400);
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 const w = await saved();
 info.written = w;
-ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in' && w.speed === 'slow', w);
+ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in', w);
 // undo: an example replaces the state, undo brings the place back
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500);
 await ev('__cmwSteps({ go: 1, now: true })'); await sleep(300);
@@ -31,11 +31,11 @@ st = await ev('__cmwSteps()');
 info.undo = st;
 ok('undo returns to the saved place', Math.abs(st.x - 1) < 1e-6 || Math.abs(st.x - 2.25) < 1e-6, st);
 // malformed sv is repaired
-await load(ns, { steps, sv: { at: 99.5, T: 77, scope: 'x', surf: 'cube', speed: 'warp' } });
+await load(ns, { steps, sv: { at: 99.5, T: 77, scope: 'x', surf: 'cube' } });
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500);
 st = await ev('__cmwSteps()');
 info.bad = st;
-ok('a malformed sv opens on defaults, clamped', st.on && st.x === 3 && st.scope === 'all' && st.surf === 'plane' && st.speed === 'normal', st);
+ok('a malformed sv opens on defaults, clamped', st.on && st.x === 3 && st.scope === 'all' && st.surf === 'plane', st);
 // the default view ignores it, and keeps it
 await load(ns, { steps, sv });
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);

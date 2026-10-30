@@ -271,13 +271,13 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf, speed}. at: the shown position in
+  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
-  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting. planes: the stages of
+  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land' (the glide's speed is the device's, not the state's). planes: the stages of
   // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state was
   // never saved from the steps view): a fractional or far `at` is clamped to the planes, a T the chain no longer has
-  // is -1, an unknown scope, surface or speed is the default.
-  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
+  // is -1, an unknown scope or surface is the default.
+  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'];
   function cleanSv(v, planes) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
     const n = Math.max(1, planes ? planes.length : 1), num = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -286,7 +286,6 @@ const Views = (() => {
       T: Number.isInteger(v.T) && planes && planes.includes(v.T) && v.T !== planes[n - 1] ? v.T : -1,
       scope: SV_SCOPES.includes(v.scope) ? v.scope : 'all',
       surf: SV_SURFS.includes(v.surf) ? v.surf : 'plane',
-      speed: SV_SPEEDS.includes(v.speed) ? v.speed : 'normal',
     };
   }
   // the steps view's picture of a state that has no S.sv (concept §6): X → Y opens at the z-plane with T = the last
@@ -294,9 +293,9 @@ const Views = (() => {
   function svOf(view, hasAreas) {
     const v = clean(view), x = xOf(v);
     const surf = x.surf === 'land' ? 'land' : x.surf === 'sphere' ? 'sphere' : 'plane';
-    return { at: 0, T: -1, scope: v.main === 'xy' && hasAreas ? 'in' : 'all', surf, speed: 'normal' };
+    return { at: 0, T: -1, scope: v.main === 'xy' && hasAreas ? 'in' : 'all', surf };
   }
-  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R, SV_SPEEDS };
+  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R };
 })();
 import { CX } from './cx.js';
 export { Axes, Pane, Views };
