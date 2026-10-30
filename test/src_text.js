@@ -1,6 +1,6 @@
 'use strict';
 // The app's source files as build.py joins them (issue #20, phase 2), for the tests and tools that read them as text.
-// src/app.js, src/gl.js and src/figure.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines
+// src/app.js, src/gl.js, src/figure.js and src/sound.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines
 // around an "// @parts" line, and the parts src/<name>/NN-*.js take that line's place, joined in file name order. The
 // joined text is the old single file byte for byte. tools/src_parts.py does the same for build.py and the Python.
 //   const { appText, glText, source } = require('./src_text');
@@ -10,7 +10,7 @@ const path = require('path');
 const SRC = path.join(__dirname, '../src');
 const PARTS_RE = /^ *\/\/ @parts\b[^\n]*\n/m;   // ([^\n], not ., which stops at the \r of a CRLF checkout)
 // the files kept as parts
-const SPLIT = ['app.js', 'gl.js', 'figure.js'];
+const SPLIT = ['app.js', 'gl.js', 'figure.js', 'sound.js'];
 
 // the parts of a split file ('app.js' -> [.../src/app/01-core.js, ...]) in order, or null for a file kept whole;
 // dir: another copy of src/ (a snapshot of an older version holds app.js and gl.js whole)
