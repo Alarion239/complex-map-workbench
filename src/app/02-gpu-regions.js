@@ -349,6 +349,8 @@
   }
   function morphRange() { return HR.range(S); }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
+  // (#246) the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
+  const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
   // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
   // morphLen: the end of the transport's time, m steps one after another, or 1.
@@ -1018,12 +1020,16 @@
     lineJob.running = token; updateLeds();
     let t0 = performance.now();
     // yield to the page, wait out any motion; true when this job went stale meanwhile
+    // ([#325] a background task, not setTimeout(0): its 4 ms clamp would double a sliced curve's time)
     const rest = async () => {
-      await yieldNow();
+      await yieldTask();
       while (lineWait() > 0 && token === lineJob.token) await yieldNow(40);
       t0 = performance.now();
       return token !== lineJob.token;
     };
+    // ([#325] one curve's refinement is sliced too: refineGen yields once the slice is spent (a few map evaluations
+    // apart, each asking the clock); the same polylines as Lines.refine)
+    const pc = { due: () => performance.now() - t0 > LINE_SLICE };
     try {
       const origin = [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2];
       for (const [s, r] of todo) {
@@ -1032,7 +1038,10 @@
         const polys = [];
         for (const c of curves) {
           let ps = [];
-          try { ps = Region.Lines.refine([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048 }); } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
+          try {
+            const g = Region.Lines.refineGen([c], spec.Fs, spec.sing, { win: clipWin, origin, maxInsert: 8192, maxEval: 2048, pc });
+            for (let st = g.next(); ; st = g.next()) { if (st.done) { ps = st.value; break; } if (await rest()) return; }
+          } catch (e) { console.error('line refinement', e); ps = [Region.sampleCurve(c, clipWin)]; }
           for (const p of ps) if (p.length >= 4) polys.push(p);
           if (performance.now() - t0 > LINE_SLICE && await rest()) return;
         }

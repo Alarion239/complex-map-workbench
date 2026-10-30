@@ -121,6 +121,8 @@ function makeEnv(opts = {}) {
   class AC {
     constructor() {
       env.ctxs.push(this);
+      // (#271: the event in which the timer that created it was set, if a timer did)
+      this.madeIn = env.inTimer ? env.inTimer.ev : 'sync:' + (env.inEvent || '');
       this.state = opts.startSuspended ? 'suspended' : 'running'; this.currentTime = 0; this.sampleRate = 48000; this.baseLatency = 0.005; this.outputLatency = 0;
       this.sources = []; this.destination = this.node();
       this.resumeNever = false;
@@ -156,7 +158,7 @@ function makeEnv(opts = {}) {
     navigator: { userActivation: { get hasBeenActive() { return true; }, get isActive() { return env.userActive; } } },
     document: { visibilityState: 'visible', addEventListener: (t, f) => { (env.listeners['doc:' + t] = env.listeners['doc:' + t] || []).push(f); } },
     performance: { now: () => env.clock },
-    setTimeout: (f, ms) => { env.timers.push({ f, at: env.clock + (ms || 0) }); return env.timers.length; },
+    setTimeout: (f, ms) => { env.timers.push({ f, at: env.clock + (ms || 0), ev: env.inEvent || (env.inTimer && env.inTimer.ev ? 'timer' : '') }); return env.timers.length; },
     clearTimeout: (id) => { if (id && env.timers[id - 1]) env.timers[id - 1].f = null; },
     URL: { createObjectURL: () => 'blob:x' }, Blob: function () {},
   };
@@ -164,14 +166,14 @@ function makeEnv(opts = {}) {
   vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
   for (const k in env.Sound.CATALOG) { const d = env.Sound.CATALOG[k], m = d.make; d.make = (Pt, o) => { env.made.push(k); return m(Pt, o); }; }
-  env.fire = (t, e = {}) => { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); };
+  env.fire = (t, e = {}) => { env.inEvent = t; try { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); } finally { env.inEvent = ''; } };
   env.advance = (ms) => {
     const end = env.clock + ms;
     for (;;) {
       let next = null;
       for (const tm of env.timers) if (tm.f && tm.at <= end && (!next || tm.at < next.at)) next = tm;
       if (!next) break;
-      env.clock = next.at; const f = next.f; next.f = null; f();
+      env.clock = next.at; const f = next.f; next.f = null; env.inTimer = next; try { f(); } finally { env.inTimer = null; }
     }
     env.clock = end;
     for (const c of env.ctxs) if (c.state === 'running') c.currentTime += ms / 1000;
@@ -192,8 +194,20 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('v15 default: nothing plays before a gesture', e.Sound.play('toggleOn', {}) === false && e.Sound.play('stepAdd', {}) === false && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('v15 default: Esc is not an activation', e.ctxs.length === 0);
-    e.fire('pointerdown');
-    check('v15 default: the first click creates the context', e.ctxs.length === 1 && e.ctx().state === 'running');
+    // (#271) a click: pointerdown (a mouse's arms only the 250 ms backstop), pointerup and click (each re-arms the 0 ms
+    // timer, so the one that runs was set inside the click's own event); no context inside any handler
+    e.fire('pointerdown', { pointerType: 'mouse' }); e.fire('pointerup', { pointerType: 'mouse' });
+    e.made.length = 0;
+    const q1 = e.Sound.play('morphStart', {}), q2 = e.Sound.play('morphStart', { force: true });
+    e.fire('click');
+    check('v15 default: the first click creates no context inside its handlers', e.ctxs.length === 0);
+    check('#271: a cue asked for in that click is queued, a second of the same name refused', q1 === true && q2 === false && e.made.length === 0, `${q1} ${q2}`);
+    e.advance(1);
+    check('v15 default: the first click creates the context, in the next task', e.ctxs.length === 1 && e.ctx().state === 'running');
+    check('#271: by a timer set inside the click (WebKit carries the gesture only to such a timer)', e.ctx().madeIn === 'click', e.ctx().madeIn);
+    check('#271: the queued cue waits for the worklet to settle', e.made.length === 0, e.made.join());
+    await flush(); e.advance(1);
+    check('#271: then sounds once, on the new clock', e.made.join() === 'morphStart', e.made.join());
     check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
   }
   // v15.2 the deformation scrub (palette B, notes/sound/v2/DESIGN.md §3 with board-fixes.md): the texture follows the
@@ -248,8 +262,55 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('remembered on: Esc is not an activation', e.ctxs.length === 0);
-    e.fire('pointerdown');
+    e.fire('pointerdown'); e.advance(300);
     check('remembered on: the first click creates it', e.ctxs.length === 1 && e.ctx().state === 'running');
+  }
+  // #271: what the deferred start keeps. A caller other than play() creates the context at once, as before; a hush
+  // drops the queue; once a context exists (old iOS: not running after the deferred start), a gesture resumes it
+  // synchronously
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown');
+    check('#271: a count-bearing bell in the click creates the context at once', e.Sound.turn({ tier: 'events' }) !== false && e.ctxs.length === 1);
+    e.advance(300);
+    check('#271: and the deferred start adds none', e.ctxs.length === 1);
+  }
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown', { pointerType: 'touch' }); e.advance(300);
+    check('#271: a touch pointerdown (not an activation) arms nothing', e.ctxs.length === 0);
+    e.fire('pointerup', { pointerType: 'touch' }); e.fire('touchend'); e.advance(1);
+    check('#271: its touchend does, inside the gesture', e.ctxs.length === 1 && e.ctx().madeIn === 'touchend', e.ctxs.length && e.ctx().madeIn);
+  }
+  {
+    // while the worklet loads, a later one-shot (Hear's zero ping under a still probe) queues behind the start cue
+    const e = makeEnv({ search: '' });
+    e.fire('keydown', { key: 'm' }); e.made.length = 0;
+    e.Sound.play('morphStart', {}); e.advance(1);
+    const z = e.Sound.play('stepAdd', {});
+    check('#271: a cue asked for while the worklet loads waits behind the queued one', z === true && e.made.length === 0, e.made.join());
+    await flush(); e.advance(1);
+    check('#271: and sounds after it', e.made.join() === 'morphStart,stepAdd', e.made.join());
+  }
+  {
+    // a deferred context that is not running yet (Firefox resumes asynchronously): a one-shot waits for its statechange
+    const e = makeEnv({ search: '' });
+    e.fire('keydown', { key: 'a' }); e.advance(1); await flush();
+    const c = e.ctx(); c.resumeNever = true; await c.suspend(); e.made.length = 0;
+    check('#271: a cue on a deferred context not yet running is queued', e.Sound.play('stepAdd', {}) === true && e.made.length === 0);
+    c.resumeNever = false; c.resume(); await flush();
+    check('#271: and sounds at its statechange', e.made.join() === 'stepAdd', e.made.join());
+    e.advance(2000); c.resumeNever = true; await c.suspend(); e.made.length = 0;
+    check('#271: after 1.5 s it is refused, as before', e.Sound.play('stepAdd', {}) === false && e.made.length === 0);
+  }
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown'); e.made.length = 0;
+    e.Sound.play('stepAdd', {}); e.Sound.hush(); e.advance(300);
+    check('#271: a hush before the deferred start drops the queued cue', e.ctxs.length === 1 && e.made.length === 0, e.made.join());
+    e.ctx().suspend();
+    e.fire('pointerdown');
+    check('#271: with a context, a gesture resumes it inside the handler', e.ctx().state === 'running' && e.ctxs.length === 1);
   }
   // the lsk namespace: a ?ns= page keeps its own setting
   {

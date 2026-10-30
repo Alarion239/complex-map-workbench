@@ -35,3 +35,5 @@ tools/ru_report.json
 tools/ru_collisions.json
 # GitHub Pages artifact (ci/pages.py)
 _site/
+tsc.txt
+eslint.json
