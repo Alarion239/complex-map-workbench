@@ -508,7 +508,6 @@ const Region = (() => {
     const src = String(s.expr);
     let d = curveDescs.get(src);
     if (d) { curveDescs.delete(src); curveDescs.set(src, d); return d; }
-    if (typeof Curves === 'undefined') throw new Error($t('Curve formulas are not available in this build'));
     d = Curves.fromFormula(src);
     curveDescs.set(src, d);
     while (curveDescs.size > 32) curveDescs.delete(curveDescs.keys().next().value);
@@ -565,7 +564,7 @@ const Region = (() => {
   // fields (Constr.formOfFields: disc, circle, half-plane, line), else null (other kinds, or no constr.js)
   function formOf(s) {
     if (s && s._g) return s._g;
-    return typeof Constr !== 'undefined' && Constr.formOfFields ? Constr.formOfFields(s) : null;
+    return Constr.formOfFields ? Constr.formOfFields(s) : null;
   }
   // the level -f/2 of a form: positive inside, the signed distance near the curve at any radius (float64, relative
   // to the anchor o, so no centre far away enters)
@@ -587,7 +586,7 @@ const Region = (() => {
   }
   // (review regress-2: constructions only, s._g; a plain v15 circle or disc keeps v15.1's sampling and cost)
   function bigCircle(s, win) {
-    if (!win || !s._g || !(s.kind === 'circle' || s.kind === 'disc') || typeof Constr === 'undefined' || !Constr.sampleMR) return null;
+    if (!win || !s._g || !(s.kind === 'circle' || s.kind === 'disc') || !Constr.sampleMR) return null;
     const G = formOf(s);
     if (!G || G.A === 0) return null;
     const diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
@@ -630,7 +629,7 @@ const Region = (() => {
   }
   // o: {reach: 'far' (default: every caller but the settle-time line refinement) | 'sphere'} (SPEC 9.1)
   function curvesOf(s, win, o) {
-    if (s._seg && s._g && typeof Constr !== 'undefined' && Constr.segCurves) return segCurvesOf(s._seg, win, o);
+    if (s._seg && s._g && Constr.segCurves) return segCurvesOf(s._seg, win, o);
     const k = K[s.kind];
     const big = bigCircle(s, win);
     if (big) return [big];

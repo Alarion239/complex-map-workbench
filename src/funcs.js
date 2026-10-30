@@ -1825,7 +1825,6 @@ const Funcs = (() => {
     return v;
   };
   function recChain(ast, cut, f) {
-    if (typeof Recognize === 'undefined') return null;
     const th = cut * DEG;
     const read = (a, opts) => { try { return Recognize.chain(a, cut, opts); } catch (e) { return null; } };
     const k = Recognize.key(ast, cut);
@@ -2336,7 +2335,7 @@ const Funcs = (() => {
     return { kind: out.length === 1 ? 'one' : 'many', steps: out, names, rows, eq, reason: null, pnames: pn, typed };
   }
   function splitSteps(st, bIn) {
-    if (!st || st.type !== 'custom' || typeof Recognize === 'undefined') return splitNone('R1');
+    if (!st || st.type !== 'custom') return splitNone('R1');
     const expr = String(st.params && st.params.expr != null ? st.params.expr : DEFS.custom.params[0].def);
     const cut = Number(st.params && st.params.cut != null ? st.params.cut : 180);
     const b = bIn || build(st);

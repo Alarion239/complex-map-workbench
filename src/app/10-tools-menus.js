@@ -439,7 +439,7 @@
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
-  function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
+  function ctxChanged() { if (Phone.isOn && Phone.isOn()) Phone.ctx(); }
   const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;

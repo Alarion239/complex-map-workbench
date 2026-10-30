@@ -319,7 +319,7 @@ const Examples = (() => {
       sec.append(hd);
       for (let e = sec.nextElementSibling; e && e.tagName !== 'H3' && !e.classList.contains('modal-foot');) { const nx = e.nextElementSibling; sec.append(e); e = nx; }
       const show = SHOW.find(([t]) => t === hd.textContent.trim());
-      if (show && typeof Tour !== 'undefined' && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1] }); } }, $t('Show me'))));
+      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1] }); } }, $t('Show me'))));
       secs.push(sec);
     }
     if (secs.length < 4) return;

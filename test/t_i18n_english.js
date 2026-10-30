@@ -11,9 +11,13 @@ const ROOT = path.join(__dirname, '..');
 const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
 const MODS = ['cx', 'parse', 'funcs', 'inverse', 'calc', 'glsl', 'region', 'curves'];
 const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', curves: 'Curves' };
+// (src/ no longer checks whether the recognizer is there, issue #20 phase 3: a stub that reads nothing, as the base, which
+// had none, so both sides offer the same; src/'s contexts only)
+const NO_RECOGNIZER = 'globalThis.Recognize = { key: () => "", hasParam: () => false, generic: (a) => a, chain() { throw new Error("no recognizer"); } };';
 function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
+  if (dir !== BASE) vm.runInContext(NO_RECOGNIZER, ctx);
   for (const f of files) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
@@ -153,6 +157,7 @@ for (let i = 0; i < Math.min(a.length, b.length); i++) {
 const ruCtx = (() => {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
+  vm.runInContext(NO_RECOGNIZER, ctx);
   for (const f of ['i18n', 'i18n_ru', ...MODS]) {
     vm.runInContext(source(f + '.js', path.join(ROOT, 'src'), { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
