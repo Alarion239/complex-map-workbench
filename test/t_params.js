@@ -154,6 +154,51 @@ P._local(list);
     ok(q1 === q2, `${what}: GPU key independent of the value`);
     ok(CX.abs(CX.sub(s1.f(z), s2.f(z))) > 1e-3, `${what}: CPU map follows the value`);
   }
+  // [#327] a COMPLEX number inside a_n and a recurrence's rule: the CPU maps are the closed forms for each value, the GPU
+  // key does not depend on the value (real or complex), and the uniforms carry its imaginary part. The Dirichlet
+  // coefficients and the recurrence's constant are written as they are, so those are checked as (re, im) pairs; a power
+  // or Laurent series scales its coefficients, so there only the change of the uniforms is checked
+  {
+    const A1 = { re: 0.5, im: 0.3 }, A2 = { re: -0.2, im: 0.7 };
+    const ac = (a) => C(a.re, a.im), one = C(1, 0), cm = CX.mul, cs = CX.sub, ca = CX.add, cdiv = CX.div;
+    const near = (u, v) => CX.abs(cs(u, v)) < 1e-9 * Math.max(1, CX.abs(v));
+    // a pair (re, im) of consecutive floats in the filled uniforms (Float32: 1e-6 is a safe tolerance)
+    const hasPair = (f, re, im) => f.some((x, i) => i + 1 < f.length && Math.abs(x - re) < 1e-6 && Math.abs(f[i + 1] - im) < 1e-6);
+    const fillOf = (sq, b) => { const g = GLChain.build([sq], [b]); return { key: g.key, f: Array.from(g.fill(new Float32Array(g.slots * 4))) }; };
+    const orbit = (g, z0, N) => { let u = z0; for (let i = 0; i < N; i++) u = g(u); return u; };
+    const z1 = C(0.4, -0.2), z2 = C(0.8, -0.5), z3 = C(0.2, 0.1), s3 = C(3, 1);
+    const cases = [
+      ['power a^n = 1/(1 − a z)', st('series', { kind: 'power', an: 'a^n', c: '0' }), z1, (a) => cdiv(one, cs(one, cm(a, z1)))],
+      ['power conj(a)^n = 1/(1 − ā z)', st('series', { kind: 'power', an: '\\overline{a}^n', c: '0' }), z1, (a) => cdiv(one, cs(one, cm(CX.conj(a), z1)))],
+      ['power |a|^n = 1/(1 − |a| z)', st('series', { kind: 'power', an: '|a|^n', c: '0' }), z1, (a) => cdiv(one, cs(one, cm(C(CX.abs(a), 0), z1)))],
+      ['Laurent a^|n| = 1/(1 − a z) + (a/z)/(1 − a/z)', st('series', { kind: 'laurent', an: 'a^{|n|}', c: '0' }), z2, (a) => ca(cdiv(one, cs(one, cm(a, z2))), cdiv(cdiv(a, z2), cs(one, cdiv(a, z2))))],
+      ['Dirichlet a^n = Li_s(a)', st('series', { kind: 'dirichlet', an: 'a^n', c: '0' }), s3, (a) => { let t = C(0, 0), p = one; for (let k = 1; k <= 200; k++) { p = cm(p, a); t = ca(t, cm(p, CX.exp(CX.scale(s3, -Math.log(k))))); } return t; }, (a) => [[a.re, a.im]]],
+      ['recurrence u² + a, N = 3', st('recurrence', { u0: 'z', g: 'u^2+a', N: 3 }), z3, (a) => orbit((u) => ca(cm(u, u), a), z3, 3), (a) => [[a.re, a.im]]],
+      ['recurrence a u (1 − u), N = 3', st('recurrence', { u0: 'z', g: 'a*u*(1-u)', N: 3 }), z3, (a) => orbit((u) => cm(cm(a, u), cs(one, u)), z3, 3), (a) => [[a.re, a.im]]],
+    ];
+    for (const [what, sq, z, want, pairs] of cases) {
+      const keys = [], fills = [];
+      for (const av of [A1, A2, 0.5]) {
+        P.set('a', av);
+        const b = Funcs.build(sq);
+        ok(!b.error, `${what}, a = ${JSON.stringify(av)} builds: ${b.error}`);
+        if (b.error) continue;
+        const a = typeof av === 'number' ? C(av, 0) : ac(av);
+        ok(near(b.f(z), want(a)), `${what}: the CPU map is the closed form for a = ${JSON.stringify(av)}: ${JSON.stringify(b.f(z))} vs ${JSON.stringify(want(a))}`);
+        const fo = fillOf(sq, b);
+        keys.push(fo.key); fills.push(fo.f);
+      }
+      ok(keys.length === 3 && keys[0] === keys[1] && keys[1] === keys[2], `${what}: one GPU key for two complex values and a real one`);
+      if (fills.length === 3) {
+        ok(fills[0].join() !== fills[1].join(), `${what}: the uniforms differ between the two complex values`);
+        ok(fills[0].join() !== fills[2].join(), `${what}: the imaginary part reaches the uniforms (a = 0.5 + 0.3i against a = 0.5)`);
+      }
+      if (pairs && fills.length === 3) {
+        for (const [re, im] of pairs(A1)) ok(hasPair(fills[0], re, im), `${what}: the uniforms of a = 0.5 + 0.3i hold (${re.toFixed(3)}, ${im.toFixed(3)})`);
+        for (const [re, im] of pairs(A2)) ok(hasPair(fills[1], re, im), `${what}: the uniforms of a = −0.2 + 0.7i hold (${re.toFixed(3)}, ${im.toFixed(3)})`);
+      }
+    }
+  }
   P.set('a', 2);
   const mb = st('mobius', { b: 'a' });
   const km1 = GLChain.build([mb], [Funcs.build(mb)]).key;
