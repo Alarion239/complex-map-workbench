@@ -1474,3 +1474,86 @@
     else requestRender('OL', 'OR');
   }
 
+  // (#385) the keys (init: after setupEscSound, whose capture-phase Esc runs first)
+  function setupKeys() {
+    document.addEventListener('keydown', (e) => {
+      // nothing reaches the app behind a modal dialog; a handled key, or one in a popover or menu, stays there
+      if (e.defaultPrevented || document.querySelector('.modal-bg')) return;
+      const t = e.target instanceof Element ? e.target : document.body;
+      const tag = t.tagName.toLowerCase(), mod = e.ctrlKey || e.metaKey, kk = I18N.keyOf(e) || '', key = kk.toLowerCase();
+      if (t.closest('#popHost') && !(mod && key === 'k') && !(e.shiftKey && !mod && !e.altKey && key === 'm')) return;
+      // text fields keep their keys and native undo; a select keeps plain keys (type-ahead), not ⌘Z
+      const textEntry = t.isContentEditable || tag === 'textarea' || (tag === 'input' && /^(|text|number|search|email|url|tel|password)$/.test((t.getAttribute('type') || '').toLowerCase()));
+      const typing = textEntry || tag === 'select';
+      if (mod && key === 'z' && !textEntry) {
+        e.preventDefault();
+        if (e.shiftKey) $('redoBtn').click(); else $('undoBtn').click();
+        return;
+      }
+      if (mod && key === 'y' && !textEntry) { e.preventDefault(); $('redoBtn').click(); return; }
+      if (mod && key === 'e' && !e.shiftKey && !e.altKey && !textEntry) { e.preventDefault(); Figure.open(); return; }
+      // (Ctrl K a second time closes the palette; over another popover, a step's Display ▾ or a menu, it opens the palette)
+      if (mod && key === 'k') { e.preventDefault(); if (popEl && popEl.classList.contains('palette')) closePalette(); else openPalette(null); return; }
+      if ((e.key === '/' || I18N.isPaletteSlash(e)) && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
+      if (typing) return;
+      // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual
+      if (e.key === 'Tab' && !mod && !e.altKey && t.matches('.plot > canvas.overlay')) {
+        const list = t.id === 'overlayR' ? S.targets : S.shapes;
+        const i = list.findIndex((x) => x.id === selected), n = i + (e.shiftKey ? -1 : 1);
+        if (list.length && n >= 0 && n < list.length && !(i < 0 && e.shiftKey)) {
+          e.preventDefault(); selected = list[n].id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'P'); return;
+        }
+      }
+      if (e.key === 'Escape') {
+        const tm = $('toolMore');
+        if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
+        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (tool !== 'select') setTool('select');
+        else if (escSound) { /* the sound was this Esc's level */ }
+        else if (modeNext()) modeClose(modeNext());
+        soundStop();
+      }
+      if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
+      // (v16.5 UX97) ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
+      if (mod && !e.altKey && selected && (key === 'd' || kk === ']' || kk === '[')) {
+        const s = findShape(selected);
+        if (s) { e.preventDefault(); if (key === 'd') duplicateShape(s); else moveShape(s.id, kk === ']' ? 1 : -1); return; }
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // (v16.5 UX97) the deformation: K plays or pauses, Shift+← and Shift+→ go to the previous or next step's tick
+      if (morph.open && key === 'k') { e.preventDefault(); togglePlay(); return; }
+      if (morph.open && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); morphTick(e.key === 'ArrowRight' ? 1 : -1); return; }
+      // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
+      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
+        const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
+        if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }
+      }
+      if (e.shiftKey && key === 'm') { e.preventDefault(); soundToggle(); return; }
+      // views (merged-views.md): 1 X → Y, 2 Phase, 3 Landscape. One map for the surfaces in every view (merged-views
+      // review): Shift 1, 2 Plane, Sphere of the left or only panel (X in X → Y, the portrait in Phase), Shift 3, 4 of
+      // Y (X → Y). By e.code, so Shift 1 is not "!" and the digits work on any layout (AZERTY included); before every
+      // e.key shortcut, so a digit key that types '+' or '?' (Swiss ⇧1, Czech 1) still picks a view
+      const dg = /^(?:Digit|Numpad)([1-4])$/.exec(e.code || '');
+      if (dg && (e.shiftKey || +dg[1] <= 3)) {
+        const d = +dg[1];
+        if (e.shiftKey) { const sf = d % 2 === 1 ? 'plane' : 'sphere'; if (d <= 2) { if (!lLand()) setView('L', sf); } else if (S.view.main === 'xy') setView('R', sf); }
+        else setMain(MAINS[d - 1][0]);
+        e.preventDefault();
+        return;
+      }
+      if (kk === '[') setPanels(!S.hideLeft, S.hideRight);
+      if (kk === ']') setPanels(S.hideLeft, !S.hideRight);
+      if (e.key === 'Backspace' && polyDraftOpen()) { e.preventDefault(); polyBack(); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && zpSel && zpStep() && zpStep().k === zpSel.k) { e.preventDefault(); zpRemove(zpSel.k, zpSel.kind, zpSel.i); return; }
+      if (e.key === 'Escape' && zpSel) { zpSel = null; requestRender('OL'); }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
+      if (e.key === '?') { openGuide(); return; }
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
+      if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
+      // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
+      if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
+      if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
+      const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
+      if (tl) { e.preventDefault(); setTool(tl[0]); }
+    });
+  }

@@ -34,6 +34,9 @@ ruff check
 
 - `npm test` runs every unit test (`test/t_*.js`) through `ci/unit.js`. The browser, GLSL, quality and perf gates
   run in CI (`ci/README.md`).
+- Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
+  versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
+  test whose snapshot is missing fails and says so (#427).
 - `lint`, `typecheck` and `ruff` are report-only for now (`.github/workflows/lint.yml`): don't add new findings in the
   code you touch, and fix the ones next to it when it's cheap. See issue #20 for the plan to bring them to zero.
 
@@ -42,6 +45,9 @@ ruff check
 - **One subject per file, and keep files small.** Aim for under about 1,500 lines (ESLint's `max-lines` warns above
   that). A new feature gets its own file with an explicit API, like `Tour.init(api)` or `Inspector.create(...)`,
   rather than another section in `app.js` (whose ordered parts are `src/app/NN-subject.js`, joined by `build.py`).
+- **An area's wiring lives in its area's part.** `init()` (`src/app/20-init.js`) is the start-up, and a change to it
+  runs every CI shard: a new button, menu, key or observer goes in the part of its area as a `setup…()` that `init()`
+  calls, so that a change to it runs that area's shards (#385; `test/t_init_wiring.js` checks it).
 - **No new globals without a reason.** A file exposes one name (`const Tour = (() => { ... return api; })()`); the
   linter reads those names from `src/` itself. A file that also runs in the node unit tests exports itself with
   `module.exports` and is then listed in `types/globals.d.ts`.

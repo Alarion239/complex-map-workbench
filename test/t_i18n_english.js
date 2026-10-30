@@ -8,7 +8,7 @@
 const vm = require('vm'), path = require('path');
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does; a snapshot holds it whole)
 const ROOT = path.join(__dirname, '..');
-const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
+const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
 const MODS = ['cx', 'parse', 'derivs', 'natpaths', 'funcs', 'inverse', 'calc', 'glsl', 'region', 'curves'];
 const NAMES = { cx: 'CX', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', curves: 'Curves' };
 // (src/ no longer checks whether a module is there, issue #20 phase 3: src/'s contexts get the stand-ins of

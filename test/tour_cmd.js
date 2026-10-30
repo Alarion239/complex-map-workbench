@@ -8,10 +8,12 @@ const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = () => ev('Tour.current()');
+// (the shade's path is set by the strip's first paint, which a slow machine can reach after the settle: wait for it, up to 8 s)
+const shaded = async () => { for (let i = 0; i < 320; i++) { if (await ev(`(() => { const s = document.querySelector('.tour-shade'); return !!(s && s.getAttribute('d')); })()`)) return true; await sleep(25); } return false; };
 const open = async (ns, at, w = 1440, h = 900, dark = false, mobile = false) => {
   await view(w, h, dark, mobile); await nav(U + '?ns=' + ns); await settle(1800);
   await ev('Tour.auto(false)');   // (v16.4: tour_cmd checks the walk without the auto-advance; tour_auto_cmd.js checks it)
-  if (at) { await ev(`Tour.start(${JSON.stringify(at)})`); await settle(1600); }
+  if (at) { await ev(`Tour.start(${JSON.stringify(at)})`); await settle(1600); await shaded(); }
 };
 // the first-run card without ?ns= (the app's own rule), on this kit's own profile and origin
 const fresh = async (keep) => { await nav(U + '?ns=t0'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (!/:/.test(k)${keep ? " && !/^(complex-map-workbench-v1|cmw-tour)$/.test(k)" : ''}) localStorage.removeItem(k); })()`); };
@@ -19,7 +21,7 @@ const st = (k) => ev(`localStorage.getItem('${k}')`);
 const recOf = async (ns) => JSON.parse((await st('cmw-tour:' + ns)) || '{}');
 const box = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; })()`);
 const meet = (a, b) => !!a && !!b && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
-const holes = () => ev(`(document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1`);
+const holes = async () => { await shaded(); return ev(`(document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1`); };
 const SHOTS = [];
 logs();   // the console from earlier commands of this daemon is not ours
 const snap = async (name) => { SHOTS.push(name); await shot(name); };

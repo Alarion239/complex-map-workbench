@@ -293,13 +293,17 @@ float levelsBase(ivec2 c, inout bool fin) {
   return float(clamp(min(levelD(dx / 16.0), Lp), 0, 4) + 8 * clamp(min(levelD(dy / 16.0), Lp), 0, 4));
 }
 bool jmp(int d, ivec2 p) { return d == 0 ? texelFetch(uE0, p, 0).w > 0.5 : (d == 1 ? texelFetch(uE1, p, 0).w > 0.5 : texelFetch(uE2, p, 0).w > 0.5); }
+// (#72, #414: a bound no compiler can know keeps the four cells' loop a loop: one copy of the cell's body for FXC,
+// which unrolled four, each with its 5 x 5 lattice and levelsLat's loops)
+uniform highp int uNoUnroll;
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   // (uJ0: the first row of cells of this strip; uLp holds the lattice's rows from s uJ0 on)
   int Mq = (uM + 3) / 4, q = gl_VertexID % Mq, j = uJ0 + gl_VertexID / Mq, s = uLat == 1 ? 4 : 2;
   float lv[4]; float lat[25];
-  for (int k = 0; k < 4; k++) {
+  for (int k = 0; k < max(4, uNoUnroll); k++) {
+    if (k >= 4) break;
     lv[k] = 0.0;
     ivec2 c = ivec2(4 * q + k, j);
     if (c.x >= uM) continue;

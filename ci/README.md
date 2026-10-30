@@ -49,7 +49,9 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   unit tests whose source names it; a path nothing matches is T3 (fail safe). The app's test hooks
   (`src/app/21-test-hooks.js`, `window.__cmw*`) select the shards of the suites that call a hook the diff changes,
   read from the diff (#385); a changed line outside every hook, a hook something other than the browser suites and
-  unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. Every GLSL page whose inputs
+  unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. `init()`
+  (`20-init.js`) keeps only the start-up: an area's wiring is in that area's part (`19-shell.js` the header, menus and
+  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -304,7 +306,7 @@ Settings (environment variables):
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
-| `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history |
+| `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |

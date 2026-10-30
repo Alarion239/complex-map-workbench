@@ -56,7 +56,9 @@ const MAP = [
   // ([#385] the start-up file in parts along its seams, joined in name order as before, byte for byte the same build)
   ['src/app/18-params.js', full('the shared numbers and links, under every area')],
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
-  ['src/app/20-init.js', full('the app\'s start-up')],
+  ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
+  ['src/app/19-shell.js', ui('desktop', 'phone')],                                         // the header, its menus, the panels and drawers (#385)
+  ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
   ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
@@ -89,6 +91,7 @@ const MAP = [
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
   ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
+  ['src/construct/**', ui('constructions')],                                  // construct.js in parts (#20), the same
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas
   ['src/commands.js', ui('desktop', 'i18n')],                                 // the command palette (desktop: formulas too)
@@ -115,6 +118,7 @@ const MAP = [
   ['test/t_*.js', T0],
   ['test/*_cmd.js', { suite: true }],
   ['test/regress/test_compare.py', T0],
+  ['test/{gl_make_test.py,gl_test.js,make_css_fixture.py,css_fixture.js}', T0],   // by-hand pages (dist/gl-test.html, css-fixture.html): no CI job opens them
   ['test/regress/perf/cdp.js', { glsl: 'all', quality: true, perf: true }],   // the Chrome driver of the paired gates
   ['test/regress/quality/**', { quality: true }],
   ['test/regress/compare_quality.py', { quality: true }],
