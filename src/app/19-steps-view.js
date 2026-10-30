@@ -170,7 +170,7 @@
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
     // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
     // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
-    if (GLR.drawCarried && !window.__svCpu) {
+    if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
       const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
       // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
