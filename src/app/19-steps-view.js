@@ -17,6 +17,7 @@
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),
     views: {},       // each plane's view {cx, cy, s}, by stage (the z-plane's is S.srcView)
+    sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
   };
@@ -56,16 +57,22 @@
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
-    svAdopt();
+    const sig = svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
+    svAdopt(SV.sig != null && sig !== SV.sig);
+    SV.sig = sig;
     if (svViewFix()) setTimeout(svApply, 0);
     svSync();
   }
   // a view the steps view did not set (an example, a link, a saved state) opens on its equivalent: X → Y is the
   // colour plane z with the colour inside the regions, Phase the colour plane F everywhere, Landscape the relief
-  function svAdopt() {
+  // (force: another chain was loaded, which brings its own view even when it is the one shown)
+  function svAdopt(force) {
     const ext = S.view.main;
-    if (ext === svMain()) return;
-    if (ext === 'xy') { SV.T = 0; SV.scope = 'in'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
+    if (ext === svMain() && !force) return;
+    // (X → Y with no area to carry the colour, only curves or points: the colour plane F, everywhere)
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
+    if (ext === 'xy' && areas) { SV.T = 0; SV.scope = 'in'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
+    else if (ext === 'xy') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
     else if (ext === 'phase') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.P.surf === 'sphere' ? 'sphere' : 'plane'; }
     else if (ext === 'land') { SV.T = -1; SV.scope = 'all'; SV.surf = 'land'; }
     SV.i = 0; SV.g.set(0);
@@ -153,7 +160,8 @@
     c.clearRect(0, 0, cv.width, cv.height);
     return cv;
   }
-  function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) !== 'point'); }
+  // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
+  function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
   // the colour plot just drawn into GL's frame (renderColor): only inside the regions, the rest the plane's paper
   function svMaskColour(pane) {
     const k = svStage();
