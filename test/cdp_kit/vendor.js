@@ -6,6 +6,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const VENDOR = path.join(__dirname, '..', '..', 'vendor');
 const FILES = {
@@ -16,18 +17,24 @@ const FILES = {
 // the patterns cdpd.js asks Chrome to pause (every request to these hosts; an unlisted URL is let through)
 const PATTERNS = ['https://cdnjs.cloudflare.com/*', 'https://cdn.jsdelivr.net/*', 'https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'];
 
-let lock = null;
-const faces = (set) => {
-  lock = lock || JSON.parse(fs.readFileSync(path.join(VENDOR, 'LOCK.json'), 'utf8'));
-  return lock.faces.filter((f) => f.set === set).map((f) => `@font-face{font-family:"${f.family}";font-style:${f.style};font-weight:${f.weight};${f.stretch ? `font-stretch:${f.stretch};` : ''}font-display:swap;`
-    + `src:url(data:font/woff2;base64,${fs.readFileSync(path.join(VENDOR, f.file)).toString('base64')}) format("woff2");unicode-range:${f.unicodeRange}}\n`).join('');
-};
+// (a file is served only as LOCK.json records it: a changed or unrecorded file throws, naming it and both hashes)
+const locks = new Map();
+const lockOf = (dir) => { if (!locks.has(dir)) locks.set(dir, JSON.parse(fs.readFileSync(path.join(dir, 'LOCK.json'), 'utf8'))); return locks.get(dir); };
+function read(dir, rel) {
+  const want = (lockOf(dir).outputs[rel] || {}).sha256, b = fs.readFileSync(path.join(dir, rel));
+  const got = crypto.createHash('sha256').update(b).digest('hex');
+  if (got !== want) throw new Error(`vendor/${rel} is not the file LOCK.json records (sha256 ${got}, LOCK.json ${want || 'none'}): run python3 tools/vendor.py`);
+  return b;
+}
+const faces = (dir, set) => lockOf(dir).faces.filter((f) => f.set === set).map((f) => `@font-face{font-family:"${f.family}";font-style:${f.style};font-weight:${f.weight};${f.stretch ? `font-stretch:${f.stretch};` : ''}font-display:swap;`
+  + `src:url(data:font/woff2;base64,${read(dir, f.file).toString('base64')}) format("woff2");unicode-range:${f.unicodeRange}}\n`).join('');
 
-// url -> { body: Buffer, type } from vendor/, or null (not one of the page's CDN files)
-function answer(url) {
+// url -> { body: Buffer, type } from vendor/ (dir: another copy of it, for the test), or null (not one of the page's
+// CDN files)
+function answer(url, dir = VENDOR) {
   const u = String(url).split('#')[0];
-  if (FILES[u]) return { body: fs.readFileSync(path.join(VENDOR, FILES[u])), type: 'text/javascript' };
-  if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(/family=Roboto\+Flex/.test(u) ? 'ru' : 'main')), type: 'text/css' };
+  if (FILES[u]) return { body: read(dir, FILES[u]), type: 'text/javascript' };
+  if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(dir, /family=Roboto\+Flex/.test(u) ? 'ru' : 'main')), type: 'text/css' };
   return null;
 }
 

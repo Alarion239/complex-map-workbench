@@ -41,7 +41,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
 const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
 function vendorAnswer(p, sid) {
-  const a = VENDOR && VENDOR.answer(p.request.url);
+  let a;
+  // (a vendored file that is not LOCK.json's: the request fails and the suite's log says why, never a silent stand-in)
+  try { a = VENDOR && VENDOR.answer(p.request.url); } catch (e) { LOG.push({ t: 'EXC', m: `CMW_VENDOR: ${e.message}` }); console.error(e.message); send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }, sid).catch(() => {}); return; }
   if (!a) { send('Fetch.continueRequest', { requestId: p.requestId }, sid).catch(() => {}); return; }
   send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, body: a.body.toString('base64'),
     responseHeaders: [{ name: 'content-type', value: a.type }, { name: 'access-control-allow-origin', value: '*' }, { name: 'cache-control', value: 'no-store' }] }, sid).catch(() => {});

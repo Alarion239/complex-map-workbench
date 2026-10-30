@@ -25,5 +25,15 @@ for (const u of urls) {
 check('the Russian sheet (Roboto Flex) gets the Russian set', /Roboto Flex/.test(V.answer('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz&display=swap').body.toString()));
 check('a URL it does not know: not answered', V.answer('https://cdnjs.cloudflare.com/ajax/libs/other/1.0/x.js') === null && V.answer('https://example.com/') === null);
 check('every pattern is https and ends in /*', V.PATTERNS.every((p) => /^https:\/\/[^/]+\/\*$/.test(p)));
+// a vendored file that is not the one LOCK.json records is never served: it throws, naming the file and both hashes
+{
+  const os = require('os'), tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-vendor-'));
+  fs.mkdirSync(path.join(tmp, 'js')); fs.copyFileSync(path.join(ROOT, 'vendor', 'LOCK.json'), path.join(tmp, 'LOCK.json'));
+  const rel = V.FILES['https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'];
+  fs.writeFileSync(path.join(tmp, rel), Buffer.concat([fs.readFileSync(path.join(ROOT, 'vendor', rel)), Buffer.from('\n// tampered\n')]));
+  let err = null; try { V.answer('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js', tmp); } catch (e) { err = e.message; }
+  check('a tampered vendored file throws, naming it and both hashes', !!err && err.includes(rel) && /sha256 [0-9a-f]{64}, LOCK\.json [0-9a-f]{64}/.test(err), err);
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
