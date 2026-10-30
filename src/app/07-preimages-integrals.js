@@ -437,6 +437,7 @@
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
+  // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
   function exactPre(j, st, p) {
     if (typeof Inverse === 'undefined' || !Inverse.pointPre) return null;
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
@@ -455,7 +456,7 @@
       const s = S.shapes.find((x) => x.id === e.id);
       if (!s || (s.p[0] === e.p[0] && s.p[1] === e.p[1])) continue;
       const ex = e.exact ? exactPre(j, e.s, s.p) : null;
-      if (ex) e.sols = ex.zs.map((z) => ({ z, mult: 1 }));
+      if (ex) e.sols = ex.zs.map((z, i) => ({ z, mult: ex.mult[i] }));
       else {
         const F = rangeF(j, e.s), w0 = C(e.p[0], e.p[1]), w1 = C(s.p[0], s.p[1]);
         e.sols = e.sols.map((r) => { const z = trackRoot(F, r.z, 1, w0, w1, size, end); return z ? { z, mult: r.mult } : null; }).filter(Boolean);
@@ -480,7 +481,7 @@
       const out = [], ms = Math.max(40, Math.min(200, 600 / pts.length));
       for (const s of pts) {
         const st = shapeStage(s), F = rangeF(j, st), ex = exactPre(j, st, s.p);
-        if (ex) { out.push({ id: s.id, s: st, p: s.p.slice(), sols: ex.zs.map((z) => ({ z, mult: 1 })), more: false, exact: true }); continue; }
+        if (ex) { out.push({ id: s.id, s: st, p: s.p.slice(), sols: ex.zs.map((z, i) => ({ z, mult: ex.mult[i] })), more: false, exact: true }); continue; }
         let sols = null;
         try { sols = zerosPolesTimed(F, box, { target: { re: s.p[0], im: s.p[1] }, max: 40 }, ms); } catch (e) { sols = null; }
         out.push({ id: s.id, s: st, p: s.p.slice(), sols: (sols || []).filter((r) => r && r.z && CX.isFin(r.z) && r.kind !== 'pole').map((r) => ({ z: r.z, mult: r.mult || 1 })), more: !sols || !!(sols.truncated || sols.incomplete) });
@@ -534,7 +535,7 @@
     const e = preOf.L.list.find((q) => q.id === d.id);
     // ([#291] an exact list: every dot follows at once, the dragged one under the pointer)
     const ex = e && e.exact ? exactPre(d.j, d.s, [w.re, w.im]) : null;
-    if (ex) { e.sols = ex.zs.map((zz) => ({ z: zz, mult: 1 })); e.p = [w.re, w.im]; }
+    if (ex) { e.sols = ex.zs.map((zz, i) => ({ z: zz, mult: ex.mult[i] })); e.p = [w.re, w.im]; }
     else if (e) {
       const zs = d.z || z;
       let best = -1, bd = Infinity;

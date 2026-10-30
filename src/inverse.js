@@ -1340,7 +1340,8 @@ const Inverse = (() => {
   // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
   // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
-  // the removable holes, and a critical value's coincident roots come once from their op
+  // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
   function pointPre(plan, p, cap = LEAF_CAP) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     let total = 1;
@@ -1349,14 +1350,25 @@ const Inverse = (() => {
       total *= o.fam ? o.fam.count : 1;
       if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
     }
-    let cur = isFin(p) ? [p] : [];
+    let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
     for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
-      const o = plan.ops[i], next = [];
+      const o = plan.ops[i], next = [], k = o.fam ? o.fam.count : 1;
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
-      for (const w of cur) for (const mem of o.pre(w)) if (!(mem.lvl < 0) && isFin(mem.u) && !hole(mem.u)) next.push(mem.u);
+      for (const { z: w, m } of cur) {
+        const mems = o.pre(w);
+        // (an op that lists one member for k branches, IPOW at 0, gives it all k)
+        const each = mems.length === 1 && k > 1 ? m * k : m;
+        for (const mem of mems) {
+          if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
+          // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
+          // is only good to about √ε of its value after a step before it, so the merge is within 1e-7, as the holes)
+          const q = next.find((r) => abs(sub(r.z, mem.u)) <= 1e-7 * (1 + abs(mem.u)));
+          if (q) q.m += each; else next.push({ z: mem.u, m: each });
+        }
+      }
       cur = next;
     }
-    return { exact: true, zs: cur, total };
+    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
