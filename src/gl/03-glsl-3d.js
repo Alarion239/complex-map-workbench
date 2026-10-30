@@ -293,38 +293,68 @@ float levelsBase(ivec2 c, inout bool fin) {
   return float(clamp(min(levelD(dx / 16.0), Lp), 0, 4) + 8 * clamp(min(levelD(dy / 16.0), Lp), 0, 4));
 }
 bool jmp(int d, ivec2 p) { return d == 0 ? texelFetch(uE0, p, 0).w > 0.5 : (d == 1 ? texelFetch(uE1, p, 0).w > 0.5 : texelFetch(uE2, p, 0).w > 0.5); }
+// the lattice's point (a, b) of cell c (s lattice points per cell): its height; fin, cfin: every point, every corner finite
+float latAt(ivec2 c, int s, int a, int b, inout bool fin, inout bool cfin) {
+  if (uLat == 0 && ((a & 1) == 1 || (b & 1) == 1)) return 0.0;
+  vec4 t = texelFetch(uLp, c * s + ivec2(a, b) * s / 4 - ivec2(0, uJ0 * s), 0);
+  if (!(t.w > 0.5)) { fin = false; if ((a == 0 || a == 4) && (b == 0 || b == 4)) cfin = false; }
+  return t.z;
+}
+// the lattice's row b: points 0..3 in xyzw, point 4 in e
+vec4 latRow(ivec2 c, int s, int b, out float e, inout bool fin, inout bool cfin) {
+  vec4 r = vec4(latAt(c, s, 0, b, fin, cfin), latAt(c, s, 1, b, fin, cfin), latAt(c, s, 2, b, fin, cfin), latAt(c, s, 3, b, fin, cfin));
+  e = latAt(c, s, 4, b, fin, cfin);
+  return r;
+}
+// levelsLat's second differences on the rows: along x within a row, along y down three rows' columns, along the
+// drawn diagonal from (a - 1, b - 1) to (a + 1, b + 1)
+float rowDx(vec4 r, float e) { vec3 d = abs(r.xyz - 2.0 * r.yzw + vec3(r.zw, e)); return max(max(d.x, d.y), d.z); }
+float rowsDy(vec4 r0, float e0, vec4 r1, float e1, vec4 r2, float e2) {
+  vec4 d = abs(r0 - 2.0 * r1 + r2);
+  return max(max(max(d.x, d.y), max(d.z, d.w)), abs(e0 - 2.0 * e1 + e2));
+}
+float rowsDd(vec4 r0, vec4 r1, vec4 r2, float e2) { vec3 d = abs(r0.xyz - 2.0 * r1.yzw + vec3(r2.zw, e2)); return max(max(d.x, d.y), d.z); }
+// one cell's levels (Lx + 8 Ly; 64: left to the cut rule, never refined, and never filled in around a moving wall
+// either, rfPlan; r3). The 5 x 5 lattice is held as five rows (no array: FXC took 10 to 30 s over the array and the
+// four cells' unrolled copies, #238)
+float cellLevels(ivec2 c, int s) {
+  if (c.x >= uM) return 0.0;
+  if (uCuts < 0) return 64.0;
+  if (uCuts > 0 && (jmp(0, c) || jmp(0, c + ivec2(0, 1)) || jmp(1, c) || jmp(1, c + ivec2(1, 0)) || jmp(2, c))) return 64.0;
+  bool fin = true, cfin = true;
+  if (uLat == 2) {
+    float l2 = levelsBase(c, fin);
+    if (!fin && uCuts > 0) return 64.0;
+    return !fin ? float(9 * levelOf(1e30)) : l2;
+  }
+  float e0, e1, e2, e3, e4;
+  vec4 r0 = latRow(c, s, 0, e0, fin, cfin), r1 = latRow(c, s, 1, e1, fin, cfin), r2 = latRow(c, s, 2, e2, fin, cfin);
+  vec4 r3 = latRow(c, s, 3, e3, fin, cfin), r4 = latRow(c, s, 4, e4, fin, cfin);
+  if (!cfin && uCuts > 0) return 64.0;
+  if (!fin) return float(9 * levelOf(1e30));
+  if (uLat != 1) return levels2(vec4(r0.x, e0, r4.x, e4), r0.z, r4.z, r2.x, e2, r2.z);
+  float dx = max(max(max(rowDx(r0, e0), rowDx(r1, e1)), max(rowDx(r2, e2), rowDx(r3, e3))), rowDx(r4, e4));
+  float dy = max(max(rowsDy(r0, e0, r1, e1, r2, e2), rowsDy(r1, e1, r2, e2, r3, e3)), rowsDy(r2, e2, r3, e3, r4, e4));
+  float dd = max(max(rowsDd(r0, r1, r2, e2), rowsDd(r1, r2, r3, e3)), rowsDd(r2, r3, r4, e4));
+  if (dx >= dy) dx = max(dx, dd); else dy = max(dy, dd);
+  float f = uCellW * uPxW;
+  int Lp = f > uMinPx ? int(ceil(log2(f / uMinPx))) : 0;
+  return float(clamp(min(levelD(dx), Lp), 0, 4) + 8 * clamp(min(levelD(dy), Lp), 0, 4));
+}
+// (#72: a bound no compiler can know keeps the four cells' loop a loop, one copy of cellLevels for FXC)
+uniform highp int uNoUnroll;
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   // (uJ0: the first row of cells of this strip; uLp holds the lattice's rows from s uJ0 on)
   int Mq = (uM + 3) / 4, q = gl_VertexID % Mq, j = uJ0 + gl_VertexID / Mq, s = uLat == 1 ? 4 : 2;
-  float lv[4]; float lat[25];
-  for (int k = 0; k < 4; k++) {
-    lv[k] = 0.0;
-    ivec2 c = ivec2(4 * q + k, j);
-    if (c.x >= uM) continue;
-    // (64: a cell left to the cut rule, never refined, and never filled in around a moving wall either, rfPlan; r3)
-    lv[k] = 64.0;
-    if (uCuts < 0) continue;
-    if (uCuts > 0 && (jmp(0, c) || jmp(0, c + ivec2(0, 1)) || jmp(1, c) || jmp(1, c + ivec2(1, 0)) || jmp(2, c))) continue;
-    bool fin = true, cfin = true;
-    if (uLat == 2) {
-      float l2 = levelsBase(c, fin);
-      if (!fin && uCuts > 0) continue;
-      lv[k] = !fin ? float(9 * levelOf(1e30)) : l2;
-      continue;
-    }
-    for (int b = 0; b < 5; b++) for (int a = 0; a < 5; a++) {
-      lat[b * 5 + a] = 0.0;
-      if (uLat == 0 && ((a & 1) == 1 || (b & 1) == 1)) continue;
-      vec4 t = texelFetch(uLp, c * s + ivec2(a, b) * s / 4 - ivec2(0, uJ0 * s), 0);
-      lat[b * 5 + a] = t.z;
-      if (!(t.w > 0.5)) { fin = false; if ((a == 0 || a == 4) && (b == 0 || b == 4)) cfin = false; }
-    }
-    if (!cfin && uCuts > 0) continue;
-    lv[k] = !fin ? float(9 * levelOf(1e30)) : (uLat == 1 ? levelsLat(lat) : levels2(vec4(lat[0], lat[4], lat[20], lat[24]), lat[2], lat[22], lat[10], lat[14], lat[12]));
+  vec4 lv = vec4(0.0);
+  for (int k = 0; k < max(4, uNoUnroll); k++) {
+    if (k >= 4) break;
+    float l = cellLevels(ivec2(4 * q + k, j), s);
+    if (k == 0) lv.x = l; else if (k == 1) lv.y = l; else if (k == 2) lv.z = l; else lv.w = l;
   }
-  tfOut = vec4(lv[0], lv[1], lv[2], lv[3]);
+  tfOut = lv;
 }
 `;
   // The refined vertices of one group (levels uL, its first list entry uGE, uTot vertices): RP the points to evaluate,
