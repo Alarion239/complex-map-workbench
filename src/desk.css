@@ -597,3 +597,30 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sh-insp > .shape-edit { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0; border-top: 0; }
 .sh-insp > .shape-edit .inp { height: 32px; padding: 0 8px; }
 .sh-acts { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ---------- (#366 prototype) the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
+:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #morphBtn, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
+:root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) auto auto; }
+:root.sv:not(.ph) .stage > .sv-strip { grid-row: 3; }
+:root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto; }
+:root.sv:not(.ph) #paneL .pane-head { gap: 8px; flex-wrap: wrap; min-height: 40px; padding: 4px 6px 4px 10px; }
+.sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
+.sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
+.sv-title sub { font-style: normal; font-size: 0.7em; }
+.sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
+.sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
+.sv-nav:disabled { opacity: .4; cursor: default; }
+.sv-rail { position: relative; flex: 1 1 auto; min-width: 0; touch-action: none; cursor: ew-resize; }
+.sv-track { position: relative; z-index: 1; display: flex; align-items: center; height: 100%; }
+.sv-plane { flex: 1 1 0; min-width: 44px; height: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; font: italic 400 18px/1 var(--f-math, serif); color: var(--ink-2); background: transparent; border: 0; border-radius: var(--r-2); cursor: pointer; }
+.sv-plane sub { font-style: normal; font-size: .65em; }
+.sv-plane.on { color: var(--ink); font-weight: 600; }
+.sv-plane:focus-visible, .sv-step:focus-visible, .sv-nav:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-dot { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; background: conic-gradient(from 90deg, #e8463f, #e8c13f, #4fc24a, #3fc8e8, #4b55e6, #d24be0, #e8463f); box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 2.5px var(--line-strong); }
+.sv-step { flex: 0 1 auto; min-width: 24px; max-width: 160px; height: 36px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 8px; font: 400 11px/13px var(--f-ui); color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-2); cursor: pointer; overflow: hidden; }
+.sv-step .sv-fk { font: italic 400 13px/14px var(--f-math, serif); color: var(--ink); }
+.sv-step .sv-fn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the glide's place on the strip: a pill under the planes that moves with it */
+.sv-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; width: 64px; left: 0; border-radius: var(--r-3); background: var(--accent-soft, rgba(60, 110, 220, .14)); border: 1.5px solid var(--accent); pointer-events: none; }
+.sv-cp { display: inline-flex; align-items: center; gap: 6px; }

@@ -572,3 +572,12 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }
 
 .ph-ctx.under { visibility: hidden; }
+
+/* ---------- (#366 prototype) the steps view on a phone: the plane, a row of its controls over it, the strip above the tools ---------- */
+:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
+:root.ph.sv .sv-head > * { flex: 0 0 auto; }
+:root.ph.sv .sv-head .seg { height: 40px; }
+:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp { min-height: 40px; }
+:root.ph.sv .sv-title { font-size: 17px; margin: 0 2px; }
+:root.ph.sv .sv-strip { margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
+:root.ph.sv .sv-step { padding: 0 4px; max-width: 76px; }

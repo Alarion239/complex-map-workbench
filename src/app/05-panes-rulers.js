@@ -89,6 +89,9 @@
   }
   function renderLeft() {
     const pane = paneL;
+    // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
+    if (SV.on && svMoving()) { svRenderMoving(pane); return; }
+    if (SV.on) svCheck();
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
@@ -472,6 +475,8 @@
     const hv = typeof homView === 'function' ? homView() : null;
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     GLR.drawColorPlot({ map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz });
+    // ((#366 prototype) Inside regions: the colour only inside the regions of this plane, 19)
+    if (svMaskOn()) svMaskColour(pane);
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
     if (S.outline && !artMode) {
       const map0 = stageMap(leftStage());

@@ -56,6 +56,7 @@ const MAP = [
   // ([#385] the start-up file in parts along its seams, joined in name order as before, byte for byte the same build)
   ['src/app/18-params.js', full('the shared numbers and links, under every area')],
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
+  ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone')],                           // the steps view (#366 prototype)
   ['src/app/20-init.js', full('the app\'s start-up')],
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
