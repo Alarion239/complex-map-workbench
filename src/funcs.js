@@ -1725,7 +1725,7 @@ const Funcs = (() => {
     id: 'series', group: $t('Polynomial & custom'), label: $t('Series'), menuTex: '\\sum a_n (z-c)^n',
     params: [
       { key: 'kind', label: $t('kind'), type: 'choice', def: 'power', choices: [['power', $t('power series')], ['laurent', $t('Laurent series')], ['dirichlet', $t('Dirichlet series')]] },
-      { key: 'an', label: 'a_n =', type: 'seq', def: '\\frac{1}{n!}', bound: ['n'] },
+      { key: 'an', label: 'aₙ =', say: 'a n', type: 'seq', def: '\\frac{1}{n!}', bound: ['n'] },
       { key: 'c', label: 'c =', type: 'cx', def: '0' },
     ],
     build({ kind, an, c }) {
@@ -1754,8 +1754,8 @@ const Funcs = (() => {
   def({
     id: 'recurrence', group: $t('Polynomial & custom'), label: $t('Recurrence'), menuTex: 'u_{k+1}=g(u_k,z)',
     params: [
-      { key: 'u0', label: 'u_0 =', type: 'seq', def: 'z' },
-      { key: 'g', label: 'u_{k+1} =', type: 'seq', def: 'u^2+z', bound: ['u'] },
+      { key: 'u0', label: 'u₀ =', say: 'u 0', type: 'seq', def: 'z' },
+      { key: 'g', label: 'uₖ₊₁ =', say: 'u k+1', type: 'seq', def: 'u^2+z', bound: ['u'] },
       { key: 'N', label: 'N', type: 'int', def: 8, min: 0, max: Expr.ITER_CAP },
       { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 },
     ],
