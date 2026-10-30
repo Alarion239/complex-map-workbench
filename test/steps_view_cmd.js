@@ -82,6 +82,17 @@ const hIn = await hash('sv_in');
 ok('Inside regions changes the picture', hIn !== hAll, null);
 ok('… and leaves the lower half-plane paper', await ev(`(() => { const c = document.getElementById('canvasL'), x = c.getContext('2d'), d = x.getImageData(Math.round(c.width * 0.3), Math.round(c.height * 0.85), 1, 1).data,
   u = x.getImageData(Math.round(c.width * 0.3), Math.round(c.height * 0.15), 1, 1).data; return Math.abs(d[0] - d[1]) + Math.abs(d[1] - d[2]) < 24 && Math.abs(u[0] - u[1]) + Math.abs(u[1] - u[2]) >= 24; })()`), null);
+// (ux's review of #448) the arrows of a focused radio group, or of an open pop-up, are theirs: the plane stays
+const before = (await S()).x;
+await ev(`(() => { const b = document.querySelector('#svHead .sv-surf [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
+const rg = await S();
+ok('→ on a focused Surface radio picks the next surface, not the next plane', rg.x === before && rg.surf === 'sphere', rg);
+await ev(`__cmwSteps({ surf: 'plane' }); document.activeElement.blur(); 1`); await settle(600);
+await ev(`document.getElementById('examplesBtn').click(); 1`); await settle(600);
+await press('ArrowRight');
+const pop = await S();
+ok('→ with the Examples gallery open leaves the plane alone', pop.x === before && !pop.anim, pop);
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(400);
 // reduced motion: a move is a jump
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await press('ArrowRight');
