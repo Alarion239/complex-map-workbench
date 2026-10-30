@@ -6,7 +6,8 @@
 //      ink is left in its box (read from a screenshot: a readback of the canvas can itself move it off the GPU)
 //   C  cold loads (a fresh Chrome each, no GPU program cache: test/overlay_ghost_repro.js, the overlay read back once
 //      after the waits): none keeps the handle. In this daemon's own page (programs cached) and read from screenshots,
-//      the race did not show before the fix (20 of 20 loads clean), so B alone would not catch it
+//      the race did not show before the fix (20 of 20 loads clean), so B alone would not catch it. C is opt-in (about 20 s
+//      a load; CI's runners are shared and A checks the fix): OVERLAY_GHOST_COLD=10 node ci/browser.js --only '^overlay_ghost'
 // A command file for the CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -44,15 +45,17 @@ if (hs.length) {
   ok('B: nothing of example 7\'s handle is left on X after example 8', info.after <= 50, info.after);
 }
 // C
-// COLD cold loads, each in a fresh Chrome without a GPU program cache (test/overlay_ghost_repro.js): before the fix,
-// 14 of 16 such loads kept the handle in the overlay's backing store on SwiftShader
-const COLD = 10;
-const { coldLoads } = process.mainModule.require(path.join(DIR, '..', 'overlay_ghost_repro.js'));
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const cold = await coldLoads(`http://localhost:${PORT}/`, COLD);
-info.cold = cold.map((r) => (r.err ? 'err' : r.ghost ? `GHOST ${r.px}` : 'clean')).join(', ');
-ok(`C: every one of ${COLD} cold loads ran (example 7 has its handle)`, cold.length === COLD && cold.every((r) => !r.err), cold.filter((r) => r.err));
-ok(`C: no cold load keeps example 7's handle in X's overlay after example 8`, cold.every((r) => !r.ghost), info.cold);
+// (opt-in, OVERLAY_GHOST_COLD=N) N cold loads, each in a fresh Chrome without a GPU program cache
+// (test/overlay_ghost_repro.js): before the fix, 14 of 16 such loads kept the handle in the overlay's backing store
+const COLD = Math.max(0, Math.floor(Number(process.env.OVERLAY_GHOST_COLD) || 0));
+if (COLD) {
+  const { coldLoads } = process.mainModule.require(path.join(DIR, '..', 'overlay_ghost_repro.js'));
+  const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+  const cold = await coldLoads(`http://localhost:${PORT}/`, COLD);
+  info.cold = cold.map((r) => (r.err ? 'err' : r.ghost ? `GHOST ${r.px}` : 'clean')).join(', ');
+  ok(`C: every one of ${COLD} cold loads ran (example 7 has its handle)`, cold.length === COLD && cold.every((r) => !r.err), cold.filter((r) => r.err));
+  ok(`C: no cold load keeps example 7's handle in X's overlay after example 8`, cold.every((r) => !r.ghost), info.cold);
+} else info.cold = 'not run (OVERLAY_GHOST_COLD unset)';
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };
