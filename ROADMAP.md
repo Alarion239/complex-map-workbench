@@ -20,7 +20,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
 | v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.11 is live; v17.0 waits for #30 and #34 |
-| patch | Landscape walls redesign | planned |
+| patch | Landscape walls redesign | in progress: the edge pass runs in the surface's own program (#168, #47); the Max mesh at 60 fps (#48, #170) waits for a Windows measurement |
 
 ## Releases
 
@@ -129,9 +129,9 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
 
 ## Also planned
 
-- **Landscape walls redesign patch:** run the walls' edge pass and sheet refinement through the surface's own
-  program, to remove the short first-open stalls with All sheets and bring the Max mesh back to 60 fps while playing;
-  the step-card pictures that stay empty when the deformation starts in the first seconds of Landscape.
+- **Landscape walls redesign patch:** the edge pass now runs in the surface's own program (#168, #47). Still to do: the
+  sheet refinement and the Max mesh at 60 fps while playing (#48, #170, waiting for a Windows measurement), and the
+  step-card pictures that stay empty when the deformation starts in the first seconds of Landscape.
 - **Landscape phones (844 × 390):** the tools sit under the chain bar (D2 solves it).
 - **Open question:** a "Between z₀ and z₁" option for a true hyperbolic segment (no tails).
 
