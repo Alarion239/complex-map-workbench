@@ -1009,8 +1009,8 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    if (!el || (!head && box.classList.contains('collapsed'))) return;
     box.style.removeProperty('--lg-drop');
+    if (!el || (!head && box.classList.contains('collapsed'))) return;
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
     for (let i = 0; i < 3; i++) {
       const c = el.getBoundingClientRect();

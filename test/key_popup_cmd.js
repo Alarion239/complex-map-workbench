@@ -59,12 +59,17 @@ for (const [lang, w] of [['ru', 390], ['', 360]]) {
   await openApp(lang, w, true);
   for (const main of ['land', 'phase']) {
     await ev(`__cmwSetMain('${main}')`); await settle(1800);
+    const topOf = `(() => Math.round(document.getElementById('leftLegend').getBoundingClientRect().top))()`;
+    const foldedTop = await ev(topOf);
     await ev(`(() => { const c = document.getElementById('leftLegend'); if (c.classList.contains('collapsed')) c.click(); })()`); await settle(600);
     const r = await probePhone();
     const tag = `phone ${lang || 'en'} ${w} ${main}`;
     info.rows.push([tag, r.folded, r.hit]);
     ok(`${tag}: the key is unfolded`, !r.hidden && !r.folded, r);
     ok(`${tag}: the unfolded key does not touch the readout`, !r.hit, r);
+    await ev(`document.getElementById('leftLegend').click()`); await settle(600);
+    const again = await ev(topOf);
+    ok(`${tag}: folded again, the chip is back where it started`, again === foldedTop, { foldedTop, again });
   }
 }
 return { pass: fails.length === 0, fails, info: { n: info.rows.length, sample: info.rows.slice(0, 4) } };
