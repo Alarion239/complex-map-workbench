@@ -720,6 +720,80 @@ async function morphOpenUnit() {
   }
 }
 
+// [#326] The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
+// user would, and the cards redraw on their own schedule (renderThumbs). Per edit, with the CPU profiler on from the
+// edit until every card is fresh again: the time spent drawing the cards (samples under renderThumbs) and their longest
+// unbroken stretch, which is the longest task the cards add (the #326 target: none over 100 ms once they draw in idle
+// slices); also the edit's longest task overall (a chain change also links programs), how many went over 100 ms, how
+// long the cards took to be fresh, and whether every card was drawn
+const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
+const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
+// a CPU profile -> {ms, longest}: the time in samples whose stack holds fn, and the longest run of consecutive such samples
+function profileIn(profile, fn) {
+  const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map(), hit = new Map();
+  for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  const under = (id) => {
+    if (hit.has(id)) return hit.get(id);
+    let p = id, r = false;
+    while (p != null) { if (byId.get(p).callFrame.functionName === fn) { r = true; break; } p = parent.get(p); }
+    hit.set(id, r);
+    return r;
+  };
+  let ms = 0, run = 0, longest = 0;
+  profile.samples.forEach((id, i) => {
+    const d = (profile.timeDeltas[i + 1] || 0) / 1000;   // (a sample lasts until the next one)
+    if (under(id)) { ms += d; run += d; longest = Math.max(longest, run); } else run = 0;
+  });
+  return { ms, longest };
+}
+async function cardsRebuildUnit() {
+  const pre = 'cards.rebuild';
+  const longest = [], over = [], fresh = [], thumbs = [], thumbsLongest = [];
+  let allDrawn = true, nCards = 0;
+  await B.send('Profiler.enable');
+  await B.send('Profiler.setSamplingInterval', { interval: 250 });
+  for (let i = 0; i < REPS; i++) {
+    const o = await openApp(sceneState('chain4', { rightMode: 'image', meshN: 240 }));
+    if (i === 0) detail(`${pre}.open`, o);
+    await B.ev('typeof __cmwCardsNow === "function" && __cmwCardsNow(); 1');
+    await settle(await pageNow());
+    nCards = await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`);
+    // (v15: a step's fields are in the Inspector once its card is selected, #i2_n; earlier builds: the card's #p2_n)
+    await B.ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="2"]'); if (c && !document.getElementById('i2_n')) c.click(); return 1; })()`);
+    await sleep(300);
+    await settle(await pageNow());
+    for (const n of [3, 2]) {
+      await B.send('Profiler.start');
+      const a = await B.ev(`(() => { const e = document.getElementById('i2_n') || document.getElementById('p2_n'); if (!e) return null; const t = performance.now(); e.value = '${n}'; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); return t; })()`);
+      if (a == null) { await B.send('Profiler.stop'); throw new Error('cards.rebuild: step 2 field n (#i2_n) not found'); }
+      // (the cards are stale from the edit until they redraw; bounded by the settle timeout)
+      await sleep(50);
+      const T = Date.now();
+      let ok = false;
+      while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
+      const s = await settle(await pageNow());
+      const b = await pageNow();
+      const { profile } = await B.send('Profiler.stop');
+      const th = profileIn(profile, 'renderThumbs');
+      thumbs.push(th.ms); thumbsLongest.push(th.longest);
+      const lt = await B.ev(`__perf.longSince(${a}, ${b})`);
+      longest.push(Math.max(0, ...lt.map((t) => t[1])));
+      over.push(lt.filter((t) => t[1] > 100).length);
+      fresh.push(ok ? Math.min(b, s.t) - a : null);
+      allDrawn = allDrawn && ok;
+    }
+  }
+  await B.send('Profiler.disable');
+  detail(`${pre}.cards`, nCards);
+  // (absolute, the worst edit: a card task over 100 ms fails whatever the reference does; its total is too noisy to gate)
+  put(`${pre}.edit.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...thumbsLongest)], { limit: CARDS_TASK_LIMIT, samples: thumbsLongest.map(r3) });
+  put(`${pre}.edit.cards_ms`, 'info', 'ms', thumbs);
+  put(`${pre}.edit.longest_task_ms`, 'jank_ms', 'ms', longest);
+  put(`${pre}.edit.tasks_over_100ms`, 'info', '', over);
+  put(`${pre}.edit.fresh_ms`, 'settle_ms', 'ms', fresh);
+  put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
+}
+
 // The deformation playing in the Phase and Landscape views (merged-views review): one full-width panel paints H_t at
 // every frame (868 px wide at 1440 x 900, against v11's ~430 px pane). The scene opens in the view (rightMode color /
 // 3d: the Phase / Landscape view here, the old layout's pane in the reference), the toggle (#morphBtn) opens the
@@ -1448,6 +1522,7 @@ unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, 
 unit('scrub', 'parameter scrub (phi label of a disk automorphism)', () => scrubUnit(false));
 unit('scrub.morph', 'parameter scrub with the deformation open and paused (its arrows)', () => scrubUnit(true));
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
+unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
