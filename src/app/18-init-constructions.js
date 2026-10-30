@@ -805,6 +805,15 @@
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;
+    // ([#357] the chain head never cuts a control: when its row does not fit (Russian and Italian at 1024 px beside the
+    // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
+    const pipeHead = document.querySelector('.pipe-head');
+    if (pipeHead && typeof ResizeObserver === 'function') {
+      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const ro = new ResizeObserver(fitPipeHead);
+      ro.observe(pipeHead);
+      for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }
+    }
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => {

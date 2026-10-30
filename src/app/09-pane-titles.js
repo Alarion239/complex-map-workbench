@@ -19,6 +19,17 @@
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    // ([#356] "Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
+    // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
+    // its gaps), and last its status light goes (Russian at 1024 px)
+    const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+    const legIn = !!(leg && hd && leg.parentNode === hd);
+    const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
+    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    if (legIn && !leg.hidden && tabsCut()) {
+      leg.classList.add('glyph');
+      if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
+    }
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
     if (!(pane.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize

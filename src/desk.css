@@ -6,6 +6,8 @@
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
 .pipe-head .compose { display: none; }
 .pipe-head #viewAllBtn:disabled { opacity: 0.5; }
+/* ([#357] a row too narrow for the controls: the heading gives way, still read by a screen reader; app.js) */
+.pipe-head.notitle > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pipeline { align-items: stretch; padding: 8px 12px 10px; scroll-snap-type: x proximity; }
 .card {
   flex: 1 1 0; width: auto; min-width: 120px; max-width: 208px; height: 134px; contain-intrinsic-size: auto 134px;
@@ -276,6 +278,14 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 7px 7px; box-shadow: inset 0 0 0 1px var(--ink-2); }
 .pane-head > .legend-chip.collapsed::after { content: none; }
 .pane-head > .legend-chip > .lg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* ([#356] a head too narrow for its view tabs: the chip folds to its glyph (its words stay its accessible name), then
+   the head packs closer, then its status light goes; app.js fitTitle) */
+.pane-head > .legend-chip.glyph { gap: 0; padding: 0 4px; }
+.pane-head > .legend-chip.glyph > .lg-sum { display: none; }
+.pane-head.tight { gap: 2px; }
+.pane-head.tight :is(#leftTabs, #rightTabs) > button { padding: 0 4px; }
+.pane-head.tight > .led { margin: 0 2px; }
+.pane-head.noled > .led { display: none; }
 .pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px); right: -1px; box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
