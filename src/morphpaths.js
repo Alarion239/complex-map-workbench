@@ -1103,8 +1103,7 @@ const MorphPaths = (() => {
     else {
       pane.setView(V.right);
       paper(pane);
-      // (#362 the glide rests on the plane after a step, not on F)
-      const k = trans.at >= 0 ? trans.at : rightStage();
+      const k = rightStage();
       const F = trans.k ? transState().F : stageF(k);
       const key = wKeyOn() && GLR.ok ? { noGrid: true, under: keyUnder(pane) } : null;
       if (GLR.ok) drawScene(pane, trans.k ? transState().map : stageMap(k), trans.k ? null : 'R', Object.assign({ cache: !trans.k }, key)); else noGL(pane);

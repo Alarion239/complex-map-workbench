@@ -772,7 +772,11 @@
   // a focused d/dz step differentiates a function of z: its input plane is the z-plane
   const focusDeriv = () => S.focus > 0 && isDeriv(S.focus);
   const leftStage = () => (S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
-  const rightStage = () => (S.focus === 0 ? nSteps() : S.focus);
+  // ([#383] while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
+  // exports, its variable's name, its overlays; trans.at is -1 except then, 08)
+  const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
+  // Y shows F, the whole chain's plane (not a focused step's, not a step the glide rests on)
+  const yAtF = () => S.focus === 0 && !(trans.at >= 0);
   // ---- the panes' views (U-b, panels.md 2): X on the left, Y on the right ----
   // lPlain: X Plane with the shapes (the plane of earlier builds' left pane); lColor: X Plane + Phase (the phase
   // portrait, earlier the right pane's Phase view); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
@@ -803,6 +807,6 @@
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)
-  const yHtml = () => (S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(rightStage())}`);
+  const yHtml = () => (yAtF() ? '<i>w</i>' : `<i>w</i>${sub(rightStage())}`);
   const fnHtml = () => (S.focus === 0 ? '<i>F</i>' : focusDeriv() ? `<i>w</i>${sub(S.focus)}` : `<i>f</i>${sub(S.focus)}`);
 

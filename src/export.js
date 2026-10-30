@@ -223,7 +223,8 @@ const Export = (() => {
   // the variable of a panel's coordinates, in TeX
   function panelVar(side) {
     if (side === 'L') return leftStage() === 0 ? 'z' : `w_{${leftStage()}}`;
-    return A.S.focus === 0 ? 'w' : `w_{${rightStage()}}`;
+    // (the plane Y rests on while ‹ › have it on a step's, #383, is that step's: w_j)
+    return A.S.focus === 0 && rightStage() === nSteps() ? 'w' : `w_{${rightStage()}}`;
   }
   // a tick number in TeX: as few decimals as the step needs; powers of ten far from 1
   function tickTex(v, step) {
