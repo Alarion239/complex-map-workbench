@@ -6,8 +6,8 @@ network, it reads vendor/ only.
     python3 tools/vendor.py --update   the same, recording new tarball hashes (after a version change below)
 
 What it writes:
-  vendor/js/       MathJax's tex-svg.js (the page's typesetter; the figure export's PDF library still loads from a
-                   CDN when a PDF is asked for: about 450 KB, left out of the page)
+  vendor/js/       MathJax's tex-svg.js (the typesetter), and jsPDF and svg2pdf.js (the figure export's PDF, loaded on
+                   the first PDF export; issue #393), for the offline page
   vendor/fonts/    the faces the page sets text in, subset to the characters the app's sources use (chars() below)
                    plus the letters a user may type, and their variation axes cut to the ranges the CSS uses
   vendor/licenses/ the packages' licenses
@@ -38,9 +38,13 @@ PACKAGES = {
     '@fontsource/b612-mono': '5.3.0',
     '@fontsource-variable/jetbrains-mono': '5.3.0',
     '@fontsource-variable/roboto-flex': '5.3.0',
+    'jspdf': '2.5.1',
+    'svg2pdf.js': '2.2.3',
 }
 SCRIPTS = [  # (package, file in the package, vendor/js name)
     ('mathjax', 'es5/tex-svg.js', 'tex-svg.js'),
+    ('jspdf', 'dist/jspdf.umd.min.js', 'jspdf.umd.min.js'),
+    ('svg2pdf.js', 'dist/svg2pdf.umd.min.js', 'svg2pdf.umd.min.js'),
 ]
 # The faces, as the Google Fonts stylesheets they replace asked for them (src/page.html, src/i18n.js): the family,
 # the package and its file pattern ({r}: a unicode range's name), the style, the axes' ranges (the others pinned to

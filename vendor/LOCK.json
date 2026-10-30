@@ -24,12 +24,28 @@
   "@fontsource-variable/roboto-flex": {
    "version": "5.3.0",
    "sha256": "0bab192f3e83e6660ecb1b96bc29e012ae1d605b2bda4928d760feb819ac5c27"
+  },
+  "jspdf": {
+   "version": "2.5.1",
+   "sha256": "106070cae9e15de91e02ad40fdbf5cda97d41f390f06d46f5b06c2a623b09e97"
+  },
+  "svg2pdf.js": {
+   "version": "2.2.3",
+   "sha256": "0e835dac46e37ace6fffde2639d0478e2040bc140892c60e3a52f2b5ad3980f9"
   }
  },
  "outputs": {
   "js/tex-svg.js": {
    "sha256": "d4295dc33744836935c1399feece5159577b34c5c8ffb9f1c6324cd82e03a882",
    "bytes": 2108580
+  },
+  "js/jspdf.umd.min.js": {
+   "sha256": "98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875",
+   "bytes": 364463
+  },
+  "js/svg2pdf.umd.min.js": {
+   "sha256": "fdfbbf24d434fe653f7a553bd52093177702ddb285a57508f28cba3f303a33f6",
+   "bytes": 84587
   },
   "fonts/archivo-latin-ext-standard-normal.woff2": {
    "sha256": "f307603fa53fd4a2ae4faf409b945a5d3109805e42aaffbb0775f9d8c24528d1",
