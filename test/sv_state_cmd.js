@@ -59,8 +59,11 @@ for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phas
   await sleep(800);
   const payload = await ev('window.__svLink');
   const ns2 = ns + 'l' + main;   // (no saved state there: a link opens at once, with a saved one it asks)
-  await nav(`${base}/test.html?ns=${ns2}#cmw=${payload}`); await sleep(5000);
-  const r = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify('complex-map-workbench-v1:' + ns2)}) || 'null'); return { sv: o && 'sv' in o, main: o && o.view && o.view.main, n: o && o.steps.length, steps: __cmwSteps ? __cmwSteps().on : 'nohook' }; })()`);
+  await nav(`${base}/test.html?ns=${ns2}#cmw=${payload}`); let r = null;
+  for (let i = 0; i < 12 && !(r && r.n === 3); i++) {
+    await sleep(1500);
+    r = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify('complex-map-workbench-v1:' + ns2)}) || 'null'); return { sv: o && 'sv' in o, main: o && o.view && o.view.main, n: o && o.steps.length, steps: typeof __cmwSteps === 'function' ? __cmwSteps().on : 'nohook' }; })()`);
+  }
   info['link ' + name] = r;
   ok(`old ${name} link opens in the default view, unchanged, with no sv`, r && r.sv === false && r.main === main && r.n === 3 && r.steps === false, r);
 }
