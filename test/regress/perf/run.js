@@ -729,22 +729,32 @@ async function morphOpenUnit() {
 const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
 const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
 // a CPU profile -> {ms, longest}: the time in samples whose stack holds fn, and the longest run of consecutive such samples
+// (link: the part of ms in a program link, the link status read that waits for it: GPU work that a software renderer
+// does on the main thread)
+const LINK_FN = /^(getProgramParameter|linkProgram|finishLink)$/;
 function profileIn(profile, fn) {
   const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map(), hit = new Map();
   for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  // 0: not under fn, 1: under fn, 2: under fn and in a link
   const under = (id) => {
     if (hit.has(id)) return hit.get(id);
-    let p = id, r = false;
-    while (p != null) { if (byId.get(p).callFrame.functionName === fn) { r = true; break; } p = parent.get(p); }
+    let p = id, r = 0, link = false;
+    while (p != null) {
+      const f = byId.get(p).callFrame.functionName;
+      if (LINK_FN.test(f)) link = true;
+      if (f === fn) { r = link ? 2 : 1; break; }
+      p = parent.get(p);
+    }
     hit.set(id, r);
     return r;
   };
-  let ms = 0, run = 0, longest = 0;
+  let ms = 0, link = 0, run = 0, longest = 0;
   profile.samples.forEach((id, i) => {
     const d = (profile.timeDeltas[i + 1] || 0) / 1000;   // (a sample lasts until the next one)
-    if (under(id)) { ms += d; run += d; longest = Math.max(longest, run); } else run = 0;
+    const u = under(id);
+    if (u) { ms += d; run += d; longest = Math.max(longest, run); if (u === 2) link += d; } else run = 0;
   });
-  return { ms, longest };
+  return { ms, link, longest };
 }
 async function cardsRebuildUnit() {
   const pre = 'cards.rebuild';
@@ -794,38 +804,52 @@ async function cardsRebuildUnit() {
   put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
 }
 
-// [#326] The step cards at start-up: a cold load of chain4 (a fresh page, the profiler on from before the navigation)
-// until every card is drawn. The time to the first drawn frame, the cards' longest unbroken stretch under renderThumbs
-// (limit 100 ms: #326 draws them after the first frame, in idle slices), their total, and whether every card was drawn
-// (not by when: openApp's own waits, MathJax's up to 12 s, would hide it). The program links are GPU work: a real GPU's
-// numbers count, software GL's are relative
+// [#326] The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
+// drawn: `page`, the default page as a first visit opens it (no saved state; #326's 0.7 s and #350's target), and
+// `chain4`, a saved 4-step chain (many cards). Per scene: the time to the first drawn frame, the cards' longest
+// unbroken stretch under renderThumbs (limit 100 ms: #326 draws them after the first frame, in idle slices), their
+// total, the part of it spent waiting for program links (GPU work: on a software renderer it lands on the main thread,
+// inside renderThumbs, so its stretch there is mostly links; a real GPU's numbers count), and whether every card was
+// drawn (not by when: openApp's own waits, MathJax's up to 12 s, would hide it)
+async function openFresh() {
+  // (a first visit: a namespace with nothing saved, the app's own default page)
+  await B.nav(`${BASE}test.html?ns=perffresh${process.pid}_${++nsCounter}`);
+  await B.until('typeof __cmwInfo === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await settle(await pageNow());
+}
 async function cardsStartupUnit() {
-  const pre = 'cards.startup';
-  const first = [], longestS = [], total = [];
-  let allDrawn = true;
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
-  for (let i = 0; i < REPS; i++) {
-    await B.send('Profiler.start');
-    let o;
-    try { o = await openApp(sceneState('chain4', { rightMode: 'image', meshN: 240 })); } catch (e) { await B.send('Profiler.stop'); throw e; }
-    if (i === 0) detail(`${pre}.open`, { loadMs: o.loadMs, settled: o.settled });
-    const T = Date.now();
-    let ok = false;
-    while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
-    // (page time 0 is the navigation; the first frame that drew: its end)
-    const { profile } = await B.send('Profiler.stop');
-    const th = profileIn(profile, 'renderThumbs');
-    longestS.push(th.longest); total.push(th.ms);
-    const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
-    first.push(f.length ? f[0][6] : null);
-    allDrawn = allDrawn && ok;
+  for (const scene of ['page', 'chain4']) {
+    const pre = `cards.startup.${scene}`;
+    const first = [], longestS = [], total = [], link = [];
+    let allDrawn = true;
+    for (let i = 0; i < REPS; i++) {
+      await B.send('Profiler.start');
+      try {
+        if (scene === 'page') await openFresh();
+        else await openApp(sceneState(scene, { rightMode: 'image', meshN: 240 }));
+      } catch (e) { await B.send('Profiler.stop'); throw e; }
+      const T = Date.now();
+      let ok = false;
+      while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
+      const { profile } = await B.send('Profiler.stop');
+      const th = profileIn(profile, 'renderThumbs');
+      longestS.push(th.longest); total.push(th.ms); link.push(th.link);
+      // (page time 0 is the navigation; the first frame that drew: its end)
+      const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
+      first.push(f.length ? f[0][6] : null);
+      allDrawn = allDrawn && ok;
+      if (i === 0) detail(`${pre}.cards`, await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`));
+    }
+    put(`${pre}.first_frame_ms`, 'oneshot_ms', 'ms', first);
+    put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });
+    put(`${pre}.cards_ms`, 'info', 'ms', total);
+    put(`${pre}.cards_link_ms`, 'info', 'ms', link);
+    put(`${pre}.all_drawn`, 'check', '', [allDrawn]);
   }
   await B.send('Profiler.disable');
-  put(`${pre}.first_frame_ms`, 'oneshot_ms', 'ms', first);
-  put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });
-  put(`${pre}.cards_ms`, 'info', 'ms', total);
-  put(`${pre}.all_drawn`, 'check', '', [allDrawn]);
 }
 
 // The deformation playing in the Phase and Landscape views (merged-views review): one full-width panel paints H_t at
@@ -1556,7 +1580,7 @@ unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, 
 unit('scrub', 'parameter scrub (phi label of a disk automorphism)', () => scrubUnit(false));
 unit('scrub.morph', 'parameter scrub with the deformation open and paused (its arrows)', () => scrubUnit(true));
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
-unit('cards.startup', 'the step cards at start-up (a cold load of chain4): first frame, longest card stretch, all cards drawn (#326)', cardsStartupUnit);
+unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
