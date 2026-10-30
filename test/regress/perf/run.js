@@ -751,17 +751,32 @@ function profileIn(profile, fn) {
     hit.set(id, r);
     return r;
   };
-  let ms = 0, link = 0, sync = 0, run = 0, longest = 0;
+  let ms = 0, link = 0, sync = 0, run = 0, longest = 0, t = profile.startTime;
+  const at = [];   // (the samples' times under fn, profile clock in µs)
   profile.samples.forEach((id, i) => {
+    t += profile.timeDeltas[i] || 0;
     const d = (profile.timeDeltas[i + 1] || 0) / 1000;   // (a sample lasts until the next one)
     const u = under(id);
-    if (u) { ms += d; run += d; longest = Math.max(longest, run); if (u.link) link += d; if (u.sync) sync += d; } else run = 0;
+    if (u) { ms += d; run += d; longest = Math.max(longest, run); if (u.link) link += d; if (u.sync) sync += d; at.push(t); } else run = 0;
   });
-  return { ms, link, sync, longest };
+  return { ms, link, sync, longest, at };
+}
+// The longest main-thread task that held one of fn's samples (info): the page's long tasks (__perf.longtasks, page clock)
+// against fn's sample times, mapped by the page time read just before Profiler.stop against the profile's end. It shows a
+// GPU sync that a driver puts under (program), outside fn's stack, in fn's own task. It can also take in a task where fn
+// ran after other long work (a chain edit's links), so it is reported, never gated. 0: no long task held fn
+async function taskOf(profile, at, nowAtStop) {
+  if (!at.length) return 0;
+  const lt = await B.ev('__perf.longSince(0)');
+  const off = profile.endTime / 1000 - nowAtStop;
+  const ts = at.map((x) => x / 1000 - off);
+  let best = 0;
+  for (const [t0, d] of lt) if (ts.some((x) => x >= t0 && x <= t0 + d)) best = Math.max(best, d);
+  return best;
 }
 async function cardsRebuildUnit() {
   const pre = 'cards.rebuild';
-  const longest = [], over = [], fresh = [], thumbs = [], thumbsLongest = [], sync = [];
+  const longest = [], over = [], fresh = [], thumbs = [], thumbsLongest = [], sync = [], task = [];
   let allDrawn = true, nCards = 0;
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -786,8 +801,10 @@ async function cardsRebuildUnit() {
       while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
       const s = await settle(await pageNow());
       const b = await pageNow();
+      const nowAtStop = await pageNow();
       const { profile } = await B.send('Profiler.stop');
       const th = profileIn(profile, 'renderThumbs');
+      task.push(await taskOf(profile, th.at, nowAtStop));
       thumbs.push(th.ms); thumbsLongest.push(th.longest); sync.push(th.sync);
       const lt = await B.ev(`__perf.longSince(${a}, ${b})`);
       longest.push(Math.max(0, ...lt.map((t) => t[1])));
@@ -802,6 +819,7 @@ async function cardsRebuildUnit() {
   put(`${pre}.edit.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...thumbsLongest)], { limit: CARDS_TASK_LIMIT, samples: thumbsLongest.map(r3) });
   put(`${pre}.edit.cards_ms`, 'info', 'ms', thumbs);
   put(`${pre}.edit.cards_sync_ms`, 'info', 'ms', sync);
+  put(`${pre}.edit.cards_task_ms`, 'info', 'ms', task);
   put(`${pre}.edit.longest_task_ms`, 'jank_ms', 'ms', longest);
   put(`${pre}.edit.tasks_over_100ms`, 'info', '', over);
   put(`${pre}.edit.fresh_ms`, 'settle_ms', 'ms', fresh);
@@ -827,7 +845,7 @@ async function cardsStartupUnit() {
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
   for (const scene of ['page', 'chain4']) {
     const pre = `cards.startup.${scene}`;
-    const first = [], longestS = [], total = [], link = [], sync = [];
+    const first = [], longestS = [], total = [], link = [], sync = [], task = [];
     let allDrawn = true;
     for (let i = 0; i < REPS; i++) {
       await B.send('Profiler.start');
@@ -838,8 +856,10 @@ async function cardsStartupUnit() {
       const T = Date.now();
       let ok = false;
       while (Date.now() - T < SETTLE_TIMEOUT) { if (await B.ev(CARDS_FRESH)) { ok = true; break; } await sleep(40); }
+      const nowAtStop = await pageNow();
       const { profile } = await B.send('Profiler.stop');
       const th = profileIn(profile, 'renderThumbs');
+      task.push(await taskOf(profile, th.at, nowAtStop));
       longestS.push(th.longest); total.push(th.ms); link.push(th.link); sync.push(th.sync);
       // (page time 0 is the navigation; the first frame that drew: its end)
       const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
@@ -852,6 +872,7 @@ async function cardsStartupUnit() {
     put(`${pre}.cards_ms`, 'info', 'ms', total);
     put(`${pre}.cards_link_ms`, 'info', 'ms', link);
     put(`${pre}.cards_sync_ms`, 'info', 'ms', sync);
+    put(`${pre}.cards_task_ms`, 'info', 'ms', task);
     put(`${pre}.all_drawn`, 'check', '', [allDrawn]);
   }
   await B.send('Profiler.disable');
