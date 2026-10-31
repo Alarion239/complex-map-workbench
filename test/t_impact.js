@@ -51,7 +51,7 @@ ok('T1: page.html -> desktop and phone', same(select(['src/page.html'], { linesO
 // shard ran); without a diff, so do they)
 {
   const DP = [...new Set([...AREAS.desktop, ...AREAS.phone])];
-  for (const l of ['.xf-body { display: grid; }', '.modal.xf { width: 1120px; }', ':root[data-lang="ru"] #xfSize .xf-dim { display: none; }']) ok(`T1: page.html's export dialog line "${l}" -> desktop, phone and export`, same(select(['src/page.html'], { linesOf: () => ['.top { }', l] }).browser, [...new Set([...DP, ...AREAS.export]), 'smoke']), select(['src/page.html'], { linesOf: () => [l] }).browser);
+  for (const l of ['.xf-body { display: grid; }', '.modal.xf { width: 1120px; }', ':root[data-lang="ru"] #xfSize .xf-dim { display: none; }', 'select.xf-select { appearance: auto; }', '.btn.xf-dest { height: 34px; }']) ok(`T1: page.html's export dialog line "${l}" -> desktop, phone and export`, same(select(['src/page.html'], { linesOf: () => ['.top { }', l] }).browser, [...new Set([...DP, ...AREAS.export]), 'smoke']), select(['src/page.html'], { linesOf: () => [l] }).browser);
   ok('T1: page.html without its diff -> the export shards too (fail safe)', AREAS.export.every((id) => select(['src/page.html']).browser.includes(id)));
   ok('T1: page.html, a line that only names xf in a word (.prefix-box) -> no export shard', !select(['src/page.html'], { linesOf: () => ['.boxf-x { }', '.xfoo { }'] }).browser.some((id) => AREAS.export.includes(id)));
 }

@@ -49,7 +49,7 @@ const full = (why) => ({ full: true, why });
 const ui = (...areas) => ({ areas });
 const T0 = { t0: true };
 // (a line of the export dialog's CSS in src/page.html; its markup is src/figure/07-dialog.js, under the export row)
-const EXPORT_DIALOG = /(^|[^\w-])(\.xf-|\.modal\.xf\b|#xf[A-Z])/;
+const EXPORT_DIALOG = /\.xf-|\.modal\.xf\b|#xf[A-Z]/;
 const HARNESS = { harness: true };
 const MAP = [
   // the app
