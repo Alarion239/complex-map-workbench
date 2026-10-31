@@ -14,7 +14,7 @@ const open = async (ns, w, h, dark, mobile, lang) => {
   await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : '')); await settle(1600);
   await ev('Tour.dismissSuggestion()');
 };
-const go = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`); await settle(1500); };
+const startAt = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`); await settle(1500); };
 const until = async (expr, max = 8000, dt = 40) => { const t0 = Date.now(); while (Date.now() - t0 < max) { if (await ev(expr)) return Date.now() - t0; await sleep(dt); } return null; };
 const mdrag = async (x0, y0, x1, y1) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }); for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 10, y: y0 + (y1 - y0) * i / 10, button: 'left', buttons: 1 }); await sleep(16); } await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }); };
 const center = (sel) => ev(`(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length && x.offsetParent !== null); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
@@ -22,7 +22,7 @@ const plane = async () => { for (let i = 0; i < 40; i++) { const L = await lit()
 
 const where = (id) => ev(`(() => { for (const c of Tour._t.CHAPTERS) { const i = c.steps.findIndex((s) => s.id === ${JSON.stringify(id)}); if (i >= 0) return [c.id, i]; } return null; })()`);
 const l2 = () => ev(`(() => { const e = document.querySelector('.ts-l2'); return e ? { text: e.textContent, done: e.classList.contains('done') } : null; })()`);
-const goStep = async (id) => { const w = await where(id); if (!w) throw new Error('no step ' + id); await go(w[0], w[1]); return w; };
+const goStep = async (id) => { const w = await where(id); if (!w) throw new Error('no step ' + id); await startAt(w[0], w[1]); return w; };
 const ticks = async (ms = 2500) => until(`document.querySelector('.ts-l2').classList.contains('done')`, ms, 15);
 // the pixel of a point z in a plane's plot (the plane's view centre and scale)
 const px = (side, re, im) => ev(`(() => { const v = __cmwPlaneMenu().view(${JSON.stringify(side)}), b = document.getElementById('plot${side}').getBoundingClientRect(); return [b.left + b.width / 2 + (${re} - v.cx) * v.s, b.top + b.height / 2 - (${im} - v.cy) * v.s]; })()`);

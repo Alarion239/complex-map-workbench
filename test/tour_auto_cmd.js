@@ -16,7 +16,7 @@ const open = async (ns, w, h, dark, mobile, lang) => {
   await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : '')); await settle(1600);
   await ev('Tour.dismissSuggestion()');
 };
-const go = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`); await settle(1500); };
+const goStep = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`); await settle(1500); };
 // polls until f() (an expression) is truthy; returns the ms waited, or null after max ms
 const until = async (expr, max = 8000, dt = 40) => { const t0 = Date.now(); while (Date.now() - t0 < max) { if (await ev(expr)) return Date.now() - t0; await sleep(dt); } return null; };
 // waits for the step to change from id; returns ms since t0
@@ -57,7 +57,7 @@ const tickAfter = async (t0) => { const w = await until(`document.querySelector(
 // ---------------- 1440 × 900, mouse, English
 await open('au1', 1440, 900, false, false);
 // X: no advance without input; a pan of empty space ticks it at once; CD_MS after the release it moves on
-await go('basics', 1);
+await goStep('basics', 1);
 check('x: nothing advances in 3.5 s without input', await stays('basics/x', 3500));
 let a = await plane();
 let x = a.l + 150, y = a.b - 90;
@@ -68,7 +68,7 @@ check('x: the tick within 300 ms of the pan', tk != null && tk <= 300, tk);
 let at = await advancedAt('basics/x', t0);
 check('x: moves on 1500 ± 150 ms after the release', near(at, CDMS, 150), at);
 // Draw: the disc; an input at +1 s changes nothing: the advance stays at CD_MS after the event
-await go('basics', 4);
+await goStep('basics', 4);
 const disc = await center('#tools > .tool[data-tool="disc"]');
 await click(disc[0], disc[1]); await settle(200);
 a = await paneBox('#paneL');
@@ -81,7 +81,7 @@ await click(hd[0], hd[1]);
 at = await advancedAt('basics/draw', t0);
 check('draw: an input at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 150), at);
 // live region: the result line once, then "Next step in 1.5 s."
-await go('basics', 4);
+await goStep('basics', 4);
 await click(disc[0], disc[1]); await settle(200);
 await mdrag(a.l + 220, a.b - 140, a.l + 260, a.b - 110);
 await sleep(150);
@@ -89,13 +89,13 @@ let liveT = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
 // a door: Choose Phase moves on 0.7 s after it
-await go('views', 0);
+await goStep('views', 0);
 const ph = await center('#viewSwitch > [data-mode="phase"]');
 await click(ph[0], ph[1]); t0 = Date.now();
 at = await advancedAt('views/switch', t0);
 check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
 // Phase key: a check; an input at +2 s does not restart the countdown
-await go('views', 4);
+await goStep('views', 4);
 // (v16.5 UX20; #247: on a desktop the check is a toggle in Y's pane head; when the head has no room it is behind the
 // head's ⋯ button, which is opened first)
 const ob = (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
@@ -115,7 +115,7 @@ if (kc) {
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
 try {
 // a hold: the palette left open 6 s (Palette and keys: its task is done when it opens)
-await go('keys', 0);
+await goStep('keys', 0);
 await key('k', 4); t0 = Date.now();
 check('palette: the palette opens and the task ticks', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000)) != null);
 check('palette: no advance while it stays open (6 s)', await stays('keys/palette', 6000));
@@ -135,7 +135,7 @@ check('palette: moves on CD_MS after it closes', near(at, CDMS, 250), at);
 try {
 // (r3 review regress-1) a set added with Enter: the app empties the field, which keeps the focus; an empty field holds
 // nothing, so it moves on CD_MS after Enter. A field with text not yet sent holds it
-await go('basics', 6);
+await goStep('basics', 6);
 const fi = await center('#secFormula input, #secFormula textarea, #secFormula [contenteditable]');
 if (fi) {
   await click(fi[0], fi[1]); await settle(100);
@@ -152,7 +152,7 @@ if (fi) {
   const aD = await advanceFrom('basics/formula', dD, 250);
   check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done, late only as far as the page was blocked', aD.ok, [aD, dD, await ev('document.activeElement && document.activeElement.id')]);
   check('formula: the long-task record sees the 400 ms spike and the advance followed it', aD.blocked >= 350 && aD.at >= dD.left + 200, aD);
-  await go('basics', 6);
+  await goStep('basics', 6);
   await click(fi[0], fi[1]); await settle(100);
   await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
   await type('|z|<1'); await key('Enter'); await settle(150);
@@ -165,7 +165,7 @@ if (fi) {
 } catch (e) { check('a focused text field holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // a finger, here the mouse, held down does not hold it: it moves on CD_MS after the task's event
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane(); x = a.l + 150; y = a.b - 90;
 await mdrag(x, y, x + 50, y - 20); t0 = Date.now();
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x + 50, y: y - 20, button: 'left', clickCount: 1 });
@@ -176,7 +176,7 @@ await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + 50, y: y 
 try {
 // the page hidden holds it (document.hidden and visibilitychange, as a switch of tabs gives them; a frozen page in
 // headless Chrome stops its frames for good, so it is not used here)
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 await ev(`Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); 1`);
 check('a hidden page: no advance in 5 s', await stays('basics/x', 5000), await lit());
@@ -186,7 +186,7 @@ check('a hidden page: CD_MS after it shows again', near(at, CDMS, 200), at);
 } catch (e) { check('the page hidden (frozen) holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // cancels: a press on the strip's text; Back; a step reached with Back; Move on by itself off
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(300);
 const txt = await center('.ts-l1');
 const tText = Date.now();
@@ -197,11 +197,11 @@ await click(bk[0], bk[1]); await settle(1200);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 check('a step reached with Back: tick, no advance in 6 s', await stays('basics/x', 6000) && (await lit()).done);
 await ev('Tour.auto(false)');
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 check('Move on by itself off: tick and ring, no advance in 6 s', await stays('basics/x', 6000) && (await ev(`document.querySelector('.ts-next').classList.contains('ready')`)));
 // (r3 review regress-6: a door too)
-await go('views', 0);
+await goStep('views', 0);
 const phd = await center('#viewSwitch > [data-mode="phase"]');
 await click(phd[0], phd[1]);
 check('Move on by itself off: a door (Three views) ticks and stays 2 × CD_MS', await stays('views/switch', CDMS * 2) && (await lit()).done, await lit());
@@ -209,7 +209,7 @@ await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // (r3 review user-5) a chapter's end with a task (Patterns): tick and result, then 3 s into the next chapter
-await go('views', 5);
+await goStep('views', 5);
 const st = await center('#patternSeg .pat[data-pat="stretch"]');
 await click(st[0], st[1]); t0 = Date.now();
 const dP = await doneAt(t0);
@@ -218,7 +218,7 @@ check('Patterns (a chapter\'s end): tick and result', /Blue shrinks/.test(await 
 const aP = await advanceFrom('views/patterns', dP, 250);
 check('Patterns: moves on CD_MS after, into Editing the chain (late only as far as the page was blocked)', aP.ok && (await cur()) === 'edit/cards', [aP, dP, await cur()]);
 // (r3 review user-1) once a task is done the spotlight steps aside: the shade fades and lets presses through
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(400);
 const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('.tour-root .tour-dim'); const e = document.elementFromPoint(innerWidth - 40, innerHeight - 40); return { quiet: L.quiet, op: getComputedStyle(s).opacity, hit: e && !e.closest('[data-tour]') }; })()`);
 check('done: the spotlight steps aside (quiet, faded, presses reach the app)', qq.quiet && +qq.op < 0.05 && qq.hit, qq);
@@ -226,7 +226,7 @@ check('done: the spotlight steps aside (quiet, faded, presses reach the app)', q
 try {
 // reduced motion: Next counts down "Next · 2", "· 1" (the seconds left of 1.5)
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 const labels = [];
 for (let i = 0; i < 14; i++) { labels.push(await ev(`document.querySelector('.ts-next') && document.querySelector('.ts-next').textContent`)); await sleep(250); }
@@ -238,7 +238,7 @@ await ev('Tour.stop()'); await settle(400);
 try {
 // ---------------- the Constructions chapter at 1440 (mouse): "Drag z2 across the line" is done by a disc turning into a
 // half-plane or its outside, and the outside is only a complement flip (issue #34, T4)
-await go('construct', 0);
+await goStep('construct', 0);
 const w2s = (x, y) => ev(`__cmwPlaneMenu().w2s('L', ${x}, ${y})`);
 const c3b = await center('#constructTools .tool[data-tool="circle3"], #tools .tool[data-tool="circle3"]');
 if (c3b) await click(c3b[0], c3b[1]);
@@ -257,7 +257,7 @@ await ev('Tour.stop()'); await settle(300);
 try {
 // ---------------- the Sound chapter at 1440 (mouse): Grieg, the phase lines' laps, a loop; the settings come back
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
-await go('sound', 0);
+await goStep('sound', 0);
 // (the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 const ab = await center('.ts-act');
@@ -304,13 +304,13 @@ check('Sound settings: the sound given back there (off, as the user had it)', aw
 await ev('Tour.next()'); await settle(1500);
 check('after the chapter: sound and Hear the function off again (as the user had them)', await ev(`Sound.prefs().on === false && Sound.prefs().sonify === false`), await ev('Sound.prefs()'));
 // Esc mid-chapter, and a reload mid-chapter, give them back too
-await go('sound', 1);
+await goStep('sound', 1);
 const sb = await center('.ts-act');
 if (sb) { await click(sb[0], sb[1]); await settle(400); }
 check('Turn on sound: sound and Hear the function on', await ev(`Sound.prefs().on === true && Sound.prefs().sonify === true`));
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(500);
 check('after Esc: both off again', await ev(`!Tour.isActive() && Sound.prefs().on === false && Sound.prefs().sonify === false`), await ev('Sound.prefs()'));
-await go('sound', 1);
+await goStep('sound', 1);
 const sb2 = await center('.ts-act');
 if (sb2) { await click(sb2[0], sb2[1]); await settle(400); }
 await nav(U + '?ns=au1'); await settle(1800);
@@ -320,13 +320,13 @@ check('after a reload mid-chapter: both off again', await ev(`Sound.prefs().on =
 try {
 // ---------------- 390 × 844, touch, English
 await open('au2', 390, 844, false, true);
-await go('basics', 1);
+await goStep('basics', 1);
 check('phone x: nothing advances in 3.5 s', await stays('basics/x', 3500));
 a = await plane();
 await tdrag(a.r - 60, a.t + 120, a.r - 140, a.t + 170); t0 = Date.now();
 at = await advancedAt('basics/x', t0);
 check('phone x: a touch pan, then 1500 ± 600 ms', near(at, CDMS, 600), at);
-await go('basics', 4);
+await goStep('basics', 4);
 const pd = await center('.ph-tile[data-tool="disc"], #tools > .tool[data-tool="disc"]');
 await tap(pd[0], pd[1]); await settle(300);
 a = await paneBox('#paneL');
@@ -334,7 +334,7 @@ await tdrag(a.r - 160, a.t + 100, a.r - 100, a.t + 160); t0 = Date.now();
 at = await advancedAt('basics/draw', t0);
 check('phone draw: a touch disc, then 1500 ± 600 ms', near(at, CDMS, 600), at);
 // a finger held down does not hold it: CD_MS after the task's event
-await go('basics', 1);
+await goStep('basics', 1);
 a = await plane();
 await tdrag(a.r - 60, a.t + 120, a.r - 140, a.t + 170); t0 = Date.now();
 await T('touchStart', [[a.r - 140, a.t + 170]]); await T('touchMove', [[a.r - 120, a.t + 190]]); await T('touchMove', [[a.r - 100, a.t + 210]]);
@@ -342,7 +342,7 @@ at = await advancedAt('basics/x', t0);
 check('phone: a finger held down: CD_MS after the event all the same', near(at, CDMS, 600), at);
 await T('touchEnd', []);
 // the Why panel holds it, and a touch in X folds it (and reaches the app)
-await go('basics', 1);
+await goStep('basics', 1);
 const pt = await center('.ts-text');
 await tap(pt[0], pt[1]); await settle(300);
 const why = await ev(`(() => { const w = document.querySelector('#tourWhy'), b = w.getBoundingClientRect(); return { open: !w.hidden, h: b.height, max: innerHeight / 2 }; })()`);
@@ -351,7 +351,7 @@ check('phone: Why opens a panel at most half the screen', why.open && why.h > 40
 await tdrag(a.r - 160, a.b - 160, a.r - 240, a.b - 110);
 check('phone: a touch in X folds Why and reaches the app (the pan ticks the task)', await ev(`document.querySelector('#tourWhy').hidden && document.querySelector('.ts-l2').classList.contains('done')`));
 // the Constructions chapter by finger: "Drag z2 across the line" is done by a touch drag too (issue #34, T4)
-await go('construct', 0);
+await goStep('construct', 0);
 const moreK = await center('#toolMore > summary');
 if (moreK) { await tap(moreK[0], moreK[1]); await settle(500); }
 const c3t = await center('.ph-tiles .ph-tile[data-tool="circle3"]');
@@ -371,7 +371,7 @@ try {
 // ---------------- the Sound chapter at 390 × 844, touch, Russian
 await open('au3', 390, 844, true, true, 'ru');
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
-await go('sound', 0);
+await goStep('sound', 0);
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 const ra = await center('.ts-act');
 check('RU Grieg: the strip shows its Listen button', !!ra, await lit());
@@ -415,7 +415,7 @@ await ev('Tour.stop()'); await settle(300);
 check('RU: the sound back off after the tour', await ev(`Sound.prefs().on === false && Sound.prefs().sonify === false`));
 // (r3 review user-6: a change the user makes during the chapter is theirs: Hear the function turned on in the strings
 // step stays on after the chapter)
-await go('sound', 1);
+await goStep('sound', 1);
 const rs2 = await center('.ts-act');
 if (rs2) { await tap(rs2[0], rs2[1]); await settle(400); }
 await ev(`(() => { const c = document.querySelector('#sndSo'); c.checked = false; c.dispatchEvent(new Event('change')); c.checked = true; c.dispatchEvent(new Event('change')); return 1; })()`);
@@ -428,11 +428,11 @@ try {
 // ---------------- r3 review: the phone fixes at 390 × 844 and 360 × 740 (touch)
 await open('au4', 390, 844, false, true);
 // user-7: × and the chevron in the portrait row; Next an arrow named by its label
-await go('basics', 1);
+await goStep('basics', 1);
 const row = await ev(`(() => { const s = document.querySelector('.tour-strip'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'; const x = s.querySelector('.ts-x'), n = s.querySelector('.ts-next'); return { x: vis(x) && x.getBoundingClientRect().width >= 44, chev: vis(s.querySelector('.ts-chev svg')), next: n.getAttribute('aria-label'), w: n.getBoundingClientRect().width }; })()`);
 check('phone: × End in the portrait row (44 px), a chevron after the count, Next an arrow named Next (Skip while a task is open)', row.x && row.chev && (row.next === 'Next' || row.next === 'Skip') && row.w >= 44, row);
 // user-1: the chain, the card then the lens in the sheet: ticked, nothing holds it, the sheet's × works, moves on
-await go('basics', 7);
+await goStep('basics', 7);
 // (#246: the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
 if (!(await center('#pipeline .card[data-k="1"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(800); } }
 const c1 = await center('#pipeline .card[data-k="1"]');
@@ -448,7 +448,7 @@ check('phone chain: the sheet\'s close button can be pressed (no shade over it)'
 const aC = await advanceFrom('basics/chain', dC, 600);
 check('phone chain: moves on CD_MS after the lens (late only as far as the page was blocked)', aC.ok, [aC, dC]);
 // user-2: Sets from formulas asks its task on a phone too, and moves on
-await go('basics', 6);
+await goStep('basics', 6);
 const fl = await ev(`document.querySelector('#tourLead').textContent`);
 check('phone formula: the task shows (a ring), not a lead', /Type/.test(fl) && !(await ev(`document.querySelector('.ts-ring').hidden`)), fl);
 const pf = await center('#formulaInput');
@@ -463,7 +463,7 @@ if (pf) {
   check('phone formula: Add ticks it and it moves on CD_MS after it is done (late only as far as the page was blocked)', aF.ok, [aF, dF, await lit()]);
 } else check('phone formula: the field is there', false);
 // user-9: a hold shorter than the ring pans Y: the line says why
-await go('basics', 3);
+await goStep('basics', 3);
 const pr = await paneBox('#paneR');
 await tdrag(pr.l + (pr.r - pr.l) / 2, pr.t + (pr.b - pr.t) / 2, pr.l + (pr.r - pr.l) / 2 + 60, pr.t + (pr.b - pr.t) / 2 + 20, 250);
 await sleep(500);
@@ -475,7 +475,7 @@ check('phone: no style left on the root after the tour', await ev(`document.docu
 // user-3: Russian at 360 px: every caption and the result fit, the strip three lines in the Sound chapter
 await open('au5', 360, 740, true, true, 'ru');
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
-await go('sound', 0);
+await goStep('sound', 0);
 const need = await ev('Tour._t.needLines()');
 check('RU 360: the Sound chapter needs at most 3 lines, and the strip has them', need <= 3 && (await lit()).lines === Math.max(2, need), [need, (await lit()).lines]);
 const pa = await center('.ts-act');
@@ -490,7 +490,7 @@ check('RU 360: four captions and the result, none cut, the title in place', seen
 await ev('Tour.isActive() && Tour.stop()'); await settle(300);
 // user-10: landscape Russian, Part of the chain: the strip takes the row under the header, its task not cut
 await open('au6', 844, 390, true, true, 'ru');
-await go('deform', 4);
+await goStep('deform', 4);
 const lr = await ev(`(() => { const s = document.querySelector('.tour-strip'), l2 = s.querySelector('.ts-l2'), t = s.querySelector('.ts-text'); return { mode: s.dataset.mode, cut: l2.getBoundingClientRect().bottom > s.getBoundingClientRect().bottom + 0.5 || t.scrollHeight > t.clientHeight + 1, lead: document.querySelector('#tourLead').textContent }; })()`);
 check('RU landscape: Part of the chain\'s task not cut (the row under the header)', !lr.cut, lr);
 await ev('Tour.isActive() && Tour.stop()'); await settle(300);
@@ -498,7 +498,7 @@ await ev('Tour.isActive() && Tour.stop()'); await settle(300);
 try {
 // ---------------- a small laptop (1366 × 657): no sheet (a laptop's strip is one row); the panes keep their size
 await open('au7', 1366, 657, false, false);
-await go('analysis', 0);
+await goStep('analysis', 0);
 const p0 = await paneBox('#panes');
 const wt = await center('.ts-l1');
 await click(wt[0], wt[1]); await settle(400);
@@ -511,7 +511,7 @@ await ev('Tour.stop()'); await settle(300);
 try {
 // the screen-reader line of the tour (class tour-sr, #tourSay) is out of the flow: at 1366 × 768 the page is not taller than the window
 await open('au8', 1366, 768, false, false);
-await go('analysis', 0); await ev('Tour.stop()'); await settle(300); // the tour's CSS is injected on first use
+await goStep('analysis', 0); await ev('Tour.stop()'); await settle(300); // the tour's CSS is injected on first use
 const sh = await ev(`(() => { const n = document.createElement('div'); n.className = 'tour-sr'; n.textContent = 'x'; document.body.append(n); const r = { sh: document.documentElement.scrollHeight, ih: innerHeight, top: Math.round(n.getBoundingClientRect().top) }; n.remove(); return r; })()`);
 check('1366 × 768: a tour-sr line at the end of the body does not make the page taller than the window', sh.sh <= sh.ih, sh);
 } catch (e) { check('1366 × 768 page height' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
