@@ -1,4 +1,4 @@
-// The audio thread's cost (v15.2, notes/sound/AS-BUILT-v152.md): src/sound.js's worklet (the synth: palette B's
+// The audio thread's cost (notes/sound/AS-BUILT-v152.md): src/sound.js's worklet (the synth: palette B's
 // parts, the harp's strings, the texture, the singer; Hear the function's marimba bars, its Glide and the declared
 // limiter) run in node, the same V8 as Chrome's AudioWorklet. µs per
 // 128-frame quantum over 15,000 quanta after 3,000 of warm-up, median of 3 runs, as a share of real time on one core
