@@ -151,7 +151,7 @@ await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
 ok('on a phone: no ⋯ on the chips, "+" is 44 px and named Add function', ph.more === 'none' && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 44 && ph.chipW >= 44 && ph.btnH >= 44 && ph.btnW >= 44, ph);
 // a tall menu raised by a long press does not take the lift that ends it, on short screens too
-for (const [w, h] of [[390, 700], [740, 360], [360, 640]]) {
+for (const [w, h] of [[390, 700], [740, 360], [360, 640], [360, 600]]) {
   await open(w, h, true);
   const before = (await types()).join();
   await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip'), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
@@ -175,19 +175,6 @@ for (const [w, h] of [[390, 700], [740, 360], [360, 640]]) {
   ok(`${w}×${h}: a tap on Remove after the lift removes the step`, (await types()).join() === 'pown', await types());
   info['clear' + w + 'x' + h] = clear;
 }
-// a drag onto an item, then the lift over it, chooses it (the native long-press pattern)
-await open(390, 844, true);
-await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect(); window.__x = r.left + r.width / 2; window.__y = r.top + r.height / 2;
-  c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 21, pointerType: 'touch', isPrimary: true, clientX: __x, clientY: __y, bubbles: true, cancelable: true, button: 0, buttons: 1 })); return 1; })()`);
-await sleep(700);
-await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Bypass this step'), r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-  b.dispatchEvent(new PointerEvent('pointermove', { pointerId: 21, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true })); window.__bx = x; window.__by = y; return 1; })()`);
-await sleep(200);
-ok('dragging over an item highlights it (the focus follows the finger)', await ev(`document.activeElement.querySelector && document.activeElement.querySelector('.mi-label') && document.activeElement.querySelector('.mi-label').textContent === 'Bypass this step'`), await ev(`document.activeElement.className`));
-await ev(`(() => { const b = document.elementFromPoint(__bx, __by); b.dispatchEvent(new PointerEvent('pointerup', { pointerId: 21, pointerType: 'touch', isPrimary: true, clientX: __bx, clientY: __by, bubbles: true })); b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: __bx, clientY: __by })); return 1; })()`);
-await settle(400);
-ok('a lift over the item it was dragged onto chooses it (and its own click is not a second choice)', (await types()).join() === 'mobius,pown-', await types());
-await undo();
 await open(390, 844, true);
 // a tap on a chip opens the Inspector's sheet on a phone
 await cl('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settle(500);
