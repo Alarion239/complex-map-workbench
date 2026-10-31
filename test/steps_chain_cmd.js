@@ -158,7 +158,12 @@ for (const [w, h] of [[390, 700], [740, 360], [360, 640]]) {
     const ev1 = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 11, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }));
     window.__lp1 = () => { const t = document.elementFromPoint(x, y) || c; ev1('pointerup'); t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y })); };
     window.__fin = { x, y }; ev1('pointerdown'); return 1; })()`);
-  await sleep(700);
+  await sleep(520);
+  // (the lift lands on whatever the menu put under the finger, whichever item that is: on Remove here, 70 ms after it opened)
+  await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Remove'); if (!b) return 0; b.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', bubbles: true })); b.click(); return 1; })()`);
+  await sleep(300);
+  ok(`${w}×${h}: a click on Remove in the first 450 ms after a long press raised the menu does nothing`, (await types()).join() === before && (await menu()).length > 0, [before, await types(), (await menu()).length]);
+  await sleep(300);
   const menuUp = await menu();
   const clear = await ev(`(() => { const p = document.querySelector('#popHost .menu'); if (!p) return null; const r = p.getBoundingClientRect(), f = window.__fin; return !(f.x >= r.left && f.x <= r.right && f.y >= r.top && f.y <= r.bottom); })()`);
   await ev(`__lp1(); 1`); await settle(300);
