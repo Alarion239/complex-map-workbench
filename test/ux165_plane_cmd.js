@@ -423,8 +423,9 @@ await section('L86', async () => {
   await laptop();
   await load(NS + 'n', { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 60 }, snap: true });
   await settle(700);
-  info.l86 = await ev(`({ tool: document.querySelector('#tools .tool[data-tool="cgrid"]').dataset.tip, pat: (document.querySelector('#patternSeg [data-pat="grid"], #patternSeg .pat[data-v="grid"]') || {}).textContent || [...document.querySelectorAll('#patternSeg .pat')].map((b) => b.textContent.trim()).join('|') })`);
-  ok('UX86 the tool is "Line grid", the pattern "Square grid"', info.l86.tool === 'Line grid' && /Square grid/.test(info.l86.pat), info.l86);
+  // (#363: the region patterns, "Square grid" among them, are gone: the regions are filled by the phase)
+  info.l86 = await ev(`({ tool: document.querySelector('#tools .tool[data-tool="cgrid"]').dataset.tip, pats: document.querySelectorAll('#patternSeg, [data-pat]').length })`);
+  ok('UX86 the tool is "Line grid", and no pattern menu', info.l86.tool === 'Line grid' && info.l86.pats === 0, info.l86);
   // UX94: Snap says its state in a word
   const sn = await ev(`(() => { const b = document.getElementById('snapBtn'); return { t: b.textContent.trim(), on: b.getAttribute('aria-pressed'), bg: getComputedStyle(b).backgroundColor }; })()`);
   ok('UX94 the Snap button says "Snap" and is filled when on', sn.t === 'Snap' && sn.on === 'true' && sn.bg !== 'rgba(0, 0, 0, 0)', sn);
@@ -433,7 +434,7 @@ await section('L86', async () => {
   const a = await W(0.3, 0.2);
   await drag(a[0], a[1], a[0] + 24, a[1], 8, 16); await settle(400);
   info.l91 = await toastText();
-  ok('UX91 a word when an added shape refits the pattern cell', /^The pattern cell is now .*, fitted to the shapes/.test(info.l91), info.l91);
+  ok('UX91 a word when an added shape refits the grid step (#363: the grid lines\' step)', /^The grid step is now .*, fitted to the shapes/.test(info.l91), info.l91);
   // UX94: off is outlined, not filled (moves that snap are the rail piece's, work/xu1-rail)
   await tool('select');
   const id = (await ST()).list[0].id;

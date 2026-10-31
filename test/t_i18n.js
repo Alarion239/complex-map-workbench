@@ -434,7 +434,7 @@ eq(I18N._resolve({ nav: nav(['ru-RU', 'en']) }), 'ru', 'phase 2b: ru-RU resolves
   // the strings phase 2b wrapped (they were left in English): each is in the shipped table
   // (v16.5 UX27: 'Domain plane' and 'Image plane', the canvases' names, are now "X, the z-plane: domain of F" and "Y, the
   // w-plane: image of F" (notes/i18n/ru/v165-ux-plane.json): no source holds the old two, so the table drops them)
-  for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Log-polar', 'Pause', 'Play', 'Show', 'Hide',
+  for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Pause', 'Play', 'Show', 'Hide',
     'Radii must be 0 or more', 'Use a whole number from 1 to 60', 'Half-strip to half-plane', 'Principal branch', 'WebGL2 is unavailable, so regions cannot be drawn']) ok(Object.prototype.hasOwnProperty.call(RU_ALL, k), 'phase 2b wrapped string in the table: ' + k);
 }
 // ---------------- phase 2b review fixes (notes/i18n/ledger-2b.json) ----------------

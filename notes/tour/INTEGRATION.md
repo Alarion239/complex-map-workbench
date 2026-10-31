@@ -81,7 +81,7 @@ const tourApi = {
 
   // ---- the user's work (REQUIRED for the tour's scenes: snapshot, restore and loadScene together, see below)
   snapshot() -> { state, mem },          // state: JSON-serialisable, what writeState saves (the persisted state,
-                                         // with the user's look: pattern, opacity, heights, styles); mem: what lives
+                                         // with the user's look: opacity, heights, styles); mem: what lives
                                          // in memory only (the undo history and its index, the focus, the transport,
                                          // the open panels). Must not be null
   restore(snap, opt) -> boolean,         // put it back exactly, in place, then save(). Return false (or throw) when it
@@ -105,7 +105,7 @@ const tourApi = {
   focusStep(k),                          // 0 = Whole chain, k = step k                      (setFocus)
   showPanel(side, sheet?),               // 'left' | 'right': open a collapsed side panel   (setPanels); v15: on a
                                          // phone 'right' opens the Editor sheet (the Inspector), 'left' opens
-                                         // `sheet` ('tools': shapes and formula; 'display': the patterns); a left
+                                         // `sheet` ('tools': shapes and formula; 'display': the regions' display); a left
                                          // drawer it opened (768-1023 px) closes again with closeSheet()
   selectStep(k),                         // v15, optional: select step k (or 'F') for the Inspector  (selectStep)
   showPlane(pane),                       // v15, optional: 'L' | 'R' is the large plane on a phone (the other is
@@ -166,7 +166,6 @@ copy false; `restore()` brings the user's look back with their state.
 
 | key | values | the app's field |
 |---|---|---|
-| `pattern` | the ids of PATTERNS (`'checker'`, `'polar'`, `'stretch'`, …) | `S.pattern` |
 | `alpha` | a number, or null for the app's default | `S.alpha` |
 | `height` | `'log'`, `'abs'`, `'re'`, `'im'` (Landscape) | `S.height` |
 | `sheets` | boolean (Landscape: All sheets) | `S.sheets` |
@@ -189,7 +188,7 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `surfaceL`, `surfaceR` | the Plane · Sphere control of the left (or only) panel, of Y | `#leftTabs`, `#rightTabs` |
 | `tools`, `toolsRail`, `tool:disc` | the Draw section, the collapsed rail's tools, the Disc tool | `#secDraw`, `#railTools`, `.tool[data-tool="disc"]` |
 | `formula`, `shapes` | Region from a formula, the shape list | `#secFormula`, `#secShapes` |
-| `display`, `patterns` | the Display section, its pattern swatches | `#secDisplay`, `#patternSeg` |
+| `display` | the regions' display (#363: their grid lines, chevrons and opacity; no pattern to choose) | `#regionsBox`, Y's Regions button |
 | `chain`, `addStep` | the function chain, its add card | `.pipe-wrap`, `#addStepBtn` |
 | `zpCard` | the card of a zeros-and-poles step | the `.card` around `.params.zp` |
 | `invBtn` | the f⁻¹ button of the first card that has one | the `.card button` whose label is f<sup>−1</sup> |
@@ -226,7 +225,7 @@ once v15 is merged; `test/t_tour.js` of the v15 build reads both tables (the v14
 On a phone (below 768 px, `src/phone.js`): `tools` (`#secDraw`) is the tool row, `chain` (`.pipe-wrap`) the chain bar
 with the F tile and Deformation, `moreBtn` the ⋯ sheet (Guided tour, Reference guide, Search, Export). The Inspector's
 names (`inspector`, `params`, `zpCard`, `invBtn`, the F parts) are in the Editor sheet, which a step's `panel` action
-opens; `formula`, `shapes`, `patterns` and `display` are in closed sheets, so their steps are skipped there.
+opens; `formula`, `shapes` and `display` are in closed sheets, so their steps are skipped there.
 
 ### Features
 
@@ -254,7 +253,6 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 | `shape-added` | `{ kind, plane: 'z' \| 'w' }` | a shape or a target is added (drawn, typed, pasted) |
 | `shape-moved` | `{ id, plane }` | a drag moves or reshapes a shape or a target (once, at the end of the drag) |
 | `step-focused` | `{ k }` | the focus changes (0 = Whole chain) |
-| `pattern-changed` | `{ id }` | the region pattern changes (`'checker'`, `'stretch'`, …, the ids of PATTERNS) |
 | `view-changed` | `{ main }` | the view switch changes (key or click) |
 | `deformation-toggled` | `{ on }` | the transport opens or closes |
 | `deformation-t` | `{ t }` | the user scrubs t (not while playing) |
@@ -350,7 +348,7 @@ Files changed: `build.py`, `src/app.js`, `src/page.html`, `src/tour.js`, `test/t
 - `restore`: in place, then `save()`. From a stash it sanitises the state as a reload does and starts a fresh history.
 - `sandbox(true)` writes any pending save, then `writeState` writes nothing until `sandbox(false)`.
 - `loadScene` is `loadExample(-1, spec)`: the Examples label and `currentExample` stay the user's.
-- `setLook` sets `S.pattern`, `S.alpha`, `S.height`, `S.sheets`, `S.dc`, the Paths flag and the order.
+- `setLook` sets `S.alpha`, `S.height`, `S.sheets`, `S.dc`, the Paths flag and the order.
 - `busy`: a draft, a drag, a selection (shape, zero or pole), the coordinate pad, the tools' More menu, an open drawer.
 - `layerOpen`: a popover of the app (palette, integral, options), the pad, a dialog, an open popover.
 - `onTour(true)` closes the coordinate pad. `onSuggest` is not used: nothing in the app competes with the card.
@@ -505,7 +503,6 @@ shows the chosen tool).
 | `tool:circle3` | the Circle through 3 points tool's button | Circle through three points (a phone: its tile, then the More key) |
 | `viewPhase` | `#viewSwitch > [data-mode="phase"]` | Three views: Choose Phase |
 | `viewLand` | `#viewSwitch > [data-mode="land"]` | Cards follow the view: choose Landscape |
-| `patStretch` | `#patternSeg .pat[data-pat="stretch"]` | Patterns: Choose Stretch (app.js gives each swatch `data-pat`) |
 | `splitBtn` | `#propsPanel .insp-step .split-offer:not([hidden]) .so-btn` | A formula in steps: Split into n steps (the offer is unfolded for the tour's stop without saving the fold) |
 | `card1` | `#pipeline .card[data-k="1"]` | The function chain: double-click (tap) f₁ |
 | `card2Menu` | the card f₂, whose ⋯ shows on it; on a phone, once a tap on it opens the Editor sheet, f₂'s ⋯ there | Part of the chain, on a touch screen (`try.work`) |
@@ -578,8 +575,8 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 | `listen-ended` | `{ piece, fn, closed, W, heard, full }` | a Listen along ends (v16.5: `fn` true when it played the function, `piece` true for the composition): played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
 | `hear-turn` | `{ dir: 1 \| -1 }` | Hear the function: a step of the probe crosses red's line (D, arg F ≡ 0) upward or downward (`Sound.hear` step `dUp` / `dDown`; with today's harp, a low D counted). Was `harp-turn` (v16.4) |
 
-`shape-added` gains `via: 'draw' | 'formula' | 'paste' | 'menu'`. `pattern-changed` is sent by the pattern setter itself
-(a swatch clicked or picked with the keys).
+`shape-added` gains `via: 'draw' | 'formula' | 'paste' | 'menu'`. (`pattern-changed` is gone with the region patterns,
+#363.)
 
 ### Events the tour reads outside a Try it
 

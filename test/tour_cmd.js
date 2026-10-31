@@ -113,10 +113,12 @@ check('Escape with the focus in the callout ends the tour, busy or not', !(await
 
 // 4. Try it completes and advances: the view switch; the portrait's callout sits below it
 await open('t3', { chapter: 'views', step: 0 }, 1440, 900, true);
-// the user's look never leaks into the scene: a Stretch pattern is set back to Checker by the scene's look
-await ev(`document.querySelector('#patternSeg [aria-label="Stretch"]').click()`); await settle(300);
+// the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look (#363:
+// the regions' fill is the phase, there is no pattern to choose)
+await ev(`__cmwSet('alpha', 0.3), 1`); await settle(300);
 await ev(`Tour.start({ chapter: 'views' })`); await settle(1600);
-check('a scene sets its look: Checker even after the user chose Stretch', await ev(`document.querySelector('#patternSeg [aria-label="Checker"]').getAttribute('aria-checked') === 'true'`));
+g = await ev(`__cmwRegions()`);
+check('a scene sets its look: the default opacity even after the user chose 0.3, and the phase fill', g && g.alpha === 0.85 && g.pattern === 'phase', g);
 await snap('tour-views-switch-dark');
 // (r3 review regress-6: a door respects Move on by itself, which this walk turns off: on for the door)
 await ev('Tour.auto(true)');
@@ -139,14 +141,14 @@ await ev('Tour.next()'); await settle(1600);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); const a = L && L.anchor, el = k && k.getClientRects().length ? k.closest('label') : ob, b = el.getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!el.closest('.pane-head'), y: (Tour.lit() || {}).body }; })()`);
 check('Phase key: Y lit, its toggle (or the head\'s ⋯) ringed in the pane head, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
 await snap('tour-phasekey-dark');
-// patterns: Choose Stretch
-await ev('Tour.next()'); await settle(1600);
-check('Patterns step', (await cur()).id === 'patterns', await cur());
-await clickSel('#patternSeg [aria-label="Stretch"]'); await settle(700);
-check('Patterns: choosing Stretch ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
+// (#363) the Phase key ends the chapter: Choose Phase key ticks its Try it
+// (the check, in Y's head or behind its ⋯ / Regions button, whose pop-up holds it while open)
+if (!(await ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`))) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400); }
+await clickSel('label:has(#wKeyChkR)'); await settle(700);
+check('Phase key: turning it on ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
 g = await ev(`({ count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent, label: document.querySelector('.ts-next').getAttribute('aria-label'), h: Math.round(document.querySelector('.ts-row').getBoundingClientRect().height) })`);
-check('end of a chapter: "Next: Editing the chain" (or Next → with that name) on the strip\'s one row', /6 of 6/.test(g.count) && (g.next === 'Next: Editing the chain' || g.label === 'Next: Editing the chain') && g.h <= 62, g);
-await snap('tour-patterns-dark');
+check('end of a chapter: "Next: Editing the chain" (or Next → with that name) on the strip\'s one row', /5 of 5/.test(g.count) && (g.next === 'Next: Editing the chain' || g.label === 'Next: Editing the chain') && g.h <= 62, g);
+await snap('tour-views-end-dark');
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
 await ev(`(() => { const t = document.querySelector('#tip'), c = document.querySelector('.tour-strip').getBoundingClientRect(); t.textContent = 'A tooltip'; t.hidden = false; t.style.left = (c.left + 20) + 'px'; t.style.top = (c.top + 10) + 'px'; })()`);

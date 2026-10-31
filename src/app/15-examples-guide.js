@@ -309,114 +309,26 @@
   }
 
   // ---------------- left-panel display controls ----------------
-  const PATTERNS = [
-    ['checker', $t('Checker'), $t('Checkerboard in z-coordinates: shows how squares are bent and scaled')],
-    ['polar', $t('Log-polar'), $t('Checkerboard in log|z| and arg z: conformal maps keep these cells square')],
-    ['tiles', $t('Tiles'), $t('Tiles with an F glyph: shows rotation, scaling and reflection')],
-    ['grid', $t('Square grid'), $t('Cartesian grid lines of z carried by the map')],
-    ['polargrid', $t('Polar grid'), $t('Circles |z| = const and rays arg z = const carried by the map')],
-    ['phase', $t('Arg z'), $t('Colored by the argument of the source point z')],
-    ['stretch', $t('Stretch'), $t('Local scale factor |F′(z)|: blue shrinks, amber grows')],
-    // (the count follows the pattern size: sphN() longitude cells by sphN() / 2 latitude cells, 128 at size ×1)
-    ['sphere', $t('Sphere checker'), () => $tn('Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞', 'Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞', sphN() * sphN() / 2)],
-    ['solid', $t('Solid'), $t('Flat fill')],
-  ];
-  // live swatches (spec 6.4) in the first shape color's tokens (c0, alt, edge): the accent stays for the selection
-  // ring, Stretch uses the stretch tokens (no red) and Phase the OKLCH wheel of the Phase tab
-  function drawPatternSwatch(cv, id) {
+  // (#363) regions are filled by the phase of z carried by F (the renderer's pattern 'phase'), with the grid lines of
+  // z on them: the head's Regions button shows that fill as its swatch. The renderer's other patterns (solid, ...) stay
+  // for the app's own draws (the steps view's masks), not offered to the user.
+  // the swatch: wheel(arg s, L) with L = 0.62 + 0.14·saw(ln|s| / (π/6)), as the shader does
+  function drawPhaseSwatch(cv) {
     const x = cv.getContext('2d');
-    const W = 52, H = 40, sc = cv.width / W; // 104×80 device px for a 52×40 swatch
-    x.setTransform(sc, 0, 0, sc, 0, 0);
-    const ink = TH.c[0], c0 = ink.c0, c1 = ink.alt, k = ink.edge;
-    const mix = (p, q, t) => { const a = GLR.hexRGB(p), b = GLR.hexRGB(q); return `rgb(${a.map((v, i) => Math.round(255 * (v + (b[i] - v) * t))).join(',')})`; };
-    x.fillStyle = c1; x.fillRect(0, 0, W, H);
-    if (id === 'checker') {
-      const c = 8;
-      x.fillStyle = c0;
-      for (let i = 0; i < W / c; i++) for (let j = 0; j < H / c; j++) if ((i + j) % 2 === 0) x.fillRect(i * c, j * c, c, c);
-    } else if (id === 'tiles') {
-      // a 4×3 checker of c1 and mix(c1, c0, 0.35), large enough for the F (stem, top bar, middle bar; y up)
-      const c = 13;
-      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
-        const ox = i * c, oy = j * c;
-        if ((i + j) % 2 === 0) { x.fillStyle = mix(c1, c0, 0.35); x.fillRect(ox, oy, c, c); }
-        x.fillStyle = k;
-        const box = (u0, u1, v0, v1) => x.fillRect(ox + u0 * c, oy + (1 - v1) * c, (u1 - u0) * c, (v1 - v0) * c);
-        box(0.30, 0.42, 0.18, 0.82); box(0.30, 0.72, 0.70, 0.82); box(0.30, 0.62, 0.46, 0.56);
-      }
-    } else if (id === 'polar' || id === 'polargrid') {
-      const cx = W * 0.25, cy = H * 0.9;
-      x.lineWidth = 1;
-      for (let r = 2, n = 0; r < 70; r *= 1.48, n++) {
-        for (let q = 0; q < 16; q++) {
-          if (id === 'polar' && (n + q) % 2) continue;
-          x.beginPath();
-          x.arc(cx, cy, r * 1.48, -q * Math.PI / 8, -(q + 1) * Math.PI / 8, true);
-          x.arc(cx, cy, r, -(q + 1) * Math.PI / 8, -q * Math.PI / 8, false);
-          x.closePath();
-          if (id === 'polar') { x.fillStyle = c0; x.fill(); }
-        }
-        if (id === 'polargrid') { x.strokeStyle = c0; x.beginPath(); x.arc(cx, cy, r, 0, TAU); x.stroke(); }
-      }
-      if (id === 'polargrid') {
-        x.strokeStyle = k;
-        for (let q = 0; q < 24; q++) {
-          const a = q * 15 * DEG, axis = q % 6 === 0;
-          x.globalAlpha = axis ? 1 : 0.7; x.lineWidth = axis ? 1.75 : 1;
-          x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + 80 * Math.cos(a), cy - 80 * Math.sin(a)); x.stroke();
-        }
-        x.globalAlpha = 1;
-      }
-    } else if (id === 'grid') {
-      // Re lines 1.25px k, Im lines 1px c0, every 5th +0.5px
-      for (let i = 0, n = 0; i <= W; i += 8, n++) { x.strokeStyle = k; x.lineWidth = n % 5 ? 1.25 : 1.75; x.beginPath(); x.moveTo(i + 2, 0); x.lineTo(i + 2, H); x.stroke(); }
-      for (let j = 0, n = 0; j <= H; j += 8, n++) { x.strokeStyle = c0; x.lineWidth = n % 5 ? 1 : 1.5; x.beginPath(); x.moveTo(0, j + 4); x.lineTo(W, j + 4); x.stroke(); }
-    } else if (id === 'phase') {
-      // wheel(arg s, L) with L = 0.62 + 0.14·saw(ln|s| / (π/6)), as the shader does
-      x.setTransform(1, 0, 0, 1, 0, 0);
-      const PW = cv.width, PH = cv.height, img = x.createImageData(PW, PH), u = 14 * sc; // 14 CSS px per unit
-      for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
-        const re = (i + 0.5 - PW / 2) / u, im = (PH / 2 - j - 0.5) / u;
-        const lr = Math.log(Math.hypot(re, im) || 1e-9) / (Math.PI / 6);
-        const rgb = GLR.phaseRGB(Math.atan2(im, re), 0.62 + 0.14 * (lr - Math.floor(lr)));
-        const o = 4 * (j * PW + i); img.data[o] = rgb[0] * 255; img.data[o + 1] = rgb[1] * 255; img.data[o + 2] = rgb[2] * 255; img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0);
-    } else if (id === 'sphere') {
-      // the spherical checker about 0 (SPEC 6.3): 16 longitude sectors, latitude rings at |z| = tan(j pi / 16)
-      x.setTransform(1, 0, 0, 1, 0, 0);
-      const PW = cv.width, PH = cv.height, img = x.createImageData(PW, PH), u = 15 * sc, a = GLR.hexRGB(c0), b = GLR.hexRGB(c1);
-      for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
-        const re = (i + 0.5 - PW / 2) / u, im = (PH / 2 - j - 0.5) / u;
-        const th = Math.atan2(im, re), lat = 2 * Math.atan(Math.hypot(re, im));
-        const par = (Math.floor(th * 16 / TAU) + Math.floor(lat * 8 / Math.PI)) & 1, c = par ? b : a;
-        const o = 4 * (j * PW + i); img.data[o] = c[0] * 255; img.data[o + 1] = c[1] * 255; img.data[o + 2] = c[2] * 255; img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0);
-    } else if (id === 'stretch') {
-      const g = x.createLinearGradient(0, 0, W, 0);
-      g.addColorStop(0, TH.stretchShrink); g.addColorStop(0.5, TH.stretchMid); g.addColorStop(1, TH.stretchGrow);
-      x.fillStyle = g; x.fillRect(0, 0, W, H);
-    } else {
-      x.fillStyle = c0; x.fillRect(0, 0, W, H);
+    const sc = cv.width / 52; // 104×80 device px for a 52×40 swatch
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    const PW = cv.width, PH = cv.height, img = x.createImageData(PW, PH), u = 14 * sc; // 14 CSS px per unit
+    for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
+      const re = (i + 0.5 - PW / 2) / u, im = (PH / 2 - j - 0.5) / u;
+      const lr = Math.log(Math.hypot(re, im) || 1e-9) / (Math.PI / 6);
+      const rgb = GLR.phaseRGB(Math.atan2(im, re), 0.62 + 0.14 * (lr - Math.floor(lr)));
+      const o = 4 * (j * PW + i); img.data[o] = rgb[0] * 255; img.data[o + 1] = rgb[1] * 255; img.data[o + 2] = rgb[2] * 255; img.data[o + 3] = 255;
     }
+    x.putImageData(img, 0, 0);
   }
   function buildDisplay() {
-    const pat = $('patternSeg');
-    pat.innerHTML = '';
-    for (const [v, l, tip] of PATTERNS) {
-      const cv = h('canvas', { width: 104, height: 80, 'aria-hidden': 'true' });
-      const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-pat': v, 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
-        onclick: () => { setOpt('pattern', v); buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
-      pat.append(b);
-      drawPatternSwatch(cv, v);
-    }
-    // ([v17 D5; #247] the pane heads' pattern buttons: their swatch and name)
-    for (const pb of document.querySelectorAll('.pat-btn')) {
-      const sw = pb.querySelector('.disp-sw'), p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
-      if (sw) drawPatternSwatch(sw, S.pattern);
-      pb.setAttribute('aria-label', name); pb.setAttribute('data-tip', name);
-    }
+    // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)
+    for (const sw of document.querySelectorAll('.pat-btn .disp-sw')) drawPhaseSwatch(sw);
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
@@ -781,8 +693,8 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
-    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+    // (#247: also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
+    const LP_SEL = '.tool[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
     // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
@@ -960,7 +872,7 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'pipeline', 'patternSeg', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
+    for (const id of ['shapeList', 'pipeline', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }

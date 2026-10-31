@@ -1242,7 +1242,6 @@
     $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
-    radioKeys($('patternSeg'));
   }
   // (#385) the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
   function setupPaneButtons() {

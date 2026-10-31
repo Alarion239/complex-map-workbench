@@ -1095,10 +1095,11 @@
       if (!size) size = Math.max(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
       const was = cellBase;
       cellBase = Axes.niceStep(size / 10);
-      // [v16.5 UX91] a shape the user just added refits the pattern on everything: said once, with where to change it
-      if (cellSay && was && was !== cellBase && S.pattern !== 'sphere') {
+      // [v16.5 UX91] a shape the user just added refits the grid on everything: said once, with where to change it
+      // (#363: while the regions' grid lines are drawn, the one thing the cell changes)
+      if (cellSay && was && was !== cellBase && S.lines) {
         const x = I18N.num(CX.fmtNum(cellBase * (S.patternScale || 1), 4).replace('-', '−'));
-        setTimeout(() => toast($t('The pattern cell is now {x}, fitted to the shapes; Display → Cell changes it.', { x })), 0);
+        setTimeout(() => toast($t('The grid step is now {x}, fitted to the shapes; Regions → Grid step changes it.', { x })), 0);
         cellSaid = true;
       }
       cellSay = false;

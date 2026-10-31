@@ -201,8 +201,9 @@ await shot('p3_g_left');
 // ---- (i) the spherical checker on the GPU: log(H) columns at Re w = ln tan(j pi / 16) +- 0.5 px
 await load('p3i' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base, { pattern: 'sphere' }));
 await settle();
-R.menu = await ev(`[...document.querySelectorAll('#patternSeg .pat')].map((b) => b.getAttribute('aria-label'))`);
-ok('(i) the menu offers Sphere checker', R.menu.includes('Sphere checker'), R.menu);
+// (#363: the renderer's spherical checker stays, drawn here through the test hook; the user has no pattern menu)
+R.menu = await ev(`document.querySelectorAll('#patternSeg, [data-pat]').length`);
+ok('(i) no pattern menu: the regions are filled by the phase', R.menu === 0, R.menu);
 R.i = await ev(`(() => {
   const lk = __cmwLook('s1', 'R'), s = lk.view.s * lk.dpr, W = lk.W, Hh = lk.H;
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));

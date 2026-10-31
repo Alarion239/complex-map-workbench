@@ -8,7 +8,7 @@
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
-    // ([v17 D4; #247] the head's pattern button shows its caret unless the title needs that room: then its swatch alone,
+    // ([v17 D4; #247; #363] the head's Regions button shows its caret unless the title needs that room: then its swatch alone,
     // e.g. Y's head at 1366 px with the chain empty and Add function there)
     const disp = pane.querySelector('.pane-head .pat-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
@@ -443,8 +443,8 @@
     ft.n = n;
     const rest = kids.slice(n);
     let b = null;
-    // (in a head with the pattern button and nothing else inline, Y's in the X → Y view, the controls that do not fit go
-    // into the pattern's pop-up above the patterns: one button, as narrow as the Display button was)
+    // (in a head with the Regions button and nothing else inline, Y's in the X → Y view, the controls that do not fit go
+    // into the Regions pop-up above the regions' options: one button, as narrow as the Display button was)
     const merged = !!pat && n === 0 && rest.length > 0;
     ft.merged = merged;
     if (rest.length && !merged) {
@@ -458,18 +458,19 @@
     f.classList.toggle('collapsed', !n);
     if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
-      // (the open pop-up follows its controls: the pattern's while they are merged into it, else the ⋯'s)
+      // (the open pop-up follows its controls: the Regions pop-up while they are merged into it, else the ⋯'s)
       if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
       else if (b) openFootPop(b, true, side); else closePalette();
     }
   }
-  // ([v17 D5, #82; #247] in the X → Y view the shapes' pattern, a swatch in the pane head: its pop-up holds the regions'
-  // display, page.html's #regionsBox (pattern, cell, grid lines, chevrons, opacity), lent while it is open)
+  // ([v17 D5, #82; #247; #363] in the X → Y view the Regions button in the pane head, a swatch of the regions' fill (the
+  // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
+  // opacity), lent while it is open)
   function patternBtn(side) {
-    const p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+    const name = $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
-    drawPatternSwatch(b.firstChild, S.pattern);
+    drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
     return b;
   }
@@ -477,7 +478,7 @@
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
-    // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the pattern button's, the regions'
+    // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
@@ -500,7 +501,7 @@
     }
     // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
     const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the pattern
+    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the Regions
     // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
     const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
     const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
@@ -1027,9 +1028,10 @@
     if (foot.L.kids.length || foot.R.kids.length) layoutFoot(true);
     if (moved) drawLegend();   // (the chip's words, written when it is in the head)
   }
-  // the key chip's words in the pane head: the pattern's cell (Y), or what X's colours show
+  // the key chip's words in the pane head: the grid's cell while the regions' grid lines are drawn, else their fill, the
+  // phase of z (Y, #363), or what X's colours show
   function legendSum(kind) {
-    if (kind === 'image') return S.pattern === 'stretch' ? $t('Scale |F′|') : S.pattern === 'sphere' ? $t('Sphere cells') : $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) });
+    if (kind === 'image') return S.lines ? $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) }) : $t('Phase of z');
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() {
@@ -1073,7 +1075,7 @@
     const want = !!kind;
     if (box.hidden === want) box.hidden = !want;
     // (the folded chip on a phone shows a glyph of its key: the hue wheel, arg increasing counterclockwise from red at
-    // 1, or a checker for the Pattern key)
+    // 1, or a checker for the Regions key)
     if (kind && box.parentNode && box.parentNode.classList && box.parentNode.classList.contains('pane-head')) {
       let sm = box.querySelector(':scope > .lg-sum');
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
@@ -1081,7 +1083,7 @@
       if (sm.textContent !== tx) sm.textContent = tx;
       // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
       // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
+      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
@@ -1113,7 +1115,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1150,38 +1152,23 @@
     ctx.textBaseline = 'middle';
     st.strip = false;
     if (kind === 'image') {
-      // pattern key: the cell size in z, plus markers present in the plane
+      // the regions' key (#363): their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
+      // markers present in the plane
       ctx.font = `600 11px ${TH.ui}`; ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      if (S.pattern === 'stretch') {
-        // the local scale ramp: blue shrinks, amber grows
-        ctx.fillText($t('Scale |F′|'), 8, 13);
-        const g = ctx.createLinearGradient(8, 0, 128, 0);
-        g.addColorStop(0, TH.stretchShrink); g.addColorStop(0.5, TH.stretchMid); g.addColorStop(1, TH.stretchGrow);
-        ctx.fillStyle = g; ctx.fillRect(8, 22, 120, 8);
-        ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1; ctx.strokeRect(8.5, 22.5, 119, 7);
-        ctx.font = `10px ${TH.mono}`; ctx.fillStyle = TH.muted;
-        ctx.textAlign = 'left'; ctx.fillText('×⅛', 8, 40); ctx.textAlign = 'center'; ctx.fillText('1', 68, 40); ctx.textAlign = 'right'; ctx.fillText('×8', 128, 40);
-        ctx.textAlign = 'left';
-      } else {
-        ctx.fillText($t('Pattern'), 8, 13);
-        // "cell 0.5 in z" as one run: words in Archivo, the number in B612 Mono, z in STIX italic
-        let x = 8;
-        const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
-        if (S.pattern === 'sphere') {
-          // the spherical checker has no cell size in z: its longitude x latitude cells of the Riemann sphere (SPEC 6.3)
-          run(`${sphN()} × ${sphN() / 2}`, `11px ${TH.mono}`, TH.ink);
-          run($t(' cells of the sphere'), `11px ${TH.ui}`, TH.muted);
-        } else {
-          // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
-          // the plane's name is never cut (review ui-3). English draws as before
-          const parts = [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
-          let k = 1;
-          if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
-          if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
-          for (const [t, f, c] of parts) run(t, f, c);
-          if (k < 1) ctx.restore();
-        }
-      }
+      ctx.fillText($t('Regions'), 8, 13);
+      // "cell 0.5 in z" as one run: words in Archivo, the number in B612 Mono, z in STIX italic
+      let x = 8;
+      const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
+      // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
+      // the plane's name is never cut (review ui-3). English draws as before
+      const parts = S.lines
+        ? [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]]
+        : [[$t('phase of '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
+      let k = 1;
+      if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
+      if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
+      for (const [t, f, c] of parts) run(t, f, c);
+      if (k < 1) ctx.restore();
       // only marks that this plane actually draws
       let y = 52;
       ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;

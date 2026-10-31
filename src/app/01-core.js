@@ -231,7 +231,7 @@
   function takeId() { return S.nextId++; }
   function blankState() {
     return {
-      shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
+      shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
       alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
       patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
@@ -535,7 +535,6 @@
       o.v4 = true; o.alpha = 0.85; o.meshN = 240;
       for (const sh of o.shapes) { if (!sh || typeof sh !== 'object') continue; const i = OLD_PALETTE.indexOf(sh.color); if (i >= 0) { sh.ci = i; delete sh.color; } else if (!sh.color) sh.ci = sh.ci || 0; }
     }
-    if (o.pattern === 'hue') o.pattern = 'phase';
     delete o.quality;
     let dropped = 0;
     const steps = [];
@@ -629,7 +628,9 @@
     { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }   // (#366)
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
     st.v5 = true;
-    if (!PATTERNS.some((p) => p[0] === st.pattern)) st.pattern = d0.pattern;
+    // (#363) regions are filled by the phase of z alone: a saved or linked pattern (checker, stretch, ...) opens as the
+    // phase; its cell (patternScale) stays the grid lines' spacing
+    st.pattern = 'phase';
     if (!DC_STYLES.some((p) => p[0] === st.dc)) st.dc = d0.dc;
     if (st.solo !== 'L' && st.solo !== 'R') st.solo = null;
     // enumerated settings: an unknown value (another build, a damaged save) falls back to the default

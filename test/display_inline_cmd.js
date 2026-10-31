@@ -2,7 +2,8 @@
 // options on one row: in the Phase view the style's six glyphs (one click each; option 1: no word, each name is the
 // tooltip and the accessible name, the chosen one's the header's style button), and Outlines and Unit circle as icon
 // toggles named for screen readers; n (only for the styles it changes) and what the head has no room for are behind a
-// ⋯ button, with no title. In the X → Y view a pattern button holds the shapes' pattern. On a phone the Display sheet
+// ⋯ button, with no title. In the X → Y view a Regions button holds the regions' display (#363: their fill is the
+// phase of z, no pattern to choose). On a phone the Display sheet
 // starts with the styles' row (no "This view" title), its targets 44 px or more. Laptop and phone, English and
 // Russian. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -134,27 +135,29 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   const tag = `${w} ${lang || 'en'} X → Y`;
   for (const side of ['L', 'R']) {
     const hd = await head(side);
-    ok(`${tag} ${side}: no Display button; a pattern button; nothing overflows or is cut`, !hd.disp && hd.pat && !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
+    ok(`${tag} ${side}: no Display button; a Regions button; nothing overflows or is cut`, !hd.disp && hd.pat && !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
     if (w === 1440 && !lang) ok(`${tag} ${side}: the title shows`, hd.title && hd.title.shown, hd.title);
   }
   const pb = await ev(`(() => { const b = document.querySelector('#rightFoot .pat-btn'); return { name: b.getAttribute('aria-label'), tip: b.dataset.tip, h: b.getBoundingClientRect().height }; })()`);
-  ok(`${tag}: the pattern button is named for the pattern`, /(Pattern|Узор): \S/.test(pb.name) && pb.tip === pb.name, pb);
+  ok(`${tag}: the Regions button is named Regions`, /^(Regions|Области)$/.test(pb.name) && pb.tip === pb.name, pb);
   await ev(`document.querySelector('#rightFoot .pat-btn').click()`); await settle(500);
-  let p = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); if (!p) return null; const b = p.getBoundingClientRect(), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { pats: p.querySelectorAll('#patternSeg .pat').length, titles: p.querySelectorAll('.opts-h').length, under: b.top >= hd.bottom - 1, exp: document.querySelector('#rightFoot .pat-btn').getAttribute('aria-expanded') }; })()`);
-  ok(`${tag}: the pattern button opens the patterns, under the head, with no title`, p && p.pats >= 8 && p.titles === 0 && p.under && p.exp === 'true', p);
-  await ev(`document.querySelector('#patternSeg .pat[data-pat="polar"]').click()`); await settle(500);
-  ok(`${tag}: a pattern picked there applies, and the button's name follows`, (await ev(`(document.querySelector('#patternSeg .pat.on') || {}).dataset?.pat`)) === 'polar' && /Log|Лог/.test(await ev(`document.querySelector('#rightFoot .pat-btn').getAttribute('aria-label')`)), [await ev(`(document.querySelector('#patternSeg .pat.on') || {}).dataset?.pat`), await ev(`document.querySelector('#rightFoot .pat-btn').getAttribute('aria-label')`)]);
+  let p = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); if (!p) return null; const b = p.getBoundingClientRect(), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { swatches: p.querySelectorAll('#patternSeg, .pat, [data-pat], #regionsBox canvas').length, ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => p.querySelector('#' + id)), titles: p.querySelectorAll('.opts-h').length, under: b.top >= hd.bottom - 1, exp: document.querySelector('#rightFoot .pat-btn').getAttribute('aria-expanded') }; })()`);
+  ok(`${tag}: the Regions button opens the regions' options (grid lines, their step, chevrons, opacity), no pattern swatches, under the head, with no title`, p && p.swatches === 0 && p.ids.length === 4 && p.titles === 0 && p.under && p.exp === 'true', p);
+  const lines0 = await ev(`document.getElementById('linesChk').checked`);
+  await ev(`document.getElementById('linesChk').click()`); await settle(500);
+  ok(`${tag}: Grid lines on regions toggles there, and the fill stays the phase`, (await ev(`(() => { const r = __cmwRegions(); return r.lines === ${!lines0} && r.pattern === 'phase'; })()`)), lines0);
+  await ev(`document.getElementById('linesChk').click()`); await settle(300);
   await key('Escape'); await settle(300);
   ok(`${tag}: Escape closes it, and the regions' box goes home`, (await pops()) === 0 && (await ev(`document.getElementById('regionsBox').parentElement.id`)) === 'regionsHome', await ev(`document.getElementById('regionsBox').parentElement.id`));
   // View outline, Phase key, Unit circle: inline in Y's head, or behind its ⋯ (with no title); with nothing inline, in
-  // the pattern button's pop-up above the patterns (one button, #247 option 1)
+  // the Regions button's pop-up above the regions' options (one button, #247 option 1)
   for (const id of ['fovChk', 'wKeyChkR', 'unitChk']) {
     let c = await ctl(id);
     let opened = false;
     if (!(c && c.vis && c.inHead)) {
       await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400);
       opened = true; c = await ctl(id);
-      ok(`${tag}: ${id} not in the head is in the ⋯ or pattern pop-up, with no title`, c && c.vis && c.inPop && (await ev(`document.querySelectorAll('#popHost .opts-h').length`)) === 0, c);
+      ok(`${tag}: ${id} not in the head is in the ⋯ or Regions pop-up, with no title`, c && c.vis && c.inPop && (await ev(`document.querySelectorAll('#popHost .opts-h').length`)) === 0, c);
     } else ok(`${tag}: ${id} in Y's head is an icon toggle named for screen readers`, c.w <= 30 && c.name.length > 2, c);
     const was = c && c.checked;
     await clickId(id); await settle(400);
@@ -250,10 +253,10 @@ for (const lang of ['', 'ru']) {
   ok(`${tag}: each style ≥ 44 × 44 px with its word, inside the sheet, none broken`, sh && sh.btns && sh.btns.every((b) => b.w >= 44 && b.h >= 44 && b.in && b.word && !b.broken.length), sh && sh.btns);
   await ev(`Phone.close(true)`); await settle(300);
 }
-// the tour's Phase key step where Y's head holds no toggle (they are merged into the pattern button's pop-up): the step
+// the tour's Phase key step where Y's head holds no toggle (they are merged into the Regions button's pop-up): the step
 // is visited, not skipped as missing, and it lights the control that holds the key. The runners' wider fonts merged
 // them at 1440 px, where the tour shard runs; here the step is run at four narrower widths with wider titles, and at
-// one of them at least the key must be behind the pattern button, so the merged case is the one checked
+// one of them at least the key must be behind the Regions button, so the merged case is the one checked
 {
   const runs = [];
   for (const w of [1280, 1180, 1100, 1024]) {
@@ -277,7 +280,7 @@ for (const lang of ['', 'ru']) {
     ok(`${w} en X → Y: the tour visits the Phase key step (not skipped as missing)`, ids.includes('key'), ids);
     ok(`${w} en X → Y: the Phase key step lights the control that holds the key`, lit && lit.a && lit.k && Math.abs(lit.a.l - lit.k.l) < 2 && Math.abs(lit.a.r - lit.k.r) < 2, lit);
   }
-  ok('the Phase key step was checked with the key behind the pattern button at one width at least', runs.some((r) => r.lit && r.lit.pat), runs.map((r) => [r.w, r.lit && r.lit.pat]));
+  ok('the Phase key step was checked with the key behind the Regions button at one width at least', runs.some((r) => r.lit && r.lit.pat), runs.map((r) => [r.w, r.lit && r.lit.pat]));
 }
 // the per-frame path (#320): MP.renderRight lays the heads out every pan or zoom frame. With nothing changed, a frame
 // touches nothing in either pane head (no class written, no child moved) and forces no layout: Chrome's own counter over

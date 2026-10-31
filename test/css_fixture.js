@@ -68,18 +68,20 @@
     row(2, 'area', 'Half-plane 2', '\\Im z > 0', '') + '</div>' +
     row(3, 'curve', 'Line 3', 'line through 0, 1+i', '') + '</div>' +
     row(4, 'point', 'Point a', '0.5+0.5i', 'hidden-shape', true) + '</div>';
-  // patterns
-  const PATS = ['Checker', 'Conformal', 'Graph paper', 'Polar web', 'Tiles', 'Phase', 'Area scale', 'Solid'];
-  $('patternSeg').innerHTML = PATS.map((p, i) => `<button class="pat${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}"><canvas width="104" height="80"></canvas><span>${p}</span></button>`).join('');
-  const cs = getComputedStyle(document.documentElement);
-  const tok = (n) => cs.getPropertyValue(n).trim();
-  [...$('patternSeg').querySelectorAll('canvas')].forEach((c, i) => {
-    const x = c.getContext('2d');
-    x.fillStyle = tok('--c1-alt'); x.fillRect(0, 0, 104, 80);
-    x.fillStyle = tok('--c1');
-    if (i === 7) { x.fillRect(0, 0, 104, 80); return; }
-    for (let a = 0; a < 104; a += 16) for (let b = 0; b < 80; b += 16) if (((a + b) / 16) % 2 === 0) x.fillRect(a + (i * 3) % 8, b, 16, 16);
-  });
+  // patterns (#363: the page has none since the regions' fill is the phase alone)
+  if ($('patternSeg')) {
+    const PATS = ['Checker', 'Conformal', 'Graph paper', 'Polar web', 'Tiles', 'Phase', 'Area scale', 'Solid'];
+    $('patternSeg').innerHTML = PATS.map((p, i) => `<button class="pat${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}"><canvas width="104" height="80"></canvas><span>${p}</span></button>`).join('');
+    const cs = getComputedStyle(document.documentElement);
+    const tok = (n) => cs.getPropertyValue(n).trim();
+    [...$('patternSeg').querySelectorAll('canvas')].forEach((c, i) => {
+      const x = c.getContext('2d');
+      x.fillStyle = tok('--c1-alt'); x.fillRect(0, 0, 104, 80);
+      x.fillStyle = tok('--c1');
+      if (i === 7) { x.fillRect(0, 0, 104, 80); return; }
+      for (let a = 0; a < 104; a += 16) for (let b = 0; b < 80; b += 16) if (((a + b) / 16) % 2 === 0) x.fillRect(a + (i * 3) % 8, b, 16, 16);
+    });
+  }
   $('patDesc').textContent = 'Squares stay squares under conformal maps.';
   $('patScale').value = 0; $('patScaleVal').textContent = '×1';
   $('alphaRange').value = 0.85; $('alphaVal').textContent = '0.85';

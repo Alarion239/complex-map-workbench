@@ -100,6 +100,12 @@ H.load = async (ns, st, extra) => {
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns }, S); await sleep(2200);
+  // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
+  // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
+  // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
+  if (o.pattern && o.pattern !== 'phase') {
+    for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(o.pattern)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); }
+  }
   return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };

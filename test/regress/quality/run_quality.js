@@ -231,7 +231,7 @@ async function renderRun(B, run, opt) {
   B.logs.length = 0;
   await B.send('Page.navigate', { url: `${opt.base}/test.html?ns=${ns}` });
   // wait for the app, then until the right canvas stops changing and nothing is in progress
-  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false;
+  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false, patSet = false;
   const deadline = t0 + opt.timeoutMs;
   await sleep(600);
   while (Date.now() < deadline) {
@@ -241,6 +241,9 @@ async function renderRun(B, run, opt) {
       const r = await B.ev(`({ h: __qreg.hash(), b: __qreg.busy(), ready: typeof __cmwState === 'function' })`);
       h = r.ready ? r.h : null; busy = r.b;
       // (a globe's camera is not in the saved state: pinned here once the app is up, before the canvas may settle)
+      // (#363: the app opens a saved pattern as the phase, the user's one region fill; the scenes' patterns, solid,
+      // checker and polar, are the renderer's own and are set here through the test hook once the app is up)
+      if (r.ready && !patSet && run.state && run.state.pattern && run.state.pattern !== 'phase') { await B.ev(`__cmwSet('pattern', ${JSON.stringify(run.state.pattern)}), 1`); patSet = true; last = null; continue; }
       if (r.ready && run.cam && !camSet) { const { side, ...o } = run.cam; await B.ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(o)}), 1`); camSet = true; last = null; continue; }
     } catch (e) { h = null; }
     const now = Date.now();
