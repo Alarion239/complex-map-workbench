@@ -112,7 +112,7 @@ const MAP = [
   ['src/page.html', Object.assign(ui('desktop', 'phone'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,parse,funcs,natpaths,sheets,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
