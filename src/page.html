@@ -1484,6 +1484,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pop.pad { width: min-content; min-width: 208px; padding: 8px; }
 .pad > canvas { display: block; width: 192px; height: 192px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; cursor: crosshair; touch-action: none; }
 .pad > .lbl { margin-top: 2px; text-wrap: pretty; }
+/* (#363) the Regions pop-up's description wraps: on one line it widened the pop-up past its box and cut the values */
+#regionsBox > .lbl { white-space: normal; text-wrap: pretty; }
 .pad-read { margin: 6px 0 4px; font: var(--t-readout); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pad .row, .pad-rows { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 8px; margin-top: 4px; }
 .pad .scrub { display: flex; }
