@@ -49,7 +49,7 @@ on:
         options: [gate, glprof]
         default: gate
       walk:
-        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples; mountain: only the Mountain King, its Landscape and deformation; steps: the steps view, a glide, a scrub and a plane past the colour plane on three chains, #439)'
+        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples; mountain: only the Mountain King, its Landscape and deformation; steps: the steps view on Strip to disk, the zeros of zeta and the Mountain King: a glide, a scrub and a plane past the colour plane, #439)'
         type: choice
         options: [all, extended, quick, mountain, steps]
         default: all
