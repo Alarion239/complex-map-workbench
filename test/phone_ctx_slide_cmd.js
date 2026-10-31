@@ -9,6 +9,17 @@ const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) 
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
+// (a slow runner delivers a selection late: wait for the bar to be open, or gone, as a condition with a limit that fails loudly,
+// not after a fixed pause; -> whether it got there)
+const waitBar = async (open, ms = 12000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const ok1 = await ev(`(() => { const b = document.querySelector('.ph-ctx'); const is = !!b && !b.hidden && b.classList.contains('in'); return ${open ? 'is' : '!is'}; })()`);
+    if (ok1) { await sleep(open ? 350 : 100); return true; }
+    await sleep(100);
+  }
+  return false;
+};
 const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(900); };
 for (const [w, h] of [[390, 844], [360, 640]]) {
   for (const v of ['', '&view=steps']) {
@@ -22,9 +33,13 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
       window.__civ = setInterval(() => { const c = chain().getBoundingClientRect(), p = document.getElementById('paneL').getBoundingClientRect(), x = document.querySelector('.ph-ctx'), q = x && !x.hidden ? x.getBoundingClientRect() : null;
         window.__cs.push({ t: Math.round(performance.now() - t0), ct: Math.round(c.top), co: +getComputedStyle(chain()).opacity, ph: Math.round(p.height), bt: q ? Math.round(q.top) : null, bo: q ? +getComputedStyle(x).opacity : null }); }, 25); return 1; })()`);
     await sleep(300);
-    await ev(`__cmwSelect('s1'), 1`); await sleep(900);
+    await ev(`__cmwSelect('s1'), 1`);
+    ok(`${tag}: the bar opens within 12 s of the selection`, await waitBar(true), 'never open');
     await ev(`__cmwSelect('s2'), 1`); await sleep(500);
-    await ev(`__cmwSelect(null), 1`); await sleep(700);
+    ok(`${tag}: the bar is still open on the next shape`, await waitBar(true), 'closed');
+    await ev(`__cmwSelect(null), 1`);
+    ok(`${tag}: the bar goes within 12 s of the release`, await waitBar(false), 'still open');
+    await sleep(300);
     const cs = await ev(`clearInterval(window.__civ), window.__cs`);
     const ct0 = cs[0].ct, ph0 = cs[0].ph;
     const moved = cs.filter((x) => x.ct !== ct0 || x.ph !== ph0 || x.co !== 1);
@@ -54,21 +69,22 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
         const els = [...document.querySelectorAll('.viewstack .vbtn, .pane:not(.ph-inset) .ph-col .ph-key, .pane.ph-inset > .ph-swap')].filter(vis);
         return { bar: b && [Math.round(b.top), Math.round(b.bottom)], items: els.map((e) => { const q = e.getBoundingClientRect(), t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return { id: e.id || e.className.toString().slice(0, 18), top: Math.round(q.top), bottom: Math.round(q.bottom), hit: !!t && (t === e || e.contains(t)) }; }) }; })()`);
       const closed = await probe();
-      await ev(`__cmwSelect('s1'), 1`); await sleep(900);
+      await ev(`__cmwSelect('s1'), 1`);
+      ok(`${tag}: the bar opens within 12 s of the selection`, await waitBar(true), 'never open');
       const open = await probe();
       info['float ' + tag] = { closed: closed.items.length, open };
       ok(`${tag}: the floating controls are there (Fit view at least)`, open.items.some((x) => /Fit$/.test(x.id)), open);
       ok(`${tag}: with the bar open every floating control is what is under its centre`, open.items.every((x) => x.hit), open.items.filter((x) => !x.hit));
       ok(`${tag}: and none of them reaches into the bar`, !open.bar || open.items.every((x) => x.bottom <= open.bar[0] + 1 || x.top >= open.bar[1] - 1), open);
       ok(`${tag}: the bar was open`, !!open.bar, open);
-      await ev(`__cmwSelect(null), 1`); await sleep(500);
+      await ev(`__cmwSelect(null), 1`); await waitBar(false);
     }
   }
 }
 // reduced motion: no slide
 await view(390, 844, false, true); await load('pcsrm-' + Date.now(), ST); await waitPh();
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-await ev(`__cmwSelect('s1'), 1`); await settle(500);
+await ev(`__cmwSelect('s1'), 1`); ok('reduced motion: the bar opens within 12 s of the selection', await waitBar(true), 'never open');
 const rm = await ev(`(() => { const x = document.querySelector('.ph-ctx'); const c = getComputedStyle(x); return { dur: c.transitionDuration, shown: !x.hidden }; })()`);
 ok('reduced motion: the bar has no transition', rm.shown && /^(0s,? ?)+$/.test(rm.dur), rm);
 await send('Emulation.setEmulatedMedia', { features: [] });
