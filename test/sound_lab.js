@@ -44,7 +44,7 @@
     for (let i = 0; i < n; i++) if (Math.max(Math.abs(L[i]), Math.abs(R[i])) > peak * 1e-3) lastLoud = i;
     const o = Math.round(onset * fs);
     let first = 0; for (let i = o; i < o + Math.round(0.00025 * fs); i++) first = Math.max(first, Math.abs(L[i]), Math.abs(R[i]));
-    // (v15.2: the synth ends each part on a sample of exactly 0; the cue's end time is the sum of its parts' rounded
+    // (the synth ends each part on a sample of exactly 0; the cue's end time is the sum of its parts' rounded
     // lengths, so the sample read is 2 after it: 0 when nothing is left sounding, as a step would not be)
     let end = 0; if (stopAt) { const s = Math.min(n - 1, Math.round(stopAt * fs) + 2); end = Math.max(Math.abs(L[s]), Math.abs(R[s])); }
     let N = 1; while (N < n) N <<= 1;

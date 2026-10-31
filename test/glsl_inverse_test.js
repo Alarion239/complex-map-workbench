@@ -106,7 +106,7 @@ window.__invTestRun = async (opts = {}) => {
   }
   // ---- shapes ----
   const SH = [];
-  const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (v16: the exact-form discs, when constr.js is loaded)
+  const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)
   function randShape(id) {
     const c = [rf(-2.5, 2.5), rf(-2.5, 2.5)], k = pick(['disc', 'disc', 'rect', 'halfplane', 'halfplane', 'sector', 'sector', 'annulus', 'polygon', 'polygon', 'cdisc', 'chalf', 'cpoly', 'formula']);
     return shapeOfKind(id, k, c);
@@ -356,7 +356,7 @@ void main() {
         for (let r = 0; r < Math.min(8, lv.length); r++) {
           const c = lv[r], q = at(10 + r);
           if (!isF(c.z) && !(c.lam)) continue;
-          // (v16: an exact-form disc of radius up to 1e7 passes through far sheets too. A leaf at key D lies about 2^D window
+          // (an exact-form disc of radius up to 1e7 passes through far sheets too. A leaf at key D lies about 2^D window
           // radii from the view, where float32 holds the leaf's own position only to 6e-8 * 2^D radii: from D = 12 on that
           // is 0.03 px and more, so those leaves are compared on the CPU's side only; GDEEP counts them)
           if (shape._g && !(c.D <= 12)) { R.skipped.gDeep = (R.skipped.gDeep || 0) + 1; continue; }
