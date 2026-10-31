@@ -5,7 +5,7 @@
   // the header: the icons, the command field, its fit (init: before the view controls)
   function setupHeader() {
     // right tabs
-    for (const el of document.querySelectorAll('.ic-slot[data-icon]')) el.innerHTML = ICONS[el.dataset.icon] || '';
+    for (const el of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ic-slot[data-icon]'))) el.innerHTML = ICONS[el.dataset.icon] || '';
     $('cmdKbd').textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K';
     $('cmdBtn').addEventListener('click', (e) => openPalette(e.currentTarget));
     hdrFitInit();
@@ -21,13 +21,13 @@
       const ph = isPhone();
       if (ph === wasPhone) return;
       wasPhone = ph;
-      for (const d of document.querySelectorAll('details.psec')) {
-        const s = d.querySelector(':scope > summary');
+      for (const d of /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll('details.psec'))) {
+        const s = /** @type {HTMLElement | null} */ (d.querySelector(':scope > summary'));
         if (!s) continue;
         if (ph) s.removeAttribute('tabindex'); else { s.tabIndex = -1; d.open = true; }
       }
     };
-    for (const d of document.querySelectorAll('details.psec')) d.addEventListener('toggle', () => { if (!isPhone() && !d.open) d.open = true; });
+    for (const d of /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll('details.psec'))) d.addEventListener('toggle', () => { if (!isPhone() && !d.open) d.open = true; });
     new MutationObserver(syncSections).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     syncSections();
   }
@@ -39,7 +39,7 @@
       const t = e.target instanceof Element ? e.target : null;
       if (!t || document.documentElement.classList.contains('ph') || (e.pointerType && e.pointerType !== 'mouse')) return;
       const card = t.closest('#pipeline .card[data-k]'), row = !card && t.closest('.shape-row');
-      const more = card ? card.querySelector('.card-head .more') : row ? row.querySelector(':scope > .more') : null;
+      const more = /** @type {HTMLButtonElement | null} */ (card ? card.querySelector('.card-head .more') : row ? row.querySelector(':scope > .more') : null);
       if (!more || more.disabled) return;
       e.preventDefault();
       if (popEl && popEl._opener === more) closePalette();
@@ -87,8 +87,8 @@
       const l = isDrawer('L') && !S.hideLeft && !inL, r = isDrawer('R') && !S.hideRight && !inR;
       if (l || r) setPanels(S.hideLeft || l, S.hideRight || r);
     }, true);
-    $('meshRange').addEventListener('change', (e) => setMesh(posToMesh(+e.target.value)));
-    for (const b of document.querySelectorAll('#meshPresets button')) b.addEventListener('click', () => setMesh(+b.dataset.n));
+    $('meshRange').addEventListener('change', (e) => setMesh(posToMesh(+/** @type {HTMLInputElement} */ (e.target).value)));
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#meshPresets button'))) b.addEventListener('click', () => setMesh(+b.dataset.n));
     $('toggleLeft').addEventListener('click', () => setPanels(!S.hideLeft, S.hideRight));
     $('toggleRight').addEventListener('click', () => setPanels(S.hideLeft, !S.hideRight));
     $('leftCollapse').addEventListener('click', () => setPanels(true, S.hideRight));
