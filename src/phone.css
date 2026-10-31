@@ -438,7 +438,7 @@ html:not(.ph) .ph-only { display: none !important; }
 
 :root.ph.ph-land .ph-grab { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .ph-sheet, :root.ph .pipe-wrap { transition: none !important; }
+  .ph-sheet, :root.ph .pipe-wrap, .ph-ctx { transition: none !important; }
 }
 
 /* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
@@ -539,9 +539,14 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-badge[hidden] { display: none; }
 /* D3: the context bar above the tool row; the planes give up its height from the bottom */
 :root.ph { --ph-ctx: 0px; }
-:root.ph.ph-ctx-on, :root.ph.ph-toast-on { --ph-ctx: 56px; }
-.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
+/* (#463) the context bar overlays the bottom of the planes, above the chain bar (or the steps strip) and slides out from behind it:
+   nothing else on the screen moves for it. A toast still takes its row (the planes give it room) */
+:root.ph { --ph-cbelow: var(--ph-chain); }
+:root.ph.sv { --ph-cbelow: 60px; }
+:root.ph.ph-toast-on { --ph-ctx: 56px; }
+.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
+.ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
 :root.ph.ph-land .ph-ctx { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 .ph-ct { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .ph-ctn { font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -557,7 +562,6 @@ html:not(.ph) .ph-only { display: none !important; }
 /* a construction's sentence ("Pick a point or an empty spot · 1 of 3") may take two lines */
 .ph-ctx[data-k="construct"] .ph-ctn { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 13px; line-height: 17px; }
 /* the orthogonal circle's bar: its sentence, ⌫ and × over Whole | Inside | Outside */
-:root.ph.ph-ctx-tall { --ph-ctx: 104px; }
 .ph-ctx.tall { height: 104px; flex-wrap: wrap; align-content: center; row-gap: 4px; }
 .ph-ctx.tall > .ph-ct { flex: 1 1 0; min-height: 44px; }
 .ph-ctseg { flex: 1 0 100%; min-width: 0; display: flex; gap: 4px; }
