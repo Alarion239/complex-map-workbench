@@ -843,9 +843,17 @@ async function openFresh() {
 // [#366 A2, #448] the steps view's first glide (?view=steps): once the view has opened and idled SV_IDLE_MS (its glide
 // programs prestarted through KHR_parallel_shader_compile, svPrestart), the first glide's longest frame must stay under
 // SV_FIRST_LIMIT (no synchronous program link); its LINK_STATUS waits over 5 ms are counted. A warm glide's frame p95
-// for comparison. Scenes: the default page, and zeta (example 18), whose chain is long. The reference lacks the view
-// (no __cmwSteps): the unit is NEW there (refCannot)
+// for comparison. Scenes: the default page, and the zeros of zeta (looked up by name), whose chain is long. The
+// reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
 const SV_FIRST_LIMIT = 50, SV_IDLE_MS = 3000;
+// an example's index by its English name, read with ci/glprof.js's pattern (an example inserted before it moves the
+// index, not the scene); a name that is not an example's throws: the unit never measures another scene in its place
+function exampleIndex(name) {
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
+  const i = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'")).indexOf(name);
+  if (i < 0) throw new Error(`no example named ${name} (src/app/15-examples-guide.js)`);
+  return i;
+}
 const SV_LINKWAIT = `(() => { if (window.__svLw) return; const W = window.__svLw = { n: 0, ms: 0 };
   for (const P of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype]) {
     const f = P.getProgramParameter;
@@ -858,7 +866,7 @@ async function svFirstGlideUnit() {
       await B.nav(`${BASE}test.html?ns=perfsv${process.pid}_${++nsCounter}&view=steps`);
       await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
       await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
-      if (scene === 'zeta') await B.ev('__cmwExample(18), 1');
+      if (scene === 'zeta') await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
       await settle(await pageNow());
       if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
       await sleep(SV_IDLE_MS);

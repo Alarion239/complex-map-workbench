@@ -812,7 +812,7 @@
       const curves = [];
       // (export review r3, editor-9: X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
       // Homework figure)
-      const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (v16: the bracket's start, H_0 = Q o P)
+      const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
       if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
       shapes.forEach((s, si) => {
         if (kindType(s) === 'point') return;
@@ -921,7 +921,7 @@
     const art = await artPanel('R', box, w, o, { T: m });
     if (!art) return null;
     const Hm = Hof(m), curves = [];
-    const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (v16: the bracket's start, H_0 = Q o P)
+    const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
     for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
     let bwI = 0;
     for (const s of shapes) {

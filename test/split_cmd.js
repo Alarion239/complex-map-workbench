@@ -1,4 +1,4 @@
-// v15.2: a formula in steps and one simple function in the search (notes/formula-steps/DESIGN.md 14.2), in the built
+// a formula in steps and one simple function in the search (notes/formula-steps/DESIGN.md 14.2), in the built
 // page (dist/test.html), English and Russian, light and dark, desktop 1440, tablet 1024 and 768, phone 390 and 360
 // with Android Chrome emulation:
 //  1. the search: a query that is one catalog step lists that step first and Enter adds it (no formula step); two or
@@ -347,7 +347,7 @@ await open('fsTour', { steps: [] });
   await ev(`Tour.start({ chapter: 'edit' })`); await settle(2000);
   const seen = [];
   for (let i = 0; i < 6; i++) {
-    // (v16.4: the step's title is in the docked strip, #tourTitle; the pop-up card and its h2 are gone)
+    // (the step's title is in the docked strip, #tourTitle; the pop-up card and its h2 are gone)
     const cur = await ev(`(() => { const t = document.querySelector('.tour-strip #tourTitle'); return t ? t.textContent : null; })()`);
     const b = await block();
     seen.push([cur, b ? !b.hidden : false]);
