@@ -413,7 +413,7 @@
     if (!rec || !rec.ok) return 'error';
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    let pr = invProgram(B, globe, true, st.extra);
+    let pr = /** @type {any} */ (invProgram(B, globe, true, st.extra));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
     // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then

@@ -259,10 +259,22 @@ node ci/glprof.js                                  # shader link times, cold and
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
+CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```
+
+**No network (#444).** The test page loads MathJax, the PDF library and the Google Fonts from their CDNs, as the live
+page does. On a machine with no route to them (a cloud sandbox), formulas stay raw TeX and the checks that read typeset
+output fail. `CMW_VENDOR=1` makes the browser daemon (test/cdp_kit/cdpd.js) answer exactly those CDN files from
+`vendor/` (test/cdp_kit/vendor.js; the fonts as @font-face rules over the vendored faces, as the offline page has them)
+and lets every other request through. It is opt-in and never set in CI, which keeps testing the CDN path;
+test/t_vendor_serve.js checks that every CDN URL in src/ and build.py is answered. What it does not fix: in a sandbox
+with SwiftShader (no Vulkan/lavapipe, the CI's GL), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
+holes, the welcome, the palette's Try line are typeset checks) and `custom_show_cmd` passes, but `tour_auto`,
+`ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail there on timing and software-GL
+checks that pass in CI (30 Oct, f4e601a).
 
 ### The Landscape walls suite, by hand
 
