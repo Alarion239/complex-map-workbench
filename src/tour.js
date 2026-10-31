@@ -194,7 +194,8 @@ const Tour = (() => {
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
-          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
+          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.',
+          try: { text: 'Zoom in on a zero or a pole.', touch: 'Spread two fingers on a zero or a pole.', on: 'view-moved', test: (e) => !e || e.how === 'zoom', then: 'All the colours still meet there, however far you zoom.' } },
         { id: 'land', anchor: 'panes', title: 'Landscape', before: [['view', 'land'], ['tool', 'select']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.',
           touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.',
@@ -970,8 +971,9 @@ const Tour = (() => {
 .tour-strip .ts-next { transition: none; }  /* Skip and Next swap in place; no fade between their two looks */
 .tour-strip .ts-next.ready { box-shadow: inset 0 0 0 2px var(--accent-ink); }
 /* (#34 T1) Next is earned: while the step's task is open the button is a quiet outlined Skip */
-.tour-strip .ts-next.skip { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
-.tour-strip .ts-next.skip:hover { color: var(--ink); background: var(--well, var(--surface)); }
+/* (Skip keeps its outlined look under :hover and :active, which the shared .btn.primary rules would fill with the accent: on a touch screen :hover stays on the button just tapped, which was Next a step ago; only a mouse gets the hover shade) */
+.tour-strip .ts-next.skip, .tour-strip .ts-next.skip:not(:disabled):hover, .tour-strip .ts-next.skip:not(:disabled):active { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
+@media (hover: hover) { .tour-strip .ts-next.skip:not(:disabled):hover { color: var(--ink); background: var(--well, var(--surface)); } }
 /* (r3 verify-1: while the countdown runs, the ring leaves out its bottom edge; the bar below is that edge, filling in) */
 .tour-strip .ts-next.ready.counting { box-shadow: inset 0 2px var(--accent-ink), inset 2px 0 var(--accent-ink), inset -2px 0 var(--accent-ink); }
 /* the countdown (r3 review user-4): a bar along Next's bottom edge in Next's own label colour, so it stands off the
@@ -2589,7 +2591,12 @@ const Tour = (() => {
   // back just far enough to show the anchor again
   // a step's title starts with a capital letter: a key shared with a phrase used mid-sentence ('Cauchy integral',
   // «интеграл Коши» in a pane's title) is capitalized here; review-phone-verify extra-ru-cauchy
-  const stepTitle = (st) => { const t = $t(coarse() && st.titleTouch ? st.titleTouch : st.title); return /^[а-яё]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t; };
+  // (a title that is a task reads as one: 'tour step' is the context of a Russian title in the imperative where the same
+  // words, a button or a menu entry elsewhere, stay in the infinitive; a title starting in lower case is capitalised)
+  const stepTitle = (st) => {
+    const raw = coarse() && st.titleTouch ? st.titleTouch : st.title, x = $tx('tour step', raw), t = x !== raw ? x : $t(raw);
+    return /^\p{Ll}/u.test(t) ? t[0].toUpperCase() + t.slice(1) : t;
+  };
   const BACK_MS = 1800;   // (after the last scroll of the panel, or the finger's lift)
   function bringBack(r, H) {
     const ui = r.ui;
