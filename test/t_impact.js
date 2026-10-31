@@ -64,6 +64,8 @@ const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
 // (issue #20: the inverse's ops and patterns, out of inverse.js, are inputs of the same page only)
 for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
+// (issue #20: region.js's line refinement, out of it, selects what region.js selects)
+ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
 ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
