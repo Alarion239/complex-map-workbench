@@ -295,7 +295,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-full.ph-split:not(.ph-land) .pipe-wrap { transform: translateY(calc(-1 * var(--ph-hp, 0px))); }
 .ph-sh { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 4px 0 16px; border-bottom: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
 .ph-sh > .grow { display: none; }
-.ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 44px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
+/* (#483) its hit box is the 18 px strip above the title row, not 44 px over it: a tap on the top of the title or of "Replace f₂" grabbed the
+   sheet. A press anywhere on the head already resizes it (phone.js), so no way to the grabber is lost */
+.ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 18px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
 .ph-grab::before { content: ""; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; translate: -50% 0; border-radius: 2px; background: var(--line-strong); }
 .ph-st { position: relative; flex: 1 1 auto; font: 600 15px/18px var(--f-ui); color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; pointer-events: none; }
 .ph-x { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
@@ -445,8 +447,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (design-3's lamp-only F tile went with the tile, #246: the chain sheet's whole-map row names its guarantees) */
 /* design-10: the Editor has one head, the Inspector's: the grabber is a thin bar above it, × floats at its right end */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 18px; height: 18px; padding: 0; border-bottom: 0; }
-/* (its tap area stays 44 px tall, over the head's title, clear of the head's buttons) */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 44px; z-index: 2; }
+/* (its tap area is 18 px tall, above the head's title, clear of the head's buttons) */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 18px; z-index: 2; }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
