@@ -49,17 +49,36 @@ ok('the offline page has MathJax and the faces inline', /id="cmw-mathjax"/.test(
 ok('the offline page has the PDF library inline, under the ids figure.js looks for', /id="cmw-jspdf"/.test(off) && /id="cmw-svg2pdf"/.test(off) && /jspdf\.umd\.min\.js["'], ["']cmw-jspdf["']\)/.test(pub) && /svg2pdf\.umd\.min\.js["'], ["']cmw-svg2pdf["']\)/.test(pub), null);
 // (its tags: the scripts keep the live page's CDN URLs as strings, used only where the inline faces are missing;
 // test/offline_cmd.js opens it with the network off and counts the requests)
-ok('the offline page has no CDN tag', !/<(?:link|script)\b[^>]*(?:fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\/libs\/mathjax)/.test(off), (off.match(/<(?:link|script)\b[^>]*(?:fonts\.g|mathjax)[^>]*>/g) || []).slice(0, 5));
+ok('the offline page has no CDN tag', !/<(?:link|script)\b[^>]*(?:fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\/libs\/mathjax|npm\/mathjax@|mathjax-stix2-font)/.test(off), (off.match(/<(?:link|script)\b[^>]*(?:fonts\.g|mathjax)[^>]*>/g) || []).slice(0, 5));
 ok('the offline page offers no download of itself', !/<meta name="cmw-offline"/.test(off), null);
 const named = /<meta name="cmw-offline" content="(\d+)">/.exec(pub);
 ok('the published page names the offline page\'s size', named && Number(named[1]) === Buffer.byteLength(off), { named: named && named[1], bytes: Buffer.byteLength(off) });
 // the built pages' size budget (bytes), raised only on purpose: the published page is what every visit loads; the
-// offline page is it plus MathJax (2.2 MB as a JSON block), the faces (0.7 MB as base64) and the PDF library (jsPDF
-// and svg2pdf.js, 0.47 MB, #393), about 3.3 MB more
-const BUDGET = { 'complex-map-workbench.html': 5.25e6, 'complex-map-workbench-offline.html': 8.75e6, offlineExtra: 3.6e6 };
+// offline page is it plus MathJax (MathJax 4 and its STIX2 font, every range of it, which the live page loads on demand,
+// #288: 4.1 MB of JSON, gzipped in base64 as 1.75 MB, #491), the faces (0.7 MB as base64) and the PDF library (jsPDF and
+// svg2pdf.js, 0.47 MB, #393), about 2.95 MB more
+const BUDGET = { 'complex-map-workbench.html': 5.25e6, 'complex-map-workbench-offline.html': 8.0e6, offlineExtra: 3.1e6 };
 const bytes = { 'complex-map-workbench.html': Buffer.byteLength(pub), 'complex-map-workbench-offline.html': Buffer.byteLength(off) };
 for (const f of Object.keys(bytes)) ok(`dist/${f}: ${(bytes[f] / 1e6).toFixed(2)} MB, within its budget of ${BUDGET[f] / 1e6} MB`, bytes[f] <= BUDGET[f], bytes[f]);
 const extra = bytes['complex-map-workbench-offline.html'] - bytes['complex-map-workbench.html'];
 ok(`the offline page's MathJax, faces and PDF library: ${(extra / 1e6).toFixed(2)} MB, within ${BUDGET.offlineExtra / 1e6} MB`, extra > 0 && extra <= BUDGET.offlineExtra, extra);
+// (#491) the offline page's MathJax block: the vendored files' JSON, gzipped, in base64; inflated the two ways the page
+// does (DecompressionStream is zlib's gunzip; fflate's, vendored, where a browser lacks it), it is every file exactly
+{
+  const zlib = require('zlib');
+  const V = path.join(__dirname, '..', 'vendor', 'js');
+  const want = { core: fs.readFileSync(path.join(V, 'tex-svg-nofont.js'), 'utf8'), '[mathjax-stix2]/svg': fs.readFileSync(path.join(V, 'mathjax-stix2', 'svg.js'), 'utf8') };
+  for (const f of fs.readdirSync(path.join(V, 'mathjax-stix2', 'svg', 'dynamic')).filter((n) => n.endsWith('.js')).sort()) want[`[mathjax-stix2]/svg/dynamic/${f}`] = fs.readFileSync(path.join(V, 'mathjax-stix2', 'svg', 'dynamic', f), 'utf8');
+  want['a11y/assistive-mml'] = fs.readFileSync(path.join(V, 'a11y', 'assistive-mml.js'), 'utf8');
+  const blockOf = (id) => { const m = new RegExp(`<script type="application/json" id="${id}">([\\s\\S]*?)</script>`).exec(off); return m ? JSON.parse(m[1]) : null; };
+  const b64 = blockOf('cmw-mathjax'), gz = typeof b64 === 'string' ? Buffer.from(b64, 'base64') : null;
+  const viaZlib = gz ? JSON.parse(zlib.gunzipSync(gz).toString('utf8')) : null;
+  const ff = new Function('module', 'exports', blockOf('cmw-fflate') + '\nreturn module.exports;')({ exports: {} }, {});
+  const viaFflate = gz && ff && ff.gunzipSync ? JSON.parse(ff.strFromU8(ff.gunzipSync(new Uint8Array(gz)))) : null;
+  const same = (o) => !!o && Object.keys(o).length === Object.keys(want).length && Object.keys(want).every((k) => o[k] === want[k]);
+  ok('the offline page\'s MathJax block is gzipped (base64) and inflates to the vendored files (zlib, as DecompressionStream)', same(viaZlib), gz && gz.length);
+  ok('… and the same through the page\'s fallback, fflate', same(viaFflate), !!viaFflate);
+  ok('… with no name or time in its gzip header (the same bytes from the same input)', !!gz && gz.readUInt32LE(4) === 0 && (gz[3] & 0x08) === 0, gz && [...gz.subarray(0, 10)]);
+}
 console.log(fails ? `${fails} checks FAILED` : 'the published page: every script parses, hooks dropped whole; the offline page: its own MathJax and faces, within budget');
 process.exit(fails ? 1 : 0);

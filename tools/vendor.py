@@ -6,8 +6,10 @@ network, it reads vendor/ only.
     python3 tools/vendor.py --update   the same, recording new tarball hashes (after a version change below)
 
 What it writes:
-  vendor/js/       MathJax's tex-svg.js (the typesetter), and jsPDF and svg2pdf.js (the figure export's PDF, loaded on
-                   the first PDF export; issue #393), for the offline page
+  vendor/js/       fflate's inflate (the offline page's MathJax block is gzipped, #491: where a browser lacks
+                   DecompressionStream), MathJax's tex-svg-nofont.js (the typesetter) and, in mathjax-stix2/, its STIX2 font (svg.js, and the
+                   rarer ranges in svg/dynamic/ that MathJax loads on demand; #288), and jsPDF and svg2pdf.js (the figure
+                   export's PDF, loaded on the first PDF export; issue #393), for the offline page
   vendor/fonts/    the faces the page sets text in, subset to the characters the app's sources use (chars() below)
                    plus the letters a user may type, and their variation axes cut to the ranges the CSS uses
   vendor/licenses/ the packages' licenses
@@ -32,7 +34,8 @@ VENDOR = root / 'vendor'
 LOCK = VENDOR / 'LOCK.json'
 
 PACKAGES = {
-    'mathjax': '3.2.2',
+    'mathjax': '4.1.3',
+    '@mathjax/mathjax-stix2-font': '4.1.3',
     '@fontsource-variable/archivo': '5.3.0',
     '@fontsource-variable/stix-two-text': '5.3.0',
     '@fontsource/b612-mono': '5.3.0',
@@ -40,12 +43,25 @@ PACKAGES = {
     '@fontsource-variable/roboto-flex': '5.3.0',
     'jspdf': '2.5.1',
     'svg2pdf.js': '2.2.3',
+    'fflate': '0.8.2',
 }
 SCRIPTS = [  # (package, file in the package, vendor/js name)
-    ('mathjax', 'es5/tex-svg.js', 'tex-svg.js'),
+    ('mathjax', 'tex-svg-nofont.js', 'tex-svg-nofont.js'),
+    ('mathjax', 'a11y/assistive-mml.js', 'a11y/assistive-mml.js'),   # the hidden MathML (build.py), loaded by the core
     ('jspdf', 'dist/jspdf.umd.min.js', 'jspdf.umd.min.js'),
     ('svg2pdf.js', 'dist/svg2pdf.umd.min.js', 'svg2pdf.umd.min.js'),
+    ('fflate', 'umd/index.js', 'fflate.umd.js'),   # (#491: the offline page's inflate where DecompressionStream is missing)
 ]
+# MathJax 4's STIX2 font (#288): its SVG data and the dynamic ranges, under vendor/js/mathjax-stix2/ as in the package
+# a package that ships no license file: the package whose license file has the same license's text, and a note
+# (the STIX2 font: Apache-2.0 as MathJax, its glyphs drawn from the STIX Two fonts, SIL OFL 1.1)
+LICENSE_FROM = {
+    '@mathjax/mathjax-stix2-font': ('mathjax', 'Its glyph outlines come from the STIX Two fonts, Copyright 2001-2021 The STIX Fonts Project\n'
+                                    'Authors (https://github.com/stipub/stixfonts), licensed under the SIL Open Font License, Version 1.1:\n'
+                                    'its text is in fontsource-variable__stix-two-text.txt beside this file. The Apache License 2.0 the\n'
+                                    'package declares (the text from MathJax, the same license) follows.'),
+}
+MJ_FONT = ('@mathjax/mathjax-stix2-font', 'mathjax-stix2', re.compile(r'svg\.js|svg/dynamic/[a-z-]+\.js'))
 # The faces, as the Google Fonts stylesheets they replace asked for them (src/page.html, src/i18n.js): the family,
 # the package and its file pattern ({r}: a unicode range's name), the style, the axes' ranges (the others pinned to
 # their defaults), the CSS weight and stretch. set 'ru': the Russian set, loaded with the language only.
@@ -162,12 +178,32 @@ def main():
             pk[name] = {'version': ver, 'sha256': h}
             tars[name] = tar
             lic = next((m for m in tar.getmembers() if re.fullmatch(r'package/LICEN[CS]E(\.\w+)?', m.name)), None)
+            lfile = VENDOR / 'licenses' / (name.replace('/', '__').lstrip('@') + '.txt')
             if lic:
-                (VENDOR / 'licenses' / (name.replace('/', '__').lstrip('@') + '.txt')).write_bytes(tar.extractfile(lic).read())
+                lfile.write_bytes(tar.extractfile(lic).read())
+            else:   # (a package with no license file: the license its package.json declares, and its text from LICENSE_FROM)
+                meta = json.loads(tar.extractfile('package/package.json').read())
+                text = f'{name}@{ver}: {meta.get("license", "no license declared")} (from its package.json; the package ships no license file)\n'
+                if name in LICENSE_FROM:
+                    src_pkg, note = LICENSE_FROM[name]
+                    src_lic = next(m for m in tars[src_pkg].getmembers() if re.fullmatch(r'package/LICEN[CS]E(\.\w+)?', m.name))
+                    text += note + '\n\n' + tars[src_pkg].extractfile(src_lic).read().decode('utf-8')
+                lfile.write_text(text, encoding='utf-8')
         for name, inner, out in SCRIPTS:
             b = tars[name].extractfile('package/' + inner).read()
+            (VENDOR / 'js' / out).parent.mkdir(parents=True, exist_ok=True)
             (VENDOR / 'js' / out).write_bytes(b)
             outs['js/' + out] = {'sha256': sha(b), 'bytes': len(b)}
+        fpkg, fdir, fpat = MJ_FONT
+        for m in sorted(tars[fpkg].getmembers(), key=lambda m: m.name):
+            inner = m.name.split('/', 1)[1]
+            if not m.isfile() or not fpat.fullmatch(inner):
+                continue
+            b = tars[fpkg].extractfile(m).read()
+            dst = VENDOR / 'js' / fdir / inner
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(b)
+            outs[f'js/{fdir}/{inner}'] = {'sha256': sha(b), 'bytes': len(b)}
         for face in FACES:
             tar = tars[face['pkg']]
             pat = re.compile(re.escape(face['file']).replace(re.escape('{r}'), '([a-z-]+?)'))
