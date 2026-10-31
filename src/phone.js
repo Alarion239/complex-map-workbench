@@ -809,7 +809,10 @@ const Phone = (() => {
     const off = typeof A.offlinePage === 'function' ? A.offlinePage() : null;
     group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }),
       off ? row(I.download, off.label, () => { close(true); off.run(); }) : null);
-    group($tx('menu group', 'Look'), seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
+    // (#438) the steps view's Playback sheet (speed and loop): its button is the one in the header menu a phone hides, so this row presses it
+    const svPb = document.querySelector('.sv-playback');
+    const playRow = svPb ? row('', svPb.textContent, () => { close(true); setTimeout(() => svPb.click(), 0); }) : null;
+    group($tx('menu group', 'Look'), playRow, seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
       seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
     const field = h('input', { class: 'ph-search', type: 'search', enterkeyhint: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: $t('Search tools, functions, help…'), 'aria-label': $t('Search tools, functions, help…') });
     const blocks = groups.filter((g) => g.rows.length).map((g) => ({ g, head: h('h3', { class: 'ph-h' }, g.title) }));

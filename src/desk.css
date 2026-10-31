@@ -661,3 +661,4 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet .sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }
 .sv-sheet .sv-loop { height: 44px; min-width: 96px; }
+.sv-sheet .btn { min-height: 44px; min-width: 44px; }

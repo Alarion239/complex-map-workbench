@@ -184,10 +184,14 @@ ok('the sheet\'s Loop sets it', (await S()).loop === true, await S());
 await ctl({ loop: false });
 await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);
 ok('Done closes the sheet and gives the focus back to ▶', await ev(`document.querySelector('.sv-sheet').hidden && document.activeElement === document.querySelector('.sv-play')`), await ev(`document.activeElement.className`));
-const pbk = await ev(`(() => { const b = document.querySelector('.sv-playback'); return b ? { show: getComputedStyle(b).display !== 'none', t: b.textContent } : null; })()`);
-ok('the header\'s ⋯ menu has Playback… (a way to the sheet that needs no long press)', pbk && pbk.show && /Playback/.test(pbk.t), pbk);
-await ev(`document.querySelector('.sv-playback').click(); 1`); await sleep(200);
-ok('… which opens the sheet', await ev(`!document.querySelector('.sv-sheet').hidden`), 'sheet');
+// the phone's Menu sheet has the row (the header's popover is hidden on a phone)
+await ev(`document.getElementById('hdrMoreBtn').click(); 1`); await sleep(700);
+const mr = await ev(`(() => { const r = [...document.querySelectorAll('.ph-sb[data-k="more"] .ph-row')].find((b) => /Playback/.test(b.textContent)); return r ? { name: r.textContent, h: r.getBoundingClientRect().height } : null; })()`);
+ok('the phone\'s Menu sheet has a Playback… row (no long press needed)', mr && mr.h >= 43.5, mr);
+await ev(`[...document.querySelectorAll('.ph-sb[data-k="more"] .ph-row')].find((b) => /Playback/.test(b.textContent)).click(); 1`); await sleep(600);
+ok('… which opens the sheet, with the focus in it', await ev(`!document.querySelector('.sv-sheet').hidden && !!document.activeElement.closest('.sv-sheet')`), await ev(`document.activeElement.tagName + ' ' + document.querySelector('.sv-sheet').hidden`));
+const dn = await ev(`(() => { const r = document.querySelector('.sv-sheet .btn.small').getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);
+ok('the sheet\'s Done is at least 44 px', dn.w >= 43.5 && dn.h >= 43.5, dn);
 
 // ---- without the flag: no ▶ ----
 await open(1280, 800, false, false);
