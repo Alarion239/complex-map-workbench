@@ -31,6 +31,11 @@ for (const lang of ['en', 'ru']) {
   if (mj) {
     const svg = await ev(`(() => { try { return MathJax.tex2svg('\\\\int_\\\\gamma f(z)\\\\,dz').querySelectorAll('path, use').length; } catch (e) { return String(e); } })()`);
     ok(`${lang}: MathJax typesets a formula`, typeof svg === 'number' && svg > 0, svg);
+    // (#288) a formula whose glyphs are in ranges of the STIX2 font loaded on demand (Fraktur, Cyrillic): MathJax asks
+    // for them (e.retry) and they come from the page itself; set again until it is typeset, at most 8 times
+    await ev(`window.__offRange = null; (async () => { const t = '\\\\mathfrak{g}\\\\,\\\\text{кривая}'; for (let k = 0; k < 8; k++) { try { const n = MathJax.tex2svg(t); window.__offRange = { paths: n.querySelectorAll('path, use').length, text: n.querySelectorAll('text').length, retries: k }; return; } catch (e) { if (!e.retry) { window.__offRange = String(e.message); return; } await e.retry; } } window.__offRange = 'still waiting after 8 tries'; })(); 1`);
+    let rg = null; for (let i = 0; i < 40 && !rg; i++) { rg = await ev('window.__offRange'); if (!rg) await sleep(250); }
+    ok(`${lang}: a formula in ranges loaded on demand (Fraktur, Cyrillic) is typeset with the network off`, rg && typeof rg === 'object' && rg.paths > 0 && rg.text === 0 && rg.retries > 0, rg);
   }
   const want = [['400 14px "Roboto Flex"', 'Ab'], ['italic 400 14px "STIX Two Text"', 'z'], ['400 12px "JetBrains Mono"', '0']];
   if (lang === 'ru') want.push(['500 12px "Roboto Flex"', 'Жж']);
