@@ -225,7 +225,7 @@ async function renderRun(B, run, opt) {
   const key = 'complex-map-workbench-v1:' + ns;
   // the saved state is written before any app script runs (fresh profile, own namespace per scene)
   const seeded = 'qreg-seeded:' + ns;
-  // (v15: the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
+  // (the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
   const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; window.__qregCanvas = ${JSON.stringify(run.canvas || 'canvasR')}; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
   const t0 = Date.now();
   B.logs.length = 0;

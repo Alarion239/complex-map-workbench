@@ -89,7 +89,7 @@ const h0 = await handle('zeros', 0), p0 = await handle('poles', 0);
 const e0 = await w2s(1, 0), e1 = await w2s(0, 0);
 ok('zero 1 drawn at 1', h0 && Math.hypot(h0.x - e0[0], h0.y - e0[1]) < 0.75, { h0, e0 });
 ok('pole 1 drawn at 0', p0 && Math.hypot(p0.x - e1[0], p0.y - e1[1]) < 0.75, { p0, e1 });
-// (v15: the step's editor is the Inspector's: #propsPanel .insp-step; Add zero / Add pole are its big buttons)
+// (the step's editor is the Inspector's: #propsPanel .insp-step; Add zero / Add pole are its big buttons)
 const card = await ev(`(() => { const c = document.querySelector('#propsPanel .insp-step[data-k="1"]'); return { fields: [...c.querySelectorAll('input[data-zp]')].map((e) => [e.dataset.zp, e.value]), adds: [...c.querySelectorAll('.zp-add')].map((b) => b.textContent), syms: [...c.querySelectorAll('.zp-sym')].map((e) => e.textContent), tex: c.querySelector('.ftex').dataset.tex }; })()`);
 ok('Inspector: a field per zero and pole, Add zero / Add pole', JSON.stringify(card.fields) === JSON.stringify([['zeros:0', '1'], ['zeros:1', '−1'], ['poles:0', '0']]) && card.adds.join('|') === 'Add zero2|Add pole1' && card.syms.join('') === 'ζ₁ζ₂p₁', card);
 ok('card formula factored', /\\frac\{\\left\(z-1\\right\)\\left\(z\+1\\right\)\}\{z\}/.test(card.tex || ''), card.tex);
@@ -216,7 +216,7 @@ await grab();
 await load('zpacc2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [0.5, 1] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '1+i, -1', poles: '' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, { pattern: 'checker' }));
 await settle(1200); await grab();
 ok('whole chain: no handles in X (step 2 acts on w1)', (await zp()).handles.length === 0, await zp());
-// (v15: a click selects; Show alone is a double-click)
+// (a click selects; Show alone is a double-click)
 await ev(`document.querySelector('#pipeline .card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`); await settle(1200);
 z = await zp();
 ok('f2 focused: its zeros in its input plane', z.k === 2 && z.handles.length === 2, z);

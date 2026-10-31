@@ -587,7 +587,7 @@
     }
     const ks = [];
     if (row.mode === 9) {
-      // (v16.1) the magnitudes along the principal composition of the map's steps (in full, or the path at t), at z and zc
+      // the magnitudes along the principal composition of the map's steps (in full, or the path at t), at z and zc
       const m = row.map, hs = [];
       for (let k = 1; k <= steps.length; k++) {
         if (!live(steps, built, k)) continue;
@@ -602,7 +602,7 @@
       };
     }
     if (row.mode === 7 || row.mode === 8) {
-      // (v16) the magnitudes along the row's own composition: the pre in full, the bracketed homotopies at t (none at
+      // the magnitudes along the row's own composition: the pre in full, the bracketed homotopies at t (none at
       // t = 0, the identity), the post in full
       const lo = row.mode === 7 ? row.k - 1 : row.k, his = [];
       for (let k = lo + 1; k <= (row.mode === 7 ? row.k : row.b); k++) if (live(steps, built, k) && row.t > 0) his.push(built[k - 1]);
@@ -786,7 +786,7 @@ void main() {
     if (rows.length > HMAX) throw new Error(`too many rows: ${rows.length}`);
     rows.forEach((r, i) => {
       const v = r.mode === 0 ? [r.a, r.b] : r.mode === 3 ? [r.k, 0] : r.mode === 4 ? [r.b, r.combo] : r.mode === 5 ? [r.a, r.b, r.combo] : r.mode === 6 ? [r.a, r.b, r.t] : [r.i, r.t || 0];
-      // (v16: modes 7 and 8 pack their step into x: mode + 16 k, then b, post and t)
+      // (modes 7 and 8 pack their step into x: mode + 16 k, then b, post and t)
       if (r.carry) md.set([10, r.k, r.t, 0, r.base, 0, 0, 0], 8 * i);
       else if (r.mode === 7 || r.mode === 8) md.set([r.mode + 16 * r.k, r.b, r.post, r.t], 8 * i);
       else if (r.mode === 9) { const m = r.map; md.set([9, m.mode + 4 * (m.post || 0) + 256 * (r.end || 0), m.t || 0, r.combo, m.base || 0, m.a || 0, m.hi || 0, m.b || 0], 8 * i); }

@@ -840,6 +840,61 @@ async function openFresh() {
   await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
   await settle(await pageNow());
 }
+// [#366 A2, #448] the steps view's first glide (?view=steps): once the view has opened and idled SV_IDLE_MS (its glide
+// programs prestarted through KHR_parallel_shader_compile, svPrestart), the first glide's longest frame must stay under
+// SV_FIRST_LIMIT (no synchronous program link); its LINK_STATUS waits over 5 ms are counted. A warm glide's frame p95
+// for comparison. Scenes: the default page, and the zeros of zeta (looked up by name), whose chain is long. The
+// reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
+const SV_FIRST_LIMIT = 50, SV_IDLE_MS = 3000;
+// an example's index by its English name, read with ci/glprof.js's pattern (an example inserted before it moves the
+// index, not the scene); a name that is not an example's throws: the unit never measures another scene in its place
+function exampleIndex(name) {
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
+  const i = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'")).indexOf(name);
+  if (i < 0) throw new Error(`no example named ${name} (src/app/15-examples-guide.js)`);
+  return i;
+}
+const SV_LINKWAIT = `(() => { if (window.__svLw) return; const W = window.__svLw = { n: 0, ms: 0 };
+  for (const P of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype]) {
+    const f = P.getProgramParameter;
+    P.getProgramParameter = function (p, pn) { if (pn !== this.LINK_STATUS) return f.call(this, p, pn); const a = performance.now(), r = f.call(this, p, pn), d = performance.now() - a; if (d > 5) { W.n++; W.ms += d; } return r; };
+  } })()`;
+async function svFirstGlideUnit() {
+  for (const scene of ['default', 'zeta']) {
+    const longest = [], waits = [], waitMs = [], first95 = [], warm95 = [];
+    for (let i = 0; i < REPS; i++) {
+      await B.nav(`${BASE}test.html?ns=perfsv${process.pid}_${++nsCounter}&view=steps`);
+      await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+      await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      if (scene === 'zeta') await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
+      await settle(await pageNow());
+      if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+      await sleep(SV_IDLE_MS);
+      await B.ev(SV_LINKWAIT);
+      const glide = async (to) => {
+        const w0 = await B.ev('JSON.stringify(__svLw)'), a = await pageNow();
+        await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+        await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+        const b = await pageNow(), w1 = JSON.parse(await B.ev('JSON.stringify(__svLw)')), w = JSON.parse(w0);
+        const fr = (await B.ev(`__perf.framesSince(${a}, ${b + 20})`)).filter((f) => f[4] > 0);
+        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), frame: fr.map((f) => f[1] + f[2]), n: w1.n - w.n, ms: w1.ms - w.ms };
+      };
+      const f = await glide(1);
+      longest.push(f.cpuMax); waits.push(f.n); waitMs.push(f.ms); first95.push(quant(f.frame, 0.95));
+      await settle(await pageNow());
+      await glide(0);
+      await settle(await pageNow());
+      const g = await glide(1);
+      warm95.push(quant(g.frame, 0.95));
+    }
+    const pre = `sv.first_glide.${scene}`;
+    put(`${pre}.longest_ms`, 'limit', 'ms', longest, { limit: SV_FIRST_LIMIT });
+    put(`${pre}.link_waits`, 'info', '', waits);
+    put(`${pre}.link_wait_ms`, 'info', 'ms', waitMs);
+    put(`${pre}.frame_p95_ms`, 'info', 'ms', first95);
+    put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
+  }
+}
 async function cardsStartupUnit() {
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -1608,6 +1663,7 @@ unit('scrub.morph', 'parameter scrub with the deformation open and paused (its a
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
+unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
