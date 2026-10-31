@@ -97,6 +97,8 @@
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
     const sig = svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
+    // (another chain loaded with the state, an example or a link: its glide's programs are started too)
+    if (SV.sig != null && sig !== SV.sig) setTimeout(svPrestart, 300);
     svAdopt(SV.sig != null && sig !== SV.sig);
     SV.sig = sig;
     if (svViewFix()) setTimeout(svApply, 0);
@@ -203,7 +205,7 @@
   // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
   // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
-  let svCarryMemo = null;
+  let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
   function svCarry(pane, cc, s, a, H) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
@@ -223,39 +225,60 @@
         m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
       }
     }
-    const K = 16 / TAU, lim = 0.35 * Math.max(pane.w, pane.h) / v.s;
-    const W = (nx + 1) * (ny + 1), qx = new Float64Array(W), qy = new Float64Array(W), ok = new Uint8Array(W), gl = m.gl, ga = m.ga;
-    for (let n = 0; n < W; n++) {
-      if (!m.ok[n]) continue;
-      let q = C(m.ax[n], m.ay[n]);
-      if (H) { try { q = H(q); } catch (e) { continue; } if (!q || !CX.isFin(q)) continue; }
-      qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
-    }
-    const pos = [], attr = [];
-    const tri = (A, B, D) => {
-      if (!ok[A] || !ok[B] || !ok[D]) return;
-      // (a triangle torn across a branch cut or a pole is long on the screen: left out)
-      if (Math.hypot(qx[A] - qx[B], qy[A] - qy[B]) > lim || Math.hypot(qx[B] - qx[D], qy[B] - qy[D]) > lim || Math.hypot(qx[D] - qx[A], qy[D] - qy[A]) > lim) return;
-      const a0 = ga[A];
-      for (const n of [A, B, D]) {
-        let t = ga[n] - a0;
-        t -= TAU * Math.round(t / TAU);   // (arg unwrapped within the triangle)
-        pos.push(qx[n], qy[n]);
-        attr.push(0, 0, gl[n] * K, (a0 + t) * K);
+    // (perf on #448) the mesh is made once per memo: every grid triangle whose corners have a colour, with its colours
+    // (arg unwrapped within it), on the GPU; a frame only moves its corners (GLR.updatePreMesh: one upload, no new
+    // buffer), and a triangle torn across a cut or a pole, or with a corner H cannot place, collapses to a point. The
+    // same frame again (at rest, parked) is drawn as it is
+    const fkey = key + '|' + (H ? SV.g.x.toFixed(6) : 'rest');
+    if (!m.tris) {
+      const K = 16 / TAU, tris = [], attr = [];
+      const add = (A, B, D) => {
+        if (!m.ok[A] || !m.ok[B] || !m.ok[D]) return;
+        const a0 = m.ga[A];
+        tris.push(A, B, D);
+        for (const n of [A, B, D]) { let t = m.ga[n] - a0; t -= TAU * Math.round(t / TAU); attr.push(0, 0, m.gl[n] * K, (a0 + t) * K); }
+      };
+      for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
+        const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
+        add(n, e, d); add(n, d, u);
       }
-    };
-    for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
-      const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
-      tri(n, e, d); tri(n, d, u);
+      m.tris = Uint32Array.from(tris);
+      m.pos = new Float32Array(tris.length * 2);
+      m.attr = Float32Array.from(attr);
+      if (svCarryRes) { GLR.destroy(svCarryRes.res); svCarryRes = null; }
     }
-    const nt = pos.length / 6;
+    const nt = m.tris.length / 3;
     if (!nt) return true;
-    const res = GLR.createPreMesh({ n: nt, pos: new Float32Array(pos), attr: new Float32Array(attr), tri: new Float32Array(nt), origin: [v.cx, v.cy] });
-    if (!res) return false;
+    let res = svCarryRes && svCarryRes.memo === m && svCarryRes.res.n ? svCarryRes.res : null;
+    if (!res || svCarryRes.key !== fkey) {
+      const W = (nx + 1) * (ny + 1), lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
+      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W) };
+      const { qx, qy, ok } = svCarryBuf, pos = m.pos, T3 = m.tris;
+      for (let n = 0; n < W; n++) {
+        ok[n] = 0;
+        if (!m.ok[n]) continue;
+        if (!H) { qx[n] = m.ax[n] - v.cx; qy[n] = m.ay[n] - v.cy; ok[n] = 1; continue; }
+        let q;
+        try { q = H(C(m.ax[n], m.ay[n])); } catch (e) { continue; }
+        if (!q || !CX.isFin(q)) continue;
+        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
+      }
+      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
+      for (let t = 0, o = 0; t < nt; t++, o += 6) {
+        const A = T3[3 * t], B = T3[3 * t + 1], D = T3[3 * t + 2];
+        if (!ok[A] || !ok[B] || !ok[D] || d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) { pos.fill(3e7, o, o + 6); continue; }
+        pos[o] = qx[A]; pos[o + 1] = qy[A]; pos[o + 2] = qx[B]; pos[o + 3] = qy[B]; pos[o + 4] = qx[D]; pos[o + 5] = qy[D];
+      }
+      if (res) GLR.updatePreMesh(res, pos);
+      else {
+        res = GLR.createPreMesh({ n: nt, pos, attr: m.attr, tri: new Float32Array(nt), origin: [v.cx, v.cy], dynamic: true });
+        if (!res) return false;
+      }
+      svCarryRes = { key: fkey, memo: m, res };
+    }
     GLR.begin(pane.pw, pane.ph);
     GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
     GLR.blit(cc);
-    GLR.destroy(res);
     return true;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
@@ -445,8 +468,17 @@
   function svSeg(cls, label, items, cur, pick) {
     const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
     for (const [id, text, tip] of items) {
-      g.append(h('button', { type: 'button', role: 'radio', 'data-v': id, 'data-tip': tip || '', 'aria-checked': String(cur() === id), class: cur() === id ? 'on' : '', onclick: () => pick(id) }, text));
+      g.append(h('button', { type: 'button', role: 'radio', 'data-v': id, 'data-tip': tip || '', 'aria-checked': String(cur() === id), tabindex: cur() === id ? '0' : '-1', class: cur() === id ? 'on' : '', onclick: () => pick(id) }, text));
     }
+    // (a radio group: one Tab stop, the checked one; ← → pick the next and move the focus with it)
+    g.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      const bs = [...g.children], i = bs.indexOf(/** @type {HTMLElement} */ (e.target));
+      if (i < 0) return;
+      e.preventDefault();
+      const n = bs[(i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length];
+      pick(n.dataset.v); n.focus();
+    });
     return g;
   }
   function svBuild() {
@@ -474,10 +506,13 @@
     head.after(strip);
     $('stage').append(live);
     const rail = strip.querySelector('.sv-rail');
-    rail.setAttribute('role', 'slider'); rail.setAttribute('tabindex', '0'); rail.setAttribute('aria-label', $t('Place on the chain'));
-    rail.setAttribute('aria-valuemin', '0'); rail.setAttribute('aria-orientation', 'horizontal');
+    // (the slider is the ring that marks the place, not the thread: the thread holds the planes' and the steps' buttons,
+    // which a slider's children cannot be (axe nested-interactive, ux's re-check of #448))
+    thumb.removeAttribute('aria-hidden');
+    thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
+    thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { rail, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -510,6 +545,9 @@
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
     const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, ph ? 1 : 0, E.sig].join('|');
+    // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
+    const leg = $('leftLegend');
+    if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
     if (sig !== E.headSig) {
       E.headSig = sig;
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
@@ -524,14 +562,14 @@
       E.cp.classList.toggle('on', k === T);
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
-      for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+      for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
       for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
-      E.rail.setAttribute('aria-valuenow', x.toFixed(2)); E.rail.setAttribute('aria-valuemax', String(P.length - 1));
-      E.rail.setAttribute('aria-valuetext', svPlaceText());
+      E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
+      E.slider.setAttribute('aria-valuetext', svPlaceText());
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
@@ -548,6 +586,7 @@
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
     save();
+    if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
   }
   // the strip: a press on a plane goes there; a drag along it scrubs through the deformation, and the glide settles on
   // the nearest plane when it is let go
@@ -643,6 +682,11 @@
     const live = SV.els && SV.els.live;
     if (live) live.textContent = $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.ceil(x)]) });
   }
+  // a dialog, a menu, a popover, a pop-up or a phone sheet is open over the page (its keys are its own)
+  function svLayerOpen() {
+    if (document.querySelector('#popHost > *, .modal-bg, dialog[open], .snd-pop:not([hidden]), .ph-sheet:not([hidden])')) return true;
+    try { return !!document.querySelector(':popover-open'); } catch (e) { return false; }
+  }
   // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
   function svNudge(d) {
     const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
@@ -659,18 +703,20 @@
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
       // (on the thread itself, a slider: ← → move a quarter of a step and stop there, Home / End go to z and the last plane)
-      const onRail = !!(t && t.classList && t.classList.contains('sv-rail'));
+      const onRail = !!(t && t.classList && t.classList.contains('sv-thumb'));
       if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
+      // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
+      // #448; the classic key handler's exclusions, 14-interaction.js): only the thread's own keys pass)
+      if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
       if ((e.shiftKey || onRail) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault(); e.stopImmediatePropagation();
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
         return;
       }
-      const inField = !!(t && t.closest && t.closest('input, textarea, select, [contenteditable], [role="slider"], .cm-palette'));
-      // (PageUp / PageDown from anywhere but a field, a focused plane too; the arrows not on a plane, where they move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (inField || (!page && t && t.closest && t.closest('canvas'))) return;
+      if (!page && t && t.closest && t.closest('canvas')) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
@@ -696,6 +742,8 @@
     try {
       if (!GLR.ok) return;
       if (GLR.prestartModes) GLR.prestartModes([1]);
+      // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
+      if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
     } catch (e) { /* (the first glide starts them) */ }
   }
