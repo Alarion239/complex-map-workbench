@@ -5,7 +5,7 @@
 // ones left out:
 //   object:        the object under the pointer (a zero or pole mark, a cut handle, a shape: its line integral and
 //                  Listen along, Hide, Delete)
-//   constructions: (v16, construct.js) what acts on the shape there: Mark the intersection, Point on this curve, Put on
+//   constructions: (construct.js) what acts on the shape there: Mark the intersection, Point on this curve, Put on
 //                  this curve, Make free
 // It is a menu of objects only (issue #13): over empty plane nothing opens (a right-click there only pans; the view is
 // centred with a double-click), and while a drawing is in progress the app's right-click cancels it instead.
