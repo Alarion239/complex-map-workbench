@@ -972,6 +972,72 @@ async function svInteractUnit(scene) {
     put(`sv.scrub.in.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.in)], { limit: SV_COPIES_IN_LIMIT, samples: copies.in.map(r3) });
   }
 }
+// [#439 F, #443] the steps view's glide at 60 fps: a warm glide there and back between z and w₁ (Everywhere, the plane
+// surface, the normal speed), on a GPU only (a software renderer is skipped, as sv.interact), at dpr 1 and at dpr 2 (the
+// Mac's: setDpr, as the image units' dpr2). Scenes: the default page, zeta and the Mountain King (by name). Per dpr:
+// frame p95 (frame_ms, 60 fps budget 14 ms), the frames presented per second (throughput, at least 55), the longest
+// stall (jank_ms) and the rAF intervals over 25 ms (info), GLR.blit calls per frame drawn (limit SV_COPIES_LIMIT: one
+// copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
+// no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
+const SV_GLIDE_JANK_MS = 25;
+async function svGlideUnit(scene) {
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.glide.${scene}`, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
+  const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
+  const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.glide.${scene}`)) * 1000;
+  // one glide from where the view rests to plane `to`, its window from the call to the landing
+  const glide = async (to) => {
+    const c0 = await B.ev('__perf.counters().links'), bl0 = await B.ev('__svBl.n'), a = await pageNow();
+    await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+    await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
+    const w = await windowStats(a, b);
+    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, jank: await jankIn(a, b), a, b });
+  };
+  for (const dpr of [1, 2]) {
+    const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
+    const R = [], copies = [], links = [], longInt = [], dprOk = [], td = Date.now();
+    if (dpr !== 1) await setDpr(dpr);
+    try {
+      for (let i = 0; i < REPS; i++) {
+        // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
+        // limit: fewer reps, not a timeout, which aborts the whole run)
+        if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
+        await B.nav(`${BASE}test.html?ns=perfsvg${process.pid}_${++nsCounter}&view=steps`);
+        await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+        await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+        if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
+        await settle(await pageNow());
+        if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+        dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
+        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
+        await sleep(SV_IDLE_MS);
+        await B.ev(SV_GLCOUNT);
+        // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
+        for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+        await settle(await pageNow());
+        const l1 = await glide(1);
+        await settle(await pageNow());
+        const l2 = await glide(0);
+        await settle(await pageNow());
+        if (!l1.drawn.length || !l2.drawn.length) throw new Error(`${pre}: a glide drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
+        R.push(legSummary([l1, l2], 'none'));
+        copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
+        links.push(l1.links + l2.links);
+        longInt.push([...l1.ints, ...l2.ints].filter((d) => d > SV_GLIDE_JANK_MS).length);
+      }
+    } finally { if (dpr !== 1) await setDpr(1); }
+    put(`${pre}.dpr_ok`, 'check', '', dprOk);
+    put(`${pre}.reps`, 'info', '', [R.length]);
+    putPooled(`${pre}.frame_p95_ms`, 'frame_ms', 'ms', R, 'frame', 0.95, 'frame_p95');
+    putPooled(`${pre}.cpu_p95_ms`, 'frame_ms', 'ms', R, 'cpu', 0.95, 'cpu_p95');
+    put(`${pre}.fps`, 'throughput', 'frames/s', R.map((r) => r.fps));
+    put(`${pre}.jank_ms`, 'jank_ms', 'ms', R.map((r) => r.jank));
+    put(`${pre}.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, longInt);
+    put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
+    put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
+  }
+}
 async function cardsStartupUnit() {
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -1744,6 +1810,9 @@ unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide afte
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
+unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
+unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
+unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));

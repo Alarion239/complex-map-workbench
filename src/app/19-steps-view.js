@@ -157,8 +157,14 @@
   }
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
+  // (#515) a message placed over the thread's rail goes, by the message's own close, when the thread is gone through again
+  function svDismissToast() {
+    const th = document.getElementById('toastHost');
+    if (th && th.getAttribute('data-placed') === 'rail') for (const t of th.querySelectorAll(':scope > .toast')) t.remove();
+  }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
+    svDismissToast();
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svKeepView();
@@ -769,6 +775,10 @@
   // the nearest plane when it is let go
   function svStripWire(strip, track) {
     const rail = strip.querySelector('.sv-rail');
+    // (#515) every way of going on dismisses a message over the rail (svGo, svNudge); a press on the rail also does (a scrub)
+    const dismissToast = svDismissToast;
+    strip.addEventListener('click', (e) => { if (e.target.closest('.sv-nav')) dismissToast(); }, true);
+    rail.addEventListener('pointerdown', dismissToast, true);
     // (the thread's position under the pointer: between the centres of the planes' nodes, in proportion)
     const posX = (e) => {
       const ns = [...track.querySelectorAll('.sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return r.left + r.width / 2; });
@@ -867,6 +877,7 @@
   }
   // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
   function svNudge(d) {
+    svDismissToast();
     const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
     SV.anim = null;
     svKeepView();
