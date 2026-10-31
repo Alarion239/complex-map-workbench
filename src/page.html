@@ -1643,6 +1643,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-prob { font: 700 14px/18px "Latin Modern Roman", "STIX Two Text", var(--f-math); color: #222; margin: 0 0 6px; }
 .xf-cap { position: relative; margin: 9px auto 0; cursor: text; border-radius: 1px; outline-offset: 3px; }
 .xf-cap:hover, .xf-cap:focus-visible { outline: 1.5px dashed var(--accent); }
+.xf-cap:focus-visible { outline-offset: -3px; }   /* (#483) inside the box: the dialog's scroller cut the ring outside it */
 .xf-cap.editing { outline: 1.5px solid var(--accent); }
 .xf-capimg { display: block; }
 .xf-edit { position: absolute; right: -4px; top: -20px; font: 500 10px/14px var(--f-ui); color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 1px 6px; white-space: nowrap; opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }

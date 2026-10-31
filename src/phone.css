@@ -374,6 +374,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-vopts .seg.sty-seg .sty-g svg { width: 20px; height: 20px; }
 :root.ph .ph-vopts .tg-ic { display: none; }
 /* More (⋯) rows */
+/* (#483) the rows fill their sheet's width: the focus ring is drawn inside them, where the sheet's edge cannot cut it */
+.ph-row:focus-visible, .ph-srow:focus-visible, .ph-style:focus-visible { outline-offset: -2px; }
 .ph-row, .ph-srow, .ph-style { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: 400 15px/20px var(--f-ui); text-align: left; }
 .ph-row:active, .ph-style:active { background: var(--well); }
 .ph-row[hidden], .ph-srow[hidden], .ph-style[hidden] { display: none; }
