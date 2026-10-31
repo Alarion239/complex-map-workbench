@@ -91,7 +91,7 @@
     const pane = paneL;
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
-    if (SV.on && svMoving()) { svRenderMoving(pane); return; }
+    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)

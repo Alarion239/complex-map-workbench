@@ -90,6 +90,8 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/gl/02-glsl-inverse.js -> T2, the inverse GLSL page (src/gl is its input)', g.tier === 'T2' && g.glsl.length && g.glsl.every((j) => j.page === 'inverse') && g.perf, g.glsl);
   ok('a part: src/app/03-exact-images.js -> T2', select(['src/app/03-exact-images.js']).tier === 'T2');
   ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
+  ok('tools/inspect.js and its page script (the visual inspection, by hand: #470) -> T0', ['tools/inspect.js', 'test/lib/inspect_page.js'].every((f) => select([f]).tier === 'T0'));
+  ok('the layout library and its matrix (#470) -> the layout shards', ['test/lib/layout.js', 'test/lib/layout_matrix.js'].every((f) => { const p = select([f]); return p.tier === 'T1' && p.browser.includes('layout-1') && p.browser.includes('layout-2'); }));
   // ([#385] the start-up file in its parts: the params and links, init() and the start stay T3; the constructions'
   // model and adapter are theirs and core; the test hooks select the suites that call a changed hook)
   for (const f of ['src/app/18-params.js', 'src/app/20-init.js', 'src/app/22-start.js']) ok(`a part: ${f} -> T3`, select([f]).tier === 'T3');

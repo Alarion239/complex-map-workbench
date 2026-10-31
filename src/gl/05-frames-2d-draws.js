@@ -523,13 +523,17 @@
     dcUniforms(P, st, dpr);
     // ((#366 prototype) st.dstAlpha: kept only where the frame's alpha is, the regions an alphaOnly pass drew: the
     // colour times the alpha there, the alpha unchanged)
+    // ((#439 I) st.alpha < 1: over what the frame holds at that opacity, source-over as a 2D draw at globalAlpha alpha,
+    // so a glide's cross-faded plots and the carried colour compose in one frame and reach the page in one copy)
+    const fade = !st.dstAlpha && st.alpha != null && st.alpha < 1;
     if (st.dstAlpha) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ZERO, gl.ZERO, gl.ONE);
+    else if (fade) { gl.blendColor(0, 0, 0, st.alpha); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA); }
     else gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
-    if (st.dstAlpha) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (st.dstAlpha || fade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
   // ((#366 prototype) what follows writes the frame's alpha alone (on), or every channel again (off): a mask of the
   // regions for drawColorPlot's dstAlpha)
