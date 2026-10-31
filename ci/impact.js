@@ -32,7 +32,7 @@ const AREAS = {
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
-  i18n: ['i18n', 'i18n-desktop', 'i18n-phone'],
+  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex-en', 'raw-tex-ru', 'raw-tex-it'],   // (raw-tex: #465, a string's TeX never on screen)
   views: ['views', 'formulas'],
   desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
@@ -43,10 +43,13 @@ const AREAS = {
 // glsl/quality/perf (that job; glsl: 'all' for every page, otherwise the pages whose inputs the path is),
 // suite (the shards of test/<suite>_cmd.js), uses (a test helper: whatever uses it), hooks (the test hooks: the shards
 // of the suites that call a hook the diff changes; T3 when the diff's hooks cannot be named, no suite calls them, or a
-// hook is called outside the browser suites and unit tests), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
+// hook is called outside the browser suites and unit tests), lines (the areas of the changed lines that match a pattern:
+// [[RegExp, ...areas]]; without a diff, every one of them), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
 const full = (why) => ({ full: true, why });
 const ui = (...areas) => ({ areas });
 const T0 = { t0: true };
+// (a line of the export dialog's CSS in src/page.html; its markup is src/figure/07-dialog.js, under the export row)
+const EXPORT_DIALOG = /\.xf-|\.modal\.xf\b|#xf[A-Z]/;
 const HARNESS = { harness: true };
 const MAP = [
   // the app
@@ -101,16 +104,18 @@ const MAP = [
   ['src/morphpaths.js', ui('deform')],                                        // the deformation's paths
   ['src/integrals.js', { core: true, areas: ['desktop'] }],                   // the integrals (from part 07; the palette's ∫ too)
   ['src/examples.js', ui('desktop', 'phone', 'tour')],                        // the examples and the guide (from part 15)
-  ['src/page.html', ui('desktop', 'phone')],                                  // the page's markup: both layouts
+  // the page's markup and its CSS: both layouts; the export dialog's rules (.xf-…, .modal.xf, #xf…) its shards too
+  ['src/page.html', Object.assign(ui('desktop', 'phone'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone')],                                   // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,parse,funcs,natpaths,derivs,homrange,invops,invpatterns,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,parse,funcs,natpaths,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
   ['tools/{cyr_template.js,make_cyr_module.py}', ui('export', 'i18n')],
   ['tools/melodies/**', ui('sound')],
   ['tools/join_src.js', T0],
+  ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
   ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
   ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
   // the docs (a README beside the tests or the CI scripts too)
@@ -196,7 +201,9 @@ function hookCallers(names) {
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`;
-      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name)) walk(rel); continue; }
+      // (test/*_cdp/: a git-ignored copy of the cdp kit and its command files, which ci/browser.js and tools/inspect.js leave
+      // behind on a local run; no diff names it, and CI's checkout never has it)
+      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name) && !/^test\/[^/]+_cdp$/.test(rel)) walk(rel); continue; }
       if (!/\.(js|mjs|py|html)$/.test(e.name) || rel === 'src/app/21-test-hooks.js') continue;
       if (!re.test(fs.readFileSync(path.join(ROOT, rel), 'utf8'))) continue;
       if (/^test\/[^/]+_cmd\.js$/.test(rel)) { if (!EXCLUDED[e.name]) suites.push(e.name); } else if (!/^test\/t_[^/]+\.js$/.test(rel)) outside.push(rel);
@@ -233,8 +240,13 @@ function hooksOfDiff(from, head, f) {
   return [...names];
 }
 
+// the changed lines of f between two commits, removed and added, without their +/- (null when git cannot say)
+function linesOfDiff(from, head, f) {
+  try { return git('diff', '-U0', '--no-renames', from, head, '--', f).split('\n').filter((l) => /^[-+](?![-+]{2} )/.test(l)).map((l) => l.slice(1)); } catch (e) { return null; }
+}
 // files: the changed paths; opts: { full: reason, glslDeep: reason (every GLSL chain on Windows too), sameBuild: true |
-// false | null (not checked), hooksOf: (path) -> the test hooks its diff changes, or null (the CLI's, from the diff) }
+// false | null (not checked), hooksOf: (path) -> the test hooks its diff changes, or null (the CLI's, from the diff),
+// linesOf: (path) -> its changed lines, or null (the CLI's, from the diff) }
 // -> the plan
 function select(files, opts = {}) {
   const reasons = [];   // { path, rule, effect: text }
@@ -260,6 +272,15 @@ function select(files, opts = {}) {
     if (e.glsl === 'all') { for (const p of GLSL.PAGES) glsl.add(p.id); got.push('every GLSL page'); }
     if (e.quality && !e.core) { quality = true; forceQuality = forceQuality || !isApp(f); got.push(isApp(f) ? 'quality' : 'quality (A/A when the app is unchanged)'); }
     if (e.perf && !e.core) { perf = true; forcePerf = forcePerf || !isApp(f); got.push(isApp(f) ? 'perf' : 'perf (A/A when the app is unchanged)'); }
+    if (e.lines) {
+      // (the changed lines, old and new: a pattern's areas when one of them matches it; all of them without a diff)
+      const lines = opts.linesOf ? opts.linesOf(f) : null;
+      for (const [re, ...areas] of e.lines) {
+        if (lines && !lines.some((l) => re.test(l))) continue;
+        for (const a of areas) for (const id of AREAS[a]) browser.add(id);
+        wantSmoke = true; got.push(`${areas.join(', ')} shards (${lines ? 'its changed lines' : 'no diff'}: ${re})`);
+      }
+    }
     if (e.harness) { wantSmoke = true; got.push('the smoke shard'); }
     if (e.suite) {
       const base = path.basename(f);
@@ -372,7 +393,7 @@ if (require.main === module) {
     if (r.status === 0 || r.status === 10) same = r.status === 0;
     else { console.error('the same-build check failed: the build counts as changed'); same = false; }
   }
-  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null });
+  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null, linesOf: from ? (f) => linesOfDiff(from, head, f) : null });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
   else if (argv.includes('--github')) {
     // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)

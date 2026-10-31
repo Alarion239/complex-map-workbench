@@ -60,7 +60,8 @@ const Export = (() => {
   const mjCache = new Map();
   // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. mj() typesets synchronously, so it notes the promise and gives the
-  // fallback for that formula (uncached); buildFigure waits for mjWaits and builds again
+  // fallback for that formula (uncached); buildFigure waits for mjWaits and builds again. (Another formula with a
+  // letter of a range still loading comes back with it as <text> in a system font, not a throw: uncached as well)
   let mjWaits = [];
   // TeX as a MathJax SVG (vector paths): {markup, w, h, va} at font size px; null without MathJax
   function mj(tex, px, color = '#000') {
@@ -72,7 +73,8 @@ const Export = (() => {
       try {
         const node = MJ.tex2svg(I18N.notation(tex), { display: false });
         const svg = node && node.querySelector('svg');
-        if (svg) {
+        if (svg && mjWaits.length && svg.querySelector('text')) waiting = true;
+        else if (svg) {
           const ex = px * 0.431;
           const w = parseFloat(svg.getAttribute('width')) * ex, hh = parseFloat(svg.getAttribute('height')) * ex;
           const va = (parseFloat(String(svg.style.verticalAlign || '0').replace('ex', '')) || 0) * ex;

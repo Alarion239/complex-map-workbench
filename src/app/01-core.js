@@ -66,17 +66,23 @@
     morph: msvg('<rect x="1.5" y="6" width="4" height="4"/><path d="M6.5 6.5c2-3 4.5-3 6 0"/><path d="M11.5 4.5l1 2-2.2.3"/><circle cx="12.5" cy="10.5" r="2" fill="currentColor" stroke="none"/>'),
   };
 
-  // ---------------- TeX via MathJax (falls back to source text) ----------------
+  // ---------------- TeX via MathJax (falls back to the formula as plain text) ----------------
+  // ([#465] until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
+  // «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)
   const TeX = (() => {
     const cache = new Map();
     let ready = false;
     const pending = new Set();
     // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one
     // not yet loaded throws with e.retry, a promise. Its nodes show the fallback and are set again when it settles,
-    // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the TeX source)
+    // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the formula read as
+    // text). MathJax throws only for the first formula that asks for a range still loading: another one with a letter
+    // of it comes back with that letter as <text> in a system font, so while a range loads (loading) such a result
+    // waits too
     const RETRIES = 8;
     const waiting = new Map();   // key -> {nodes, tries, wait}
-    const fallback = (node, tex) => { node.innerHTML = ''; node.append(h('span', { class: 'tex-fallback' }, tex)); };
+    const loading = new Set();   // the retry promises not settled yet
+    const fallback = (node, tex) => { node.innerHTML = ''; node.append(h('span', { class: 'tex-fallback' }, texTitle(tex))); };
     function paint(node, tex, display) {
       if (!ready) {
         fallback(node, tex);
@@ -88,9 +94,16 @@
       if (html === undefined) {
         const w = waiting.get(key);
         if (w && w.wait) { w.nodes.add(node); fallback(node, tex); return; }
-        try { html = MathJax.tex2svg(I18N.notation(tex), { display }).outerHTML; } catch (e) {
+        let retry = null;
+        try {
+          const out = MathJax.tex2svg(I18N.notation(tex), { display });
+          if (loading.size && out.querySelector('text')) { html = null; retry = Promise.all([...loading]); } else html = out.outerHTML;
+        } catch (e) {
           html = null;
-          if (e && e.retry && (!w || w.tries < RETRIES)) {
+          if (e && e.retry) { retry = e.retry; loading.add(retry); const done = () => loading.delete(e.retry); retry.then(done, done); }
+        }
+        if (html === null) {
+          if (retry && (!w || w.tries < RETRIES)) {
             const job = w || { nodes: new Set(), tries: 0, wait: false };
             job.tries++; job.wait = true; job.nodes.add(node);
             waiting.set(key, job);
@@ -101,7 +114,7 @@
               for (const n of nodes) if (n.isConnected && n.dataset.tex === tex) { delete n.dataset.rd; set(n, tex, display); }
               if (cache.has(key)) waiting.delete(key);
             };
-            e.retry.then(again, again);
+            retry.then(again, again);
             fallback(node, tex);
             return;
           }
@@ -110,7 +123,7 @@
         if (cache.size > 3000) cache.clear();
         cache.set(key, html);
       }
-      if (html == null) node.textContent = tex; else node.innerHTML = html;
+      if (html == null) node.textContent = texTitle(tex); else node.innerHTML = html;
     }
     function set(node, tex, display = false) {
       if (node.dataset.tex === tex && node.dataset.rd === String(ready)) { held.delete(node); return; }
@@ -842,7 +855,7 @@
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)
   const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
-  const focusF = () => (S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
+  const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)

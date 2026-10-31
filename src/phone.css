@@ -58,7 +58,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .panes.ph-one.ph-big-L > #paneR, :root.ph .panes.ph-one.ph-big-R > #paneL { display: none !important; }
 /* the inset: the other plane, live, bottom-left; a tap swaps */
 :root.ph .panes > .pane.ph-inset {
-  inset: auto auto 10px calc(var(--ruler) + 10px); width: 116px; height: 116px; z-index: 14;
+  inset: auto auto calc(10px + var(--ph-lift)) calc(var(--ruler) + 10px); width: 116px; height: 116px; z-index: 14;
   border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); overflow: hidden; --ruler: 0px;
 }
 :root.ph .pane.ph-inset .ruler, :root.ph .pane.ph-inset .ruler-corner, :root.ph .pane.ph-inset .tdock,
@@ -100,6 +100,7 @@ html:not(.ph) .ph-only { display: none !important; }
    z = … and w = F(z) = … (no doubled z) */
 :root.ph #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (#483: a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
 :root.ph .chip.readout > .rln { grid-column: 2; }
@@ -108,13 +109,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
 .ph-col { display: none; }
 :root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
-:root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: 64px; }
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(64px + var(--ph-lift)); }
 .ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
 .ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 :root.ph .viewstack > .vgroup:first-child, :root.ph #leftSolo, :root.ph #rightSolo { display: none !important; }
-:root.ph .viewstack { right: 8px; bottom: 8px; }
+:root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
@@ -226,6 +227,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .ph-undo:disabled { opacity: 0.45; }
 :root.ph #secDraw > .tool-more { display: block; flex: 1 1 0; min-width: 0; max-width: none; }
 :root.ph #secDraw > .tool-more > summary { height: 48px; }
+/* (page.html places the More label and its dots in a max-width 767 block: a phone sideways is wider, so they are placed here too) */
+:root.ph #secDraw > .tool-more > summary { position: relative; display: block; }
+:root.ph #secDraw > .tool-more > summary > .ic-slot { position: absolute; left: 50%; top: 7px; translate: -50% 0; width: 18px; height: 18px; }
+:root.ph #secDraw > .tool-more > summary > .tm-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; }
 :root.ph #secDraw > .tool-more > summary.ph-lit { background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--accent); }
 :root.ph #secDraw > .tool-more > summary > .ic-slot svg { width: 18px; height: 18px; }
 :root.ph #secDraw .tool > span, :root.ph #secDraw .tool-more .tm-label { font-size: 11px; line-height: 12px; white-space: normal; hyphens: manual; overflow-wrap: break-word; }
@@ -250,6 +255,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-morph .tdock .seg > button:not(.on) { display: none; }
 :root.ph.ph-morph .tdock .seg::before { display: none; }
 /* the readout rides the handle: its left edge follows the fill (--fill, set on the scrubber with the range's) */
+/* (#483) the tick labels (f, f₁) are not drawn on a phone: they sat on the readout, which rides the handle and names the step, and in landscape on the
+   slider's own box. The marks stay, and the dock keeps its height */
+:root.ph .ttick { height: 0; font-size: 0; line-height: 0; }
+:root.ph .ttick > * { display: none; }
 :root.ph.ph-morph .tdock .tscrub > .tread {
   position: absolute; top: 0; left: clamp(0px, calc(var(--fill, 0%) - 70px), calc(100% - 140px)); width: 140px; padding: 0; text-align: center; font: 600 11px/14px var(--f-ui); color: var(--ink); pointer-events: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
@@ -295,7 +304,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-full.ph-split:not(.ph-land) .pipe-wrap { transform: translateY(calc(-1 * var(--ph-hp, 0px))); }
 .ph-sh { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 4px 0 16px; border-bottom: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
 .ph-sh > .grow { display: none; }
-.ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 44px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
+/* (#483) its hit box is the 18 px strip above the title row, not 44 px over it: a tap on the top of the title or of "Replace f₂" grabbed the
+   sheet. A press anywhere on the head already resizes it (phone.js), so no way to the grabber is lost */
+.ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 18px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
 .ph-grab::before { content: ""; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; translate: -50% 0; border-radius: 2px; background: var(--line-strong); }
 .ph-st { position: relative; flex: 1 1 auto; font: 600 15px/18px var(--f-ui); color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; pointer-events: none; }
 .ph-x { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
@@ -371,6 +382,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-vopts .seg.sty-seg .sty-g svg { width: 20px; height: 20px; }
 :root.ph .ph-vopts .tg-ic { display: none; }
 /* More (⋯) rows */
+/* (#483) the rows fill their sheet's width: the focus ring is drawn inside them, where the sheet's edge cannot cut it */
+.ph-row:focus-visible, .ph-srow:focus-visible, .ph-style:focus-visible { outline-offset: -2px; }
 .ph-row, .ph-srow, .ph-style { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: 400 15px/20px var(--f-ui); text-align: left; }
 .ph-row:active, .ph-style:active { background: var(--well); }
 .ph-row[hidden], .ph-srow[hidden], .ph-style[hidden] { display: none; }
@@ -405,6 +418,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
 :root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph .snd-pop { z-index: 46; }
+/* (#464) the function palette and the search rise from below but stop above the chain bar (where the layout puts it: a toast's row and the steps strip count), and start under the tour's strip (a tap on it still reaches it), so the chain they add to stays in sight; with
+   the keyboard up they stop above it too, and fill what is left under the header */
+:root.ph .pop.palette { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + 8px) !important; bottom: max(calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)), var(--ph-kb, 0px)) !important; height: auto !important; max-height: none !important; border-radius: var(--r-4); border-bottom: 1px solid var(--line-strong); padding-bottom: 0; }
+/* (eyes, #479: a phone sideways with the keyboard up has about 120 px for the sheet: the field and the results; the Insert row is back when the keyboard goes) */
+:root.ph.ph-land.ph-kb .pop.palette .pal-atrow { display: none; }
+/* (eyes, #479: the preview beside the results (a phone wider than 767 px sideways) gives its image the room the caption leaves, instead of running the caption off the sheet's foot) */
+:root.ph .pal-preview > canvas { flex: 0 1 auto; min-height: 0; align-self: center; width: auto; max-width: 100%; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
    sheets a 360 px side sheet on the right, both planes still in sight ---------- */
@@ -421,8 +441,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .tool-more > summary { list-style: none; }
 :root.ph #secDraw > .tool-more > summary::-webkit-details-marker { display: none; }
 :root.ph.ph-land .layout { margin-right: var(--ph-col); }
+/* the column takes the whole height: the header and the tour's row end where it begins (a sheet hides the column, but the strip stays where it was) */
+:root.ph.ph-land .top { margin-right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph.ph-land #secDraw {
-  left: auto; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
+  left: auto; right: 0; top: env(safe-area-inset-top, 0px); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
   padding: 4px 2px 4px 2px; border-top: 0; border-left: 1px solid var(--line-strong);
 }
 :root.ph.ph-land #secDraw > .tools { display: flex !important; flex: 0 0 auto; flex-direction: column-reverse; gap: 2px; width: 100%; }
@@ -438,18 +461,20 @@ html:not(.ph) .ph-only { display: none !important; }
 
 :root.ph.ph-land .ph-grab { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .ph-sheet, :root.ph .pipe-wrap { transition: none !important; }
+  .ph-sheet, :root.ph .pipe-wrap, .ph-ctx, :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: none !important; }
 }
 
 /* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
 /* (design-3's lamp-only F tile went with the tile, #246: the chain sheet's whole-map row names its guarantees) */
 /* design-10: the Editor has one head, the Inspector's: the grabber is a thin bar above it, × floats at its right end */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 18px; height: 18px; padding: 0; border-bottom: 0; }
-/* (its tap area stays 44 px tall, over the head's title, clear of the head's buttons) */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 44px; z-index: 2; }
+/* (its tap area is 18 px tall, above the head's title, clear of the head's buttons) */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 18px; z-index: 2; }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
+/* (#483) its empty part drags the sheet, as the head does (phone.js), so a finger there does not scroll */
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { touch-action: none; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
 /* (the step's title is a 44 px button: its one line is centred in it, level with the f₃ chip and the type glyph beside it) */
 :root.ph .ph-sheet #propsPanel .insp-step .ihead .ttl-btn { line-height: 40px; }
@@ -516,11 +541,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* UX38: the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
    lacks leaves its slot empty, so the others never move); keys and legends of the picture stay at the top right.
    (Wave 2 puts Both on top of this column.) */
-:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: 60px; right: 8px; }
-:root.ph .viewstack { right: 8px; bottom: 8px; }
+:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(60px + var(--ph-lift)); right: 8px; }
+:root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 /* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler)); }
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler)); }
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
 /* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
@@ -539,9 +564,18 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-badge[hidden] { display: none; }
 /* D3: the context bar above the tool row; the planes give up its height from the bottom */
 :root.ph { --ph-ctx: 0px; }
-:root.ph.ph-ctx-on, :root.ph.ph-toast-on { --ph-ctx: 56px; }
-.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
+/* (#463) the context bar overlays the bottom of the planes, above the chain bar (or the steps strip) and slides out from behind it:
+   nothing else on the screen moves for it. A toast still takes its row (the planes give it room) */
+/* (the controls floating at the planes' foot (Fit view, the Sphere and Display keys, the inset) ride up with the bar while it is open) */
+:root.ph { --ph-cbelow: var(--ph-chain); --ph-lift: 0px; }
+:root.ph:has(.ph-ctx.in:not(.under)) { --ph-lift: 56px; }
+:root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-lift: 104px; }
+:root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
+:root.ph.sv { --ph-cbelow: 60px; }
+:root.ph.ph-toast-on { --ph-ctx: 56px; }
+.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
+.ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
 :root.ph.ph-land .ph-ctx { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 .ph-ct { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .ph-ctn { font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -557,7 +591,6 @@ html:not(.ph) .ph-only { display: none !important; }
 /* a construction's sentence ("Pick a point or an empty spot · 1 of 3") may take two lines */
 .ph-ctx[data-k="construct"] .ph-ctn { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 13px; line-height: 17px; }
 /* the orthogonal circle's bar: its sentence, ⌫ and × over Whole | Inside | Outside */
-:root.ph.ph-ctx-tall { --ph-ctx: 104px; }
 .ph-ctx.tall { height: 104px; flex-wrap: wrap; align-content: center; row-gap: 4px; }
 .ph-ctx.tall > .ph-ct { flex: 1 1 0; min-height: 44px; }
 .ph-ctseg { flex: 1 0 100%; min-width: 0; display: flex; gap: 4px; }
@@ -592,4 +625,4 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-speed { display: none; }
 :root.ph.sv .sv-cp .sv-cp-t { display: none; }
 :root.ph.sv .sv-cp { min-width: 44px; justify-content: center; }
-:root.ph.sv .sv-title .sv-tf { display: none; }
+:root.ph.sv .sv-title .sv-sep, :root.ph.sv .sv-title .sv-role { display: none; }

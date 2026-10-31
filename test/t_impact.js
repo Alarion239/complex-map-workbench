@@ -46,7 +46,21 @@ for (const f of ['src/i18n.js', 'src/i18n_ru.js', 'tools/it_table.json', 'tools/
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
 // ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
 ok('T1: desk.css -> the desktop and the phone shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']), select(['src/desk.css']).browser);
-ok('T1: page.html -> desktop and phone', same(select(['src/page.html']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+ok('T1: page.html -> desktop and phone', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+// (the export dialog's CSS in page.html: its lines select the export shards too (#498: .xf-body changed and no export
+// shard ran); without a diff, so do they)
+{
+  const DP = [...new Set([...AREAS.desktop, ...AREAS.phone])];
+  for (const l of ['.xf-body { display: grid; }', '.modal.xf { width: 1120px; }', ':root[data-lang="ru"] #xfSize .xf-dim { display: none; }', 'select.xf-select { appearance: auto; }', '.btn.xf-dest { height: 34px; }']) ok(`T1: page.html's export dialog line "${l}" -> desktop, phone and export`, same(select(['src/page.html'], { linesOf: () => ['.top { }', l] }).browser, [...new Set([...DP, ...AREAS.export]), 'smoke']), select(['src/page.html'], { linesOf: () => [l] }).browser);
+  ok('T1: page.html without its diff -> the export shards too (fail safe)', AREAS.export.every((id) => select(['src/page.html']).browser.includes(id)));
+  ok('T1: page.html, a line that only names xf in a word (.prefix-box) -> no export shard', !select(['src/page.html'], { linesOf: () => ['.boxf-x { }', '.xfoo { }'] }).browser.some((id) => AREAS.export.includes(id)));
+}
+// (a new suite in no shard's list runs in the catch-all shard, in its own PR: #498's export_fit_cmd.js, #510's tour_words_cmd.js)
+{
+  const fsx = require('fs'), px = require('path'), f = px.join(__dirname, 'zz_t_impact_new_cmd.js');
+  fsx.writeFileSync(f, 'return { pass: true };\n');
+  try { ok('T1: a new suite no shard lists -> the catch-all shard (new)', same(select(['test/zz_t_impact_new_cmd.js']).browser, ['new', 'smoke']), select(['test/zz_t_impact_new_cmd.js']).browser); } finally { fsx.rmSync(f, { force: true }); }
+}
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
 ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_cmd.js']).browser, ['export-1', 'export-2', 'export-3', 'export-4', 'smoke']));
@@ -64,6 +78,8 @@ const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
 // (issue #20: the inverse's ops and patterns, out of inverse.js, are inputs of the same page only)
 for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
+// (issue #20: region.js's line refinement, out of it, selects what region.js selects)
+ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
 ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
@@ -90,6 +106,8 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/gl/02-glsl-inverse.js -> T2, the inverse GLSL page (src/gl is its input)', g.tier === 'T2' && g.glsl.length && g.glsl.every((j) => j.page === 'inverse') && g.perf, g.glsl);
   ok('a part: src/app/03-exact-images.js -> T2', select(['src/app/03-exact-images.js']).tier === 'T2');
   ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
+  ok('tools/inspect.js and its page script (the visual inspection, by hand: #470) -> T0', ['tools/inspect.js', 'test/lib/inspect_page.js'].every((f) => select([f]).tier === 'T0'));
+  ok('the layout library and its matrix (#470) -> the layout shards', ['test/lib/layout.js', 'test/lib/layout_matrix.js'].every((f) => { const p = select([f]); return p.tier === 'T1' && p.browser.includes('layout-1') && p.browser.includes('layout-2'); }));
   // ([#385] the start-up file in its parts: the params and links, init() and the start stay T3; the constructions'
   // model and adapter are theirs and core; the test hooks select the suites that call a changed hook)
   for (const f of ['src/app/18-params.js', 'src/app/20-init.js', 'src/app/22-start.js']) ok(`a part: ${f} -> T3`, select([f]).tier === 'T3');
@@ -107,6 +125,17 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   const zp = select([H], { hooksOf: () => ['__cmwZp'] });
   ok('the test hooks: __cmwZp changed -> the shards of the suites that call it (zp_cmd.js among them), not everything', zp.tier === 'T1' && zp.browser.includes('smoke') && zp.browser.length < ALL.length && zp.reasons.some((r) => /zp_cmd\.js/.test(r.effect)), zp.browser);
   ok('the test hooks: a changed hook no suite calls -> T3 (fail safe), not nothing', (() => { const p = select([H], { hooksOf: () => ['__cmwNoSuiteCallsThis'] }); return p.tier === 'T3' && /no browser suite calls/.test(p.why.join(' ')); })());
+  // (a local run's leftover test/*_cdp/ (git-ignored: ci/browser.js's and tools/inspect.js's kit copies and their
+  // command files) is not a caller: CI's checkout never has it)
+  {
+    const d = path.join(__dirname, 'zz_t_impact_cdp', 'q');
+    fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, '1.js'), '__cmwZp(); __cmwNoSuiteCallsThis();\n');
+    try {
+      const { hookCallers } = require('../ci/impact.js');
+      ok('the test hooks: a leftover test/*_cdp/ calls no hook', !hookCallers(['__cmwZp', '__cmwNoSuiteCallsThis']).outside.some((f) => /_cdp\//.test(f)));
+      ok('the test hooks: __cmwZp stays T1 with a leftover test/*_cdp/', select([H], { hooksOf: () => ['__cmwZp'] }).tier === 'T1');
+    } finally { fs.rmSync(path.join(__dirname, 'zz_t_impact_cdp'), { recursive: true, force: true }); }
+  }
   const ps = select([H], { hooksOf: () => ['__cmwPaneStatus'] });
   ok('the test hooks: a hook the quality runner calls -> T3', ps.tier === 'T3' && ps.why.some((w) => /run_quality\.js/.test(w)), ps.why);
   ok('the by-hand pages (gl-test, css-fixture: no CI job opens them) -> T0, not T3', ['test/gl_make_test.py', 'test/gl_test.js', 'test/make_css_fixture.py', 'test/css_fixture.js'].every((f) => select([f]).tier === 'T0'));

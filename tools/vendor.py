@@ -47,6 +47,7 @@ PACKAGES = {
 }
 SCRIPTS = [  # (package, file in the package, vendor/js name)
     ('mathjax', 'tex-svg-nofont.js', 'tex-svg-nofont.js'),
+    ('mathjax', 'a11y/assistive-mml.js', 'a11y/assistive-mml.js'),   # the hidden MathML (build.py), loaded by the core
     ('jspdf', 'dist/jspdf.umd.min.js', 'jspdf.umd.min.js'),
     ('svg2pdf.js', 'dist/svg2pdf.umd.min.js', 'svg2pdf.umd.min.js'),
     ('fflate', 'umd/index.js', 'fflate.umd.js'),   # (#491: the offline page's inflate where DecompressionStream is missing)
@@ -190,6 +191,7 @@ def main():
                 lfile.write_text(text, encoding='utf-8')
         for name, inner, out in SCRIPTS:
             b = tars[name].extractfile('package/' + inner).read()
+            (VENDOR / 'js' / out).parent.mkdir(parents=True, exist_ok=True)
             (VENDOR / 'js' / out).write_bytes(b)
             outs['js/' + out] = {'sha256': sha(b), 'bytes': len(b)}
         fpkg, fdir, fpat = MJ_FONT

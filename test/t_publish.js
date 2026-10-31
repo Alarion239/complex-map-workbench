@@ -69,6 +69,7 @@ ok(`the offline page's MathJax, faces and PDF library: ${(extra / 1e6).toFixed(2
   const V = path.join(__dirname, '..', 'vendor', 'js');
   const want = { core: fs.readFileSync(path.join(V, 'tex-svg-nofont.js'), 'utf8'), '[mathjax-stix2]/svg': fs.readFileSync(path.join(V, 'mathjax-stix2', 'svg.js'), 'utf8') };
   for (const f of fs.readdirSync(path.join(V, 'mathjax-stix2', 'svg', 'dynamic')).filter((n) => n.endsWith('.js')).sort()) want[`[mathjax-stix2]/svg/dynamic/${f}`] = fs.readFileSync(path.join(V, 'mathjax-stix2', 'svg', 'dynamic', f), 'utf8');
+  want['a11y/assistive-mml'] = fs.readFileSync(path.join(V, 'a11y', 'assistive-mml.js'), 'utf8');
   const blockOf = (id) => { const m = new RegExp(`<script type="application/json" id="${id}">([\\s\\S]*?)</script>`).exec(off); return m ? JSON.parse(m[1]) : null; };
   const b64 = blockOf('cmw-mathjax'), gz = typeof b64 === 'string' ? Buffer.from(b64, 'base64') : null;
   const viaZlib = gz ? JSON.parse(zlib.gunzipSync(gz).toString('utf8')) : null;

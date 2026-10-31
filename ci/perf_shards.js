@@ -18,6 +18,7 @@ const SHARDS = [
   { id: 'interaction', re: '^(mesh|scrub|morph|hover|cards)', what: 'meshing, scrubs, the deformation, hover, the step cards' },
   { id: 'pointer', re: '^pointer\\.', what: 'wave 1\'s pointer and per-frame work (#63): snap, detents, gliders, the probe, targets' },
   { id: 'phone', re: '^phone\\.', what: 'the emulated phone (390 x 844 @3x, touch, CPU / 4)' },
+  { id: 'steps', re: '^sv\\.', what: 'the steps view (#366): the first glide, a warm glide' },
 ];
 
 function units() {

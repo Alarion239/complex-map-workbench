@@ -34,15 +34,17 @@ page = page[:_i] + (src / 'desk.css').read_text(encoding='utf-8') + (src / 'phon
 js = js.replace('</script', '<\\/script')
 jsp = jsp.replace('</script', '<\\/script')
 # MathJax 4 with its STIX2 font (#288: the formulas in the face of the titles and inline math). The a11y layer is off
-# (no speech worker, no menu); inline formulas are one SVG each, as MathJax 3's (no inline line breaks: the figure and
+# (no speech worker, no menu) but for the hidden MathML beside each SVG (a11y/assistive-mml.js, 4 KB: what MathJax 3
+# wrote too, the formula's text for a screen reader and for textContent); inline formulas are one SVG each, as MathJax 3's (no inline line breaks: the figure and
 # the export read one); the font's rarer ranges load on demand from svg/dynamic/ (TeX.set sets a formula again once
 # its range is in, 01-core.js). The font comes from MathJax's own default path for it, the version of MathJax:
 # cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3 (svg.js, svg/dynamic/*.js). svg.js is preloaded beside the
-# core, which would ask for it only once it runs
+# core, which would ask for it only once it runs, and so is the MathML component
 mj = """<script>
-window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false, menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: false } } }, output: { font: 'mathjax-stix2' }, svg: { fontCache: 'local', linebreaks: { inline: false } }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
+window.MathJax = { options: { enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false, menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: true } } }, output: { font: 'mathjax-stix2' }, svg: { fontCache: 'local', linebreaks: { inline: false } }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
 </script>
 <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">
 <script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>
 """
 
@@ -150,14 +152,15 @@ dist.mkdir(exist_ok=True)
 vendor = root / 'vendor'
 vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
 CDN_MJ = '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>\n'
-CDN_MJ_PRE = '<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">\n'
+CDN_MJ_PRE = ('<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">\n'
+              '<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">\n')
 assert mj.count(CDN_MJ) == 1 and mj.count(CDN_MJ_PRE) == 1, 'the MathJax tags build.py replaces'
 mj_off = mj.replace(CDN_MJ_PRE, '').replace(CDN_MJ, """<script>
 (function () {
   // (Blob URLs, async: the browser compiles MathJax off the main thread, as it did the CDN's script. The font and its
-  // ranges go to MathJax's loader as Blob URLs by name (loader.source), so the ranges still load on demand and
-  // nothing leaves the page; '#.js': the loader adds .js to a name without one. #491: the block is the files' JSON
-  // gzipped, in base64, inflated by DecompressionStream, or by fflate where a browser lacks it)
+  // ranges, and the MathML component, go to MathJax's loader as Blob URLs by name (loader.source), so the ranges
+  // still load on demand and nothing leaves the page; '#.js': the loader adds .js to a name without one. #491: the
+  // block is the files' JSON gzipped, in base64, inflated by DecompressionStream, or by fflate where a browser lacks it)
   var url = function (t) { return URL.createObjectURL(new Blob([t], { type: 'text/javascript' })); };
   var inflate = function (b64) {
     var bin = atob(b64), u8 = new Uint8Array(bin.length);
@@ -209,6 +212,7 @@ mjv = vendor / 'js' / 'mathjax-stix2'
 mj_files = {'core': (vendor / 'js' / 'tex-svg-nofont.js').read_text(encoding='utf-8'), '[mathjax-stix2]/svg': (mjv / 'svg.js').read_text(encoding='utf-8')}
 for f in sorted((mjv / 'svg' / 'dynamic').glob('*.js')):
     mj_files[f'[mathjax-stix2]/svg/dynamic/{f.name}'] = f.read_text(encoding='utf-8')
+mj_files['a11y/assistive-mml'] = (vendor / 'js' / 'a11y' / 'assistive-mml.js').read_text(encoding='utf-8')
 # (#491) the files' JSON gzipped (level 9, no name or time in the header: the same bytes from the same input), in base64:
 # 4.1 MB of JSON in 1.75 MB; the page inflates it (DecompressionStream, else fflate's inflate, a block of its own)
 _gz = io.BytesIO()

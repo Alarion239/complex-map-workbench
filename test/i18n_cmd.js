@@ -16,10 +16,21 @@ const SCAN = fs.readFileSync(path.join(DIR, '..', 'i18n_scan.js'), 'utf8');
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail === undefined ? null : detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// a page just opened: the pause it always had, then its ready state (loaded, I18N there, the chain built), which a
+// busy machine reaches later than any fixed pause; then two frames
+const loaded = async (pause, ms = 30000) => {
+  await sleep(pause);
+  for (const t0 = Date.now(); Date.now() - t0 < ms; await sleep(200)) {
+    let ok = false;
+    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* navigating */ }
+    if (ok) break;
+  }
+  await settle(0);
+};
 const open = async (lang, w, dark, extra = '') => {
   const phone = w < 768;
   await view(w, phone ? 844 : 900, dark, phone);
-  await nav(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await settle(3500);
+  await nav(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
   // (until MathJax has typeset the page's formulas, at most 15 s: it starts after the first paint, 3 to 5 s on a software
   // renderer, and a formula shows its fallback until then, #288)
   for (let i = 0; i < 60 && !(await ev(`!!(window.MathJax && MathJax.startup && MathJax.startup.document) && !document.querySelector('.tex-fallback')`)); i++) await sleep(250);
@@ -116,7 +127,7 @@ for (const w of [1024, 1440]) {
 {
   const ns = 'i18n-sw-' + Date.now();
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=${ns}`); await settle(3500);
+  await nav(`${U}?ns=${ns}`); await loaded(3500);
   check('switch: starts English', (await ev('I18N.lang')) === 'en');
   await key('k', 4); await settle(300); await type('sin'); await settle(400); await key('Enter'); await settle(1200);
   // the deformation open and paused at t = 0.5 (a playing one moves t on its own), the right panel hidden
@@ -146,7 +157,7 @@ for (const w of [1024, 1440]) {
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.cards === before2.cards && after2.morph === before2.morph);
   // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
-  await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await settle(3500);
+  await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
   const pm = await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); if (!b) return null; const m = b.parentElement, r = m.getBoundingClientRect(); return { n: m.querySelectorAll('button').length, l: r.left, r: r.right, t: r.top }; })()`);
@@ -160,7 +171,7 @@ for (const w of [1024, 1440]) {
 // ---- 5: ЙЦУКЕН shortcuts ----
 {
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await settle(3500);
+  await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
   await ev(`document.activeElement && document.activeElement.blur(), 1`);
   const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await sleep(300); };
   const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
@@ -192,7 +203,7 @@ for (const w of [1024, 1440]) {
 }
 // ---- 6: detection ----
 {
-  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await nav(U + q); await settle(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
+  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await nav(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
   await view(1440, 900, false, false);
   await nav(U + '?ns=i18n-det'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (/^cmw-lang/.test(k)) localStorage.removeItem(k); })()`);
   const r1 = await as('ru-RU,ru,en', ''); check('a ru-RU browser gets Russian', r1.lang === 'ru' && r1.html === 'ru', r1);

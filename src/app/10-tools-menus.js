@@ -76,7 +76,7 @@
     tool = id;
     draft = null;
     Construct.toolChanged();   // (v16)
-    for (const b of document.querySelectorAll('.tool[data-tool]')) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
     // plane at any focus)
     if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
@@ -201,7 +201,7 @@
             if (it.kids) { openMenu(b, it.kids, cls, { opener, okey, parent: items, label: it.label, at: pop.getBoundingClientRect() }); return; }
             closePalette();
             const r = it.run();
-            if (r instanceof Element && r.isConnected) r.focus({ preventScroll: true }); else focusBack(opener, okey);
+            if (r instanceof Element && r.isConnected) /** @type {HTMLElement} */ (r).focus({ preventScroll: true }); else focusBack(opener, okey);
           } },
           h('span', { class: 'mi-ic', html: ic }), it.labelEl || h('span', { class: 'mi-label' }, it.label), it.keyHtml ? h('span', { class: 'mi-key mi-math', html: it.keyHtml }) : h('span', { class: 'mi-key' }, it.key || ''));
         if (it.lang) b.lang = it.lang;
@@ -412,19 +412,21 @@
     // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
     // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
     // ([v16.5 UX27] the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
-    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
+    // (the steps view has no X or Y: the shapes are grouped by the plane they are in, "In z", "In w₁", …)
+    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(0) }) : $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
     const counts = {}, pv = { n: 0 };
     // ([#253] then the shapes of each plane of the chain they were drawn in, by its name: "In the plane w₁")
     const rows = [];
     S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; rows.push([s, shapeRow(s, rowName(s, counts, pv), false)]); });
     for (const k of [...new Set([0, ...S.shapes.map(shapeStage)])].sort((x, y) => x - y)) {
-      if (k) host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In the plane {w}</span>', { w: wHtml(k) }) }));
+      if (k) host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(k) }) : $t('<span>In the plane {w}</span>', { w: wHtml(k) }) }));
       for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
     }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
-    {
-      const out = yAtF() ? '<i>w</i>' : wHtml(rightStage());
-      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
+    // (the steps view: targets are listed under the last plane, and with none there is no group, nothing to draw "in Y")
+    if (!SV.on || S.targets.length) {
+      const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
+      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
       if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tc = {};
       S.targets.forEach((s, i) => {
@@ -433,7 +435,7 @@
         // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
         // ([v16.5 fix rail-4] the unit circle or an axis of Y: by that name)
         const label = s.name && s.kind !== 'point' ? s.name : fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] });
-        host.append(shapeRow(s, label, true, i));
+        host.append(shapeRow(s, label, true));
       });
     }
     updateShapeList();
@@ -631,7 +633,7 @@
     const LIMITS = { r: s.kind === 'dheq' ? [dhRho * (1 + 1e-9), Infinity, dhRho > 1 ? $t('The level |Φ| must be more than {r} here (the critical level of this c)', { r: CX.fmtNum(dhRho, 4) }) : $t('The level |Φ| must be more than 1')] : [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
       r1: [0, Infinity, $t('Radii must be 0 or more')], r2: [0, Infinity, $t('Radii must be 0 or more')],
       n: [1, 60, $t('Use a whole number from 1 to 60')], nc: [1, 60, $t('Use a whole number from 1 to 60')], nr: [1, 60, $t('Use a whole number from 1 to 60')] };
-    const numField = (key, label, step = 'any') => {
+    const numField = (key, label, step = /** @type {string | number} */ ('any')) => {
       const bf = boundField(key, label);
       if (bf) return bf;
       // (v15: a text field, so that it takes formulas of the shared numbers: 2a, ρ/2)
@@ -789,7 +791,7 @@
       html: '‹ ' + (back === 'F' ? $t('Back to {f}', { f: '<i>F</i>' }) : $t('Back to {f}', { f: fsub(back) })) }) : null;
     const crumbs = h('div', { class: 'sh-crumbs' }, h('span', { class: 'sh-path' }, isTarget(s) ? $t('Targets') : $t('Shapes'), ' › ', label), backBtn);
     const head = h('div', { class: 'ihead sh-ihead' }, h('span', { class: 'swatch', 'data-kind': kindType(s), style: swatchStyle(s) }), h('span', { class: 'ttl' }, label),
-      h('span', { class: 'sh-in' }, isTarget(s) ? $t('in Y') : $t('in X')));
+      h('span', { class: 'sh-in' }, SV.on ? $t('in {w}', { w: isTarget(s) ? svName(svPlanes()[svPlanes().length - 1]) : svName(shapeStage(s)) }) : isTarget(s) ? $t('in Y') : $t('in X')));
     const ed = shapeEditor(s);
     const used = h('div', { class: 'cm-ichips sh-used' });
     const acts = h('div', { class: 'sh-acts' },
@@ -963,7 +965,7 @@
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
     $('formulaAdd').addEventListener('click', add);
     // the tag names wₖ with step k focused: refresh it when the focus changes
-    setupFormula.refresh = check;
+    /** @type {any} */ (setupFormula).refresh = check;
   }
 
   // (#385) the Draw panel's controls: Snap, the tools' More sheet, Clear in the Shapes heading
