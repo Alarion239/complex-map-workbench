@@ -68,6 +68,8 @@
     gl.clearColor(c[0], c[1], c[2], c[3]);
     gl.clearDepth(1);
     gl.depthMask(true);
+    // (a frame writes every channel: a write mask (#440) ends with the frame it was set in)
+    if (!maskRGB || !maskA) { maskRGB = maskA = true; gl.colorMask(true, true, true, true); }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     resetState();
   }
@@ -539,9 +541,33 @@
     gl.enable(gl.BLEND);
     if (st.dstAlpha || fade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
-  // ((#366 prototype) what follows writes the frame's alpha alone (on), or every channel again (off): a mask of the
-  // regions for drawColorPlot's dstAlpha)
-  function alphaOnly(on) { if (ok) gl.colorMask(!on, !on, !on, true); }
+  // (#440) which of the frame's channels what follows writes: its alpha alone (a mask of the regions, for drawColorPlot's
+  // dstAlpha or keepInAlpha), its colour alone (drawn over that mask), or all of them again
+  function writeMask(rgb, a) { if (ok) { maskRGB = !!rgb; maskA = !!a; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); } }
+  function alphaOnly(on) { writeMask(!on, true); }
+  // the frame's colour set to rgb (0-1), its alpha as it is: the paper under a colour layer drawn over a mask
+  function clearRGB(rgb) {
+    if (!ok) return;
+    gl.colorMask(true, true, true, false);
+    gl.clearColor(rgb[0], rgb[1], rgb[2], 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clearColor(0, 0, 0, 0);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+  }
+  // the frame's colour kept only where its alpha is: each pixel's colour times its alpha, the alpha as it is (a mask
+  // the regions wrote before the colour was drawn over it). False while its program links (probe: only ask)
+  function keepInAlpha(probe) {
+    const Q = ok && program('keepA');
+    if (!Q || probe) return !!Q;
+    use(Q);
+    gl.enable(gl.BLEND);
+    gl.blendFuncSeparate(gl.ZERO, gl.DST_ALPHA, gl.ZERO, gl.ONE);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    return true;
+  }
 
   // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
   // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
