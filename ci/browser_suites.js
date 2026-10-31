@@ -71,14 +71,15 @@ const SUITES = {
   },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
-  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
-  // violations go to its result's report, and the job does not fail on them)
+  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
+  // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
+  // baseline and does not now; the rest go to its result's report)
   'layout_invariants_cmd.js': {
     keepShots: true,
     // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
     logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
-      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
+      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'gate' };` })),
   },
 };
 

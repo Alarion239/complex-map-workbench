@@ -244,11 +244,16 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
 boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
 its first point (`shots/`, kept in the job's artifact although the suite passes: `keepShots` in `ci/browser_suites.js`).
-- **Report mode** (now): it passes, and the report is triaged on #470.
-- **The gate** (`mode: 'gate'`): a row whose key `ci/layout_baseline.json` lacks for its run fails. The rows only go
-  down, as with the lint ratchet: `node ci/layout_ratchet.js check|update .ci/browser/layout_invariants_cmd.js_<run>.json`
-  checks or lowers the baseline (`--init` wrote the first). The points a row is seen at are reported, not gated: on
-  software GL they vary by one or two from run to run.
+- **The gate** (on, `mode: 'gate'` in `ci/browser_suites.js`): a row whose key `ci/layout_baseline.json` lacks for its
+  run fails the job, and so does a state that opened for the baseline and doesn't now. The baseline was made from CI's
+  own runs (lavapipe); on another renderer the suite reports and doesn't gate. The rows only go down, as with the lint
+  ratchet: when a PR fixes rows, the job reports them as fixed, and
+  `node ci/layout_ratchet.js update <the saved job logs or .ci/browser/layout_invariants_cmd.js_<run>.json>` lowers the
+  baseline. It reads the `LAYOUT-RESULT` line of a saved job log, so no artifact download is needed. A row that is new
+  and meant goes into `DECLARED` (ux reviews it); a change of the matrix needs `update --init`. The points a row is
+  seen at are reported, not gated.
+- **Which PRs run it:** a change to the suite or its libraries; the shell (`19-shell.js`) and the phone's files run
+  `layout-1` (en), the languages' tables `layout-2` (ru, it); every T3 runs both.
 - **The design intent** is declared in `INTENT` (`test/lib/layout.js`) or on the element: `data-layer` (sits on top),
   `data-center="x|y|both"`, `data-ellipsis`.
 - **The violations that are meant** are declared in the suite's `DECLARED`, each with its reason.
