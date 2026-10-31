@@ -146,6 +146,27 @@ await kb('Escape'); await settle(300);
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`); await kb('Delete'); await settle(300);
 await axeRun('the empty chain');
 await undo();
+// the thread fits its pane (+ Add function widens nothing), at 1024 and 1440, in English and Russian: the pane stays inside its
+// column, and the strip's and the plane's controls are what a pointer finds at their centres
+const fitCase = async (w, lang) => {
+  await view(w, 800, false, false);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}fit${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  const r = await ev(`(() => {
+    const L = document.getElementById('paneL').getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect(), S = document.getElementById('svStrip'), sr = S.getBoundingClientRect();
+    const hit = (sel) => { const e = document.querySelector(sel); if (!e) return sel + ': none'; const b = e.getBoundingClientRect(); if (!b.width) return sel + ': hidden'; const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return e === at || e.contains(at) ? null : sel + ': covered by ' + (at && (at.id || at.className)); };
+    return { paneInside: L.right <= st.right + 0.5 && L.left >= st.left - 0.5, strip: S.scrollWidth <= S.clientWidth + 1, stripInPane: sr.right <= L.right + 0.5, docX: document.documentElement.scrollWidth <= window.innerWidth + 1, W: [L.left, L.right, st.left, st.right, sr.right, S.scrollWidth, S.clientWidth],
+      add: (() => { const a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(); return a.right <= sr.right - 0.5 && a.left >= sr.left; })(),
+      hits: ['.sv-add', '.sv-next', '.sv-prev', '.sv-speed', '#leftZoomIn', '#leftFit'].map(hit).filter(Boolean) };
+  })()`);
+  ok(`${w}, ${lang}: the pane stays in its column and the strip fits it, + Add function whole`, r.paneInside && r.strip && r.stripInPane && r.docX && r.add, r);
+  ok(`${w}, ${lang}: the strip's and the plane's controls are not covered`, r.hits.length === 0, r.hits);
+};
+for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`).catch(() => {});
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await fitCase(w, lang);
+}
 // ---- the phone ----
 await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);

@@ -611,6 +611,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
 .sv-title sub { font-style: normal; font-size: 0.7em; }
+:root.sv .chip.readout .rteach { white-space: normal; }
+:root.sv .ruler-corner sub { font-style: normal; font-size: 0.72em; }
+.sv-title .sv-sep { font-style: normal; color: var(--muted); }
+.sv-title .sv-role { font: 400 14px/1 var(--f-ui); color: var(--muted); }
+.sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
@@ -642,6 +647,12 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-cp { display: inline-flex; align-items: center; gap: 6px; }
 /* chain editing on the thread (#437): a step's pill is its chip and its ⋯ (two buttons); a bypassed step is dashed with its
    name struck through; "+ Add function" ends the thread; a step shown alone has its "Whole chain" chip at the left */
+/* the thread fits its pane (eyes' review): the pane's one column may shrink below the strip's contents, the rail is a container of its
+   own width, and "+ Add function" is a "+" where the rail is narrow; the chips' names shrink to their ellipsis */
+:root.sv #paneL { grid-template-columns: minmax(0, 1fr); }
+.sv-rail { container-type: inline-size; overflow: hidden; }
+.sv-step { min-width: 0; }
+@container (max-width: 520px) { .sv-add { margin-left: 4px; padding: 0; width: 34px; justify-content: center; } .sv-add-t { display: none; } }
 .sv-fwrap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; overflow: hidden; }
 .sv-fwrap:hover, .sv-fwrap:focus-within { border-color: var(--accent); }
 .sv-fwrap .sv-fchip { height: 32px; min-width: 0; border: 0; border-radius: 16px 0 0 16px; background: transparent; padding: 0 4px 0 12px; }

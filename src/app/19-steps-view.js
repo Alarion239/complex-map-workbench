@@ -20,6 +20,7 @@
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
+    ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
   };
   const SV_GPU_MASK = false;
   // the glide's time a plane, by speed (a setting kept on this device)
@@ -33,8 +34,54 @@
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
-  const svName = (k) => (k === 0 ? 'z' : k === nSteps() ? 'w' : `w${sub(k)}`);
-  const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : k === nSteps() ? '<i>w</i>' : `<i>w</i><sub>${k}</sub>`);
+  // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
+  const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
+  const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
+  // the map from plane k into the colour plane T, by name (#435): F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
+  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html' or 'text'
+  function svMapName(fmt, k = svStage(), T = svT()) {
+    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html';
+    if (!ss.length) return null;
+    if (k === 0 && T === P[P.length - 1]) return h5 ? '<i>F</i>' : 'F';
+    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : `f${sub(s)}`), q = ss.slice().reverse();
+    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}∘${f(q[1])}` : `${f(q[0])}∘⋯∘${f(q[q.length - 1])}`;
+  }
+  // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
+  const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? (fmt === 'html' ? `${m}<span class="rm">(</span>${v}<span class="rm">)</span>` : `${m}(${v})`) : v; };
+  // the map from the shown plane into the colour plane as a function: what the probe reads (the identity past it, where
+  // the plane carries shapes and no colour of its own)
+  function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }
+  // what the key's caption calls the colouring, "arg and |f₂|": the map into the colour plane, or the plane's own variable
+  const svKeyName = (k = svStage()) => svMapName('text', k) || svName(k);
+  // past the colour plane the colour is carried, so the probe names where its point comes from in the colour plane T: a
+  // preimage of it under the map T → shown plane, by a short search over the camera's window (undefined at or before T;
+  // null when none is found there or the map has no inverse here, which the readout says as "—")
+  function svSource(q) {
+    const k = svStage(), T = svT();
+    if (k <= T) return undefined;
+    if (T > 0 && derivIn(T, k)) return null;
+    /** @type {any} */
+    let sols = [];
+    const F = T === 0 ? stageF(k) : rangeF(T, k), box = paneBox(paneL, leftView());
+    try {
+      sols = zerosPolesTimed(F, box, { target: { re: q.re, im: q.im }, max: 4 }, 4);
+      // (a search that found nothing before its time ran out, a cold first call or a busy frame: once more with more time)
+      if (!sols.length && (sols.stopped || sols.incomplete)) sols = zerosPolesTimed(F, box, { target: { re: q.re, im: q.im }, max: 4 }, 16);
+    } catch (e) { return null; }
+    const hit = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z));
+    return hit.length ? hit[0].z : null;
+  }
+  // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
+  // colour plane the colour is carried by the points, which the role says
+  function svTitleParts() {
+    const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
+    let role;
+    if (!svColoured(k)) role = k > T ? $t('colour of {p}, carried', { p: wHtml(T) }) : $t('shapes only');
+    else if (k === T && SV.surf !== 'land') role = $t('colour plane');
+    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: '' });
+    else role = $t('phase of {ofV}', { ofV: map });
+    return { name: svNameHtml(k), role };
+  }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
@@ -72,12 +119,35 @@
   function svAdopt(force) {
     const ext = S.view.main;
     if (ext === svMain() && !force) return;
-    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas)
-    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
-    if (ext === 'xy') { SV.T = -1; SV.scope = areas ? 'in' : 'all'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'phase') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.P.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'land') { SV.T = -1; SV.scope = 'all'; SV.surf = 'land'; }
+    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
+    // Views.svOf, concept §6)
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas);
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     SV.i = 0; SV.g.set(0);
+  }
+  // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
+  // the device's setting for a state without one). svStore writes it before a save, a link or an undo entry;
+  // svLoad reads it when the page opens on a state that has one, and after an undo
+  function svStore() {
+    if (!SV.on || !SV.ready) return;
+    // (#437: a step shown alone keeps the whole chain's place, which is what undo and a link restore)
+    const b = SV.alone && SV.back ? SV.back : null;
+    setOpt('sv', { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed });
+  }
+  function svLoad() {
+    // (#437: by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which clamped the place)
+    const o = Views.cleanSv(S.sv, svAloneOk() ? svPlanes() : svPlanesOf(S.steps));
+    if (!o) return false;
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
+    if (o.speed) { SV.speed = o.speed; if (SV.els && SV.els.speed) SV.els.speed.value = o.speed; }   // (a state without one keeps the device's)
+    SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
+    return true;
+  }
+  // an undo put another S.sv under the view
+  function svRestored() {
+    if (!SV.on || !SV.ready) return;
+    if (SV.alone) { SV.alone = 0; SV.back = null; }   // (#437: an undo leaves a step shown alone)
+    if (svLoad()) { SV.sig = null; setTimeout(svApply, 0); }
   }
   function svApply() {
     const k = svStage();
@@ -172,6 +242,20 @@
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
+    // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
+    if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
+      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
+      const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
+      // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
+      // to plane a, as smKeyOf for the forward meshes)
+      const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
+      const plan = a > s ? invPlan(s, a) : null;
+      const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+      GLR.begin(pane.pw, pane.ph);
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
+        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
+    }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
     let m = svCarryMemo;
     if (!m || m.key !== key) {
@@ -423,10 +507,9 @@
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: SV.i + 1, n, where });
   }
-  function svFormulaHtml(k) {
-    if (k === 0) return '<i>z</i>';
-    // (the formula after the name is left out on a phone, whose header has room for the name alone)
-    return `${svNameHtml(k)}<span class="sv-tf"> = <i>f</i><sub>${k}</sub>(${svNameHtml(svPlanes()[svPlanes().indexOf(k) - 1] || 0)})</span>`;
+  function svFormulaHtml() {
+    const { name, role } = svTitleParts();
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role">${role}</span>`;
   }
   function svSeg(cls, label, items, cur, pick) {
     const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
@@ -461,7 +544,7 @@
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
+    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } svStore(); save(); } },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next, speed);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
@@ -477,7 +560,7 @@
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { empty, rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { empty, speed, rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -524,7 +607,7 @@
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
       const home = ph ? $('top') : E.head;
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
-      E.title.innerHTML = svFormulaHtml(k);
+      E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
       const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
@@ -720,8 +803,8 @@
     svWantFocus();
   }
   // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
-  // maps' (mode 1) and the carried colour's pre-mapped mesh; at start-up and when the chain changes. (F's GPU carry
-  // hooks its own programs in here)
+  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
+  // chain changes
   function svPrestart() {
     try {
       if (!GLR.ok) return;
@@ -729,6 +812,8 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
+      // (#439: the carried colour's programs, a glide's first: carryId too when a plane lies past the colour plane)
+      if (GLR.prestartNames) { const P = svPlanes(); GLR.prestartNames(svT() < P[P.length - 1] ? ['carry', 'carryId'] : ['carry'], [1, 0]); }
     } catch (e) { /* (the first glide starts them) */ }
   }
   function setupStepsView() {
@@ -739,7 +824,8 @@
     svEdgeSwipe();
     svKeys();
     SV.g.set(0); SV.g.max = svPlanes().length - 1;
-    svAdopt();
+    if (!svLoad()) svAdopt();
+    SV.ready = true;
     svApply();
     // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
     for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
@@ -775,14 +861,6 @@
     SV.sig = svSigNow();
     svApply();
     if (focus) { const el = svEl(k, 'chip'); if (el) el.focus({ preventScroll: true }); }
-  }
-  // what the undo history keeps of the thread: the shown plane, the colour plane and the step shown alone
-  function svSnap() { return SV.on ? { i: SV.i, T: SV.T, alone: SV.alone, back: SV.back || null } : null; }
-  function svRestoreState(o) {
-    if (!SV.on || !o) return;
-    SV.i = o.i; SV.T = o.T; SV.alone = o.alone; SV.back = o.back;
-    SV.g.set(SV.i);
-    SV.own = true;
   }
   // after a change in the number of steps, the shown plane and the colour plane stay on their stages: stages from `from` on
   // moved by d (a remove: the removed stage's plane goes to the one before), and a stage that is gone to the one before it

@@ -257,7 +257,7 @@
   function palItems(done) {
     const cur = GLR.palette(), names = PAL_NAMES();
     const list = Palette.LIST.map(([id]) => ({ label: names[id][0], tip: names[id][1], radio: true, checked: cur === id, iconHtml: `<img class="pcol-prev" alt="" src="${palPreview(id)}">`, run: () => { setPalette(id); if (done) done(); } }));
-    list.menuLabel = $t('Phase colours'); list.focusChecked = true;
+    /** @type {any} */ (list).menuLabel = $t('Phase colours'); /** @type {any} */ (list).focusChecked = true;
     return list;
   }
   function setPalette(id) {
@@ -537,7 +537,7 @@
   }
   function showMeshVal(n) {
     $('meshVal').textContent = `${n}`;
-    for (const b of document.querySelectorAll('#meshPresets button')) b.classList.toggle('on', +b.dataset.n === n);
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#meshPresets button'))) b.classList.toggle('on', +b.dataset.n === n);
     $('meshNote').hidden = n < 480;
     paintFader($('meshRange'));
   }
@@ -641,10 +641,10 @@
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
     // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
-    for (const b of lt ? lt.children : []) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
+    for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
     // the view names the map in focus (P13)
     const vs = $('viewSwitch');
-    if (vs) for (const b of vs.children) {
+    if (vs) for (const b of /** @type {Iterable<HTMLElement>} */ (vs.children)) {
       const F = fnText(), tip = { xy: $t(`X → Y: the shapes and their images  1`), phase: $t('Phase portrait of {F}  2', { F }), land: $t('Landscape of {F}  3', { F }) }[b.dataset.mode];
       if (b.dataset.tip !== tip) b.dataset.tip = tip;
     }
@@ -669,7 +669,7 @@
     const b = $('viewAllBtn');
     if (!b) return;
     b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
-    clearTimeout(pulseWhole.t); pulseWhole.t = setTimeout(() => b.classList.remove('pulse'), 900);
+    clearTimeout(/** @type {any} */ (pulseWhole).t); /** @type {any} */ (pulseWhole).t = setTimeout(() => b.classList.remove('pulse'), 900);
   }
   // resizable gutters between the planes and above the chain (sizes are per viewer)
   function setupGutters() {
@@ -748,7 +748,8 @@
     const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
-      const el = e.target.closest && e.target.closest('[data-tip],[title]');
+      const tg = /** @type {HTMLElement} */ (e.target);
+      const el = tg.closest && tg.closest('[data-tip],[title]');
       if (!el || el === cur) return;
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();
@@ -769,7 +770,8 @@
     // Esc) shows none, as UX34 asks. It goes with the focus, on any key and on any press)
     document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || /^Arrow/.test(e.key)) navKeyAt = performance.now(); }, true);
     document.addEventListener('focusin', (e) => {
-      const el = e.target && e.target.closest ? e.target.closest('[data-tip],[title]') : null;
+      const tg = /** @type {HTMLElement} */ (e.target);
+      const el = tg && tg.closest ? tg.closest('[data-tip],[title]') : null;
       if (!el || performance.now() - navKeyAt > 300 || !el.matches(':focus-visible')) return;
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();
@@ -792,7 +794,8 @@
       if (lpShown) { lpShown = null; hide(); }
       lpDown = null;
       if (e.pointerType !== 'touch') return;
-      const el = e.target.closest && e.target.closest(LP_SEL);
+      const tg = /** @type {HTMLElement} */ (e.target);
+      const el = tg.closest && tg.closest(LP_SEL);
       if (!el) return;
       lpDown = { id: e.pointerId, t: e.timeStamp };
       lp = { el, x: e.clientX, y: e.clientY, id: e.pointerId, t: setTimeout(() => { lp = null; cur = el; lpShown = el; show(el); }, 450) };
@@ -867,7 +870,7 @@
   // radiogroups are one Tab stop: only the checked radio is tabbable
   function roveRadios() {
     for (const g of document.querySelectorAll('[role="radiogroup"]')) {
-      const rs = [...g.querySelectorAll('[role="radio"]')];
+      const rs = /** @type {HTMLElement[]} */ ([...g.querySelectorAll('[role="radio"]')]);
       if (!rs.length) continue;
       const on = rs.find((r) => r.getAttribute('aria-checked') === 'true') || rs[0];
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
