@@ -45,7 +45,7 @@
     return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}∘${f(q[1])}` : `${f(q[0])}∘⋯∘${f(q[q.length - 1])}`;
   }
   // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
-  const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? `${m}(${v})` : v; };
+  const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? (fmt === 'html' ? `${m}<span class="rm">(</span>${v}<span class="rm">)</span>` : `${m}(${v})`) : v; };
   // the map from the shown plane into the colour plane as a function: what the probe reads (the identity past it, where
   // the plane carries shapes and no colour of its own)
   function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }

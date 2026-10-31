@@ -1308,7 +1308,18 @@
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + fv(4),
         () => rk(vin, fmtCxHtml(z, 3, zTol)) + fv(2),
       ];
-      for (let i = 0; i < forms.length; i++) {
+      // (the steps view's readout on a phone is two lines, as the classic one: z on the first, the map into the colour plane on the
+      // second, where one line of both was cut at 360–390 px)
+      const two = SV.on && document.documentElement.classList.contains('ph') && svMapName('text') !== null;
+      if (two) {
+        const z2 = [() => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))), () => rk(vin, fmtCxHtml(z, 4, zTol)), () => rk(vin, fmtCxHtml(z, 3, zTol))];
+        const m2 = [() => fv(4), () => fv(4), () => fv(2)];
+        const fits2 = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
+        for (let i = 0; i < z2.length; i++) {
+          lr.innerHTML = `<span class="rln">${z2[i]()}</span><span class="rln">${m2[i]()}</span>`;
+          if (i === z2.length - 1 || [...lr.children].every(fits2)) break;
+        }
+      } else for (let i = 0; i < forms.length; i++) {
         lr.innerHTML = forms[i]();
         if (i === forms.length - 1 || lr.scrollWidth <= lr.clientWidth + 1) break;
       }
