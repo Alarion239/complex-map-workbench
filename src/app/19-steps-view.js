@@ -853,7 +853,32 @@
       } });
     });
   }
-  function svStepMenu(anchor, k) {
+  // open step k in the Inspector; on a phone its sheet (a card's tap does it there, the thread's chip is not a card)
+  function svInspect(k) {
+    inspectStep(k);
+    if (document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined' && Phone.open) Phone.open('edit');
+  }
+  // a menu a long press raised: clear of the finger where it fits, and deaf for 450 ms to the lift that ends the press
+  // (a tall menu opened under the finger would otherwise activate the item it landed on)
+  function svClearOf(pop, x, y, chip) {
+    if (!pop || !pop.getBoundingClientRect) return;
+    const W = window.innerWidth, H = window.innerHeight, pw = pop.offsetWidth, ph = pop.offsetHeight, c = chip.getBoundingClientRect(), M = 8, F = 24;
+    const hit = (l, t) => x >= l - F && x <= l + pw + F && y >= t - F && y <= t + ph + F;
+    const left0 = parseFloat(pop.style.left) || 0, top0 = parseFloat(pop.style.top) || 0;
+    if (!hit(left0, top0)) return;
+    const cand = [[left0, c.top - ph - F - M], [left0, c.bottom + F + M], [x - F - pw - M, top0], [x + F + M, top0]];
+    for (const [l, t] of cand) {
+      if (l < M || t < M || l + pw > W - M || t + ph > H - M || hit(l, t)) continue;
+      pop.style.left = l + 'px'; pop.style.top = t + 'px';
+      return;
+    }
+  }
+  function svDeaf(pop) {
+    const t0 = performance.now();
+    const eat = (e) => { if (performance.now() - t0 < 450) { e.stopPropagation(); e.preventDefault(); } };
+    for (const type of ['pointerup', 'click', 'mouseup']) pop.addEventListener(type, eat, true);
+  }
+  function svStepMenu(anchor, k, lp) {
     if (!S.steps[k - 1]) return null;
     const now = performance.now();
     if (SV.menuT && now - SV.menuT < 500) return null;   // (a long press and the context menu it raises are one)
@@ -862,7 +887,7 @@
     const raw = stepMenuItems(anchor, k, { full: true, thread: true });
     const by = (id) => raw.find((x) => x && x.id === id);
     const first = [
-      { label: $t('Open in the Inspector'), run: () => { inspectStep(k); return svEl(k, 'chip'); } },
+      { label: $t('Open in the Inspector'), run: () => { svInspect(k); return svEl(k, 'chip'); } },
       { label: $t('Show alone'), disabled: off, tip: off ? $t('Turn this step back on first.') : null, run: () => svAlone(k) }, 'sep'];
     const used = new Set(['inverse', 'bypass', 'moveL', 'moveR', 'dup', 'insert', 'replace', 'remove']);
     const rest = raw.filter((x) => x !== 'sep' && !(x.id && used.has(x.id)));
@@ -873,7 +898,9 @@
     while (out.length && out[out.length - 1] === 'sep') out.pop();
     const wrapped = svWrap(out, k);
     // (removing: svRemove has done it; the item's own run is not called again)
-    return openMenu(anchor, wrapped);
+    const pop = openMenu(anchor, wrapped);
+    if (pop && lp) { svDeaf(pop); svClearOf(pop, lp.x, lp.y, anchor); }
+    return pop;
   }
   function svBypass(k) {
     const st = S.steps[k - 1];
@@ -916,7 +943,7 @@
   function svStepEl(k) {
     const st = S.steps[k - 1], d = defOf(st), off = st.on === false, name = cardName(st, d);
     const chip = h('button', { type: 'button', class: 'sv-fchip', 'data-tip': `${name} · ${$t('Edit step {k}', { k })}`,
-      'aria-label': `f${sub(k)} ${name}${off ? $t(', bypassed') : ''}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); inspectStep(k); } },
+      'aria-label': `f${sub(k)} ${name}${off ? $t(', bypassed') : ''}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); svInspect(k); } },
     h('span', { class: 'sv-fk', html: `<i>f</i><sub>${k}</sub>` }), h('span', { class: 'sv-fn' }, name));
     const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
@@ -930,16 +957,19 @@
       else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { e.preventDefault(); e.stopPropagation(); svStepMenu(/** @type {HTMLElement} */ (e.target), k); }
     });
     // (right-click, and the touch's long press: the phone's chips have no ⋯)
-    wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); svStepMenu(chip, k); });
+    let touch = null;
+    wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); svStepMenu(chip, k, touch && performance.now() - touch.t < 1500 ? touch : null); });
     let lp = null;
     const lpOff = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
     wrap.addEventListener('pointerdown', (e) => {
       lpOff();
+      if (e.pointerType === 'touch') touch = { x: e.clientX, y: e.clientY, t: performance.now() };
       if (e.pointerType !== 'touch' || e.target.closest('.sv-more')) return;
       lp = { x: e.clientX, y: e.clientY, id: e.pointerId, t: setTimeout(() => {
+        const at = { x: lp.x, y: lp.y };
         lp = null;
         SV.noClickT = performance.now();
-        svStepMenu(chip, k);
+        svStepMenu(chip, k, at);
       }, 450) };
     });
     wrap.addEventListener('pointermove', (e) => { if (lp && e.pointerId === lp.id && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) lpOff(); });

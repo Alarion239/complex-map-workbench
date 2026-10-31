@@ -146,8 +146,28 @@ await axeRun('the empty chain');
 await undo();
 // ---- the phone ----
 await open(390, 844, true);
-const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height })`);
-ok('on a phone: no ⋯ on the chips, "+" is 44 px and named Add function', ph.more === 'none' && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 42, ph);
+const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width })`);
+ok('on a phone: no ⋯ on the chips, "+" is 44 px and named Add function', ph.more === 'none' && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 44 && ph.chipW >= 44, ph);
+// a tall menu raised by a long press does not take the lift that ends it, on short screens too
+for (const [w, h] of [[390, 700], [740, 360], [360, 640]]) {
+  await open(w, h, true);
+  const before = (await types()).join();
+  await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip'), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const ev1 = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 11, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }));
+    window.__lp1 = () => { const t = document.elementFromPoint(x, y) || c; ev1('pointerup'); t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y })); };
+    window.__fin = { x, y }; ev1('pointerdown'); return 1; })()`);
+  await sleep(700);
+  const menuUp = await menu();
+  const clear = await ev(`(() => { const p = document.querySelector('#popHost .menu'); if (!p) return null; const r = p.getBoundingClientRect(), f = window.__fin; return !(f.x >= r.left && f.x <= r.right && f.y >= r.top && f.y <= r.bottom); })()`);
+  await ev(`__lp1(); 1`); await settle(300);
+  ok(`${w}×${h}: a long press opens the menu, and the lift that ends it activates nothing`, menuUp.length > 0 && (await types()).join() === before && (await menu()).length > 0, [menuUp.length, before, await types()]);
+  info['clear' + w + 'x' + h] = clear;
+}
+await open(390, 844, true);
+// a tap on a chip opens the Inspector's sheet on a phone
+await cl('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settle(500);
+ok('a tap on a chip opens the Inspector sheet on a phone', await ev(`typeof Phone !== 'undefined' && Phone.sheet() === 'edit'`), await ev(`Phone.sheet()`));
+await open(390, 844, true);
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
   window.__lp = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp('pointerdown'); return 1; })()`);
 await sleep(700);
