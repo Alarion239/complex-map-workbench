@@ -2,12 +2,13 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
 <script>
 /* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
-   Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal);
-   Russian also starts the Cyrillic faces' stylesheet now (the offline page's are inline). English returns at once. */
+   Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal).
+   English returns at once. (The faces are in the one stylesheet above in every language: Google Fonts serves Roboto Flex
+   and JetBrains Mono per unicode-range subset, so Cyrillic is fetched only when it is set.) */
 (function () {
   try {
     var q = new URLSearchParams(location.search), l = q.get('lang'), ns = q.get('ns') || '', p = null, n = '';
@@ -18,17 +19,10 @@
       else { n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); l = /^ru(-|$)/.test(n) ? 'ru' : /^it(-|$)/.test(n) ? 'it' : 'en'; }
     }
     if (l === 'en') return;
-    var d = document.documentElement, k = document.createElement('link');
+    var d = document.documentElement;
     l = l === 'pseudo' ? 'ru' : l;
     d.lang = l; d.setAttribute('data-lang', l); d.classList.add('i18n-wait');
     addEventListener('load', function () { d.classList.remove('i18n-wait'); });
-    if (l !== 'ru') return;
-    // (the offline page, issue #21: the faces are inline, build.py's #cmw-fonts-ru, and go in as a style element)
-    var f = document.getElementById('cmw-fonts-ru');
-    if (f) { k = document.createElement('style'); k.id = 'i18n-fonts'; k.textContent = f.textContent; document.head.appendChild(k); return; }
-    k.id = 'i18n-fonts'; k.rel = 'stylesheet';
-    k.href = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
-    document.head.appendChild(k);
   } catch (e) { /* the page shows as before */ }
 })();
 </script>
@@ -73,9 +67,10 @@
   --shadow-3: 0 10px 28px #121A2029, 0 2px 6px #121A2014;
   --scrim: #121A205C;
   /* type */
-  --f-ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
-  --f-mono: "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* [v16.5 UX105] typed input: round parentheses and a tight decimal point (B612 Mono's "(" reads as "[", "0.5" as "0. 5") */
+  /* (#288) one interface face, Roboto Flex, in all three languages (it has the width axis the semi-condensed captions use, and
+     Cyrillic), and one mono, JetBrains Mono, for readouts and typed input alike (round parentheses, a tight decimal point) */
+  --f-ui: "Roboto Flex", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --f-input: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --f-math: "STIX Two Text", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
   --t-micro: 400 10px/12px var(--f-mono);
@@ -565,14 +560,14 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .chip.readout .rp { white-space: nowrap; }
 .chip.readout .rp + .rp { margin-left: 12px; }
 .chip.readout .rp .rv { margin-right: 0; }
-/* idle hints (Landscape, Sphere) are words, so Archivo; B612 Mono stays for measured numbers */
+/* idle hints (Landscape, Sphere) are words, so the UI face; the mono face stays for measured numbers */
 .chip.readout .rhint { font: var(--t-label); color: var(--muted); }
 .pane.no-rulers .ruler, .pane.no-rulers .ruler-corner { visibility: hidden; }
 /* a 3D stage (Landscape, Sphere, the domain globe) has no rulers: it fills the whole plate body, centred */
 .pane.no-rulers .pane-body > .plot { grid-area: 1 / 1 / 3 / 3; }
 .field-err { grid-column: 1 / -1; margin-top: 2px; font: 400 11.5px/16px var(--f-ui); color: var(--error); }
 .chip.readout .rv i, .chip.readout .rk i { font: italic 500 12.5px/16px var(--f-math); }
-/* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in Archivo */
+/* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in the UI face */
 .chip.readout .rk .rm { font: 500 12.5px/16px var(--f-math); }
 .chip.readout .rk .rm sub { font: 500 9px/1 var(--f-math); vertical-align: -0.25em; }
 .chip.readout .rk .rw { font: var(--t-label); }
@@ -588,7 +583,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   -webkit-mask: radial-gradient(circle, transparent 5.5px, #000 6.5px); mask: radial-gradient(circle, transparent 5.5px, #000 6.5px); }
 .legend-chip.collapsed[data-kind="image"]::after { border-radius: 2px; opacity: 0.6; -webkit-mask: none; mask: none;
   background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 11px 11px; box-shadow: inset 0 0 0 1px var(--ink-2); }
-/* Preimage and Integral readings: roots found, integrals, winding numbers (words in Archivo, numbers in B612 Mono) */
+/* Preimage and Integral readings: roots found, integrals, winding numbers (words in the UI face, numbers in the mono face) */
 .legend-chip.calc-chip {
   display: grid; gap: 2px; width: max-content; max-width: min(248px, calc(100% - 16px)); padding: 6px 8px 7px;
   line-height: normal; cursor: default; font: var(--t-label); color: var(--ink-2); white-space: nowrap;
@@ -619,7 +614,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   .pane .plot:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 120px; }
 }
 .options.transport > .tclose { flex: 0 0 auto; margin-left: auto; }
-/* the integral popover (a right click on a curve): values in B612 Mono, math in STIX, words in Archivo */
+/* the integral popover (a right click on a curve): values in the mono face, math in STIX, words in the UI face */
 .pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
 .int-pop .pop-title { padding: 0 4px 0 10px; }
 .int-pop .pop-title .grow { flex: 1 1 auto; }
@@ -2014,18 +2009,15 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @media (max-width: 429px) {
   .top > .mark { margin-right: auto; }
 }
-/* i18n (notes/i18n/DESIGN.md 4), Russian only: Archivo and B612 Mono have no Cyrillic. I18N.applyPage() sets
-   data-lang="ru" and loads Roboto Flex and JetBrains Mono (Google Fonts serves them per unicode-range subset). Roboto
-   Flex comes first, so a mixed label ("Сохранить PDF", "Формула 1") is one face (review i18n-13); readouts keep B612
-   Mono for their digits and Cyrillic falls through to JetBrains Mono. English never matches these rules and loads
-   nothing new. */
+/* i18n (notes/i18n/DESIGN.md 4), Russian: the faces are the same as in English (#288: Roboto Flex and JetBrains Mono both
+   have Cyrillic), so a mixed label ("Сохранить PDF", "Формула 1") is one face (review i18n-13); I18N.applyPage() sets
+   data-lang="ru" and redraws the canvas text once the Cyrillic ranges have loaded. */
 /* review ui-4: a monospace comma takes a whole cell, so 0,5 read as «0, 5». "CMW Comma" is the comma alone
-   (unicode-range) from a proportional system face, first in the Russian mono stack: on screen and on the canvas
+   (unicode-range) from a proportional system face, first in the Russian and Italian mono stacks: on screen and on the canvas
    (rulers, chips, legend, 3D ticks) a decimal comma is narrow. English never names this face, so never loads it */
 @font-face { font-family: "CMW Comma"; src: local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("DejaVu Sans"), local("Liberation Sans"); unicode-range: U+2C; }
 :root[data-lang="ru"] {
-  --f-ui: "Roboto Flex", "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
-  --f-mono: "CMW Comma", "B612 Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --f-mono: "CMW Comma", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 /* until init() has translated the static text (the head script above): no English frame in Russian (review eng-1) */
 :root.i18n-wait #app { visibility: hidden; }
@@ -2103,7 +2095,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* i18n, Italian: the app's own faces cover it (Latin with accents), so only the decimal comma (as in Russian: a narrow
    CMW Comma before the mono face), the CSS-generated preview word and MathJax's <text> letters (accented letters in
    \text{} have no TeX glyph) are set here */
-:root[data-lang="it"] { --f-mono: "CMW Comma", "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+:root[data-lang="it"] { --f-mono: "CMW Comma", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 :root[data-lang="it"] .texprev:empty::before { content: "Anteprima"; }
 :root[data-lang="it"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
 /* the Russian tool cells (DESIGN.md 8.1, 8.2): two lines of 11 px, wrapping at spaces and soft hyphens

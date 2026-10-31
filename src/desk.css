@@ -546,7 +546,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pal-item.sel .pal-pw { display: inline; }
 :root.ph .pal-pw { display: none !important; }
 /* UX23: a formula error in grey, the place it stopped marked; Enter greyed while there is nothing to run. The typed
-   text in the palette input's face (B612 Mono draws "(" like "[": "sin[z") */
+   text in the palette input's face (the mono face draws "(" like "(", not "[") */
 .pal-err { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; color: var(--muted); }
 .pal-err .pe-q { font: 500 15px/20px var(--f-ui); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .pal-err .pe-bad { text-decoration: underline wavy var(--warn); text-underline-offset: 4px; background: var(--warn-soft); border-radius: 2px; }

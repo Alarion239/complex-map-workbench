@@ -347,7 +347,7 @@
       const len = horiz ? W : Hh;
       const toPx = (val) => (horiz ? pane.w / 2 + (val - v.cx) * v.s : pane.h / 2 - (val - v.cy) * v.s);
       const lo = horiz ? v.cx - pane.w / 2 / v.s : v.cy - pane.h / 2 / v.s, hi = horiz ? v.cx + pane.w / 2 / v.s : v.cy + pane.h / 2 / v.s;
-      // ([v16.5 UX105] the UI face: "0.5", not B612 Mono's "0. 5"; an imaginary label's i in the maths italic, so the
+      // ([v16.5 UX105] the UI face: "0.5", as the old mono face (B612 Mono) could not set it: "0. 5"; an imaginary label's i in the maths italic, so the
       // turned label "2i" never reads "21")
       ctx.font = `${small ? 9 : 10}px ${TH.ui}`;
       // labels at the 1-2-5 step that keeps them >= 72px (bottom) or 48px (left) apart, rounded up, and further up

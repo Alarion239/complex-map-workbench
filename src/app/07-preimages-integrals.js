@@ -261,7 +261,7 @@
     if (!lr || lr.classList.contains('copied')) return;
     if (!hov.w) { if (!probe) lr.innerHTML = idleLeft(); return; }
     sndCollide();
-    // words in Archivo, the value in B612 Mono
+    // words in the UI face, the value in the mono face
     const head = (t) => `<span class="rp"><span class="rk"><span class="rw">${t}</span> <i>w</i></span> <span class="rv">${fmtCxHtml(hov.w)}</span></span>`;
     if (!hasCalc('zerosPoles')) { lr.innerHTML = head($tx('readout', 'at')); return; }
     if (!hov.list) { lr.innerHTML = head($t('finding the preimages of')); return; }

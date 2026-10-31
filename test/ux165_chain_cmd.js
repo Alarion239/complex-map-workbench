@@ -120,7 +120,7 @@ for (const [q, first, fix] of [['sin(z', 'Close the bracket: sin(z)', 'sin'], ['
   ok(`UX23 "${q}": the repair row first, the message in grey with its place marked, Enter fixes`, rows[0] && rows[0].label === first && ps.err && /Not a formula yet/.test(ps.err) && ps.bad && !ps.red && rgb(ps.errColor) === hexRgb(ps.muted) && ps.verb === ' to fix', { rows: rows.map((r) => r.label), ps });
   if (q === 'sin(z') {
     const ff = await ev(`({ q: getComputedStyle(document.querySelector('.pal-err .pe-q')).fontFamily, inp: getComputedStyle(document.getElementById('palInput')).fontFamily })`);
-    ok('UX23 the typed formula is shown in the palette input\'s face (B612 Mono drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
+    ok('UX23 the typed formula is shown in the palette input\'s face (the old mono face, B612 Mono, drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
     await shot2('ux23-palette-error');
     const n0 = (await P()).steps.length;
     await key('Enter'); await settle(900);
