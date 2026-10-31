@@ -1,4 +1,4 @@
-// Shared numbers (v15, src/params.js and the name scope of src/parse.js; constructions/DESIGN.md 1).
+// Shared numbers (src/params.js and the name scope of src/parse.js; constructions/DESIGN.md 1).
 // (a) names: one letter, an index (a1, a_1, a_{1}, a₁), Greek (beta, \beta, β), runs (az, ai with a defined; sinc is
 //     an unknown function), Cyrillic look-alikes, refused Cyrillic; text that parsed before parses the same (xi, chi);
 // (b) unknown names: one is offered (e.unknown), two at once are refused; TeX keeps the names;

@@ -323,7 +323,7 @@ const Integrals = (() => {
     return out.sort((a, b) => a.d - b.d).slice(0, 3);
   }
   // a right click (or a long press) at pane pixel (x, y), client (cx, cy): a menu of the curves there; false when none
-  // (v15: the plane menu, src/planemenu.js, shows these items in its object group)
+  // (the plane menu, src/planemenu.js, shows these items in its object group)
   function openIntegralMenu(pane, side, x, y, cx, cy) {
     const items = integralItems(pane, side, x, y, cx, cy);
     if (!items.length) return false;

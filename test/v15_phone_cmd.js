@@ -1,4 +1,4 @@
-// The phone layout (v15, src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
+// The phone layout (src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
 // Checks, at 360 × 780, 390 × 844 and 430 × 932, light and dark, English and Russian: one screen without page scroll
 // or sideways overflow; no control under 44 × 44 on the main screen, in each sheet and in the long-press menu; every
 // task of DESIGN.md 5 with its tap count; X | Y side by side above an open sheet, the planes resized once, after the

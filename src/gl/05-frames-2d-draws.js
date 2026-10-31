@@ -231,9 +231,13 @@
       u4f(P, 'uUnitA', (((th0 * s) % per) + per) % per, (th0 - Math.round(th0 / q) * q) * s, 0, 1);
     } else u4f(P, 'uUnitA', 0, 0, 0, 0);
     gl.bindVertexArray(empty());
-    if (!ov) gl.disable(gl.BLEND);
+    // (st.under: under what the frame holds already, as if the frame were drawn over the grid (premultiplied
+    // destination-over; the grid is opaque), so a layer composed first and the grid reach the page in one copy)
+    if (st.under && !ov) gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.ONE);
+    else if (!ov) gl.disable(gl.BLEND);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(null);
   }
 

@@ -155,7 +155,7 @@ async function main() {
   const srv = await serve(dist, Number(opt('--port', 0)));
   const port = srv.server.address().port;
   console.log(`dist/ at ${srv.base}; ${runs.length} run(s)${shard ? ` of shard ${shard}` : ''}`);
-  const rows = [], timing = [], soft = [], known = [];
+  const rows = [], timing = [], soft = [], known = [], notes = [];
   let failed = 0, n = 0;
   const t00 = Date.now();
   try {
@@ -181,6 +181,10 @@ async function main() {
       const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}`;
       console.log(gh ? `::group::${head}` : `== ${head}`);
       if (res.out && res.out.pass != null && res.out.of != null) console.log(`${res.out.pass} of ${res.out.of}`);
+      // (a suite that reports, SUITES[f].logLine: its result in one line of the log, readable with the job's log alone)
+      if (res.out && SUITES[file] && SUITES[file].logLine) { try { console.log(SUITES[file].logLine(res.out)); } catch (e) { console.log(`logLine: ${e.message}`); } }
+      // (and SUITES[f].note: a line for the job's summary, e.g. the layout rows a PR fixed, to lower the baseline)
+      if (res.out && SUITES[file] && SUITES[file].note) { try { const nt = SUITES[file].note(res.out); if (nt) notes.push(`- \`${name}\`: ${nt}`); } catch (e) { /* no note */ } }
       for (const f of hard) console.log(`  FAIL ${f.name}${f.detail !== undefined ? ': ' + short(f.detail, 2000) : ''}`);
       for (const f of t) console.log(`  timing (not gated) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of sw) console.log(`  software renderer (not gated here) ${f.name}: ${short(f.detail, 600)}`);
@@ -205,6 +209,7 @@ async function main() {
   if (known.length) md.push('**Known failures (listed in ci/browser_suites.js, not gated):**', '', '| suite | check | why |', '|---|---|---|',
     ...known.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} |`), '');
   const ex = all.filter((f) => EXCLUDED[f]);
+  if (notes.length) md.push(...notes, '');
   md.push(`<details><summary>Not run here (${ex.length} files: ci/browser_suites.js EXCLUDED)</summary>`, '', ...ex.map((f) => `- \`${f}\`: ${esc(EXCLUDED[f])}`), '', '</details>', '');
   summary(md.join('\n'));
   return failed ? 1 : 0;
