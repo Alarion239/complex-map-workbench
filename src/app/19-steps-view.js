@@ -170,6 +170,20 @@
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
+    // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
+    if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
+      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
+      const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
+      // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
+      // to plane a, as smKeyOf for the forward meshes)
+      const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
+      const plan = a > s ? invPlan(s, a) : null;
+      const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+      GLR.begin(pane.pw, pane.ph);
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
+        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
+    }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
     let m = svCarryMemo;
     if (!m || m.key !== key) {
@@ -697,8 +711,8 @@
     setTimeout(svPrestart, 300);
   }
   // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
-  // maps' (mode 1) and the carried colour's pre-mapped mesh; at start-up and when the chain changes. (F's GPU carry
-  // hooks its own programs in here)
+  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
+  // chain changes
   function svPrestart() {
     try {
       if (!GLR.ok) return;
@@ -706,6 +720,8 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
+      // (#439: the carried colour's programs, a glide's first: carryId too when a plane lies past the colour plane)
+      if (GLR.prestartNames) { const P = svPlanes(); GLR.prestartNames(svT() < P[P.length - 1] ? ['carry', 'carryId'] : ['carry'], [1, 0]); }
     } catch (e) { /* (the first glide starts them) */ }
   }
   function setupStepsView() {
