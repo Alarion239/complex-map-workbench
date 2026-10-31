@@ -76,20 +76,20 @@ function mountainKing(landscapeOnly) {
   if (!landscapeOnly) s.push([`${MOUNTAIN_KING}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${MOUNTAIN_KING}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
   return s;
 }
-// --walk steps (#439): the steps view (?view=steps) on the default example, the zeros of zeta and the Mountain King: a
-// glide over a step from z (the carried colour while gliding, map mode 1), a quarter-step scrub parked between two
-// planes, and the colour plane set to z, then a glide to the plane after it (the carried colour at rest past the
+// --walk steps (#439): the steps view (?view=steps) on Strip to disk, the zeros of zeta and the Mountain King: a
+// glide over a step from z (the carried colour while gliding, map mode 1), a quarter-step scrub back, parked between two
+// planes (Shift+←: a two-plane chain is at its last plane after the glide; tiers' review of #456), and the colour plane set to z, then a glide to the plane after it (the carried colour at rest past the
 // colour plane): the carry, mesh, region and line programs a glide links. The keys are the view's own (svKeys)
 const svKey = (key, shift) => `(document.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', shiftKey: ${!!shift}, bubbles: true })), true)`;
 function stepsWalk() {
   const s = [];
-  for (const nm of [null, 'Zeros of the zeta function', MOUNTAIN_KING]) {
-    const i = nm ? exampleIndex(nm) : 0;
+  for (const nm of ['Strip to disk', 'Zeros of the zeta function', MOUNTAIN_KING]) {
+    const i = exampleIndex(nm);
     if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
-    const tag = nm ? `${nm} (example ${i})` : 'the default example';
+    const tag = `${nm} (example ${i})`;
     s.push([`steps: ${tag}`, `(__cmwExample(${i}), ${svKey('PageUp')}, ${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
     s.push([`steps: ${tag}: glide to the next plane`, svKey('PageDown'), false, null]);
-    s.push([`steps: ${tag}: scrub a quarter step`, svKey('ArrowRight', true), false, null]);
+    s.push([`steps: ${tag}: scrub a quarter step back`, svKey('ArrowLeft', true), false, null]);
     s.push([`steps: ${tag}: back to z`, `(${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
     s.push([`steps: ${tag}: colour from z`, svKey('c'), false, null]);
     s.push([`steps: ${tag}: the next plane, past the colour plane`, svKey('PageDown'), false, null]);
