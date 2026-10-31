@@ -5,7 +5,8 @@
 //             screenshot writers), suites another job runs, superseded ones, and those that need the GPU machines
 //   SUITES    per suite: runs (one row each: a label, a preamble on the suite's first line, env), pages (extra pages
 //             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape), keepShots (keep its
-//             screenshots when it passes: a suite that reports with marked shots)
+//             screenshots when it passes: a suite that reports with marked shots), logLine (its result as one line
+//             of the job's log, from its result)
 //   TIMING    per suite, the checks that measure speed (by name): reported with their numbers, not gated. A check whose
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
@@ -69,15 +70,21 @@ const SUITES = {
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
   // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
-  'raw_tex_cmd.js': { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}';` })) },
+  'raw_tex_cmd.js': { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}'; globalThis.MJ = ${l !== 'it'};` })) },
+  'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
-  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
-  // violations go to its result's report, and the job does not fail on them)
+  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
+  // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
+  // baseline and does not now; the rest go to its result's report)
   'layout_invariants_cmd.js': {
     keepShots: true,
+    // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
+    // (the rows this run no longer sees: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
+    note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
+    logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
-      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
+      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'gate' };` })),
   },
 };
 

@@ -174,7 +174,7 @@ ok('M turns it off: the panes split again', !Ld.deform && Ld.merged === null && 
   ok('own deformation view: Y unchanged, the deformation keeps its zoom', d1 > d0 * 1.2 && Math.abs(y1 - y0) < 5e-3 * y0 && Math.abs(d2 - d1) < 1e-3, { y0, d0, d1, y1, d2 });
 }
 // a focused step deforms that step only
-// (v15: a click selects the step; Show alone is a double-click)
+// (a click selects the step; Show alone is a double-click)
 await ev(`(() => { const c = document.querySelector('.card[data-k="2"]'); if (c) c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(500);
 await key('m'); await settle(700);
 const fst = await ev("__cmwState()");

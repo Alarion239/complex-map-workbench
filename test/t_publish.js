@@ -45,7 +45,7 @@ const off = fs.readFileSync(path.join(ROOT, 'dist', 'complex-map-workbench-offli
 const offScripts = [...off.matchAll(/<script>\n?([\s\S]*?)<\/script>/g)].map((x) => x[1]);
 offScripts.forEach((s, i) => { try { new vm.Script(s, { filename: `offline script ${i + 1}` }); } catch (e) { ok(`the offline page's script ${i + 1} parses`, false, String(e.message)); } });
 ok('the offline page runs the published script', offScripts.length === scripts.length + 1 && offScripts.includes(scripts[scripts.length - 1]), { offline: offScripts.length, published: scripts.length });
-ok('the offline page has MathJax and the faces inline', /id="cmw-mathjax"/.test(off) && /<style id="cmw-fonts">/.test(off) && /id="cmw-fonts-ru"/.test(off), null);
+ok('the offline page has MathJax and the faces inline', /id="cmw-mathjax"/.test(off) && /<style id="cmw-fonts">/.test(off) && !/id="cmw-fonts-ru"/.test(off) && /font-family:"Roboto Flex"/.test(off) && !/font-family:"(?:Archivo|B612 Mono)"/.test(off), null);
 ok('the offline page has the PDF library inline, under the ids figure.js looks for', /id="cmw-jspdf"/.test(off) && /id="cmw-svg2pdf"/.test(off) && /jspdf\.umd\.min\.js["'], ["']cmw-jspdf["']\)/.test(pub) && /svg2pdf\.umd\.min\.js["'], ["']cmw-svg2pdf["']\)/.test(pub), null);
 // (its tags: the scripts keep the live page's CDN URLs as strings, used only where the inline faces are missing;
 // test/offline_cmd.js opens it with the network off and counts the requests)

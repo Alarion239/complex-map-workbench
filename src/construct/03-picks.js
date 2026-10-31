@@ -33,7 +33,7 @@
     const s = c.ref && find(c.ref.s);
     return (s && piecesOf(s)[c.ref.part]) || null;
   }
-  // the draft curve's name ("Circle 1", "side 2 of Polygon 1", "the unit circle"); ([v16.5] the chip reads it every
+  // the draft curve's name ("Circle 1", "side 2 of Polygon 1", "the unit circle"); (the chip reads it every
   // frame, so it is kept while the curve, the lists' lengths and the language stay)
   let c1Memo = { key: '', name: '' };
   const curve1Name = () => {

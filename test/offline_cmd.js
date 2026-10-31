@@ -37,7 +37,7 @@ for (const lang of ['en', 'ru']) {
     let rg = null; for (let i = 0; i < 40 && !rg; i++) { rg = await ev('window.__offRange'); if (!rg) await sleep(250); }
     ok(`${lang}: a formula in ranges loaded on demand (Fraktur, Cyrillic) is typeset with the network off`, rg && typeof rg === 'object' && rg.paths > 0 && rg.text === 0 && rg.retries > 0, rg);
   }
-  const want = [['400 14px "Archivo"', 'Ab'], ['italic 400 14px "STIX Two Text"', 'z'], ['400 12px "B612 Mono"', '0'], ['400 12px "JetBrains Mono"', '0']];
+  const want = [['400 14px "Roboto Flex"', 'Ab'], ['italic 400 14px "STIX Two Text"', 'z'], ['400 12px "JetBrains Mono"', '0']];
   if (lang === 'ru') want.push(['500 12px "Roboto Flex"', 'Жж']);
   const got = await faces(want);
   ok(`${lang}: every face loads from the page itself`, Array.isArray(got) && got.every((n) => n > 0), { faces: want.map((w) => w[0]), got });

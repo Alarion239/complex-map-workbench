@@ -7,7 +7,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (v16.4: and until the step has settled: the strip no longer busy, the spotlight's morph over)
+  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
   for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
 const seen = [];
 logs();   // the console from earlier commands of this daemon is not ours

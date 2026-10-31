@@ -348,7 +348,7 @@ ok('section 8: no console errors or warnings', lF.length === 0, lF.slice(0, 6));
 }
 const lG = errs(logs());
 ok('section 9: no console errors or warnings', lG.length === 0, lG.slice(0, 6));
-// 10. (v16.3) a hyperbolic line in the unit disk: Perpendicular circle on the shown unit circle through two points inside;
+// 10. a hyperbolic line in the unit disk: Perpendicular circle on the shown unit circle through two points inside;
 // then P dragged: K still passes through P and Q and crosses the unit circle at right angles (read from the saved state)
 const armTool = async (id) => {
   // (phone: the More sheet scrolls; in Russian the sixth Construct tile is below the sheet's fold until scrolled to.
@@ -410,7 +410,7 @@ const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = M
 const lH = errs(logs());
 ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6));
 
-// 11. (v16.3) Touching circle on a circle C: T on C's stroke at 1, P = 2 + i: K touches C at T and passes through P;
+// 11. Touching circle on a circle C: T on C's stroke at 1, P = 2 + i: K touches C at T and passes through P;
 // then (C stays picked) P' = -1.5 + 1.5i outside C and a tap on the upper ring: the tangent from P' and its touching point
 {
   const sv = phone ? { cx: 0.25, cy: 0.25, s: 80 } : { cx: 0.25, cy: 0.25, s: 100 };

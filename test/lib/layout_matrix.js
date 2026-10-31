@@ -9,7 +9,7 @@
     { id: '1024', w: 1024, h: 768, dev: 'desktop' }, { id: '1280', w: 1280, h: 800, dev: 'desktop' }, { id: '1440', w: 1440, h: 900, dev: 'desktop' },
   ];
   // the states: name, dev (phone or desktop only), views (the views it is in), go (a page script), click (a button's id),
-  // key, wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
+  // key, run (an async function with the daemon's helpers), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
   const STATES = [
@@ -17,7 +17,11 @@
     { name: 'phase', go: `__cmwSetMain('phase'), 1`, wait: 1200, views: ['classic'] },
     { name: 'landscape', go: `__cmwSetMain('land'), 1`, wait: 1500, views: ['classic'] },
     { name: 'deformation', go: `__cmwMorph({ open: true, playing: false }), 1`, wait: 1200, views: ['classic'] },
-    { name: 'inspector F', go: `(() => { const e = document.querySelector('#pipeline .ftile'); e && e.click(); return 1; })()`, dev: 'desktop' },
+    // (ready once the Inspector is in place: floated over the stage at 1024 (.temp), it is first drawn off the right edge and
+    // moves in a render later, about a second on software GL, and the chain head's buttons reflow only then; measured
+    // before, Clear chain read as cut, one run in two)
+    { name: 'inspector F', go: `(() => { const e = document.querySelector('#pipeline .ftile'); e && e.click(); return 1; })()`, dev: 'desktop',
+      ready: `(() => { const p = document.getElementById('propsPanel'); return !!p && p.checkVisibility() && p.getBoundingClientRect().right <= innerWidth + 1; })()` },
     { name: 'tour strip', go: `Tour.start({ chapter: 'basics' }), 1`, wait: 1500, ready: `!!Tour.current()` },
     { name: 'menu examples', click: 'examplesBtn', dev: 'desktop' },
     { name: 'menu export', click: 'exportBtn', dev: 'desktop' },
@@ -32,6 +36,10 @@
     ...['edit', 'tools', 'display', 'more', 'chain'].map((k) => ({ name: 'sheet ' + k, go: `(Phone.open(${JSON.stringify(k)}), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === ${JSON.stringify(k)}` })),
     { name: 'sheet numbers', go: `(Phone.open('edit', { params: true }), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === 'edit'` },
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
+    // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
+    { name: 'chain of 4', run: async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } },
+      wait: 1500, ready: `document.querySelectorAll('#pipeline .card:not(.region-card)').length >= 4`,
+      after: `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()` },
   ].map((s) => (s.click && !s.ready ? Object.assign({ ready: LAYER }, s) : s));
 
   const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -60,10 +68,11 @@
   async function enter(st) {
     for (let tries = 0; tries < 2; tries++) {
       if (tries) await reset();
-      if (st.go) await ev(st.go);
       if (st.after) undo = st.after;
+      if (st.go) await ev(st.go);
       if (st.click && !(await clickId(st.click))) return false;
       if (st.key) await key(st.key[0], st.key[1]);
+      if (st.run) await st.run();
       await settle(st.wait || 600);
       if (!st.ready) return true;
       await ev(LIB);

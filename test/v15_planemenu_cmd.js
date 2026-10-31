@@ -1,4 +1,4 @@
-// The planes' context menu (v15, src/planemenu.js; notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press"
+// The planes' context menu (src/planemenu.js; notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press"
 // and "Keyboard and screen readers"), as issue #13 left it: a menu of objects only. Checks: a right-click (and a touch
 // long-press) on a shape opens it with the head (the point and F there), one line integral, Hide and Delete (no
 // Select); on empty plane, on X, Y, the deformation and the landscape, nothing opens (no Add zero / pole here, Add

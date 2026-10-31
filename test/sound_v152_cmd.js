@@ -1,5 +1,5 @@
 // v15.2 sound (notes/sound/AS-BUILT-v152.md): hearing the function as the user chose it, in the app. Under the
-// pointer, the notes of Hear the function (v16.5: the marimba at each colour line arg F crosses, which replaced the
+// pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, which replaced the
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
 // a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1), and while the
 // deformation plays, the last loop's note changes the moment a zero crosses it; palette B's scrub (the air, the
@@ -15,7 +15,7 @@ const loadHere = async (ns, st) => {
   // hook read before it (__cmwSound, __cmwW2S) answers an exception, not a value)
   for (let i = 0; i < 40 && !(await ev(`typeof __cmwSound === 'function' && typeof __cmwW2S === 'function' && document.readyState === 'complete'`)); i++) await sleep(250);
 };
-// (v16.5: the engine's Sound.hear.state().counts run since load; __hearCount() reads them as __hearCount() did, since
+// (the engine's Sound.hear.state().counts run since load; __hearCount() reads them as __hearCount() did, since
 // its last call: up and down the red line's crossings (line k ≡ 0 mod n, the low D), notes the notes played, merged
 // the crossings merged into one note, cracks the cuts; as sound_cmd.js's hearCount)
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__hearCount = () => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; }; })();' });
@@ -200,7 +200,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
     for (let i = 1; i <= n; i++) { await T('touchMove', [P(a0 + 2 * Math.PI * i / n)]); await sleep(16); }
     // (touchmoves reach the page at its next frame, merged: where frames are slow the lap's last ones are still queued)
     await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-    // (v16.5: a slow finger's crossing sounds once confirmed, Sound.HT.HT.confirmMs after it (sndHold): the lap's last
+    // (a slow finger's crossing sounds once confirmed, Sound.HT.HT.confirmMs after it (sndHold): the lap's last
     // lines are read after that latency and a margin, with the finger still)
     await sleep((await ev('Sound.HT.HT.confirmMs')) + 40);
     const h = await ev('__hearCount()');
@@ -219,7 +219,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
       for (let k = 0; k < 90; k++) { const t = k / 60; await T('touchMove', [[x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)]]); await sleep(16); }
       { const c = await ev('__hearCount()'); heldRuns.push(c.notes + c.merged); }
     }
-    // (v16.5: the probe is roped 5 px behind the finger; when the finger lifts it jumps onto the finger's point, so the
+    // (the probe is roped 5 px behind the finger; when the finger lifts it jumps onto the finger's point, so the
     // lap's last crossings, its D among them, sound at the lift. The finger is back at the lap's end, then lifts: the
     // lap's count is its stroke's and the lift's, the hold's tremor counted apart)
     await T('touchMove', [P(a0)]); await sleep(16);
@@ -228,7 +228,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
     return { up: h.up + lift.up, down: h.down + lift.down, notes: h.notes + lift.notes, merged: h.merged + lift.merged, held: heldRuns[0], heldRuns, lift };
   };
   R.touchLaps = {};
-  // (v16.5: a lap of z crosses the 12 colour lines once, the red one, its D, last: 11 or 12 notes, the probe roped 5 px
+  // (a lap of z crosses the 12 colour lines once, the red one, its D, last: 11 or 12 notes, the probe roped 5 px
   // behind the finger; the harp played its 5 strings, or the D alone in its D-only zone, 6 px from the zero)
   for (const [r, deg] of [[15, 3], [15, 5], [15, 8], [30, 3]]) {
     const q = R.touchLaps[`r${r}_from${deg}`] = await lap(r, deg);
