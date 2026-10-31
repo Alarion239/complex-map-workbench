@@ -28,6 +28,10 @@
   "svg2pdf.js": {
    "version": "2.2.3",
    "sha256": "0e835dac46e37ace6fffde2639d0478e2040bc140892c60e3a52f2b5ad3980f9"
+  },
+  "fflate": {
+   "version": "0.8.2",
+   "sha256": "61fd5061e2fc8e5e3e3129f7f2fec7bd78a313e1bf4becbf1cc1cc9998d141dc"
   }
  },
  "outputs": {
@@ -46,6 +50,10 @@
   "js/svg2pdf.umd.min.js": {
    "sha256": "fdfbbf24d434fe653f7a553bd52093177702ddb285a57508f28cba3f303a33f6",
    "bytes": 84587
+  },
+  "js/fflate.umd.js": {
+   "sha256": "c3b34f2e9f5e74d4d7d64e01cac7a0c01954c6c406414d42185c7b53d6875ddf",
+   "bytes": 32665
   },
   "js/mathjax-stix2/svg.js": {
    "sha256": "80ac83bb3b2bd40d1a2593ad56805ac2efd34c2262260c9c8859594a76f5a466",

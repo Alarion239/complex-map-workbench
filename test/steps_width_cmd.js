@@ -11,20 +11,18 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (#504: the kit's settled() instead of fixed sleeps; still: the steps view not gliding)
+const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
 const ns = 'svw' + Date.now();
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true }, SIN = { type: 'sin', params: {}, on: true };
 const CHAINS = { 3: [MOB, CUBE, SIN], 5: [MOB, CUBE, SIN, CUBE, MOB] };
 const open = async (w, h, mobile, lang, n) => {
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps: CHAINS[n], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
   const k = `${ns}${w}${lang}${n}`;
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps` }); await sleep(1500);
-  // (until the steps view is built and its first frame drawn: a software renderer can take several seconds)
-  for (let i = 0; i < 50 && !(await ev(`!!(window.__cmwSteps && document.getElementById('svStrip') && document.documentElement.classList.contains('sv'))`).catch(() => false)); i++) await sleep(200);
-  await settle(800);
+  await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps`); await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
 };
 // (what the page shows at the centre of each control that is shown: the control itself, or the thing covering it)
 const probe = () => ev(`(() => {
@@ -66,26 +64,26 @@ for (const [w, h, mobile, lang] of [[1024, 768, false, 'ru'], [360, 780, true, '
   const r0 = await ring(), tag = `${w} ${lang} 5 steps`;
   ok(`${tag}: on z, the thread's far end fades, its near end does not`, r0.fr && !r0.fl, r0);
   ok(`${tag}: the ring keeps clear of the shown plane's name`, r0.clear, r0);
-  await ev(`__cmwSteps({ go: 4, now: true }); 1`); await settle(600);
+  await ev(`__cmwSteps({ go: 4, now: true }); 1`); await still();
   const r1 = await ring();
   ok(`${tag}: on the last plane the near end fades, and the ring is in the rail`, r1.fl && r1.cx >= r1.l && r1.cx <= r1.r && r1.clear, r1);
   // (a wheel scrolls the rail back to its start; then ‹ glides one plane back: the ring is kept in view)
-  await ev(`(() => { document.querySelector('#svStrip .sv-rail').scrollLeft = 0; return 1; })()`); await settle(300);
-  await ev(`document.querySelector('#svStrip .sv-prev').click(); 1`); await rest(); await settle(400);
+  await ev(`(() => { document.querySelector('#svStrip .sv-rail').scrollLeft = 0; return 1; })()`); await still();
+  await ev(`document.querySelector('#svStrip .sv-prev').click(); 1`); await rest(); await still();
   const r2 = await ring();
   ok(`${tag}: after the rail was scrolled away, ‹ keeps the ring in view`, r2.cx >= r2.l && r2.cx <= r2.r, r2);
-  await ev(`__cmwSteps({ park: 1.5 }); 1`); await settle(500);
+  await ev(`__cmwSteps({ park: 1.5 }); 1`); await settled({ until: 'Math.abs(__cmwSteps().x - 1.5) < 1e-6' });
   const r3 = await ring();
   ok(`${tag}: parked between planes, the ring is a playhead under the chips`, r3.between && r3.w <= 3 && r3.z === '0', r3);
 }
 // (ux's wave 12 sweep) on the globe the dimmed draw tools say they are off
 await open(1024, 768, false, 'en', 3);
-await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1200);
-// (the tools are marked when the globe's first frame is drawn: up to 6 s on a software renderer)
-for (let i = 0; i < 30 && !(await ev(`document.querySelector('.tool[data-tool="annulus"]').getAttribute('aria-disabled') === 'true'`)); i++) await sleep(200);
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`);
+// (the tools are marked when the globe's first frame is drawn: up to 6 s on a software renderer; #508)
+await settled({ panes: false, until: `document.querySelector('.tool[data-tool="annulus"]').getAttribute('aria-disabled') === 'true'` });
 const off = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"], .tool[data-tool="sector"], .tool[data-tool="pgrid"]')].map((b) => b.getAttribute('aria-disabled'))`);
 ok('on the globe, Annulus, Sector and Polar grid are aria-disabled', off.length >= 3 && off.every((v) => v === 'true'), off);
-await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(800);
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settled({ panes: false, until: `document.querySelector('.tool[data-tool="annulus"]').getAttribute('aria-disabled') == null` });
 const on = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"]')].map((b) => b.getAttribute('aria-disabled'))`);
 ok('… and on the plane they are not', on.every((v) => v == null), on);
 info.checks = 'steps view: the plane in its column with 3 and 5 steps, phone 360/390 and desk 1024/1440, en and ru';
