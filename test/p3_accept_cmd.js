@@ -269,6 +269,8 @@ ok('(h) the export is exact (fill = annulus away from the strokes)', R.h.n > 100
 ok('(h) the export equals the screen scaled, IoU >= 0.999', R.h.iou >= 0.999, R.h);
 // cancellation: a new chain (its inverse program compiles: prepareExport waits), cancelled after 40 ms
 await load('p3hc' + Date.now(), Object.assign({ shapes: [H, { id: 's2', kind: 'disc', c: [0.4, 0.8], r: 0.3 }], steps: [ZI, { type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+// (MathJax started: its own start, after the first paint, is not the export's main-thread time, #288)
+for (let i = 0; i < 80 && !(await ev('!!(window.MathJax && MathJax.startup && MathJax.startup.document)')); i++) await sleep(250);
 await sleep(30);
 R.hc = await ev(`await (async () => {
   const long = [];
