@@ -40,6 +40,31 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
     info[tag] = { ct0, ph0, seen: bs.length };
   }
 }
+// the controls floating at the planes' foot (Fit view, the Sphere and Display keys, the inset that swaps the planes) ride up
+// with the bar while it is open: each is what elementFromPoint finds at its centre and clear of the bar, at 390 and 360, en and ru
+for (const [w, h] of [[390, 844], [360, 640]]) {
+  for (const lang of ['en', 'ru']) {
+    for (const v of ['', '&view=steps']) {
+      await view(w, h, false, true); await load('pcf' + w + lang + v.length + '-' + Date.now(), ST);
+      await send('Page.navigate', { url: `${U}?ns=pcf${w}${lang}${v.length}-${Date.now()}&lang=${lang}${v}` });
+      await waitPh();
+      const tag = `${w}×${h} ${lang}${v ? ' steps' : ''}`;
+      const probe = () => ev(`(() => { const bar = document.querySelector('.ph-ctx'), b = bar && !bar.hidden ? bar.getBoundingClientRect() : null;
+        const vis = (e) => { const q = e.getBoundingClientRect(); return q.width > 0 && q.height > 0 && q.bottom > 0 && q.top < innerHeight; };
+        const els = [...document.querySelectorAll('.viewstack .vbtn, .pane:not(.ph-inset) .ph-col .ph-key, .pane.ph-inset > .ph-swap')].filter(vis);
+        return { bar: b && [Math.round(b.top), Math.round(b.bottom)], items: els.map((e) => { const q = e.getBoundingClientRect(), t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return { id: e.id || e.className.toString().slice(0, 18), top: Math.round(q.top), bottom: Math.round(q.bottom), hit: !!t && (t === e || e.contains(t)) }; }) }; })()`);
+      const closed = await probe();
+      await ev(`__cmwSelect('s1'), 1`); await sleep(900);
+      const open = await probe();
+      info['float ' + tag] = { closed: closed.items.length, open };
+      ok(`${tag}: the floating controls are there (Fit view at least)`, open.items.some((x) => /Fit$/.test(x.id)), open);
+      ok(`${tag}: with the bar open every floating control is what is under its centre`, open.items.every((x) => x.hit), open.items.filter((x) => !x.hit));
+      ok(`${tag}: and none of them reaches into the bar`, !open.bar || open.items.every((x) => x.bottom <= open.bar[0] + 1 || x.top >= open.bar[1] - 1), open);
+      ok(`${tag}: the bar was open`, !!open.bar, open);
+      await ev(`__cmwSelect(null), 1`); await sleep(500);
+    }
+  }
+}
 // reduced motion: no slide
 await view(390, 844, false, true); await load('pcsrm-' + Date.now(), ST); await waitPh();
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
