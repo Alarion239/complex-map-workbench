@@ -1388,6 +1388,20 @@
     gl.depthMask(true);
     const phase = st.mode === 'color';
     const P = program(phase ? 'sphereP' : 'sphere', st.map);
+    // (#440) st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
+    // these regions write the frame's alpha, then the globe draws its colour alone over them, kept where the alpha is
+    const masked = !!(P && st.maskRegions && keepInAlpha(true));
+    if (masked) {
+      gl.colorMask(false, false, false, false);
+      use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
+      const g = sphere();
+      gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, g.count, gl.UNSIGNED_INT, 0); gl.bindVertexArray(null);
+      writeMask(false, true);
+      gl.depthMask(false);
+      sphereRegions(st.maskRegions, sph, MVP, eye);
+      gl.depthMask(true);
+      writeMask(true, false);
+    }
     if (P) {
       use(P, st.map);
       uM4(P, 'uMVP', MVP);
@@ -1413,22 +1427,7 @@
     // lifted regions and their edges: tested against the globe, never against each other (a casing written to
     // depth would otherwise hide parts of its own stroke)
     gl.depthMask(false);
-    for (const r of st.regions || []) {
-      if (r.inv) {
-        let res = 'error';
-        try {
-          const sc = r.inv.globeBox ? globeScissorOf(r.inv.globeBox, MVP, eye, 4) : null;
-          res = drawInverse(Object.assign({}, r.inv, { viewKind: 'globe', sphere: sph, scissor: sc }));
-        } catch (err) { res = 'error'; if (r.onError) r.onError(err); }
-        gl.depthMask(false);
-        if (r.onResult) r.onResult(res);
-        if (res === 'drawn') continue;
-        for (const f of r.fwd || []) { if (f.pre) drawPreMapped(f.pre, Object.assign({}, f.st, { sphere: sph })); else drawRegion(f.res, Object.assign({}, f.st, { sphere: sph })); }
-        continue;
-      }
-      if (r.pre) { drawPreMapped(r.pre, Object.assign({}, r.st, { sphere: sph })); continue; }
-      drawRegion(r.res, Object.assign({}, r.st, { sphere: sph }));
-    }
+    sphereRegions(st.regions || [], sph, MVP, eye);
     for (const l of st.lines || []) drawLines(l.res, Object.assign({}, l.st, { sphere: sph }));
     // st.post: drawPreimage passes over everything drawn so far (P3b: the targets on the w-globe and a draft, each
     // exact per pixel through the identity map)
@@ -1477,8 +1476,29 @@
       for (let i = 0; i < 160; i++) sil.push(segM(pt(2 * Math.PI * i / 160), pt(2 * Math.PI * (i + 1) / 160), 0.625 * dpr));
       drawMarks(MVP, sil, axis, 0.5, { once: true });   // last: it writes depth
     }
+    if (masked) { writeMask(true, true); keepInAlpha(); }
     resetState();
     return { MVP, eye };
+  }
+  // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
+  // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written
+  function sphereRegions(list, sph, MVP, eye) {
+    for (const r of list) {
+      if (r.inv) {
+        let res = 'error';
+        try {
+          const sc = r.inv.globeBox ? globeScissorOf(r.inv.globeBox, MVP, eye, 4) : null;
+          res = drawInverse(Object.assign({}, r.inv, { viewKind: 'globe', sphere: sph, scissor: sc }));
+        } catch (err) { res = 'error'; if (r.onError) r.onError(err); }
+        gl.depthMask(false);
+        if (r.onResult) r.onResult(res);
+        if (res === 'drawn') continue;
+        for (const f of r.fwd || []) { if (f.pre) drawPreMapped(f.pre, Object.assign({}, f.st, { sphere: sph })); else drawRegion(f.res, Object.assign({}, f.st, { sphere: sph })); }
+        continue;
+      }
+      if (r.pre) { drawPreMapped(r.pre, Object.assign({}, r.st, { sphere: sph })); continue; }
+      drawRegion(r.res, Object.assign({}, r.st, { sphere: sph }));
+    }
   }
 
   // =================================================================================================================
