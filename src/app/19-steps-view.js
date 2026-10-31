@@ -258,8 +258,10 @@
         return true;
       }
     }
-    // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first)
+    // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first, and the caller composes
+    // from cc)
     if (frame && frame.open) { GLR.blit(cc); frame.open = false; }
+    if (frame) frame.cc = true;
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
     let m = svCarryMemo;
     if (!m || m.key !== key) {
@@ -341,17 +343,13 @@
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     paper(pane);
-    if (GLR.drawGrid) {
-      GLR.begin(pane.pw, pane.ph);
-      GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55 });
-      GLR.blit(pane.ctx);
-    }
+    const grid = (under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
-    const frame = { open: false };
+    const frame = { open: false, cc: false };
     const plot = (k, al) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
@@ -370,10 +368,22 @@
     const near = (w) => Math.max(0, Math.min(1, w));
     if (still) plot(a, 1);
     else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
-    if (frame.open) { GLR.blit(cc); frame.open = false; }
-    if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
-    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
-    svOutlines(pane, map);
+    // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes to
+    // the page. Inside regions (the mask is a 2D pass over the colour layer) or when the carried colour took the CPU
+    // path (it is in cc already), the layers go one by one, the grid first
+    if (!svMaskOn() && !frame.cc) {
+      if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+      grid(true);
+      svOutlines(pane, map, frame);
+      GLR.blit(pane.ctx);
+      frame.open = false;
+    } else {
+      if (frame.open) { GLR.blit(cc); frame.open = false; }
+      if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
+      if (GLR.drawGrid) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
+      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
+      svOutlines(pane, map);
+    }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
@@ -399,16 +409,17 @@
     cc.drawImage(svMaskCv, 0, 0);
     cc.restore();
   }
-  // the shapes' outlines under map, as the colour plot draws them (renderColor)
-  function svOutlines(pane, map0) {
-    GLR.begin(pane.pw, pane.ph);
+  // the shapes' outlines under map, as the colour plot draws them (renderColor); into the open GL frame frame, if given
+  // (the caller copies it), else a frame of their own
+  function svOutlines(pane, map0, frame) {
+    if (!frame) GLR.begin(pane.pw, pane.ph);
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const map = shapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       GLR.drawLines(r.lineRes, { map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } });
     }
-    GLR.blit(pane.ctx);
+    if (!frame) GLR.blit(pane.ctx);
   }
   // a pane that draws into canvas cv instead (the same size and view)
   function svProxy(pane, cv) {
