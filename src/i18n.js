@@ -261,7 +261,7 @@ const I18N = (() => {
   const fnNameIn = (l, en) => (l === 'ru' && hasOwn(RU_PLAIN, en) ? RU_PLAIN[en] : en);
 
   // one language, fixed: the figure build stores its caption language (fig.lang) and calls I18N.at(fig.lang)
-  // across its awaits (MathJax, the CMU tables), so nothing after an await falls back to the interface language
+  // across its awaits (MathJax and its font's ranges), so nothing after an await falls back to the interface language
   function at(l) {
     return {
       lang: l,

@@ -406,7 +406,7 @@ for name, t in src_texts(root / 'src'):
     f = pathlib.Path(name)
     # (v16.5 merge: the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
     # source's strings: a string the source no longer calls must not be kept because the Italian table still has it)
-    if f.name in ('i18n_ru.js', 'i18n_it.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
+    if f.name in ('i18n_ru.js', 'i18n_it.js') or f.suffix not in ('.js', '.html'):
         continue
     src_raw.append(t)
     if f.suffix == '.html':

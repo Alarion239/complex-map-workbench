@@ -53,7 +53,7 @@ ruff check
   `module.exports` and is then listed in `types/globals.d.ts`.
 - **Comments say what the code does and why.** Link a spec in `notes/` where it explains a decision. Leave version
   labels (`// v15:`) and the file's history to git.
-- **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/cyr.js`, `src/seasong.js`
+- **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/seasong.js`
   (each names its generator at the top).
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run

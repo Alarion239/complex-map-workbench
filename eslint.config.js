@@ -3,8 +3,8 @@
 //   npm run lint                    every file below
 //   npx eslint src/view.js          one file (src/app/*.js: the parts of app.js)
 // The app's files are ES modules (issue #20, phase 4): each imports what it uses from the others and exports its
-// top-level names, and tools/bundle.mjs bundles them from src/main.js. Two files stay classic scripts before the
-// bundle, src/i18n.js and src/cyr.js: their I18N, $t, $tx, $tn and CYR are the modules' only globals (with MathJax,
+// top-level names, and tools/bundle.mjs bundles them from src/main.js. One file stays a classic script before the
+// bundle, src/i18n.js: its I18N, $t, $tx and $tn are the modules' only globals (with MathJax,
 // which the page loads). The unit tests put the modules on node's global, so they see every top-level name of src/.
 //
 // app.js, gl.js, figure.js, sound.js and construct.js are kept as ordered parts (issue #20, phase 2; test/src_text.js): src/<name>/wrap.js holds the
@@ -22,7 +22,7 @@ const { Linter } = require('eslint');
 const { SPLIT, PARTS_RE, parts, source } = require('./test/src_text');
 
 const SRC = path.join(__dirname, 'src');
-const CLASSIC = ['i18n.js', 'cyr.js'];   // classic scripts before the bundle; every other file of src/ is a module
+const CLASSIC = ['i18n.js'];   // the classic script before the bundle; every other file of src/ is a module
 const parseAny = (text) => { try { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'module' }).body; } catch (e) { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body; } };
 const own = {};
 for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
@@ -128,13 +128,13 @@ const closure = {
 module.exports = [
   // not linted: built pages, notes, generated tables, and the test/ files other than the unit tests (most of those are
   // *_cmd.js snippets that the browser harness runs inside the page, with a top-level return)
-  { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'vendor/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js'] },
+  { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'vendor/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'test/**', '!test/', '!test/t_*.js'] },
   js.configs.recommended,
   { rules },
   ...Object.entries(SIZE_BUDGET).map(([f, max]) => ({ files: [f], rules: { 'max-lines': ['warn', { max, skipBlankLines: true, skipComments: true }] } })),
   // the app: ES modules, one per file (an export is a use), bundled by tools/bundle.mjs
   { files: ['src/*.js'], ignores: CLASSIC.map((f) => `src/${f}`), languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
-  // the classic scripts before the bundle (src/cyr.js is generated and not linted)
+  // the classic script before the bundle
   { files: ['src/i18n.js'], languageOptions: { ecmaVersion: 'latest', sourceType: 'script', globals: { ...globals.browser, module: 'readonly', require: 'readonly' } } },
   // the split files: wrap.js (the closure's first and last lines, and the module block) like a module of its own, and
   // each part as the joined file (the closure processor)
@@ -148,14 +148,11 @@ module.exports = [
       { files: [`${dir}/[0-9][0-9]-*.js`], processor: closure, languageOptions },
     ];
   }),
-  // the template of src/cyr.js (tools/make_cyr_module.py): a classic browser script like the file it becomes
-  { files: ['tools/cyr_template.js'], languageOptions: { sourceType: 'script', globals: { ...globals.browser, module: 'readonly' } } },
   // the bundler: a node ES module
   { files: ['tools/**/*.mjs'], languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node } },
   // CI, tools and the unit tests: node scripts (the tests also put the app's modules on global)
   {
     files: ['ci/**/*.js', 'tools/**/*.js', 'test/t_*.js', 'eslint.config.js'],
-    ignores: ['tools/cyr_template.js'],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'commonjs', globals: { ...globals.node, ...appGlobals(null) } },
   },
 ];

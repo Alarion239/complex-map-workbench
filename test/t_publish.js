@@ -15,7 +15,7 @@ const ok = (name, pass, detail) => { if (!pass) { fails++; console.log('FAIL ' +
 const START = '// TEMP-DEBUG-HOOK (removed before publishing)';
 const RE = /\n[ \t]*\/\/ TEMP-DEBUG-HOOK \(removed before publishing\).*?\/\/ TEMP-DEBUG-HOOK\n/gs;
 const HOOK_MAX = 300;   // lines: the longest hook block is about 240 (app.js's test helpers at the end of init)
-const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js') && !/^i18n_|^cyr|^seasong/.test(n));
+const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js') && !/^i18n_|^seasong/.test(n));
 for (const f of [...files, 'app.js', 'gl.js']) {
   let text;
   try { text = source(f); } catch (e) { continue; }
