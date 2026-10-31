@@ -18,6 +18,7 @@
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
     anim: null,      // the glide to a plane: {from, to, t0, ms}, eased in and out over a fixed time (no spring tail)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
+    main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
     ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
@@ -92,6 +93,7 @@
     if (S.focus !== 0) { setFocusStep(0); ch = true; }
     if (morph.open) { morph.open = false; ch = true; }
     if (v.main !== main) { setViewOpt(null, 'main', main); ch = true; }
+    SV.main = main;
     if (main === 'land' && !(v.D && v.D.phase)) { setViewOpt(null, 'D', Object.assign({}, v.D, { phase: true })); ch = true; }
     const side = col ? 'P' : 'L';
     if (main !== 'land' && v[side].surf !== surf) { setViewOpt(side, 'surf', surf); ch = true; }
@@ -118,7 +120,8 @@
   // (force: another chain was loaded, which brings its own view even when it is the one shown)
   function svAdopt(force) {
     const ext = S.view.main;
-    if (ext === svMain() && !force) return;
+    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to)
+    if ((ext === svMain() || ext === SV.main) && !force) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas);
@@ -561,6 +564,8 @@
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
+    // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
+    rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); } }, { passive: true });
     SV.els = { speed, rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
@@ -621,9 +626,39 @@
       E.slider.setAttribute('aria-valuetext', svPlaceText());
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
-    if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
+    // (and, when the thread is longer than its rail (#497), the rail's width and the thread's, and the nodes' height (the
+    // ring is centred on a node, clear of its name): measured with the centres)
+    if (!E.centres || E.centresSig !== E.sig) {
+      const pl = [...E.track.querySelectorAll('.sv-plane')];
+      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.track.offsetWidth;
+      const nd = pl[0] && pl[0].querySelector('.sv-node');
+      if (nd) E.thumb.style.setProperty('--sv-node-y', `${(pl[0].offsetTop + nd.offsetTop + nd.offsetHeight / 2).toFixed(1)}px`);
+      svFades();
+    }
     const c = E.centres, j = Math.max(0, Math.min(c.length - 1, Math.floor(x + 1e-9))), u = x - j;
-    if (c.length) E.thumb.style.transform = `translateX(${(c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u).toFixed(1)}px)`;
+    if (!c.length) return;
+    const tx = c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u;
+    E.thumb.style.transform = `translateX(${tx.toFixed(1)}px)`;
+    // (between two planes the ring is a marker over the thread, above the step's chip: ux's wave 12 sweep)
+    const between = Math.abs(x - Math.round(x)) > 0.02;
+    if (between !== E.between) { E.between = between; E.thumb.classList.toggle('between', between); }
+    // a thread longer than its rail scrolls in it, the ring kept in view a plane's width from either end (a write, no read)
+    if (E.trackW > E.railW + 1) {
+      const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
+      const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
+      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; }
+    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; }
+  }
+  // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
+  // centres and the scroll the rail reported, no read
+  function svFades() {
+    const E = SV.els;
+    if (!E || E.railW == null) return;
+    const s = E.scrollX || 0, over = E.trackW > E.railW + 1;
+    const l = over && s > 1, r = over && s < E.trackW - E.railW - 1;
+    if (l !== E.fadeL) { E.fadeL = l; E.rail.classList.toggle('fade-l', l); }
+    if (r !== E.fadeR) { E.fadeR = r; E.rail.classList.toggle('fade-r', r); }
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
   function svPlaceText() {

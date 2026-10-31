@@ -1,15 +1,20 @@
 # Roadmap
 
-**Live now:** v17.0-beta.11 (waves 1–11, 30 October 2026): the redesign so far, complex shared numbers, iteration, fast
+**Live now:** v17.0-beta.12 (waves 1–12, 31 October 2026): the redesign so far, complex shared numbers, iteration, fast
 Dirichlet series, the ES-module build, shapes and parameter points in every plane, exact preimages of a parameter point
 on rational chains, the phone's step bar and its ‹ › glide, an offline page you can download, Try lines that close
 themselves, the tour strip's new look, screen-reader and 24 px target fixes, evenly lit globes, a Landscape that opens
-much faster on Windows, and the large source files split into parts and modules.
+much faster on Windows, the large source files split into parts and modules, and, behind `?view=steps`, the step-by-step
+view (one plane of the chain on the stage, a colour plane, the colour carried on the GPU past it), the phone sideways
+with its shape bar, and layout checks that report on every page size.
 
-**Next:** v17.0-beta.12 (wave 12: the tour's Russian task titles and a task for the Phase portrait step (#424), the strip at
-52 px on the laptop (#431), `inverse.js` in modules (#432), more type checks (#430), the slowest browser shard split in two
-(#429), the `// v15:` label sweep, and, when the Windows laptop is back, #170, #238 and #350), then v17.0, when the touch rules (#30) and the guided tour
-rework (#34) are done; until then each merged wave is a beta (v17.0-beta.12, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+**Next:** v17.0-beta.13 (wave 13: the steps view's thread editing (#469), play along the thread (#460), the plane's head on one
+row (#473, #364), the thread's strip on a narrow phone (#497, #501), one GL copy per glide frame (#492), no raw TeX on screen
+(#476, #465), the phone's palette (#479), MathJax 4 with STIX2 and the offline page gzipped back to 7.8 MB (#488, #494),
+`region.js` in a module (#496), the export dialog at 1024 in ru and it (#498), small collisions from the first layout report
+(#500), old links under `?view=steps` (#493), the layout gate (#499), the `// v15:` label sweep, and, when the Windows laptop is back,
+#170, #238 and #350), then v17.0, when the touch rules (#30) and the guided tour
+rework (#34) are done; until then each merged wave is a beta (v17.0-beta.13, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
 every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
 of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
@@ -19,7 +24,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.11 is live; v17.0 waits for #30 and #34 |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.12 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | in progress: the edge pass runs in the surface's own program (#168, #47); the Max mesh at 60 fps (#48, #170) waits for a Windows measurement |
 
 ## Releases
@@ -42,6 +47,7 @@ Each merged wave is a release. Dates are the day the wave PR merged into `main` 
 | v17.0-beta.9 | 2026-10-30 | #386 (d598403) | Exact preimages of a parameter point on rational chains, with every preimage listed and following a drag (#291), the line refinement sliced so one slow curve no longer blocks a frame (#325), no Phase style button in the top bar, the style row as glyphs in each plane's head and the view tabs centred (#334, #335), Inspector labels as Unicode, not raw TeX (#336), the Height and Colour keys' pop-up below the readout (#337), the pane heads at 1024 px (#356, #357), the Φ_M card's fields (#358), screen readers and 24 px targets (axe-core suite; #359, #360, #361), every globe lit evenly from the camera (#287), no ghost cut handle after an example switch (#297), the first audio gesture's context created after the click (#271), the Gate that reuses a green push run (#379), the ES-module cleanup and a file-size budget (#20) |
 | v17.0-beta.10 | 2026-10-30 | #409 (6a22f6c) | An offline page, `complex-map-workbench-offline.html`, published next to the live page and downloadable from Settings (the Menu sheet on the phone) (#21, #393), Phase's colour key always on the plot, top right (#365), the phone's ‹ › gliding Y between the steps' planes with no transport, and an export that saves the plane Y shows (#362, #383), every example's Try line closing itself once you do what it asks (#34, #398), a typed Repeat N or step field that stays with its own step through a chain switch (#401, #404), smaller Windows shader programs: the Mountain King's mode-1 program 126 KB instead of 492 KB (#355), Julia's preimage program (#396), and the Landscape's edge pass inside its own program (#47), a fuzz test of exact preimages (#291), Examples first in Tab order (#359), and `notes/` without its old screenshots and PDFs (#20) |
 | v17.0-beta.11 | 2026-10-30 | #433 (150704d) | The Landscape's first open faster on Windows: the Mountain King's edge pass links in 22 s instead of 120 s on the hosted Windows runner (#399, #395) and `landLv` compiles one copy of its cell body, 0.09 s instead of 4.39 s (#416, #414); the tour strip's new look, with a ○ task line that turns into a ✓, an outlined Skip that becomes Next, and "Move on by itself" in the Chapters menu (#408, #34); the start-up wiring moved into its areas' parts, so a change to one area runs only that area's shards (#420, #385); the perf gate reporting rather than gating the dpr-2 zoom units that flip at the vsync boundary (#422, #413); `figure.js`, `sound.js` and `construct.js` split into parts, and `funcs.js`'s natural paths and derivatives into modules (#410, #418, #421, #423, #20); type checks cleaned, tsc 493 → 284 (#411, #419, #428); shallow-clone-safe snapshot tests (#425, #427) |
+| v17.0-beta.12 | 2026-10-31 | #502 (e931223) | The step-by-step view behind `?view=steps` (#366): one plane of the chain fills the stage, the colour plane sets the colour (the exact pull-back up to it, the colour carried with the points past it), a thread of plane dots and function chips to drag, ‹ › and swipe, Plane, Sphere and Landscape surfaces, names that follow the shown plane, and its place kept in saves, links and undo (#434, #435, #436, #471, #506); the carried colour drawn on the GPU, a scrub p95 of 4.5 ms on the default example instead of 38.5 and a glide frame with one GL→2D copy (#439); the phone sideways, with the tool column the whole height and the tour's ✕ clear of the rail (#462, #482), and a shape's bar sliding up over the chain bar with nothing else moving (#463); the tour's Russian task titles, a task for the Phase portrait step, the 52 px strip on a laptop and Skip staying outlined after a tap (#424, #431, #461); the formula well fitting its width in the Edit sheet (#455) and one explanation of the "in short" mark (#453); visual QA in CI, a layout-invariants check in report mode and `tools/inspect.js` (#470); `CMW_VENDOR=1` for the browser suites with no network (#444) and `export_cmd`'s slowest section in two shards (#429); `inverse.js` and `constr.js` split into modules; type checks cleaned, tsc 284 → 138 (#20) |
 
 The tag for each release is pushed by Alexander, so a row can exist before its tag does.
 

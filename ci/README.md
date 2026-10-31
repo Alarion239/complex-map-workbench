@@ -51,7 +51,9 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   read from the diff (#385); a changed line outside every hook, a hook something other than the browser suites and
   unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. `init()`
   (`20-init.js`) keeps only the start-up: an area's wiring is in that area's part (`19-shell.js` the header, menus and
-  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). Every GLSL page whose inputs
+  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). A row can also
+  select by the diff's lines: `src/page.html`'s export dialog CSS (`.xf-…`, `.modal.xf`, `#xf…`) runs the export shards
+  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),

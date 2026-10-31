@@ -68,6 +68,8 @@ const SUITES = {
     runs: [{ label: '1440' }, { label: '390-dark', preamble: 'globalThis.WALK = { w: 390, dark: true };' }],
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
+  // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
+  'raw_tex_cmd.js': { pages: ['tex-mj.js', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}';` })) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
@@ -166,10 +168,18 @@ const old = (commit) => (dist, name) => {
   fs.copyFileSync(path.join(R.dist, 'test.html'), path.join(dist, name));
   console.log(`dist/${name}: test.html of ${commit}`);
 };
+// test.html with its MathJax script tag (build.py's CDN tag) replaced
+const MJ_TAG = '<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>';
+const mjPage = (dist, tag) => { const t = fs.readFileSync(path.join(dist, 'test.html'), 'utf8'); if (t.split(MJ_TAG).length !== 2) throw new Error('test.html: its MathJax script tag'); return t.replace(MJ_TAG, tag); };
 const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
+  // ([#465] the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
+  // from vendor/, not the CDN, so the typeset page is the same on every runner)
+  'tex-mj.js': (dist, name) => fs.copyFileSync(path.join(__dirname, '..', 'vendor', 'js', 'tex-svg.js'), path.join(dist, name)),
+  'test-mj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '<script async src="tex-mj.js"></script>')),
+  'test-nomj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '')),
   // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)
