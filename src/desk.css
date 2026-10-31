@@ -338,9 +338,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* (#515, steps view) a message over the thread's rail: one line, the rail's height at most; the rail's planes and steps are hidden
    while it shows (it covers no control), and < > and the speed beside it stay live */
 #toastHost[data-placed="rail"] .toast { height: auto; min-height: 36px; white-space: normal; box-shadow: none; }
-/* (#515) a message over the thread's rail lets a press through to the thread, which dismisses it (the rail's pointerdown) and goes on: with E's ▶ and Loop the rail is narrower and in Russian the message lies over the first plane's dot; its own buttons stay live */
-#toastHost[data-placed="rail"] .toast { pointer-events: none; }
-#toastHost[data-placed="rail"] .toast button { pointer-events: auto; }
 .sv-strip.sv-toast .sv-rail > * { visibility: hidden; }
 /* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
    once wrapped to four lines and cut its longest word (ru, 1024) */

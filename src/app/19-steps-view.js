@@ -163,6 +163,7 @@
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
   // (#515) a message placed over the thread's rail goes, by the message's own close, when the thread is gone through again
+  let svToastWired = false;
   function svDismissToast() {
     const th = document.getElementById('toastHost');
     if (th && th.getAttribute('data-placed') === 'rail') for (const t of th.querySelectorAll(':scope > .toast')) t.remove();
@@ -785,6 +786,16 @@
     const dismissToast = svDismissToast;
     strip.addEventListener('click', (e) => { if (e.target.closest('.sv-nav')) dismissToast(); }, true);
     rail.addEventListener('pointerdown', dismissToast, true);
+    // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
+    // press must not act on a plane the user cannot see; its own buttons keep their action)
+    const th = document.getElementById('toastHost');
+    if (th && !svToastWired) {
+      svToastWired = true;
+      th.addEventListener('click', (e) => {
+        const t = e.target instanceof Element ? e.target.closest('.toast') : null;
+        if (t && th.getAttribute('data-placed') === 'rail' && !(e.target instanceof Element && e.target.closest('button'))) dismissToast();
+      });
+    }
     // (the thread's position under the pointer: between the centres of the planes' nodes, in proportion)
     const posX = (e) => {
       const ns = [...track.querySelectorAll('.sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return r.left + r.width / 2; });
