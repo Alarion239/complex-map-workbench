@@ -64,6 +64,22 @@ for (const lang of ['en', 'ru']) {
   ok('the PDF library runs from the page itself and writes a PDF', pdf && pdf.head === '%PDF-' && pdf.bytes > 500, pdf);
   ok('the PDF library asked the network for nothing', JSON.stringify(await asked()) === '[]', await asked());
 }
+// (#491) the MathJax block is gzipped: a browser without DecompressionStream inflates it with the page's fflate; that
+// browser here, its DecompressionStream deleted before the page runs
+{
+  const add = await send('Page.addScriptToEvaluateOnNewDocument', { source: 'try { delete window.DecompressionStream; } catch (e) {}' });
+  await nav(`${url}?lang=en&ns=offlinenods`);
+  let mj = false;
+  for (let i = 0; i < 60 && !mj; i++) { mj = await ev(`!!(window.MathJax && typeof MathJax.tex2svg === 'function')`); if (!mj) await sleep(500); }
+  ok('no DecompressionStream: MathJax still loads with the network off (fflate inflates the block)', mj && (await ev('typeof window.DecompressionStream')) === 'undefined' && (await ev('typeof window.fflate')) === 'object', mj);
+  if (mj) {
+    await ev(`window.__offRange = null; (async () => { const t = '\\\\mathfrak{g}\\\\,\\\\text{кривая}'; for (let k = 0; k < 8; k++) { try { const n = MathJax.tex2svg(t); window.__offRange = { paths: n.querySelectorAll('path, use').length, text: n.querySelectorAll('text').length }; return; } catch (e) { if (!e.retry) { window.__offRange = String(e.message); return; } await e.retry; } } window.__offRange = 'still waiting'; })(); 1`);
+    let rg = null; for (let i = 0; i < 40 && !rg; i++) { rg = await ev('window.__offRange'); if (!rg) await sleep(250); }
+    ok('no DecompressionStream: a formula in ranges loaded on demand is typeset', rg && typeof rg === 'object' && rg.paths > 0 && rg.text === 0, rg);
+  }
+  ok('no DecompressionStream: no request leaves the page', JSON.stringify(await asked()) === '[]', await asked());
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: add.identifier });
+}
 await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 try { fs.unlinkSync(file); } catch (e) { /* the copy's folder goes with the run */ }
 
