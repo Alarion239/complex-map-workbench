@@ -279,7 +279,7 @@
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
-  // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in Archivo)
+  // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
   function idleRight() {
     // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
     const v = rGlobe() ? { hint: mfGlobeAway() ? $t('Paths: X is on the far side; drag to turn') : globeHint('R') }
@@ -430,7 +430,8 @@
       for (n = 0; n < kids.length; n++) {
         if (inHead && isNote(kids[n])) break;
         const next = used + (n ? gap : 0) + ft.widths[n];
-        const more = n + 1 < kids.length ? btn : 0;
+        // (#364: a head that starts with the style row always keeps the ⋯'s room, filled or not)
+        const more = n + 1 < kids.length || (inHead && kids[0].id === 'dcSeg') ? btn : 0;
         if (next + more > avail) break;
         used = next;
       }
@@ -451,10 +452,18 @@
       // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
+    } else if (inHead && kids.length && kids[0].id === 'dcSeg') {
+      // (#364) the Phase head keeps the ⋯'s room whatever the style: a style with nothing behind ⋯ (Plain, Modulus)
+      // leaves the slot empty, so the style row, at the head's right, never shifts as the style changes
+      b = h('span', { class: 'opts-slot', 'aria-hidden': 'true' });
     }
     const open = ft.pop && ft.pop.isConnected && (ft.pop.dataset.of !== 'pattern' || ft.pop.dataset.merged === '1');
     if (unit && rest.includes(unit)) unitHome(f);
-    f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
+    // (#364, the issue's second option: in a head that starts with the style row, the toggles that fit go to its left and
+    // the row stays last, beside ⋯; it sits at the head's right, so a style that changes the title, and with it how many
+    // toggles fit, moves only the toggles)
+    const inl = kids.slice(0, n), styl = inHead && inl.length && inl[0].id === 'dcSeg';
+    f.replaceChildren(...(pat ? [pat] : []), ...(styl ? [...inl.slice(1), inl[0]] : inl), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
     if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
@@ -1164,7 +1173,7 @@
         ctx.textAlign = 'left';
       } else {
         ctx.fillText($t('Pattern'), 8, 13);
-        // "cell 0.5 in z" as one run: words in Archivo, the number in B612 Mono, z in STIX italic
+        // "cell 0.5 in z" as one run: words in the UI face, the number in the mono face, z in STIX italic
         let x = 8;
         const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
         if (S.pattern === 'sphere') {
@@ -1234,7 +1243,7 @@
     ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
     ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
     const n = S.sectors || 12;
-    // one right-aligned run: words in Archivo, the variables (F, F′, w) in STIX italic as on the ring
+    // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
     const caption = (t) => {
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
@@ -1266,7 +1275,7 @@
         ctx.fillStyle = g; ctx.fillRect(sx + b * sw / 3, sy, sw / 3, sh);
       }
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
-      // words in Archivo, the factor in B612 Mono (spec 3)
+      // words in the UI face, the factor in the mono face (spec 3)
       ctx.fillStyle = TH.muted; ctx.textAlign = 'left';
       // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws as before
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };

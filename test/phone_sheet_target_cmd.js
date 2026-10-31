@@ -15,7 +15,7 @@ const open = async (w, h, lang) => {
   await settle(900);
 };
 // the sheet has stopped sliding in: its transform is none and it lies inside the window
-const settled = async () => { for (let i = 0; i < 40; i++) { if (await ev(`(() => { const s = document.querySelector('.ph-sheet:not([hidden])'); return !!s && getComputedStyle(s).transform === 'none' && s.getBoundingClientRect().bottom <= innerHeight + 1; })()`)) break; await sleep(250); } await settle(300); };
+const sheetSettled = async () => { for (let i = 0; i < 40; i++) { if (await ev(`(() => { const s = document.querySelector('.ph-sheet:not([hidden])'); return !!s && getComputedStyle(s).transform === 'none' && s.getBoundingClientRect().bottom <= innerHeight + 1; })()`)) break; await sleep(250); } await settle(300); };
 const probe = () => ev(`(() => { const sh = document.querySelector('.ph-sheet:not([hidden])'); if (!sh) return null;
   const tgt = sh.dataset.k === 'edit' && !sh.classList.contains('nums') ? sh.querySelector('#propsPanel .ihead') : sh.querySelector('.ph-sh');
   if (!tgt || !tgt.getClientRects().length) return { k: sh.dataset.k, none: true };
@@ -27,7 +27,7 @@ for (const lang of ['en', 'ru', 'it']) for (const w of [360, 390]) {
   const tag = `${w} ${lang}`;
   await open(w, w === 360 ? 740 : 844, lang);
   for (const k of ['edit', 'chain', 'display', 'more', 'tools']) {
-    await ev(`Phone.open('${k}'); 1`); await settled();
+    await ev(`Phone.open('${k}'); 1`); await sheetSettled();
     const t = await probe();
     ok(`${tag}: the ${k} sheet's drag target is 44 px tall at least, with an empty part to press`, !!t && !t.none && t.h >= 44 && !!t.at, t);
     info[`${tag} ${k}`] = t && { h: t.h };

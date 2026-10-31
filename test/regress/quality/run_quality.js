@@ -150,6 +150,8 @@ async function startChrome() {
   const t = await send('Target.createTarget', { url: 'about:blank' }, null);
   S = (await send('Target.attachToTarget', { targetId: t.targetId, flatten: true }, null)).sessionId;
   await send('Runtime.enable'); await send('Page.enable');
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (test/cdp_kit/pin_view.js)
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
   await send('Emulation.setDeviceMetricsOverride', { width: VIEWPORT.width, height: VIEWPORT.height, deviceScaleFactor: VIEWPORT.dpr, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });
   const ev = async (expr, awaitPromise = false) => {

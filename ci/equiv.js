@@ -1,8 +1,8 @@
 'use strict';
 // Is this checkout's app the reference's app? The proof for phase 4 of issue #20 (ES modules and an esbuild bundle in
 // place of build.py's concatenation), usable for any change that must not change the app. Two kinds of checks:
-//   bytes: every byte of each page outside the app's script (the HTML, the CSS, the ru/it/cyr data blocks, the
-//     MathJax tags) and the script's head up to the app's first file (i18n.js and cyr.js, classic scripts before the
+//   bytes: every byte of each page outside the app's script (the HTML, the CSS, the ru/it data blocks, the
+//     MathJax tags) and the script's head up to the app's first file (i18n.js, a classic script before the
 //     bundle) are the reference's, byte for byte, in the test page and the published page;
 //   behaviour: both test pages in one Chrome, the same scenes: every shader source the app hands WebGL (a set: the
 //     programs of the default scene, each example, and the Phase and Landscape views of a few), the audio worklet's
@@ -52,9 +52,9 @@ function splitPage(html) {
   if (!best) return null;
   return { before: html.slice(0, best.at), script: best.body, after: html.slice(best.at + best.body.length) };
 }
-// the script's head: i18n.js and cyr.js, which build.py puts before the app's own files (cyr.js's last line ends it)
+// the script's head: i18n.js, which build.py puts before the app's own files (its last line ends it)
 function headOf(script) {
-  const end = 'module.exports = CYR;', i = script.indexOf(end);
+  const end = 'module.exports = I18N;', i = script.indexOf(end);
   return i < 0 ? '' : script.slice(0, i + end.length);
 }
 
@@ -104,7 +104,7 @@ function bytes(refDist, curDist) {
     if (!a || !b) { check(`${page}: an app script`, false, 'none found'); continue; }
     check(`${page}: the page outside the app script, byte for byte`, a.before === b.before && a.after === b.after, `${a.before.length + a.after.length} bytes` + (a.before === b.before ? '' : ', differs before the script') + (a.after === b.after ? '' : ', differs after it'));
     const ha = headOf(a.script), hb = headOf(b.script);
-    check(`${page}: i18n.js and cyr.js at the script's head, byte for byte`, ha.length > 0 && ha === hb, `${ha.length} bytes`);
+    check(`${page}: i18n.js at the script's head, byte for byte`, ha.length > 0 && ha === hb, `${ha.length} bytes`);
   }
 }
 

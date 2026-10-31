@@ -32,7 +32,7 @@ const AREAS = {
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
-  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex-en', 'raw-tex-ru', 'raw-tex-it'],   // (raw-tex: #465, a string's TeX never on screen)
+  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
   views: ['views', 'formulas'],
   desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
@@ -95,7 +95,6 @@ const MAP = [
   ['src/phone.*', ui('phone', 'layout')],                                     // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
-  ['src/cyr.js', ui('export', 'i18n')],                                       // Cyrillic outlines in exported figures
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
   ['src/{construct,constr,constrpoc,constrortho}.js', ui('constructions')],   // perp, constructions, the ux165 rail
@@ -112,16 +111,15 @@ const MAP = [
   ['src/page.html', Object.assign(ui('desktop', 'phone'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
-  ['tools/{cyr_template.js,make_cyr_module.py}', ui('export', 'i18n')],
   ['tools/melodies/**', ui('sound')],
   ['tools/join_src.js', T0],
   ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
   ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
-  ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
+  ['notes/i18n/**', T0],                                                       // the i18n design and tables: unit tests only (t_i18n, t_terms, t_cyr, t_ux165_*)
   // the docs (a README beside the tests or the CI scripts too)
   ['**/*.md', T0],
   // the tests

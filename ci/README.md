@@ -76,12 +76,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
   other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
   and so does every later push while it is not a draft.
-- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing once its
-  push's run on that commit has passed: the job *ready* finds the newest other Gate run of this PR on the same commit,
-  and only if it passed does the plan select no job (tier `none`), the unit job skip, and the **Gate** job check that
-  run again and carry its verdict. Queued, running, failed, cancelled or none: the run is the usual one, so a green
-  Gate never stands on a commit before a gate passed there. Either way it has a concurrency group of its own and never
-  cancels the push's run (#379, `test/t_gate_ready.js`).
+- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing when its
+  push's run on that commit has passed or is still queued or running: the job *ready* finds the newest other Gate run
+  of this PR on the same commit; if it passed, or is queued, waiting or in progress, the plan selects no job (tier
+  `none`), the unit job skips, and the **Gate** job waits for that run to finish (polling once a minute, up to 330
+  minutes) and carries its verdict. It waits rather than skipping because a job's check exists only once the job
+  starts: a ready run that passed at once would be the only Gate check on the commit while the push's run still went.
+  Failed, cancelled or none: the run is the usual one, so a green Gate never stands on a commit before a gate passed
+  there. Either way it has a concurrency group of its own and never cancels the push's run (#379,
+  `test/t_gate_ready.js`).
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
@@ -406,7 +409,7 @@ Settings (environment variables):
 | `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
-| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js/cyr.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
