@@ -1655,7 +1655,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-printbtn { display: none; }
 .xf-h { font: var(--t-heading); color: var(--ink); }
 .xf-seg { width: 100%; }
-.xf-seg > button { flex: 1 1 0; min-width: 0; }
+.xf-seg > button { flex: 1 1 auto; min-width: 0; }   /* (each pill takes its own text's width, then shares the rest: "Lingua dell'interfaccia" fits its pill) */
 .xf-seg.big { height: auto; min-height: 56px; }
 .xf-seg.big > button { flex-direction: column; gap: 2px; font-weight: 600; padding: 5px 4px 6px; }
 .xf-seg.big > button svg { width: 22px; height: 22px; flex: 0 0 22px; }
