@@ -4,9 +4,12 @@
 // strokeText, recorded from the page's first script). Where: drawn shapes (a curve, a polygon, a disc, a point) in
 // X → Y, Phase and Landscape, each selected in turn, then every example of the gallery, on the page without MathJax
 // (test-nomj.html: what the page shows until MathJax arrives) and with it (test-mj.html: vendor/js/tex-svg.js, no CDN),
-// and the shapes at a phone's width. One language per run (LANG, ci/browser_suites.js). A command file for a CDP daemon.
+// and the shapes at a phone's width. One language per run (LANG, ci/browser_suites.js); the page with MathJax only where
+// MJ is set (en): a tooltip, a name and the canvas text read the same with MathJax or without, and the page without it
+// reads them in every language. A command file for a CDP daemon.
 const fails = [], info = { scanned: 0 };
 const LANG = globalThis.LANG || 'ru';
+const MJ = globalThis.MJ !== false;
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
 // the canvas text, recorded before the page's own scripts run
@@ -44,18 +47,22 @@ const MIN_STRINGS = 20;
 const scan = async (page, ctx) => {
   info.scanned++;
   let r;
+  const t0 = Date.now();
   try { r = await ev(SCAN); } catch (e) { fails.push(`${LANG} ${page} ${ctx}: the scan threw: ${e.message}`); return; }
   if (r.n < MIN_STRINGS) fails.push(`${LANG} ${page} ${ctx}: the scan read only ${r.n} strings (at least ${MIN_STRINGS} expected)`);
   if (page === 'test-mj.html' && !r.mj) fails.push(`${LANG} ${page} ${ctx}: MathJax typeset nothing (no mjx-container): the page tested what it shows before MathJax`);
   info.minStrings = Math.min(info.minStrings ?? Infinity, r.n);
+  info.scanMs = (info.scanMs || 0) + Date.now() - t0;
   for (const f of r.out) { const key = `${page}|${f.where}|${f.s}`; if (seen.has(key)) continue; seen.add(key); fails.push(`${LANG} ${page} ${ctx}: raw TeX (${f.k}) in ${f.where}: "${f.s}"`); }
 };
-const BUSY = `(() => { const s = (r) => (typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus(r) : null); const a = s('L'), b = s('R'); return !!(a && (a.pending || a.exact > 0)) || !!(b && (b.pending || b.exact > 0)); })()`;
+// (no wait for the exact images: they put no formula on screen, only ruler ticks and the panes' status, and the canvas
+// text is recorded for the page's whole life, so a later scan reads what a late frame drew)
 const settle = async (mj) => {
+  const t0 = Date.now();
   await sleep(1500);
-  for (let k = 0; k < 20 && (await ev(BUSY)); k++) await sleep(500);
   if (mj) for (let k = 0; k < 40 && !(await ev('!!(window.MathJax && MathJax.tex2svg)')); k++) await sleep(250);
   await sleep(mj ? 1200 : 400);
+  info.settleMs = (info.settleMs || 0) + Date.now() - t0;
 };
 const SHAPES = [
   { id: 's1', kind: 'curve', pts: [[-1, 0], [-0.5, 0.6], [0, 0.2], [0.5, 0.8], [1, 0.1]], ci: 0, visible: true },
@@ -71,7 +78,7 @@ async function openShapes(page) {
   await send('Page.navigate', { url: `${BASE}/${page}?ns=${ns}&lang=${LANG}` }); await sleep(2200);
   for (let i = 0; i < 40 && !(await ev(`typeof __cmwSetMain === 'function'`)); i++) await sleep(250);
 }
-for (const page of ['test-nomj.html', 'test-mj.html']) {
+for (const page of MJ ? ['test-nomj.html', 'test-mj.html'] : ['test-nomj.html']) {
   const mj = page === 'test-mj.html';
   await view(1440, 900, false, false);
   await openShapes(page); await settle(mj);
