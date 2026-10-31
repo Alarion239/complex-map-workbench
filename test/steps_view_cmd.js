@@ -29,6 +29,19 @@ const S = () => ev('__cmwSteps()');
 const rest = async () => { for (let i = 0; i < 150; i++) { const s = await S(); if (!s.moving) return s; await sleep(100); } return S(); };
 const plot = async () => ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height, scale: 1 }; })()`);
 const hash = async (name) => { await settle(400); await shot(name, await plot()); return fnv(fs.readFileSync(`${DIR}/shots/${name}.png`)); };
+// (#471) axe over the steps view's own markup: the plane, its head and the thread (test.html's own lang and the draw
+// tools' contrast are the base's, a11y_axe_cmd's)
+const AXE = fs.readFileSync(path.join(DIR, '..', '..', 'node_modules', 'axe-core', 'axe.min.js'), 'utf8');
+const axe = async () => {
+  if (!(await ev("typeof axe !== 'undefined'"))) await ev(AXE + '\n;1');
+  await ev(`(() => { window.__axe = null; const inc = ['#paneL', '#svHead', '#svStrip'].filter((q) => document.querySelector(q)).map((q) => [q]);
+    axe.run({ include: inc }, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } }).then((r) => { window.__axe = r.violations.map((v) => ({ id: v.id, n: v.nodes.length, t: v.nodes.slice(0, 3).map((x) => x.target.join(' ')) })); }); return 1; })()`);
+  for (let i = 0; i < 150; i++) { const r = await ev('window.__axe'); if (r) return r; await sleep(100); }
+  return [{ id: 'axe did not finish' }];
+};
+// (a pixel of the plot's canvas, as [r, g, b], at a fraction of its size)
+const px = (fx, fy) => ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(Math.round(c.width * ${fx}), Math.round(c.height * ${fy}), 1, 1).data; return [d[0], d[1], d[2]]; })()`);
+const grey = (c) => Math.abs(c[0] - c[1]) + Math.abs(c[1] - c[2]) < 24;
 const press = (k) => ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '${k}', bubbles: true, cancelable: true })); 1`);
 
 // ---- the desktop ----
@@ -82,6 +95,23 @@ const hIn = await hash('sv_in');
 ok('Inside regions changes the picture', hIn !== hAll, null);
 ok('… and leaves the lower half-plane paper', await ev(`(() => { const c = document.getElementById('canvasL'), x = c.getContext('2d'), d = x.getImageData(Math.round(c.width * 0.3), Math.round(c.height * 0.85), 1, 1).data,
   u = x.getImageData(Math.round(c.width * 0.3), Math.round(c.height * 0.15), 1, 1).data; return Math.abs(d[0] - d[1]) + Math.abs(d[1] - d[2]) < 24 && Math.abs(u[0] - u[1]) + Math.abs(u[1] - u[2]) >= 24; })()`), null);
+// (#471) on the globe, Inside regions keeps the colour to the half-plane too (the colour-key mask)
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1500);
+// (seen from the default camera, the lower half-plane is the sliver at the globe's right, about (0.82, 0.62))
+const gIn = await hash('sv_globe_in'), gUp = await px(0.5, 0.5), gLo = await px(0.82, 0.62);
+await ev(`__cmwSteps({ scope: 'all' }); 1`); await settle(1500);
+const gAll = await hash('sv_globe_all'), aLo = await px(0.82, 0.62);
+info.globe = { gUp, gLo, aLo };
+ok('on the globe, Inside regions changes the picture', gIn !== gAll, [gIn, gAll]);
+ok('… the upper half-plane coloured and the lower one paper; coloured everywhere without it', !grey(gUp) && grey(gLo) && !grey(aLo), info.globe);
+await ev(`__cmwSteps({ scope: 'in', surf: 'plane' }); 1`); await settle(800);
+// (#471) axe on the steps view: on z, parked between planes, on the globe
+const ax = {};
+ax.z = await axe();
+await ev(`__cmwSteps({ park: 0.5 }); 1`); await settle(600); ax.parked = await axe();
+await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere' }); 1`); await settle(1200); ax.sphere = await axe();
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(600);
+ok('desktop: no axe violation in the steps view (z, parked, Sphere)', !ax.z.length && !ax.parked.length && !ax.sphere.length, ax);
 // (ux's review of #448) the arrows of a focused radio group, or of an open pop-up, are theirs: the plane stays
 const before = (await S()).x;
 await ev(`(() => { const b = document.querySelector('#svHead .sv-surf [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
@@ -129,6 +159,8 @@ ok('the plane\'s Sphere key puts the plane on the sphere', sk.surf === 'sphere' 
 await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
 const sk2 = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
 ok('… and back on the plane', sk2.surf === 'plane' && sk2.pressed === 'false', sk2);
+const axP = await axe();
+ok('phone: no axe violation in the steps view', !axP.length, axP);
 const head = await ev(`(() => { const t = document.getElementById('top'), h = document.getElementById('svHead'); return { inTop: !!h && h.parentNode === t, fits: t.scrollWidth <= t.clientWidth + 1 }; })()`);
 ok('the plane\'s controls are in the header, which does not scroll sideways', head.inTop && head.fits, head);
 // (ux on #448: the folded key is an image with a name, for axe's role-img-alt)
