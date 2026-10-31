@@ -405,6 +405,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
 :root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph .snd-pop { z-index: 46; }
+/* (#464) the function palette and the search rise from below but stop above the chain bar, so the chain they add to stays in sight; with
+   the keyboard up they stop above it too, and fill what is left under the header */
+:root.ph .pop.palette { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + 8px) !important; bottom: max(calc(var(--ph-row) + var(--ph-chain) + var(--ph-safe-b)), var(--ph-kb, 0px)) !important; height: auto !important; max-height: none !important; border-radius: var(--r-4); border-bottom: 1px solid var(--line-strong); padding-bottom: 0; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
    sheets a 360 px side sheet on the right, both planes still in sight ---------- */
