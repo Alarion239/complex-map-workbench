@@ -381,11 +381,11 @@ const Phone = (() => {
   // ---------------- the context bar (D3) ----------------
   // One 56 px bar above the tool row for what is selected or under way: the selected shape (name, definition, Edit,
   // Delete, ⋯), the polygon being drawn (Last, Done, Cancel), a curve being listened along (Stop). The planes give up the
-  // room from the bottom (--ph-ctx), so the drawing does not move. The app calls Phone.ctx from its overlay renders and
+  // bar floats over the bottom of the planes, above the chain bar, and slides out from behind it (#463): nothing moves for it. The app calls Phone.ctx from its overlay renders and
   // its selection changes; the bar is rebuilt only when what it shows changes.
-  let ctxKey = '';
+  let ctxKey = '', ctxHideT = 0;
   function ctxSync() { ctx(true); }
-  // The planes give the bar its room (and a message its row) only while no finger is down: a plane that shrinks under a
+  // The planes give a message its row only while no finger is down: a plane that shrinks under a
   // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
   let fingers = 0, layoutT = 0;
   function barLayout() {
@@ -438,7 +438,17 @@ const Phone = (() => {
     }
     els.ctx.replaceChildren(...kids);
     const tall = !!(st && st.kind === 'construct' && st.seg);
-    els.ctx.hidden = !kids.length;
+    // (it slides in from behind the chain bar and back; `hidden` follows the slide out)
+    clearTimeout(ctxHideT);
+    if (kids.length) {
+      const was = !els.ctx.hidden;
+      els.ctx.hidden = false;
+      if (was) els.ctx.classList.add('in');
+      else { els.ctx.classList.remove('in'); void els.ctx.offsetHeight; requestAnimationFrame(() => els.ctx.classList.add('in')); }
+    } else {
+      els.ctx.classList.remove('in');
+      if (!els.ctx.hidden) ctxHideT = setTimeout(() => { els.ctx.hidden = true; barLayout(); }, 240);
+    }
     els.ctx.classList.toggle('tall', tall);
     if (kids.length) { els.ctx.dataset.k = st.kind; }
     barLayout();
