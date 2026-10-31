@@ -193,7 +193,12 @@
     Object.assign(line.style, { left: x0 + 'px', width: Math.max(2, x1 - x0) + 'px', top: top + 'px', height: drop + 'px' });
     const st = HR.stops(S);
     for (const [el, c, v, ok] of [[L.querySelector('.br-end.l'), ca, r.a, st.okA], [L.querySelector('.br-end.r'), cb, r.b, st.okB]]) {
-      Object.assign(el.style, { left: Math.round(c.offsetLeft) + 'px', width: Math.round(c.offsetWidth) + 'px', top: '0px', height: Math.round(c.offsetTop + c.offsetHeight) + 'px' });
+      // (#483) a 24 px target at least (WCAG 2.5.8), centred on the connector, which is 16 px wide at 1280 and under; and above the
+      // connector's labels (z, w₁, w) instead of over them, so a press on a label is not a press on the handle. The compact chain
+      // keeps its labels at the top, so its handle still runs the whole height
+      const cw = Math.round(c.offsetWidth), w = Math.max(24, cw), cv = /** @type {HTMLElement | null} */ (c.querySelector('.conn-var'));
+      const labelTop = cv && !host.classList.contains('compact') ? Math.round(c.offsetTop + cv.offsetTop) : 0;
+      Object.assign(el.style, { left: Math.round(c.offsetLeft + (cw - w) / 2) + 'px', width: w + 'px', top: '0px', height: (labelTop >= 24 ? labelTop : Math.round(c.offsetTop + c.offsetHeight)) + 'px' });
       el.setAttribute('aria-valuenow', String(v)); el.setAttribute('aria-valuetext', fUni(v));
       el.setAttribute('aria-valuemin', String(Math.min(...ok))); el.setAttribute('aria-valuemax', String(Math.max(...ok)));
     }
@@ -799,7 +804,8 @@
       c.root.classList.toggle('bad', bad);
       const d = defOf(st);
       // (v16.5 UX84: a typed step is a "Formula"; its formula is in the tooltip and the aria label, never on the card)
-      const fx = st.type === 'custom' && st.params && st.params.expr ? String(st.params.expr) : '';
+      // ([#465] read as text: \frac{1}{z} is 1/z and z^3 is z³ in the tooltip and to a screen reader)
+      const fx = st.type === 'custom' && st.params && st.params.expr ? texTitle(String(st.params.expr)) : '';
       const lab = `f${sub(k)}, ${d.label}` + (fx ? ` ${fx}` : '') + (S.focus === k ? $t(', shown alone') : '') + (st.on === false ? $t(', bypassed') : '') + (bad ? $t(', error: {msg}', { msg: b.error }) : '');
       if (c.root.getAttribute('aria-label') !== lab) c.root.setAttribute('aria-label', lab);
       const tip = bad ? `f${sub(k)} (${b.def ? b.def.label : d.label}): ${b.error}` : fx ? `f${sub(k)}(z) = ${fx}` : null;

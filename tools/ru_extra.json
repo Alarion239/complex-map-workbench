@@ -466,5 +466,10 @@
  "X and Y are now the derivative's input and output.": "X и Y теперь показывают вход и выход производной.",
  "Drag the circle γ.": "Перетащите окружность γ.",
  "The integral is worked out again as γ moves.": "Интеграл пересчитывается, пока γ движется.",
- "Tap the circle γ, then drag it.": "Коснитесь окружности γ, затем перетащите её."
+ "Tap the circle γ, then drag it.": "Коснитесь окружности γ, затем перетащите её.",
+ "Hide the paths t ↦ Hₜ(z)  P": "Скрыть пути t ↦ Hₜ(z)  P",
+ "Show the paths t ↦ Hₜ(z)  P": "Показать пути t ↦ Hₜ(z)  P",
+ "d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw": "d/dz — не отображение, поэтому путей t ↦ Hₜ(z) нет",
+ "Deformation: hide the paths t ↦ Hₜ(z)": "Деформация: скрыть пути t ↦ Hₜ(z)",
+ "Deformation: show the paths t ↦ Hₜ(z)": "Деформация: показать пути t ↦ Hₜ(z)"
 }
