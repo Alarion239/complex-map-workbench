@@ -760,10 +760,12 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   const an = await ev('__cmwFig.dialog().preview.note()');
   ok('preview DPR 2: filled, the note says the frames are scaled and compressed, and that the video is 1920 × 1080', /^Preview: the frames of the video itself, scaled to fit here and lightly compressed \(the video is 1920 × 1080\)$/.test(an), an);
   const kq = await ev(`(() => { const d = __cmwFig.dialog(), n = d.preview.state().n; for (let i = Math.floor(n * 0.45); i < n; i++) if (typeof d.preview.entry(i) === 'number') return i; return 0; })()`);
+  // (the kept frames are the shown size in device pixels: twice the preview's CSS width, at most the video's; #498's
+  // 340 px controls column made the preview 692 px wide at 1440, so no absolute width)
   const m = await ev(`await (${VS})(${kq})`, 300000);
   if (m && m.png) { fs.writeFileSync(path.join(OUT, 'pv-dpr2-compressed-frame.png'), Buffer.from(m.png.split(',')[1], 'base64')); delete m.png; }
   R.pv2.dpr2match = m;
-  ok('preview DPR 2, compressed: frame k is the video\'s frame k (decoded MP4: < 4 of 255; the exact render: < 2)', m && m.frames === m.n && m.pw >= 1480 && m.madVideo < 4 && m.madExact < 2, m);
+  ok('preview DPR 2, compressed: frame k is the video\'s frame k (decoded MP4: < 4 of 255; the exact render: < 2)', m && m.frames === m.n && m.pw >= Math.min(1920, a.cssW * 2) - 2 && m.madVideo < 4 && m.madExact < 2, m);
   await key('Escape'); await sleep(300);
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false }); await settle(300);
 
