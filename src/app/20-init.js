@@ -317,6 +317,7 @@
     // (v15.1: and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
     // build/phone-swap.md)
     if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
+    setupStepsView();   // ((#366 prototype) ?view=steps)
     tourWire();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)

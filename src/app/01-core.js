@@ -773,7 +773,8 @@
   const activeSteps = () => S.steps.map((_, i) => i + 1).filter((k) => stepActive(k));
   // a focused d/dz step differentiates a function of z: its input plane is the z-plane
   const focusDeriv = () => S.focus > 0 && isDeriv(S.focus);
-  const leftStage = () => (S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
+  // ((#366 prototype) the steps view shows one plane of the chain: its stage, 19)
+  const leftStage = () => (SV.on ? svStage(Math.round(SV.g.x)) : S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
   // ([#383] while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
   // exports, its variable's name, its overlays; trans.at is -1 except then, 08)
   const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
@@ -802,7 +803,7 @@
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
   // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
   // pane of the split view (S.solo) or null
-  const solo = () => Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null);
+  const solo = () => (SV.on ? 'L' : Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null));
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)

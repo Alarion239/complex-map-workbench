@@ -40,6 +40,7 @@ ok('T1: src/figure/ (figure.js in parts) -> export and images', same(select(['sr
 ok('T1: sound and the sea song', same(select(['src/sound.js', 'src/seasong.js']).browser, ['sound', 'smoke']));
 ok('T1: src/sound/ (sound.js in parts) -> sound', same(select(['src/sound/03-lifecycle-cues.js']).browser, ['sound', 'smoke']));
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
+ok('T1: constr.js\'s modules (issue #20) -> the same as constr.js', ['src/constrpoc.js', 'src/constrortho.js'].every((f) => same(select([f]).browser, select(['src/constr.js']).browser) && same(select([f]).glsl, select(['src/constr.js']).glsl)));
 ok('T1: src/construct/ (construct.js in parts) -> the constructions shards', same(select(['src/construct/04-chip-overlay.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 for (const f of ['src/i18n.js', 'src/i18n_ru.js', 'tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIGN.md']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
@@ -94,6 +95,9 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   for (const f of ['src/app/18-params.js', 'src/app/20-init.js', 'src/app/22-start.js']) ok(`a part: ${f} -> T3`, select([f]).tier === 'T3');
   const cm = select(['src/app/19-constructions.js']);
   ok('a part: src/app/19-constructions.js -> T2, the constructions and the core shards', cm.tier === 'T2' && same(cm.browser, [...new Set([...AREAS.constructions, ...AREAS.core]), 'smoke']), cm.browser);
+  // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
+  const sv = select(['src/app/19-steps-view.js']);
+  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop and phone shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone]), 'smoke']), sv);
   // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
   ok('a part: src/app/19-shell.js -> the desktop and phone shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
   ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));
