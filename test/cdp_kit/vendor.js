@@ -10,10 +10,14 @@ const crypto = require('crypto');
 
 const VENDOR = path.join(__dirname, '..', '..', 'vendor');
 const FILES = {
-  'https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js': 'js/tex-svg.js',
+  'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js': 'js/tex-svg-nofont.js',
+  'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js': 'js/a11y/assistive-mml.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'js/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js': 'js/svg2pdf.umd.min.js',
 };
+// (#288) MathJax 4's STIX2 font, from the path MathJax gives it (its svg.js and the ranges it loads on demand,
+// svg/dynamic/*.js): a file there is served when LOCK.json records it, under js/mathjax-stix2/
+const DIRS = { 'https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/': 'js/mathjax-stix2/' };
 // the patterns cdpd.js asks Chrome to pause (every request to these hosts; an unlisted URL is let through)
 const PATTERNS = ['https://cdnjs.cloudflare.com/*', 'https://cdn.jsdelivr.net/*', 'https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'];
 
@@ -34,8 +38,9 @@ const faces = (dir, set) => lockOf(dir).faces.filter((f) => f.set === set).map((
 function answer(url, dir = VENDOR) {
   const u = String(url).split('#')[0];
   if (FILES[u]) return { body: read(dir, FILES[u]), type: 'text/javascript' };
+  for (const [pre, rel] of Object.entries(DIRS)) if (u.startsWith(pre) && lockOf(dir).outputs[rel + u.slice(pre.length)]) return { body: read(dir, rel + u.slice(pre.length)), type: 'text/javascript' };
   if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(dir, 'main')), type: 'text/css' };
   return null;
 }
 
-module.exports = { answer, PATTERNS, FILES };
+module.exports = { answer, PATTERNS, FILES, DIRS };

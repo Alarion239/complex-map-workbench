@@ -512,7 +512,7 @@
  "Sphere and Landscape": "Сфера и рельеф",
  "The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.": "Та же плоскость на сфере Римана или в виде рельефа модуля. ‹ › переходят и на сфере.",
  "Choose Sphere.": "Выберите «Сфера».",
- "Tap the surface button until Sphere.": "Нажимайте кнопку поверхности до «Сферы».",
+ "Tap the surface button, then Sphere.": "Нажмите кнопку поверхности, затем «Сфера».",
  "Edit a step": "Изменить шаг",
  "A chip opens its step in the Inspector: change the function, its parameters or its formula, and every plane after it follows.": "Метка открывает свой шаг в Инспекторе: измените функцию, её параметры или формулу, и все плоскости после неё изменятся.",
  "Click the chip $f_1$.": "Нажмите на метку $f_1$.",

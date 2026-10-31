@@ -46,7 +46,7 @@ for (const [name, w, h, touch] of [['desk', 1280, 800, false], ['phone', 390, 84
       colour: async () => { await press('#svHead .sv-cp'); },
       carried: async () => { await press('#svStrip .sv-next'); await sleep(1800); const c = await pos('#plotL'); for (const d of [0, 20, 40, 60]) { await move(c.x + d, c.y + d / 2); await sleep(150); } },
       inside: async () => { await press('#svHead .sv-scope [data-v="in"]'); },
-      surface: async () => { if (!(await press('#svHead .sv-surf [data-v="sphere"]'))) { await press('#svHead .sv-surf1'); } },
+      surface: async () => { await press('#svHead .sv-surf1'); await sleep(400); await ev(`(() => { const b = document.querySelectorAll('.pop.menu [role=menuitemradio]')[1]; if (b) b.click(); return !!b; })()`); },
       step: async () => { await press('#svStrip .sv-fchip'); },
     };
     await ev(`Tour.start({ chapter: 'planes' }), 1`);

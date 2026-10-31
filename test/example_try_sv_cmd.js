@@ -45,7 +45,8 @@ for (const lang of ['en', 'ru']) {
   // the logarithm: choosing Landscape closes it
   await ev(`__cmwExample(${idx.log})`); await settle(1200);
   ok(`${lang}: log line open`, !!(await lane()), null);
-  await ev(`(() => { const b = document.querySelector('#svHead .sv-surf [data-v="land"]'); if (b) b.click(); return !!b; })()`); await settle(1500);
+  await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'); if (b) b.click(); return !!b; })()`); await sleep(400);
+  await ev(`(() => { const m = document.querySelectorAll('.pop.menu [role=menuitemradio]')[2]; if (m) m.click(); return !!m; })()`); await settle(1500);
   ok(`${lang}: Landscape closes the log line`, !(await lane()), await lane());
 }
 return { pass: fails.length === 0, fails };

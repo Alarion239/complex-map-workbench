@@ -427,7 +427,7 @@ const Tour = (() => {
         try: { text: 'Choose Inside regions.', touch: 'Choose Inside regions.', on: 'scope-changed', test: (e) => !e || e.s === 'in' } },
       { id: 'surface', anchor: 'svSurf', title: 'Sphere and Landscape', before: [['svPlace', { i: 0, scope: 'all', surf: 'plane' }]],
         body: 'The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.',
-        try: { text: 'Choose Sphere.', touch: 'Tap the surface button until Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere' } },
+        try: { text: 'Choose Sphere.', touch: 'Tap the surface button, then Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere' } },
       { id: 'step', anchor: 'svChip', title: 'Edit a step', before: [['svPlace', { i: 0, surf: 'plane' }]],
         body: 'A chip opens its step in the Inspector: change the function, its parameters or its formula, and every plane after it follows.',
         try: { text: 'Click the chip $f_1$.', touch: 'Tap the chip $f_1$.', on: 'step-selected', test: (e) => !e || e.k === 1 } },

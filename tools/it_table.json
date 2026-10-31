@@ -3135,7 +3135,7 @@
  "Sphere and Landscape": "Sfera e Paesaggio",
  "The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.": "Lo stesso piano sulla sfera di Riemann, oppure come paesaggio del modulo. ‹ › scorrono anche sulla sfera.",
  "Choose Sphere.": "Scegli «Sfera».",
- "Tap the surface button until Sphere.": "Tocca il pulsante della superficie finché non compare «Sfera».",
+ "Tap the surface button, then Sphere.": "Tocca il pulsante della superficie, poi «Sfera».",
  "Edit a step": "Modifica un passo",
  "A chip opens its step in the Inspector: change the function, its parameters or its formula, and every plane after it follows.": "Un chip apre il suo passo nell'Ispettore: cambia la funzione, i suoi parametri o la sua formula, e ogni piano dopo di esso la segue.",
  "Click the chip $f_1$.": "Clicca sul chip $f_1$.",
