@@ -976,7 +976,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .swatches .swatch { width: 12px; height: 12px; }
 /* connectors */
 .conn { position: relative; flex: 0 0 40px; width: 40px; height: 216px; color: var(--ink-2); --conn-y: 72px; }
-.conn-var { position: absolute; left: 0; right: 0; top: calc(var(--conn-y) - 26px); text-align: center; font: var(--t-math-s); color: var(--ink-2); white-space: nowrap; pointer-events: none; }
+/* (#483) 30 px above the line, not 26: the label's 18 px box ended 4 px inside the + under it, the subscript touched it */
+.conn-var { position: absolute; left: 0; right: 0; top: calc(var(--conn-y) - 30px); text-align: center; font: var(--t-math-s); color: var(--ink-2); white-space: nowrap; pointer-events: none; }
 .conn-var i { font: inherit; }
 .conn-line { position: absolute; left: 0; right: 0; top: calc(var(--conn-y) - 6px); height: 12px; display: block; pointer-events: none; }
 .conn-line svg { display: block; width: 40px; height: 12px; overflow: visible; }
