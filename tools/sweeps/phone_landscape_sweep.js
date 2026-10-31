@@ -20,7 +20,7 @@ const MEASURE = `(() => {
 })()`;
 const out = {};
 const cfg = JSON.parse(await ev('JSON.stringify(window.__auditCfg || null)')) || null;
-const W = [[740, 360]];
+const W = (typeof SWEEPW !== 'undefined' && SWEEPW) || [[740, 360], [915, 412]];
 const LANGS = ['en', 'ru', 'it'];
 const which = (typeof AUDIT !== 'undefined' && AUDIT) || null;
 for (const [w, h] of W) for (const lang of LANGS) {

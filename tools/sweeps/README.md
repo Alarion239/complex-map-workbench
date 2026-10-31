@@ -5,8 +5,8 @@ for: under 44 px (`small`), covered at its centre by another element (`covered`)
 overlapping another control (`overl`), on the home view, a three-step chain and the Tools, Display, More, Edit, Chain
 and Numbers sheets, in en, ru and it.
 
-- `phone_portrait_sweep.js`: 360×740, 390×844, 412×915.
-- `phone_landscape_sweep.js`: 740×360 and 915×412 (and 844×390).
+- `phone_portrait_sweep.js`: 360×740, 390×844, 412×915 (another list: prepend `const SWEEPW = [[360, 640]];`).
+- `phone_landscape_sweep.js`: 740×360 and 915×412 (another list: prepend `const SWEEPW = [[844, 390]];`).
 - `diff_sweeps.py before.json after.json`: what the second run has that the first lacks.
 
 Run (from a worktree with `dist/` built; `test/au_cdp` is a copy of `test/cdp_kit`):
