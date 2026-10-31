@@ -88,6 +88,14 @@ await ev(`(() => { const i = document.getElementById('palInput'); i.value = 'exp
 await kb('Enter'); await settle(700);
 ok('Insert after f₁ (palette): a step at f₂, the new chip has the keyboard', (await types()).length === 3 && (await where()) === 'chip2', [await types(), await where()]);
 await undo();
+// a slow pick keeps the shown plane: the palette stays open for a second, then a function is picked
+await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(400);
+await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Insert a function after it');
+await sleep(1200);
+await ev(`(() => { const i = document.getElementById('palInput'); i.value = 'exponential'; i.dispatchEvent(new Event('input')); })()`); await settle(400);
+await kb('Enter'); await settle(700);
+ok('a function picked after a second keeps the shown plane (w₂, now w₃)', (await types()).length === 3 && (await sv()).i === 3 && (await sv()).planes.length === 4, [await types(), await sv()]);
+await undo();
 // the shown plane stays when a step is added before it
 await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(400);
 await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Duplicate');
@@ -96,8 +104,11 @@ await undo();
 ok('Undo: back on w₂ of two steps', (await sv()).i === 2 && (await sv()).planes.length === 3, await sv());
 // show alone, and back
 await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settle(300); await pick('Show alone');
-const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySelector('#svStrip .sv-whole'), steps: document.querySelectorAll('#svStrip .sv-step').length, add: !!document.querySelector('#svStrip .sv-add'), live: document.querySelector('#stage .sr-only[aria-live]').textContent })`);
+const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySelector('#svStrip .sv-whole'), steps: document.querySelectorAll('#svStrip .sv-step').length, add: !document.querySelector('#svStrip .sv-add').hidden, live: document.querySelector('#stage .sr-only[aria-live]').textContent })`);
 ok('Show alone narrows the thread to w₁ — f₂ — w₂ with a Whole chain chip', al.planes.join() === '1,2' && al.whole && al.steps === 1 && !al.add && /Showing f₂ alone, from w₁ to w/.test(al.live), al);
+const cpAlone = await ev(`(() => { const b = document.querySelector('.sv-cp'); return { dis: b.disabled, tip: b.getAttribute('data-tip') }; })()`);
+await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, cancelable: true })); 1`); await settle(300);
+ok('while a step is shown alone, Colour from here is off, says why, and C says it too (the colour plane stays)', cpAlone.dis && /coloured from its own plane/.test(cpAlone.tip || '') && (await sv()).T === 2 && /coloured from its own plane/.test(await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`)), [cpAlone, await sv()]);
 ok('… and the keyboard is on Whole chain', (await where()) === 'whole', await where());
 await kb('Escape'); await settle(500);
 const bk = await sv();
@@ -114,7 +125,7 @@ await kb('Delete'); await settle(400);
 const em = await ev(`({ n: __cmwP().steps.length, add: !!document.querySelector('#svStrip .sv-add'), msg: !document.querySelector('.sv-empty').hidden, text: document.querySelector('.sv-empty').textContent, prev: document.querySelector('.sv-prev').disabled, next: document.querySelector('.sv-next').disabled, speed: document.querySelector('.sv-speed').disabled, ring: document.querySelector('.sv-thumb').getAttribute('aria-disabled'), planes: __cmwSteps().planes.join() })`);
 ok('the empty chain: the z dot and + Add function, ‹ › ring and speed off, the plane says what to do', em.n === 0 && em.add && em.msg && /Add a function to send z/.test(em.text) && em.prev && em.next && em.speed && em.ring === 'true' && em.planes === '0', em);
 ok('the hint has a ground of its own (opaque), not bare text over the plot', await ev(`(() => { const b = getComputedStyle(document.querySelector('.sv-empty')); return b.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(b.borderTopWidth) >= 1; })()`), null);
-ok('the hint sits above the plane\'s centre, where a centred shape is', await ev(`(() => { const h = document.querySelector('.sv-empty').getBoundingClientRect(), p = document.getElementById('plotL').getBoundingClientRect(); return h.bottom < p.top + p.height / 2 - 20; })()`), await ev(`document.querySelector('.sv-empty').getBoundingClientRect().bottom`));
+ok('the hint is clear of the plane\'s centre, where a centred shape is', await ev(`(() => { const h = document.querySelector('.sv-empty').getBoundingClientRect(), p = document.getElementById('plotL').getBoundingClientRect(); const m = p.top + p.height / 2; return h.top > m + 20 || h.bottom < m - 20; })()`), await ev(`document.querySelector('.sv-empty').getBoundingClientRect().bottom`));
 ok('… and the keyboard is on + Add function', (await where()) === 'add', await where());
 await undo();
 ok('Undo brings the last step back', (await types()).join() === 'mobius' && (await ev(`document.querySelector('.sv-empty').hidden`)), await types());
@@ -162,12 +173,29 @@ const fitCase = async (w, lang) => {
   ok(`${w}, ${lang}: the pane stays in its column and the strip fits it, + Add function whole`, r.paneInside && r.strip && r.stripInPane && r.docX && r.add, r);
   ok(`${w}, ${lang}: the strip's and the plane's controls are not covered`, r.hits.length === 0, r.hits);
 };
+// the empty chain's hint is whole: clear of the pane's head, the readout and the view tools (eyes: it was cut by the head's
+// segments at 1440 and in ru at 1024), and a pointer finds it nowhere it is not meant to be
+const hintCase = async (w, lang) => {
+  const es = Object.assign({}, st, { steps: [] });
+  await view(w, 800, false, false);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}h${w}${lang}', ${JSON.stringify(JSON.stringify(es))}); 1`);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}h${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  const r = await ev(`(() => {
+    const H = document.querySelector('.sv-empty'), hb = H.getBoundingClientRect(), P = document.getElementById('plotL').getBoundingClientRect();
+    const X = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const hit = ['.pane-head', '#leftReadout', '.viewstack', '#svHead', '#leftLegend'].map((s) => { const e = document.querySelector(s); if (!e || e.hidden) return null; const b = e.getBoundingClientRect(); return b.width && X(hb, b) ? s : null; }).filter(Boolean);
+    return { shown: !H.hidden && hb.width > 0, inPlot: hb.left >= P.left - 0.5 && hb.right <= P.right + 0.5 && hb.top >= P.top - 0.5 && hb.bottom <= P.bottom + 0.5, hit, rect: [hb.left, hb.top, hb.right, hb.bottom], plot: [P.left, P.top, P.right, P.bottom] };
+  })()`);
+  ok(`${w}, ${lang}: the empty chain's hint is whole, inside the plane and clear of its head, readout and tools`, r.shown && r.inPlot && r.hit.length === 0, r);
+};
 for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`).catch(() => {});
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await fitCase(w, lang);
 }
+for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCase(w, lang);
 // ---- the phone ----
 await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
@@ -197,6 +225,11 @@ for (const [w, h] of [[390, 700], [740, 360], [360, 640], [360, 600]]) {
   ok(`${w}×${h}: a tap on Remove after the lift removes the step`, (await types()).join() === 'pown', await types());
   info['clear' + w + 'x' + h] = clear;
 }
+// at 360 px, with the default chain, on the last plane nothing lies over the thread's end: the last plane (the colour plane) is hit where it is
+await open(360, 700, true);
+await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(700);
+const end = await ev(`(() => { const ps = [...document.querySelectorAll('#svStrip .sv-plane')], l = ps[ps.length - 1], b = l.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(); return { n: ps.length, ok: l === at || l.contains(at), at: at && (at.className || at.tagName), overlap: !(a.left >= b.right || a.right <= b.left), add: a.width }; })()`);
+ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok && !end.overlap, end);
 await open(390, 844, true);
 // a tap on a chip opens the Inspector's sheet on a phone
 await cl('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settle(500);

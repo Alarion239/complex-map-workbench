@@ -463,5 +463,6 @@
  "Open in the Inspector": "Открыть в Инспекторе",
  "Bypassed f{x} ({name}).": "Шаг f%{x} отключён (%{name}).",
  "Turned f{x} back on.": "Шаг f%{x} снова включён.",
- "More for f{x} {name}": "Ещё для f%{x} %{name}"
+ "More for f{x} {name}": "Ещё для f%{x} %{name}",
+ "The step shown alone is coloured from its own plane": "Отдельно показанный шаг окрашен от своей плоскости"
 }

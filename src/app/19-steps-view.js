@@ -28,7 +28,8 @@
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   // the planes: z and the stage after each active step
-  // (#437: a step shown alone narrows the thread to the plane before it and its own)
+  // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
+  // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
   function svPlanes() { const k = svAloneOk(); return k ? [svPrev(k), k] : [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
   function svT() { const P = svPlanes(); return SV.alone && P.length === 2 && P[1] === SV.alone ? SV.alone : P.includes(SV.T) ? SV.T : P[P.length - 1]; }
@@ -572,13 +573,15 @@
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
     const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } svStore(); save(); } },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), next, speed);
+    const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
+      h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, prev, h('div', { class: 'sv-rail' }, thumb, track), add, next, speed);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
     $('stage').append(live);
     const empty = h('div', { class: 'sv-empty', hidden: true }, $t('Add a function to send z through it.'));
-    $('plotL').parentNode.append(empty);
+    $('plotL').append(empty);
     const rail = strip.querySelector('.sv-rail');
     // (the slider is the ring that marks the place, not the thread: the thread holds the planes' and the steps' buttons,
     // which a slider's children cannot be (axe nested-interactive, ux's re-check of #448))
@@ -588,7 +591,7 @@
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); } }, { passive: true });
-    SV.els = { empty, speed, rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, empty, speed, rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -614,9 +617,10 @@
     });
     if (!al) {
       for (let j = P[P.length - 1] + 1; j <= S.steps.length; j++) E.track.append(svStepEl(j));
-      E.track.append(h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'),
-        onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } }, h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function'))));
     }
+    // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
+    E.add.hidden = !!al;
+    E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
@@ -642,6 +646,8 @@
       E.cp.setAttribute('aria-label', cpText);
       E.cp.setAttribute('aria-pressed', String(k === T));
       E.cp.classList.toggle('on', k === T);
+      E.cp.disabled = !!svAloneOk();
+      E.cp.setAttribute('data-tip', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
       for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
@@ -700,7 +706,8 @@
     return $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.min(P.length - 1, Math.ceil(x))]) });
   }
   function svSetT(k) {
-    if (SV.alone) return;   // (#437: a step shown alone is coloured from its own plane)
+    // (#437: a step shown alone is coloured from its own plane; the button says so, and so does the key)
+    if (SV.alone) { if (SV.els && SV.els.live) SV.els.live.textContent = $t('The step shown alone is coloured from its own plane'); return; }
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
     save();
@@ -956,7 +963,7 @@
   function svEl(k, part) {
     if (!SV.els) return null;
     const q = (sel) => { const el = SV.els.track.querySelector(sel); return el && el.getClientRects().length ? el : null; };
-    if (k === 'add') return q('.sv-add');
+    if (k === 'add') { const a = SV.els.add; return a && a.getClientRects().length ? a : null; }
     if (k === 'whole') return q('.sv-whole');
     const sel = `.sv-step[data-k="${k}"] `;
     return (part === 'more' ? q(sel + '.sv-more') : null) || q(sel + '.sv-fchip');
@@ -974,12 +981,29 @@
       if (el) el.focus({ preventScroll: true });
     };
     requestAnimationFrame(() => go(false));
-    setTimeout(() => { go(true); SV.want = null; SV.own = false; }, 200);
+    setTimeout(() => { go(true); SV.want = null; }, 200);
   }
   function svAddFn(anchor) {
     SV.shift = null; SV.own = true;
     svWant(S.steps.length + 1, 'chip');
     openPalette(anchor, S.steps.length, { fnOnly: true });
+    svWatchPalette();
+  }
+  // the palette a thread action opened decides whether its edit is the thread's own (SV.own): while it is open, however long
+  // the pick takes, the edit that follows is; once it is closed, with no edit made, nothing is pending
+  function svWatchPalette() {
+    const host = $('popHost');
+    if (!host || typeof MutationObserver !== 'function') return;
+    let seen = !!host.querySelector('.palette');
+    const t0 = performance.now();
+    const mo = new MutationObserver(() => {
+      const open = !!host.querySelector('.palette');
+      if (open) { seen = true; return; }
+      if (!seen && performance.now() - t0 < 2000) return;
+      mo.disconnect();
+      setTimeout(() => { SV.own = false; SV.want = null; SV.shift = null; }, 400);
+    });
+    mo.observe(host, { childList: true, subtree: true });
   }
   // a menu item's run, for the thread: the focus lands on the chip it is about (a palette it opens keeps the keyboard until
   // it has done its work, and svWant gives the new chip the focus then)
@@ -998,6 +1022,7 @@
         if (it.id === 'moveL' || it.id === 'moveR') return svMove(k, it.id === 'moveL' ? -1 : 1);
         const r = run();
         if (!SV.want) SV.own = false;
+        else if (it.id === 'insert' || it.id === 'replace') svWatchPalette();
         // (what the item says: an element it shows; the chain's own return is a hidden card)
         if (r instanceof Element && r.getClientRects().length) return r;
         if (it.id === 'dup') return svEl(k + 1, 'chip');

@@ -3102,5 +3102,6 @@
  "Open in the Inspector": "Apri nell'Ispettore",
  "Bypassed f{x} ({name}).": "Passo f{x} escluso ({name}).",
  "Turned f{x} back on.": "Passo f{x} riattivato.",
- "More for f{x} {name}": "Altro per f{x} {name}"
+ "More for f{x} {name}": "Altro per f{x} {name}",
+ "The step shown alone is coloured from its own plane": "Il passo mostrato da solo è colorato dal proprio piano"
 }
