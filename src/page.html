@@ -1617,7 +1617,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-chip i { font-family: var(--f-math); font-size: 13.5px; }
 .xf-sp { flex: 1 1 auto; }
 .xf-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-2); color: var(--ink-2); }
-.xf-body { display: grid; grid-template-columns: minmax(0, 1fr) 284px; gap: 20px; padding: 16px 20px 0; min-height: 0; overflow-y: auto; }
+.xf-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(284px, 340px); gap: 20px; padding: 16px 20px 0; min-height: 0; overflow-y: auto; }
 .xf-left { min-width: 0; }
 .xf-stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; }
 .xf-bar { position: absolute; top: 8px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; pointer-events: none; }
@@ -1649,13 +1649,13 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-stage.loupe-on .xf-fig { cursor: none; touch-action: none; }
 .xf-facts { margin: 8px 2px 0; font: var(--t-label); color: var(--muted); }
 .xf-facts b { color: var(--ink-2); font-weight: 500; }
-.xf-ctl { display: grid; gap: 14px; align-content: start; padding-bottom: 4px; }
+.xf-ctl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; padding-bottom: 4px; min-width: 0; }
 .xf-row { display: grid; gap: 6px; }
 .xf-print { display: contents; }
 .xf-printbtn { display: none; }
 .xf-h { font: var(--t-heading); color: var(--ink); }
 .xf-seg { width: 100%; }
-.xf-seg > button { flex: 1 1 0; min-width: 0; }
+.xf-seg > button { flex: 1 1 auto; min-width: 0; }   /* (each pill takes its own text's width, then shares the rest: "Lingua dell'interfaccia" fits its pill) */
 .xf-seg.big { height: auto; min-height: 56px; }
 .xf-seg.big > button { flex-direction: column; gap: 2px; font-weight: 600; padding: 5px 4px 6px; }
 .xf-seg.big > button svg { width: 22px; height: 22px; flex: 0 0 22px; }
