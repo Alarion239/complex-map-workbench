@@ -89,6 +89,21 @@ await ev(`document.querySelector('.sv-next').click(); 1`);
 ok('› pauses it', (await S()).play === null, await S());
 await rest();
 
+// pause between two planes (more than the eighth that snaps): it parks there, and a state loaded afterwards is adopted
+await ctl({ go: 0, now: true });
+await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
+await ctl({ play: true });
+const mid = await until((s) => s.x > 0.3 && s.x < 0.7, 8000);
+await ctl({ play: false });
+const pk = await S();
+ok('pausing mid-glide parks between two planes, nothing plays on', !mid.timeout && pk.play === null && pk.x > 0.2 && pk.x < 0.8, pk);
+await ev(`(__cmwExample(3), 1)`); await sleep(2500); await settle(500);
+const ad = await S();
+ok('… and a state loaded after that is adopted (back on its first plane, not left parked)', Math.abs(ad.x - Math.round(ad.x)) < 1e-9 && ad.i === 0 && !ad.moving, ad);
+await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+await open(1280, 800, false, true);
+await ctl({ scope: 'all' });
+
 // loop: it starts over at the end, and stays on
 await ctl({ go: 0, now: true });
 await ev(`document.querySelector('.sv-loop').click(); 1`);

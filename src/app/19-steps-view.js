@@ -55,7 +55,8 @@
   }
   // a state replaced under the view (an example, undo, a link): back to what the steps view shows, before it is drawn
   function svCheck() {
-    if (!SV.on || !SV.els || svMoving()) return;
+    // (a view parked between two planes is at rest: a state loaded under it is adopted, as on a plane (perf on #460))
+    if (!SV.on || !SV.els || SV.anim || SV.play || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
@@ -923,12 +924,14 @@
   function svPlayFrame() {
     const A = SV.play, now = performance.now(), v = Math.min(1, (now - A.t0) / A.ms);
     SV.g.set(A.from + (A.to - A.from) * v);
+    // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
+    // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
     const r = Math.round(SV.g.x);
-    if (r !== SV.i && v < 1) { SV.i = r; svApply(); }
+    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) SV.els.live.textContent = svLabel(); }
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.g.set(A.start); SV.i = A.start; svApply(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -947,7 +950,8 @@
     if (!A) return;
     SV.play = null;
     if (A.slide) clearTimeout(A.timer);
-    if (settle) { if (A.slide) { svArrive(); } else svLetGo(); }
+    // (parked between two planes, the full apply the crossings skipped is done now, once)
+    if (settle) { if (A.slide) { svArrive(); } else { svLetGo(); if (svParked()) svApply(); } }
     svSync();
   }
   // a phone's Playback sheet (a long press on ▶): the speed and the loop

@@ -91,6 +91,7 @@
     const pane = paneL;
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
+    if (SV.on && svParked()) svCheck();   // (parked: a state loaded under it is adopted first, 19)
     if (SV.on && svMoving()) { svRenderMoving(pane); return; }
     if (SV.on) { svCheck(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
