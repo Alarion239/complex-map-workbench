@@ -1067,7 +1067,8 @@ float wabs(vec2 w) {
   // each drawn as one pixel into its texel of tex (W x H, RG32F). Blending, depth, culling and the scissor are off
   // for the pass; the pane's framebuffer, viewport and these switches are restored after it.
   // alloc false: tex already has W x H RG32F storage (a reused scratch texture)
-  let rtFbo = null;
+  // (alphaMask: the frame writes its alpha alone (alphaOnly); the pass writes its texel's RG all the same, #440)
+  let rtFbo = null, alphaMask = false;
   function runRT(P, vao, count, instances, tex, W, H, alloc = true) {
     gl.bindTexture(gl.TEXTURE_2D, tex);
     if (alloc) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
@@ -1076,6 +1077,7 @@ float wabs(vec2 w) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     const caps = [gl.BLEND, gl.DEPTH_TEST, gl.CULL_FACE, gl.SCISSOR_TEST].filter((c) => gl.isEnabled(c));
     for (const c of caps) gl.disable(c);
+    if (alphaMask) gl.colorMask(true, true, true, true);
     gl.viewport(0, 0, W, H);
     u1i(P, 'uP', count); u1i(P, 'uRtW', W); u2f(P, 'uRtSz', W, H);
     gl.bindVertexArray(vao);
@@ -1086,6 +1088,7 @@ float wabs(vec2 w) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(vpX, vpY, fw, fh);
     for (const c of caps) gl.enable(c);
+    if (alphaMask) gl.colorMask(false, false, false, true);
   }
   function touch(e) {
     e.t = performance.now();

@@ -537,7 +537,7 @@
   }
   // ((#366 prototype) what follows writes the frame's alpha alone (on), or every channel again (off): a mask of the
   // regions for drawColorPlot's dstAlpha)
-  function alphaOnly(on) { if (ok) gl.colorMask(!on, !on, !on, true); }
+  function alphaOnly(on) { if (ok) { alphaMask = !!on; gl.colorMask(!on, !on, !on, true); } }
 
   // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
   // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
