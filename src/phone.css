@@ -405,9 +405,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
 :root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph .snd-pop { z-index: 46; }
-/* (#464) the function palette and the search rise from below but stop above the chain bar (where the layout puts it: a toast's row and the steps strip count), so the chain they add to stays in sight; with
+/* (#464) the function palette and the search rise from below but stop above the chain bar (where the layout puts it: a toast's row and the steps strip count), and start under the tour's strip (a tap on it still reaches it), so the chain they add to stays in sight; with
    the keyboard up they stop above it too, and fill what is left under the header */
-:root.ph .pop.palette { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + 8px) !important; bottom: max(calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)), var(--ph-kb, 0px)) !important; height: auto !important; max-height: none !important; border-radius: var(--r-4); border-bottom: 1px solid var(--line-strong); padding-bottom: 0; }
+:root.ph .pop.palette { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + 8px) !important; bottom: max(calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)), var(--ph-kb, 0px)) !important; height: auto !important; max-height: none !important; border-radius: var(--r-4); border-bottom: 1px solid var(--line-strong); padding-bottom: 0; }
 /* (eyes, #479: a phone sideways with the keyboard up has about 120 px for the sheet: the field and the results; the Insert row is back when the keyboard goes) */
 :root.ph.ph-land.ph-kb .pop.palette .pal-atrow { display: none; }
 /* (eyes, #479: the preview beside the results (a phone wider than 767 px sideways) gives its image the room the caption leaves, instead of running the caption off the sheet's foot) */
