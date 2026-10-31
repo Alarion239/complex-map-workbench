@@ -55,7 +55,7 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the target 0, then press ‹: its preimages in z followed.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the target 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
@@ -114,7 +114,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), trySv: $t('Try: hover near a pole on the negative axis: the readout’s |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), trySv: $t('Try: hover near a pole: |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },

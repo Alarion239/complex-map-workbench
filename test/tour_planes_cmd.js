@@ -12,7 +12,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const waitFor = async (expr, ms = 20000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(expr)) return true; await sleep(150); } return false; };
 const ORDER = ['plane', 'thread', 'park', 'colour', 'carried', 'inside', 'surface', 'step'];
 // steps the tour skips in the steps view because the control they point at is not there (a step of another chapter)
-const MISSING_OK = new Set(['views/switch', 'views/sphere', 'edit/cards', 'basics/add', 'branches/inverse', 'analysis/targets']);
+const MISSING_OK = new Set(['views/switch', 'views/sphere', 'views/key', 'edit/cards', 'basics/add', 'branches/inverse', 'analysis/targets']);
 for (const [name, w, h, touch] of [['desk', 1280, 800, false], ['phone', 390, 844, true]]) {
   for (const lang of ['en', 'ru']) {
     const tag = `${name} ${lang}`;
