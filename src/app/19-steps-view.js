@@ -883,7 +883,7 @@
   function svDeaf(pop, id, x0, y0) {
     const t0 = performance.now();
     let lifted = null, moved = false, pass = false;
-    const over = (e) => { const el = document.elementFromPoint(e.clientX, e.clientY); const mi = el && el.closest && el.closest('.mi:not([disabled])'); return mi && pop.contains(mi) ? mi : null; };
+    const over = (e) => { const el = document.elementFromPoint(e.clientX, e.clientY); const mi = /** @type {HTMLElement | null} */ (el && el.closest ? el.closest('.mi:not([disabled])') : null); return mi && pop.contains(mi) ? mi : null; };
     const off = () => { document.removeEventListener('pointermove', move, true); document.removeEventListener('pointerup', lift, true); document.removeEventListener('pointercancel', lift, true); };
     const move = (e) => {
       if (e.pointerId !== id) return;
