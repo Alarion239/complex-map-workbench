@@ -12,10 +12,12 @@ const BASE = `http://localhost:${PORT}`;
 // the canvas text, recorded before the page's own scripts run
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { window.__canvasTexts = new Map(); const rec = (P) => { if (!P) return; for (const m of ['fillText', 'strokeText']) { const f = P[m]; P[m] = function (t, ...a) { try { const s = String(t); if (s) window.__canvasTexts.set(s, 1); } catch (e) { /* not a string */ } return f.call(this, t, ...a); }; } };
   rec(window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype); rec(window.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype); })();` });
-// TeX on screen: a command (\text, \frac …), a braced script (^{, _{), a bare one (z^2, u_k). A script written as plain
-// text, in parentheses (e^(1/z), Σ^(∞)), is text, as is a Unicode one (z², uₖ)
+// TeX on screen: a command (\text, \frac …), a braced script (^{, _{), a bare one (z^2, u_k), or a command's name left as
+// a word (displaystyle w₁, rho, {0,-1,dots}). A script written as plain text, in parentheses (e^(1/z), Σ^(∞)), is text,
+// as is a Unicode one (z², uₖ)
 const SCAN = `(() => {
-  const RX = [[/\\\\[a-zA-Z]+/, 'command'], [/[\\^_]\\{/, 'braced script'], [/[A-Za-z0-9)}\\]]\\^[0-9A-Za-z-]/, 'bare ^'], [/[A-Za-z)}\\]]_[0-9A-Za-z]/, 'bare _']];
+  const RX = [[/\\\\[a-zA-Z]+/, 'command'], [/[\\^_]\\{/, 'braced script'], [/[A-Za-z0-9)}\\]]\\^[0-9A-Za-z-]/, 'bare ^'], [/[A-Za-z)}\\]]_[0-9A-Za-z]/, 'bare _'],
+    [/\\b(?:displaystyle|textstyle|scriptstyle|frac|dfrac|tfrac|operatorname|mathrm|mathbb|infty|varphi|overline|notin|mapsto|cdots|ldots|rho)\\b|[,{]\\s*dots\\b/, 'a command\\'s name']];
   const hit = (s) => { for (const [r, k] of RX) if (r.test(s)) return k; return null; };
   const out = []; let n = 0;
   const shown = (el) => { for (let e = el; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false; } return !!(el.getClientRects && el.getClientRects().length); };
