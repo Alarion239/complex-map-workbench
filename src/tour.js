@@ -139,9 +139,10 @@ const Tour = (() => {
           body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
           touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.',
           try: { text: 'Drag empty space in X, or scroll to zoom.', touch: 'Drag empty space in X, or pinch.', on: 'view-moved', test: (e) => !e || (e.pane === 'L' && e.how !== 'orbit'), ctl: ['tool:select'] } },
-        { id: 'y', anchor: 'paneR', title: 'Y: the image', before: [['plane', 'R']],
+        { id: 'y', anchor: 'paneR', title: 'Y: the image', before: [['plane', 'R'], ['tool', 'select']],
           lead: 'The strip becomes the unit disc, and angles are kept.',
-          body: 'Y shows the image under $F(z)=(e^z-1)/(e^z+1)$: the strip becomes the unit disc. $F$ is conformal there: grid lines still cross at right angles, and tiny squares map to near-squares.' },
+          body: 'Y shows the image under $F(z)=(e^z-1)/(e^z+1)$: the strip becomes the unit disc. $F$ is conformal there: grid lines still cross at right angles, and tiny squares map to near-squares.',
+          try: { text: 'Scroll to zoom in Y, or drag to pan.', touch: 'Pinch in Y, or drag.', on: 'view-moved', test: (e) => !e || (e.pane === 'R' && e.how !== 'orbit'), ctl: ['tool:select'], then: 'Y moved on its own: X keeps its view.' } },
         // (r3 review: on a phone Y is the large plane here also when the tour resumes at this step)
         { id: 'preimages', anchor: 'paneR', also: ['paneL'], title: 'Preimages', before: [['plane', 'R']],
           body: 'Hover a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart, as $F$ has period $2\\pi i$.',
@@ -295,11 +296,13 @@ const Tour = (() => {
       steps: [
         { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
           lead: 'The target $0$ marks the three cube roots of unity.',
-          body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.' },
+          body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.',
+          try: { text: 'Choose Disc, then drag in Y.', on: 'shape-added', test: (e) => !e || e.plane === 'w', ctl: ['tool:disc'], then: 'X shades its preimage under $F$.' } },
         // (v16.5 UX20; #247: on a desktop the style control is in X's pane head, or behind its ⋯ button, lit then)
-        { id: 'cauchy', anchor: ['phaseStyle', 'leftOpts', 'panes'], also: ['panes'], title: 'Cauchy integral', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
+        { id: 'cauchy', anchor: ['phaseStyle', 'leftOpts', 'panes'], also: ['panes'], title: 'Cauchy integral', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }], ['tool', 'select']],
           lead: 'Cauchy\'s integral is $F$ inside $\\gamma$ and $0$ outside.',
-          body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. With several closed curves, the selected one is used.' },
+          body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. With several closed curves, the selected one is used.',
+          try: { text: 'Drag the circle γ.', touch: 'Tap the circle γ, then drag it.', on: 'shape-moved', ctl: ['tool:select'], then: 'The integral is worked out again as γ moves.' } },
         // (the open popover holds the countdown: it moves on CD_MS after it closes)
         { id: 'integral', anchor: 'paneL', title: 'Integrals', before: [['scene', ['residueZp', 'residue']], ['view', 'xy'], ['tool', 'select'], ['plane', 'L']],
           body: 'Right-click the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
@@ -311,7 +314,8 @@ const Tour = (() => {
           body: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
           touch: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', deskTouch: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', phoneFine: 'Click the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
           byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
-          touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, deskTouchByScene: { residueZp: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, phoneFineByScene: { residueZp: 'Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' } },
+          touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, deskTouchByScene: { residueZp: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, phoneFineByScene: { residueZp: 'Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
+          try: { text: 'Click the F tile.', touch: 'Tap the F tile.', on: 'step-selected', test: (e) => !e || e.k === 'F', ctl: ['fTile'], then: 'The Inspector lists where every step is defined.' } },
         { id: 'guarantees', anchor: 'guarantees', also: ['fTile'], title: 'Guarantees', before: [['panel', 'right']],
           lead: 'What the chain guarantees: always true when listed.',
           body: 'The F tile names what the chain guarantees. A property is listed only when every step has it and composition keeps it, so it is always true; one not listed is not implied, but may hold. Step by step shows which step brings which.' },
@@ -330,7 +334,8 @@ const Tour = (() => {
           try: { text: 'In ⋯, choose Replace with the inverse.', on: 'step-replaced', test: (e) => !e || (e.k === 1 && e.type === 'exp'), ctl: ['invBtn'], then: '$e^z$ undoes $\\log z$ on this sheet.' } },
         { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L']],
           lead: 'Here $F=3z^2-3$; the target $0$ marks its zeros $\\pm1$.',
-          body: 'A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.' },
+          body: 'A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.',
+          try: { text: 'Double-click the card $d/dz$.', touch: 'Open the chain, tap $d/dz$, then Show alone.', deskTouch: 'Tap the card $d/dz$, then Show alone.', phoneFine: 'Open the chain, click $d/dz$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 2, work: ['lens'], ctl: ['card2'], then: 'X and Y are now the derivative\'s input and output.' } },
         // (v16.1: on a phone the All sheets check is in the Display sheet, which opens)
         { id: 'sheets', anchor: ['sheets', 'panes'], also: ['panes'], title: 'All sheets', before: [['scene', 'logSheets'], ['view', 'land'], ['tool', 'select'], ['panel', 'sheet', 'display']], wait: 120,
           body: 'In Landscape, All sheets draws the sheets of a multivalued map instead of its cut principal branch: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$. $\\log z$ has infinitely many sheets, so a window of them is drawn; sheets ± sets its width.',
@@ -479,6 +484,7 @@ const Tour = (() => {
     // the card f₁; the card f₂, whose ⋯ shows on it (on a phone, where a card has none, f₂'s ⋯ in the Editor sheet that
     // a tap on the card opens)
     card1: () => inChainSheet('#pipeline .card[data-k="1"]'),
+    card2: () => inChainSheet('#pipeline .card[data-k="2"]'),
     card2Menu: () => (phoneLayout() && vis1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || vis1('#pipeline .card[data-k="2"]'),
     // the slider of the first shared number; the deformation's t slider and Play
     paramSlider: () => vis1('#propsPanel .prm-row input[type="range"]'),
