@@ -62,7 +62,11 @@ H.view = async (w, h, dark, mobile) => {
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }] }, S);
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!mobile, maxTouchPoints: mobile ? 5 : 1 }, S);
 };
-H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); };
+// (#363) a pattern load() seeded for a namespace is set again whenever that namespace's page is opened anew: the app
+// itself opens every saved pattern as the phase
+H.seeded = null;
+H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
+H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed(); };
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
   const r = await send('Page.captureScreenshot', p, S);
@@ -103,9 +107,8 @@ H.load = async (ns, st, extra) => {
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
-  if (o.pattern && o.pattern !== 'phase') {
-    for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(o.pattern)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); }
-  }
+  H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
+  await H.reseed();
   return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
