@@ -8,6 +8,8 @@ const ns = 'svs' + Date.now();
 await load(ns, {});
 const base = await ev('location.origin');
 // (a page is loaded once its test hook exists: the state in localStorage comes first, mid-load)
+// (a link's payload is made asynchronously: wait for it, not a fixed time)
+const linkMade = async () => { for (let i = 0; i < 40; i++) { const p = await ev('window.__svLink'); if (typeof p === 'string') return p; await sleep(250); } return null; };
 const hooked = async () => { for (let i = 0; i < 40; i++) { if (await ev(`typeof __cmwSteps === 'function'`) === true) return true; await sleep(500); } return false; };
 const steps = [{ type: 'pown', params: { n: 2 } }, { type: 'exp', params: {} }, { type: 'pown', params: { n: 3 } }];
 const lsKey = `complex-map-workbench-v1:${ns}`;
@@ -64,9 +66,9 @@ for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind
 // on its view, and nothing in the state or its saves gains an sv
 for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phase', { rightMode: 'color' }, 'phase'], ['Landscape', { rightMode: '3d', material: 'plaster' }, 'land']]) {
   await load(ns, {});
+  await hooked();   // (Params exists once the page is up)
   await ev(`(window.__svLink = null, Params.encodeLink(${JSON.stringify(Object.assign({ v3: true, v4: true, shapes: [], steps, nextId: 50, focus: 0 }, o))}).then((p) => { window.__svLink = p; }), 1)`);
-  await sleep(800);
-  const payload = await ev('window.__svLink');
+  const payload = await linkMade();
   const ns2 = ns + 'l' + main;   // (no saved state there: a link opens at once, with a saved one it asks)
   await nav(`${base}/test.html?ns=${ns2}#cmw=${payload}`); let r = null;
   for (let i = 0; i < 12 && !(r && r.n === 3 && r.steps !== 'nohook'); i++) {
@@ -75,6 +77,28 @@ for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phas
   }
   info['link ' + name] = r;
   ok(`old ${name} link opens in the default view, unchanged, with no sv`, r && r.sv === false && r.main === main && r.n === 3 && r.steps === false, r);
+}
+// old links opened under ?view=steps land on their equivalent: both link forms (1. compressed, 0. plain), a state of an
+// earlier build (rightMode) for each of X → Y (with an area: Inside regions), Phase and Landscape. No saved state at the
+// page's namespace, so the link opens at once; the page reloads on it
+for (const form of ['1', '0']) {
+  for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1', ci: 0 }] }, { scope: 'in', surf: 'plane', main: 'xy' }], ['Phase', { rightMode: 'color' }, { scope: 'all', surf: 'plane', main: 'phase' }], ['Landscape', { rightMode: '3d', material: 'plaster' }, { scope: 'all', surf: 'land', main: 'land' }]]) {
+    await load(ns, {});
+    await hooked();
+    const state = Object.assign({ v3: true, v4: true, shapes: [], steps, nextId: 50, focus: 0 }, o);
+    await ev(`(window.__svLink = null, ${form === '1' ? `Params.encodeLink(${JSON.stringify(state)})` : `Promise.resolve('0.' + btoa(JSON.stringify({ v: 1, s: ${JSON.stringify(state)} })).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, ''))`}.then((p) => { window.__svLink = p; }), 1)`);
+    const payload = await linkMade();
+    ok(`the form ${form}. link was made`, typeof payload === 'string' && payload.startsWith(form + '.'), String(payload).slice(0, 12));
+    const nsl = ns + 's' + form + want.main;
+    await nav(`${base}/test.html?ns=${nsl}&view=steps#cmw=${payload}`);
+    let r = null;
+    for (let i = 0; i < 20 && !(r && r.on && r.T === 3 && r.n === 3); i++) {
+      await sleep(1500);
+      r = await ev(`typeof __cmwSteps === 'function' ? Object.assign(__cmwSteps(), { n: __cmwSteps().planes.length - 1 }) : null`);
+    }
+    info[`steps link ${form} ${name}`] = r && { T: r.T, scope: r.scope, surf: r.surf, x: r.x, main: r.main, n: r.n };
+    ok(`old ${name} link (form ${form}.) under ?view=steps opens on its equivalent`, r && r.on && r.T === 3 && r.scope === want.scope && r.surf === want.surf && r.x === 0 && r.n === 3, info[`steps link ${form} ${name}`]);
+  }
 }
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
