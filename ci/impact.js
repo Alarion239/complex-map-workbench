@@ -32,7 +32,7 @@ const AREAS = {
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
-  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex-en', 'raw-tex-ru', 'raw-tex-it'],   // (raw-tex: #465, a string's TeX never on screen)
+  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
   views: ['views', 'formulas'],
   desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],

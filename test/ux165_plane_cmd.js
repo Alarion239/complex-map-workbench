@@ -537,7 +537,7 @@ await section('LAY', async () => {
   await move(5, 400); await settle(200);
   const ct2 = await ev(`Math.round(document.getElementById('draftChipL').getBoundingClientRect().top)`);
   ok('UX10 the chip stays put when the readout goes back to one line', ct2 === g.ct, [g.ct, ct2]);
-  // the key's "=" and parentheses in the maths face (not B612 Mono's "[")
+  // the key's "=" and parentheses in the maths face (not the old mono face's "[")
   await move(p[0], p[1]); await settle(200);
   const ff = await ev(`[...document.querySelectorAll('#leftReadout .rln .rk .rm')].map((e) => getComputedStyle(e).fontFamily.split(',')[0])`);
   ok('UX105 the readout key\'s "(" and "=" are set in STIX', ff.length >= 3 && ff.every((f) => /STIX/.test(f)), ff);
