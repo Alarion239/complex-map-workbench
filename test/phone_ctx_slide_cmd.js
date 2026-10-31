@@ -20,7 +20,12 @@ const waitBar = async (open, ms = 12000) => {
   }
   return false;
 };
-const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(900); };
+// (the phone layout comes before the saved state's shapes are built: a selection made in between has no shape to select and
+// the bar never opens; wait for the page's own rows of s1 and s2, which is its ready signal for this suite)
+const waitPh = async () => {
+  for (let i = 0; i < 80; i++) { if (await ev(`document.documentElement.classList.contains('ph') && !!document.querySelector('#shapeList .shape[data-id="s1"]') && !!document.querySelector('#shapeList .shape[data-id="s2"]')`)) break; await sleep(250); }
+  await settle(900);
+};
 for (const [w, h] of [[390, 844], [360, 640]]) {
   for (const v of ['', '&view=steps']) {
     await view(w, h, false, true); await load('pcs' + w + v.length + '-' + Date.now(), ST);
