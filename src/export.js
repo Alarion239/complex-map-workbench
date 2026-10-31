@@ -58,6 +58,18 @@ const Export = (() => {
   const FIG_DPI = 300;
   const PT = 96 / 72;                  // px per point
   const mjCache = new Map();
+  // (#288) mj() typesets synchronously, and MathJax 4's STIX2 font loads its rarer ranges on demand: a figure waits
+  // for all of them, loaded once (a range that fails is left out: its formulas print as their TeX source)
+  let mjFontsP = null;
+  function mjFonts() {
+    if (!mjFontsP) {
+      let f = null;
+      try { f = window.MathJax.startup.output.font; } catch (e) { /* (no MathJax yet: asked again next time) */ }
+      if (!f || typeof f.loadDynamicFiles !== 'function') return Promise.resolve();
+      mjFontsP = f.loadDynamicFiles().catch(() => {});
+    }
+    return mjFontsP;
+  }
   // TeX as a MathJax SVG (vector paths): {markup, w, h, va} at font size px; null without MathJax
   function mj(tex, px, color = '#000') {
     const key = `${px}|${color}|${tex}`;
@@ -579,6 +591,7 @@ const Export = (() => {
   }
   async function buildFigureNow(opt) {
     const alive = opt.alive || (() => true);
+    await mjFonts();
     const panels = opt.panels, W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
     const isMorph = !!opt.morph && morphOn() && rImage() && !morphHasDeriv();
     const mEnd = morphLen(), Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;

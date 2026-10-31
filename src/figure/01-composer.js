@@ -24,7 +24,20 @@
   // one figure at a time: its id namespace, its glyph table, the boxes of everything typeset (for collision checks)
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
-  XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // (#288) the composer typesets synchronously, and MathJax 4's STIX2 font loads its rarer ranges on demand: a figure
+  // waits for all of them, loaded once (a range that fails is left out: its formulas print as their TeX source)
+  let fonts = 0;   // 0: not asked, 1: loading, 2: in
+  const fontsIn = () => {
+    if (fonts === 0) {
+      fonts = 1;
+      let f = null;
+      try { f = window.MathJax.startup.output.font; } catch (e) { /* (no font object: nothing to wait for) */ }
+      if (f && typeof f.loadDynamicFiles === 'function') f.loadDynamicFiles().then(() => { fonts = 2; }, () => { fonts = 2; });
+      else fonts = 2;
+    }
+    return fonts === 2;
+  };
+  XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function') && fontsIn();
   // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
   XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
     const t0 = Date.now();

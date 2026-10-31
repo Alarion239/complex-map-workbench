@@ -71,17 +71,42 @@
     const cache = new Map();
     let ready = false;
     const pending = new Set();
+    // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one
+    // not yet loaded throws with e.retry, a promise. Its nodes show the fallback and are set again when it settles,
+    // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the TeX source)
+    const RETRIES = 8;
+    const waiting = new Map();   // key -> {nodes, tries, wait}
+    const fallback = (node, tex) => { node.innerHTML = ''; node.append(h('span', { class: 'tex-fallback' }, tex)); };
     function paint(node, tex, display) {
       if (!ready) {
-        node.innerHTML = '';
-        node.append(h('span', { class: 'tex-fallback' }, tex));
+        fallback(node, tex);
         pending.add(node);
         return;
       }
       const key = (display ? 'D' : 'I') + tex;
       let html = cache.get(key);
       if (html === undefined) {
-        try { html = MathJax.tex2svg(I18N.notation(tex), { display }).outerHTML; } catch (e) { html = null; }
+        const w = waiting.get(key);
+        if (w && w.wait) { w.nodes.add(node); fallback(node, tex); return; }
+        try { html = MathJax.tex2svg(I18N.notation(tex), { display }).outerHTML; } catch (e) {
+          html = null;
+          if (e && e.retry && (!w || w.tries < RETRIES)) {
+            const job = w || { nodes: new Set(), tries: 0, wait: false };
+            job.tries++; job.wait = true; job.nodes.add(node);
+            waiting.set(key, job);
+            const again = () => {
+              job.wait = false;
+              const nodes = [...job.nodes];
+              job.nodes.clear();
+              for (const n of nodes) if (n.isConnected && n.dataset.tex === tex) { delete n.dataset.rd; set(n, tex, display); }
+              if (cache.has(key)) waiting.delete(key);
+            };
+            e.retry.then(again, again);
+            fallback(node, tex);
+            return;
+          }
+          waiting.delete(key);
+        }
         if (cache.size > 3000) cache.clear();
         cache.set(key, html);
       }
