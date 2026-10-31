@@ -58,6 +58,7 @@ const MAP = [
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone')],                                         // the header, its menus, the panels and drawers (#385)
+  ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone')],                           // the steps view (#366 prototype)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
@@ -190,7 +191,7 @@ function glslPagesOf(f) {
 // [#385] the files that name window.__cmw<name> (a whole word): the browser suites (test/*_cmd.js) and unit tests are
 // fine; anything else that calls a hook (the app itself, the quality and perf runners, ci/, the cdp kit) is outside
 function hookCallers(names) {
-  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[$]/g, '\\$&')).join('|')})\\b`);
+  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`);
   const suites = [], outside = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {

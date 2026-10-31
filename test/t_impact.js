@@ -95,6 +95,9 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   for (const f of ['src/app/18-params.js', 'src/app/20-init.js', 'src/app/22-start.js']) ok(`a part: ${f} -> T3`, select([f]).tier === 'T3');
   const cm = select(['src/app/19-constructions.js']);
   ok('a part: src/app/19-constructions.js -> T2, the constructions and the core shards', cm.tier === 'T2' && same(cm.browser, [...new Set([...AREAS.constructions, ...AREAS.core]), 'smoke']), cm.browser);
+  // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
+  const sv = select(['src/app/19-steps-view.js']);
+  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop and phone shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone]), 'smoke']), sv);
   // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
   ok('a part: src/app/19-shell.js -> the desktop and phone shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
   ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));

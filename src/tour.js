@@ -971,8 +971,9 @@ const Tour = (() => {
 .tour-strip .ts-next { transition: none; }  /* Skip and Next swap in place; no fade between their two looks */
 .tour-strip .ts-next.ready { box-shadow: inset 0 0 0 2px var(--accent-ink); }
 /* (#34 T1) Next is earned: while the step's task is open the button is a quiet outlined Skip */
-.tour-strip .ts-next.skip { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
-.tour-strip .ts-next.skip:hover { color: var(--ink); background: var(--well, var(--surface)); }
+/* (Skip keeps its outlined look under :hover and :active, which the shared .btn.primary rules would fill with the accent: on a touch screen :hover stays on the button just tapped, which was Next a step ago; only a mouse gets the hover shade) */
+.tour-strip .ts-next.skip, .tour-strip .ts-next.skip:not(:disabled):hover, .tour-strip .ts-next.skip:not(:disabled):active { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
+@media (hover: hover) { .tour-strip .ts-next.skip:not(:disabled):hover { color: var(--ink); background: var(--well, var(--surface)); } }
 /* (r3 verify-1: while the countdown runs, the ring leaves out its bottom edge; the bar below is that edge, filling in) */
 .tour-strip .ts-next.ready.counting { box-shadow: inset 0 2px var(--accent-ink), inset 2px 0 var(--accent-ink), inset -2px 0 var(--accent-ink); }
 /* the countdown (r3 review user-4): a bar along Next's bottom edge in Next's own label colour, so it stands off the
