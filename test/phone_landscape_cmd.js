@@ -66,6 +66,9 @@ for (const [w, h] of [[740, 360], [915, 412]]) {
     if (v) { await send('Page.navigate', { url: `${U}?ns=pcs${w}-${Date.now()}${v}` }); }
     await waitPh();
     await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'basics' }); return 1; })()`); await settle(1800);
+    // (a slow runner builds the strip late: wait for its × and Next before measuring)
+    for (let i = 0; i < 40; i++) { if (await ev(`!!document.querySelector('.tour-strip .ts-x') && !!document.querySelector('.tour-strip .ts-x').getClientRects().length && !!document.querySelector('.tour-strip .ts-next')`)) break; await sleep(250); }
+    await settle(600);
     const g = await ev(`(() => { const hit = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => { const q = e.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2, t = document.elementFromPoint(x, y); return { sel, x: Math.round(x), y: Math.round(y), ok: !!t && (t === e || e.contains(t)) }; });
       const col = document.getElementById('secDraw').getBoundingClientRect(), sm = document.querySelector('#secDraw > .tool-more > summary'), sl = sm.querySelector('.ic-slot').getBoundingClientRect(), lb = sm.querySelector('.tm-label').getBoundingClientRect();
       return { col: [Math.round(col.left), Math.round(col.top), Math.round(col.right), Math.round(col.bottom)], vw: innerWidth, vh: innerHeight, more: [Math.round(sl.bottom), Math.round(lb.top)],

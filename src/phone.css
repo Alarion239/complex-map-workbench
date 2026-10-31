@@ -425,9 +425,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .tool-more > summary { list-style: none; }
 :root.ph #secDraw > .tool-more > summary::-webkit-details-marker { display: none; }
 :root.ph.ph-land .layout { margin-right: var(--ph-col); }
-/* the column takes the whole height: the header and the tour's row end where it begins (a sheet hides the column, and they run on) */
-:root.ph.ph-land:not(.ph-split) .top { margin-right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
-:root.ph.ph-land:not(.ph-split) .stage > #tourSlot > .tour-strip[data-mode="row"] { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+/* the column takes the whole height: the header and the tour's row end where it begins (a sheet hides the column, but the strip stays where it was) */
+:root.ph.ph-land .top { margin-right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph.ph-land #secDraw {
   left: auto; right: 0; top: env(safe-area-inset-top, 0px); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
   padding: 4px 2px 4px 2px; border-top: 0; border-left: 1px solid var(--line-strong);
