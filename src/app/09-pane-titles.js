@@ -92,7 +92,8 @@
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
     // ([v16.5 UX27] one name per plane everywhere: "X · z-plane, domain of F", "Y · w = F(z), image")
     const XT = '<span class="ptag"><i>X</i> · </span>', YT = '<span class="ptag"><i>Y</i> · </span>';
-    const left = T(XT + xName, roleL + def, def ? undefined : shortL);
+    // (the steps view's plane: "w₁ · phase of f₂", the shown plane and the map from it into the colour plane, 19)
+    const left = SV.on ? ((tp) => T(tp.name, tp.role))(svTitleParts()) : T(XT + xName, roleL + def, def ? undefined : shortL);
     let right;
     // (the deformation keeps Y's surface: the arrow form on the plane, the w-sphere's own title on the globe)
     // (one title for the merged plane and the merged globe)
@@ -274,7 +275,7 @@
       probeTeachUntil = seen ? -1 : now + 8000;
       if (!seen) setTimeout(() => { const lr = $('leftReadout'); if (lr && lr.querySelector('.rteach')) lr.innerHTML = idleLeft(); }, 8050);
     }
-    return probeTeachUntil > now ? `<span class="rhint rteach">${$t('Hold and slide to read F(z)')}</span>` : '';
+    return probeTeachUntil > now ? `<span class="rhint rteach">${SV.on ? $t('Hold and slide to read {f}', { f: svMapCall('html') }) : $t('Hold and slide to read F(z)')}</span>` : '';
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
@@ -1112,7 +1113,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1245,7 +1246,7 @@
     // the deformation paints H_t (merged-views review)
     const homL = morphOn() && lPaintsF();
     // the Phase style has no modulus bands: no strip
-    const Fl = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    const Fl = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
     if (kind !== '3d' && plainL) { caption(`arg ${Fl}`); return; }
@@ -1273,7 +1274,7 @@
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
       else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
     }
-    const Fn = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    const Fn = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
