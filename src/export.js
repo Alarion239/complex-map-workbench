@@ -58,24 +58,16 @@ const Export = (() => {
   const FIG_DPI = 300;
   const PT = 96 / 72;                  // px per point
   const mjCache = new Map();
-  // (#288) mj() typesets synchronously, and MathJax 4's STIX2 font loads its rarer ranges on demand: a figure waits
-  // for all of them, loaded once (a range that fails is left out: its formulas print as their TeX source)
-  let mjFontsP = null;
-  function mjFonts() {
-    if (!mjFontsP) {
-      let f = null;
-      try { f = window.MathJax.startup.output.font; } catch (e) { /* (no MathJax yet: asked again next time) */ }
-      if (!f || typeof f.loadDynamicFiles !== 'function') return Promise.resolve();
-      mjFontsP = f.loadDynamicFiles().catch(() => {});
-    }
-    return mjFontsP;
-  }
+  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // yet loaded throws with e.retry, a promise. mj() typesets synchronously, so it notes the promise and gives the
+  // fallback for that formula (uncached); buildFigure waits for mjWaits and builds again
+  let mjWaits = [];
   // TeX as a MathJax SVG (vector paths): {markup, w, h, va} at font size px; null without MathJax
   function mj(tex, px, color = '#000') {
     const key = `${px}|${color}|${tex}`;
     if (mjCache.has(key)) return mjCache.get(key);
     const MJ = window.MathJax;
-    let out = null;
+    let out = null, waiting = false;
     if (tex && MJ && typeof MJ.tex2svg === 'function') {
       try {
         const node = MJ.tex2svg(I18N.notation(tex), { display: false });
@@ -91,7 +83,10 @@ const Export = (() => {
           if (!/^<svg[^>]*\sxmlns="/.test(markup)) markup = markup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
           if (w > 0 && hh > 0) out = { markup, w, h: hh, va };
         }
-      } catch (e) { out = null; }
+      } catch (e) {
+        out = null;
+        if (e && e.retry) { mjWaits.push(e.retry); waiting = true; }
+      }
     }
     if (!out) {
       // without MathJax: the TeX source as plain serif text (rare: MathJax loads with the page)
@@ -100,7 +95,7 @@ const Export = (() => {
       out = { markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hh}"><text x="0" y="${px}" font-family="Times New Roman, Times, serif" font-style="italic" font-size="${px}" fill="${color}">${t.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</text></svg>`, w, h: hh, va: -px * 0.2 };
     }
     if (mjCache.size > 2000) mjCache.clear();
-    mjCache.set(key, out);
+    if (!waiting) mjCache.set(key, out);
     return out;
   }
   // place a typeset item with its baseline at (x, y); anchor: 'start' | 'middle' | 'end'
@@ -581,17 +576,27 @@ const Export = (() => {
   // mesh ended on a budget, which the dialog's note reports)
   // (each call tags its export meshes with its own generation, so a cancelled call's cleanup never drops the meshes
   // of the call that replaced it)
+  // (#288: a pass that met a range of MathJax's STIX2 font not yet loaded, mjWaits, is built again once the ranges are
+  // in, at most 8 passes)
   async function buildFigure(opt) {
     const gen = ++sm.exportGen;
+    const alive = opt.alive || (() => true);
     try {
-      const f = await buildFigureNow(Object.assign({}, opt, { expGen: gen }));
-      if (f) f.partial = sm.exportPartial | 0;
-      return f;
+      for (let pass = 0; ; pass++) {
+        mjWaits = [];
+        const f = await buildFigureNow(Object.assign({}, opt, { expGen: gen }));
+        if (f && mjWaits.length && pass < 7) {
+          await Promise.all(mjWaits.map((p) => p.catch(() => {})));
+          if (alive()) continue;
+          return null;
+        }
+        if (f) f.partial = sm.exportPartial | 0;
+        return f;
+      }
     } finally { smDropExport(gen); }
   }
   async function buildFigureNow(opt) {
     const alive = opt.alive || (() => true);
-    await mjFonts();
     const panels = opt.panels, W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
     const isMorph = !!opt.morph && morphOn() && rImage() && !morphHasDeriv();
     const mEnd = morphLen(), Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;

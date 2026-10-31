@@ -24,20 +24,11 @@
   // one figure at a time: its id namespace, its glyph table, the boxes of everything typeset (for collision checks)
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
-  // (#288) the composer typesets synchronously, and MathJax 4's STIX2 font loads its rarer ranges on demand: a figure
-  // waits for all of them, loaded once (a range that fails is left out: its formulas print as their TeX source)
-  let fonts = 0;   // 0: not asked, 1: loading, 2: in
-  const fontsIn = () => {
-    if (fonts === 0) {
-      fonts = 1;
-      let f = null;
-      try { f = window.MathJax.startup.output.font; } catch (e) { /* (no font object: nothing to wait for) */ }
-      if (f && typeof f.loadDynamicFiles === 'function') f.loadDynamicFiles().then(() => { fonts = 2; }, () => { fonts = 2; });
-      else fonts = 2;
-    }
-    return fonts === 2;
-  };
-  XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function') && fontsIn();
+  XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // yet loaded throws with e.retry, a promise. The composer typesets synchronously, so it notes the promise, sets
+  // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again
+  XD.waits = [];
   // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
   XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
     const t0 = Date.now();
@@ -56,8 +47,9 @@
     if (typeof CYR === 'undefined' || !(CYR.needs ? CYR.needs(tex) : CYR.hasCyr(tex))) return mjTex(tex, pt, color);
     const key = `cyr|${pt}|${color}|${tex}`;
     if (texCache.has(key)) return texCache.get(key);
+    const n = XD.waits.length;
     const out = CYR.typeset(tex, pt, color, mjTex);
-    texCache.set(key, out);
+    if (XD.waits.length === n) texCache.set(key, out);   // (a run of it waits for a range: set again on the next pass)
     return out;
   };
   const mjTex = (tex, pt, color = '#000') => {
@@ -83,6 +75,7 @@
       out = { inner, glyphs, w: vb[2] * k, a: -vb[1] * k, d: (vb[3] + vb[1]) * k, vb0: vb[0], k, tex, pt, color };
     } catch (e) {
       out = { inner: '', glyphs: [], w: 0, a: 0, d: 0, vb0: 0, k: pt / 1000, tex, pt, color };
+      if (e && e.retry) { XD.waits.push(e.retry); return out; }
     }
     if (texCache.size > 4000) texCache.clear();
     texCache.set(key, out);

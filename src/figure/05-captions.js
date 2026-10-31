@@ -371,7 +371,18 @@
   // build(o): the figure for the current view. o: {for, cols, sizeId, customPt, text, ink, crop, axes, panels, deform,
   // name, captionTex (an edited caption), capInImage, view, alive}. -> {svg, W, H, boxes, lines, glyphs, meta,
   // captionTex, name, view, Wtex, ...} or null when cancelled
+  // (#288) a pass that met a range of MathJax's STIX2 font not yet loaded (XD.waits, 01-composer.js) is built again
+  // once the ranges are in, at most 8 passes (a range that cannot load: its formulas print as their TeX source)
   async function build(opts) {
+    for (let pass = 0; ; pass++) {
+      XD.waits = [];
+      const fig = await buildOnce(opts);
+      if (!fig || !XD.waits.length || pass >= 7) return fig;
+      await Promise.all(XD.waits.map((p) => p.catch(() => {})));
+      if (opts && opts.alive && !opts.alive()) return null;
+    }
+  }
+  async function buildOnce(opts) {
     if (!A) throw new Error('Figure is not attached');
     // (an export or a rebuild that comes before MathJax is ready waits for it; null when the caller has gone, an error after the timeout)
     if (!XD.ready() && !(await XD.whenReady(20000, (opts && opts.alive) || undefined))) {
