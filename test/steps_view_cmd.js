@@ -132,9 +132,16 @@ await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(600);
 ok('desktop: no axe violation in the steps view (z, parked, Sphere)', !ax.z.length && !ax.parked.length && !ax.sphere.length, ax);
 // (ux's review of #448) the arrows of a focused radio group, or of an open pop-up, are theirs: the plane stays
 const before = (await S()).x;
-await ev(`(() => { const b = document.querySelector('#svHead .sv-surf [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
+await ev(`__cmwSteps({ scope: 'all' }); 1`); await settle(300);
+await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
 const rg = await S();
-ok('→ on a focused Surface radio picks the next surface, not the next plane', rg.x === before && rg.surf === 'sphere', rg);
+ok('→ on a focused scope radio picks the next one, not the next plane', rg.x === before && rg.scope === 'in', rg);
+// (#441) the surface is one button with a menu: its keys are the menu's, and a pick changes the surface, not the plane
+await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
+await ev(`(() => { const m = document.querySelector('.pop.menu'); const t = document.activeElement; t.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })); return !!m; })()`); await settle(300);
+await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((e) => /Sphere/.test(e.textContent)); if (b) b.click(); return !!b; })()`); await settle(600);
+const sm = await S();
+ok('the surface menu picks Sphere, and its keys leave the plane alone', sm.x === before && sm.surf === 'sphere', sm);
 await ev(`__cmwSteps({ surf: 'plane' }); document.activeElement.blur(); 1`); await settle(600);
 await ev(`document.getElementById('examplesBtn').click(); 1`); await settle(600);
 await press('ArrowRight');

@@ -32,11 +32,15 @@ rd.on('data', (d) => {
     else if (msg.method === 'Runtime.consoleAPICalled') LOG.push({ t: msg.params.type, m: msg.params.args.map((a) => a.value !== undefined ? String(a.value) : (a.description || a.type)).join(' ').slice(0, 400) });
     else if (msg.method === 'Runtime.exceptionThrown') LOG.push({ t: 'EXC', m: (msg.params.exceptionDetails.exception && msg.params.exceptionDetails.exception.description || msg.params.exceptionDetails.text).slice(0, 600) });
     else if (msg.method === 'Fetch.requestPaused') vendorAnswer(msg.params, msg.sessionId);
+    else if (msg.method === 'Page.loadEventFired') { LOADS++; for (const w of loadWait.splice(0)) w(); }
     else if (msg.method === 'Log.entryAdded') LOG.push({ t: 'log-' + msg.params.entry.level, m: msg.params.entry.text.slice(0, 400) });
   }
 });
 const send = (method, params = {}, sessionId) => new Promise((res, rej) => { const m = { id: ++id, method, params }; if (sessionId) m.sessionId = sessionId; pend.set(m.id, { res, rej }); wr.write(JSON.stringify(m) + '\0'); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// (the page's load events, for H.go: how many so far, and who waits for the next)
+let LOADS = 0;
+const loadWait = [];
 // [#444] CMW_VENDOR=1: the page's CDN files (MathJax, the PDF library, the Google Fonts) from vendor/ (vendor.js), for a
 // machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
 const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
@@ -63,6 +67,45 @@ H.view = async (w, h, dark, mobile) => {
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!mobile, maxTouchPoints: mobile ? 5 : 1 }, S);
 };
 H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); };
+// [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
+// It answers whether the load came in time; a page that did not load says so in the suite's log.
+H.go = async (url, ms = 15000) => {
+  const n = LOADS;
+  await send('Page.navigate', { url }, S);
+  let t;
+  const ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), ms); })]);
+  clearTimeout(t);
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url})` });
+  return ok;
+};
+// [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
+// animation frames find the document loaded, neither pane's last GPU frame pending or compiling (__cmwPaneStatus; not
+// with o.panes false, for a check that needs no GL frame),
+// no finite animation or transition running (document.getAnimations(); an endless one, a spinner, never ends), and
+// o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
+// and the suite's log says so, so a check after it sees the page as it is. Answers { ok, ms, busy }.
+H.settled = async (o = {}) => {
+  if (o.floor) await sleep(o.floor);
+  const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null';
+  const r = await H.ev(`await (async (until, max, panes) => {
+    const t0 = performance.now(), frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    for (;;) {
+      await frames();
+      const busy = [];
+      if (document.readyState !== 'complete') busy.push('loading');
+      if (panes && typeof window.__cmwPaneStatus === 'function') for (const p of ['L', 'R']) { const st = window.__cmwPaneStatus(p); if (st && (st.pending || st.compiling)) busy.push('pane ' + p + (st.compiling ? ' compiling' : ' pending')); }
+      const an = document.getAnimations().filter((a) => a.playState === 'running' && a.effect && Number.isFinite(a.effect.getComputedTiming().endTime));
+      if (an.length) busy.push(an.length + ' animation(s)');
+      if (until) { let u; try { u = until(); } catch (e) { u = false; } if (!u) busy.push('until'); }
+      const ms = Math.round(performance.now() - t0);
+      if (!busy.length) return { ok: true, ms, busy };
+      if (ms > max) return { ok: false, ms, busy };
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  })(${until}, ${max}, ${o.panes !== false})`, max + 5000);
+  if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: not quiet after ${max} ms (${JSON.stringify(r)})` });
+  return r && r.busy ? r : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'] };
+};
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
   const r = await send('Page.captureScreenshot', p, S);

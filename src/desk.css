@@ -622,7 +622,14 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
 :root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
 :root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
-:root.sv:not(.ph) .sv-surf1 { display: none; }
+/* (#441) the plane's head on one row: the bar as wide as its controls (the style row keeps the rest), its surface one
+   button with a menu; short of room the colour-plane button is its wheel alone (sv-c1), then the title loses its role (sv-c2) */
+:root.sv:not(.ph) .sv-head { flex: 0 1 auto; flex-wrap: nowrap; }
+.sv-surf1 { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sv-surf1 svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.sv-head.sv-c1 .sv-cp .sv-cp-t { display: none; }
+.sv-head.sv-c1 .sv-cp { min-width: 32px; justify-content: center; }
+.sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
 :root.sv:not(.ph) #paneL .pane-head { gap: 8px; flex-wrap: wrap; min-height: 40px; padding: 4px 6px 4px 10px; }
 .sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
@@ -698,3 +705,5 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-sheet .sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }
 .sv-sheet .sv-loop { height: 44px; min-width: 96px; }
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
+/* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
+.pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
