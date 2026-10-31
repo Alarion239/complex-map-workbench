@@ -115,6 +115,9 @@ const sw = await rest();
 ok('a flick from the right edge goes on to w₁', sw.i === 1 && Math.abs(sw.x - 1) < 1e-9, sw);
 const head = await ev(`(() => { const t = document.getElementById('top'), h = document.getElementById('svHead'); return { inTop: !!h && h.parentNode === t, fits: t.scrollWidth <= t.clientWidth + 1 }; })()`);
 ok('the plane\'s controls are in the header, which does not scroll sideways', head.inTop && head.fits, head);
+// (ux on #448: the folded key is an image with a name, for axe's role-img-alt)
+const leg = await ev(`(() => { const l = document.getElementById('leftLegend'); return { role: l.getAttribute('role'), name: l.getAttribute('aria-label') }; })()`);
+ok('the folded key on the phone has a name', leg.role !== 'img' || !!leg.name, leg);
 
 // ---- without the flag: the classic view ----
 await open(1280, 800, false, false);

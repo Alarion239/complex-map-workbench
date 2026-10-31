@@ -261,7 +261,7 @@ const Inspector = (() => {
     function focusCard(k) {
       let n = 0;
       const go = () => {
-        const c = document.querySelector(`#pipeline .card[data-k="${k}"]`);
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k}"]`));
         if (c && c.isConnected && document.activeElement !== c) c.focus({ preventScroll: true });
         // (held for 12 frames: the chain and the Inspector are drawn again after the split)
         if (++n < 12) requestAnimationFrame(go);
