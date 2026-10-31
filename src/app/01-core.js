@@ -66,7 +66,9 @@
     morph: msvg('<rect x="1.5" y="6" width="4" height="4"/><path d="M6.5 6.5c2-3 4.5-3 6 0"/><path d="M11.5 4.5l1 2-2.2.3"/><circle cx="12.5" cy="10.5" r="2" fill="currentColor" stroke="none"/>'),
   };
 
-  // ---------------- TeX via MathJax (falls back to source text) ----------------
+  // ---------------- TeX via MathJax (falls back to the formula as plain text) ----------------
+  // ([#465] until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
+  // «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)
   const TeX = (() => {
     const cache = new Map();
     let ready = false;
@@ -74,7 +76,7 @@
     function paint(node, tex, display) {
       if (!ready) {
         node.innerHTML = '';
-        node.append(h('span', { class: 'tex-fallback' }, tex));
+        node.append(h('span', { class: 'tex-fallback' }, texTitle(tex)));
         pending.add(node);
         return;
       }
@@ -85,7 +87,7 @@
         if (cache.size > 3000) cache.clear();
         cache.set(key, html);
       }
-      if (html == null) node.textContent = tex; else node.innerHTML = html;
+      if (html == null) node.textContent = texTitle(tex); else node.innerHTML = html;
     }
     function set(node, tex, display = false) {
       if (node.dataset.tex === tex && node.dataset.rd === String(ready)) { held.delete(node); return; }

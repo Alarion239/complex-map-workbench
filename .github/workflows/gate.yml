@@ -387,8 +387,16 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      # (#504: the image's package lists usually know the package, so it installs without refreshing them first; they are
+      # refreshed only when that fails, as before. Each part's time goes to the log)
       - name: Mesa's Vulkan drivers (lavapipe)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers
+        run: |
+          t0=$(date +%s.%N)
+          if dpkg -s mesa-vulkan-drivers >/dev/null 2>&1; then echo "mesa-vulkan-drivers: already installed"
+          elif sudo apt-get install -y -qq mesa-vulkan-drivers; then echo "mesa-vulkan-drivers: installed from the image's lists"
+          else sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers && echo "mesa-vulkan-drivers: installed after apt-get update"
+          fi
+          awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN { printf "Mesa step: %.1f s\n", b - a }'
       # (fails when Chrome has no WebGL2 with these flags: no fallback, so the suites never run on another renderer)
       - run: node ci/gpu_probe.js
       - run: node ci/browser.js --shard ${{ matrix.shard }}
