@@ -20,6 +20,7 @@
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
+    ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
   };
   const SV_GPU_MASK = false;
   // the glide's time a plane, by speed (a setting kept on this device)
@@ -72,13 +73,29 @@
   function svAdopt(force) {
     const ext = S.view.main;
     if (ext === svMain() && !force) return;
-    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas)
-    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
-    if (ext === 'xy') { SV.T = -1; SV.scope = areas ? 'in' : 'all'; SV.surf = S.view.L.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'phase') { SV.T = -1; SV.scope = 'all'; SV.surf = S.view.P.surf === 'sphere' ? 'sphere' : 'plane'; }
-    else if (ext === 'land') { SV.T = -1; SV.scope = 'all'; SV.surf = 'land'; }
+    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
+    // Views.svOf, concept §6)
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas);
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     SV.i = 0; SV.g.set(0);
   }
+  // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
+  // the device's setting for a state without one). svStore writes it before a save, a link or an undo entry;
+  // svLoad reads it when the page opens on a state that has one, and after an undo
+  function svStore() {
+    if (!SV.on || !SV.ready) return;
+    setOpt('sv', { at: SV.anim ? SV.anim.to : SV.g.x, T: SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed });
+  }
+  function svLoad() {
+    const o = Views.cleanSv(S.sv, svPlanes());
+    if (!o) return false;
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
+    if (o.speed) { SV.speed = o.speed; svPlayRebase(); if (SV.els) { if (SV.els.speed) SV.els.speed.value = o.speed; if (SV.els.sheetSpeed) SV.els.sheetSpeed.value = o.speed; } }   // (a state without one keeps the device's)
+    SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
+    return true;
+  }
+  // an undo put another S.sv under the view
+  function svRestored() { if (SV.on && SV.ready && svLoad()) { SV.sig = null; setTimeout(svApply, 0); } }
   function svApply() {
     const k = svStage();
     svViewFix();
@@ -174,6 +191,20 @@
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
+    // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
+    // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
+    if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
+      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
+      const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
+      // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
+      // to plane a, as smKeyOf for the forward meshes)
+      const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
+      const plan = a > s ? invPlan(s, a) : null;
+      const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+      GLR.begin(pane.pw, pane.ph);
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
+        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
+    }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
     let m = svCarryMemo;
     if (!m || m.key !== key) {
@@ -464,7 +495,7 @@
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
+    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => svSetSpeed(e.target.value) },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
     const loop = h('button', { type: 'button', class: 'btn small sv-loop', 'aria-pressed': String(SV.loop), 'data-tip': $t('Start over at the end'), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
@@ -724,8 +755,8 @@
     setTimeout(svPrestart, 300);
   }
   // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
-  // maps' (mode 1) and the carried colour's pre-mapped mesh; at start-up and when the chain changes. (F's GPU carry
-  // hooks its own programs in here)
+  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
+  // chain changes
   function svPrestart() {
     try {
       if (!GLR.ok) return;
@@ -733,10 +764,12 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
+      // (#439: the carried colour's programs, a glide's first: carryId too when a plane lies past the colour plane)
+      if (GLR.prestartNames) { const P = svPlanes(); GLR.prestartNames(svT() < P[P.length - 1] ? ['carry', 'carryId'] : ['carry'], [1, 0]); }
     } catch (e) { /* (the first glide starts them) */ }
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
-  // The speed is A's setting (SV.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
+  // The speed is the steps view's setting (SV.speed, saved as S.sv.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
   // range's end (or the last plane) in a straight line, with no stop at the planes; Loop starts over at the range's start
   // (or z). The landscape (no frames between planes) and reduced motion step a plane at a time instead (2 s under reduced
   // motion, with the live region saying each plane).
@@ -820,6 +853,16 @@
     SV.dragEndT = performance.now();
     if (d.rangeMoved) { const R = svRange(); setHomRange(R ? { a: R.a, b: R.b } : null, { force: true }); svSync(); const live = SV.els.live; if (live) live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, ''); }
     return true;
+  }
+  // the speed, one for the glide and for play (S.sv.speed, saved with the state; the device's setting is the default of a
+  // state without one): the strip's select and the Playback sheet both set it here
+  function svSetSpeed(v) {
+    if (!SV_SPEEDS[v]) return;
+    SV.speed = v;
+    svPlayRebase();
+    try { localStorage.setItem('cmw-sv-speed', v); } catch (_) { /* (no storage) */ }
+    svStore(); save();
+    if (SV.els) { if (SV.els.speed) SV.els.speed.value = v; if (SV.els.sheetSpeed) SV.els.sheetSpeed.value = v; }
   }
   function svSetLoop(on) {
     SV.loop = on;
@@ -912,7 +955,7 @@
     const E = SV.els;
     if (!E.sheet) {
       const scrim = h('div', { class: 'sv-scrim', onclick: () => svSheetClose() });
-      const sel = h('select', { class: 'sv-speed', 'aria-label': $t('Speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } E.speed.value = SV.speed; } },
+      const sel = h('select', { class: 'sv-speed', 'aria-label': $t('Speed'), onchange: (e) => svSetSpeed(e.target.value) },
         ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v }, t)));
       const lp = h('button', { type: 'button', class: 'btn sv-loop', 'aria-pressed': String(SV.loop), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
@@ -956,7 +999,8 @@
     svEdgeSwipe();
     svKeys();
     SV.g.set(0); SV.g.max = svPlanes().length - 1;
-    svAdopt();
+    if (!svLoad()) svAdopt();
+    SV.ready = true;
     svApply();
     // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
     for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }

@@ -73,6 +73,7 @@ ok('at slow (2 s a plane) it is not yet at w₁ after 1 s', sl.play === 'glide' 
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
 const e2 = await until((s) => !s.play);
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
+ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', await ev(`S.sv && S.sv.speed === 'fast' && localStorage.getItem('cmw-sv-speed') === 'fast'`), await ev(`JSON.stringify(S.sv)`));
 
 // keys: K plays and pauses, Esc pauses, ‹ › pause
 await ctl({ go: 0, now: true });
@@ -184,6 +185,8 @@ ok('Tab stays in the sheet', await ev(`!!document.activeElement.closest('.sv-she
 ok('… and the release is not a press: nothing plays', (await S()).play === null, await S());
 await ev(`document.querySelector('.sv-sheet .sv-loop').click(); 1`);
 ok('the sheet\'s Loop sets it', (await S()).loop === true, await S());
+await ev(`(() => { const e = document.querySelector('.sv-sheet .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
+ok('the sheet\'s Speed sets the state\'s speed too (one setting), and the strip\'s select follows', await ev(`S.sv.speed === 'slower' && document.querySelector('#svStrip .sv-speed').value === 'slower'`), await ev(`JSON.stringify(S.sv)`));
 await ctl({ loop: false });
 await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);
 ok('Done closes the sheet and gives the focus back to ▶', await ev(`document.querySelector('.sv-sheet').hidden && document.activeElement === document.querySelector('.sv-play')`), await ev(`document.activeElement.className`));
