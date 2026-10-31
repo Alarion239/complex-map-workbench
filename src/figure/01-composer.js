@@ -41,19 +41,10 @@
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
   const texCache = new Map();
-  // a Russian figure: Russian notation (tg, sh, ln), and words with Cyrillic set from the CMU outlines of src/cyr.js
-  // (MathJax's fonts have none: it would write <text> in a system font); the math stays MathJax's. Words with an
-  // accented Latin letter (Italian: è, perché, più) are set from the same outlines (cyr.js composes the letters)
-  XD.tex = (tex, pt, color = '#000') => {
-    if (XD.lang === 'ru' && I18) tex = I18.notation(tex, 'ru');
-    if (typeof CYR === 'undefined' || !(CYR.needs ? CYR.needs(tex) : CYR.hasCyr(tex))) return mjTex(tex, pt, color);
-    const key = `cyr|${pt}|${color}|${tex}`;
-    if (texCache.has(key)) return texCache.get(key);
-    const n = XD.waits.length;
-    const out = CYR.typeset(tex, pt, color, mjTex);
-    if (XD.waits.length === n) texCache.set(key, out);   // (a run of it waits for a range: set again on the next pass)
-    return out;
-  };
+  // a Russian figure: Russian notation (tg, sh, ln). (#490) Its words, and the Italian ones with an accented letter
+  // (è, perché, più), are MathJax's too: the STIX2 font has Cyrillic and the accented Latin letters in its upright,
+  // bold, italic and bold italic text, so words and maths are one face
+  XD.tex = (tex, pt, color = '#000') => mjTex(XD.lang === 'ru' && I18 ? I18.notation(tex, 'ru') : tex, pt, color);
   const mjTex = (tex, pt, color = '#000') => {
     const key = `${pt}|${color}|${tex}`;
     if (texCache.has(key)) return texCache.get(key);
