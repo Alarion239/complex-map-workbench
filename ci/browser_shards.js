@@ -41,6 +41,9 @@ const SHARDS = [
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
   { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'key_popup_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js', 'phone_ctx_tex_cmd.js', 'phone_glide_cmd.js', 'phone_glide_export_cmd.js'] },   // 149 + 108 + 130 (key_popup) + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
+  // (#470: the layout checks; en about 6 min a view on SwiftShader in a sandbox, ru and it about 2.5)
+  { id: 'layout-1', suites: ['layout_invariants_cmd.js#en'] },
+  { id: 'layout-2', suites: ['layout_invariants_cmd.js#ru', 'layout_invariants_cmd.js#it'] },
   { id: 'smoke', suites: ['smoke_cmd.js'] },
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },
 ];

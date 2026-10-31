@@ -68,6 +68,13 @@ const SUITES = {
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
+  // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
+  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
+  // violations go to its result's report, and the job does not fail on them)
+  'layout_invariants_cmd.js': {
+    runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
+      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
+  },
 };
 
 const t = (re, measured) => ({ re, measured });
