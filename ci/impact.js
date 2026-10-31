@@ -121,7 +121,7 @@ const MAP = [
   ['tools/join_src.js', T0],
   ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
   ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
-  ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
+  ['notes/i18n/**', T0],                                                       // the i18n design and tables: unit tests only (t_i18n, t_terms, t_cyr, t_ux165_*)
   // the docs (a README beside the tests or the CI scripts too)
   ['**/*.md', T0],
   // the tests
