@@ -699,6 +699,10 @@
   // the nearest plane when it is let go
   function svStripWire(strip, track) {
     const rail = strip.querySelector('.sv-rail');
+    // (#515) a message placed over the rail goes when the thread is gone through again: < > (a press or the keys), or a press on the rail
+    const dismissToast = () => { const th = document.getElementById('toastHost'); if (th && th.getAttribute('data-placed') === 'rail') th.innerHTML = ''; };
+    strip.addEventListener('click', (e) => { if (e.target.closest('.sv-nav')) dismissToast(); }, true);
+    rail.addEventListener('pointerdown', dismissToast, true);
     // (the thread's position under the pointer: between the centres of the planes' nodes, in proportion)
     const posX = (e) => {
       const ns = [...track.querySelectorAll('.sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return r.left + r.width / 2; });
