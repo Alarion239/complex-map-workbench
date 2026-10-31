@@ -697,8 +697,9 @@
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
       const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
-      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; }
-    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; }
+      // (the fades follow at once: the rail's scroll event comes a frame later)
+      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
   }
   // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
   // centres and the scroll the rail reported, no read
