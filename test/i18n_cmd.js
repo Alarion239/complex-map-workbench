@@ -20,6 +20,9 @@ const open = async (lang, w, dark, extra = '') => {
   const phone = w < 768;
   await view(w, phone ? 844 : 900, dark, phone);
   await nav(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await settle(3500);
+  // (until MathJax has typeset the page's formulas, at most 15 s: it starts after the first paint, 3 to 5 s on a software
+  // renderer, and a formula shows its fallback until then, #288)
+  for (let i = 0; i < 60 && !(await ev(`!!(window.MathJax && MathJax.startup && MathJax.startup.document) && !document.querySelector('.tex-fallback')`)); i++) await sleep(250);
 };
 logs();
 // ---- 1, 2: overflow and the first screen ----

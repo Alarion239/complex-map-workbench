@@ -34,13 +34,13 @@ jsp = jsp.replace('</script', '<\\/script')
 # MathJax 4 with its STIX2 font (#288: the formulas in the face of the titles and inline math). The a11y layer is off
 # (no speech worker, no menu); inline formulas are one SVG each, as MathJax 3's (no inline line breaks: the figure and
 # the export read one); the font's rarer ranges load on demand from svg/dynamic/ (TeX.set sets a formula again once
-# its range is in, 01-core.js)
-MJ_VER = '4.1.3'
+# its range is in, 01-core.js). The font comes from MathJax's own default path for it, the version of MathJax:
+# cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3 (svg.js, svg/dynamic/*.js)
 mj = """<script>
-window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false, menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: false } } }, output: { font: 'mathjax-stix2' }, svg: { fontCache: 'local', linebreaks: { inline: false } }, loader: { paths: { 'mathjax-stix2': 'https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@%(v)s' } }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
+window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false, menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: false } } }, output: { font: 'mathjax-stix2' }, svg: { fontCache: 'local', linebreaks: { inline: false } }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
 </script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@%(v)s/tex-svg-nofont.js"></script>
-""" % {'v': MJ_VER}
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>
+"""
 
 # ---- the Russian data as JSON blocks (notes/i18n/USER-DECISIONS.md, page size) ----
 # The Russian table (src/i18n_ru.js) and the Cyrillic outline faces (src/cyr.js) go into the page as
@@ -139,13 +139,13 @@ dist.mkdir(exist_ok=True)
 # ---- the offline page (issue #21, option b): the published page with its typesetter and faces inline ----
 # The live page loads MathJax and the web fonts from CDNs; dist/complex-map-workbench-offline.html (published next to
 # it, and linked from Settings) needs no network. tools/vendor.py writes vendor/ (pinned, checked by test/t_vendor.js),
-# and the build reads vendor/ only. MathJax goes in as a JSON block (never run while the page parses: tex-svg.js holds
-# a "<!--"), started from a Blob URL once the page has loaded and painted, as the CDN's async script arrived; the
+# and the build reads vendor/ only. MathJax and its STIX2 font go in as a JSON block (never run while the page parses),
+# started from Blob URLs once the page has loaded and painted, as the CDN's async script arrived; the
 # faces are @font-face rules with the woff2 inline; the Russian set (Roboto Flex) is a text block that page.html's head
 # script, or i18n.js, turns into a style element with the language.
 vendor = root / 'vendor'
 vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
-CDN_MJ = f'<script async src="https://cdn.jsdelivr.net/npm/mathjax@{MJ_VER}/tex-svg-nofont.js"></script>\n'
+CDN_MJ = '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>\n'
 assert mj.count(CDN_MJ) == 1, 'the MathJax script tag build.py replaces'
 mj_off = mj.replace(CDN_MJ, """<script>
 (function () {
