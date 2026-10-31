@@ -31,7 +31,35 @@ for (const [w, h, kbh] of [[390, 844, 320], [360, 640, 280], [740, 360, 150], [9
     await ev(`Phone._kb(${kbh}), 1`); await settle(700);
     const k = await geo(); info[tag + ' kb'] = k;
     ok(`${tag} with the keyboard (${kbh} px): it ends above the keyboard, its search field in view`, k && k.pal[3] <= h - kbh + 1 && k.input[0] >= k.head - 1 && k.input[1] <= k.pal[3], k);
+    if (w === 740) {
+      // (a phone sideways with the keyboard up: results in view, not only the field and the Insert row)
+      const rows = await ev(`(() => { const p = document.querySelector('.pop.palette').getBoundingClientRect(); return [...document.querySelectorAll('.pop.palette .pal-item')].filter((e) => { const q = e.getBoundingClientRect(); return q.height > 0 && q.top >= p.top && q.bottom <= p.bottom + 1; }).length; })()`);
+      info[tag + ' kb rows'] = rows;
+      ok(`${tag} with the keyboard: at least one result is fully in view`, rows >= 1, rows);
+    }
     await ev(`Phone._kb(0), 1`); await key('Escape'); await settle(400);
   }
+}
+// a toast takes its own row and the chain bar rides up 56 px: the palette ends at the chain bar's top where it really is
+// (ux review of #479; the toast here is the undo message after deleting a shape)
+for (const [w, h] of [[390, 844], [360, 640]]) {
+  await view(w, h, false, true);
+  await load('ppt' + w + '-' + Date.now(), Object.assign({}, ST, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }] }));
+  await waitPh();
+  const tag = `${w}×${h} with a toast`;
+  for (let i = 0; i < 80; i++) { if (await ev(`!!document.querySelector('#shapeList .shape[data-id="s1"]')`)) break; await sleep(250); }
+  await ev(`__cmwSelect('s1'), 1`);
+  let bar = false; for (let i = 0; i < 80; i++) { if (await ev(`!!document.querySelector('.ph-ctx.in')`)) { bar = true; break; } await sleep(150); }
+  ok(`${tag}: the bar for the selection opens`, bar, 'no bar');
+  await ev(`(() => { const b = [...document.querySelectorAll('.ph-ctx .ph-cb')].find((x) => /Delete/.test(x.textContent)); if (b) b.click(); return 1; })()`);
+  let toast = false; for (let i = 0; i < 80; i++) { if (await ev(`!!document.querySelector('#toastHost .toast')`)) { toast = true; break; } await sleep(150); }
+  ok(`${tag}: the delete message shows`, toast, 'no toast');
+  await settle(500);
+  const chainTop0 = await ev(`Math.round(document.querySelector('.pipe-wrap').getBoundingClientRect().top)`);
+  await ev(`document.querySelector('#addStepBtn, .add-card').click(), 1`); await settle(900);
+  const g = await geo(); info[tag] = { g, chainTop0 };
+  ok(`${tag}: the palette is there`, !!g && g.focus, g);
+  if (g) ok(`${tag}: it ends at or above the chain bar, where the toast put it (${g.chain[1]})`, g.pal[3] <= g.chain[1] + 1, g);
+  await key('Escape'); await settle(300);
 }
 return { pass: fails.length === 0, fails, info };
