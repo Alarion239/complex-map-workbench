@@ -229,7 +229,9 @@
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
   // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
   let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
-  function svCarry(pane, cc, s, a, H) {
+  // (#439 I) frame: the GL frame the caller composes the colour layer in ({open}); the GPU path draws into it (opening
+  // it if need be) and leaves the copy to the caller; the CPU path first copies what it holds into cc
+  function svCarry(pane, cc, s, a, H, frame) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
     const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
@@ -243,10 +245,15 @@
       const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
       const plan = a > s ? invPlan(s, a) : null;
       const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
-      GLR.begin(pane.pw, pane.ph);
+      if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
       if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
-        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) { GLR.blit(cc); return true; }
+        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
+        if (frame) frame.open = true; else GLR.blit(cc);
+        return true;
+      }
     }
+    // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first)
+    if (frame && frame.open) { GLR.blit(cc); frame.open = false; }
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
     let m = svCarryMemo;
     if (!m || m.key !== key) {
@@ -336,26 +343,28 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
+    // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
+    // one copy into cc at the end)
+    const frame = { open: false };
     const plot = (k, al) => {
       if (al <= 0.01 || !svColoured(k)) return;
-      GLR.begin(pane.pw, pane.ph);
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
-      cc.globalAlpha = al;
-      GLR.blit(cc);
-      cc.globalAlpha = 1;
+      if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al });
     };
     // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
     // the window would, the picture is not left blank)
     if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
     let carried = false;
-    if (still || !isDeriv(b)) {
-      carried = svCarry(pane, cc, src, a, still ? null : homF(b, u));
+    // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
+    if (still ? !svColoured(a) : !isDeriv(b)) {
+      carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
     }
     // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the first
     // and the last 15 % of a glide)
     const near = (w) => Math.max(0, Math.min(1, w));
     if (still) plot(a, 1);
     else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
+    if (frame.open) { GLR.blit(cc); frame.open = false; }
     if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
     pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
     svOutlines(pane, map);
@@ -782,8 +791,9 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
-      // (#439: the carried colour's programs, a glide's first: carryId too when a plane lies past the colour plane)
-      if (GLR.prestartNames) { const P = svPlanes(); GLR.prestartNames(svT() < P[P.length - 1] ? ['carry', 'carryId'] : ['carry'], [1, 0]); }
+      // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
+      // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
+      if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);
     } catch (e) { /* (the first glide starts them) */ }
   }
   function setupStepsView() {
