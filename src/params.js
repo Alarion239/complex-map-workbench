@@ -524,7 +524,7 @@ const Params = (() => {
   }
   function draw(m) {
     const el = m.el;
-    const focus = document.activeElement && el.contains(document.activeElement) ? document.activeElement.dataset.prmFocus : null;
+    const focus = document.activeElement && el.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement).dataset.prmFocus : null;
     el.innerHTML = '';
     // (v16.5 UX65: one name, Numbers, for the section, the key, the hint and the button)
     const sec = h('section', { class: 'psec prm', 'aria-label': $t('Numbers') });
@@ -689,7 +689,7 @@ const Params = (() => {
       } },
     ];
     if (host && host.openMenu) { host.openMenu(anchor, items); return; }
-    const it = items.find((x) => x !== 'sep' && x.label === $t('Delete'));
+    const it = /** @type {any} */ (items.find((x) => x !== 'sep' && /** @type {any} */ (x).label === $t('Delete')));
     if (it) it.run();
   }
 
