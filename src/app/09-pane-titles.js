@@ -813,15 +813,15 @@
   // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
   function pathsToggle(hasD = morphHasDeriv()) {
     const on = S.morphPaths !== false;
-    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': on ? $t('Hide the paths t ↦ H_t(z)  P') : $t('Show the paths t ↦ H_t(z)  P'), html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
-    if (hasD) { b.disabled = true; b.dataset.tip = $t('d/dz is not a map, so there are no paths t ↦ H_t(z) to draw'); }
+    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P'), html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
+    if (hasD) { b.disabled = true; b.dataset.tip = $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw'); }
     return b;
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
     setOpt('morphPaths', !!on);
     const b = $('pathsBtn');
-    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = on ? $t('Hide the paths t ↦ H_t(z)  P') : $t('Show the paths t ↦ H_t(z)  P'); }
+    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P'); }
     requestRender('R'); drawLegend(); save();
     tourEmit('paths-toggled', { on: !!on });
   }

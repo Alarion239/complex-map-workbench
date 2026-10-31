@@ -519,16 +519,20 @@ const Tour = (() => {
     return out;
   }
   // TeX -> readable text (screen readers, and the page before MathJax has loaded)
-  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', n: 'ⁿ', z: 'ᶻ', i: 'ⁱ', '-': '⁻', '+': '⁺' };
-  const SUBS = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', k: 'ₖ', n: 'ₙ', t: 'ₜ', i: 'ᵢ' };
+  // ([#465] every letter and sign Unicode has a modifier form for, so u_{k+1}, z^{-n} and \\sum_{n=0}^{N} read as text)
+  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', n: 'ⁿ', z: 'ᶻ', i: 'ⁱ', '-': '⁻', '+': '⁺', '−': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+    a: 'ᵃ', b: 'ᵇ', c: 'ᶜ', d: 'ᵈ', e: 'ᵉ', f: 'ᶠ', g: 'ᵍ', h: 'ʰ', j: 'ʲ', k: 'ᵏ', l: 'ˡ', m: 'ᵐ', o: 'ᵒ', p: 'ᵖ', r: 'ʳ', s: 'ˢ', t: 'ᵗ', u: 'ᵘ', v: 'ᵛ', w: 'ʷ', x: 'ˣ', y: 'ʸ', N: 'ᴺ', T: 'ᵀ' };
+  const SUBS = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', k: 'ₖ', n: 'ₙ', t: 'ₜ', i: 'ᵢ', '+': '₊', '-': '₋', '−': '₋', '=': '₌', '(': '₍', ')': '₎',
+    a: 'ₐ', e: 'ₑ', h: 'ₕ', j: 'ⱼ', l: 'ₗ', m: 'ₘ', o: 'ₒ', p: 'ₚ', r: 'ᵣ', s: 'ₛ', u: 'ᵤ', v: 'ᵥ', x: 'ₓ' };
   function texPlain(src) {
-    let s = String(src);
+    // ([#465] words in \\text{…} are words)
+    let s = String(src).replace(/\\(?:text|textrm|mathrm|mbox)\{([^{}]*)\}/g, '$1');
     const grp = '\\{((?:[^{}]|\\{[^{}]*\\})*)\\}';
     for (let k = 0; k < 3; k++) s = s.replace(new RegExp('\\\\[dt]?frac' + grp + grp, 'g'), (m, a, b) => `${/^\w+$/.test(a) ? a : '(' + a + ')'}/${/^\w+$/.test(b) ? b : '(' + b + ')'}`);
     // a name (Im, log, an \operatorname) is set off by U+0003 marks, so two names written together keep a space
     // between them (\operatorname{Im}\log z: "Im log z", not "Imlog z"); the marks are resolved once the names are read
     s = s.replace(/\\operatorname\{(\w+)\}/g, '\u0003$1\u0003').replace(/\\(Re|Im|arg|log|sin|cos|exp)\b/g, '\u0003$1\u0003');
-    const WORDS = { pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', zeta: 'ζ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉', Phi: 'Φ', phi: 'φ', varphi: 'φ' };
+    const WORDS = { sum: 'Σ', prod: '∏', pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', zeta: 'ζ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉', Phi: 'Φ', phi: 'φ', varphi: 'φ' };
     s = s.replace(/\\([a-zA-Z]+)/g, (m, w) => (WORDS[w] != null ? WORDS[w] : '\u0003' + w + '\u0003'));
     // a name's mark becomes a space between two letters (Im|log, i|Res), else nothing (sin|(z), log| z, Res|_i)
     s = s.replace(/\u0003+/g, (m, at, all) => (/\p{L}/u.test(all[at - 1] || '') && /\p{L}/u.test(all[at + m.length] || '') ? ' ' : ''));
@@ -536,8 +540,13 @@ const Tour = (() => {
     s = s.replace(/\\\{/g, '\u0001').replace(/\\\}/g, '\u0002');
     s = s.replace(/\\[,;!:]/g, ' ').replace(/\\ /g, ' ');
     const conv = (str, map) => ([...str].every((c) => map[c] != null) ? [...str].map((c) => map[c]).join('') : null);
+    // ([#465] a degree, ^\circ, is the degree sign)
+    s = s.replace(/\^\{?∘\}?/g, '°');
+    // (a single sign first, so a script inside braces is read before its group: z^{2^n} is z^(2ⁿ); what has no modifier
+    // form is written in parentheses, as plain text writes it: ^(∞); a lone index without one follows its letter: Φ_M is ΦM)
+    s = s.replace(/\^([^\s{(])/g, (m, a) => conv(a, SUP) || m).replace(/_([^\s{(])/g, (m, a) => conv(a, SUBS) || m);
     s = s.replace(/\^\{([^{}]*)\}|\^(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUP) || '^(' + v + ')'; });
-    s = s.replace(/_\{([^{}]*)\}|_(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUBS) || '_' + v; });
+    s = s.replace(/_\{([^{}]*)\}|_(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUBS) || ([...v].length === 1 ? v : '_(' + v + ')'); });
     s = s.replace(/[{}]/g, '').replace(/\u0001/g, '{').replace(/\u0002/g, '}');
     return s.replace(/\s*([<>=≠≤≥])\s*/g, ' $1 ').replace(/± (?=\w)/g, '±').replace(/\s+/g, ' ').trim();
   }

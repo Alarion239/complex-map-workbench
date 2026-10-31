@@ -219,8 +219,8 @@ check('tex |Im z|<π/2', T.texPlain('|\\operatorname{Im} z|<\\pi/2'), '|Im z| < 
 check('tex frac', T.texPlain('F(z)=\\frac{e^z-1}{e^z+1}'), 'F(z) = (eᶻ-1)/(eᶻ+1)');
 check('tex power', T.texPlain('z^3-1'), 'z³-1');
 // ([issue #260] the shapes of the Douady–Hubbard map: Φ and φ as letters, not the words Phi and varphi)
-check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg Φ_M(z) = 2π· 1/3');
-check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ_-1(z)| = 1.05');
+check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg ΦM(z) = 2π· 1/3');   // ([#465] no stray _: M has no subscript form)
+check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ₋₁(z)| = 1.05');
 check('tex sub', T.texPlain('f_2\\circ f_1'), 'f₂∘ f₁');
 check('tex neq pm', T.texPlain('z\\neq\\pm i'), 'z ≠ ±i');
 check('tex oint', T.texPlain('\\oint=2\\pi i\\operatorname{Res}_i F=\\pi'), '∮ = 2π i Resᵢ F = π');

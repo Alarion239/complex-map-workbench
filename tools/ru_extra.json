@@ -411,5 +411,10 @@
  "Height key: point at it to unfold, click to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
  "Download offline page ({size})": "Скачать офлайн-версию ({size})",
  "{n} MB": "{n} МБ",
- "Skip": "Пропустить"
+ "Skip": "Пропустить",
+ "Hide the paths t ↦ Hₜ(z)  P": "Скрыть пути t ↦ Hₜ(z)  P",
+ "Show the paths t ↦ Hₜ(z)  P": "Показать пути t ↦ Hₜ(z)  P",
+ "d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw": "d/dz — не отображение, поэтому путей t ↦ Hₜ(z) нет",
+ "Deformation: hide the paths t ↦ Hₜ(z)": "Деформация: скрыть пути t ↦ Hₜ(z)",
+ "Deformation: show the paths t ↦ Hₜ(z)": "Деформация: показать пути t ↦ Hₜ(z)"
 }
