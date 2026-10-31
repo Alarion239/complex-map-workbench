@@ -95,7 +95,7 @@
     const a = document.activeElement;
     if (a && a !== document.body && focusVia === 'key') return false;
     e.preventDefault(); e.stopPropagation();
-    if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+    if (a && a !== document.body && typeof /** @type {HTMLElement} */ (a).blur === 'function') /** @type {HTMLElement} */ (a).blur();
     return true;
   };
   window.addEventListener('keydown', (e) => {
@@ -281,6 +281,7 @@
     sourceViewChanged.pending = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
   }
+  sourceViewChanged.t = undefined; sourceViewChanged.pending = false;
   sourceViewChanged.flush = () => {
     if (!sourceViewChanged.pending) return;
     clearTimeout(sourceViewChanged.t);
@@ -1498,7 +1499,7 @@
       const tag = t.tagName.toLowerCase(), mod = e.ctrlKey || e.metaKey, kk = I18N.keyOf(e) || '', key = kk.toLowerCase();
       if (t.closest('#popHost') && !(mod && key === 'k') && !(e.shiftKey && !mod && !e.altKey && key === 'm')) return;
       // text fields keep their keys and native undo; a select keeps plain keys (type-ahead), not ⌘Z
-      const textEntry = t.isContentEditable || tag === 'textarea' || (tag === 'input' && /^(|text|number|search|email|url|tel|password)$/.test((t.getAttribute('type') || '').toLowerCase()));
+      const textEntry = /** @type {HTMLElement} */ (t).isContentEditable || tag === 'textarea' || (tag === 'input' && /^(|text|number|search|email|url|tel|password)$/.test((t.getAttribute('type') || '').toLowerCase()));
       const typing = textEntry || tag === 'select';
       if (mod && key === 'z' && !textEntry) {
         e.preventDefault();
