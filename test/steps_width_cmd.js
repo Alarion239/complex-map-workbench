@@ -5,6 +5,8 @@
 //   scroll sideways;
 // - › and the plane's own controls (the phone's keys; the laptop's zoom stack, colour key and speed) are what
 //   elementFromPoint finds at their centres.
+// And the thread's ring (#501 review): it follows the rail's own scroll, the hidden ends fade, it keeps clear of the
+// plane's name and is a playhead between planes; on the globe the dimmed draw tools are aria-disabled.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -48,5 +50,38 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
     }
   }
 }
+// (#501 review) the thread's ring: its rail's own scroll is followed (a wheel, then ‹: the ring is in view), the hidden
+// ends fade, the ring keeps clear of the shown plane's name, and between planes it is a playhead under the chips
+const S = () => ev('__cmwSteps()');
+const rest = async () => { for (let i = 0; i < 150; i++) { const s = await S(); if (!s.moving) return s; await sleep(100); } return S(); };
+const ring = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), t = document.querySelector('#svStrip .sv-thumb'), a = r.getBoundingClientRect(), b = t.getBoundingClientRect(),
+  pn = document.querySelector('#svStrip .sv-plane.on .sv-pn'), c = pn ? pn.getBoundingClientRect() : null;
+  return { cx: Math.round(b.left + b.width / 2), l: Math.round(a.left), r: Math.round(a.right), w: Math.round(b.width), between: t.classList.contains('between'), z: getComputedStyle(t).zIndex,
+    fl: r.classList.contains('fade-l'), fr: r.classList.contains('fade-r'), clear: !c || b.bottom <= c.top + 0.5 || b.top >= c.bottom - 0.5 || b.right <= c.left || b.left >= c.right }; })()`);
+for (const [w, h, mobile, lang] of [[1024, 768, false, 'ru'], [360, 780, true, 'en']]) {
+  await open(w, h, mobile, lang, 5);
+  const r0 = await ring(), tag = `${w} ${lang} 5 steps`;
+  ok(`${tag}: on z, the thread's far end fades, its near end does not`, r0.fr && !r0.fl, r0);
+  ok(`${tag}: the ring keeps clear of the shown plane's name`, r0.clear, r0);
+  await ev(`__cmwSteps({ go: 4, now: true }); 1`); await settle(600);
+  const r1 = await ring();
+  ok(`${tag}: on the last plane the near end fades, and the ring is in the rail`, r1.fl && r1.cx >= r1.l && r1.cx <= r1.r && r1.clear, r1);
+  // (a wheel scrolls the rail back to its start; then ‹ glides one plane back: the ring is kept in view)
+  await ev(`(() => { document.querySelector('#svStrip .sv-rail').scrollLeft = 0; return 1; })()`); await settle(300);
+  await ev(`document.querySelector('#svStrip .sv-prev').click(); 1`); await rest(); await settle(400);
+  const r2 = await ring();
+  ok(`${tag}: after the rail was scrolled away, ‹ keeps the ring in view`, r2.cx >= r2.l && r2.cx <= r2.r, r2);
+  await ev(`__cmwSteps({ park: 1.5 }); 1`); await settle(500);
+  const r3 = await ring();
+  ok(`${tag}: parked between planes, the ring is a playhead under the chips`, r3.between && r3.w <= 3 && r3.z === '0', r3);
+}
+// (ux's wave 12 sweep) on the globe the dimmed draw tools say they are off
+await open(1024, 768, false, 'en', 3);
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1200);
+const off = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"], .tool[data-tool="sector"], .tool[data-tool="pgrid"]')].map((b) => b.getAttribute('aria-disabled'))`);
+ok('on the globe, Annulus, Sector and Polar grid are aria-disabled', off.length >= 3 && off.every((v) => v === 'true'), off);
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(800);
+const on = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"]')].map((b) => b.getAttribute('aria-disabled'))`);
+ok('… and on the plane they are not', on.every((v) => v == null), on);
 info.checks = 'steps view: the plane in its column with 3 and 5 steps, phone 360/390 and desk 1024/1440, en and ru';
 return { pass: fails.length === 0, fails, info };
