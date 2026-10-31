@@ -42,6 +42,22 @@ const watchX = async (ms) => {
   for (let i = 0; i < 600; i++) { await sleep(100); const w = await ev('window.__wx'); if (w && w.done) return w; }
   return ev('window.__wx');
 };
+// the speed, measured in the page: x against performance.now() once a frame through a whole glide from z to w₂, then the slope of the
+// samples between 0.03 and 1.97 (least squares), in planes a second. The poll's round trip (which takes a second here) is no part of it;
+// a frame that is late moves a sample's x, not the rate
+const rateAt = async (speed) => {
+  await ctl({ go: 0, now: true });
+  await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
+  await ctl({ play: true });
+  await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(), t = performance.now(); window.__rt.s.push([t, x]); if (x >= 1.999 || t - t0 > 20000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); })(); 1`);
+  let rt = null;
+  for (let i = 0; i < 300; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
+  const p = rt.s.filter(([, x]) => x > 0.03 && x < 1.97);
+  if (p.length < 3) return { rate: null, n: p.length };
+  const n = p.length, mt = p.reduce((a, [t]) => a + t, 0) / n, mx = p.reduce((a, [, x]) => a + x, 0) / n;
+  const num = p.reduce((a, [t, x]) => a + (t - mt) * (x - mx), 0), den = p.reduce((a, [t]) => a + (t - mt) * (t - mt), 0);
+  return { rate: +(num / den * 1000).toFixed(3), n };
+};
 // ---- the desktop ----
 await open(1280, 800, false, true);
 await ctl({ scope: 'all' });
@@ -71,12 +87,16 @@ const pz = await S();
 ok('▶ again pauses: it stays where it was, and nothing moves on', pz.play === null, pz);
 await sleep(300); const pz2 = await S();
 ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x]);
+// (nominal planes a second: slow 0.5, normal 1.11, each told from the other; fast, 2.2, is a 0.9 s glide that a software renderer's frames
+// do not sample)
+{ const r = await rateAt('slow'), n = await rateAt('normal');
+  ok('the speeds are what they say: slow about 0.5 planes a second, normal about 1.1', r.rate > 0.3 && r.rate < 0.7 && n.rate > 0.8 && n.rate < 1.5, { slow: r, normal: n }); }
 await ctl({ go: 0, now: true });
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
 await ev(`document.querySelector('.sv-play').click(); 1`);
 await sleep(1000);
 const sl = await S();
-ok('at slow (2 s a plane) it is still on its way a second in, not done', sl.play === 'glide' && sl.x > 0.02 && sl.x < 1.95, sl);   // (a poll's own round trip can take a second here: still playing, not done)
+ok('a play at slow is still going a second in', sl.play === 'glide', sl);
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
 const e2 = await until((s) => !s.play);
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
