@@ -63,9 +63,11 @@ env:
 
 jobs:
   # (#379) a pull request into another branch than main marked ready for review: the Gate run of this PR on the same
-  # commit that passed, if the newest one did (mirror: its id). Then nothing runs again (the plan's tier none) and the
-  # Gate job carries that run's verdict. Otherwise (queued, running, failed, cancelled, none; any other event, a PR into
-  # main) mirror is empty and the run is the usual one, so a green Gate never stands on a commit before a gate passed
+  # commit that passed, or that is still queued or running (its push's run), if the newest one is (mirror: its id). Then
+  # nothing runs again (the plan's tier none) and the Gate job carries that run's verdict: at once when it passed,
+  # once it ends when it is still going (the same tier on the same commit twice was the waste). Otherwise (failed,
+  # cancelled, none; any other event, a PR into main) mirror is empty and the run is the usual one. Either way a green
+  # Gate never stands on a commit before a gate passed on it
   ready:
     name: Ready for review, already gated?
     runs-on: ubuntu-latest
@@ -91,6 +93,9 @@ jobs:
           case "$other" in
             *" completed success") echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
                                    echo "Gated by run ${other%% *} of this PR on this commit (it passed): nothing runs again." >> "$GITHUB_STEP_SUMMARY" ;;
+            *" queued "|*" in_progress "|*" waiting "|*" requested "|*" pending ")
+               echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
+               echo "Run ${other%% *} of this PR is gating this commit ($other): nothing runs again; the Gate job waits for it and carries its verdict." >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "mirror=" >> "$GITHUB_OUTPUT"
                echo "No passing Gate run of this PR on this commit yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY" ;;
           esac
@@ -171,7 +176,7 @@ jobs:
         run: |
           set -eu
           if [ -n "$MIRROR" ]; then
-            why="marked ready for review into ${BASE}: this commit was gated by run ${MIRROR} of this PR, which passed; nothing to re-run"
+            why="marked ready for review into ${BASE}: run ${MIRROR} of this PR gates this commit (passed, or still running: the Gate job carries its verdict); nothing to re-run"
             printf '%s\n' "tier=none" "why=$why" "browser=[]" "glsl=[]" "quality=[]" "perf=false" "quality_force=" "perf_force=" >> "$GITHUB_OUTPUT"
             printf '**Tier none**: %s\n' "$why" >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -419,7 +424,8 @@ jobs:
       contents: read
       actions: read
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # (tier none mirroring a run still going waits for it: as long as a Gate run may take)
+    timeout-minutes: ${{ needs.plan.outputs.tier == 'none' && 330 || 5 }}
     steps:
       - name: Every job the plan chose passed
         shell: bash
@@ -440,12 +446,18 @@ jobs:
           printf '**Tier %s**: %s\n\nBrowser shards: %s\n' "${TIER:-?}" "${WHY:-}" "${BROWSER:-[]}" >> "$GITHUB_STEP_SUMMARY"
           bad=0
           [ "${{ needs.plan.result }}" = success ] || { echo "::error::plan: ${{ needs.plan.result }}"; bad=1; }
-          # (tier none, #379: nothing ran here, and this Gate check, the newest on the commit, carries the verdict of the
-          # passing Gate run of this PR on the same commit that the job ready found: checked again here)
+          # (tier none, #379: nothing ran here, and this Gate check carries the verdict of the Gate run of this PR on the
+          # same commit that the job ready found: checked again here, and waited for while it is still going, so this
+          # check is never green before that run passed)
           if [ "${TIER:-}" = none ]; then
             [[ "$MIRROR" =~ ^[0-9]+$ ]] && [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::tier none without a mirrored run ($MIRROR)"; exit 1; }
-            got=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MIRROR" --jq "\"\\(.status) \\(.conclusion // \"\") \\(.head_sha) \\((.pull_requests // []) | any(.number == $PR))\"")
-            echo "run $MIRROR: $got"
+            fails=0
+            while :; do
+              got=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MIRROR" --jq "\"\\(.status) \\(.conclusion // \"\") \\(.head_sha) \\((.pull_requests // []) | any(.number == $PR))\"") || got="error (the look-up failed)"
+              echo "run $MIRROR: $got"
+              case "$got" in completed*) break ;; error*) fails=$((fails + 1)); [ "$fails" -lt 5 ] || break ;; esac
+              sleep 60
+            done
             if [ "$got" = "completed success $HEAD_SHA true" ]; then echo "Gated by run $MIRROR of this PR on this commit (it passed)." >> "$GITHUB_STEP_SUMMARY"; exit $bad; fi
             echo "::error::run $MIRROR is not a passing Gate run of #$PR on $HEAD_SHA ($got)"; exit 1
           fi
