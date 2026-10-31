@@ -201,6 +201,13 @@ const hp = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r =
 ok('phone: the band\'s × is 44 px and a tap at its centre lands on it', hp.hit && hp.w >= 43.5 && hp.h >= 43.5, hp);
 await ctl({ range: null });
 
+// ---- a narrow phone (360): the range's × stays inside the screen, even at the last plane ----
+await open(360, 740, true, true);
+await ctl({ range: [1, 2] }); await settle(400);
+const nw = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { l: r.left, r: r.right, w: r.width, h: r.height, iw: window.innerWidth, hit: e === x || x.contains(e) }; })()`);
+ok('360 px: the × is 44×44, inside the screen, and hit-tests on itself, with the range ending on the last plane', nw.l >= 0 && nw.r <= nw.iw + 0.5 && nw.w >= 43.5 && nw.h >= 43.5 && nw.hit, nw);
+await ctl({ range: null });
+
 // ---- without the flag: no ▶ ----
 await open(1280, 800, false, false);
 ok('without ?view=steps there is no ▶ and no band', await ev(`!document.querySelector('.sv-play') && !document.querySelector('.sv-band')`), 'classic');
