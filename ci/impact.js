@@ -191,7 +191,7 @@ function glslPagesOf(f) {
 // [#385] the files that name window.__cmw<name> (a whole word): the browser suites (test/*_cmd.js) and unit tests are
 // fine; anything else that calls a hook (the app itself, the quality and perf runners, ci/, the cdp kit) is outside
 function hookCallers(names) {
-  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[$]/g, '\\$&')).join('|')})\\b`);
+  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`);
   const suites = [], outside = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
