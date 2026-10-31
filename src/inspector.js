@@ -101,8 +101,14 @@ const Inspector = (() => {
       const w = wOf();
       if (w <= avail + 0.5) return true;
       if (minScale >= 1) return false;
-      const f = Math.max(minScale, Math.floor((avail / w) * 100) / 100);
+      // (the width does not scale exactly with the size: the glyphs' advances and the math's spacing round, and by a pixel or two
+      // with a face whose x-height differs; so the scale is corrected up to twice from the width it gave)
+      let f = Math.max(minScale, Math.floor((avail / w) * 100) / 100);
       node.style.fontSize = Math.round(f * 100) + '%';
+      for (let i = 0; i < 2 && wOf() > avail + 0.5 && f > minScale; i++) {
+        f = Math.max(minScale, Math.floor(f * (avail / wOf()) * 100) / 100 - 0.01);
+        node.style.fontSize = Math.round(f * 100) + '%';
+      }
       return wOf() <= avail + 0.5;
     }
     // a formula in its well: the full form when it fits, else the alternative (alt), then smaller; decided once per
