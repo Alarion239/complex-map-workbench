@@ -100,6 +100,7 @@ html:not(.ph) .ph-only { display: none !important; }
    z = … and w = F(z) = … (no doubled z) */
 :root.ph #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (#483: a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
 :root.ph .chip.readout > .rln { grid-column: 2; }
@@ -254,6 +255,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-morph .tdock .seg > button:not(.on) { display: none; }
 :root.ph.ph-morph .tdock .seg::before { display: none; }
 /* the readout rides the handle: its left edge follows the fill (--fill, set on the scrubber with the range's) */
+/* (#483) the tick labels (f, f₁) are not drawn on a phone: they sat on the readout, which rides the handle and names the step, and in landscape on the
+   slider's own box. The marks stay, and the dock keeps its height */
+:root.ph .ttick { height: 0; font-size: 0; line-height: 0; }
+:root.ph .ttick > * { display: none; }
 :root.ph.ph-morph .tdock .tscrub > .tread {
   position: absolute; top: 0; left: clamp(0px, calc(var(--fill, 0%) - 70px), calc(100% - 140px)); width: 140px; padding: 0; text-align: center; font: 600 11px/14px var(--f-ui); color: var(--ink); pointer-events: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
@@ -299,7 +304,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-full.ph-split:not(.ph-land) .pipe-wrap { transform: translateY(calc(-1 * var(--ph-hp, 0px))); }
 .ph-sh { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 4px 0 16px; border-bottom: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
 .ph-sh > .grow { display: none; }
-.ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 44px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
+/* (#483) its hit box is the 18 px strip above the title row, not 44 px over it: a tap on the top of the title or of "Replace f₂" grabbed the
+   sheet. A press anywhere on the head already resizes it (phone.js), so no way to the grabber is lost */
+.ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 18px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
 .ph-grab::before { content: ""; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; translate: -50% 0; border-radius: 2px; background: var(--line-strong); }
 .ph-st { position: relative; flex: 1 1 auto; font: 600 15px/18px var(--f-ui); color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; pointer-events: none; }
 .ph-x { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
@@ -375,6 +382,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-vopts .seg.sty-seg .sty-g svg { width: 20px; height: 20px; }
 :root.ph .ph-vopts .tg-ic { display: none; }
 /* More (⋯) rows */
+/* (#483) the rows fill their sheet's width: the focus ring is drawn inside them, where the sheet's edge cannot cut it */
+.ph-row:focus-visible, .ph-srow:focus-visible, .ph-style:focus-visible { outline-offset: -2px; }
 .ph-row, .ph-srow, .ph-style { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: 400 15px/20px var(--f-ui); text-align: left; }
 .ph-row:active, .ph-style:active { background: var(--well); }
 .ph-row[hidden], .ph-srow[hidden], .ph-style[hidden] { display: none; }
@@ -409,6 +418,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
 :root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph .snd-pop { z-index: 46; }
+/* (#464) the function palette and the search rise from below but stop above the chain bar (where the layout puts it: a toast's row and the steps strip count), and start under the tour's strip (a tap on it still reaches it), so the chain they add to stays in sight; with
+   the keyboard up they stop above it too, and fill what is left under the header */
+:root.ph .pop.palette { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + 8px) !important; bottom: max(calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)), var(--ph-kb, 0px)) !important; height: auto !important; max-height: none !important; border-radius: var(--r-4); border-bottom: 1px solid var(--line-strong); padding-bottom: 0; }
+/* (eyes, #479: a phone sideways with the keyboard up has about 120 px for the sheet: the field and the results; the Insert row is back when the keyboard goes) */
+:root.ph.ph-land.ph-kb .pop.palette .pal-atrow { display: none; }
+/* (eyes, #479: the preview beside the results (a phone wider than 767 px sideways) gives its image the room the caption leaves, instead of running the caption off the sheet's foot) */
+:root.ph .pal-preview > canvas { flex: 0 1 auto; min-height: 0; align-self: center; width: auto; max-width: 100%; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
    sheets a 360 px side sheet on the right, both planes still in sight ---------- */
@@ -452,11 +468,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (design-3's lamp-only F tile went with the tile, #246: the chain sheet's whole-map row names its guarantees) */
 /* design-10: the Editor has one head, the Inspector's: the grabber is a thin bar above it, × floats at its right end */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 18px; height: 18px; padding: 0; border-bottom: 0; }
-/* (its tap area stays 44 px tall, over the head's title, clear of the head's buttons) */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 44px; z-index: 2; }
+/* (its tap area is 18 px tall, above the head's title, clear of the head's buttons) */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 18px; z-index: 2; }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
+/* (#483) its empty part drags the sheet, as the head does (phone.js), so a finger there does not scroll */
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { touch-action: none; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
 /* (the step's title is a 44 px button: its one line is centred in it, level with the f₃ chip and the type glyph beside it) */
 :root.ph .ph-sheet #propsPanel .insp-step .ihead .ttl-btn { line-height: 40px; }
@@ -601,7 +619,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-surf { display: none; }
 :root.ph.sv .sv-head .seg > button { padding: 0 8px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
-:root.ph.sv .sv-fchip { height: 44px; padding: 0 12px; border-radius: 22px; }
+:root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 12px; border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv .sv-speed { display: none; }

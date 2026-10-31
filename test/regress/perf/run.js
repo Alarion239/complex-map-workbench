@@ -329,6 +329,7 @@ async function sceneStatics(prefix) {
 // A unit is one page load with its scenarios; --only / --skip select units by id (see --list).
 const UNITS = [];
 const unit = (id, desc, fn, extra) => UNITS.push(Object.assign({ id, desc, fn }, extra || {}));
+const unitLimitS = (u) => Math.max(UNIT_TIMEOUT_S, (u && u.timeoutS) || 0);
 
 // page code that presses the deformation's Play / Pause button when the app's playing state is not `play` (opening the
 // deformation starts it playing; the button's name is in its aria-label)
@@ -839,6 +840,134 @@ async function openFresh() {
   await B.until('typeof __cmwInfo === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
   await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
   await settle(await pageNow());
+}
+// [#366 A2, #448] the steps view's first glide (?view=steps): once the view has opened and idled SV_IDLE_MS (its glide
+// programs prestarted through KHR_parallel_shader_compile, svPrestart), the first glide's longest frame must stay under
+// SV_FIRST_LIMIT (no synchronous program link); its LINK_STATUS waits over 5 ms are counted. A warm glide's frame p95
+// for comparison. Scenes: the default page, and the zeros of zeta (looked up by name), whose chain is long. The
+// reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
+const SV_FIRST_LIMIT = 50, SV_IDLE_MS = 3000;
+// an example's index by its English name, read with ci/glprof.js's pattern (an example inserted before it moves the
+// index, not the scene); a name that is not an example's throws: the unit never measures another scene in its place
+function exampleIndex(name) {
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
+  const i = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'")).indexOf(name);
+  if (i < 0) throw new Error(`no example named ${name} (src/app/15-examples-guide.js)`);
+  return i;
+}
+const SV_LINKWAIT = `(() => { if (window.__svLw) return; const W = window.__svLw = { n: 0, ms: 0 };
+  for (const P of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype]) {
+    const f = P.getProgramParameter;
+    P.getProgramParameter = function (p, pn) { if (pn !== this.LINK_STATUS) return f.call(this, p, pn); const a = performance.now(), r = f.call(this, p, pn), d = performance.now() - a; if (d > 5) { W.n++; W.ms += d; } return r; };
+  } })()`;
+async function svFirstGlideUnit() {
+  for (const scene of ['default', 'zeta']) {
+    const longest = [], waits = [], waitMs = [], first95 = [], warm95 = [];
+    for (let i = 0; i < REPS; i++) {
+      await B.nav(`${BASE}test.html?ns=perfsv${process.pid}_${++nsCounter}&view=steps`);
+      await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+      await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      if (scene === 'zeta') await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
+      await settle(await pageNow());
+      if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+      await sleep(SV_IDLE_MS);
+      await B.ev(SV_LINKWAIT);
+      const glide = async (to) => {
+        const w0 = await B.ev('JSON.stringify(__svLw)'), a = await pageNow();
+        await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+        await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+        const b = await pageNow(), w1 = JSON.parse(await B.ev('JSON.stringify(__svLw)')), w = JSON.parse(w0);
+        const fr = (await B.ev(`__perf.framesSince(${a}, ${b + 20})`)).filter((f) => f[4] > 0);
+        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), frame: fr.map((f) => f[1] + f[2]), n: w1.n - w.n, ms: w1.ms - w.ms };
+      };
+      const f = await glide(1);
+      longest.push(f.cpuMax); waits.push(f.n); waitMs.push(f.ms); first95.push(quant(f.frame, 0.95));
+      await settle(await pageNow());
+      await glide(0);
+      await settle(await pageNow());
+      const g = await glide(1);
+      warm95.push(quant(g.frame, 0.95));
+    }
+    const pre = `sv.first_glide.${scene}`;
+    put(`${pre}.longest_ms`, 'limit', 'ms', longest, { limit: SV_FIRST_LIMIT });
+    put(`${pre}.link_waits`, 'info', '', waits);
+    put(`${pre}.link_wait_ms`, 'info', 'ms', waitMs);
+    put(`${pre}.frame_p95_ms`, 'info', 'ms', first95);
+    put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
+  }
+}
+// [#366 K] the steps view's own interactions, parked half-way between z and w1 (svRenderMoving's paths, not the
+// classic renders): the strip scrub (Everywhere and Inside regions), a pan of the plane with Inside regions, and an
+// orbit on the globe (Surface: Sphere, Space held). One unit per scene (each within UNIT_TIMEOUT_S on a GPU): the
+// default page, zeta and the Mountain King (by name), on a GPU only. gl_copies: GLR.blit calls per frame drawn while
+// scrubbing Everywhere, at most SV_COPIES_LIMIT (#492, #503: the grid, the colour layer and the outlines in one GL
+// frame, one copy). The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
+const SV_COPIES_LIMIT = 1.25;
+const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
+async function svInteractUnit(scene) {
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
+  // Mountain King's programs alone take minutes: skipped there, said in the details; CMW_SV_SOFT=1 runs them anyway)
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.interact.${scene}`, 'skipped: a software renderer (one rep outlasts the unit\'s time limit there)'); return; }
+  const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
+  // a timed window around fn, then its settle (as dragLeg)
+  const leg = async (fn) => {
+    const bl0 = await B.ev('__svBl.n'), a = await pageNow();
+    await fn();
+    const b = await pageNow(), bl1 = await B.ev('__svBl.n');
+    const w = await windowStats(a, b);
+    const st = await settle(b);
+    return Object.assign(w, { blits: bl1 - bl0, settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now), a, b });
+  };
+  const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
+  {
+    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = [];
+    // (the reps stop early, said in the details, when the next one would pass 75% of the unit's time limit: fewer reps,
+    // not a timeout, which aborts the whole run)
+    const t0 = Date.now(), budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.interact.${scene}`)) * 1000;
+    for (let i = 0; i < REPS; i++) {
+      if (i > 0 && (Date.now() - t0) / i * (i + 1) > budget) { detail(`sv.interact.${scene}.reps`, `${i} of ${REPS} (the next rep would pass 75% of the unit's time limit)`); break; }
+      await B.nav(`${BASE}test.html?ns=perfsvi${process.pid}_${++nsCounter}&view=steps`);
+      await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+      await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
+      await settle(await pageNow());
+      if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+      await sleep(SV_IDLE_MS);
+      await B.ev(SV_GLCOUNT);
+      // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
+      for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+      await settle(await pageNow());
+      for (const scope of ['all', 'in']) {
+        await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
+        await settle(await pageNow());
+        const r = await B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+        const l1 = await leg(() => B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 }));
+        const l2 = await leg(() => B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }));
+        // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
+        if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
+        R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
+        if (scope === 'all') copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
+      }
+      // Inside regions (left from the scrub), parked: a pan of the plane (middle drag, as the other units' pans)
+      await park();
+      R['pan.in'].push(legSummary([await dragLeg('L', 160, 60, 'middle'), await dragLeg('L', -160, -60, 'middle')], 'pointermove'));
+      // the globe, parked: an orbit (Space held: a plain left drag on a region would move it, P3b)
+      await B.ev(`__cmwSteps({ scope: 'all', surf: 'sphere' }), 1`);
+      await park();
+      R.orbit.push(legSummary([await dragLeg('L', 160, 60, 'left', 40, 16, true), await dragLeg('L', -160, -60, 'left', 40, 16, true)], 'pointermove'));
+    }
+    for (const [k, reps] of Object.entries(R)) {
+      const id = `sv.${k}.${scene}`;
+      putPooled(`${id}.frame_p95_ms`, 'frame_ms', 'ms', reps, 'frame', 0.95, 'frame_p95');
+      putPooled(`${id}.cpu_p95_ms`, 'frame_ms', 'ms', reps, 'cpu', 0.95, 'cpu_p95');
+      putPooled(`${id}.latency_p95_ms`, 'info', 'ms', reps, 'lat', 0.95, 'lat_p95');
+      put(`${id}.fps`, 'info', 'frames/s', reps.map((r) => r.fps));
+      put(`${id}.settle_jank_ms`, 'jank_ms', 'ms', reps.map((r) => r.jank));
+    }
+    put(`sv.interact.${scene}.reps`, 'info', '', [R.orbit.length]);
+    put(`sv.scrub.all.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
+  }
 }
 async function cardsStartupUnit() {
   await B.send('Profiler.enable');
@@ -1608,6 +1737,10 @@ unit('scrub.morph', 'parameter scrub with the deformation open and paused (its a
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
+unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
+unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
+unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
+unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
@@ -1769,7 +1902,9 @@ async function main() {
       log(u.id + tag);
       CURRENT_UNIT = u.id;
       let timer = null;
-      const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`unit timed out after ${UNIT_TIMEOUT_S} s (machine stalled?)`)), UNIT_TIMEOUT_S * 1000); });
+      // (a unit may ask for a longer limit, extra.timeoutS: never shorter than --unit-timeout)
+      const limS = unitLimitS(u);
+      const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`unit timed out after ${limS} s (machine stalled?)`)), limS * 1000); });
       OPENED = []; scenes.set(res, OPENED);
       try { await Promise.race([u.fn(), timeout]); } catch (e) {
         failed.set(res, String(e && e.message || e));

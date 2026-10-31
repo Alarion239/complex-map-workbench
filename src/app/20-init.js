@@ -34,7 +34,7 @@
   // page reloads with it; the figure before it is kept for Undo (undoOpen)
   function openFigure(state, how) {
     let st = null;
-    // (v16.3.1: constructions this build cannot read are freed here, before the reload; the toast after it says so)
+    // (constructions this build cannot read are freed here, before the reload; the toast after it says so)
     /** @type {any} */ (cmLoad).freed = 0;
     try { st = sanitizeState(JSON.parse(JSON.stringify(state))); } catch (e) { st = null; }
     if (!st) { sndError(); toast(how === 'scene' ? $t('This scene could not be read.') : $t('This link does not hold a figure.')); return false; }
@@ -97,7 +97,7 @@
     // after opening a link or a scene: say so, with Undo (the figure before it)
     let opened = null;
     try { opened = sessionStorage.getItem(lsk('cmw-opened')); sessionStorage.removeItem(lsk('cmw-opened')); } catch (e) { opened = null; }
-    // (v16.3.1: with the note that some constructions were opened as plain shapes, freed by openFigure before the
+    // (with the note that some constructions were opened as plain shapes, freed by openFigure before the
     // reload, or by this load; this toast would replace the note's own toast)
     if (opened) {
       const freed = /:freed$/.test(opened) || !!(/** @type {any} */ (cmLoad)).freed, how = opened.replace(/:freed$/, '');
@@ -129,7 +129,7 @@
     Integrals.init(integralsApi());   // the integrals (src/integrals.js)
     Examples.init(examplesApi());   // the examples and the guide (src/examples.js)
     // TEMP-DEBUG-HOOK (removed before publishing)
-    // (v15: the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
+    // (the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
     if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
     // i18n (notes/i18n/DESIGN.md 2): English does nothing here
@@ -202,7 +202,7 @@
     // narrow windows start with the drawers closed (run-time only: save() writes dockPref)
     if (isDrawer('R')) setHidden('R', true);
     if (isDrawer('L')) setHidden('L', true);
-    // (v15, 1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
+    // (1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
     if (oneDock()) { if (S.steps.length) { setHidden('L', true); setHidden('R', false); } else { setHidden('L', false); setHidden('R', true); } }
     if (S.clipWin) clipWin = S.clipWin;
     paneL.resize(); paneR.resize();
@@ -216,7 +216,7 @@
     buildDisplay();
     setupPane(paneL, 'L');
     setupPane(paneR, 'R');
-    PlaneMenu.init(planeMenuApi());   // the planes' context menu (v15)
+    PlaneMenu.init(planeMenuApi());   // the planes' context menu
     Commands.init(commandsApi());   // the command palette (src/commands.js)
     Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
     if (Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
@@ -309,12 +309,12 @@
     try { const k = lsk('cmw-probe'); localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { warnStorage(); }
     if (window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(() => TeX.onReady());
     setupLateFonts();
-    // v15: the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
+    // the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
     Phone.init(phoneApi());
     // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
-    // (v15.1: and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
+    // (and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
     // build/phone-swap.md)
     if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     setupStepsView();   // ((#366 prototype) ?view=steps)

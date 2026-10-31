@@ -665,7 +665,15 @@ const Phone = (() => {
   // The sheet also swallows a stray click and its focus for 400 ms after a resize.)
   function grabber(head) {
     let y0 = null, dy = 0, id = null, onGrab = false, tap = 0, tapT = 0;
-    head.addEventListener('pointerdown', (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } });
+    const down = (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } };
+    head.addEventListener('pointerdown', down);
+    // (#483: the Editor's head is its 18 px bar, with the grab handle cut to it so that it no longer covers the title row; the title row,
+    // the Inspector's .ihead, drags the sheet too, wherever nothing in it can be pressed)
+    els.sheet.addEventListener('pointerdown', (e) => {
+      const t = /** @type {Element} */ (e.target);
+      if (kind !== 'edit' || els.sheet.classList.contains('nums') || !t.closest || !t.closest('#propsPanel .ihead') || t.closest('button, a, input, select, textarea, summary, [role="button"], [tabindex]')) return;
+      down(e);
+    });
     head.addEventListener('pointermove', (e) => { if (y0 == null || e.pointerId !== id) return; dy = e.clientY - y0; if (Math.abs(dy) > 4) els.sheet.style.transform = `translateY(${Math.max(full ? -0 : -40, dy)}px)`; });
     const end = (e) => {
       if (y0 == null || e.pointerId !== id) return;

@@ -2,7 +2,7 @@
   const NS = (() => { try { return new URLSearchParams(location.search).get('ns') || ''; } catch (e) { return ''; } })();
   const KEY = NS ? 'cmw-sound:' + NS : 'cmw-sound';
   const TIERS = ['ui', 'events', 'sonify'], TI = { ui: 0, events: 1, sonify: 2, aud: 3 };
-  // (v15, the user's defaults, notes/sound/README.md: sound on, Interface and Mathematical events on, Snap ticks and
+  // (the user's defaults, notes/sound/README.md: sound on, Interface and Mathematical events on, Snap ticks and
   // Hear the function off. A ?ns= test page starts off, so the quality and perf suites stay silent unless a test turns
   // it on. These apply only when nothing is stored: a stored choice always wins.)
   // glide: Hear the function as one continuous voice instead of notes (a per-device preference; never in a link)

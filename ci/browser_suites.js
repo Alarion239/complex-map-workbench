@@ -5,7 +5,8 @@
 //             screenshot writers), suites another job runs, superseded ones, and those that need the GPU machines
 //   SUITES    per suite: runs (one row each: a label, a preamble on the suite's first line, env), pages (extra pages
 //             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape), keepShots (keep its
-//             screenshots when it passes: a suite that reports with marked shots)
+//             screenshots when it passes: a suite that reports with marked shots), logLine (its result as one line
+//             of the job's log, from its result)
 //   TIMING    per suite, the checks that measure speed (by name): reported with their numbers, not gated. A check whose
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
@@ -68,14 +69,21 @@ const SUITES = {
     runs: [{ label: '1440' }, { label: '390-dark', preamble: 'globalThis.WALK = { w: 390, dark: true };' }],
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
+  // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
+  'raw_tex_cmd.js': { pages: ['tex-mj.js', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}';` })) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
-  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
-  // violations go to its result's report, and the job does not fail on them)
+  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
+  // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
+  // baseline and does not now; the rest go to its result's report)
   'layout_invariants_cmd.js': {
     keepShots: true,
+    // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
+    // (the rows this run no longer sees: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
+    note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
+    logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
-      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
+      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'gate' };` })),
   },
 };
 
@@ -166,10 +174,18 @@ const old = (commit) => (dist, name) => {
   fs.copyFileSync(path.join(R.dist, 'test.html'), path.join(dist, name));
   console.log(`dist/${name}: test.html of ${commit}`);
 };
+// test.html with its MathJax script tag (build.py's CDN tag) replaced
+const MJ_TAG = '<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>';
+const mjPage = (dist, tag) => { const t = fs.readFileSync(path.join(dist, 'test.html'), 'utf8'); if (t.split(MJ_TAG).length !== 2) throw new Error('test.html: its MathJax script tag'); return t.replace(MJ_TAG, tag); };
 const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
+  // ([#465] the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
+  // from vendor/, not the CDN, so the typeset page is the same on every runner)
+  'tex-mj.js': (dist, name) => fs.copyFileSync(path.join(__dirname, '..', 'vendor', 'js', 'tex-svg.js'), path.join(dist, name)),
+  'test-mj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '<script async src="tex-mj.js"></script>')),
+  'test-nomj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '')),
   // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)

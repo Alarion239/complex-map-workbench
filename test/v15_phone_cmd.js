@@ -1,4 +1,4 @@
-// The phone layout (v15, src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
+// The phone layout (src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
 // Checks, at 360 × 780, 390 × 844 and 430 × 932, light and dark, English and Russian: one screen without page scroll
 // or sideways overflow; no control under 44 × 44 on the main screen, in each sheet and in the long-press menu; every
 // task of DESIGN.md 5 with its tap count; X | Y side by side above an open sheet, the planes resized once, after the
@@ -67,6 +67,9 @@ const audit = (scope) => ev(`(() => {
   const small = []; let total = 0;
   for (let e of root.querySelectorAll(sel)) {
     if (e.closest('[hidden], .ph-inset .plot, .xf, .modal-bg')) continue;
+    // (the sheet's grab handle is the 18 px strip above its title row, #483; phone.css exempts it from the 44 px rule too,
+    // :not(.ph-grab): the head's row is the drag target, which test/phone_sheet_target_cmd.js holds to 44 px)
+    if (e.matches('.ph-grab')) continue;
     if (e.matches('input[type=checkbox], input[type=radio]') && e.closest('label')) e = e.closest('label');
     const s = getComputedStyle(e);
     if (!e.getClientRects().length || s.visibility === 'hidden' || +s.opacity === 0 || s.pointerEvents === 'none') continue;

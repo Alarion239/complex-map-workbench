@@ -138,7 +138,7 @@
     if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (review v16 regress-6: saved from here on)
     rebuild(); buildShapeList(); buildPipeline(); buildDisplay();
     setFocus(Math.min(S.focus || 0, S.steps.length));
-    const xl = document.querySelector('#examplesBtn .exlabel');
+    const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
       setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
       if (m.morph.open && morphRange().steps.length) openTransport();

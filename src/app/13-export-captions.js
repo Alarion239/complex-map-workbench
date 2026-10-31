@@ -69,7 +69,7 @@
     if (!head) return;
     let chip = $('aloneChip');
     if (!chip) {
-      // (v15.2: ‹ and › walk the steps one by one, in the head strip, never over the plane)
+      // (‹ and › walk the steps one by one, in the head strip, never over the plane)
       const nav = (d) => h('button', { class: 'icon-btn ac-nav ' + (d < 0 ? 'prev' : 'next'), type: 'button', 'aria-label': d < 0 ? $t('Show the previous step alone') : $t('Show the next step alone'), 'data-tip': d < 0 ? $t('Show the previous step alone') : $t('Show the next step alone'),
         onclick: () => { const j = S.focus + d; if (j >= 1 && j <= S.steps.length) { setFocus(j); requestRender('P'); } } }, d < 0 ? '‹' : '›');
       chip = h('span', { class: 'alone-chip', id: 'aloneChip', hidden: true }, nav(-1), h('span', { class: 'ac-t' }), nav(1),

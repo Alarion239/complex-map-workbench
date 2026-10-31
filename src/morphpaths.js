@@ -98,7 +98,7 @@ const MorphPaths = (() => {
     for (const s of X.vis) if (kindType(s) === 'point' && s.p) seeds.push({ z: C(s.p[0], s.p[1]), kind: 'point' });
     const eg = sep / 3;
     let nEdge = 0, nNode = 0;
-    // (v16, notes/deform-range/SPEC.md 5.2, D6: when H_0 is not the identity, a bracket's pre or post or a focused step
+    // (notes/deform-range/SPEC.md 5.2, D6: when H_0 is not the identity, a bracket's pre or post or a focused step
     // k > 1, the seeds are spaced at their starts H_0(z) in the plane, not at z: the boundary mapped through H_0, and a
     // z-grid binned by the screen point of H_0(z). With H_0 = id, today's code below, unchanged)
     const startId = !(A.S.focus > 1 || (A.S.focus === 0 && !!homRangeOk()));
@@ -242,7 +242,7 @@ const MorphPaths = (() => {
       // and the turn there: a turn over PATHS.vee (120) degrees, or over 100 with a short leg, is a doubled-back V that
       // reads as two paths flowing into one point (rejected); a milder turn costs a little. On a small pane every step's
       // leg must reach the arrowhead limit (stubPx), as a whole path must: a shorter leg crowds its arrowhead and the bar
-      // onto a V (v15.2: Strip to disk on a phone kept one 44 px path with two arrowheads and a bar)
+      // onto a V (Strip to disk on a phone kept one 44 px path with two arrowheads and a bar)
       const pk = [];
       let turn = 0, vee = false;
       if (mt.seq) {
@@ -767,7 +767,7 @@ const MorphPaths = (() => {
   }
   // the homotopy phrase of the open deformation (morph-figure.md 5, table). Tend < m ('Up to t'): the phrase states the
   // whole homotopy, and the caption says once, at sentence level, which part is shown (stop)
-  // (v16, SPEC 8) the bracket in TeX: pre 'f_1', post 'f_3' (three or more: f_6\circ\cdots\circ f_4), H_0 = qp and
+  // (SPEC 8) the bracket in TeX: pre 'f_1', post 'f_3' (three or more: f_6\circ\cdots\circ f_4), H_0 = qp and
   // H_0(z) = qpz; null without a bracket or with no step outside it
   function rangeTex() {
     const p = A.S.focus === 0 ? rangeParts() : null;
@@ -845,7 +845,7 @@ const MorphPaths = (() => {
     });
     return { segs, stop, mobius: false };
   }
-  // (v16, SPEC 8) the homotopy with a bracket: "the homotopy H_t = f_3 o G_t o f_1, 0 <= t <= m, where G_t is <inner>";
+  // (SPEC 8) the homotopy with a bracket: "the homotopy H_t = f_3 o G_t o f_1, 0 <= t <= m, where G_t is <inner>";
   // inner is the bracketed part (a step's phrase with H renamed G; in turn or at once, with the "for f_k" list)
   function morphHomSegsRange(Tend, rt) {
     const { steps } = morphRange();
@@ -924,13 +924,13 @@ const MorphPaths = (() => {
     const head = opt.both ? [{ t: nSets > 1 ? $t('the sets of (a)') : $t('the set of (a)') }] : A.S.focus > 1 ? (A.S.focus - 1 === 1 ? capT('The image of %{set} after the first step', { set: setGen }) : capT('The image of %{set} after %{n} steps', { set: setGen, n: String(A.S.focus - 1) })) : cap1(setSegs);
     const its = nSets > 1 ? $t('their image') : $t('its image');
     const endM = { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}` : mapM };
-    // (v16, SPEC 8: the 700-character rule: a long bracket caption drops the "for f_k, ..." list first)
+    // (SPEC 8: the 700-character rule: a long bracket caption drops the "for f_k, ..." list first)
     if (hom.rt && hom.inner && hom.innerShort && hom.inner.length > hom.innerShort.length && captionLatex(hom.segs).length > 360) {
       const inner = hom.innerShort.map((g) => (g.t != null ? { t: g.t.replace(/:\s*$/, '') } : g));
       hom.segs = capT('the homotopy %{H}, %{range}, where %{G} is %{inner}', { H: { m: hom.rt.H }, range: { m: `0\\le t\\le ${allAtOnce() ? 1 : morphRange().steps.length}` }, G: { m: 'G_t' }, inner });
     }
     if (hom.rt && !opt.both) {
-      // (v16, SPEC 8: with a bracket's pre or post, the start is H_0 = Q o P, not X itself)
+      // (SPEC 8: with a bracket's pre or post, the start is H_0 = Q o P, not X itself)
       const mark0 = lineShapes.length ? (dashed ? $t(' (dashed outline)') : $t(' (outlined)')) : pts.length ? $t(' (dots)') : '';
       out.push(...capT('The images of %{set} under %{start}%{mark} and under %{end} (%{pat}), joined by %{hom}.', { set: setGen, start: { m: hom.rt.qp }, mark: mark0, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
     } else out.push(...capT('%{head}%{mark} and %{its} under %{end} (%{pat}), joined by %{hom}.', { head, mark, its, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
@@ -977,7 +977,7 @@ const MorphPaths = (() => {
     const X = morphX();
     const m = morphLen();
     const base = A.S.focus > 0 ? A.S.focus - 1 : 0, end = A.S.focus > 0 ? A.S.focus : nSteps();
-    // (v16: with a bracket the start is H_0 = Q o P, drawn through ms.H0Map; with none, today's stage map, byte for byte)
+    // (with a bracket the start is H_0 = Q o P, drawn through ms.H0Map; with none, today's stage map, byte for byte)
     const rg = homRangeOk(), start = A.S.focus > 1 || !!rg;
     const startMap = rg ? ms.H0Map : stageMap(base), startF = rg ? ms.H0F : stageF(base);
     if (GLR.ok) {
@@ -1041,14 +1041,14 @@ const MorphPaths = (() => {
     drawRulers(pane, 'R');
   }
   // the transport's readout and scrubber follow the time in every view
-  // (v16.1, gate v16 deform_range_fps) the play tick calls this every frame, also in Phase and Landscape alone. It reads
+  // (gate v16 deform_range_fps) the play tick calls this every frame, also in Phase and Landscape alone. It reads
   // before it writes (the phone's label check measured the scrubber after the readout changed: a forced layout every
   // frame), sets the readout's Text node instead of replacing it, and while playing moves the scrubber only when its
   // thumb moves by half a pixel: on a phone each change of the page's tree or a style was a full style recalc (the
   // page's :has() rules), about 1.5 to 2 ms a frame. Paused, the scrubber shows T exactly.
   function syncTransport() {
     const sl = /** @type {HTMLInputElement} */ ($('morphRange'));
-    // (v16: a phone's transport labels, SPEC 6.6)
+    // (a phone's transport labels, SPEC 6.6)
     const fs = /** @type {HTMLElement | null} */ (sl && sl.closest('.tscrub[data-fit="1"]'));
     if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of /** @type {NodeListOf<HTMLElement>} */ (fs.querySelectorAll('.tfix'))) x.hidden = true; delete fs.dataset.fit; } }
     syncPlaying();
