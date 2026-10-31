@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const VENDOR = path.join(__dirname, '..', '..', 'vendor');
 const FILES = {
   'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js': 'js/tex-svg-nofont.js',
+  'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js': 'js/a11y/assistive-mml.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'js/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js': 'js/svg2pdf.umd.min.js',
 };
