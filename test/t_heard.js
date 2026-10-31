@@ -407,7 +407,7 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
   // apart are one cluster, its last heard
   {
     const { SEASONG: MK } = require('../src/seasong.js');
-    for (const [f, nm] of [['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['funcs', 'Funcs']]) if (!globalThis[nm]) vm.runInThisContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, { filename: f + '.js' });
+    for (const [f, nm] of [['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['sheets', 'Sheets'], ['funcs', 'Funcs']]) if (!globalThis[nm]) vm.runInThisContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, { filename: f + '.js' });
     const EX = globalThis.Expr, fU = EX.compile(EX.parse(MK.steps[0].params.expr)), fG = EX.compile(EX.parse(MK.steps[1].params.expr));
     const F = (z) => fG(fU(z));
     const P = MK.pts, cum = [0];
