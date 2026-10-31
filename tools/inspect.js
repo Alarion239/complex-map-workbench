@@ -42,14 +42,14 @@ function buildHead() {
   return { sha: short('HEAD') + (git('status', '--porcelain', '--', 'src', 'build.py') ? '+' : ''), dist: path.join(ROOT, 'dist') };
 }
 
-// a copy of the CDP daemon kit, started; -> { dir, run(body) -> result, stop() }
+// a copy of the CDP daemon kit (in test/, as ci/browser.js makes it: the kit finds dist/ and vendor/ two levels up), started; -> { dir, run(body) -> result, stop() }
 async function daemon(dir) {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.cpSync(path.join(ROOT, 'test', 'cdp_kit'), dir, { recursive: true, filter: (s) => !/[\\/](q|shots|chprof-[^\\/]*)$/.test(s) });
   const child = spawn(process.execPath, [path.join(dir, 'cdpd.js')], { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'], detached: process.platform !== 'win32' });
   const Q = path.join(dir, 'q');
   for (let i = 0; !fs.existsSync(path.join(Q, 'READY')); i++) {
-    if (fs.existsSync(path.join(Q, 'FATAL')) || child.exitCode != null || i > 600) throw new Error('the browser daemon did not start: ' + (fs.existsSync(path.join(Q, 'FATAL')) ? fs.readFileSync(path.join(Q, 'FATAL'), 'utf8') : 'no READY'));
+    if (fs.existsSync(path.join(Q, 'FATAL')) || child.exitCode != null || i > 1800) throw new Error('the browser daemon did not start: ' + (fs.existsSync(path.join(Q, 'FATAL')) ? fs.readFileSync(path.join(Q, 'FATAL'), 'utf8') : 'no READY'));
     await sleep(100);
   }
   let n = 0;
@@ -130,7 +130,7 @@ ul.v{margin:8px 0 0;padding-left:18px}ul.v li{margin:2px 0;overflow-wrap:anywher
 body.only .pt:not(.ch):not(.nv){display:none}
 </style></head><body>
 <header><h1>Visual inspection: ${escH(meta.base)} → ${escH(meta.head)}</h1>
-<p>${rows.length} points · ${changed} changed · <b style="color:var(--bad)">${newV} new violations</b> · ${goneV} gone · renderer: ${escH(meta.renderer)} · ${escH(meta.when)}</p>
+<p>${rows.length} points · ${changed} changed · <b${newV ? ' style="color:var(--bad)"' : ''}>${newV} new violation${newV === 1 ? '' : 's'}</b> · ${goneV} gone · renderer: ${escH(meta.renderer)} · ${escH(meta.when)}</p>
 <p>The layout checks (test/lib/layout.js) at each point: red is new at the head, green struck out went, grey was there before. The dashed box is around the pixels that changed; the third picture is the difference.</p>
 <div class="f"><label><input type="checkbox" id="only" checked> only changed or new violations</label>
 ${['lang', 'view', 'size', 'theme', 'state'].map((k) => `<label>${k} <select data-k="${k}"><option value="">all</option>${opts(k)}</select></label>`).join('')}</div>
@@ -150,7 +150,7 @@ for (const e of document.querySelectorAll('#only, select[data-k]')) e.addEventLi
   const OUT = path.resolve(opt('--out', path.join(ROOT, '.ci', 'inspect', tag)));
   fs.rmSync(OUT, { recursive: true, force: true });
   const sb = await serve(base.dist), sh = await serve(head.dist);
-  const d = await daemon(path.join(ROOT, '.ci', 'inspect', 'kit'));
+  const d = await daemon(path.join(ROOT, 'test', 'inspect_cdp'));
   const res = {};
   try {
     for (const [side, srv] of [['base', sb], ['head', sh]]) {

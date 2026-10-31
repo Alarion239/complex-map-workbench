@@ -51,6 +51,8 @@
     await ev(`(() => { try { Tour.stop(); } catch (e) { /* */ } try { if (window.Phone && Phone.isOn()) Phone.close(true); } catch (e) { /* */ }
       try { __cmwMorph({ open: false }); } catch (e) { /* */ } try { if (__cmwLayout().main !== 'xy') __cmwSetMain('xy'); } catch (e) { /* */ }
       try { document.activeElement && document.activeElement !== document.body && document.activeElement.blur(); } catch (e) { /* */ }
+      // (a toast a state left, "Your work is back" after the tour, would sit over the next state)
+      try { for (const t of document.querySelectorAll('#toastHost > *')) t.remove(); } catch (e) { /* */ }
       return 1; })()`);
     await settle(250);
   }

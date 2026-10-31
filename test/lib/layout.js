@@ -27,6 +27,7 @@
     layers: [
       '[data-layer]', '.tour-top', '.tour-dim', '#warmBar', '.ph-keys', '.sv-sheet', '.sv-scrim', '.pop.over-modal', '.modal-bg',
       'dialog[open]', '.snd-pop', '#popHost > *', '.pop', ':popover-open', '.ph-sheet', '.ph-scrim', '.tour-root', '[data-tour]', '#toastHost',
+      '#propsPanel.temp',   // (the Inspector floated over the stage, z 25, while the right panel is hidden: the steps view at 1024)
     ],
     // the boxes meant to be centred: sel, in (the container: 'parent' or a selector for closest()), axis ('x', 'y',
     // 'both'), what ('self': the box; 'content': the union of its visible children's boxes, centred in the box itself),
@@ -120,11 +121,19 @@
     return w(q) > 1 && h(q) > 1 ? q : null;
   }
 
+  // the app's own layers, as it lists them for the tour (the drawers at 768-1023 px, the Inspector over the steps view)
+  // (and a side panel lifted out as a drawer, absolute over the stage at 768-1279 px: z 20 in page.html's floating layers)
+  const appLayers = () => {
+    let L = [];
+    try { L = [...((window.__tourApi && __tourApi.layers && __tourApi.layers()) || [])].filter((k) => k instanceof Element); } catch (x) { L = []; }
+    if (document.documentElement.classList.contains('ph')) return L;   // (a phone's rails are not drawers)
+    return L.concat([...document.querySelectorAll('.layout > .panel')].filter((p) => getComputedStyle(p).position === 'absolute'));
+  };
   // the layer e is in: the outermost declared layer that holds it (null: the page)
   function layerOf(e) {
     let L = null;
-    const sel = INTENT.layers.join(', ');
-    for (let a = e; a; a = a.parentElement) { try { if (a.matches(sel)) L = a; } catch (x) { /* a selector this Chrome lacks */ } }
+    const sel = INTENT.layers.join(', '), app = appLayers();
+    for (let a = e; a; a = a.parentElement) { try { if (a.matches(sel) || app.includes(a)) L = a; } catch (x) { /* a selector this Chrome lacks */ } }
     return L;
   }
 
@@ -133,7 +142,7 @@
   function openLayers() {
     const sel = INTENT.layers.join(', ');
     let L = [];
-    try { L = [...document.querySelectorAll(sel)]; } catch (x) { L = []; }
+    try { L = [...document.querySelectorAll(sel)].concat(appLayers()); } catch (x) { L = []; }
     return L.filter((k) => vis(k) && !L.some((o) => o !== k && o.contains(k)));
   }
   function under(e) {
@@ -209,8 +218,9 @@
       const lab = hit.closest('label');
       if (lab && (lab.control === el || lab.contains(el))) continue;
       if (hit.contains(el) && (disabled(el) || getComputedStyle(el).pointerEvents === 'none')) continue;
+      // (a page control under a layer is meant to be covered; a layer's own control covered by anything else is not)
       const Lh = layerOf(hit);
-      if (Lh && Lh !== layerOf(el)) continue;
+      if (Lh && !layerOf(el)) continue;
       out.push(V('covered', el, hit, { at: [Math.round(x), Math.round(y)] }, s));
     }
     return out;
@@ -350,7 +360,8 @@
       const ring = { l: b.l - grow, t: b.t - grow, r: b.r + grow, b: b.b + grow };
       // a side counts where a box that cannot scroll cuts the ring, or where a scroller does and the control's own edge
       // there is in view (a control scrolled partly away shows its ring once it is scrolled to)
-      const qa = inter(clipOf(el), viewport()), qn = inter(clipOf(el, { scroll: false }), viewport());
+      // (the viewport's edge too counts only where the control's edge is in view)
+      const qa = inter(clipOf(el), viewport()), qn = clipOf(el, { scroll: false });
       const side = (k, sg) => Math.max(sg * (qn[k] - ring[k]), sg * (b[k] - qa[k]) >= -0.5 ? sg * (qa[k] - ring[k]) : 0);
       const cut = Math.max(side('l', 1), side('t', 1), side('r', -1), side('b', -1));
       if (cut > Math.max(1, grow / 2)) out.push(V('focus-ring', el, null, { ring: 'cut', grow: +grow.toFixed(1), cut: Math.round(cut) }, ring));
