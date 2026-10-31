@@ -35,7 +35,7 @@
   function openFigure(state, how) {
     let st = null;
     // (v16.3.1: constructions this build cannot read are freed here, before the reload; the toast after it says so)
-    cmLoad.freed = 0;
+    /** @type {any} */ (cmLoad).freed = 0;
     try { st = sanitizeState(JSON.parse(JSON.stringify(state))); } catch (e) { st = null; }
     if (!st) { sndError(); toast(how === 'scene' ? $t('This scene could not be read.') : $t('This link does not hold a figure.')); return false; }
     try {
@@ -43,7 +43,7 @@
       if (prev) localStorage.setItem(lsk('cmw-before-open'), prev);
       st.hideLeft = dockPref.L; st.hideRight = dockPref.R;
       localStorage.setItem(LS_KEY, JSON.stringify(st, noRuntime));
-      sessionStorage.setItem(lsk('cmw-opened'), how + (cmLoad.freed ? ':freed' : ''));
+      sessionStorage.setItem(lsk('cmw-opened'), how + (/** @type {any} */ (cmLoad).freed ? ':freed' : ''));
     } catch (e) { sndError(); toast($t('The figure cannot open here: this browser blocks site storage.')); return false; }
     figureSwap = true;
     try { history.replaceState(null, '', location.href.replace(/#.*$/, '')); } catch (e) { /* the hash stays */ }
@@ -100,7 +100,7 @@
     // (v16.3.1: with the note that some constructions were opened as plain shapes, freed by openFigure before the
     // reload, or by this load; this toast would replace the note's own toast)
     if (opened) {
-      const freed = /:freed$/.test(opened) || !!cmLoad.freed, how = opened.replace(/:freed$/, '');
+      const freed = /:freed$/.test(opened) || !!(/** @type {any} */ (cmLoad)).freed, how = opened.replace(/:freed$/, '');
       setTimeout(() => toast((how === 'scene' ? $t('Opened the scene.') : $t('Opened the figure from the link.')) + (freed ? ' ' + $t('Some constructions could not be read and were opened as plain shapes.') : ''), $t('Undo'), undoOpen), 400);
     }
     // a link: #cmw=<payload>, when the page opens, or pasted into the address bar of the open page (a hash change)
