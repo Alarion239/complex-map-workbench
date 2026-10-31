@@ -1617,7 +1617,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-chip i { font-family: var(--f-math); font-size: 13.5px; }
 .xf-sp { flex: 1 1 auto; }
 .xf-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-2); color: var(--ink-2); }
-.xf-body { display: grid; grid-template-columns: minmax(0, 1fr) 284px; gap: 20px; padding: 16px 20px 0; min-height: 0; overflow-y: auto; }
+.xf-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(284px, 340px); gap: 20px; padding: 16px 20px 0; min-height: 0; overflow-y: auto; }
 .xf-left { min-width: 0; }
 .xf-stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; }
 .xf-bar { position: absolute; top: 8px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; pointer-events: none; }
@@ -1649,7 +1649,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-stage.loupe-on .xf-fig { cursor: none; touch-action: none; }
 .xf-facts { margin: 8px 2px 0; font: var(--t-label); color: var(--muted); }
 .xf-facts b { color: var(--ink-2); font-weight: 500; }
-.xf-ctl { display: grid; gap: 14px; align-content: start; padding-bottom: 4px; }
+.xf-ctl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; padding-bottom: 4px; min-width: 0; }
 .xf-row { display: grid; gap: 6px; }
 .xf-print { display: contents; }
 .xf-printbtn { display: none; }
