@@ -95,7 +95,7 @@ for (const s of steps) {
   // the panes are X and Y, never left and right (on a phone they stack); a phone shows no hover, no right-click
   for (const b of [s.body, s.narrow, s.touch, ...Object.values(s.byScene || {})].filter(Boolean)) ok(`${id}: no left or right pane`, !/\b(left|right)\s+(pane|plane)|\bon the (left|right)\b/i.test(b), b);
   // (v16.4: and its lead, result line and captions)
-  const onPhone = T.plainCopy(T.copyFor(s, null, { coarse: true, narrow: true }) + ' ' + (s.try ? T.tryFor(s.try, { coarse: true }) + ' ' + (s.try.then || '') : '') + ' ' + (s.lead || '') + ' ' + (s.captions || []).map((c) => c[1]).join(' '), 'Ctrl');
+  const onPhone = T.plainCopy(T.copyFor(s, null, { coarse: true, narrow: true }) + ' ' + (s.try ? T.tryFor(s.try, { coarse: true, phone: true }) + ' ' + (s.try.then || '') : '') + ' ' + (s.lead || '') + ' ' + (s.captions || []).map((c) => c[1]).join(' '), 'Ctrl');
   ok(`${id}: a phone's text has no left, right or hover`, !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(onPhone), onPhone);
   for (const a of s.anchor == null ? [] : [].concat(s.anchor, s.also || [])) ok(`${id}: anchor ${a} is in the contract`, DOC_ANCHORS.has(a) && a in T.ANCHORS, a);
   ok(`${id}: no callout placement (v16.4)`, s.place == null, s.place);
@@ -191,7 +191,7 @@ ok('Natural domain comes before Guarantees, which says what Step by step shows',
 ok('the integral copy names the menu item of a closed curve', /\\oint F/.test(stepOf('analysis', 'integral').body) && !/Integrate/.test(stepOf('analysis', 'integral').body));
 ok('no copy promises that squares stay square', steps.every((s) => !/squares? stay square/.test(s.body)));
 check('domain copy by scene', [T.copyFor(stepOf('analysis', 'domain'), 'residueZp') !== stepOf('analysis', 'domain').body, T.copyFor(stepOf('analysis', 'domain'), 'residue')], [true, stepOf('analysis', 'domain').body]);
-check('copyFor: touch first, then narrow, else the body', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: true, narrow: false }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: false, narrow: true }), T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: false, narrow: false })], ['t', 'n', 'n', 'b']);
+check('copyFor: the phone layout reads its place words (touch with a coarse pointer, narrow with a fine one), the desk layout the body (#480)', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: true, narrow: false }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: false, narrow: true }), T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: false, narrow: false })], ['t', 'b', 'n', 'b']);
 // the preimages Try it: a probe inside the disc and one outside
 const pio = T.probeInOut;
 ok('probe: a bare event ticks', pio(undefined) === true && pio({ pane: 'R' }) === true);
@@ -431,6 +431,46 @@ ok('API surface', ['init', 'start', 'stop', 'next', 'back', 'suggest', 'dismissS
 ok('no callout placement left (v16.4)', !('place' in T) && !('placeDock' in T) && !('placeMini' in T) && !('dockGutter' in T));
 check('chapters()', Tour.chapters().map((c) => c.id), CH.map((c) => c.id));
 ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
+
+// ---- (#480) place words follow the layout, gesture words follow the pointer: every step with a touch copy, in the four
+// combinations of layout (desk | phone) and pointer (fine | coarse)
+{
+  const GESTURE_COARSE = /\b(click|clicked|double-click|right-click|hover|scroll)\b/i;   // words a touch screen must not read
+  const GESTURE_FINE = /(?<![-\w])(tap|tapped|pinch|spread|swipe)\b/i;                            // words a mouse must not read
+  const PHONE_PLACE = /steps button|Display sheet|in the sheet|tools sheet|\bits editor|the step's editor|Open the chain|in More\b|\bthe chain \(/i;   // the phone layout's places
+  const DESK_PLACE = /\bInspector\b|panel's options|among the options of Y|the row shows|axes button|Intersect marks|Hold Alt|side by side(?! above)/i;   // the desk layout's
+  const combos = [[false, false], [true, false], [false, true], [true, true]];   // [coarse, phone]
+  const tokens = (t) => (String(t).match(/\$[^$]*\$|\{[^}]+\}/g) || []).map((x) => x.replace(/\\ln\b/g, '\\log')).sort().join('|');   // (the Russian writes \ln)
+  for (const c of CH) for (const s of c.steps) {
+    if (!(s.touch || s.leadTouch || s.touchByScene || (s.try && s.try.touch))) continue;
+    const id = `${c.id}/${s.id}`;
+    for (const [coarse, phone] of combos) {
+      const tag = `${id} ${phone ? 'phone' : 'desk'} layout, ${coarse ? 'coarse' : 'fine'} pointer`, o = { coarse, phone };
+      const texts = [T.copyFor(s, null, o)];
+      for (const sc of Object.keys(s.touchByScene || {})) texts.push(T.copyFor(s, sc, o));
+      if (s.try) texts.push(T.tryFor(s.try, o));
+      if (s.lead) texts.push(T.leadFor(s, o));
+      for (const raw of texts) {
+        const t = T.plainCopy(raw, 'Ctrl');
+        ok(`${tag}: gesture words follow the pointer`, !(coarse ? GESTURE_COARSE : GESTURE_FINE).test(t), t);
+        ok(`${tag}: place words follow the layout`, !(phone ? DESK_PLACE : PHONE_PLACE).test(t), t);
+      }
+    }
+  }
+  // the four combinations pick four copies where a step has them: desk and phone differ when the words that name places do
+  const chain = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'chain');
+  const four = combos.map(([coarse, phone]) => T.copyFor(chain, null, { coarse, phone }));
+  ok('basics/chain: the four combinations read four copies', new Set(four).size === 4, four);
+  check('basics/chain: the desk layout with a mouse reads the body, the phone with a finger the touch copy', [four[0], four[3]], [chain.body, chain.touch]);
+  // every copy a step holds has its Russian and its Italian, with the same maths and key tokens
+  const fields = (s) => [s.body, s.narrow, s.touch, s.deskTouch, s.phoneFine, s.lead, s.leadTouch, s.leadDeskTouch, s.leadPhoneFine, ...Object.values(s.byScene || {}), ...Object.values(s.touchByScene || {}), ...Object.values(s.deskTouchByScene || {}), ...Object.values(s.phoneFineByScene || {}), ...(s.try ? [s.try.text, s.try.touch, s.try.deskTouch, s.try.phoneFine] : [])].filter(Boolean);
+  for (const c of CH) for (const s of c.steps) for (const t of fields(s).filter((x) => x === s.deskTouch || x === s.phoneFine || x === (s.try && s.try.deskTouch) || x === (s.try && s.try.phoneFine) || x === s.leadDeskTouch || x === s.leadPhoneFine || Object.values(s.deskTouchByScene || {}).includes(x) || Object.values(s.phoneFineByScene || {}).includes(x))) {
+    for (const [lang, tab] of [['Russian', RU], ['Italian', IT]]) {
+      ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}"`, typeof tab[t] === 'string' && tab[t].length > 0, tab[t]);
+      if (typeof tab[t] === 'string') ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}" keeps the maths and the key tokens`, tokens(tab[t]) === tokens(t), [tokens(t), tokens(tab[t])]);
+    }
+  }
+}
 
 console.log(`${n - fails}/${n} passed`);
 process.exit(fails ? 1 : 0);
