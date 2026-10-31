@@ -4,7 +4,8 @@
 //   EXCLUDED  the files that do not run here, each with the reason: not pass/fail suites (benchmarks, recorders,
 //             screenshot writers), suites another job runs, superseded ones, and those that need the GPU machines
 //   SUITES    per suite: runs (one row each: a label, a preamble on the suite's first line, env), pages (extra pages
-//             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape)
+//             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape), keepShots (keep its
+//             screenshots when it passes: a suite that reports with marked shots)
 //   TIMING    per suite, the checks that measure speed (by name): reported with their numbers, not gated. A check whose
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
@@ -67,7 +68,17 @@ const SUITES = {
     runs: [{ label: '1440' }, { label: '390-dark', preamble: 'globalThis.WALK = { w: 390, dark: true };' }],
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
+  // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
+  'raw_tex_cmd.js': { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}';` })) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
+  // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
+  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
+  // violations go to its result's report, and the job does not fail on them)
+  'layout_invariants_cmd.js': {
+    keepShots: true,
+    runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
+      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
+  },
 };
 
 const t = (re, measured) => ({ re, measured });
@@ -157,10 +168,31 @@ const old = (commit) => (dist, name) => {
   fs.copyFileSync(path.join(R.dist, 'test.html'), path.join(dist, name));
   console.log(`dist/${name}: test.html of ${commit}`);
 };
+// test.html with its MathJax tags (build.py's CDN tags: the preloads of the STIX2 font and of the MathML component,
+// and MathJax 4's core) replaced
+const MJ_TAG = ['<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">',
+  '<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">',
+  '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>'].join('\n');
+const mjPage = (dist, tag) => { const t = fs.readFileSync(path.join(dist, 'test.html'), 'utf8'); if (t.split(MJ_TAG).length !== 2) throw new Error('test.html: its MathJax tags'); return t.replace(MJ_TAG, tag); };
+// MathJax 4 from vendor/ in dist/mj/: the core, the MathML component it loads from its own folder (a11y/) and the
+// STIX2 font (mathjax-stix2/, svg.js and the ranges it loads on demand), which test-mj.html points the loader at
+const VJS = path.join(__dirname, '..', 'vendor', 'js');
+const copyDir = (from, to) => { fs.mkdirSync(to, { recursive: true }); for (const e of fs.readdirSync(from, { withFileTypes: true })) (e.isDirectory() ? copyDir : fs.copyFileSync)(path.join(from, e.name), path.join(to, e.name)); };
 const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
+  // ([#465] the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
+  // from vendor/, not the CDN, so the typeset page is the same on every runner)
+  'mj': (dist, name) => {
+    const d = path.join(dist, name);
+    fs.mkdirSync(path.join(d, 'a11y'), { recursive: true });
+    fs.copyFileSync(path.join(VJS, 'tex-svg-nofont.js'), path.join(d, 'tex-svg-nofont.js'));
+    fs.copyFileSync(path.join(VJS, 'a11y', 'assistive-mml.js'), path.join(d, 'a11y', 'assistive-mml.js'));
+    copyDir(path.join(VJS, 'mathjax-stix2'), path.join(d, 'mathjax-stix2'));
+  },
+  'test-mj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '<script>window.MathJax.loader = { paths: { \'mathjax-stix2\': \'mj/mathjax-stix2\' } };</script>\n<script async src="mj/tex-svg-nofont.js"></script>')),
+  'test-nomj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '')),
   // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)

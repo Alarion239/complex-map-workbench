@@ -37,13 +37,13 @@
   }
   function syncSel() {
     const sel = selOf(), quiet = !!(morph.playing && morph.open);
-    for (const c of document.querySelectorAll('#pipeline .card')) {
+    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) {
       const on = +c.dataset.k === sel;
       c.classList.toggle('sel', on); c.classList.toggle('quiet', on && quiet);
       if (c.getAttribute('aria-selected') !== String(on)) c.setAttribute('aria-selected', String(on));
       c.tabIndex = on ? 0 : -1;   // (review design-14: one tab stop, the selected option; the arrows move inside)
     }
-    const ft = document.querySelector('#pipeline .ftile');
+    const ft = /** @type {HTMLElement | null} */ (document.querySelector('#pipeline .ftile'));
     if (ft) { ft.classList.toggle('sel', sel === 'F'); ft.setAttribute('aria-selected', String(sel === 'F')); ft.tabIndex = sel === 'F' ? 0 : -1; }
     syncPlaying();
     const wb = $('viewAllBtn');
@@ -61,7 +61,7 @@
     const key = String(k || 0);
     if (key === playKey && (!k || document.querySelector('#pipeline .card.playing'))) return;
     playKey = key;
-    for (const c of document.querySelectorAll('#pipeline .card')) c.classList.toggle('playing', !!k && +c.dataset.k === k);
+    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) c.classList.toggle('playing', !!k && +c.dataset.k === k);
   }
   // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
   function syncAloneChip() {
@@ -79,7 +79,7 @@
     const k = S.focus;
     chip.hidden = !(k > 0);
     if (k > 0) { const ht = $t('{f} alone', { f: `<i>f</i>${sub(k)}` }); const el = chip.querySelector('.ac-t'); if (el.innerHTML !== ht) el.innerHTML = ht; }
-    const pv = chip.querySelector('.ac-nav.prev'), nx = chip.querySelector('.ac-nav.next');
+    const pv = /** @type {HTMLButtonElement | null} */ (chip.querySelector('.ac-nav.prev')), nx = /** @type {HTMLButtonElement | null} */ (chip.querySelector('.ac-nav.next'));
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }

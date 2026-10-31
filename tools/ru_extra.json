@@ -151,7 +151,6 @@
  "Compiling…": "Компиляция…",
  "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
  "in short": "кратко",
- "Written in short; the step's own field holds the full formula.": "Записано кратко; поле шага содержит формулу целиком.",
  "Written in short; each step's own field holds its full formula.": "Записано кратко; поле каждого шага содержит его формулу целиком.",
  "Written in short; the field below holds the formula in full.": "Записано кратко; поле ниже содержит формулу целиком.",
  "Print settings": "Параметры печати",
@@ -446,5 +445,17 @@
  "Normal": "Обычно",
  "Slow": "Медленно",
  "Slower": "Очень медленно",
- "Place on the chain": "Место в цепочке"
+ "colour of {p}, carried": "цвет, перенесённый из %{p}",
+ "shapes only": "только фигуры",
+ "Hold and slide to read {f}": "Удерживайте и ведите, чтобы прочитать %{f}",
+ "<span>In {w}</span>": "<span>В %{w}</span>",
+ "<span>Targets in {out}</span>": "<span>Цели в %{out}</span>",
+ "in {w}": "в %{w}",
+ "Place on the chain": "Место в цепочке",
+ "colour from {p}": "цвет из %{p}",
+ "Hide the paths t ↦ Hₜ(z)  P": "Скрыть пути t ↦ Hₜ(z)  P",
+ "Show the paths t ↦ Hₜ(z)  P": "Показать пути t ↦ Hₜ(z)  P",
+ "d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw": "d/dz — не отображение, поэтому путей t ↦ Hₜ(z) нет",
+ "Deformation: hide the paths t ↦ Hₜ(z)": "Деформация: скрыть пути t ↦ Hₜ(z)",
+ "Deformation: show the paths t ↦ Hₜ(z)": "Деформация: показать пути t ↦ Hₜ(z)"
 }

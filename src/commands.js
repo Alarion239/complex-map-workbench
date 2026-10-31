@@ -222,7 +222,7 @@ const Commands = (() => {
         [$t('Y: Plane'), () => { setMain('xy'); setView('R', 'plane'); }, A.S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
         [$t('Y: Sphere'), () => { setMain('xy'); setView('R', 'sphere'); }, A.S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
         [morph.open ? $t('Deformation off') : $t('Deformation on (play the homotopy)'), () => toggleTransport(), 'M', $t('morph deformation homotopy animate animation merge')],
-        [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ H_t(z)') : $t('Deformation: show the paths t ↦ H_t(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
+        [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
         [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
         // (v16: the bracket for the selected step, else the last; SPEC 6.5)
         ...(activeSteps().length >= 2 ? (() => {

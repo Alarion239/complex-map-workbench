@@ -32,7 +32,7 @@ const AREAS = {
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
-  i18n: ['i18n', 'i18n-desktop', 'i18n-phone'],
+  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex-en', 'raw-tex-ru', 'raw-tex-it'],   // (raw-tex: #465, a string's TeX never on screen)
   views: ['views', 'formulas'],
   desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
@@ -111,6 +111,7 @@ const MAP = [
   ['tools/{cyr_template.js,make_cyr_module.py}', ui('export', 'i18n')],
   ['tools/melodies/**', ui('sound')],
   ['tools/join_src.js', T0],
+  ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
   ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
   ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
   // the docs (a README beside the tests or the CI scripts too)
@@ -196,7 +197,9 @@ function hookCallers(names) {
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`;
-      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name)) walk(rel); continue; }
+      // (test/*_cdp/: a git-ignored copy of the cdp kit and its command files, which ci/browser.js and tools/inspect.js leave
+      // behind on a local run; no diff names it, and CI's checkout never has it)
+      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name) && !/^test\/[^/]+_cdp$/.test(rel)) walk(rel); continue; }
       if (!/\.(js|mjs|py|html)$/.test(e.name) || rel === 'src/app/21-test-hooks.js') continue;
       if (!re.test(fs.readFileSync(path.join(ROOT, rel), 'utf8'))) continue;
       if (/^test\/[^/]+_cmd\.js$/.test(rel)) { if (!EXCLUDED[e.name]) suites.push(e.name); } else if (!/^test\/t_[^/]+\.js$/.test(rel)) outside.push(rel);

@@ -113,7 +113,7 @@ ok('plain: the offer shows rows, none marked', M.box && !M.box.hidden && M.box.r
 await open('cshow4', stepsB(true));
 await select(2);
 M = await marks();
-ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /the step's own field/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
+ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /each step's own field/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
 ok('offer: the last row ends with the display form', (await ev(`[...document.querySelectorAll('#propsPanel .split-offer .so-tex')].pop().dataset.tex`)).includes(SHTEX), M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
   await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
