@@ -1,6 +1,6 @@
 // [#444] The CDN files the test page asks for, answered from vendor/ (CMW_VENDOR=1, opt-in; cdpd.js intercepts the
 // requests with CDP's Fetch domain): MathJax and the PDF library, and the Google Fonts CSS as @font-face rules over the
-// vendored woff2 (the main set; the Russian set for the Roboto Flex sheet), as build.py writes them into the offline page.
+// vendored woff2 (the one set, #288: every language has the same faces), as build.py writes them into the offline page.
 // A URL not listed here is not answered (null): it goes to the network as without the flag. CI never sets the flag, so
 // it keeps testing the live page's CDN path.
 'use strict';
@@ -34,7 +34,7 @@ const faces = (dir, set) => lockOf(dir).faces.filter((f) => f.set === set).map((
 function answer(url, dir = VENDOR) {
   const u = String(url).split('#')[0];
   if (FILES[u]) return { body: read(dir, FILES[u]), type: 'text/javascript' };
-  if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(dir, /family=Roboto\+Flex/.test(u) ? 'ru' : 'main')), type: 'text/css' };
+  if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(dir, 'main')), type: 'text/css' };
   return null;
 }
 

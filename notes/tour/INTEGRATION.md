@@ -254,6 +254,7 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 | `shape-added` | `{ kind, plane: 'z' \| 'w' }` | a shape or a target is added (drawn, typed, pasted) |
 | `shape-moved` | `{ id, plane }` | a drag moves or reshapes a shape or a target (once, at the end of the drag) |
 | `step-focused` | `{ k }` | the focus changes (0 = Whole chain) |
+| `step-selected` | `{ k }` | a card or the F tile is selected for the Inspector (`k` is the step's number, or `'F'` for the F tile) |
 | `pattern-changed` | `{ id }` | the region pattern changes (`'checker'`, `'stretch'`, …, the ids of PATTERNS) |
 | `view-changed` | `{ main }` | the view switch changes (key or click) |
 | `deformation-toggled` | `{ on }` | the transport opens or closes |
@@ -508,6 +509,7 @@ shows the chosen tool).
 | `patStretch` | `#patternSeg .pat[data-pat="stretch"]` | Patterns: Choose Stretch (app.js gives each swatch `data-pat`) |
 | `splitBtn` | `#propsPanel .insp-step .split-offer:not([hidden]) .so-btn` | A formula in steps: Split into n steps (the offer is unfolded for the tour's stop without saving the fold) |
 | `card1` | `#pipeline .card[data-k="1"]` | The function chain: double-click (tap) f₁ |
+| `card2` | `#pipeline .card[data-k="2"]` | The derivative as a step: double-click (tap) the card d/dz, the second card of that scene |
 | `card2Menu` | the card f₂, whose ⋯ shows on it; on a phone, once a tap on it opens the Editor sheet, f₂'s ⋯ there | Part of the chain, on a touch screen (`try.work`) |
 | `ctxUndo` | `.ph-ctx[data-k="construct"]`'s first button, Undo pick (the phone's context bar) | Circle through three points, on a touch screen (`try.work`) |
 | `paramSlider` | the first `#propsPanel .prm-row input[type="range"]` | Shared numbers: drag the slider of a |

@@ -1334,7 +1334,7 @@
     } else {
       // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
       // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
-      // (the key's "=" and parentheses in the maths face, as its letters: B612 Mono's "(" reads as "[" [UX105])
+      // (the key's "=" and parentheses in the maths face, as its letters: the old mono face's (B612 Mono) "(" read as "[" [UX105])
       const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
       // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
       // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)

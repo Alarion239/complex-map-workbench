@@ -23,14 +23,12 @@ const SHARDS = [
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'meetnear_coincide_cmd.js'] },                                       // 480 + 295
   { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js', 'deform_dirichlet_cmd.js'] },   // 340 + 292 + 114 + 22 + 24 + about 30
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
-  { id: 'tour', suites: ['tour_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
+  { id: 'tour', suites: ['tour_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_tasks_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'tour_skip_hover_cmd.js', 'phone_fwell_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },                   // 552 + 16 + 44
   { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 557
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
   // ([#465] raw TeX on screen, a language a run)
-  { id: 'raw-tex-en', suites: ['raw_tex_cmd.js#en'] },
-  { id: 'raw-tex-ru', suites: ['raw_tex_cmd.js#ru'] },
-  { id: 'raw-tex-it', suites: ['raw_tex_cmd.js#it'] },
+  { id: 'raw-tex', suites: ['raw_tex_cmd.js#en', 'raw_tex_cmd.js#ru', 'raw_tex_cmd.js#it'] },
   { id: 'i18n', suites: ['i18n_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang'] },                    // 334 + 164 + 112
   { id: 'i18n-desktop', suites: ['i18n_walk_cmd.js#1440'] },                                                // 693
   { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark'] },                                              // 601
