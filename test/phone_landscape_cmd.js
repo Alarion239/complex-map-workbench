@@ -66,17 +66,18 @@ for (const [w, h] of [[740, 360], [915, 412]]) {
     if (v) { await send('Page.navigate', { url: `${U}?ns=pcs${w}-${Date.now()}${v}` }); }
     await waitPh();
     await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'basics' }); return 1; })()`); await settle(1800);
-    // (a slow runner builds the strip late: wait for its × and Next before measuring)
-    for (let i = 0; i < 40; i++) { if (await ev(`!!document.querySelector('.tour-strip .ts-x') && !!document.querySelector('.tour-strip .ts-x').getClientRects().length && !!document.querySelector('.tour-strip .ts-next')`)) break; await sleep(250); }
+    // (a slow runner builds the strip late: wait for Next, and for the × when the strip is a row, before measuring)
+    for (let i = 0; i < 40; i++) { if (await ev(`(() => { const t = document.querySelector('.tour-strip'), vis = (q) => { const e = t && t.querySelector(q); return !!e && !!e.getClientRects().length; }; return !!t && vis('.ts-next') && (t.dataset.mode !== 'row' || vis('.ts-x')); })()`)) break; await sleep(250); }
     await settle(600);
     const g = await ev(`(() => { const hit = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => { const q = e.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2, t = document.elementFromPoint(x, y); return { sel, x: Math.round(x), y: Math.round(y), ok: !!t && (t === e || e.contains(t)) }; });
       const col = document.getElementById('secDraw').getBoundingClientRect(), sm = document.querySelector('#secDraw > .tool-more > summary'), sl = sm.querySelector('.ic-slot').getBoundingClientRect(), lb = sm.querySelector('.tm-label').getBoundingClientRect();
-      return { col: [Math.round(col.left), Math.round(col.top), Math.round(col.right), Math.round(col.bottom)], vw: innerWidth, vh: innerHeight, more: [Math.round(sl.bottom), Math.round(lb.top)],
+      return { mode: (document.querySelector('.tour-strip') || { dataset: {} }).dataset.mode, col: [Math.round(col.left), Math.round(col.top), Math.round(col.right), Math.round(col.bottom)], vw: innerWidth, vh: innerHeight, more: [Math.round(sl.bottom), Math.round(lb.top)],
         hits: [].concat(hit('#hdrMoreBtn'), hit('#viewSwitch > button'), hit('.tour-strip .ts-x'), hit('.tour-strip .ts-next'), hit('#secDraw .tool'), hit('#secDraw > .tool-more > summary'), hit('#secDraw > .ph-undo')) }; })()`);
     const tag = `${w}×${h}${v ? ' steps' : ''}`;
     info['col' + tag] = g;
     ok(`${tag}: the tool column runs the whole height (top to bottom of the screen)`, g.col[1] <= 1 && g.col[3] >= h - 1 && g.col[2] >= w - 1, g.col);
-    ok(`${tag}: the tour's × is on the strip (and the strip's controls are found)`, g.hits.some((x) => x.sel === '.tour-strip .ts-x'), g.hits);
+    // (in the header the strip keeps its × in Why unless it has 312 px to spare (tour.js ts-xok): there only Next is on it; in its own row the × is always there)
+    ok(`${tag}: the strip is found, with its × when it is a row (${g.mode})`, g.hits.some((x) => x.sel === '.tour-strip .ts-next') && (g.mode !== 'row' || g.hits.some((x) => x.sel === '.tour-strip .ts-x')), g.hits);
     const bad = g.hits.filter((x) => !x.ok);
     ok(`${tag}: every control of the header, the tour strip and the column is what is under its centre`, !bad.length, bad);
     ok(`${tag}: More's label is under its dots, not beside them`, g.more[1] >= g.more[0] - 2, g.more);
