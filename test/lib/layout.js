@@ -28,10 +28,13 @@
       '[data-layer]', '.tour-top', '.tour-dim', '#warmBar', '.ph-keys', '.sv-sheet', '.sv-scrim', '.pop.over-modal', '.modal-bg',
       'dialog[open]', '.snd-pop', '#popHost > *', '.pop', ':popover-open', '.ph-sheet', '.ph-scrim', '.tour-root', '[data-tour]', '#toastHost',
       '#propsPanel.temp',   // (the Inspector floated over the stage, z 25, while the right panel is hidden: the steps view at 1024)
+      '.ph-ctx',            // (#478: the phone's shape bar floats over the plane's bottom 56 px, 104 for the construction bar)
+      ':root.ph.sv #svStrip',   // (the steps view's strip over the plane on a phone, z 26)
     ],
-    // the boxes meant to be centred: sel, in (the container: 'parent' or a selector for closest()), axis ('x', 'y',
+    // the boxes meant to be centred: sel, in (the container: 'parent' or a selector for closest()), or against (another
+    // box it is centred on: a selector in its parent, or in the document with from: 'document'), axis ('x', 'y',
     // 'both'), what ('self': the box; 'content': the union of its visible children's boxes, centred in the box itself),
-    // tol (px), why
+    // tol (px), why. ux's table on #470
     centred: [
       { sel: '#leftTabs > button, #rightTabs > button, #viewSwitch > button', what: 'content', axis: 'x', why: 'a view tab: its icon and word as a pair (#335)' },
       { sel: '.seg > button', what: 'content', axis: 'x', why: 'a segment\'s word (and icon) in its tile' },
@@ -39,9 +42,18 @@
       { sel: '.tool[data-tool]', what: 'content', axis: 'x', why: 'a drawing tool\'s icon over its name' },
       { sel: '#addStepBtn', what: 'content', axis: 'both', why: 'Add function\'s + and word in its tile' },
       { sel: '.modal-bg > .modal', in: 'parent', axis: 'both', why: 'a dialog (Export, Settings, the gallery) in the viewport' },
+      { sel: '.sv-nav, .sv-play', what: 'content', axis: 'both', why: 'the steps view\'s ‹ › and ▶ glyphs' },
+      { sel: '.ts-btn', what: 'content', axis: 'both', why: 'the tour strip\'s Back and ✕ icons' },
+      { sel: '.sv-plane .sv-pn', against: '.sv-node', axis: 'x', why: 'a plane\'s name under its dot' },
+      { sel: '.sv-thumb', against: '.sv-plane.on .sv-node', from: 'document', axis: 'both', why: 'the ring on the shown plane\'s dot (not parked: then no plane is .on)' },
+      { sel: '#toastHost > .toast', against: '.stage', from: 'document', axis: 'x', tol: 2, why: 'a toast over the stage' },
     ],
-    // the ellipses that are meant: a box matching one of these may cut its text with text-overflow: ellipsis
-    ellipsis: [],
+    // the ellipses that are meant: a box matching one of these may cut its text with text-overflow: ellipsis; named: only
+    // when the box (or a control holding it) carries the whole text as its title or accessible name. ux on #470 and #483
+    ellipsis: [
+      { sel: '.ts-title', named: true, why: 'the tour strip\'s title: one line, the whole title as its name' },
+      { sel: ':root.ph .pal-desc', why: 'the palette\'s row descriptions on a phone: one line per row; the whole one in its tooltip' },
+    ],
     // the rows meant to be evenly spaced: sel (the row), tol (px), why
     rows: [],
   };
@@ -250,7 +262,9 @@
       const els = d.el ? [d.el] : [...scope.querySelectorAll(d.sel)];
       for (const el of els) {
         if (!vis(el) || !seen(el)) continue;
-        const c = d.what === 'content' ? el : !d.in || d.in === 'parent' ? el.parentElement : el.parentElement && el.parentElement.closest(d.in);
+        const c = d.what === 'content' ? el : d.against ? (d.from === 'document' ? document : el.parentElement || document).querySelector(d.against)
+          : !d.in || d.in === 'parent' ? el.parentElement : el.parentElement && el.parentElement.closest(d.in);
+        if (!c || !vis(c)) continue;
         const r = centredOne(el, c, d.axis || 'both', d.tol != null ? d.tol : 1, d.what || 'self');
         if (r && r.bad) out.push(V('centred', el, d.what === 'content' ? null : c, { off: r.off, axis: d.axis || 'both', why: d.why }));
       }
@@ -260,7 +274,9 @@
 
   function noClippedText(scope = document.body) {
     const out = [];
-    const ell = INTENT.ellipsis.concat('[data-ellipsis]').join(', ');
+    // (a meant ellipsis: [data-ellipsis], or INTENT.ellipsis, whose named ones need the whole text as a name nearby)
+    const named = (e, text) => { for (let a = e; a && a !== document.body; a = a.parentElement) { const n = (a.getAttribute('title') || a.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim(); if (n && n.includes(text)) return true; } return false; };
+    const meantEll = (e) => { if (e.closest('[data-ellipsis]')) return true; const d = INTENT.ellipsis.find((x) => { try { return !!e.closest(x.sel); } catch (y) { return false; } }); return !!d && (!d.named || named(e, (e.textContent || '').replace(/\s+/g, ' ').trim())); };
     for (const t of textBoxes(scope)) {
       if (!seen(t.el, t.box)) continue;
       // (the text a scroller of its own hides is scrolled away, not cut: that way, what its box shows counts)
@@ -280,7 +296,7 @@
       const sw = t.el.scrollWidth > t.el.clientWidth + 1 && blk && /(hidden|clip)/.test(own.overflowX);
       if (cx <= 1 && cy <= ty && !sw) continue;
       let meant = false;
-      try { meant = own.textOverflow === 'ellipsis' && !!t.el.closest(ell); } catch (x) { meant = false; }
+      meant = own.textOverflow === 'ellipsis' && meantEll(t.el);
       if (meant) continue;
       out.push(V(own.textOverflow === 'ellipsis' ? 'ellipsis' : 'clipped', t.el, null, { cut: [Math.round(Math.max(0, cx)), Math.round(Math.max(0, cy))], text: (t.el.textContent || '').trim().slice(0, 40) }, t.box));
     }

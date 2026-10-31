@@ -76,12 +76,22 @@ info.ms = Date.now() - t0;
 info.counts = {};
 for (const r of report) info.counts[r.check] = (info.counts[r.check] || 0) + 1;
 info.declared = DECLARED.map((d, i) => ({ check: d.check, key: String(d.key), why: d.why, n: meant.get(i) || 0 }));
-// the gate: no key this run's baseline lacks; the keys it has and the run did not see are fixed (lower the baseline)
+// the gate (tiers on #475): against this run's baseline, made on one renderer over one matrix. A key the baseline lacks
+// fails, and so does a state that did not open and was open then (its violations would quietly go); the keys it has
+// and the run did not see are fixed (lower the baseline). Another matrix asks for a new baseline; another renderer
+// (the GPU machines) is not gated: text is drawn otherwise there
 const label = CFG.label || CFG.langs.join('+');
+info.matrix = JSON.stringify({ langs: CFG.langs, views: CFG.views, devices: CFG.devices, themes: CFG.themes, sizes: CFG.sizes || null, states: (CFG.states || M.STATES.map((x) => x.name)) });
+info.renderer = await ev(`(() => { try { const g = document.createElement('canvas').getContext('webgl2'); const d = g.getExtension('WEBGL_debug_renderer_info'); return String(d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)); } catch (e) { return 'unknown'; } })()`);
 const B = BASELINE && BASELINE.runs && BASELINE.runs[label];
-if (B) info.fixed = Object.keys(B).filter((k) => !rows.has(k));
+if (B) info.fixed = Object.keys(B.rows || {}).filter((k) => !rows.has(k));
 if (CFG.mode === 'gate') {
   if (!B) fails.push(`gate: ci/layout_baseline.json has no run ${label}`);
-  else for (const r of report) if (!(r.id in B)) fails.push(`new layout violation: ${r.id} (${r.el}${r.other ? ' × ' + r.other : ''}) at ${r.where[0]} ${JSON.stringify(r.detail)}${r.shot ? ' (shots/' + r.shot + ')' : ''}`);
+  else if (B.matrix !== info.matrix) fails.push(`gate: the matrix changed since the baseline: make a new one (node ci/layout_ratchet.js update --init <this run's result>)`);
+  else if (B.renderer !== info.renderer) info.gate = `not gated: the baseline was made on ${B.renderer}, this run is on ${info.renderer}`;
+  else {
+    for (const r of report) if (!(r.id in B.rows)) fails.push(`new layout violation: ${r.id} (${r.el}${r.other ? ' × ' + r.other : ''}) at ${r.where[0]} ${JSON.stringify(r.detail)}${r.shot ? ' (shots/' + r.shot + ')' : ''}`);
+    for (const sk of info.skipped) if (!(B.skipped || []).includes(sk)) fails.push(`a state that opened for the baseline did not: ${sk}`);
+  }
 }
 return { pass: fails.length === 0, fails, mode: CFG.mode, label, info, report };
