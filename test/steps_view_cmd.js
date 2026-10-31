@@ -134,6 +134,14 @@ const a11y = await ev(`({ strip: document.getElementById('svStrip').getAttribute
   chips: [...document.querySelectorAll('#svStrip .sv-fchip')].map((b) => b.getAttribute('aria-label')) })`);
 ok('the strip, the plane and the steps have names', /Planes of the chain/.test(a11y.strip) && /Plane w₁, 2 of 3/.test(a11y.pane) && a11y.chips.length === 2 && /Möbius/.test(a11y.chips[0]), a11y);
 
+// (perf on #460) parked between two planes, the view still takes an example: it opens on it, from its first plane
+await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settle(400);
+await ev(`__cmwSteps({ park: 1.5 }); 1`); await settle(600);
+const before2 = await S();
+await ev(`__cmwExample(0); 1`); await settle(1500);
+const ex = await S();
+ok('parked at 1.5, an example still opens: on its first plane, at rest', Math.abs(before2.x - 1.5) < 1e-9 && ex.x === 0 && ex.i === 0 && ex.moving === false, { before2, ex });
+
 // ---- the phone: a swipe from the right edge of the plane moves on a plane ----
 await open(390, 844, true, true);
 const ph = await S();

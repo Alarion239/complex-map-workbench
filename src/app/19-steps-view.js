@@ -53,7 +53,9 @@
   }
   // a state replaced under the view (an example, undo, a link): back to what the steps view shows, before it is drawn
   function svCheck() {
-    if (!SV.on || !SV.els || svMoving()) return;
+    // (only a glide or a drag under way holds it off: a view parked between planes still takes an example, a link or an
+    // undo; perf on #460)
+    if (!SV.on || !SV.els || svGliding()) return;
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
@@ -135,7 +137,8 @@
   }
   // (parked: left between two planes on the thread, the picture of the deformation there)
   const svParked = () => !SV.anim && !(SV.drag && SV.drag.moved) && Math.abs(SV.g.x - Math.round(SV.g.x)) > 1e-6;
-  const svMoving = () => !!SV.anim || SV.g.moving() || !!(SV.drag && SV.drag.moved) || svParked();
+  const svGliding = () => !!SV.anim || SV.g.moving() || !!(SV.drag && SV.drag.moved);
+  const svMoving = () => svGliding() || svParked();
   // one plane on (d = ±1) from where the view is: from between two planes, the next one that way
   function svStep(d) {
     if (SV.anim) { svGo(SV.anim.to + d); return; }
