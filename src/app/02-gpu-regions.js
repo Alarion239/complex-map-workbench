@@ -607,7 +607,7 @@
   // Budget (8.4, made deterministic): SphereMesh.APP's map evaluations (a stage-wise step probe counts 12) and nodes,
   // so the drawn mesh is the same whatever the machine's load; SM_MS_CAP CPU ms is a safety stop only. (The wall-clock
   // 1.5 s of 8.4 expired on every P5 scene, so the drawn meshes were partial and changed with the load.)
-  const SM_APP = SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 };
+  const SM_APP = /** @type {any} */ (SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 });
   const smWork = () => (SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork);
   const SM_GUARD = SM_APP.guard, SM_SLICE = 5, SM_CPU_BYTES = 32 * 1024 * 1024, SM_LIVE_NODES = 1500000, SM_NODES = SM_APP.maxNodes, SM_MS_CAP = 10000;
   const sm = { entries: new Map(), jobs: new Map(), want: new Map(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
