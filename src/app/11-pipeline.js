@@ -801,7 +801,8 @@
       c.root.classList.toggle('bad', bad);
       const d = defOf(st);
       // (v16.5 UX84: a typed step is a "Formula"; its formula is in the tooltip and the aria label, never on the card)
-      const fx = st.type === 'custom' && st.params && st.params.expr ? String(st.params.expr) : '';
+      // ([#465] read as text: \frac{1}{z} is 1/z and z^3 is z³ in the tooltip and to a screen reader)
+      const fx = st.type === 'custom' && st.params && st.params.expr ? texTitle(String(st.params.expr)) : '';
       const lab = `f${sub(k)}, ${d.label}` + (fx ? ` ${fx}` : '') + (S.focus === k ? $t(', shown alone') : '') + (st.on === false ? $t(', bypassed') : '') + (bad ? $t(', error: {msg}', { msg: b.error }) : '');
       if (c.root.getAttribute('aria-label') !== lab) c.root.setAttribute('aria-label', lab);
       const tip = bad ? `f${sub(k)} (${b.def ? b.def.label : d.label}): ${b.error}` : fx ? `f${sub(k)}(z) = ${fx}` : null;
