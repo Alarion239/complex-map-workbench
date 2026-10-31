@@ -472,5 +472,33 @@ ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
   }
 }
 
+// ---- (#480 follow-up, ux's review of #510) the tour's words match the UI's labels where they name one: each control the
+// tour quotes by name is a real UI string, and every Russian and Italian copy that names it says what the interface says
+{
+  // the names of controls the tour quotes (not the panels or words that happen to read alike: Phase, Display, Snap)
+  const NAMED = ['Add function', 'Show alone', 'Circle through 3 points', 'Replace with the inverse'];
+  const APP = ['app.js', 'construct.js', 'figure.js'].map((f) => require('./src_text').source(f)).join('\n');   // (where the interface's strings are written)
+  const plain = (t) => String(t).replace(/­/g, '').toLowerCase();
+  const fieldsOf = (s) => [s.body, s.narrow, s.touch, s.deskTouch, s.phoneFine, s.lead, s.leadTouch, s.leadDeskTouch, s.leadPhoneFine, ...Object.values(s.byScene || {}), ...Object.values(s.touchByScene || {}), ...Object.values(s.deskTouchByScene || {}), ...Object.values(s.phoneFineByScene || {}), ...(s.try ? [s.try.text, s.try.touch, s.try.deskTouch, s.try.phoneFine] : [])].filter(Boolean);
+  for (const label of NAMED) {
+    ok(`UI label "${label}": a string the interface has`, APP.includes(`'${label}'`) || APP.includes(`"${label}"`), label);
+    ok(`UI label "${label}": translated in Russian and Italian`, typeof RU[label] === 'string' && typeof IT[label] === 'string', [RU[label], IT[label]]);
+  }
+  let named = 0;
+  for (const c of CH) for (const s of c.steps) for (const t of fieldsOf(s)) for (const label of NAMED) {
+    if (!t.includes(label)) continue;
+    named++;
+    for (const [lang, tab] of [['Russian', RU], ['Italian', IT]]) {
+      const tr = tab[t], ui = tab[label];
+      if (typeof tr !== 'string' || typeof ui !== 'string') continue;
+      ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}" names "${label}" as the interface does ("${ui}")`, plain(tr).includes(plain(ui)), tr);
+    }
+  }
+  ok('some tour copies name a control the check knows', named >= 6, named);
+  // a touch screen's add step task names the control as the card is labelled ("Add function"), not "the add card"
+  const add = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'add');
+  ok('basics/add: the desk-layout touch task names Add function', /Add function/.test(add.try.deskTouch) && !/add card/i.test(add.try.deskTouch), add.try.deskTouch);
+}
+
 console.log(`${n - fails}/${n} passed`);
 process.exit(fails ? 1 : 0);
