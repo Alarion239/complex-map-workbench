@@ -610,13 +610,12 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
-:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 40px; }
+:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 44px; }
 :root.ph.sv .sv-title { font-size: 17px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-surf { display: none; }
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 12px; border-radius: 22px; }
@@ -626,3 +625,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-cp .sv-cp-t { display: none; }
 :root.ph.sv .sv-cp { min-width: 44px; justify-content: center; }
 :root.ph.sv .sv-title .sv-sep, :root.ph.sv .sv-title .sv-role { display: none; }
+/* (#441) the surface button on a phone short of room: its icon and ▾ alone (its name in its label), so it never runs under ⋯ */
+.sv-surf1 .sv-surf-i { display: none; }
+.sv-surf1 .sv-surf-i svg { width: 16px; height: 16px; display: block; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
+/* (#441) still short (w₁'s name is wider than z's at 360 px): tighter gaps and scope buttons, the targets still 40 px tall */
+:root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
+:root.ph.sv .sv-head.sv-c4 .seg > button { padding: 0 5px; }
+:root.ph.sv .sv-head.sv-c4 .sv-title { margin: 0; }
