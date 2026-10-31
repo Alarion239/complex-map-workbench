@@ -55,7 +55,8 @@
   // ([#253] full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
   // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
   // per plane s. A point's preimages are not drawn (they are roots, not a picture)
-  function stagePullbacks(pane, j) {
+  // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask, 19)
+  function stagePullbacks(pane, j, inFrame) {
     const by = new Map();
     for (const s of S.shapes) {
       const st = shapeStage(s);
@@ -68,13 +69,13 @@
     // caller's, since a card is cached as final only when nothing it drew is still linking)
     let pending = false;
     try {
-      GLR.begin(pane.pw, pane.ph);
+      if (!inFrame) GLR.begin(pane.pw, pane.ph);
       cmFormAnchor('Y');
       for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: pullTargets(list), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
       pending = !!(GLR.frameStatus && GLR.frameStatus().pending);
-      GLR.blit(pane.ctx);
+      if (!inFrame) GLR.blit(pane.ctx);
     } catch (e) { console.error('drawPreimage', e); }
-    pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (!inFrame) pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return pending;
   }
   // the same for a globe of plane j: drawSphere's pre passes, one per later plane s
