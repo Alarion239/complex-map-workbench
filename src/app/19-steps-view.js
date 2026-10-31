@@ -292,7 +292,8 @@
     // the window would, the picture is not left blank)
     if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
     let carried = false;
-    if (still || !isDeriv(b)) {
+    // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
+    if (still ? !svColoured(a) : !isDeriv(b)) {
       carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
     }
     // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the first
@@ -725,8 +726,9 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP']);
-      // (#439: the carried colour's programs, a glide's first: carryId too when a plane lies past the colour plane)
-      if (GLR.prestartNames) { const P = svPlanes(); GLR.prestartNames(svT() < P[P.length - 1] ? ['carry', 'carryId'] : ['carry'], [1, 0]); }
+      // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
+      // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
+      if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);
     } catch (e) { /* (the first glide starts them) */ }
   }
   function setupStepsView() {
