@@ -35,6 +35,13 @@ const kdown = (k, mods = {}) => ev(`(document.activeElement || document.body).di
 const until = async (f, ms = 15000) => { const t0 = Date.now(); for (;;) { const s = await S(); if (f(s)) return { s, ms: Date.now() - t0 }; if (Date.now() - t0 > ms) return { s, ms: Date.now() - t0, timeout: true }; await sleep(25); } };
 const nodes = () => ev(`[...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`);
 
+// the thread's place sampled in the page once a frame for ms (the heavy __cmwSteps() poll starves the frames and aliases a loop): its
+// highest place and whether it fell back by more than half a plane (a wrap)
+const watchX = async (ms) => {
+  await ev(`window.__wx = { hi: 0, wrapped: false, last: -1, done: false }; (() => { const t0 = Date.now(), tick = () => { const x = __cmwSvX(), w = window.__wx; w.hi = Math.max(w.hi, x); if (x < w.last - 0.5) w.wrapped = true; w.last = x; if (Date.now() - t0 < ${ms}) requestAnimationFrame(tick); else w.done = true; }; requestAnimationFrame(tick); })(); 1`);
+  for (let i = 0; i < 600; i++) { await sleep(100); const w = await ev('window.__wx'); if (w && w.done) return w; }
+  return ev('window.__wx');
+};
 // ---- the desktop ----
 await open(1280, 800, false, true);
 await ctl({ scope: 'all' });
@@ -73,7 +80,7 @@ ok('at slow (2 s a plane) it is on its way after 1 s, not yet at w₁', sl.play 
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
 const e2 = await until((s) => !s.play);
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
-ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', await ev(`S.sv && S.sv.speed === 'fast' && localStorage.getItem('cmw-sv-speed') === 'fast'`), await ev(`JSON.stringify(S.sv)`));
+ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
 // keys: K plays and pauses, Esc pauses, ‹ › pause
 await ctl({ go: 0, now: true });
@@ -114,10 +121,10 @@ await ev(`document.querySelector('.sv-loop').click(); 1`);
 const l1 = await S();
 ok('Loop is on: aria-pressed, and kept for the browser', l1.loop === true && await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'true' && localStorage.getItem('cmw-sv-loop') === '1'`), l1);
 await ctl({ play: true });
-let wrapped = false, last = -1, n = 0;
-for (let t0 = Date.now(); Date.now() - t0 < 4000; n++) { const s = await S(); if (s.x < last - 0.5) wrapped = true; last = s.x; if (!s.play) break; await sleep(30); }
+const wx = await watchX(6000);
+const wrapped = wx.wrapped;
 const l2 = await S();
-ok('looping: it wrapped from the last plane to the start and still plays', wrapped && l2.play === 'glide', [wrapped, l2]);
+ok('looping: it wrapped from the last plane to the start and still plays', wrapped && l2.play === 'glide', [wx, l2]);
 await ctl({ play: false });
 await ctl({ loop: false });
 
@@ -134,14 +141,14 @@ ok('Shift-drag from z to w₁ marks the range: steps 1…1, planes 0…1', r1.ra
 ok('… and it did not move the view', r1.i === 0 && r1.x === 0, r1);
 const bd = await ev(`(() => { const b = document.querySelector('.sv-band'); return { hidden: b.hidden, label: b.getAttribute('aria-label'), x: document.querySelector('.sv-bandx').getAttribute('aria-label'), vt: document.querySelector('.sv-thumb').getAttribute('aria-valuetext') }; })()`);
 ok('the band shows, the clear button and the ring name it', !bd.hidden && /w₁/.test(bd.label) && bd.x === 'Clear the range' && /range z to w₁/.test(bd.vt), bd);
-ok('the range is saved as S.homRange', await ev(`JSON.stringify(S.homRange && [S.homRange.a, S.homRange.b]) === '[1,1]'`), await ev(`JSON.stringify(S.homRange)`));
+ok('the range is saved as S.homRange', JSON.stringify((await S()).homRange) === '[1,1]', (await S()).homRange);
 await ctl({ play: true });
 const e3 = await until((s) => !s.play);
 ok('play keeps to the range: it stops on w₁, not at w₂', !e3.timeout && e3.s.i === 1 && Math.abs(e3.s.x - 1) < 1e-9, e3.s);
 await ev(`document.querySelector('.sv-loop').click(); 1`);
 await ctl({ play: true });
-let hi = 0, wr = false; last = -1;
-for (let t0 = Date.now(); Date.now() - t0 < 3500; ) { const s = await S(); hi = Math.max(hi, s.x); if (s.x < last - 0.5) wr = true; last = s.x; await sleep(30); }
+const wr0 = await watchX(5000);
+const hi = wr0.hi, wr = wr0.wrapped;
 ok('looping in a range: never past its end, and it starts over at its start', hi <= 1 + 1e-9 && wr, [hi, wr]);
 await ctl({ play: false }); await ctl({ loop: false });
 await press('Escape');
@@ -163,6 +170,8 @@ ok('its × clears the range, and the focus goes to the ring', (await S()).range 
 await ctl({ range: [0, 1] }); await settle(200);
 const bx = await ev(`(() => { const x = document.querySelector('.sv-bandx').getBoundingClientRect(), n = document.querySelectorAll('#svStrip .sv-plane .sv-node')[1].getBoundingClientRect(); return { xl: x.left, nr: n.right, xb: x.bottom, nt: n.top }; })()`);
 ok('the band\'s × does not overlap the end plane\'s node', bx.xl >= bx.nr || bx.xb <= bx.nt, bx);
+const chipHit = () => ev(`(() => { const x = document.querySelector('.sv-bandx').getBoundingClientRect(), cx = (x.left + x.right) / 2, cy = (x.top + x.bottom) / 2, hw = 12; return { size: [x.width, x.height], over: [...document.querySelectorAll('#svStrip .sv-fchip')].filter((c) => { const r = c.getBoundingClientRect(); return cx + hw > r.left && cx - hw < r.right && cy + hw > r.top && cy - hw < r.bottom; }).map((c) => c.getAttribute('aria-label')) }; })()`);
+{ const cd = await chipHit(); ok('the band\'s × is at least 24 px and its circle touches no step chip', cd.size[0] >= 23.5 && cd.size[1] >= 23.5 && cd.over.length === 0, cd); }
 const hit = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { hit: e === x || x.contains(e), tag: e && (e.className || e.tagName) }; })()`);
 ok('a click at the band\'s × lands on the ×, not on the plane under it', hit.hit, hit);
 await ctl({ range: null });
@@ -205,7 +214,7 @@ ok('… and the release is not a press: nothing plays', (await S()).play === nul
 await ev(`document.querySelector('.sv-sheet .sv-loop').click(); 1`);
 ok('the sheet\'s Loop sets it', (await S()).loop === true, await S());
 await ev(`(() => { const e = document.querySelector('.sv-sheet .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
-ok('the sheet\'s Speed sets the state\'s speed too (one setting), and the strip\'s select follows', await ev(`S.sv.speed === 'slower' && document.querySelector('#svStrip .sv-speed').value === 'slower'`), await ev(`JSON.stringify(S.sv)`));
+ok('the sheet\'s Speed sets the state\'s speed too (one setting), and the strip\'s select follows', (await S()).svSpeed === 'slower' && await ev(`document.querySelector('#svStrip .sv-speed').value === 'slower'`), await S());
 await ctl({ loop: false });
 await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);
 ok('Done closes the sheet and gives the focus back to ▶', await ev(`document.querySelector('.sv-sheet').hidden && document.activeElement === document.querySelector('.sv-play')`), await ev(`document.activeElement.className`));
@@ -225,6 +234,8 @@ await ctl({ range: null });
 
 // ---- a narrow phone (360): the range's × stays inside the screen, even at the last plane ----
 await open(360, 740, true, true);
+await ctl({ range: [0, 1] }); await settle(400);
+{ const cd = await chipHit(); ok('360 px: the × (a 44 px box, its 24 px circle) touches no step chip', cd.size[0] >= 43.5 && cd.over.length === 0, cd); }
 await ctl({ range: [1, 2] }); await settle(400);
 const nw = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { l: r.left, r: r.right, w: r.width, h: r.height, iw: window.innerWidth, hit: e === x || x.contains(e) }; })()`);
 ok('360 px: the × is 44×44, inside the screen, and hit-tests on itself, with the range ending on the last plane', nw.l >= 0 && nw.r <= nw.iw + 0.5 && nw.w >= 43.5 && nw.h >= 43.5 && nw.hit, nw);
