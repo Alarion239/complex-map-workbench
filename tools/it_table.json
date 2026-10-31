@@ -3096,5 +3096,19 @@
  "<span>Targets in {out}</span>": "<span>Bersagli in {out}</span>",
  "in {w}": "in {w}",
  "Place on the chain": "Posizione nella catena",
- "colour from {p}": "colore da {p}"
+ "colour from {p}": "colore da {p}",
+ "Scroll to zoom in Y, or drag to pan.": "Scorri per lo zoom in Y, o trascina per spostare.",
+ "Pinch in Y, or drag.": "Pizzica in Y, o trascina.",
+ "Y moved on its own: X keeps its view.": "Y si è mosso da solo: X conserva la sua vista.",
+ "Choose Disc, then drag in Y.": "Scegli «Disco», poi trascina in Y.",
+ "X shades its preimage under $F$.": "X ombreggia la sua controimmagine tramite $F$.",
+ "Click the F tile.": "Clicca sulla tessera F.",
+ "Tap the F tile.": "Tocca la tessera F.",
+ "The Inspector lists where every step is defined.": "L'Ispettore elenca dove è definito ogni passo.",
+ "Double-click the card $d/dz$.": "Fai doppio clic sulla scheda $d/dz$.",
+ "Open the chain, tap $d/dz$, then Show alone.": "Apri la catena, tocca $d/dz$, poi Mostra da solo.",
+ "X and Y are now the derivative's input and output.": "X e Y sono ora ingresso e uscita della derivata.",
+ "Drag the circle γ.": "Trascina la circonferenza γ.",
+ "The integral is worked out again as γ moves.": "L'integrale viene ricalcolato mentre γ si muove.",
+ "Tap the circle γ, then drag it.": "Tocca la circonferenza γ, poi trascinala."
 }

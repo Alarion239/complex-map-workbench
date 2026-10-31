@@ -64,7 +64,7 @@ ok('20 to 48 steps', steps.length >= 20 && steps.length <= 48, steps.length);   
 check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (v16: Constructions; v16.4: Sound)
 ok('basics: 8 to 10 steps (about two minutes)', CH[0].steps.length >= 8 && CH[0].steps.length <= 10, CH[0].steps.length);
 // (v16.4: with the auto-advance a task step takes seconds: at most 7)
-ok('basics: at most 7 Try its (two minutes, as the suggestion promises)', CH[0].steps.filter((s) => s.try).length <= 7, CH[0].steps.filter((s) => s.try).map((s) => s.id));
+ok('basics: at most 8 Try its (two minutes, as the suggestion promises; #34 added the Y step\'s, a scroll or a drag)', CH[0].steps.filter((s) => s.try).length <= 8, CH[0].steps.filter((s) => s.try).map((s) => s.id));
 ok('no chapter over 6 steps but Basics', CH.slice(1).every((c) => c.steps.length <= 6), CH.map((c) => c.steps.length));
 ok('chapter ids unique', new Set(CH.map((c) => c.id)).size === CH.length);
 for (const c of CH) {
@@ -161,7 +161,7 @@ for (const s of steps) {
 for (const e of DOC_EVENTS) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
 // (v16.4: a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
-for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw')) {
+for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.id !== 'targets')) {   // (draw and targets choose the Disc tool first, which they light)
   ok(`${s.ch}/${s.id}: a drag lights the Select tool`, [].concat(s.try.ctl || []).includes('tool:select'), s.try.ctl);
   ok(`${s.ch}/${s.id}: a drag switches to Select first`, (s.before || []).some((a) => a[0] === 'tool' && a[1] === 'select'), s.before);
 }
@@ -267,7 +267,7 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
 // the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
 // adds no zeros)
-check('46 steps: 35 tasks (2 doors), 11 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [46, 35, 2, 11]);
+check('46 steps: 40 tasks (2 doors), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [46, 40, 2, 6]);   // (#34: y, targets, domain, deriv and cauchy have a task)
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);

@@ -452,5 +452,19 @@
  "<span>Targets in {out}</span>": "<span>Цели в %{out}</span>",
  "in {w}": "в %{w}",
  "Place on the chain": "Место в цепочке",
- "colour from {p}": "цвет из %{p}"
+ "colour from {p}": "цвет из %{p}",
+ "Scroll to zoom in Y, or drag to pan.": "Прокрутите колесо в Y или перетащите картинку.",
+ "Pinch in Y, or drag.": "Сведите или разведите пальцы в Y или перетащите.",
+ "Y moved on its own: X keeps its view.": "Y сдвинулся отдельно: вид X не изменился.",
+ "Choose Disc, then drag in Y.": "Выберите «Диск» и растяните его в Y.",
+ "X shades its preimage under $F$.": "X закрашивает его прообраз при $F$.",
+ "Click the F tile.": "Нажмите на плитку F.",
+ "Tap the F tile.": "Коснитесь плитки F.",
+ "The Inspector lists where every step is defined.": "Инспектор показывает, где определён каждый шаг.",
+ "Double-click the card $d/dz$.": "Дважды щёлкните карточку $d/dz$.",
+ "Open the chain, tap $d/dz$, then Show alone.": "Откройте цепочку, коснитесь $d/dz$ и выберите «Показать отдельно».",
+ "X and Y are now the derivative's input and output.": "X и Y теперь показывают вход и выход производной.",
+ "Drag the circle γ.": "Перетащите окружность γ.",
+ "The integral is worked out again as γ moves.": "Интеграл пересчитывается, пока γ движется.",
+ "Tap the circle γ, then drag it.": "Коснитесь окружности γ, затем перетащите её."
 }
