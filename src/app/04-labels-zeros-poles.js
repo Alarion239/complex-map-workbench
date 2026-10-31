@@ -499,7 +499,7 @@
     const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
     // (two columns while every value fits one, as zpFields lays them out)
     const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
-    for (const el of document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`)) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
       const row = el.closest('.zp-item');
       if (row) row.classList.toggle('wide1', wide);
       if (document.activeElement === el) continue;

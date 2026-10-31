@@ -1007,6 +1007,48 @@ void main() {
   o = vec4(dcolor(mapF(z)), 1.0);
 }
 `;
+  // (#366 F) The colour carried by the points, on the GPU (the steps view's svCarry): a grid of uN cells over plane s
+  // (uCGrid: its corner and cell), each cell two triangles, drawn without buffers (gl_VertexID). A vertex places its
+  // triangle's three corners by mapPoint (the glide's map from plane s: uBase = s), so the triangle is the same in all
+  // three, and one torn across a cut or a pole (an edge over uLim on the plane) is collapsed out of the picture; the
+  // corners in a loop no compiler can unroll (uNoUnroll): one copy of the chain. vP: the point of plane s, exact in the
+  // grid (affine), where the fragment stage evaluates the map into the colour plane.
+  const CARRY_VS = `
+uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale;
+uniform vec4 uCGrid; uniform ivec2 uN; uniform float uLim;
+out vec2 vP;
+void main() {
+  int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
+  ivec2 c = ivec2(cell % uN.x, cell / uN.x);
+  vec2 q0 = vec2(0.0), q1 = q0, q2 = q0, p = q0;
+  bool ok = true;
+  for (int k = 0; k < max(3, uNoUnroll); k++) {
+    if (k >= 3) break;
+    ivec2 o = k == 0 ? ivec2(0) : k == 1 ? (hf == 0 ? ivec2(1, 0) : ivec2(1, 1)) : (hf == 0 ? ivec2(1, 1) : ivec2(0, 1));
+    vec2 pk = uCGrid.xy + vec2(c + o) * uCGrid.zw, qk = mapPoint(pk);
+    if (!cfin(qk)) ok = false;
+    if (k == 0) q0 = qk; else if (k == 1) q1 = qk; else q2 = qk;
+    if (k == cn) p = pk;
+  }
+  ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
+  vec2 q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
+  vP = p;
+  gl_Position = ok ? vec4(((q - uCenter) - uCenterLo) * uScale, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+}
+`;
+  // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
+  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
+  // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
+  // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
+  const CARRY_FS = (id) => `
+uniform int uGs; uniform int uGt;
+${PRE_KEY_UNI}in vec2 vP;
+out vec4 o;
+void main() {
+  vec2 sa = vP;
+${PRE_KEY}  o = vec4(dcolor(${id ? 'vP' : 'chainRange(vP, uGs, uGt)'}), 1.0);
+}
+`;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the
   // closed curve it reproduces F, outside it is 0 (Cauchy's integral formula). Nodes are relative to an origin O, so
   // zeta_j - z keeps float32 precision near the curve. No chain: it compiles once.

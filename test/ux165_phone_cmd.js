@@ -359,14 +359,14 @@ ok('D6 searching "theme" leaves the Theme row (and the command search), and clea
 await ev(`Phone.close(true)`); await settle(300);
 // ---------------- D3: the context bar for what is selected or under way ----------------
 await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });
-const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden || b.classList.contains('under')) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
-const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
+const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden || b.classList.contains('under')) return null; const r = b.getBoundingClientRect(), row = document.querySelector('.pipe-wrap').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
+const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(), c = document.querySelector('.pipe-wrap').getBoundingClientRect(); return [Math.round(p.height), Math.round(c.top)]; })()`);
 ok('D3 nothing selected: no bar', (await ctxInfo()) === null);
 await ev(`__cmwSelect('s1')`); await settle(600);
 const c1 = await ctxInfo();
-const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
-ok('D3 a selected shape: a 56 px bar over the tool row with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
-ok('D3 the plane gives up the bar\'s height from the bottom', d0 - d1 >= 50 && d0 - d1 <= 60, [d0, d1]);
+const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(), c = document.querySelector('.pipe-wrap').getBoundingClientRect(); return [Math.round(p.height), Math.round(c.top)]; })()`);
+ok('D3 a selected shape: a 56 px bar over the chain bar with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
+ok('D3 (#463) the planes and the chain bar do not move for the bar: it floats over them', d0[0] === d1[0] && d0[1] === d1[1], [d0, d1]);
 await ev(`__cmwSelect('s2')`); await settle(500);
 ok('D3 a new selection updates the bar', /Rectangle|Rect/i.test((await ctxInfo()).text), await ctxInfo());
 await ev(`document.querySelector('.ph-ctx .ph-cb.ico').click()`); await settle(500);

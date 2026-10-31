@@ -109,6 +109,17 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   const zp = select([H], { hooksOf: () => ['__cmwZp'] });
   ok('the test hooks: __cmwZp changed -> the shards of the suites that call it (zp_cmd.js among them), not everything', zp.tier === 'T1' && zp.browser.includes('smoke') && zp.browser.length < ALL.length && zp.reasons.some((r) => /zp_cmd\.js/.test(r.effect)), zp.browser);
   ok('the test hooks: a changed hook no suite calls -> T3 (fail safe), not nothing', (() => { const p = select([H], { hooksOf: () => ['__cmwNoSuiteCallsThis'] }); return p.tier === 'T3' && /no browser suite calls/.test(p.why.join(' ')); })());
+  // (a local run's leftover test/*_cdp/ (git-ignored: ci/browser.js's and tools/inspect.js's kit copies and their
+  // command files) is not a caller: CI's checkout never has it)
+  {
+    const d = path.join(__dirname, 'zz_t_impact_cdp', 'q');
+    fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, '1.js'), '__cmwZp(); __cmwNoSuiteCallsThis();\n');
+    try {
+      const { hookCallers } = require('../ci/impact.js');
+      ok('the test hooks: a leftover test/*_cdp/ calls no hook', !hookCallers(['__cmwZp', '__cmwNoSuiteCallsThis']).outside.some((f) => /_cdp\//.test(f)));
+      ok('the test hooks: __cmwZp stays T1 with a leftover test/*_cdp/', select([H], { hooksOf: () => ['__cmwZp'] }).tier === 'T1');
+    } finally { fs.rmSync(path.join(__dirname, 'zz_t_impact_cdp'), { recursive: true, force: true }); }
+  }
   const ps = select([H], { hooksOf: () => ['__cmwPaneStatus'] });
   ok('the test hooks: a hook the quality runner calls -> T3', ps.tier === 'T3' && ps.why.some((w) => /run_quality\.js/.test(w)), ps.why);
   ok('the by-hand pages (gl-test, css-fixture: no CI job opens them) -> T0, not T3', ['test/gl_make_test.py', 'test/gl_test.js', 'test/make_css_fixture.py', 'test/css_fixture.js'].every((f) => select([f]).tier === 'T0'));

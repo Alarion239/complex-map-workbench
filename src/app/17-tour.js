@@ -100,7 +100,7 @@
       // what lives in memory only: the undo history, the panels as shown, the transport, the tool and selection, the
       // planes' views and cameras, the views' memories and the Examples label
       mem: {
-        hist: hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
+        hist: hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
         morph: { open: morph.open, T: morph.T, playing: morph.playing }, tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
         V: JSON.parse(JSON.stringify(V)), leftAuto, rightAuto, clipWin: Object.assign({}, clipWin),
         viewMem: JSON.parse(JSON.stringify(viewMem)), defMem: JSON.parse(JSON.stringify(defMem)), cams: [cam, camL, camS].map(camKeys), cell: [cellBase, cellKey],
@@ -146,7 +146,7 @@
       if (m.defMem) Object.assign(defMem, m.defMem);
       if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; setPlayIcon(); syncTransport(); }
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
-      hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
+      hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
       if (xl && m.exLabel != null) { xl.textContent = m.exLabel; xl.title = m.exLabel; }
       if (m.selected && (S.shapes.some((s) => s.id === m.selected) || S.targets.some((s) => s.id === m.selected))) selected = m.selected;

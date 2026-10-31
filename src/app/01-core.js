@@ -253,6 +253,8 @@
       exactImages: true,
       // v15: the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
+      // (S.sv, the steps view's {at, T, scope, surf, speed} (#366): absent until ?view=steps writes it, so the default
+      // view's saves are the same bytes as before; sanitizeState repairs it, Views.cleanSv)
     };
   }
   // target colors skip c4 (magenta), the palette ink nearest the pole color: roots must not read as poles
@@ -274,11 +276,13 @@
   let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
   // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
-  const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy() });
-  function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); } }
+  // (the steps view's place rides the entry like the focus: moving between planes is not an undo step, undo returns to the place it left)
+  const svCopy = () => { if (typeof svStore === 'function') svStore(); return S.sv ? JSON.parse(JSON.stringify(S.sv)) : null; };
+  const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy(), sv: svCopy() });
+  function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); hist[hi].sv = svCopy(); } }
   function commit() {
     const e = snap();
-    if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; return; }
+    if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; hist[hi].sv = e.sv; return; }
     hist = hist.slice(0, hi + 1);
     hist.push(e);
     if (hist.length > 200) hist.shift();
@@ -303,6 +307,8 @@
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     setFocusStep(f);
     if (e.range && typeof e.range === 'object') setOpt('homRange', JSON.parse(JSON.stringify(e.range))); else deleteOpt('homRange');
+    if (e.sv && typeof e.sv === 'object') setOpt('sv', Views.cleanSv(e.sv, svPlanesOf(S.steps))); else if (e.sv === null) deleteOpt('sv');
+    if (typeof svRestored === 'function') svRestored();
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
@@ -471,6 +477,7 @@
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
     if (S.homRange) HR.resolve(S, true);   // (v16: the bracket's indices current, SPEC 7)
+    if (typeof svStore === 'function') svStore();   // (#366: the steps view's place)
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
@@ -519,6 +526,8 @@
     const t = Region.defaultsFor(s.kind, C(0, 0), C(1, 1));
     return Object.keys(t).every((k) => (Array.isArray(t[k]) ? isXY(s[k]) : isNum(s[k])));
   }
+  // the stages of the chain's planes, z and the active steps (the steps view's positions, Views.cleanSv)
+  const svPlanesOf = (steps) => [0].concat(steps.map((st, i) => (st.on !== false ? i + 1 : 0)).filter(Boolean));
   function sanitizeState(o) {
     if (!o || typeof o !== 'object' || !Array.isArray(o.shapes) || !Array.isArray(o.steps)) return null;
     if (!o.v3) { o.meshN = 240; o.v3 = true; }
@@ -617,6 +626,7 @@
     st.sheets = !!st.sheets;
     st.exactImages = st.exactImages !== false;
     st.params = Params.sanitize(o.params);
+    { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }   // (#366)
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
     st.v5 = true;
     if (!PATTERNS.some((p) => p[0] === st.pattern)) st.pattern = d0.pattern;
@@ -807,7 +817,7 @@
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)
   const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
-  const focusF = () => (S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
+  const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)

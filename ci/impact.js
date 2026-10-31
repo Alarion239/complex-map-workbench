@@ -197,7 +197,9 @@ function hookCallers(names) {
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`;
-      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name)) walk(rel); continue; }
+      // (test/*_cdp/: a git-ignored copy of the cdp kit and its command files, which ci/browser.js and tools/inspect.js leave
+      // behind on a local run; no diff names it, and CI's checkout never has it)
+      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name) && !/^test\/[^/]+_cdp$/.test(rel)) walk(rel); continue; }
       if (!/\.(js|mjs|py|html)$/.test(e.name) || rel === 'src/app/21-test-hooks.js') continue;
       if (!re.test(fs.readFileSync(path.join(ROOT, rel), 'utf8'))) continue;
       if (/^test\/[^/]+_cmd\.js$/.test(rel)) { if (!EXCLUDED[e.name]) suites.push(e.name); } else if (!/^test\/t_[^/]+\.js$/.test(rel)) outside.push(rel);
