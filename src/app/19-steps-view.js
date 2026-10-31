@@ -695,6 +695,19 @@
     // 8 s on WARP for the Mountain King; tiers on #456)
     (window.requestIdleCallback || setTimeout)(svPrestart);
   }
+  // the tour's own placing of the view (#442): plane i at once, the colour plane T (an index among the planes; -1 the last), the
+  // scope and the surface; sends none of the events the user's own moves send
+  function svTourPlace(o) {
+    if (!SV.on || !SV.els || !o) return false;
+    const P = svPlanes();
+    if (o.T != null) SV.T = o.T < 0 || o.T >= P.length - 1 ? -1 : P[o.T];
+    if (o.scope) SV.scope = o.scope;
+    if (o.surf) SV.surf = o.surf;
+    if (o.i != null) { const i = Math.max(0, Math.min(P.length - 1, o.i | 0)); SV.anim = null; SV.g.max = P.length - 1; SV.g.set(i); SV.i = i; SV.at = i; }
+    svApply();
+    save();
+    return true;
+  }
   // the phone's Sphere key on the plane (#471): in the steps view it toggles the view's surface between Plane and Sphere; null
   // outside it, where the key works the pane's own tabs
   function svSphereKey() {

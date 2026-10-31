@@ -1247,7 +1247,7 @@
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
     if (SV.on && svCarriedFrom() && !lPhase()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
-      const maxW = LEG.W - 8 - 78, words = $t('colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
+      const maxW = LEG.W - 8 - 78, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
