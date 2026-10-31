@@ -16,7 +16,10 @@ for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
   await view(1024, 768, false);
   await nav(`${U}?ns=toast515-${lang}-${vw}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`); await settle(2500);
   await ev(LIB);
-  await add('sine'); await add('exponential'); await shown(); await settle(120);
+  await add('sine'); await add('exponential');
+  // (a slow page can show the toast and drop it before the measure: another step brings a fresh one)
+  for (let i = 0; i < 2 && !(await shown()); i++) await add('sine');
+  await settle(120);
   const r = await ev(`(() => {
     const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'), sp = t && t.querySelector('span');
     const b = t && t.getBoundingClientRect();
@@ -45,13 +48,26 @@ for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
     else if (!g.inRail) fails.push(`${at}: the toast is not inside the rail: ${JSON.stringify(g)}`);
     else if (g.covers.length) fails.push(`${at}: the toast covers a live control: ${JSON.stringify(g)}`);
     else if (!g.live.length || g.live.some((l) => !l.ok)) fails.push(`${at}: < > or the speed is not hit-testable under the toast: ${JSON.stringify(g.live)}`);
-    // going on through the thread: the first enabled < or > dismisses the toast and brings the rail back
-    const nav = await ev(`(() => { const b = [...document.querySelectorAll('#svStrip .sv-nav')].find((e) => !e.disabled); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-    if (!nav) fails.push(`${at}: no enabled < or > to go on with`);
-    else {
-      await click(nav[0], nav[1]); await settle(500);
-      const after = await ev(`({ toast: !!document.querySelector('#toastHost .toast'), cls: document.getElementById('svStrip').classList.contains('sv-toast'), rail: [...document.querySelectorAll('#svStrip .sv-rail > *')].every((e) => getComputedStyle(e).visibility !== 'hidden') })`);
-      if (after.toast || after.cls || !after.rail) fails.push(`${at}: going on did not dismiss the toast and restore the rail: ${JSON.stringify(after)}`);
+    // every way of going on dismisses it and brings the rail back: < > (a press), an arrow key, a swipe from the plane's edge, a tap on a plane's dot
+    const state = () => ev(`({ toast: !!document.querySelector('#toastHost .toast'), cls: document.getElementById('svStrip').classList.contains('sv-toast'), rail: [...document.querySelectorAll('#svStrip .sv-rail > *')].every((e) => getComputedStyle(e).visibility !== 'hidden') })`);
+    const centre = (sel) => ev(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => !e.disabled && !e.classList.contains('cp') && e.getClientRects().length); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+    const ways = {
+      'the < > button': async () => { const c = await centre('#svStrip .sv-nav'); if (c) await click(c[0], c[1]); return !!c; },
+      'an arrow key': async () => { await ev(`document.activeElement && document.activeElement.blur(), document.body.focus(), 1`); await key('ArrowRight'); return true; },
+      'a swipe from the plane\'s edge': async () => { await ev(`(() => { const p = document.getElementById('plotL'), r = p.getBoundingClientRect(), y = r.top + r.height / 2;
+        const e = (type, x) => p.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }));
+        e('pointerdown', r.right - 10); for (let i = 1; i <= 4; i++) e('pointermove', r.right - 10 - i * 30); e('pointerup', r.right - 130); return 1; })()`); return true; },
+      'a tap on a plane\'s dot': async () => { const c = await centre('#svStrip .sv-plane'); if (c) await click(c[0], c[1]); return !!c; },
+    };
+    let first = true;
+    for (const [way, go] of Object.entries(ways)) {
+      if (!first) { await add('sine'); await shown(); await settle(120); }
+      first = false;
+      if (!(await state()).toast) { fails.push(`${at}: no toast to dismiss by ${way}`); continue; }
+      if (!(await go())) { fails.push(`${at}: nothing to go on with by ${way}`); continue; }
+      await settle(500);
+      const after = await state();
+      if (after.toast || after.cls || !after.rail) fails.push(`${at}: going on by ${way} did not dismiss the toast and restore the rail: ${JSON.stringify(after)}`);
     }
   }
 }
