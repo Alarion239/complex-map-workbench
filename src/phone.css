@@ -610,7 +610,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
-:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 40px; }
+:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 44px; }
 :root.ph.sv .sv-title { font-size: 17px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
