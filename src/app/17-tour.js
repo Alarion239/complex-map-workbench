@@ -351,7 +351,7 @@
   };
   function tourWire() {
     // the events the app sends from delegated listeners: t scrubbed (v16.4: a pattern picked is sent by its setter)
-    document.addEventListener('input', (e) => { if (e.target && e.target.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
+    document.addEventListener('input', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg && tg.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
     tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held
     Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
     if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)

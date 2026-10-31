@@ -31,11 +31,23 @@ rd.on('data', (d) => {
     if (msg.id && pend.has(msg.id)) { const { res, rej } = pend.get(msg.id); pend.delete(msg.id); msg.error ? rej(new Error(JSON.stringify(msg.error))) : res(msg.result); }
     else if (msg.method === 'Runtime.consoleAPICalled') LOG.push({ t: msg.params.type, m: msg.params.args.map((a) => a.value !== undefined ? String(a.value) : (a.description || a.type)).join(' ').slice(0, 400) });
     else if (msg.method === 'Runtime.exceptionThrown') LOG.push({ t: 'EXC', m: (msg.params.exceptionDetails.exception && msg.params.exceptionDetails.exception.description || msg.params.exceptionDetails.text).slice(0, 600) });
+    else if (msg.method === 'Fetch.requestPaused') vendorAnswer(msg.params, msg.sessionId);
     else if (msg.method === 'Log.entryAdded') LOG.push({ t: 'log-' + msg.params.entry.level, m: msg.params.entry.text.slice(0, 400) });
   }
 });
 const send = (method, params = {}, sessionId) => new Promise((res, rej) => { const m = { id: ++id, method, params }; if (sessionId) m.sessionId = sessionId; pend.set(m.id, { res, rej }); wr.write(JSON.stringify(m) + '\0'); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// [#444] CMW_VENDOR=1: the page's CDN files (MathJax, the PDF library, the Google Fonts) from vendor/ (vendor.js), for a
+// machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
+const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
+function vendorAnswer(p, sid) {
+  let a;
+  // (a vendored file that is not LOCK.json's: the request fails and the suite's log says why, never a silent stand-in)
+  try { a = VENDOR && VENDOR.answer(p.request.url); } catch (e) { LOG.push({ t: 'EXC', m: `CMW_VENDOR: ${e.message}` }); console.error(e.message); send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }, sid).catch(() => {}); return; }
+  if (!a) { send('Fetch.continueRequest', { requestId: p.requestId }, sid).catch(() => {}); return; }
+  send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, body: a.body.toString('base64'),
+    responseHeaders: [{ name: 'content-type', value: a.type }, { name: 'access-control-allow-origin', value: '*' }, { name: 'cache-control', value: 'no-store' }] }, sid).catch(() => {});
+}
 let S = null;
 const H = {};
 H.send = (m, p) => send(m, p, S);
@@ -99,6 +111,7 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   const a = await send('Target.attachToTarget', { targetId: t.targetId, flatten: true });
   S = a.sessionId;
   await send('Runtime.enable', {}, S); await send('Page.enable', {}, S); await send('Log.enable', {}, S);
+  if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');

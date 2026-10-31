@@ -194,7 +194,8 @@ const Tour = (() => {
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
-          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
+          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.',
+          try: { text: 'Zoom in on a zero or a pole.', touch: 'Spread two fingers on a zero or a pole.', on: 'view-moved', test: (e) => !e || e.how === 'zoom', then: 'All the colours still meet there, however far you zoom.' } },
         { id: 'land', anchor: 'panes', title: 'Landscape', before: [['view', 'land'], ['tool', 'select']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.',
           touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.',
@@ -961,12 +962,12 @@ const Tour = (() => {
 /* (r3 review user-3, user-10: a chapter whose line needs three lines here gets a taller row) */
 .tour-strip[data-mode="port"][data-lines="3"] .ts-row { height: 75px; }
 .tour-strip[data-mode="row"][data-lines="3"] .ts-row { height: 55px; }
-/* the buttons: 36 px with a mouse, 44 px on a touch screen or a phone, 8 px apart */
-.tour-strip .ts-btn { flex: 0 0 auto; width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+/* the buttons: 32 px with a mouse, 44 px on a touch screen or a phone, 8 px apart */
+.tour-strip .ts-btn { flex: 0 0 auto; width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
 .tour-strip .ts-btn[hidden], .tour-strip .ts-act[hidden] { display: none !important; }
-.tour-strip .ts-act { flex: 0 0 auto; height: 36px; min-height: 36px; min-width: 36px; padding: 0 12px; gap: 6px; white-space: nowrap; }
+.tour-strip .ts-act { flex: 0 0 auto; height: 32px; min-height: 32px; min-width: 32px; padding: 0 12px; gap: 6px; white-space: nowrap; }
 .tour-strip .ts-act svg { width: 14px; height: 14px; flex: 0 0 14px; }
-.tour-strip .ts-next { flex: 0 0 auto; position: relative; isolation: isolate; overflow: hidden; height: 36px; min-height: 36px; min-width: 64px; max-width: 220px; padding: 0 14px; white-space: nowrap; text-overflow: ellipsis; }
+.tour-strip .ts-next { flex: 0 0 auto; position: relative; isolation: isolate; overflow: hidden; height: 32px; min-height: 32px; min-width: 64px; max-width: 220px; padding: 0 14px; white-space: nowrap; text-overflow: ellipsis; }
 .tour-strip .ts-next { transition: none; }  /* Skip and Next swap in place; no fade between their two looks */
 .tour-strip .ts-next.ready { box-shadow: inset 0 0 0 2px var(--accent-ink); }
 /* (#34 T1) Next is earned: while the step's task is open the button is a quiet outlined Skip */
@@ -1724,11 +1725,11 @@ const Tour = (() => {
     d.innerHTML = ICON_DOWN;
     tin.append(d, ' ');
   }
-  // A desktop's strip height: 62 px, plus while Why is open inline the tallest body of the steps seen so far at this
+  // A desktop's strip height: 52 px, plus while Why is open inline the tallest body of the steps seen so far at this
   // width (measured off screen at each chapter's start; r3 review regress-4: it never shrinks during the tour, so the
   // panes change size at most when a taller chapter comes, not at every chapter). At most 45 % of the view, and never
   // so tall that the panes keep less than 360 px (Why scrolls inside).
-  const ROW_H = 62, SLOT_GAP = 8;
+  const ROW_H = 52, SLOT_GAP = 8;
   // a laptop's strip is one row high
   function sizeDesk(r) {
     const ui = r.ui;
@@ -2589,7 +2590,12 @@ const Tour = (() => {
   // back just far enough to show the anchor again
   // a step's title starts with a capital letter: a key shared with a phrase used mid-sentence ('Cauchy integral',
   // «интеграл Коши» in a pane's title) is capitalized here; review-phone-verify extra-ru-cauchy
-  const stepTitle = (st) => { const t = $t(coarse() && st.titleTouch ? st.titleTouch : st.title); return /^[а-яё]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t; };
+  // (a title that is a task reads as one: 'tour step' is the context of a Russian title in the imperative where the same
+  // words, a button or a menu entry elsewhere, stay in the infinitive; a title starting in lower case is capitalised)
+  const stepTitle = (st) => {
+    const raw = coarse() && st.titleTouch ? st.titleTouch : st.title, x = $tx('tour step', raw), t = x !== raw ? x : $t(raw);
+    return /^\p{Ll}/u.test(t) ? t[0].toUpperCase() + t.slice(1) : t;
+  };
   const BACK_MS = 1800;   // (after the last scroll of the panel, or the finger's lift)
   function bringBack(r, H) {
     const ui = r.ui;
