@@ -3059,5 +3059,10 @@
  "Height key: point at it to unfold, click to keep it open": "Legenda dell'altezza: passa il puntatore per aprirla, fai clic per tenerla aperta",
  "Download offline page ({size})": "Scarica la pagina offline ({size})",
  "{n} MB": "{n} MB",
- "Skip": "Salta"
+ "Skip": "Salta",
+ "Zoom in on a zero or a pole.": "Ingrandisci uno zero o un polo.",
+ "Spread two fingers on a zero or a pole.": "Allarga due dita su uno zero o un polo.",
+ "All the colours still meet there, however far you zoom.": "Per quanto ingrandisci, tutti i colori si incontrano ancora lì.",
+ "tour step\u0004Draw a shape": "Disegna una figura",
+ "tour step\u0004Add a function": "Aggiungi una funzione"
 }
