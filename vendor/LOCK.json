@@ -168,8 +168,8 @@
    "bytes": 2752
   },
   "fonts/stix-two-text-latin-wght-normal.woff2": {
-   "sha256": "0095a460fb31d9f9d6635579c78694028d34dec37b2daa39b35d0ca18abf3d3c",
-   "bytes": 25316
+   "sha256": "eacec50a89f82dc1b0bc049a5283049e6d184d1cf0d71c7dbba0c61ebef40863",
+   "bytes": 25296
   },
   "fonts/stix-two-text-vietnamese-wght-normal.woff2": {
    "sha256": "64dfae02933a6d0dbca3f67eabf8bb7694fd343d8d1fe0cc84fe8e9f6d542b11",
@@ -192,8 +192,8 @@
    "bytes": 2972
   },
   "fonts/stix-two-text-latin-wght-italic.woff2": {
-   "sha256": "ce9faef60eae5ba03848b2884402bd9529ffba4396025691f824b24488b9bd25",
-   "bytes": 27528
+   "sha256": "84dbaf2b058e1df9d5cf572f25719508512796a897c03079d5c339daf0401c9e",
+   "bytes": 27548
   },
   "fonts/stix-two-text-vietnamese-wght-italic.woff2": {
    "sha256": "ff5b37946eaf71687867d76ea39bce7defb93fa7973e8184e610e99a73f9d207",
@@ -216,8 +216,8 @@
    "bytes": 1888
   },
   "fonts/jetbrains-mono-latin-wght-normal.woff2": {
-   "sha256": "a3c8bc7b19a7006670073d32e9ea1806bc14af4257bf080c62e3f263fa7b1f94",
-   "bytes": 28116
+   "sha256": "bb21cecff166c4dbfe129084eb6ae2f35348a767fafc8d4fe2e9b99662146a8a",
+   "bytes": 28080
   },
   "fonts/jetbrains-mono-vietnamese-wght-normal.woff2": {
    "sha256": "4a1fd2d754fdf395bf1543943ac365bc50b183aa498315b29f75e57a077d7cb0",
@@ -240,8 +240,8 @@
    "bytes": 6116
   },
   "fonts/roboto-flex-latin-full-normal.woff2": {
-   "sha256": "d86be2829c65d9992a261399b9914934df039d981b01c32bd315f6a05002d778",
-   "bytes": 112136
+   "sha256": "e40b3f70859b9e9965597dc1c89dcff0109577485e1db65bcc43b669d36319c6",
+   "bytes": 112460
   },
   "fonts/roboto-flex-vietnamese-full-normal.woff2": {
    "sha256": "ac9b17f8c47ba596181f07d6b78ed1cb26a1dd1a7a4f516c3829507b483fade3",
@@ -287,7 +287,7 @@
    "weight": "400 700",
    "set": "main",
    "file": "fonts/stix-two-text-latin-wght-normal.woff2",
-   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2212"
+   "unicodeRange": "U+20-7E, U+A0-FF, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2212"
   },
   {
    "family": "STIX Two Text",
@@ -335,7 +335,7 @@
    "weight": "400 700",
    "set": "main",
    "file": "fonts/stix-two-text-latin-wght-italic.woff2",
-   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2212"
+   "unicodeRange": "U+20-7E, U+A0-FF, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2212"
   },
   {
    "family": "STIX Two Text",
@@ -383,7 +383,7 @@
    "weight": "400 700",
    "set": "main",
    "file": "fonts/jetbrains-mono-latin-wght-normal.woff2",
-   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
+   "unicodeRange": "U+20-7E, U+A0-FF, U+303-304, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
   },
   {
    "family": "JetBrains Mono",
@@ -436,7 +436,7 @@
    "set": "main",
    "stretch": "75% 125%",
    "file": "fonts/roboto-flex-latin-full-normal.woff2",
-   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
+   "unicodeRange": "U+20-7E, U+A0-FF, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
   },
   {
    "family": "Roboto Flex",
@@ -448,5 +448,5 @@
    "unicodeRange": "U+20, U+A0, U+303-304"
   }
  ],
- "chars": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿāıłőʲ̃̄ͰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ΢ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϑϕϱϵϿЀЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяѐёђѓєѕіїјљњћќѝўџӿᴺᵏᵢᶻ​‐‑‒–—―‖‗‘’‚‛“”„‟†‡•‣․‥…‧ ‰‱′″‴‵‶‷‸‹›※‼‽‾‿⁀⁁⁂⁃⁄⁅⁆⁇⁈⁉⁊⁋⁌⁍⁎⁏⁐⁑⁒⁓⁔⁕⁖⁗⁘⁙⁚⁛⁜⁝⁞⁰ⁱ⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₍₎ₖₙₜℂℓ№ℤ⅛←↑→↓↦⇧∂∈∉∏∑−∓∖∘√∝∞∠∩∫∮≈≠≤≥⊂⊕⊥⋯⌊⌋⌘⌫▶▸▾○●♫♯⚙✓ⱼ＝"
+ "chars": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿāłőʲ̃̄ͰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ΢ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϑϕϱϵϿЀЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяѐёђѓєѕіїјљњћќѝўџӿᴺᵏᵢᶻ​‐‑‒–—―‖‗‘’‚‛“”„‟†‡•‣․‥…‧ ‰‱′″‴‵‶‷‸‹›※‼‽‾‿⁀⁁⁂⁃⁄⁅⁆⁇⁈⁉⁊⁋⁌⁍⁎⁏⁐⁑⁒⁓⁔⁕⁖⁗⁘⁙⁚⁛⁜⁝⁞⁰ⁱ⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₍₎ₖₙₜℂℓ№ℤ⅛←↑→↓↦⇧∂∈∉∏∑−∓∖∘√∝∞∠∩∫∮≈≠≤≥⊂⊕⊥⋯⌊⌋⌘⌫▶▸▾○●♫♯⚙✓ⱼ＝"
 }
