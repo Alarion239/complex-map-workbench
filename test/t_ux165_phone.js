@@ -34,7 +34,7 @@ ok('touch: every other chapter is offered', C.every((c, i) => i === keysAt || T.
 // the Inspector step: its own title and line on touch
 const insp = C.flatMap((c) => c.steps).find((s) => s.id === 'inspector');
 ok('the Inspector step has a touch title and line', insp && insp.titleTouch === 'The editor' && /editor/.test(insp.leadTouch));
-ok('leadFor: touch line on touch', T.leadFor(insp, { coarse: true }) === insp.leadTouch && T.leadFor(insp, { coarse: false }) === insp.lead);
+ok('leadFor: the phone layout with a finger reads the touch line', T.leadFor(insp, { coarse: true, phone: true }) === insp.leadTouch && T.leadFor(insp, { coarse: false }) === insp.lead);
 ok('leadFor: a step with no touch line keeps its lead', (() => { const s = { lead: 'x.' }; return T.leadFor(s, { coarse: true }) === 'x.'; })());
 ok('the touch line follows the strip\'s rule: one sentence, at most 60, a full stop', T.plainCopy(insp.leadTouch, 'Ctrl').length <= 60 && /\.$/.test(insp.leadTouch) && !/\. \S/.test(insp.leadTouch));
 
@@ -48,7 +48,7 @@ const bad = [];
 for (const c of C) {
   if (!T.chapterShown(c)) continue;
   for (const s of c.steps) {
-    const texts = [T.copyFor(s, null, { coarse: true, narrow: true }), s.try ? T.tryFor(s.try, { coarse: true }) : '', T.leadFor(s, { coarse: true }) || '', ...Object.keys(s.byScene || {}).map((k) => T.copyFor(s, k, { coarse: true }))];
+    const texts = [T.copyFor(s, null, { coarse: true, narrow: true }), s.try ? T.tryFor(s.try, { coarse: true, phone: true }) : '', T.leadFor(s, { coarse: true, phone: true }) || '', ...Object.keys(s.byScene || {}).map((k) => T.copyFor(s, k, { coarse: true, phone: true }))];
     for (const t of texts) if (t && DESK.test(T.plainCopy(t, 'Ctrl'))) bad.push(`${c.id}/${s.id}: ${t.slice(0, 90)}`);
     const title = s.titleTouch || s.title;
     if (DESK.test(title)) bad.push(`${c.id}/${s.id} title: ${title}`);

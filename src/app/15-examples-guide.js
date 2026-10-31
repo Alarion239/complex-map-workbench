@@ -439,7 +439,7 @@
   }
 
   // below 1280 px the guarantees panel is an overlay drawer, below 1024 px the tools panel too
-  // (v15: the Inspector never is a drawer: it docks at 264 px from 1024, under the chain from 768 to 1023)
+  // (the Inspector never is a drawer: it docks at 264 px from 1024, under the chain from 768 to 1023)
   const isDrawer = (side) => (side === 'R' ? false : window.innerWidth < 1024) && window.innerWidth >= 768;
   // from 1024 to 1279 one side panel docks at a time (DESIGN.md 4)
   const oneDock = () => window.innerWidth >= 1024 && window.innerWidth < 1280;
@@ -676,7 +676,7 @@
     const stage = $('stage'), panes = $('panes');
     const store = (k, v) => { try { localStorage.setItem(lsk(k), String(v)); } catch (e) { /* ignore */ } };
     const read = (k) => { try { return localStorage.getItem(lsk(k)); } catch (e) { return null; } };
-    // (v15: the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
+    // (the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
     const ch = +read('cmw-chain-h2'); if (ch) document.documentElement.style.setProperty('--chain-h', ch + 'px');
     else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names, saved before v15)
     // TEMP-DEBUG-HOOK (removed before publishing)
@@ -784,7 +784,7 @@
     // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
     const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
-    // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
+    // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
     let lp = null, lpShown = null, lpDown = null;

@@ -277,7 +277,7 @@
     else if (e.key === 'Enter' && !(t && t.tagName === 'BUTTON') && tangentNow()) { e.preventDefault(); e.stopPropagation(); }
   }
   // the tablet rail (SPEC 5.4): when it would overflow the panel, Grid and Polar grid leave it first (they stay in the
-  // drawer), then Freehand and Lasso; (v16.3, the fifth Construct tool) then the rail's vertical "Region tools" label,
+  // drawer), then Freehand and Lasso; (the fifth Construct tool) then the rail's vertical "Region tools" label,
   // which v16.2 already cut by 10 px at 1024 × 768 (the count above it and the open key stay)
   function fitRail() {
     const rail = document.getElementById('railTools');

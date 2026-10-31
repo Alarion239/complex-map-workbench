@@ -656,6 +656,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
 .sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* (inside the rail, which scrolls and so clips what overhangs it (#501), the planes' and the chips' focus rings are drawn
+   inside their buttons: the layout gate's focus-ring rule, #470) */
+.sv-rail .sv-plane:focus-visible, .sv-rail .sv-fchip:focus-visible { outline-offset: -2px; }
+.sv-rail .sv-thumb:focus-visible { outline-offset: 0; }
 .sv-thumb { position: absolute; z-index: 2; top: var(--sv-node-y, calc(50% - 9px)); left: -13px; width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; }
 /* (between planes: a playhead across the thread, under the chips, whose words it would otherwise cover; ux's wave 12
    sweep) */

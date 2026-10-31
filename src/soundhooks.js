@@ -239,7 +239,7 @@ const SoundHooks = (() => {
   // ---- Hear the function under the pointer ----
   // the painted function at a point of the X plane (H_t while the deformation is open), as the readouts show it
   // (homView().F without its second state, the image's, which the probe never uses: review snddef-10)
-  // (v16, SPEC 9: the merged plane's probe with a bracket's pre only reads its point as u in w_{a-1} and plays G_t; with a
+  // (SPEC 9: the merged plane's probe with a bracket's pre only reads its point as u in w_{a-1} and plays G_t; with a
   // post it is silent, sndMove)
   const sndMergedBase = () => { const p = rangeParts(); return p && !p.post.length ? p.a - 1 : null; };
   const sndF = (src) => (morphOn() ? (src === 'merged' && sndMergedBase() != null ? morphState(true, sndMergedBase()).F : morphState(true).F) : focusF());
@@ -592,7 +592,7 @@ const SoundHooks = (() => {
     }
     snd.last = z; snd.lc = zc; snd.g = g;
     snd.ld = 0;
-    // (v16.4, the tour's Phase lines task) red's line crossed up or down
+    // (the tour's Phase lines task) red's line crossed up or down
     if (res && tourL['hear-turn']) { if (res.dUp > 0) tourEmit('hear-turn', { dir: 1 }); if (res.dDown > 0) tourEmit('hear-turn', { dir: -1 }); }
     // a key step that crosses no line and no band edge plays the point itself, so every step answers (spec 3.15)
     if (src === 'key' && !fn && act === 'step' && res && (res.arg || 0) + (res.mod || 0) === 0) sndQueryAt(zh, px, 'key');
@@ -953,7 +953,7 @@ const SoundHooks = (() => {
       if (Array.isArray(listen.tick) && listen.tick.length === Sm.cuts.length) tickDb = listen.tick;
     }
     // the phase harp along the curve (its low Ds, up minus down, are the curve's winding number), its cuts ticked;
-    // then a closed curve with a winding number sings it as one note (v15.2)
+    // then a closed curve with a winding number sings it as one note
     const tag = 'listen' + (++snd.listenN);
     // (a melody keeps its own number of strings ringing, listen.cap, one per crossing: one note in its theme, four in
     // its chords, notes/sea-song/r3)
@@ -964,7 +964,7 @@ const SoundHooks = (() => {
     if (closed && !Sm.cuts.length && Math.abs(turns - Wr) < 0.05 && !sndSingLoop(pts, Wr, { at: dur + 0.05, tag }, Sm) && !SND.singable(Wr)) SND.play('loopDone', { w: Wr, at: dur + 0.05, tag, force: true });
     const h = { t0: hh.t0, now: hh.now, tag, harp: hh };
     // the pointer moving more than 4 px from where it was when the playback started ends it
-    // (v16.4: closed and W, the rounded winding number of a closed curve, for the tour's listen-ended)
+    // (closed and W, the rounded winding number of a closed curve, for the tour's listen-ended)
     const Wn = closed && !Sm.cuts.length && Math.abs(turns - Wr) < 0.05 ? Wr : null;
     const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: !!vel, shape: shape || null, nf: 0, closed: !!closed, W: Wn };
     tourEmit('listen-started', { piece: !!vel, fn: false, closed: !!closed, dur });
@@ -1073,7 +1073,7 @@ const SoundHooks = (() => {
     updateDraftChips();
     sndPlayEnded(p, false);
   }
-  // (v16.4) a Listen along ended: played out (full), stopped, or cut by a scene change; heard: seconds played
+  // a Listen along ended: played out (full), stopped, or cut by a scene change; heard: seconds played
   function sndPlayEnded(p, full) {
     let heard = 0;
     try { heard = Math.max(0, Math.min(p.dur, p.h.now() - p.h.t0)); } catch (e) { heard = 0; }
