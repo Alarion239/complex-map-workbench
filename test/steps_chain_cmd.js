@@ -148,8 +148,8 @@ await axeRun('the empty chain');
 await undo();
 // ---- the phone ----
 await open(390, 844, true);
-const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width })`);
-ok('on a phone: no ⋯ on the chips, "+" is 44 px and named Add function', ph.more === 'none' && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 44 && ph.chipW >= 44, ph);
+const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
+ok('on a phone: no ⋯ on the chips, "+" is 44 px and named Add function', ph.more === 'none' && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 44 && ph.chipW >= 44 && ph.btnH >= 44 && ph.btnW >= 44, ph);
 // a tall menu raised by a long press does not take the lift that ends it, on short screens too
 for (const [w, h] of [[390, 700], [740, 360], [360, 640]]) {
   await open(w, h, true);
@@ -168,6 +168,11 @@ for (const [w, h] of [[390, 700], [740, 360], [360, 640]]) {
   const clear = await ev(`(() => { const p = document.querySelector('#popHost .menu'); if (!p) return null; const r = p.getBoundingClientRect(), f = window.__fin; return !(f.x >= r.left && f.x <= r.right && f.y >= r.top && f.y <= r.bottom); })()`);
   await ev(`__lp1(); 1`); await settle(300);
   ok(`${w}×${h}: a long press opens the menu, and the lift that ends it activates nothing`, menuUp.length > 0 && (await types()).join() === before && (await menu()).length > 0, [menuUp.length, before, await types()]);
+  // (the lift came 1 s after the press, well past 450 ms, and chose nothing; the next tap chooses)
+  await sleep(500);
+  await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Remove'); if (!b) return 0; b.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', pointerId: 12, bubbles: true })); b.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', pointerId: 12, bubbles: true })); b.click(); return 1; })()`);
+  await settle(300);
+  ok(`${w}×${h}: a tap on Remove after the lift removes the step`, (await types()).join() === 'pown', await types());
   info['clear' + w + 'x' + h] = clear;
 }
 await open(390, 844, true);
@@ -179,7 +184,7 @@ await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2
   window.__lp = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp('pointerdown'); return 1; })()`);
 await sleep(700);
 ok('a long press on a chip opens its menu', (await menu()).includes('Bypass this step'), await menu());
-await ev(`__lp('pointerup'); 1`); await settle(300);
+await ev(`__lp('pointerup'); 1`); await settle(600);
 ok('… the release is not a tap on the chip (the menu stays, the Inspector not opened)', (await menu()).length > 0, await menu());
 await pick('Bypass this step');
 ok('… and Bypass from it works', (await types()).join() === 'mobius,pown-' && /Bypassed f₂/.test(await toast()), [await types(), await toast()]);

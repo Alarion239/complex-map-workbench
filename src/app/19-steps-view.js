@@ -876,9 +876,18 @@
       return;
     }
   }
-  function svDeaf(pop) {
+  // (the finger that raised the menu is not a choice: its lift, and the click that follows it, are swallowed, however long the
+  // press was held; the next tap chooses. A press with no pointer to follow is deaf for 450 ms)
+  function svDeaf(pop, id) {
     const t0 = performance.now();
-    const eat = (e) => { if (performance.now() - t0 < 450) { e.stopPropagation(); e.preventDefault(); } };
+    let lifted = null;
+    const lift = (e) => { if (id == null || e.pointerId === id) { lifted = performance.now(); document.removeEventListener('pointerup', lift, true); document.removeEventListener('pointercancel', lift, true); } };
+    if (id != null) { document.addEventListener('pointerup', lift, true); document.addEventListener('pointercancel', lift, true); }
+    const eat = (e) => {
+      const now = performance.now();
+      const deaf = id == null ? now - t0 < 450 : lifted == null ? now - t0 < 8000 : now - lifted < 350;
+      if (deaf) { e.stopPropagation(); e.preventDefault(); }
+    };
     for (const type of ['pointerup', 'click', 'mouseup']) pop.addEventListener(type, eat, true);
   }
   function svStepMenu(anchor, k, lp) {
@@ -903,7 +912,7 @@
     // (removing: svRemove has done it; the item's own run is not called again)
     wrapped.menuLabel = $t('More actions for f{x}', { x: sub(k) });
     const pop = openMenu(anchor, wrapped);
-    if (pop && lp) { svDeaf(pop); svClearOf(pop, lp.x, lp.y, anchor); }
+    if (pop && lp) { svDeaf(pop, lp.id); svClearOf(pop, lp.x, lp.y, anchor); }
     return pop;
   }
   function svBypass(k) {
@@ -967,10 +976,10 @@
     const lpOff = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
     wrap.addEventListener('pointerdown', (e) => {
       lpOff();
-      if (e.pointerType === 'touch') touch = { x: e.clientX, y: e.clientY, t: performance.now() };
+      if (e.pointerType === 'touch') touch = { x: e.clientX, y: e.clientY, id: e.pointerId, t: performance.now() };
       if (e.pointerType !== 'touch' || e.target.closest('.sv-more')) return;
       lp = { x: e.clientX, y: e.clientY, id: e.pointerId, t: setTimeout(() => {
-        const at = { x: lp.x, y: lp.y };
+        const at = { x: lp.x, y: lp.y, id: lp.id };
         lp = null;
         SV.noClickT = performance.now();
         svStepMenu(chip, k, at);
