@@ -222,11 +222,12 @@ vec2 cx_mobpath(vec2 z, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, ve
   cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
   return cx_mob(m0, m1, m2, m3, z);
 }
-// the path applied to w = 1/u, for arguments whose reciprocal is the one representable in float32
-vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5) {
+// the path applied to u, or with inv to w = 1/u, for arguments whose reciprocal is the one representable in float32
+// (one function for both, so a caller that picks one at run time has the path inlined once)
+vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5) {
   vec2 m0, m1, m2, m3;
   cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
-  return cx_mob(m1, m0, m3, m2, u);
+  return inv ? cx_mob(m1, m0, m3, m2, u) : cx_mob(m0, m1, m2, m3, u);
 }
 ` + natLib();
 
@@ -334,8 +335,8 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   const exactAt1 = (pl) => !pl.h.startsWith('if (t == 0.0)');
   const withOne = (P, pl) => (!exactAt1(pl) || pl.own1 ? pl.h : `if (t == 1.0) return ${P}_f(z);\n  ${pl.h}`);
 
-  // Allocates six consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), calli(uExpr, tExpr), write(put, data)}.
-  // call applies the path to z, calli to 1/u.
+  // Allocates six consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), callu(uExpr, tExpr, invExpr),
+  // write(put, data)}. call applies the path to z, callu to u, or to 1/u where inv.
   function pathSlots(A) {
     const s = [A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot()];
     const args = s.map((x) => x.v).join(', ');
@@ -343,7 +344,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     return {
       p0: s[0].v,
       call: (z, t) => `cx_mobpath(${z}, ${t}, ${args})`,
-      calli: (u, t) => `cx_mobpathi(${u}, ${t}, ${args})`,
+      callu: (u, t, inv) => `cx_mobpathu(${u}, ${t}, ${inv}, ${args})`,
       write(put, d) {
         for (let i = 0; i < 12; i++) put(c0 + i, 0, 0); // mode 0 (degenerate: linear fallback); no stale values
         if (!d) return;
@@ -356,8 +357,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       },
     };
   }
-  // hom via Mobius path, with the app's linear fallback when the CPU hom is null (degenerate map)
-  const pathHom = (P, path) => `if (${path.p0}.x < 0.5) { ${LIN(P)} }\n  return ${path.call('z', 't')};`;
+  // hom via Mobius path, with the app's linear fallback when the CPU hom is null (degenerate map), and the map itself
+  // at t = 1 (own1: one call of the map serves both, so FXC, which inlines every call, writes the map once)
+  const pathHom = (P, path) => `if (${path.p0}.x < 0.5 || t == 1.0) {\n    if (t == 0.0) return z;\n    vec2 w = ${P}_f(z);\n    return t == 1.0 ? w : z * (1.0 - t) + w * t;\n  }\n  return ${path.call('z', 't')};`;
 
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
@@ -1000,7 +1002,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // the Moebius one-parameter group (degree 1, however entered): the path slots of the affine and Moebius steps
       case 'mob': {
         const path = pathSlots(A);
-        return { h: pathHom(P, path), write(put, b) { const d = Funcs.natData(b); path.write(put, d && d.m ? mobPathData(d.m) : null); } };
+        return { h: pathHom(P, path), own1: true, write(put, b) { const d = Funcs.natData(b); path.write(put, d && d.m ? mobPathData(d.m) : null); } };
       }
       // a (z - c)^n: (1 - t) c + a^t (z - c)^{1+(n-1)t}, principal (Funcs powPath)
       case 'pow': {
@@ -1125,7 +1127,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'mul': {
         const c = A.cell(), path = pathSlots(A);
         return {
-          sig: [type], f: `return cmul(${c.v}, z);`, h: pathHom(P, path),
+          sig: [type], f: `return cmul(${c.v}, z);`, h: pathHom(P, path), own1: true,
           write(put) { putC(put, c, v.c); path.write(put, CX.isZero(v.c) ? null : mobPathData([v.c, C(0, 0), C(0, 0), C(1, 0)])); },
         };
       }
@@ -1136,13 +1138,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'affine': {
         const a = A.cell(), bb = A.cell(), path = pathSlots(A);
         return {
-          sig: [type], f: `return cmul(${a.v}, z) + ${bb.v};`, h: pathHom(P, path),
+          sig: [type], f: `return cmul(${a.v}, z) + ${bb.v};`, h: pathHom(P, path), own1: true,
           write(put) { putC(put, a, v.a); putC(put, bb, v.b); path.write(put, CX.isZero(v.a) ? null : mobPathData([v.a, v.b, C(0, 0), C(1, 0)])); },
         };
       }
       case 'recip': {
         const path = pathSlots(A);
-        return { sig: [type], f: 'return cinv(z);', h: pathHom(P, path), write(put) { path.write(put, mobPathData([C(0, 0), C(1, 0), C(1, 0), C(0, 0)])); } };
+        return { sig: [type], f: 'return cinv(z);', h: pathHom(P, path), own1: true, write(put) { path.write(put, mobPathData([C(0, 0), C(1, 0), C(1, 0), C(0, 0)])); } };
       }
       case 'mobius': case 'blaschke': {
         let m;
@@ -1161,7 +1163,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         }
         const s0 = A.slot(), s1 = A.slot(), s2 = A.slot(), s3 = A.slot(), path = pathSlots(A);
         return {
-          sig: [type], f: `return cx_mobstep(z, ${s0.v}, ${s1.v}, ${s2.v}, ${s3.v});`, h: pathHom(P, path),
+          sig: [type], f: `return cx_mobstep(z, ${s0.v}, ${s1.v}, ${s2.v}, ${s3.v});`, h: pathHom(P, path), own1: true,
           write(put) {
             for (let i = 0; i < 4; i++) put(s0.c + i, ms[i].re, ms[i].im);
             const sd = mobStepData(ms);
@@ -1176,13 +1178,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // ToInt32(|n|) as two 16-bit halves (Funcs.build keeps |n| <= 4096, so that is just |n|, as in CX.ipow)
         const q = A.slot(), path = pathSlots(A);
         const m = `highp uint mh = uint(${q.v}.z), ml = uint(${q.v}.w);\n  highp int m = int((mh << 16u) | ml);`;
+        // (one call each of cpowr, cx_ipow32 and the path, so FXC, which inlines every call, writes each once)
         const ph = (cut) => `float n = ${q.v}.x;
-  if (n >= 0.0) return cpowr(z, 1.0 + (n - 1.0) * t, ${cut}, 0.0);
-  if (t < 0.5) return cpowr(z, 1.0 + (-n - 1.0) * (2.0 * t), ${cut}, 0.0);
+  if (n >= 0.0 || t < 0.5) return cpowr(z, n >= 0.0 ? 1.0 + (n - 1.0) * t : 1.0 + (-n - 1.0) * (2.0 * t), ${cut}, 0.0);
   ${m}
   // inversion path applied to z^|n|; for |z| > 1 via u = (1/z)^|n|, since z^|n| itself may overflow float32
-  if (dot(z, z) > 1.0) return ${path.calli('cx_ipow32(z, true, m)', '2.0 * t - 1.0')};
-  return ${path.call('cx_ipow32(z, false, m)', '2.0 * t - 1.0')};`;
+  bool inv = dot(z, z) > 1.0;
+  return ${path.callu('cx_ipow32(z, inv, m)', '2.0 * t - 1.0', 'inv')};`;
         return {
           sig: [type], f: `if (${q.v}.x == 0.0) return vec2(1.0, 0.0);\n  ${m}\n  return cx_ipow32(z, ${q.v}.y > 0.5, m);`,
           h: ph('CX_PI'),
