@@ -99,6 +99,8 @@ async function launch(opts = {}) {
   await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: opts.dpr || 1, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (test/cdp_kit/pin_view.js)
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
   if (opts.inject) await send('Page.addScriptToEvaluateOnNewDocument', { source: opts.inject });
 
   const H_ = {};

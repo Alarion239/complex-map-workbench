@@ -15,5 +15,6 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    `clickSel(css)`, `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app), `logs()` (console + exceptions
    since the last call), `send(method, params)` (raw CDP), `sleep(ms)`.
    window.__qa (qa_inject.js) has helpers: lamps(), cards(), state(), toasts(), frames(ms), txt(sel), vis(sel).
+   Every page opens in the classic view (pin_view.js, #443): add `&view=steps` to the URL for the steps view.
 4. Always open the app as http://localhost:8793/test.html?ns=<your-name> (namespaced storage).
 5. Stop the daemon at the end: `touch test/<you>_cdp/q/QUIT`.
