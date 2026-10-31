@@ -1008,11 +1008,11 @@
     draft = null; probe = null;
     if (svReduced() || SV.surf === 'land') {
       SV.g.set(Math.round(from));
-      SV.play = { slide: true, start, end, timer: 0 };
+      SV.play = { slide: true, start, end, timer: 0, steps: S.steps };
       svSlide(true);
     } else {
       SV.g.set(from);
-      SV.play = { from, to: end, start, t0: performance.now(), ms: svPerPlane() * (end - from) };
+      SV.play = { from, to: end, start, t0: performance.now(), ms: svPerPlane() * (end - from), steps: S.steps };
     }
     svSync();
     requestRender('L');
@@ -1022,6 +1022,7 @@
   function svSlide(first) {
     const A = SV.play;
     if (!A || !A.slide) return;
+    if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return; }
     const i = Math.round(SV.g.x);
     if (!first) {
       if (i >= A.end) { if (!SV.loop) { svPause(true); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
@@ -1036,6 +1037,8 @@
   // kind follows it, as at a plane's arrival), and at the end it stops, or starts over
   function svPlayFrame() {
     const A = SV.play, now = performance.now(), v = Math.min(1, (now - A.t0) / A.ms);
+    // (another chain loaded under the play, an example, a link or an undo: it stops, and the new state's view is adopted)
+    if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return false; }
     SV.g.set(A.from + (A.to - A.from) * v);
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
