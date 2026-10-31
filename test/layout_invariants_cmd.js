@@ -20,16 +20,20 @@ const LIB = fs.readFileSync(path.join(DIR, '..', 'lib', 'layout.js'), 'utf8');
 const M = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'layout_matrix.js'), 'utf8'));
 const BASELINE = (() => { try { return JSON.parse(fs.readFileSync(path.join(DIR, '..', '..', 'ci', 'layout_baseline.json'), 'utf8')); } catch (e) { return null; } })();
 
-// The violations that are meant: check, key (a RegExp on the key), okey (on the other box's key), why. A row here is a
+// The violations that are meant: check, key (a RegExp on the key), okey (on the other box's key), ok (a test on the
+// violation itself, e.g. its size), why. A row here is a
 // design decision, which ux reviews (#470)
 const DECLARED = [
   { check: 'overlap', key: /^#secShapes summary$/, okey: /button#clearShapes/, why: 'Clear sits at the end of the Shapes heading row, which is the whole <summary> (the heading is a disclosure)' },
   { check: 'overlap', key: /#pipeline button\.conn-add|div#chainOpt\d|button#addStepBtn/, okey: /#pipeline button\.conn-add|div#chainOpt\d|button#addStepBtn/, why: 'the + between two chain cards sits on the gap and overlaps each card\'s edge by 4 px, as a connector' },
   { check: 'overlap', key: /input#i\d+_\w+\.inp/, okey: /button\.icon-btn\.argand/, why: 'the Argand button is an adornment inside its number field (the field\'s right padding leaves it room)' },
   { check: 'overlap', key: /#svStrip div\.sv-thumb/, okey: /#svStrip button\.sv-plane/, why: 'the steps view\'s ring sits on the shown plane\'s dot (between two when parked), ux\'s layer table: the ring over the track' },
+  // (ux on #500/#499: at 1024 and under, the bracket's 24 px ends grip the cards' edges and Add function's tile by at most
+  // 4 px across; an end over a card's or the tile's text is another key, and is not declared)
+  { check: 'overlap', key: /^div#chainOpt\d+\.card[\w.-]*$|^#chainBracket div\.br-end\.[lr]$/, okey: /^#chainBracket div\.br-end\.[lr]$|^div#chainOpt\d+\.card[\w.-]*$|^button#addStepBtn[\w.-]*$/, ok: (v) => /br-end/.test(v.key + ' ' + v.okey) && Array.isArray(v.detail && v.detail.by) && v.detail.by[0] <= 4, why: 'the deformation bracket\'s ends grip the cards\' edges (and Add function\'s tile) by at most 4 px across, as a connector, like the + between cards' },
   { check: 'focus-ring', key: /^input#palInput/, why: 'the palette\'s search field is the only field of its layer and always has the focus while it is open: the caret shows it' },
 ];
-const declared = (v) => DECLARED.find((d) => d.check === v.check && d.key.test(v.key) && (!d.okey || d.okey.test(v.okey || '')));
+const declared = (v) => DECLARED.find((d) => d.check === v.check && d.key.test(v.key) && (!d.okey || d.okey.test(v.okey || '')) && (!d.ok || d.ok(v)));
 
 // a marked screenshot: the violation's box red, the other one blue
 let nShots = 0;
