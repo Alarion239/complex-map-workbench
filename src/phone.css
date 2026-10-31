@@ -598,3 +598,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
+/* (#441) still short (w₁'s name is wider than z's at 360 px): tighter gaps and scope buttons, the targets still 40 px tall */
+:root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
+:root.ph.sv .sv-head.sv-c4 .seg > button { padding: 0 5px; }
+:root.ph.sv .sv-head.sv-c4 .sv-title { margin: 0; }

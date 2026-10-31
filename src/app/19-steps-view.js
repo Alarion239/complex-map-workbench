@@ -608,11 +608,15 @@
     const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
-    E.bar.classList.remove('sv-c3');
+    E.bar.classList.remove('sv-c3', 'sv-c4');
     if (ph) {
       set(0);
-      const more = $('hdrMoreBtn'), sr = E.surf1.getBoundingClientRect(), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
-      if (E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && sr.right > mr.left - 2)) E.bar.classList.add('sv-c3');
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
+      // tighten; eyes on #473)
+      const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
+      const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
+      if (short()) E.bar.classList.add('sv-c3');
+      if (short()) E.bar.classList.add('sv-c4');
       return;
     }
     set(0);

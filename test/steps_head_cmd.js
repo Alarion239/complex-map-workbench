@@ -5,7 +5,9 @@
 // - short of room, the colour-plane button keeps its wheel and its name (its words in its accessible name);
 // - the surface is one button, named "Surface: …", that opens a menu of the three, the shown one checked; a pick
 //   changes the surface;
-// - on a phone the head's controls are in the header and the surface button is the same one.
+// - on a phone the head's controls are in the header and the surface button is the same one;
+// - (#364) switching through every Phase style leaves the style buttons where they are, classic and steps view, desk and
+//   phone, en/ru/it.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -76,14 +78,42 @@ const ph = await ev(`(() => { const b = document.querySelector('#svHead .sv-surf
 ok('on a phone the header holds the same surface button, 40 px or more, with its menu', ph.ph && ph.home === 'top' && ph.name === 'Surface: Plane' && ph.h >= 40 && ph.popup === 'menu', ph);
 // (phone on #473) at 360 px (and 390 in ru) the surface button stays clear of the header's ⋯: a tap on its right edge and
 // on its middle lands on it; short of room it is its icon and ▾, still named "Surface: …"
-for (const [w, lang] of [[360, 'en'], [360, 'ru'], [390, 'ru']]) {
+// (eyes on #473: on every plane, w₁'s and w₂'s names are wider than z's)
+for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2]]) {
   await open(w, 800, true, lang);
   for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-surf1')`)); i++) await sleep(100);
+  await ev(`__cmwSteps({ go: ${go}, now: true }); 1`);
   await settle(800);
   const t = await ev(`(() => { const s = document.querySelector('#svHead .sv-surf1'), m = document.getElementById('hdrMoreBtn'), r = s.getBoundingClientRect(), mr = m.getBoundingClientRect();
     const at = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && !!e.closest('.sv-surf1'); };
     return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height) }; })()`);
-  ok(`phone ${w} ${lang}: the surface button is the hit target at its right edge and middle, clear of ⋯, named`, t.right && t.mid && t.gap >= 0 && /: /.test(t.name || '') && t.h >= 40, t);
+  ok(`phone ${w} ${lang} plane ${go}: the surface button is the hit target at its right edge and middle, clear of ⋯, named`, t.right && t.mid && t.gap >= 0 && /: /.test(t.name || '') && t.h >= 40, t);
+}
+// (#364) a style's extra options never shift the style row: switching through every style leaves the style buttons'
+// rects unchanged, in the classic Phase head and in the steps view's head (1024, 1440), and in a phone's Display sheet
+// (390), in en, ru and it
+const STYLE_RECTS = `(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); if (!g) return null;
+  return [...g.querySelectorAll('button, [role=radio]')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); }).join(' '); })()`;
+for (const lang of ['en', 'ru', 'it']) {
+  for (const [w, h, mobile] of [[1024, 768, false], [1440, 900, false], [390, 844, true]]) {
+    for (const steps of [false, true]) {
+      await view(w, h, false, mobile);
+      await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+      await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}s${lang}${w}${steps ? 1 : 0}', ${JSON.stringify(JSON.stringify(Object.assign({}, st, { view: { main: 'phase' } })))}); 1`);
+      await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}s${lang}${w}${steps ? 1 : 0}&lang=${lang}${steps ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
+      if (!steps) { await ev(`__cmwSetMain('phase'), 1`); await settle(800); }
+      if (mobile) { await ev(`Phone.open('display'), 1`); await settle(1000); }
+      const n = await ev(`(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); return g ? g.querySelectorAll('button, [role=radio]').length : 0; })()`);
+      const seen = [];
+      for (let i = 0; i < n; i++) {
+        await ev(`(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); g.querySelectorAll('button, [role=radio]')[${i}].click(); return 1; })()`); await settle(500);
+        seen.push(await ev(STYLE_RECTS));
+      }
+      const tag = `${steps ? 'steps' : 'classic'} ${w} ${lang}`;
+      ok(`#364 ${tag}: the style row shows (${n} styles)`, n >= 3, n);
+      ok(`#364 ${tag}: switching through every style leaves the style buttons where they were`, seen.length > 0 && seen.every((r) => r === seen[0]), seen);
+    }
+  }
 }
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
 info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';

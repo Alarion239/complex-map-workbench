@@ -430,7 +430,8 @@
       for (n = 0; n < kids.length; n++) {
         if (inHead && isNote(kids[n])) break;
         const next = used + (n ? gap : 0) + ft.widths[n];
-        const more = n + 1 < kids.length ? btn : 0;
+        // (#364: a head that starts with the style row always keeps the ⋯'s room, filled or not)
+        const more = n + 1 < kids.length || (inHead && kids[0].id === 'dcSeg') ? btn : 0;
         if (next + more > avail) break;
         used = next;
       }
@@ -451,10 +452,18 @@
       // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
+    } else if (inHead && kids.length && kids[0].id === 'dcSeg') {
+      // (#364) the Phase head keeps the ⋯'s room whatever the style: a style with nothing behind ⋯ (Plain, Modulus)
+      // leaves the slot empty, so the style row, at the head's right, never shifts as the style changes
+      b = h('span', { class: 'opts-slot', 'aria-hidden': 'true' });
     }
     const open = ft.pop && ft.pop.isConnected && (ft.pop.dataset.of !== 'pattern' || ft.pop.dataset.merged === '1');
     if (unit && rest.includes(unit)) unitHome(f);
-    f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
+    // (#364, the issue's second option: in a head that starts with the style row, the toggles that fit go to its left and
+    // the row stays last, beside ⋯; it sits at the head's right, so a style that changes the title, and with it how many
+    // toggles fit, moves only the toggles)
+    const inl = kids.slice(0, n), styl = inHead && inl.length && inl[0].id === 'dcSeg';
+    f.replaceChildren(...(pat ? [pat] : []), ...(styl ? [...inl.slice(1), inl[0]] : inl), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
     if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
