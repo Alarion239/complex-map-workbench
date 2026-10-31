@@ -37,6 +37,15 @@ const SHAPES = [
 // Strip to disk (point labels), A formula in LaTeX, the Mountain King, the Gamma function's poles, the dilogarithm from
 // its series, the Douady-Hubbard map (gallery indices, as raw_tex_cmd's)
 const EXAMPLES = [1, 9, 17, 19, 22, 30];
+// (the checker itself, on every MathJax it runs on: what it must flag, and a Cyrillic \text it must not)
+const MIN_TOTAL = 600;
+const CONTROL_BAD = ['\\foo{x}', '\\text{\\frac{1}{2}}', '\\text{u_k}', '\\frac{1}{z'];
+const CONTROL_GOOD = ['\\text{кривая, 5 точек}', 'w_{1}=\\frac{z^{2}+1}{z}'];
+const control = async (lang) => {
+  const r = await ev(`(() => { const f = ${rawTex.toString()}; return { bad: f(${JSON.stringify(CONTROL_BAD)}).map((b) => b.t), good: f(${JSON.stringify(CONTROL_GOOD)}).map((b) => b.t) }; })()`);
+  for (const t of CONTROL_BAD) if (!r.bad.includes(t)) fails.push(`${lang}: the checker does not flag "${t}": it would pass whatever the figures hold`);
+  for (const t of r.good) fails.push(`${lang}: the checker flags good TeX "${t}"`);
+};
 const mjReady = async () => { for (let k = 0; k < 80 && !(await ev('!!(window.MathJax && MathJax.tex2mml) && typeof __cmwFig === "object"')); k++) await sleep(250); return ev('!!(window.MathJax && MathJax.tex2mml)'); };
 const figure = async (lang, ctx) => {
   await sleep(1500);
@@ -61,6 +70,7 @@ for (const lang of ['en', 'ru', 'it']) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}/test-mj.html?ns=${ns}&lang=${lang}` }); await sleep(2500);
   if (!(await mjReady())) { fails.push(`${lang}: MathJax did not load: the figure cannot be read`); continue; }
+  await control(lang);
   await figure(lang, 'shapes');
   // the gallery
   for (const i of EXAMPLES) {
@@ -69,4 +79,5 @@ for (const lang of ['en', 'ru', 'it']) {
     await figure(lang, `example ${i} (${await ev(`document.querySelector('#examplesBtn .exlabel')?.textContent || ''`)})`);
   }
 }
+if (info.texts < MIN_TOTAL) fails.push(`the run read only ${info.texts} texts (at least ${MIN_TOTAL} expected)`);
 return { pass: fails.length === 0, fails: fails.slice(0, 60), info };
