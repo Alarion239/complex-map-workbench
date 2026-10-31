@@ -14,10 +14,11 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt)`,
    `clickSel(css)`, `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app), `logs()` (console + exceptions
    since the last call), `send(method, params)` (raw CDP), `sleep(ms)`.
-   Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event; `settled({ until, floor,
-   max, panes })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or compiling
-   (unless `panes: false`), no
-   finite animation running and `until` (an expression) true, at most `max` ms (8000), and answers `{ ok, ms, busy }`.
+   Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
+   alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that); `settled({ until, floor,
+   max, panes })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
+   compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
+   (8000), and answers `{ ok, ms, busy }`.
    window.__qa (qa_inject.js) has helpers: lamps(), cards(), state(), toasts(), frames(ms), txt(sel), vis(sel).
 4. Always open the app as http://localhost:8793/test.html?ns=<your-name> (namespaced storage).
 5. Stop the daemon at the end: `touch test/<you>_cdp/q/QUIT`.

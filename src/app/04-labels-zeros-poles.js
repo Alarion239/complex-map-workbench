@@ -9,7 +9,7 @@
   }
   // the curves drawn in this plane: shapes of 'list' under F (from drawPoints)
   function labelCurves(pane, F, list) { labelReg(pane).curves.push({ F, list }); }
-  // labels: STIX italic for variables, Archivo for words. it: {x, y, text, word?, rad? (marker radius)}
+  // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, rad? (marker radius)}
   function placeLabels(ctx, pane, items) {
     const r = labelReg(pane);
     for (const it of items) { r.items.push(it); r.marks.push([it.x, it.y, it.rad || 8]); }

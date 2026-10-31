@@ -78,10 +78,12 @@ for (const [w, h, mobile, lang] of [[1024, 768, false, 'ru'], [360, 780, true, '
 }
 // (ux's wave 12 sweep) on the globe the dimmed draw tools say they are off
 await open(1024, 768, false, 'en', 3);
-await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settled({ panes: false });   // (the tools' state, not the picture)
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`);
+// (the tools are marked when the globe's first frame is drawn: up to 6 s on a software renderer; #508)
+await settled({ panes: false, until: `document.querySelector('.tool[data-tool="annulus"]').getAttribute('aria-disabled') === 'true'` });
 const off = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"], .tool[data-tool="sector"], .tool[data-tool="pgrid"]')].map((b) => b.getAttribute('aria-disabled'))`);
 ok('on the globe, Annulus, Sector and Polar grid are aria-disabled', off.length >= 3 && off.every((v) => v === 'true'), off);
-await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settled({ panes: false });   // (the tools' state, not the picture)
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settled({ panes: false, until: `document.querySelector('.tool[data-tool="annulus"]').getAttribute('aria-disabled') == null` });
 const on = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"]')].map((b) => b.getAttribute('aria-disabled'))`);
 ok('… and on the plane they are not', on.every((v) => v == null), on);
 info.checks = 'steps view: the plane in its column with 3 and 5 steps, phone 360/390 and desk 1024/1440, en and ru';
