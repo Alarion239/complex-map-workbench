@@ -47,11 +47,12 @@ ok('▶ says how to reach Speed and Loop', await ev(`document.querySelector('.sv
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+const tClick = Date.now();
 await ev(`document.querySelector('.sv-play').click(); 1`);
 ok('starting says where it plays from and to, in the live region', await ev(`/Playing from z to w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 const p1 = await S();
 ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && await ev(`document.querySelector('.sv-play').getAttribute('aria-label') === 'Pause'`), p1);
-const e1 = await until((s) => !s.play);
+const e1 = await until((s) => !s.play); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
