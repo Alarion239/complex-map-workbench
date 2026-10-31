@@ -6,7 +6,8 @@ network, it reads vendor/ only.
     python3 tools/vendor.py --update   the same, recording new tarball hashes (after a version change below)
 
 What it writes:
-  vendor/js/       MathJax's tex-svg-nofont.js (the typesetter) and, in mathjax-stix2/, its STIX2 font (svg.js, and the
+  vendor/js/       fflate's inflate (the offline page's MathJax block is gzipped, #491: where a browser lacks
+                   DecompressionStream), MathJax's tex-svg-nofont.js (the typesetter) and, in mathjax-stix2/, its STIX2 font (svg.js, and the
                    rarer ranges in svg/dynamic/ that MathJax loads on demand; #288), and jsPDF and svg2pdf.js (the figure
                    export's PDF, loaded on the first PDF export; issue #393), for the offline page
   vendor/fonts/    the faces the page sets text in, subset to the characters the app's sources use (chars() below)
@@ -42,11 +43,13 @@ PACKAGES = {
     '@fontsource-variable/roboto-flex': '5.3.0',
     'jspdf': '2.5.1',
     'svg2pdf.js': '2.2.3',
+    'fflate': '0.8.2',
 }
 SCRIPTS = [  # (package, file in the package, vendor/js name)
     ('mathjax', 'tex-svg-nofont.js', 'tex-svg-nofont.js'),
     ('jspdf', 'dist/jspdf.umd.min.js', 'jspdf.umd.min.js'),
     ('svg2pdf.js', 'dist/svg2pdf.umd.min.js', 'svg2pdf.umd.min.js'),
+    ('fflate', 'umd/index.js', 'fflate.umd.js'),   # (#491: the offline page's inflate where DecompressionStream is missing)
 ]
 # MathJax 4's STIX2 font (#288): its SVG data and the dynamic ranges, under vendor/js/mathjax-stix2/ as in the package
 # a package that ships no license file: the package whose license file has the same license's text, and a note

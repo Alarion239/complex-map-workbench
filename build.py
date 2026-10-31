@@ -1,4 +1,6 @@
 import base64
+import gzip
+import io
 import json
 import pathlib
 import re
@@ -154,19 +156,32 @@ mj_off = mj.replace(CDN_MJ_PRE, '').replace(CDN_MJ, """<script>
 (function () {
   // (Blob URLs, async: the browser compiles MathJax off the main thread, as it did the CDN's script. The font and its
   // ranges go to MathJax's loader as Blob URLs by name (loader.source), so the ranges still load on demand and
-  // nothing leaves the page; '#.js': the loader adds .js to a name without one)
+  // nothing leaves the page; '#.js': the loader adds .js to a name without one. #491: the block is the files' JSON
+  // gzipped, in base64, inflated by DecompressionStream, or by fflate where a browser lacks it)
+  var url = function (t) { return URL.createObjectURL(new Blob([t], { type: 'text/javascript' })); };
+  var inflate = function (b64) {
+    var bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    if (window.DecompressionStream) return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    return new Promise(function (ok, no) {
+      var f = document.createElement('script');
+      f.src = url(JSON.parse(document.getElementById('cmw-fflate').textContent));
+      f.onload = function () { try { ok(fflate.strFromU8(fflate.gunzipSync(u8))); } catch (e) { no(e); } };
+      f.onerror = no;
+      document.head.appendChild(f);
+    });
+  };
   var done = false, go = function () {
     if (done) return; done = true;
-    try {
-      var F = JSON.parse(document.getElementById('cmw-mathjax').textContent), src = {}, s = document.createElement('script');
-      var url = function (t) { return URL.createObjectURL(new Blob([t], { type: 'text/javascript' })); };
+    inflate(JSON.parse(document.getElementById('cmw-mathjax').textContent)).then(function (text) {
+      var F = JSON.parse(text), src = {}, s = document.createElement('script');
       // (by a path of their own, [cmwblob]: a file:// page's Blob URLs, blob:null/…, are not absolute to the loader)
       var L = window.MathJax.loader || (window.MathJax.loader = {}), P = L.paths || (L.paths = {});
       for (var k in F) if (k !== 'core') { var u = url(F[k]), i = u.lastIndexOf('/'); P.cmwblob = u.slice(0, i); src[k] = '[cmwblob]' + u.slice(i) + '#.js'; }
       L.source = src;
       s.async = true; s.src = url(F.core);
       document.head.appendChild(s);
-    } catch (e) { /* the TeX source shows */ }
+    }).catch(function () { /* the TeX source shows */ });
   };
   // after the first paint; in a background tab (no frames) a second after the load
   var later = function () { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 1000); };
@@ -194,8 +209,14 @@ mjv = vendor / 'js' / 'mathjax-stix2'
 mj_files = {'core': (vendor / 'js' / 'tex-svg-nofont.js').read_text(encoding='utf-8'), '[mathjax-stix2]/svg': (mjv / 'svg.js').read_text(encoding='utf-8')}
 for f in sorted((mjv / 'svg' / 'dynamic').glob('*.js')):
     mj_files[f'[mathjax-stix2]/svg/dynamic/{f.name}'] = f.read_text(encoding='utf-8')
+# (#491) the files' JSON gzipped (level 9, no name or time in the header: the same bytes from the same input), in base64:
+# 4.1 MB of JSON in 1.75 MB; the page inflates it (DecompressionStream, else fflate's inflate, a block of its own)
+_gz = io.BytesIO()
+with gzip.GzipFile(fileobj=_gz, mode='wb', compresslevel=9, mtime=0) as _g:
+    _g.write(json.dumps(mj_files).encode('utf-8'))
+mj_block = json.dumps(base64.b64encode(_gz.getvalue()).decode('ascii'))
 pdf_blocks = ''.join(block(i, json.dumps((vendor / 'js' / f).read_text(encoding='utf-8'))) for i, f in [('cmw-jspdf', 'jspdf.umd.min.js'), ('cmw-svg2pdf', 'svg2pdf.umd.min.js')])
-offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', json.dumps(mj_files))
+offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', mj_block) + block('cmw-fflate', json.dumps((vendor / 'js' / 'fflate.umd.js').read_text(encoding='utf-8')))
            + pdf_blocks + mj_off + '<script>\n' + pub_js + '\n</script>\n')
 save(dist / 'complex-map-workbench-offline.html', offline)
 # the live page names the offline page's size (Settings: Download offline page); the offline page has no such entry
