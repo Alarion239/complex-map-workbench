@@ -20,7 +20,7 @@ const open = async (w, h, mobile, flag) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${flag ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${flag ? '&view=steps' : ''}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` }); await settle(500);
 };
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
