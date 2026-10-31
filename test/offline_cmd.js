@@ -32,7 +32,7 @@ for (const lang of ['en', 'ru']) {
     const svg = await ev(`(() => { try { return MathJax.tex2svg('\\\\int_\\\\gamma f(z)\\\\,dz').querySelectorAll('path, use').length; } catch (e) { return String(e); } })()`);
     ok(`${lang}: MathJax typesets a formula`, typeof svg === 'number' && svg > 0, svg);
   }
-  const want = [['400 14px "Archivo"', 'Ab'], ['italic 400 14px "STIX Two Text"', 'z'], ['400 12px "B612 Mono"', '0'], ['400 12px "JetBrains Mono"', '0']];
+  const want = [['400 14px "Roboto Flex"', 'Ab'], ['italic 400 14px "STIX Two Text"', 'z'], ['400 12px "JetBrains Mono"', '0']];
   if (lang === 'ru') want.push(['500 12px "Roboto Flex"', 'Жж']);
   const got = await faces(want);
   ok(`${lang}: every face loads from the page itself`, Array.isArray(got) && got.every((n) => n > 0), { faces: want.map((w) => w[0]), got });

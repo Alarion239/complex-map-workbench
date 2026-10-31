@@ -1148,7 +1148,7 @@ const Tour = (() => {
 .tour-menu .tour-time { font: 400 11px/16px var(--f-mono); color: var(--faint); }
 .tour-menu .tour-done { flex: 0 0 14px; width: 14px; height: 14px; color: var(--good); }
 .tour-menu .tour-done svg { width: 14px; height: 14px; display: block; }
-.tour-menu .tour-new { font: var(--t-caption); color: var(--accent); }
+.tour-menu .tour-new { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--accent); }
 .tour-menu .mi.tour-continue { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
 .tour-menu .tour-sub { display: block; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .ts-ring svg, .ts-chev svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
