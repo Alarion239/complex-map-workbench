@@ -49,6 +49,14 @@ SCRIPTS = [  # (package, file in the package, vendor/js name)
     ('svg2pdf.js', 'dist/svg2pdf.umd.min.js', 'svg2pdf.umd.min.js'),
 ]
 # MathJax 4's STIX2 font (#288): its SVG data and the dynamic ranges, under vendor/js/mathjax-stix2/ as in the package
+# a package that ships no license file: the package whose license file has the same license's text, and a note
+# (the STIX2 font: Apache-2.0 as MathJax, its glyphs drawn from the STIX Two fonts, SIL OFL 1.1)
+LICENSE_FROM = {
+    '@mathjax/mathjax-stix2-font': ('mathjax', 'Its glyph outlines come from the STIX Two fonts, Copyright 2001-2021 The STIX Fonts Project\n'
+                                    'Authors (https://github.com/stipub/stixfonts), licensed under the SIL Open Font License, Version 1.1:\n'
+                                    'its text is in fontsource-variable__stix-two-text.txt beside this file. The Apache License 2.0 the\n'
+                                    'package declares (the text from MathJax, the same license) follows.'),
+}
 MJ_FONT = ('@mathjax/mathjax-stix2-font', 'mathjax-stix2', re.compile(r'svg\.js|svg/dynamic/[a-z-]+\.js'))
 # The faces, as the Google Fonts stylesheets they replace asked for them (src/page.html, src/i18n.js): the family,
 # the package and its file pattern ({r}: a unicode range's name), the style, the axes' ranges (the others pinned to
@@ -169,9 +177,14 @@ def main():
             lfile = VENDOR / 'licenses' / (name.replace('/', '__').lstrip('@') + '.txt')
             if lic:
                 lfile.write_bytes(tar.extractfile(lic).read())
-            else:   # (a package with no license file: the license its package.json declares)
+            else:   # (a package with no license file: the license its package.json declares, and its text from LICENSE_FROM)
                 meta = json.loads(tar.extractfile('package/package.json').read())
-                lfile.write_text(f'{name}@{ver}: {meta.get("license", "no license declared")} (from its package.json; the package ships no license file)\n', encoding='utf-8')
+                text = f'{name}@{ver}: {meta.get("license", "no license declared")} (from its package.json; the package ships no license file)\n'
+                if name in LICENSE_FROM:
+                    src_pkg, note = LICENSE_FROM[name]
+                    src_lic = next(m for m in tars[src_pkg].getmembers() if re.fullmatch(r'package/LICEN[CS]E(\.\w+)?', m.name))
+                    text += note + '\n\n' + tars[src_pkg].extractfile(src_lic).read().decode('utf-8')
+                lfile.write_text(text, encoding='utf-8')
         for name, inner, out in SCRIPTS:
             b = tars[name].extractfile('package/' + inner).read()
             (VENDOR / 'js' / out).write_bytes(b)
