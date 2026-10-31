@@ -7,6 +7,16 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const AXE = fs.readFileSync(path.join(DIR, '..', '..', 'node_modules', 'axe-core', 'axe.min.js'), 'utf8');
+// (axe on the thread: names, roles and nesting; colour contrast is the pictures' and is not run here)
+const RULES = ['button-name', 'nested-interactive', 'aria-allowed-attr', 'aria-allowed-role', 'aria-valid-attr-value', 'aria-required-children', 'aria-required-parent', 'aria-prohibited-attr', 'aria-roles', 'label', 'scrollable-region-focusable', 'aria-hidden-focus'];
+const axeRun = async (what) => {
+  if (!(await ev("typeof axe !== 'undefined'"))) await ev(AXE + '\n;1');
+  await ev(`(() => { window.__axe = null; axe.run(document.getElementById('paneL'), { runOnly: { type: 'rule', values: ${JSON.stringify(RULES)} } }).then((r) => { window.__axe = r.violations.map((v) => ({ id: v.id, n: v.nodes.length, t: v.nodes.slice(0, 2).map((x) => x.html.slice(0, 120)) })); }); 1; })()`);
+  let r = null;
+  for (let i = 0; i < 100 && !r; i++) { r = await ev('window.__axe'); if (!r) await sleep(100); }
+  ok('axe: ' + what, r && r.length === 0, r);
+};
 const ns = 'svc' + Date.now();
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
@@ -115,12 +125,25 @@ ok('+ Add function opens the palette', await ev(`!!document.querySelector('#popH
 await ev(`(() => { const i = document.getElementById('palInput'); i.value = 'sine'; i.dispatchEvent(new Event('input')); })()`); await settle(400);
 await kb('Enter'); await settle(700);
 ok('a function added from the empty chain: one chip, the keyboard on it, the empty message gone', (await types()).length === 1 && (await where()) === 'chip1' && await ev(`document.querySelector('.sv-empty').hidden`), [await types(), await where()]);
+await axeRun('the thread with chips');
+await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300);
+await axeRun('with a step\'s menu open');
+await ev(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(200);
 // the right-click and the keys
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`);
 await kb('F10', { shiftKey: true }); await settle(300);
 ok('Shift+F10 on a chip opens its menu', (await menu()).includes('Show alone'), await menu());
 await ev(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(200);
-// the default view is unchanged
+// bypassed, shown alone and empty
+await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Bypass this step');
+await axeRun('a bypassed chip');
+await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Turn this step back on');
+await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Show alone');
+await axeRun('a step shown alone');
+await kb('Escape'); await settle(300);
+await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`); await kb('Delete'); await settle(300);
+await axeRun('the empty chain');
+await undo();
 // ---- the phone ----
 await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height })`);
