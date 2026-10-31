@@ -410,6 +410,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .pop.palette { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + 8px) !important; bottom: max(calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)), var(--ph-kb, 0px)) !important; height: auto !important; max-height: none !important; border-radius: var(--r-4); border-bottom: 1px solid var(--line-strong); padding-bottom: 0; }
 /* (eyes, #479: a phone sideways with the keyboard up has about 120 px for the sheet: the field and the results; the Insert row is back when the keyboard goes) */
 :root.ph.ph-land.ph-kb .pop.palette .pal-atrow { display: none; }
+/* (eyes, #479: the preview beside the results (a phone wider than 767 px sideways) gives its image the room the caption leaves, instead of running the caption off the sheet's foot) */
+:root.ph .pal-preview > canvas { flex: 0 1 auto; min-height: 0; align-self: center; width: auto; max-width: 100%; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
    sheets a 360 px side sheet on the right, both planes still in sight ---------- */

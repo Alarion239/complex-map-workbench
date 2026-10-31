@@ -28,6 +28,10 @@ for (const [w, h, kbh] of [[390, 844, 320], [360, 640, 280], [740, 360, 150], [9
     if (!g) continue;
     ok(`${tag}: it ends above the chain bar (does not cover it)`, g.pal[3] <= g.chain[1] + 1, g);
     ok(`${tag}: it starts under the header`, g.pal[1] >= g.head - 1, g);
+    // (the preview column beside the results, where there is one: its image and caption fit it, the caption's foot inside the sheet)
+    const pv = await ev(`(() => { const v = document.querySelector('.pop.palette .pal-preview'); if (!v || !v.getClientRects().length) return null; const c = v.querySelector('.pal-cap'), vr = v.getBoundingClientRect(), cr = c && c.getBoundingClientRect(), cv = v.querySelector('canvas').getBoundingClientRect(); return { fit: v.scrollHeight <= v.clientHeight + 1, capBottom: cr ? Math.round(cr.bottom) : null, prevBottom: Math.round(vr.bottom), square: Math.abs(cv.width - cv.height) <= 2, w: Math.round(cv.width), h: Math.round(cv.height) }; })()`);
+    info[tag + ' preview'] = pv;
+    if (pv) { ok(`${tag}: the preview's caption is inside its column`, pv.fit && pv.capBottom <= pv.prevBottom + 1, pv); ok(`${tag}: the preview's image stays square`, pv.square, pv); }
     await ev(`Phone._kb(${kbh}), 1`); await settle(700);
     const k = await geo(); info[tag + ' kb'] = k;
     ok(`${tag} with the keyboard (${kbh} px): it ends above the keyboard, its search field in view`, k && k.pal[3] <= h - kbh + 1 && k.input[0] >= k.head - 1 && k.input[1] <= k.pal[3], k);
