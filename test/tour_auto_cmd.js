@@ -85,7 +85,7 @@ await go('basics', 4);
 await click(disc[0], disc[1]); await settle(200);
 await mdrag(a.l + 220, a.b - 140, a.l + 260, a.b - 110);
 await sleep(150);
-let liveT = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`);
+let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
 // a door: Choose Phase moves on 0.7 s after it
@@ -121,12 +121,13 @@ check('palette: the palette opens and the task ticks', (await until(`document.qu
 check('palette: no advance while it stays open (6 s)', await stays('keys/palette', 6000));
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
-// (r3 review regress-5: no "Next step in 1.5 s" while held; said when the hold ends)
-const liveH = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`);
+// (r3 review regress-5: no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
+// #tourSay, which a chapter's end creates: #363 made Phase key the end of Views)
+const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
 await sleep(200);
-const liveR = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`);
+const liveR = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: once it closes the live region says "Next step in 1.5 s."', liveR === 'Next step in 1.5 s.', liveR);
 // (keys/palette is not the chapter's last step: it moves on CD_MS after the palette closes)
 at = await advancedAt('keys/palette', t0);
