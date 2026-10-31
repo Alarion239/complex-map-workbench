@@ -81,7 +81,7 @@ const rules = {
 // A file may shrink, never grow: lower its number when it shrinks (never raise one), and drop it once it is under
 // 1,500, where the aim above applies again. Moving code out of a file into a new one is how a number goes down.
 const SIZE_BUDGET = {
-  'src/funcs.js': 1747, 'src/tour.js': 2582,
+  'src/tour.js': 2582,
   'src/glsl.js': 2150, 'src/region.js': 1830, 'src/parse.js': 1777,
 };
 
