@@ -82,14 +82,14 @@ for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phas
 // earlier build (rightMode) for each of X → Y (with an area: Inside regions), Phase and Landscape. No saved state at the
 // page's namespace, so the link opens at once; the page reloads on it
 for (const form of ['1', '0']) {
-  for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1', ci: 0 }] }, { scope: 'in', surf: 'plane', main: 'xy' }], ['Phase', { rightMode: 'color' }, { scope: 'all', surf: 'plane', main: 'phase' }], ['Landscape', { rightMode: '3d', material: 'plaster' }, { scope: 'all', surf: 'land', main: 'land' }]]) {
+  for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1', ci: 0 }] }, { scope: 'in', surf: 'plane', main: 'phase' }], ['Phase', { rightMode: 'color' }, { scope: 'all', surf: 'plane', main: 'phase' }], ['Landscape', { rightMode: '3d', material: 'plaster' }, { scope: 'all', surf: 'land', main: 'land' }]]) {
     await load(ns, {});
     await hooked();
     const state = Object.assign({ v3: true, v4: true, shapes: [], steps, nextId: 50, focus: 0 }, o);
     await ev(`(window.__svLink = null, ${form === '1' ? `Params.encodeLink(${JSON.stringify(state)})` : `Promise.resolve('0.' + btoa(JSON.stringify({ v: 1, s: ${JSON.stringify(state)} })).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, ''))`}.then((p) => { window.__svLink = p; }), 1)`);
     const payload = await linkMade();
     ok(`the form ${form}. link was made`, typeof payload === 'string' && payload.startsWith(form + '.'), String(payload).slice(0, 12));
-    const nsl = ns + 's' + form + want.main;
+    const nsl = ns + 's' + form + name.replace(/\W/g, '');   // (the steps view shows X → Y at z, coloured from the last plane, as Phase: main 'phase' with Inside regions)
     await nav(`${base}/test.html?ns=${nsl}&view=steps#cmw=${payload}`);
     let r = null;
     for (let i = 0; i < 20 && !(r && r.on && r.T === 3 && r.n === 3); i++) {
@@ -97,7 +97,7 @@ for (const form of ['1', '0']) {
       r = await ev(`typeof __cmwSteps === 'function' ? Object.assign(__cmwSteps(), { n: __cmwSteps().planes.length - 1 }) : null`);
     }
     info[`steps link ${form} ${name}`] = r && { T: r.T, scope: r.scope, surf: r.surf, x: r.x, main: r.main, n: r.n };
-    ok(`old ${name} link (form ${form}.) under ?view=steps opens on its equivalent`, r && r.on && r.T === 3 && r.scope === want.scope && r.surf === want.surf && r.x === 0 && r.n === 3, info[`steps link ${form} ${name}`]);
+    ok(`old ${name} link (form ${form}.) under ?view=steps opens on its equivalent`, r && r.on && r.T === 3 && r.scope === want.scope && r.surf === want.surf && r.main === want.main && r.x === 0 && r.n === 3, info[`steps link ${form} ${name}`]);
   }
 }
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
