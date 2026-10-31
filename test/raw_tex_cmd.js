@@ -17,7 +17,7 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { window._
 const SCAN = `(() => {
   const RX = [[/\\\\[a-zA-Z]+/, 'command'], [/[\\^_]\\{/, 'braced script'], [/[A-Za-z0-9)}\\]]\\^[0-9A-Za-z-]/, 'bare ^'], [/[A-Za-z)}\\]]_[0-9A-Za-z]/, 'bare _']];
   const hit = (s) => { for (const [r, k] of RX) if (r.test(s)) return k; return null; };
-  const out = [];
+  const out = []; let n = 0;
   const shown = (el) => { for (let e = el; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false; } return !!(el.getClientRects && el.getClientRects().length); };
   // (what the user typed is as typed: fields, the command field)
   const typed = (el) => !!el.closest('mjx-container, svg, script, style, textarea, input, select, [contenteditable], .cmd-field');
@@ -26,22 +26,27 @@ const SCAN = `(() => {
   for (let n = w.nextNode(); n; n = w.nextNode()) {
     const el = n.parentElement, s = n.nodeValue;
     if (!el || !s || !s.trim() || typed(el) || !shown(el)) continue;
-    const k = hit(s); if (k) out.push({ where: 'text ' + where(el), k, s: s.trim().slice(0, 140) });
+    n++; const k = hit(s); if (k) out.push({ where: 'text ' + where(el), k, s: s.trim().slice(0, 140) });
   }
   // (a tooltip is read whether or not its element is shown now: it shows on hover)
   for (const el of document.querySelectorAll('[aria-label], [title], [data-tip], [alt]')) {
     if (el.closest('mjx-container, svg') || (!shown(el) && !el.hasAttribute('data-tip'))) continue;
-    for (const a of ['aria-label', 'title', 'data-tip', 'alt']) { const s = el.getAttribute(a); if (!s) continue; const k = hit(s); if (k) out.push({ where: a + ' ' + where(el), k, s: s.slice(0, 140) }); }
+    for (const a of ['aria-label', 'title', 'data-tip', 'alt']) { const s = el.getAttribute(a); if (!s) continue; n++; const k = hit(s); if (k) out.push({ where: a + ' ' + where(el), k, s: s.slice(0, 140) }); }
   }
-  for (const [s] of window.__canvasTexts || []) { const k = hit(s); if (k) out.push({ where: 'canvas', k, s: s.slice(0, 140) }); }
-  return out;
+  for (const [s] of window.__canvasTexts || []) { n++; const k = hit(s); if (k) out.push({ where: 'canvas', k, s: s.slice(0, 140) }); }
+  return { out, n, mj: !!document.querySelector('mjx-container') };
 })()`;
 const seen = new Set();
+// (a scan that read nothing, or a test-mj.html that typeset nothing, would pass whatever the page shows)
+const MIN_STRINGS = 20;
 const scan = async (page, ctx) => {
   info.scanned++;
   let r;
   try { r = await ev(SCAN); } catch (e) { fails.push(`${LANG} ${page} ${ctx}: the scan threw: ${e.message}`); return; }
-  for (const f of r) { const key = `${page}|${f.where}|${f.s}`; if (seen.has(key)) continue; seen.add(key); fails.push(`${LANG} ${page} ${ctx}: raw TeX (${f.k}) in ${f.where}: "${f.s}"`); }
+  if (r.n < MIN_STRINGS) fails.push(`${LANG} ${page} ${ctx}: the scan read only ${r.n} strings (at least ${MIN_STRINGS} expected)`);
+  if (page === 'test-mj.html' && !r.mj) fails.push(`${LANG} ${page} ${ctx}: MathJax typeset nothing (no mjx-container): the page tested what it shows before MathJax`);
+  info.minStrings = Math.min(info.minStrings ?? Infinity, r.n);
+  for (const f of r.out) { const key = `${page}|${f.where}|${f.s}`; if (seen.has(key)) continue; seen.add(key); fails.push(`${LANG} ${page} ${ctx}: raw TeX (${f.k}) in ${f.where}: "${f.s}"`); }
 };
 const BUSY = `(() => { const s = (r) => (typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus(r) : null); const a = s('L'), b = s('R'); return !!(a && (a.pending || a.exact > 0)) || !!(b && (b.pending || b.exact > 0)); })()`;
 const settle = async (mj) => {
