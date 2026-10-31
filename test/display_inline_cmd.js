@@ -178,6 +178,8 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   await fresh(1366, 1024, false, '');
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await settle(300);
+  // (the Phase head's toggles and styles, once laid out: a busy page lays the head out a moment later)
+  for (let i = 0; i < 50 && !(await ev(`!!document.querySelector('#dcSeg') && [...document.querySelectorAll('.pane-head label.ic-tg')].some((l) => l.getClientRects().length)`)); i++) await sleep(100);
   const desk = await ev(`!document.documentElement.classList.contains('ph')`);
   const tg = await ev(`(() => { const i = [...document.querySelectorAll('.pane-head label.ic-tg input')].find((x) => x.closest('label').getClientRects().length); return i ? [i.id, i.closest('label').dataset.tip || ''] : null; })()`);
   ok('touch at 1366: an icon toggle in a pane head', Array.isArray(tg), tg);
