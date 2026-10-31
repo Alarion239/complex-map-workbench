@@ -960,16 +960,19 @@
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
   function sphereView(pane, c, base, o) {
-    pane.begin(TH.plane);
-    if (!GLR.ok) { noGL(pane); return null; }
-    backdrop(pane);
+    // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
+    // backdrop, shadow or marks of its own, #440)
+    const over = !!o.maskRegions;
+    if (!over) pane.begin(TH.plane);
+    if (!GLR.ok) { if (!over) noGL(pane); return null; }
+    if (!over) backdrop(pane);
     // 28 degree camera fitted to the globe and its labels at this pane's aspect (spec 6.10)
     // (with the equatorial plane on, frame more of the disc; its rim fades out, so the pane never cuts it hard)
     refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, pane.w, pane.h, 1.05));
     // contact shadow (spec 6.10): an elliptical radial gradient, aspect 1.6 : 0.35, on the ground under the globe,
     // placed and sized from the globe's projection; it fades out as the camera drops below the ground
     const ctx = pane.ctx;
-    {
+    if (!over) {
       const pc = GLR.camera(c, pane.w, pane.h);
       const D = Math.hypot(...pc.eye);
       const c0 = project(pane, pc.MVP, [0, 0, 0]), cb = project(pane, pc.MVP, [0, 0, -1.03]);
@@ -987,6 +990,8 @@
     }
     GLR.begin(pane.pw, pane.ph);
     const imageMode = o.imageMode;
+    // ((#440) o.maskRegions: the globe in colour, kept inside the regions, which are lifted as in image mode for its mask)
+    const regionsOn = imageMode || !!o.maskRegions;
     const regions = [], lines = [];
     // o.hom: the homotopy at time t (Morph transport): image mode lifts the shapes under H_t, phase mode paints H_t
     const hom = o.hom || null;
@@ -1002,9 +1007,9 @@
     // records are packed once. o.role: 'R' the w-globe (Y Sphere), 'L' the z-globe (X Sphere, at stage 0 too)
     const role = o.role === 'L' ? 'L' : 'R', live = !offRender;
     const stretch = { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) };
-    const smR = imageMode ? globeRpx(pane, c, base) : 0;   // the globe's radius, device px (SphereMesh's view)
+    const smR = regionsOn ? globeRpx(pane, c, base) : 0;   // the globe's radius, device px (SphereMesh's view)
     let recs = null;
-    if (imageMode && GLR.packShapes && GLR.drawInverse && S.exactImages !== false && PHASE[role].globe
+    if (regionsOn && GLR.packShapes && GLR.drawInverse && S.exactImages !== false && PHASE[role].globe
       && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area')) {
       const m0 = normalizeMap(map);
       if ((m0.mode || 0) === 0 && invPlan(m0.a || 0, m0.b || 0).ok) {
@@ -1018,8 +1023,8 @@
       if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;   // ([#253] the globes: the z-plane's shapes, flat planes first)
       const r = shapeGPU(s);
       const ink = shapeInk(s);
-      const pf = imageMode && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
-      if (imageMode && kindType(s) === 'area') {
+      const pf = regionsOn && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
+      if (regionsOn && kindType(s) === 'area') {
         const fwd = [];
         // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) replaces the lifted
         // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere)
@@ -1073,7 +1078,7 @@
       map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
-      regions, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
+      regions: imageMode ? regions : [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
       post: (o.post || []).filter(Boolean), net: o.net || 'plain',
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
@@ -1082,6 +1087,7 @@
     if (recs && live && prepDeferred) { prepDeferred = false; requestRender(role); }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (over) return info;
     glStatusNote(pane);
     if (!info) return null;
     const lift = liftC;

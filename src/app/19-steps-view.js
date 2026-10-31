@@ -469,16 +469,26 @@
     }
     leftSphereInfo = info;
   }
-  // Inside regions on the globe: the globe with its regions, then the colour globe only where a region is: the regions
-  // drawn white on a black globe make the mask
+  // Inside regions on the globe: the globe with its regions, then over it the colour globe only where a region is. On
+  // the GPU (#440): the colour globe's frame keeps its colour where the regions wrote its alpha (sphereView's
+  // maskRegions, GLR.drawSphere); else the regions drawn white on a black globe make a mask, read back
   let svSphCv = null, svSphMask = null;
   function svSphereIn(pane) {
     const k = svStage(), o = { stage: k, plane: !!xView().eq, role: 'L' };
     const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: true }, o));
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
+      try {
+        setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+        sphereView(pane, camL, CAML, Object.assign({ imageMode: false, maskRegions: true }, o));
+      } catch (e) { console.error('steps view globe mask', e); }
+      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+      return info;
+    }
     svSphCv = svCanvas(svSphCv, pane);
     sphereView(svProxy(pane, svSphCv), camL, CAML, Object.assign({ imageMode: false }, o));
     svSphMask = svCanvas(svSphMask, pane);
-    const keepTH = TH, keepInk = printInk, keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    const keepTH = TH, keepInk = printInk;
     try {
       TH = Object.assign({}, TH, { plane: '#000000', planeRGB: [0, 0, 0], gridMajor: '#000000', axisRGB: [0, 0, 0], inkRGB: [0, 0, 0], faint: '#000000', landTop: '#000000', landBottom: '#000000', landShadow: '#000000', halo: '#000000', muted: '#000000' });
       printInk = () => ({ c0: '#ffffff', alt: '#ffffff', edge: '#ffffff' });

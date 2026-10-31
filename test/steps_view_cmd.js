@@ -105,6 +105,15 @@ info.globe = { gUp, gLo, aLo };
 ok('on the globe, Inside regions changes the picture', gIn !== gAll, [gIn, gAll]);
 ok('… the upper half-plane coloured and the lower one paper; coloured everywhere without it', !grey(gUp) && grey(gLo) && !grey(aLo), info.globe);
 await ev(`__cmwSteps({ scope: 'in', surf: 'plane' }); 1`); await settle(800);
+// (#440) Inside regions is drawn on the GPU: no read-back of a canvas at rest, parked, while gliding, or on the globe
+await ev(`(() => { const P = CanvasRenderingContext2D.prototype, f = P.getImageData; window.__gid = 0; P.getImageData = function (...a) { window.__gid++; return f.apply(this, a); }; window.__gidF = f; return 1; })()`);
+await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settle(600);
+await ev(`__cmwSteps({ park: 0.5 }); 1`); await settle(600);
+await ev(`__cmwSteps({ go: 0 }); 1`); await rest();
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1500);
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(800);
+const gid = await ev(`(() => { CanvasRenderingContext2D.prototype.getImageData = window.__gidF; return window.__gid; })()`);
+ok('Inside regions reads no canvas back (at rest, parked, gliding, on the globe)', gid === 0, gid);
 // (#471) axe on the steps view: on z, parked between planes, on the globe
 const ax = {};
 ax.z = await axe();
