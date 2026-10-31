@@ -358,7 +358,7 @@ for (const [kind, go] of VIEWS3) {
   } // (4a-vid skips the figures)
   if (!VID4) continue;
   // the video of this view: frames rendered off-screen one by one, H.264 in MP4, the page keeps its frames
-  const vopt = kind === 'plane' ? { size: '1920x1080', fps: 60, secs: 1, ends: 'bounce', look: 'print', paths: true, tlabel: true } : kind === 'globe' ? { size: '1080x1080', fps: 30, secs: 2, ends: 'once', look: 'light', paths: true, tlabel: true } : { size: '1280x720', fps: 30, secs: 2, ends: kind === 'land' ? 'loop' : 'once', look: kind === 'phase' ? 'print' : 'light', tlabel: true };
+  const vopt = kind === 'plane' ? { size: '1920x1080', fps: 60, secs: 1, ends: 'bounce', look: 'print', paths: true, tlabel: true } : kind === 'globe' ? { size: '1080x1080', fps: 30, secs: 1, ends: 'once', look: 'light', paths: true, tlabel: true } : { size: '1280x720', fps: 30, secs: 1, ends: kind === 'land' ? 'loop' : 'once', look: kind === 'phase' ? 'print' : 'light', tlabel: true };
   const v = await ev(`await (async () => { try {
     window.__lt = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }); po.observe({ entryTypes: ['longtask'] });
     let beats = 0; const hb = setInterval(() => beats++, 16); const t0 = performance.now();
@@ -415,7 +415,7 @@ if (VID4) { // (4a-fig skips the WebM fallback, the pace and the dark theme's vi
   await view(1440, 900, true, false); await settle(800);
   const dk = await ev(`await (async () => { let flips = 0; const mo = new MutationObserver((l) => { flips += l.length; }); mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.__lt = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }); po.observe({ entryTypes: ['longtask'] });
-    const t0 = performance.now(); const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once', look: 'light' } }); const ms = performance.now() - t0;
+    const t0 = performance.now(); const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 1, ends: 'once', look: 'light' } }); const ms = performance.now() - t0;
     const f = await __cmwFig.build({ for: 'article' }); await new Promise((q) => setTimeout(q, 50)); po.disconnect(); mo.disconnect();
     return { frames: r.frames, ms: Math.round(ms), flips, lt: window.__lt, dark: matchMedia('(prefers-color-scheme: dark)').matches, fig: !!f }; })()`, 300000);
   ok('dark theme: a video and a filmstrip flip the theme at most once (the light tokens are read once) and make no task of 50 ms or more', dk && dk.dark && dk.flips <= 2 && !dk.lt.some((d) => d >= 50) && dk.fig, dk);
@@ -561,10 +561,10 @@ await key('Escape'); await settle(300);
   let tg = null;
   try { tg = await send('Target.createTarget', { url: 'about:blank' }); try { await send('Target.activateTarget', { targetId: tg.targetId }); } catch (e) { /* front already */ } } catch (e) { tg = { err: String(e).slice(0, 200) }; }
   await sleep(500);
-  const hv = await ev(`await (async () => { const vis = document.visibilityState; const t0 = performance.now(); const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once', look: 'light' } }); return { vis, frames: r.frames, ms: Math.round(performance.now() - t0) }; })()`, 300000);
+  const hv = await ev(`await (async () => { const vis = document.visibilityState; const t0 = performance.now(); const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 1, ends: 'once', look: 'light' } }); return { vis, frames: r.frames, ms: Math.round(performance.now() - t0) }; })()`, 300000);
   try { if (tg && tg.targetId) await send('Target.closeTarget', { targetId: tg.targetId }); } catch (e) { /* closed */ }
   await sleep(500);
-  const vv = await ev(`await (async () => { const t0 = performance.now(); const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once', look: 'light' } }); return { vis: document.visibilityState, frames: r.frames, ms: Math.round(performance.now() - t0) }; })()`, 300000);
+  const vv = await ev(`await (async () => { const t0 = performance.now(); const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 1, ends: 'once', look: 'light' } }); return { vis: document.visibilityState, frames: r.frames, ms: Math.round(performance.now() - t0) }; })()`, 300000);
   R.r3.hidden = { hidden: hv, visible: vv, tab: tg };
   ok('video in a hidden page: made at a pace close to a visible one (no one-frame-a-second timers)', hv && vv && hv.frames === vv.frames && (hv.vis !== 'hidden' || hv.ms < Math.max(3 * vv.ms, vv.ms + 4000)), { hv, vv });
 }
@@ -741,11 +741,13 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // the frame the preview drew first (its own record, so a long task before the next animation frame cannot move it)
   const firstShown = () => ev(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); if (!s || !s.id || s.first < 0) return null; const e = d.preview.entry(s.first); return { i: s.first, t: typeof e === 'number' ? e : e && e.a }; })()`);
 
-  // (a) DPR 2, the default options (1920 x 1080, 30 fps, 3 s, Once): kept at the shown size in device pixels, which is
-  // more than plain frames may take, so compressed; the first picture is the poster's frame; frame k is the video's
+  // (a) DPR 2, the default options (1920 x 1080, 30 fps, Once) but 2 s per step, the menu's shortest (#504: a third
+  // fewer frames to render; the size, the scaling and the compression are what it checks): kept at the shown size in
+  // device pixels, which is more than plain frames may take, so compressed; the first picture is the poster's frame;
+  // frame k is the video's
   await scene('xvpb', 1440, 900);
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false }); await settle(400);
-  await setV({});
+  await setV({ secs: 2 });
   await key('e', 4);
   // (the animation frames are timed once the preview shows: it fills and plays; the dialog's opening is not counted)
   await until(shownE, 20000); await perfOn(); await sleep(2500);
