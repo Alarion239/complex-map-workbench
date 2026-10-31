@@ -37,29 +37,29 @@ extra_doc = json.load(open(root / 'tools' / 'ru_extra.json'))
 extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # phase 2b's new strings (notes/i18n/ru/phase2b*.json): id -> {en, ru, plural, en_plural, ctx, note}. Keyed like the
 # call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many), and they win like tools/ru_extra.json
-# (v15: the redesign's strings, notes/i18n/ru/v15-<area>.json, after phase 2b's; a v15 table whose build is not merged
+# (the redesign's strings, notes/i18n/ru/v15-<area>.json, after phase 2b's; a v15 table whose build is not merged
 # into this tree yet is left out, so its strings and its changes to shared ones arrive with its sources)
-# (v15.1: three tables were written after v15. The video preview (work/xvv) and the phone tour's step toggle
+# (three tables were written after v15. The video preview (work/xvv) and the phone tour's step toggle
 # (work/xvp) were merged in v15.1; v15.2 merges the formula recognizer (src/recognize.js), so its table is in too.)
-# (v15.2: each piece writes notes/i18n/ru/v152-<piece>.json, read after the v15 tables, so its changes to shared
+# (each piece writes notes/i18n/ru/v152-<piece>.json, read after the v15 tables, so its changes to shared
 # strings win. Every v15.2 piece is merged in this tree: the paths, the recognizer, the formula steps and the sound.
 # v16 merges the sea song (work/xvsea, v152-seasong.json), so its table is read too; no English key is in two of the
 # v152-*.json / v16-*.json tables, so their order changes no string.)
 V15_NOT_HERE = set()
 V152_NOT_HERE = set()
-# (v16.1: the gate's fix pass and the user's requests write notes/i18n/ru/v161-<piece>.json, read last, so their changes
+# (the gate's fix pass and the user's requests write notes/i18n/ru/v161-<piece>.json, read last, so their changes
 # to shared strings win; only the tables whose sources are merged in this tree are read: work/xvex has user-5's, the
 # exact sheet captions and the export dialog's menus. A merge adds its pieces' names here.)
 V161_HERE = {'v161-user5.json'}
-# (v16.3: the Perpendicular circle (work/xv163, notes/orthogonal-circle/SPEC.md 5) writes notes/i18n/ru/v163-constr.json,
+# (the Perpendicular circle (work/xv163, notes/orthogonal-circle/SPEC.md 5) writes notes/i18n/ru/v163-constr.json,
 # read after the v16.1 tables; only the tables merged in this tree are listed)
 V163_HERE = {'v163-constr.json'}
-# (v16.4: Inside C only (work/xvhs, notes/orthogonal-circle/segments/SPEC.md 9) writes notes/i18n/ru/v164-segments.json,
+# (Inside C only (work/xvhs, notes/orthogonal-circle/segments/SPEC.md 9) writes notes/i18n/ru/v164-segments.json,
 # read after v16.3's; an allow-list, as V161_HERE: other v16.4 rounds' tables are merged with their builds)
 V164_SEG_HERE = {'v164-segments.json'}
-# (v16.4: tour r3, work/xvtr: notes/i18n/ru/v164-tour.json, read after every other table)
+# (tour r3, work/xvtr: notes/i18n/ru/v164-tour.json, read after every other table)
 V164_HERE = {'v164-tour.json'}
-# (v16.4: the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
+# (the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
 V164_HELP_HERE = {'v164-help.json'}
 # (v16.5 wave 1: each piece wrote notes/i18n/ru/v165-ux-<piece>.json (learn, chain, plane, rail, phone), read after
 # every v16.4 table; the wave 1 merge (notes/ux-build/W1-MERGE.md) reads them as one set, in name order)
@@ -68,10 +68,10 @@ V165_HERE = {'v165-ux-learn.json', 'v165-ux-chain.json', 'v165-ux-plane.json', '
 # (v16.5 wave 1 fix round, notes/ux-build/w1-fix-AS-BUILT.md: notes/i18n/ru/v165-ux-fix.json, read after every other
 # v16.5 table, so a Russian it changes wins)
 V165_FIX_HERE = {'v165-ux-fix.json'}
-# (v17, issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: notes/i18n/ru/v17-planemenu.json,
+# (issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: notes/i18n/ru/v17-planemenu.json,
 # read after every other table)
 V17_HERE = {'v17-planemenu.json'}
-# (v16.5: Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
+# (Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
 # read after the v16.5 tables, so it overrides v152-sound.json and v164-tour.json; before v17's, which is read last)
 V165_HEAR_HERE = {'v165-hear.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)

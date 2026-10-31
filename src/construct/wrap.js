@@ -1,5 +1,5 @@
 'use strict';
-// Constructions: the interface (v16, notes/constructions-v16/SPEC.md 4-7, 9-12, 15, 16; owned by INTERFACE).
+// Constructions: the interface (notes/constructions-v16/SPEC.md 4-7, 9-12, 15, 16; owned by INTERFACE).
 // CORE (constr.js, app.js's cm block) owns the model; this file owns what the user touches and reads:
 //   - snap targets: every point on the page (point shapes, other shapes' handles, the zeros and poles of f₁, the images
 //     F(z₀) in Y), the crossings of two drawn curves (found locally, at the pointer), and the curves themselves;

@@ -14,7 +14,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (v16.4: and until the step has settled: the strip no longer busy, the spotlight's morph over)
+  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
   for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
 const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
 const tap = async (x, y) => { await T('touchStart', [[x, y]]); await sleep(50); await T('touchEnd', []); };
