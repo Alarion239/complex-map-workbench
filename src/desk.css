@@ -643,7 +643,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* play along the thread (#438): the band of the range, its clear button, the loop toggle, a touch's hold */
 .sv-band { position: absolute; z-index: 0; top: calc(50% - 7px - 13px); height: 26px; box-sizing: border-box; border: 1.5px solid var(--accent); border-radius: 13px; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
 .sv-band[hidden] { display: none; }
-.sv-bandx { position: absolute; right: -12px; top: -10px; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.sv-bandx { position: absolute; z-index: 3; left: calc(var(--bx, 0px) - 6px); top: calc(50% - 30px); width: 22px; height: 22px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.sv-bandx[hidden] { display: none; }
 .sv-bandx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-play { font-size: 18px; }
 .sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }

@@ -467,8 +467,10 @@
     const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => { SV.speed = e.target.value; svPlayRebase(); try { localStorage.setItem('cmw-sv-speed', SV.speed); } catch (_) { /* (no storage) */ } } },
       ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
     const loop = h('button', { type: 'button', class: 'btn small sv-loop', 'aria-pressed': String(SV.loop), 'data-tip': $t('Start over at the end'), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
-    const band = h('div', { class: 'sv-band', role: 'group', hidden: '' }, h('button', { type: 'button', class: 'sv-bandx', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×'));
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), next, speed, loop);
+    const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
+    // (the clear button is the band's sibling, above the thread: inside the band it lay under the plane buttons)
+    const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, bandx, thumb, track), next, speed, loop);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -480,7 +482,7 @@
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { rail, play, loop, band, speed, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { rail, play, loop, band, bandx, speed, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svPlayHold();
     // (the other way to the sheet, for a screen reader's user who cannot hold: the header's ⋯ menu, which a phone shows)
@@ -777,10 +779,12 @@
     if (key === E.bandKey) return;
     E.bandKey = key;
     E.band.hidden = !key;
+    E.bandx.hidden = !key;
     if (!key) return;
     const P = svPlanes();
     E.band.style.left = (c[R.lo] - 14) + 'px';
     E.band.style.width = (c[R.hi] - c[R.lo] + 36) + 'px';
+    E.bandx.style.setProperty('--bx', (c[R.hi] + 22) + 'px');
     E.band.setAttribute('aria-label', $t('Range {a} to {b}', { a: svName(P[R.lo]), b: svName(P[R.hi]) }));
   }
   // Shift-drag (mouse) or hold-then-drag (touch) along the thread: the range

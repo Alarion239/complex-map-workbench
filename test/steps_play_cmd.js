@@ -142,6 +142,8 @@ ok('its × clears the range, and the focus goes to the ring', (await S()).range 
 await ctl({ range: [0, 1] }); await settle(200);
 const bx = await ev(`(() => { const x = document.querySelector('.sv-bandx').getBoundingClientRect(), n = document.querySelectorAll('#svStrip .sv-plane .sv-node')[1].getBoundingClientRect(); return { xl: x.left, nr: n.right, xb: x.bottom, nt: n.top }; })()`);
 ok('the band\'s × does not overlap the end plane\'s node', bx.xl >= bx.nr || bx.xb <= bx.nt, bx);
+const hit = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { hit: e === x || x.contains(e), tag: e && (e.className || e.tagName) }; })()`);
+ok('a click at the band\'s × lands on the ×, not on the plane under it', hit.hit, hit);
 await ctl({ range: null });
 await ctl({ go: 0, now: true });
 await ctl({ range: [1, 2] });
@@ -192,6 +194,11 @@ await ev(`[...document.querySelectorAll('.ph-sb[data-k="more"] .ph-row')].find((
 ok('… which opens the sheet, with the focus in it', await ev(`!document.querySelector('.sv-sheet').hidden && !!document.activeElement.closest('.sv-sheet')`), await ev(`document.activeElement.tagName + ' ' + document.querySelector('.sv-sheet').hidden`));
 const dn = await ev(`(() => { const r = document.querySelector('.sv-sheet .btn.small').getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);
 ok('the sheet\'s Done is at least 44 px', dn.w >= 43.5 && dn.h >= 43.5, dn);
+await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);
+await ctl({ range: [0, 1] }); await settle(300);
+const hp = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { hit: e === x || x.contains(e), w: r.width, h: r.height, tag: e && (e.className || e.tagName) }; })()`);
+ok('phone: the band\'s × is 44 px and a tap at its centre lands on it', hp.hit && hp.w >= 43.5 && hp.h >= 43.5, hp);
+await ctl({ range: null });
 
 // ---- without the flag: no ▶ ----
 await open(1280, 800, false, false);
