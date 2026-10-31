@@ -12,7 +12,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
 const { source } = require('./src_text');
-const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', palette: 'Palette', gl: 'GLR' };
+const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', palette: 'Palette', gl: 'GLR' };
 for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src'), { esm: 'strip' }) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { warmCount, warmBarStep } = ctx.GLR._src;
 let bad = 0, n = 0;

@@ -217,6 +217,8 @@
       if (b.dataset.tool === 'select') continue;
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
+      // (dimmed, it says so: a press still explains, so it stays focusable; ux's wave 12 sweep, axe's contrast)
+      if (g) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
       b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
     }
