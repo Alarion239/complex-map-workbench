@@ -72,7 +72,7 @@
         applyLayout();
       }
       drawerWas = now; wideWas = wide;
-      if (oneDock() && !S.hideLeft && !S.hideRight) applyLayout();   // (v15: one docked panel from 1024 to 1279)
+      if (oneDock() && !S.hideLeft && !S.hideRight) applyLayout();   // (one docked panel from 1024 to 1279)
       // (review regress-1: back at 1280 or more, both panels follow the user's choice again)
       const one = oneDock();
       if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { setHidden('L', dockPref.L); setHidden('R', dockPref.R); applyLayout(); }
@@ -94,7 +94,7 @@
     $('leftCollapse').addEventListener('click', () => setPanels(true, S.hideRight));
     $('leftRailOpen').addEventListener('click', () => setPanels(false, S.hideRight));
     $('rightRailOpen').addEventListener('click', () => setPanels(S.hideLeft, false));
-    // (v15: the rail's Edit opens the selection in the temporary Inspector, over the stage's right edge)
+    // (the rail's Edit opens the selection in the temporary Inspector, over the stage's right edge)
     if ($('rightRailEdit')) $('rightRailEdit').addEventListener('click', () => { if (tempInsp) { closeTemp(); return; } if (window.innerWidth >= 1024 && S.hideRight) openTemp(); else setPanels(S.hideLeft, false); });
     $('leftSolo').addEventListener('click', () => setSolo('L'));
     $('rightSolo').addEventListener('click', () => setSolo('R'));

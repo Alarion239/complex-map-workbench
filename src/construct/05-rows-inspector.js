@@ -14,7 +14,7 @@
     if (f) parts.push($tn('{n} shape no longer follows it.', '{n} shapes no longer follow it.', f));
     return parts.join(' ');
   }
-  // (v16.3.1) a load before the app's adapter is set (the page opening a saved figure): its toast waits for ui()
+  // a load before the app's adapter is set (the page opening a saved figure): its toast waits for ui()
   // the family (kind, or complement) of each three-point circle at its last recompute
   const famSeen = new Map();
   let freedLater = false;
@@ -63,7 +63,7 @@
     else if (s.def) text = defText(s, true);
     else if (s.at) text = boundText(s);
     if (text == null) {
-      // a shape with only at: its equation (v15) and a link glyph; the tooltip says what it follows
+      // a shape with only at: its equation and a link glyph; the tooltip says what it follows
       const sig = 'at|' + followsText(s);
       if (r.box) r.box.classList.add('cm-linked');
       if (r.row && !r.row.querySelector('.cm-link')) { const g = A.h('span', { class: 'cm-link', 'aria-hidden': 'true', html: LINK }); const nm = r.row.querySelector('.shape-name'); if (nm) nm.append(g); }

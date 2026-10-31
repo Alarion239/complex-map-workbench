@@ -204,7 +204,7 @@ const Inspector = (() => {
       const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, typing: false };
       if (split) {
         split.open = foldOpen();
-        // (v16.1: the tour's unfolding, below, is not the viewer's fold)
+        // (the tour's unfolding, below, is not the viewer's fold)
         split.addEventListener('toggle', () => { if (split.dataset.tourOpen) { delete split.dataset.tourOpen; syncFoldLabel(split); return; } if (!split.hidden) { foldSave(split.open); syncFoldLabel(split); } });
         // (hidden from the first keystroke in the formula field until the text is committed: Enter or leaving the field)
         const fx = params.querySelector('input[data-pkey="expr"]');
@@ -633,7 +633,7 @@ const Inspector = (() => {
       if (!skeleton()) return;
       mountParams();
       const sel = A.sel();
-      // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
+      // (a selected construction shows its Construction view while the selection is the region; construct.js)
       const cmSig = (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
       // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
       const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
