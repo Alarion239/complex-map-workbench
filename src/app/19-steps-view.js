@@ -514,6 +514,9 @@
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
+    // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
+    if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     SV.els = { rail, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
@@ -563,7 +566,8 @@
       E.cp.setAttribute('aria-pressed', String(k === T));
       E.cp.classList.toggle('on', k === T);
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
-      E.surf1.innerHTML = `<span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
+      const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
+      E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       for (const b of E.scope.children) { const on = b.dataset.v === SV.scope; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
@@ -598,11 +602,19 @@
     // once when the glide settles; rework on #473)
     if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
-    const key = [ph ? 1 : 0, E.headW || 0, E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
+    const key = [ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
     const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
-    if (ph) { set(0); return; }
+    // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
+    // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
+    E.bar.classList.remove('sv-c3');
+    if (ph) {
+      set(0);
+      const more = $('hdrMoreBtn'), sr = E.surf1.getBoundingClientRect(), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
+      if (E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && sr.right > mr.left - 2)) E.bar.classList.add('sv-c3');
+      return;
+    }
     set(0);
     const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
     const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);

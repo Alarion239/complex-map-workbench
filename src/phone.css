@@ -592,3 +592,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-cp .sv-cp-t { display: none; }
 :root.ph.sv .sv-cp { min-width: 44px; justify-content: center; }
 :root.ph.sv .sv-title .sv-sep, :root.ph.sv .sv-title .sv-role { display: none; }
+/* (#441) the surface button on a phone short of room: its icon and ▾ alone (its name in its label), so it never runs under ⋯ */
+.sv-surf1 .sv-surf-i { display: none; }
+.sv-surf1 .sv-surf-i svg { width: 16px; height: 16px; display: block; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
