@@ -16,13 +16,15 @@ const SHARDS = [
   { id: 'perp', suites: ['perp_cmd.js', 'fix163_cmd.js'] },                                                  // 447 + 336
   // (export_cmd.js: the fifth run's times)
   { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5', 'export_sheet_cmd.js', 'figure_wait_cmd.js'] },                                // 453 + 265
-  { id: 'export-2', suites: ['export_cmd.js#4a'] },                                                        // 920
+  // (#429: 4a was one 22-23 min job, the longest of a T3 run: its figures and its videos are two jobs)
+  { id: 'export-2', suites: ['export_cmd.js#4a-fig'] },
+  { id: 'export-4', suites: ['export_cmd.js#4a-vid'] },
   { id: 'export-3', suites: ['export_cmd.js#preview', 'export_cmd.js#4b'] },                               // 571 + 167
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'meetnear_coincide_cmd.js'] },                                       // 480 + 295
   { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js', 'deform_dirichlet_cmd.js'] },   // 340 + 292 + 114 + 22 + 24 + about 30
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
-  { id: 'tour', suites: ['tour_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
-  { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },                   // 552 + 16 + 44
+  { id: 'tour', suites: ['tour_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
+  { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'tour_skip_hover_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },                   // 552 + 16 + 44
   { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 557
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
   { id: 'i18n', suites: ['i18n_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang'] },                    // 334 + 164 + 112

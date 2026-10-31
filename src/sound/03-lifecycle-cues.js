@@ -14,7 +14,7 @@
   function ensure() {
     if (!AC || !P.on || hidden || !mayStart()) return false;
     if (!ctx || ctx.state === 'closed') {
-      try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* not iOS 16.4+ */ }
+      try { const as = /** @type {any} */ (navigator).audioSession; if (as) as.type = 'ambient'; } catch (e) { /* not iOS 16.4+ */ }
       try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = null; return false; }
       ctx.onstatechange = () => { if (ctx.state === 'running') { graceUsed = false; flushPend(); } emit(); };
       LEAD = Math.max(0.012, 2 * (ctx.baseLatency || 0.005));

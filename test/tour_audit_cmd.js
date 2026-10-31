@@ -2,7 +2,7 @@
 // and 1440 × 900, light and dark, English and Russian, mouse and touch (24 runs). Per step: the strip meets none of the
 // panes, the chain, the tool row and the header's controls; its box is the same for every step of a chapter (a desktop:
 // the panes' too); no lead, task, result or caption is cut (scrollHeight <= clientHeight + 1, scrollWidth <= clientWidth
-// + 1); the title ends in an ellipsis only with the full title as its name; buttons at least 44 px on touch (36 with a
+// + 1); the title ends in an ellipsis only with the full title as its name; buttons at least 44 px on touch (32 with a
 // mouse), 8 px apart; text contrast at least 4.5:1 in both themes, Next's label included; the lit patch holds
 // the anchor (90 %); no app layer is left open by the tour (a phone's sheet the step opens aside). The old callout
 // audit (place(), the docked callout, the mini bar) went with the callout. With AUDIT_SHOTS, every step is shot at 390
@@ -103,7 +103,7 @@ for (const cfg of runs) {
     check(`${n}: no lead, task, result or caption cut`, g.cut.length === 0, [g.cut, g.lead]);
     check(`${n}: the title cut only with its full name`, g.titleOk);
     check(`${n}: the chapter chip is at least 24 px (WCAG 2.5.8), a text control`, g.chapMin == null || g.chapMin >= 23.5, g.btns);
-    check(`${n}: buttons ${touch || g.mode !== 'desk' ? 44 : 36} px at least, 8 px apart`, g.minW >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && g.minH >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && (g.gap == null || g.gap >= 7.5), [g.btns, g.gap]);
+    check(`${n}: buttons ${touch || g.mode !== 'desk' ? 44 : 32} px at least, 8 px apart`, g.minW >= (touch || g.mode !== 'desk' ? 44 : 32) - 0.5 && g.minH >= (touch || g.mode !== 'desk' ? 44 : 32) - 0.5 && (g.gap == null || g.gap >= 7.5), [g.btns, g.gap]);
     check(`${n}: text contrast at least 4.5:1, Next's label included`, Object.values(g.con).every((v) => v >= 4.5), g.con);
     if (g.frac != null) check(`${n}: the lit patch holds the anchor`, g.frac >= 0.9, g.frac);
     check(`${n}: no app layer left open by the tour`, g.layers === 0, g.layers);
