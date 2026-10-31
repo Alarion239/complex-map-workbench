@@ -46,17 +46,23 @@ const watchX = async (ms) => {
 // samples between 0.03 and 1.97 (least squares), in planes a second. The poll's round trip (which takes a second here) is no part of it;
 // a frame that is late moves a sample's x, not the rate
 const rateAt = async (speed) => {
-  await ctl({ go: 0, now: true });
-  await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
-  await ctl({ play: true });
-  await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(), t = performance.now(); window.__rt.s.push([t, x]); if (x >= 1.999 || t - t0 > 20000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); })(); 1`);
-  let rt = null;
-  for (let i = 0; i < 300; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
-  const p = rt.s.filter(([, x]) => x > 0.03 && x < 1.97);
-  if (p.length < 3) return { rate: null, n: p.length };
-  const n = p.length, mt = p.reduce((a, [t]) => a + t, 0) / n, mx = p.reduce((a, [, x]) => a + x, 0) / n;
-  const num = p.reduce((a, [t, x]) => a + (t - mt) * (x - mx), 0), den = p.reduce((a, [t]) => a + (t - mt) * (t - mt), 0);
-  return { rate: +(num / den * 1000).toFixed(3), n };
+  let last = { rate: null, n: 0 };
+  // (a glide that a loaded runner draws in fewer than three frames has no rate to read: it is measured again, up to three times; the
+  // bounds the rate is held to are the same)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await ctl({ go: 0, now: true });
+    await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
+    // (the sampler and the play start in one call in the page: the round trip of a second is not between them)
+    await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(), t = performance.now(); window.__rt.s.push([t, x]); if (x >= 1.999 || t - t0 > 20000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); __cmwSteps({ play: true }); })(); 1`);
+    let rt = null;
+    for (let i = 0; i < 300; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
+    const p = rt.s.filter(([, x]) => x > 0.03 && x < 1.97);
+    if (p.length < 3) { last = { rate: null, n: p.length }; continue; }
+    const n = p.length, mt = p.reduce((a, [t]) => a + t, 0) / n, mx = p.reduce((a, [, x]) => a + x, 0) / n;
+    const num = p.reduce((a, [t, x]) => a + (t - mt) * (x - mx), 0), den = p.reduce((a, [t]) => a + (t - mt) * (t - mt), 0);
+    return { rate: +(num / den * 1000).toFixed(3), n };
+  }
+  return last;
 };
 // ---- the desktop ----
 await open(1280, 800, false, true);
