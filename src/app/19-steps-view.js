@@ -23,7 +23,6 @@
     els: null,
     ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
   };
-  const SV_GPU_MASK = false;
   // the glide's time a plane, by speed (a setting kept on this device)
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
@@ -259,7 +258,9 @@
       }
     }
     // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first, and the caller composes
-    // from cc)
+    // from cc; a frame that must stay whole (frame.keep, the Inside regions mask) goes on without it while the GPU's
+    // program links)
+    if (frame && frame.keep) return false;
     if (frame && frame.open) { GLR.blit(cc); frame.open = false; }
     if (frame) frame.cc = true;
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
@@ -355,39 +356,82 @@
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
       GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al });
     };
-    // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
-    // the window would, the picture is not left blank)
-    if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
-    let carried = false;
-    // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
-    if (still ? !svColoured(a) : !isDeriv(b)) {
-      carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
-    }
-    // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the first
-    // and the last 15 % of a glide)
-    const near = (w) => Math.max(0, Math.min(1, w));
-    if (still) plot(a, 1);
-    else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
-    // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes to
-    // the page. Inside regions (the mask is a 2D pass over the colour layer) or when the carried colour took the CPU
-    // path (it is in cc already), the layers go one by one, the grid first
-    if (!svMaskOn() && !frame.cc) {
-      if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      grid(true);
-      svOutlines(pane, map, frame);
-      GLR.blit(pane.ctx);
-      frame.open = false;
-    } else {
-      if (frame.open) { GLR.blit(cc); frame.open = false; }
-      if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
+    const colour = () => {
+      // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
+      // the window would, the picture is not left blank)
+      if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
+      let carried = false;
+      // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
+      if (still ? !svColoured(a) : !isDeriv(b)) {
+        carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
+      }
+      // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
+      // first and the last 15 % of a glide)
+      const near = (w) => Math.max(0, Math.min(1, w));
+      if (still) plot(a, 1);
+      else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
+    };
+    // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, in one frame into cc;
+    // then the grid, cc and the outlines one by one)
+    if (svMaskOn() && svMaskFrame(pane, cc, map, still ? a : undefined, frame, colour)) {
       if (GLR.drawGrid) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
       pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
       svOutlines(pane, map);
+    } else {
+      colour();
+      // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
+      // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
+      // the CPU path (it is in cc already), the layers go one by one, the grid first
+      if (!svMaskOn() && !frame.cc) {
+        if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+        grid(true);
+        svOutlines(pane, map, frame);
+        GLR.blit(pane.ctx);
+        frame.open = false;
+      } else {
+        if (frame.open) { GLR.blit(cc); frame.open = false; }
+        if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
+        if (GLR.drawGrid) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
+        pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
+        svOutlines(pane, map);
+      }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
     if (rest) drawRulers(pane, 'L');
+  }
+  // Inside regions on the GPU while gliding or parked (#440), in one frame: the regions under map (and, at rest on plane
+  // k, the later planes' pulled back) write the frame's alpha; the colour layer (colour(), which draws into the open
+  // frame) writes over it its colour alone, on the plane's paper and grid; then the colour is kept where the alpha is (keepInAlpha). The
+  // frame goes into cc. False (nothing drawn) without the GL calls or while keepInAlpha's program links
+  function svMaskFrame(pane, cc, map, k, frame, colour) {
+    if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
+    const mp = svProxy(pane, cc.canvas);
+    mp.begin = () => {};
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    try {
+      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+      drawScene(mp, map, null, Object.assign(k == null ? { noGrid: true, cache: false } : { noGrid: true, domain: k === 0, plane: k }, {
+        under: () => GLR.writeMask(false, true),
+        over: () => {
+          if (k != null) stagePullbacks(mp, k, true);
+          GLR.writeMask(true, false);
+          // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands)
+          if (GLR.drawGrid) GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55 });
+          else GLR.clearRGB(TH.planeRGB);
+          // (the colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
+          frame.open = true; frame.keep = true;
+          colour();
+          GLR.writeMask(true, true);
+          GLR.keepInAlpha();
+          frame.open = false; frame.keep = false;
+        },
+      }));
+    } catch (e) { console.error('steps view mask', e); }
+    GLR.writeMask(true, true);
+    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+    return true;
   }
   // keep only what is inside the regions under map (and, at rest on plane k, the later planes' regions pulled back) of
   // the picture in the 2D context cc
@@ -444,16 +488,26 @@
     }
     leftSphereInfo = info;
   }
-  // Inside regions on the globe: the globe with its regions, then the colour globe only where a region is: the regions
-  // drawn white on a black globe make the mask
+  // Inside regions on the globe: the globe with its regions, then over it the colour globe only where a region is. On
+  // the GPU (#440): the colour globe's frame keeps its colour where the regions wrote its alpha (sphereView's
+  // maskRegions, GLR.drawSphere); else the regions drawn white on a black globe make a mask, read back
   let svSphCv = null, svSphMask = null;
   function svSphereIn(pane) {
     const k = svStage(), o = { stage: k, plane: !!xView().eq, role: 'L' };
     const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: true }, o));
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
+      try {
+        setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+        sphereView(pane, camL, CAML, Object.assign({ imageMode: false, maskRegions: true }, o));
+      } catch (e) { console.error('steps view globe mask', e); }
+      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+      return info;
+    }
     svSphCv = svCanvas(svSphCv, pane);
     sphereView(svProxy(pane, svSphCv), camL, CAML, Object.assign({ imageMode: false }, o));
     svSphMask = svCanvas(svSphMask, pane);
-    const keepTH = TH, keepInk = printInk, keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    const keepTH = TH, keepInk = printInk;
     try {
       TH = Object.assign({}, TH, { plane: '#000000', planeRGB: [0, 0, 0], gridMajor: '#000000', axisRGB: [0, 0, 0], inkRGB: [0, 0, 0], faint: '#000000', landTop: '#000000', landBottom: '#000000', landShadow: '#000000', halo: '#000000', muted: '#000000' });
       printInk = () => ({ c0: '#ffffff', alt: '#ffffff', edge: '#ffffff' });
@@ -484,28 +538,29 @@
   }
   // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
   function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
-  // the colour plot just drawn into GL's frame (renderColor, its draw cst): only inside the regions, the rest the plane's
-  // paper. On the GPU in one frame: the regions write the frame's alpha alone (GLR.alphaOnly), then the colour plot is
-  // kept where that alpha is (dstAlpha). With areas on later planes (pulled back by their own pass) or no alphaOnly,
-  // the 2D path: the plot, the regions' mask drawn apart, and destination-in
+  // Inside regions on the GPU (#440), in GL's frame and in one copy to the page: the plane's regions (its own, the
+  // earlier planes' images and the later planes' pulled back) write the frame's alpha alone (GLR.alphaOnly), then the
+  // colour plot cst is drawn only where that alpha is (dstAlpha); the rest is the plane's paper. False when GL has no
+  // alphaOnly: renderColor then draws the plot and svMaskColour masks it in 2D
+  function svMaskGPU(pane, cst) {
+    if (!GLR.alphaOnly) return false;
+    const k = svStage(), keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    const mp = Object.assign(Object.create(pane), { begin: () => {} });
+    try {
+      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+      // (the plane's cached maps, as its own frame draws them; the exact images' inverse passes keep their alpha)
+      drawScene(mp, stageMap(k), null, { noGrid: true, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
+        over: () => { stagePullbacks(mp, k, true); GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
+    } catch (e) { console.error('steps view mask', e); }
+    GLR.alphaOnly(false);
+    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+    pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    GLR.begin(pane.pw, pane.ph);
+    return true;
+  }
+  // the 2D path, without alphaOnly: the colour plot just drawn into GL's frame, kept inside the regions' mask drawn apart
   function svMaskColour(pane, cst) {
     const k = svStage();
-    const later = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area' && shapeStage(s) > k);
-    // (the GPU path is issue G's: on a plane past z its mask comes out empty, so it stays off until G finds why)
-    if (SV_GPU_MASK && GLR.alphaOnly && cst && !later) {
-      // (the forward meshes: the exact images' inverse pass composites its own layers, which an alpha-only mask breaks)
-      const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines, exactImages: S.exactImages };
-      const mp = Object.assign(Object.create(pane), { begin: () => {} });
-      try {
-        setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false); setOpt('exactImages', false);
-        drawScene(mp, stageMap(k), null, { noGrid: true, cache: false, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
-          over: () => { GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
-      } catch (e) { GLR.alphaOnly(false); console.error('steps view mask', e); }
-      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-      pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-      GLR.begin(pane.pw, pane.ph);
-      return;
-    }
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     GLR.blit(cc);
@@ -658,8 +713,9 @@
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
       const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
-      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; }
-    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; }
+      // (the fades follow at once: the rail's scroll event comes a frame later)
+      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
   }
   // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
   // centres and the scroll the rail reported, no read
@@ -852,7 +908,7 @@
       if (GLR.prestartModes) GLR.prestartModes([1]);
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
-      if (GLR.prestart) GLR.prestart(['regionP']);
+      if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
       // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
       // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
       if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);

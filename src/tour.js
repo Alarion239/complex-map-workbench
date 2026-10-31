@@ -172,13 +172,13 @@ const Tour = (() => {
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
           // (#246: on a phone the steps are rows of the chain sheet, which the steps button under the planes opens)
-          touch: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Open the chain, tap $f_1$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
+          touch: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.', deskTouch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to select it, and the Inspector edits it. Show alone there shows that step alone: X and Y become its input and output.', phoneFine: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and click a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.',
+          try: { text: 'Double-click the card $f_1$.', touch: 'Open the chain, tap $f_1$, then Show alone.', deskTouch: 'Tap the card $f_1$, then Show alone.', phoneFine: 'Open the chain, click $f_1$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on CD_MS after it closes)
         { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
-          touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
-          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
+          touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.', deskTouch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.', phoneFine: 'Open the chain with the steps button under the planes and click Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
+          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', deskTouch: 'Tap the add card.', phoneFine: 'Open the chain, then click Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
         { id: 'examples', anchor: ['examples', 'moreBtn'], title: 'Examples',
           lead: 'Worked examples, from Joukowski to a residue.',
           body: 'Worked examples, from the Joukowski airfoil to a residue found by integration. Open one whenever you want a starting point.',
@@ -190,7 +190,7 @@ const Tour = (() => {
       steps: [
         { id: 'switch', anchor: 'viewSwitch', also: ['panes'], title: 'Three views', before: [['deform', false], ['view', 'xy']],
           body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
-          touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.',
+          touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.', deskTouch: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel.', phoneFine: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen. Keys {1} {2} {3}.',
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
@@ -198,7 +198,7 @@ const Tour = (() => {
           try: { text: 'Zoom in on a zero or a pole.', touch: 'Spread two fingers on a zero or a pole.', on: 'view-moved', test: (e) => !e || e.how === 'zoom', then: 'All the colours still meet there, however far you zoom.' } },
         { id: 'land', anchor: 'panes', title: 'Landscape', before: [['view', 'land'], ['tool', 'select']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.',
-          touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.',
+          touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.', deskTouch: "The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the panel's options set the height and the colouring.", phoneFine: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, scroll to zoom; the Display key sets the height and the colouring.',
           try: { text: 'Drag to orbit.', on: 'view-moved', test: orbit, then: 'Zeros are pits and poles are peaks: $\\pm1$ and $\\pm i$.' } },
         { id: 'sphere', anchor: ['surfaceL', 'sphereKey'], also: ['panes'], title: 'The Riemann sphere', before: [['view', 'phase'], ['surface', 'L', 'sphere'], ['tool', 'select']],
           body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.',
@@ -206,7 +206,7 @@ const Tour = (() => {
         // (v16.5 UX20; #247: on a desktop Phase key is a toggle in Y's pane head, lit, or behind the head's ⋯ button when
         // the head has no room for it; on a phone, Y is the large plane and its options are in the Display sheet)
         { id: 'key', anchor: ['phaseKey', 'rightOpts'], also: ['paneR'], title: 'Phase key', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { phaseKey: false }], ['plane', 'R'], ['panel', 'sheet', 'display']],
-          touch: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
+          touch: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.', deskTouch: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.', phoneFine: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
           body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
           try: { text: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
         { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }], ['panel', 'left', 'display']],
@@ -222,24 +222,24 @@ const Tour = (() => {
         // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
         { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
-          touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
+          touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.', deskTouch: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.', phoneFine: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
           try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'], then: 'Each card now shows its own landscape.' } },
         // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
         // (v16.5 UX17: on a touch screen the step is the editor's: its title and line say so)
         { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', titleTouch: 'The editor', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
-          lead: 'The Inspector edits the selected step, here $f_2$.', leadTouch: 'The editor edits the tapped step, here $f_2$.',
+          lead: 'The Inspector edits the selected step, here $f_2$.', leadTouch: 'The editor edits the tapped step, here $f_2$.', leadDeskTouch: 'The Inspector edits the selected step, here $f_2$.', leadPhoneFine: 'The editor edits the clicked step, here $f_2$.',
           body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
-          touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.',
+          touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.', deskTouch: "The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step's own coefficients carry its index, as $a_2$ here.", phoneFine: "A clicked card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step's own coefficients carry its index, as $a_2$ here.",
           // (D1, issue #23: Replace… is the first item of ⋯; the search then replaces this step)
           try: { text: 'In ⋯, choose Replace…, then pick a function.', on: 'step-replaced', test: (e) => !e || e.k === 2, ctl: ['invBtn'], then: 'Only $f_2$ changed; Undo brings the old one back.' } },
         // (v15.2: the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
         { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
-          touch: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
+          touch: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.', deskTouch: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.', phoneFine: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
           try: { text: 'Press Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split', ctl: ['splitBtn'], then: 'One card for each transform; undo brings the formula back.' } },
         { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', before: [['scene', 'zp'], ['view', 'xy'], ['tool', 'select'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
-          touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.',
+          touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.', deskTouch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.', phoneFine: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow.',
           try: { text: 'Drag a zero or a pole.', on: 'zp-moved', ctl: ['tool:select'], then: '$F$ and its image followed the mark.' } },
         { id: 'numbers', anchor: 'params', also: ['panes'], title: 'Numbers', before: [['scene', 'numbers'], ['view', 'phase'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'Type a new letter such as $a$ in any field, and a slider $a$ appears under Numbers. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.',
@@ -254,7 +254,7 @@ const Tour = (() => {
         // it is picked the More key, which then shows it, is lit)
         { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools:construct']],
           body: 'Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.',
-          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', work: ['ctxUndo'], then: 'Its three points are its handles now.' } },
+          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', deskTouch: 'Choose Circle through 3 points and tap $z_0$, $z_1$, $z_2$.', phoneFine: 'Choose Circle through 3 points in More, then click $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', work: ['ctxUndo'], then: 'Its three points are its handles now.' } },
         // (after: the drag needs the circle c3 makes; without it the step is read)
         { id: 'follow', anchor: 'paneL', title: 'It follows its points', before: [['tool', 'select'], ['plane', 'L']],
           lead: 'Drag $z_2$ across the line: the disc changes family.',
@@ -262,7 +262,7 @@ const Tour = (() => {
           try: { text: 'Drag $z_2$ across the line.', on: 'construct-family', test: (e) => !e || e.kind === 'halfplane' || e.kind === 'complement', ctl: ['tool:select'], after: 'c3', then: 'Disc, half-plane, outside: one family, and Y followed.' } },
         { id: 'meet', anchor: 'paneL', title: 'Intersections', before: [['plane', 'L'], ['panel', 'sheet', 'tools:draw']],
           body: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Hold Alt to place freely; Intersect marks a crossing.',
-          touch: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.',
+          touch: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.', deskTouch: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Intersect marks a crossing.', phoneFine: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.',
           try: { text: 'Draw a line from a crossing.', on: 'shape-added', test: (e) => !e || !!e.bound, ctl: ['tool:line'], then: 'Its end is tied to the crossing and follows it.' } },
       ],
     },
@@ -287,7 +287,7 @@ const Tour = (() => {
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
         { id: 'range', anchor: 'bracketL', also: ['panes'], title: 'Part of the chain', before: [['deform', true], ['look', { allAtOnce: false }], ['range', null]],
           body: 'The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.',
-          try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2, work: ['card2Menu'], then: 'Only the Möbius map deforms; $f_1$ acts first, in full.' } },
+          try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", deskTouch: "Drag the bracket's left end past $f_1$.", phoneFine: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2, work: ['card2Menu'], then: 'Only the Möbius map deforms; $f_1$ acts first, in full.' } },
       ],
     },
     {
@@ -309,9 +309,9 @@ const Tour = (() => {
         { id: 'domain', anchor: 'domain', also: ['fTile'], title: 'Natural domain', before: [['panel', 'right']],
           lead: 'Here $F$ is defined for every $z$ except $\\pm i$.',
           body: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
-          touch: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
+          touch: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', deskTouch: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', phoneFine: 'Click the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
           byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
-          touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' } },
+          touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, deskTouchByScene: { residueZp: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, phoneFineByScene: { residueZp: 'Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' } },
         { id: 'guarantees', anchor: 'guarantees', also: ['fTile'], title: 'Guarantees', before: [['panel', 'right']],
           lead: 'What the chain guarantees: always true when listed.',
           body: 'The F tile names what the chain guarantees. A property is listed only when every step has it and composition keeps it, so it is always true; one not listed is not implied, but may hold. Step by step shows which step brings which.' },
@@ -322,11 +322,11 @@ const Tour = (() => {
       steps: [
         { id: 'cut', anchor: 'paneL', title: 'Branch cuts', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select'], ['plane', 'L']],
           body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
-          touch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step\'s editor adds $2\\pi i k$.',
+          touch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step\'s editor adds $2\\pi i k$.', deskTouch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.', phoneFine: "$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step's editor adds $2\\pi i k$.",
           try: { text: 'Drag the red cut.', on: 'cut-moved', ctl: ['tool:select'], then: 'The seam moved; across it the values jump by $2\\pi i$.' } },
         { id: 'inverse', anchor: ['invBtn', 'chain'], also: ['panes'], title: 'Inverses', before: [['select', 1], ['panel', 'right']],
           body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
-          touch: 'Replace with the inverse, in the ⋯ menu of the step\'s editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
+          touch: 'Replace with the inverse, in the ⋯ menu of the step\'s editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.', deskTouch: "Replace with the inverse, in the step's ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.", phoneFine: "Replace with the inverse, in the ⋯ menu of the step's editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.",
           try: { text: 'In ⋯, choose Replace with the inverse.', on: 'step-replaced', test: (e) => !e || (e.k === 1 && e.type === 'exp'), ctl: ['invBtn'], then: '$e^z$ undoes $\\log z$ on this sheet.' } },
         { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L']],
           lead: 'Here $F=3z^2-3$; the target $0$ marks its zeros $\\pm1$.',
@@ -375,7 +375,7 @@ const Tour = (() => {
         // (v16.1: and the copy button the copy names, in the head of F's Inspector)
         { id: 'formula-tex', anchor: 'composite', also: ['fTile', 'copyTex'], title: 'The formula in LaTeX', before: [['panel', 'right']],
           body: 'With the F tile selected, the Inspector shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.',
-          touch: 'With the F tile tapped, its editor shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.',
+          touch: 'With the F tile tapped, its editor shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.', deskTouch: 'With the F tile tapped, the Inspector shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.', phoneFine: 'With the F tile selected, its editor shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.',
           try: { text: 'Press the copy button of $F$.', touch: 'Tap the copy button of $F$.', on: 'tex-copied', ctl: ['copyTex'], then: '$F$\'s LaTeX is on your clipboard.' } },
       ],
     },
@@ -749,7 +749,20 @@ const Tour = (() => {
   const narrow = () => (typeof innerWidth === 'number' ? innerWidth < 640 : false);
   // a touch screen: no hover, no right-click, no key hints
   const coarse = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
-  const phone = () => narrow() || coarse();
+  // (#480) the phone layout (the `ph` class phone.js sets: the controls sit in its sheets and menus), apart from the pointer: place
+  // words follow it, gesture words follow coarse(). Where there is no document (the unit tests): the narrow window.
+  const layoutIsPhone = () => (typeof document !== 'undefined' && document.documentElement ? phoneLayout() : narrow());
+  const isCoarseOf = (o) => (o && o.coarse != null ? o.coarse : coarse());
+  const isPhoneOf = (o) => (o && o.phone != null ? o.phone : o && o.narrow != null ? o.narrow : layoutIsPhone());
+  // (#480) one of an item's copies by layout and pointer. body (desk layout, fine pointer) and touch (phone layout, coarse
+  // pointer) are the two the tour began with; deskTouch (desk, coarse) and phoneFine (phone, fine) are for the items whose
+  // words name a place that differs between the layouts ("the Inspector" or "the editor", "Open the chain, then tap").
+  // An item without them has gesture words only: a coarse pointer reads its touch copy, a fine one its body.
+  const variantOf = (it, base, o, dt = 'deskTouch', pf = 'phoneFine') => {
+    const c = isCoarseOf(o), ph = isPhoneOf(o);
+    if (c) return (!ph && it[dt]) || it.touch || base;
+    return (ph && it[pf]) || base;
+  };
   // (v16.5 UX17) a chapter this screen offers: one for the keyboard (desk) is not offered on a touch screen
   const chapterShown = (c) => !(c && c.desk && coarse());
   // where the tour lives: the help button, or the ⋯ menu that holds it on a phone
@@ -757,18 +770,24 @@ const Tour = (() => {
   const helpWhere = () => (anchorEl('helpBtn') ? $t('Help') : anchorEl('moreBtn') ? $t('⋯ › Guided tour') : $t('Help'));
   // the copy a step shows here: by the scene shown, on a touch screen, below 640 px, else its body
   function copyFor(step, scene, o = {}) {
-    const isCoarse = o.coarse != null ? o.coarse : coarse(), isNarrow = o.narrow != null ? o.narrow : narrow();
-    if (isCoarse && step.touchByScene && scene != null && step.touchByScene[scene]) return $t(step.touchByScene[scene]);   // (v16.5 UX17)
+    const isCoarse = isCoarseOf(o), isPhone = isPhoneOf(o);
+    // (v16.5 UX17; #480: and by layout, as the step's own copies)
+    if (scene != null) {
+      const tb = isCoarse ? (!isPhone && step.deskTouchByScene && step.deskTouchByScene[scene]) || (step.touchByScene && step.touchByScene[scene]) : isPhone && step.phoneFineByScene && step.phoneFineByScene[scene];
+      if (tb) return $t(tb);
+    }
     if (step.byScene && scene != null && step.byScene[scene]) return $t(step.byScene[scene]);
     // the anchor found was the ⋯ menu (the control itself lives in it here): the copy that says "in this menu"
     if (o.menu && step.narrow) return $t(step.narrow);
-    if (isCoarse && step.touch) return $t(step.touch);
-    if ((isNarrow || isCoarse) && step.narrow) return $t(step.narrow);
-    return $t(step.body);
+    // (#480) the phone layout's place words ("in this menu") belong to the layout, a touch screen's to the pointer
+    if (isCoarse) return $t((!isPhone && step.deskTouch) || step.touch || (isPhone && step.narrow) || step.body);
+    return $t((isPhone && (step.phoneFine || step.narrow)) || step.body);
   }
   // (v16.5 UX17) a step's lead and title on a touch screen, where it has its own
-  const leadFor = (st, o = {}) => ((o.coarse != null ? o.coarse : coarse()) && st.leadTouch ? st.leadTouch : st.lead);
-  const tryFor = (t, o = {}) => $t((o.coarse != null ? o.coarse : coarse()) && t.touch ? t.touch : t.text);
+  const leadFor = (st, o = {}) => variantOf({ touch: st.leadTouch, deskTouch: st.leadDeskTouch, phoneFine: st.leadPhoneFine }, st.lead, o);
+  const tryFor = (t, o = {}) => $t(variantOf(t, t.text, o));
+  // (a hint after a wrong attempt: the gesture words of the pointer)
+  const hintFor = (t, o = {}) => (t.hint ? (isCoarseOf(o) ? t.hint.touch || t.hint.text : t.hint.text) : null);
   // a step's Try it here (tryWide: not below 640 px, where what it asks for is off-screen)
   // (v16.4, try.after: only when that step's task of the same chapter was done in this run; else the step is read)
   const tryOf = (step) => (step.try && !(step.tryWide && narrow()) && !(step.try.after && !(run && run.doneTasks && run.doneTasks.has(CHAPTERS[run.ci].id + '/' + step.try.after))) ? step.try : null);
@@ -1748,9 +1767,9 @@ const Tour = (() => {
     const t = st.try && !(st.tryWide && narrow()) ? st.try : null;
     if (st.lead) out.push([leadFor(st), false]);
     if (t) {
-      out.push([coarse() && t.touch ? t.touch : t.text, true], [t.then || 'Done.', true]);
+      out.push([variantOf(t, t.text), true], [t.then || 'Done.', true]);
       if (t.off) out.push([t.off, true]);
-      const h = t.hint && (coarse() ? t.hint.touch || t.hint.text : t.hint.text);
+      const h = hintFor(t);
       if (h) out.push([h, true]);
     }
     for (const c of st.captions || []) out.push([c[1], false]);
@@ -2666,7 +2685,7 @@ const Tour = (() => {
   // (a title that is a task reads as one: 'tour step' is the context of a Russian title in the imperative where the same
   // words, a button or a menu entry elsewhere, stay in the infinitive; a title starting in lower case is capitalised)
   const stepTitle = (st) => {
-    const raw = coarse() && st.titleTouch ? st.titleTouch : st.title, x = $tx('tour step', raw), t = x !== raw ? x : $t(raw);
+    const raw = layoutIsPhone() && st.titleTouch ? st.titleTouch : st.title, x = $tx('tour step', raw), t = x !== raw ? x : $t(raw);
     return /^\p{Ll}/u.test(t) ? t[0].toUpperCase() + t.slice(1) : t;
   };
   const BACK_MS = 1800;   // (after the last scroll of the panel, or the finger's lift)
@@ -2849,7 +2868,7 @@ const Tour = (() => {
     }
     // try.hint: an event that says the attempt went wrong (a hold too short that panned Y) puts a line in place of the
     // task until the task is done
-    const h = t.hint, ht = h && (coarse() ? h.touch || h.text : h.text);
+    const h = t.hint, ht = hintFor(t);
     if (ht && h.on) {
       const miss = (e) => {
         if (fired || run !== r || r.step !== step) return;
@@ -3115,7 +3134,7 @@ const Tour = (() => {
     }
     if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
-    const keys = !phone();
+    const keys = !coarse();
     if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
     if (keys && !chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
     const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': $t('Help'), 'data-tour': 'menu' }, ...kids);
