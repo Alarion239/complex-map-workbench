@@ -206,7 +206,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
 :root.ph .pipe-wrap > #morphBtn {
   display: flex !important; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 64px; min-width: 64px; height: 48px; padding: 0 2px;
-  border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); white-space: normal; text-align: center;
+  border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: normal; text-align: center;
 }
 :root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
 :root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
