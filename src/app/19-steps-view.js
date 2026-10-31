@@ -105,11 +105,14 @@
   function svCheck() {
     // (only a glide or a drag under way holds it off: a view parked between planes still takes an example, a link or an
     // undo; perf on #460)
-    if (!SV.on || !SV.els || svGliding()) return;
+    if (!SV.on || !SV.els) return;
+    const sig = svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
+    // (rework on #460: another chain loaded under a Play, Loop on: it stops, or it never adopts the new view)
+    if (SV.play && SV.sig != null && sig !== SV.sig) svPause(false);
+    if (svGliding()) return;
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
-    const sig = svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
     // (another chain loaded with the state, an example or a link: its glide's programs are started too)
     if (SV.sig != null && sig !== SV.sig) setTimeout(svPrestart, 300);
     svAdopt(SV.sig != null && sig !== SV.sig);
@@ -854,6 +857,7 @@
   // the chain changed: the shown plane and the colour plane stay on their stages when they still exist
   function svChainChanged() {
     if (!SV.on || !SV.els) return;
+    if (SV.play) svPause(false);
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
