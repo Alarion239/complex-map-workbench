@@ -76,12 +76,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
   other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
   and so does every later push while it is not a draft.
-- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing once its
-  push's run on that commit has passed: the job *ready* finds the newest other Gate run of this PR on the same commit,
-  and only if it passed does the plan select no job (tier `none`), the unit job skip, and the **Gate** job check that
-  run again and carry its verdict. Queued, running, failed, cancelled or none: the run is the usual one, so a green
-  Gate never stands on a commit before a gate passed there. Either way it has a concurrency group of its own and never
-  cancels the push's run (#379, `test/t_gate_ready.js`).
+- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing when its
+  push's run on that commit has passed or is still queued or running: the job *ready* finds the newest other Gate run
+  of this PR on the same commit; if it passed, or is queued, waiting or in progress, the plan selects no job (tier
+  `none`), the unit job skips, and the **Gate** job waits for that run to finish (polling once a minute, up to 330
+  minutes) and carries its verdict. It waits rather than skipping because a job's check exists only once the job
+  starts: a ready run that passed at once would be the only Gate check on the commit while the push's run still went.
+  Failed, cancelled or none: the run is the usual one, so a green Gate never stands on a commit before a gate passed
+  there. Either way it has a concurrency group of its own and never cancels the push's run (#379,
+  `test/t_gate_ready.js`).
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
@@ -230,6 +233,9 @@ artifact.
 - the topmost element at each control's centre is that control;
 - the boxes declared centred are centred, within 1 px;
 - no text is cut by a box that can't scroll, except a declared ellipsis;
+- no control's text shows past the control's own box (a label wider than its button, with nothing to clip it);
+- a desktop toast covers no control; placed, it is centred on its place (in the chain head, inside it, with Clear chain
+  stepped aside); unplaced, it covers no plane;
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
@@ -245,11 +251,20 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
 boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
 its first point (`shots/`, kept in the job's artifact although the suite passes: `keepShots` in `ci/browser_suites.js`).
-- **Report mode** (now): it passes, and the report is triaged on #470.
-- **The gate** (`mode: 'gate'`): a row whose key `ci/layout_baseline.json` lacks for its run fails. The rows only go
-  down, as with the lint ratchet: `node ci/layout_ratchet.js check|update .ci/browser/layout_invariants_cmd.js_<run>.json`
-  checks or lowers the baseline (`--init` wrote the first). The points a row is seen at are reported, not gated: on
-  software GL they vary by one or two from run to run.
+- **The gate** (on, `mode: 'gate'` in `ci/browser_suites.js`): a row whose key `ci/layout_baseline.json` lacks for its
+  run fails the job, and so does a state that opened for the baseline and doesn't now. The baseline was made from CI's
+  own runs (lavapipe). Another matrix or another renderer (a runner image's new Mesa or LLVM) fails too, and asks for a
+  new baseline from a CI run (`update --init`).
+- **The baseline only goes down**, as with the lint ratchet. When a PR fixes rows, the job's summary lists them, and
+  `node ci/layout_ratchet.js update <the saved job logs, or .ci/browser/layout_invariants_cmd.js_<run>.json>` lowers
+  it. It reads the `LAYOUT-RESULT` line of a job's log, so no artifact download is needed.
+- **New rows:** a new violation is fixed, or, when it is meant, declared in the suite's `DECLARED` with its reason (ux
+  reviews it). `update --init` takes in only a run with no baseline, or one over another matrix or renderer. A PR that
+  changes the checks themselves (`test/lib/layout.js`, `DECLARED`) takes their new keys in with `update --rules`; its
+  diff shows why. The baseline holds only real, known violations, each one meant to be fixed, most with an issue.
+- The points a row is seen at are reported, not gated.
+- **Which PRs run it:** a change to the suite or its libraries; the shell (`19-shell.js`) and the phone's files run
+  `layout-1` (en), the languages' tables `layout-2` (ru, it); every T3 runs both.
 - **The design intent** is declared in `INTENT` (`test/lib/layout.js`) or on the element: `data-layer` (sits on top),
   `data-center="x|y|both"`, `data-ellipsis`.
 - **The violations that are meant** are declared in the suite's `DECLARED`, each with its reason.

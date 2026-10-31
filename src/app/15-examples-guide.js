@@ -439,7 +439,7 @@
   }
 
   // below 1280 px the guarantees panel is an overlay drawer, below 1024 px the tools panel too
-  // (v15: the Inspector never is a drawer: it docks at 264 px from 1024, under the chain from 768 to 1023)
+  // (the Inspector never is a drawer: it docks at 264 px from 1024, under the chain from 768 to 1023)
   const isDrawer = (side) => (side === 'R' ? false : window.innerWidth < 1024) && window.innerWidth >= 768;
   // from 1024 to 1279 one side panel docks at a time (DESIGN.md 4)
   const oneDock = () => window.innerWidth >= 1024 && window.innerWidth < 1280;
@@ -676,7 +676,7 @@
     const stage = $('stage'), panes = $('panes');
     const store = (k, v) => { try { localStorage.setItem(lsk(k), String(v)); } catch (e) { /* ignore */ } };
     const read = (k) => { try { return localStorage.getItem(lsk(k)); } catch (e) { return null; } };
-    // (v15: the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
+    // (the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
     const ch = +read('cmw-chain-h2'); if (ch) document.documentElement.style.setProperty('--chain-h', ch + 'px');
     else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names, saved before v15)
     // TEMP-DEBUG-HOOK (removed before publishing)
@@ -784,7 +784,7 @@
     // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
     const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
-    // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
+    // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
     let lp = null, lpShown = null, lpDown = null;
@@ -1009,10 +1009,25 @@
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
+    // (#515, ux's choice A on the layout check: in the steps view a message takes only the thread's rail, whose planes and
+    // steps step aside while it shows; the < > and the speed stay live, and going on through the thread dismisses it)
+    const strip = $('svStrip'), stripAway = (on) => { if (strip) strip.classList.toggle('sv-toast', on); };
+    stripAway(false);
     // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
     if (document.documentElement.classList.contains('ph')) { clear(); return; }
     if (!host.firstElementChild) return;
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
+    const H0 = () => window.innerHeight;
+    const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
+    if (rail && rail.width >= 160 && host.children.length === 1) {
+      stripAway(true);
+      host.setAttribute('data-placed', 'rail');
+      st.left = Math.round(rail.left + rail.width / 2) + 'px';
+      st.maxWidth = Math.round(rail.width - 8) + 'px';
+      const tw = host.firstElementChild.getBoundingClientRect();
+      st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
+      return;
+    }
     const chain = box(document.querySelector('.pipe-wrap'));
     if (!chain || !(chain.width > 0)) { clear(); return; }
     const H = window.innerHeight, W = window.innerWidth;

@@ -33,4 +33,5 @@ import './morphpaths.js';
 import './integrals.js';
 import './examples.js';
 import './expose.js';
+// @ts-expect-error (src/app/ is joined into app.js by the bundler and by tools/join_src.js, which writes dist/tsc/app.js: there is no src/app.js)
 import './app.js';

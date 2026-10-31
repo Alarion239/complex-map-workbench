@@ -22,7 +22,7 @@ for (const u of urls) {
   check(`${u.slice(0, 90)}: answered from vendor/`, !!a && a.body.length > 1000, a && a.body.length);
   if (a && /fonts\.googleapis/.test(u)) check(`${u.slice(0, 60)}: a font sheet (@font-face over woff2)`, a.type === 'text/css' && /@font-face\{font-family:"/.test(a.body.toString()) && /data:font\/woff2;base64,/.test(a.body.toString()));
 }
-check('the Russian sheet (Roboto Flex) gets the Russian set', /Roboto Flex/.test(V.answer('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz&display=swap').body.toString()));
+check('the font sheet has the interface face (Roboto Flex), the mono and the math faces, and neither Archivo nor B612 Mono', (() => { const t = V.answer('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz&display=swap').body.toString(); return /font-family:"Roboto Flex"/.test(t) && /font-family:"JetBrains Mono"/.test(t) && /font-family:"STIX Two Text"/.test(t) && !/Archivo|B612/.test(t); })());
 // (#288) the STIX2 font MathJax 4 asks for by its own path: svg.js and a range it loads on demand; a file the font has not
 for (const f of ['svg.js', 'svg/dynamic/cyrillic.js']) { const a = V.answer('https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/' + f); check(`MathJax's STIX2 font: ${f} answered from vendor/`, !!a && a.body.length > 1000 && a.type === 'text/javascript', a && a.body.length); }
 check('MathJax\'s STIX2 font: a file it does not have is not answered', V.answer('https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg/dynamic/nonesuch.js') === null);
