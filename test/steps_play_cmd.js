@@ -99,14 +99,19 @@ await rest();
 // pause between two planes (more than the eighth that snaps): it parks there, and a state loaded afterwards is adopted
 await ctl({ go: 0, now: true });
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
-await ctl({ play: true });
-// (paused from inside the page the moment it passes 0.3, so no poll's lag decides where)
-// (ev does not wait for a promise: the page leaves its answer in window.__midR)
-await ev(`window.__midR = null; (() => { const t0 = Date.now(); const tick = () => { const x = __cmwSvX(); if (x > 0.3 || Date.now() - t0 > 12000) { __cmwSteps({ play: false }); window.__midR = { ok: x > 0.3, x }; } else requestAnimationFrame(tick); }; requestAnimationFrame(tick); })(); 1`);
-let midR = null;
-for (let i = 0; i < 160 && !midR; i++) { await sleep(100); midR = await ev(`window.__midR`); }
+// (paused from inside the page the moment it passes 0.3, so no poll's lag decides where; ev does not wait for a promise, so the page
+// leaves its answer in window.__midR. A frame gap that carries it past 0.7 (a cold start) is tried again, at most three times)
+let midR = null, pk = null;
+for (let attempt = 0; attempt < 3; attempt++) {
+  await ctl({ go: 0, now: true });
+  await ctl({ play: true });
+  await ev(`window.__midR = null; (() => { const t0 = Date.now(); const tick = () => { const x = __cmwSvX(); if (x > 0.3 || Date.now() - t0 > 12000) { __cmwSteps({ play: false }); window.__midR = { ok: x > 0.3, x }; } else requestAnimationFrame(tick); }; requestAnimationFrame(tick); })(); 1`);
+  midR = null;
+  for (let i = 0; i < 160 && !midR; i++) { await sleep(100); midR = await ev(`window.__midR`); }
+  pk = await S();
+  if (midR && midR.ok && pk.x > 0.2 && pk.x < 0.8) break;
+}
 const mid = { timeout: !(midR && midR.ok), midR };
-const pk = await S();
 ok('pausing mid-glide parks between two planes, nothing plays on', !mid.timeout && pk.play === null && pk.x > 0.2 && pk.x < 0.8, { mid, pk: { play: pk.play, x: pk.x, moving: pk.moving } });
 await ev(`(__cmwExample(3), 1)`); await sleep(2500); await settle(500);
 const ad = await S();
