@@ -97,7 +97,7 @@ def main():
             # a detection within a scheduled cue's own sound (0–150 ms from its start) is that cue (a cut tick, a ping); the cues'
             # envelopes are checked on their own by the prototype's lab (onset ≤ 0.35 of peak in the first 0.25 ms, last sample 0)
             J = json.load(open(jp)); cs = np.array([c[1] for c in J['cues']]) * fs - J['f0']
-            # (v15.2: an entry [name, t, len, window] gives its own window after len; the synth's one-shots and harp
+            # (an entry [name, t, len, window] gives its own window after len; the synth's one-shots and harp
             # strings are logged with a 6 ms window: only a note's own attack is excused, never its ring)
             ln = np.array([(c[2] if len(c) > 2 else 0) + (c[3] if len(c) > 3 else 0.15) for c in J['cues']]) * fs
             keep = []

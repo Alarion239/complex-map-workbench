@@ -9,7 +9,7 @@
 // 0b the tour started from the first-run card in the docked strip; 6 the Draw step ticks and moves on by itself about
 // 3 s later; 6c the Sound chapter's Grieg step plays; 8 sin √z with All sheets in Landscape while the deformation plays;
 // 10b a hyperbolic line made with Inside (an arc inside the unit circle); 12 the corrected Help sentence. Earlier text:
-// (v16.3) 10 a hyperbolic line
+// 10 a hyperbolic line
 // in the unit disk and its drag, 11 a touching circle and the tangent from an outside point) on the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a viewport
 // meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state in
 // localStorage and the page's own globals (Sound) only.
@@ -322,7 +322,7 @@ ok('section 5: no console errors or warnings', l1.length === 0, l1.slice(0, 8));
     return { c, holes: hs.length, tools: tools.map((e) => e.dataset.tool), litTools, mark: (document.querySelector('.tour-mark') || { getAttribute: () => '' }).getAttribute('d') ? true : false }; })()`);
   await shot(`${tag}_11_tour_draw`);
   ok('tour: the Draw step lights the Disc tool alone', lit.c && lit.c.id === 'draw' && lit.litTools && lit.litTools.length >= 1 && lit.litTools.every((t) => t === 'disc') && lit.tools.length > lit.litTools.length, lit);
-  // (v16.4) a disc drawn with real input ticks the task; the tour moves on by itself about 3 s after the release
+  // a disc drawn with real input ticks the task; the tour moves on by itself about 3 s after the release
   const dc = await vcenter(phone ? '.ph-tile[data-tool="disc"], #tools .tool[data-tool="disc"]' : '#tools > .tool[data-tool="disc"]');
   if (dc) await tap(dc[0], dc[1]);
   await settle(300);
@@ -452,7 +452,7 @@ ok('section 8: no console errors or warnings', lF.length === 0, lF.slice(0, 6));
 }
 const lG = errs(logs());
 ok('section 9: no console errors or warnings', lG.length === 0, lG.slice(0, 6));
-// 10. (v16.3) a hyperbolic line in the unit disk: Perpendicular circle on the shown unit circle through two points inside;
+// 10. a hyperbolic line in the unit disk: Perpendicular circle on the shown unit circle through two points inside;
 // then P dragged: K still passes through P and Q and crosses the unit circle at right angles (read from the saved state)
 const armTool = async (id) => {
   // (phone: the More sheet scrolls; in Russian the sixth Construct tile is below the sheet's fold until scrolled to.
@@ -525,7 +525,7 @@ const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = M
 const lH = errs(logs());
 ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6));
 
-// 11. (v16.3) Touching circle on a circle C: T on C's stroke at 1, P = 2 + i: K touches C at T and passes through P;
+// 11. Touching circle on a circle C: T on C's stroke at 1, P = 2 + i: K touches C at T and passes through P;
 // then (C stays picked) P' = -1.5 + 1.5i outside C and a tap on the upper ring: the tangent from P' and its touching point
 {
   const sv = phone ? { cx: 0.25, cy: 0.25, s: 80 } : { cx: 0.25, cy: 0.25, s: 100 };
@@ -689,7 +689,7 @@ ok('section 13: no console errors or warnings', lJ2.length === 0, lJ2.slice(0, 6
   const seen2 = await collect(80);
   await shot(`${tag}_24_loader_toast_link`);
   ok('fix loader-toast: the same figure by link: the "Opened…" toast also says that some constructions were opened as plain shapes', typeof payload === 'string' && seen2.some((t) => t.includes(LINK) && t.includes(WANT)), { seen2, payloadLen: typeof payload === 'string' ? payload.length : payload });
-  // (v16.4.1) the same figure as a scene file dropped on the page (the page's own drop handler): "Opened the scene." with the note
+  // the same figure as a scene file dropped on the page (the page's own drop handler): "Opened the scene." with the note
   const SCN = CFG.lang === 'ru' ? 'Сцена открыта.' : 'Opened the scene.';
   const ns3 = 'smkf13s' + tag + Date.now();
   await send('Page.navigate', { url: BASEU + 'smk_pub.html?ns=' + ns3 + LANGQ }); await sleep(3000); await settle(400);

@@ -1,7 +1,0 @@
-{
- "lines": [
-  "test.html       1440 m1920 play sin √z Im AllSh     fps 50.6 p50 15.8 p95 55.1 max 62.2",
-  "base/test.html  1440 m1920 play sin √z Im AllSh     fps 53.3 p50 19.6 p95 21 max 22.6"
- ],
- "logs": []
-}

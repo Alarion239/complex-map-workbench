@@ -355,7 +355,7 @@ ok('section 8: no console errors or warnings', lF.length === 0, lF.slice(0, 6));
 }
 const lG = errs(logs());
 ok('section 9: no console errors or warnings', lG.length === 0, lG.slice(0, 6));
-// 10. (v16.3) a hyperbolic line in the unit disk: Perpendicular circle on the shown unit circle through two points inside;
+// 10. a hyperbolic line in the unit disk: Perpendicular circle on the shown unit circle through two points inside;
 // then P dragged: K still passes through P and Q and crosses the unit circle at right angles (read from the saved state)
 const armTool = async (id) => {
   // (phone: the More sheet scrolls; in Russian the sixth Construct tile is below the sheet's fold until scrolled to.
@@ -426,7 +426,7 @@ const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = M
 const lH = errs(logs());
 ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6));
 
-// 11. (v16.3) Touching circle on a circle C: T on C's stroke at 1, P = 2 + i: K touches C at T and passes through P;
+// 11. Touching circle on a circle C: T on C's stroke at 1, P = 2 + i: K touches C at T and passes through P;
 // then (C stays picked) P' = -1.5 + 1.5i outside C and a tap on the upper ring: the tangent from P' and its touching point
 {
   const sv = phone ? { cx: 0.25, cy: 0.25, s: 80 } : { cx: 0.25, cy: 0.25, s: 100 };
@@ -541,7 +541,7 @@ ok('section 13: no console errors or warnings', lK.length === 0, lK.slice(0, 6))
 
 if (phone) {
   // 14. (v16.3.1 gate-tour-landscape-shapes) phone landscape, 780 x 360 and 844 x 390: the tour's shapes step (chapter
-  // basics) keeps its card on the screen (v16.3: below the screen in 3 of 4 configs)
+  // basics) keeps its card on the screen (below the screen in 3 of 4 configs)
   const ROW = `(() => { const c = Tour.current(); const card = document.querySelector('[data-tour=card]'); if (!c || !card) return null; const b = card.getBoundingClientRect(); const L = Tour.lit(); const cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2; const e = cy >= 0 && cy <= innerHeight && cx >= 0 && cx <= innerWidth ? document.elementFromPoint(cx, cy) : null; return { id: c.chapter + '/' + c.id, card: [b.left, b.top, b.right, b.bottom].map(Math.round), iw: innerWidth, ih: innerHeight, mini: !!(L && L.mini), vis: e && card.contains(e) ? 'visible' : e ? 'covered' : 'centre off screen' }; })()`;
   const rows = [];
   for (const [Wd, Ht] of [[780, 360], [844, 390]]) {
