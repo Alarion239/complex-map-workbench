@@ -23,7 +23,6 @@ declare const Lines: typeof Region.Lines;
 declare const Constr: typeof import('../src/constr.js');
 declare const Curves: typeof import('../src/curves.js');
 declare const SphereMesh: typeof import('../src/sphere.js');
-declare const CYR: typeof import('../src/cyr.js');
 declare const Views: typeof import('../src/view.js').Views;
 declare const Tour: typeof import('../src/tour.js').Tour;
 declare const Construct: typeof import('../src/construct.js');
