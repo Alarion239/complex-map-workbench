@@ -229,6 +229,7 @@
     missT = now;
     thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
     for (const [, p] of want) thumbDims(p.canvas);   // (all reads before any canvas resize)
+    for (const [, p] of want) p.resize(...thumbDims(p.canvas));   // (#511: every card takes its box's size before the first is drawn)
     for (const [k] of want) { try { renderThumb(k); } catch (e) { console.error(e); } }
   }
   function renderThumbs() {
@@ -243,6 +244,10 @@
     thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
     for (const cv of thumbSeen) if (!cv.isConnected) { thumbRO.unobserve(cv); thumbSeen.delete(cv); } // cards rebuilt
     for (const p of thumbs.values()) if (p.canvas.isConnected) thumbDims(p.canvas); // all reads before any canvas resize
+    // (#511: then every card's backing store takes its box's size, and only then are the pictures drawn one by one: a slow
+    // first picture, a program that links in seconds on software GL, left the cards after it at the canvas's default
+    // 300 x 150 until its turn. A size that changed clears the canvas, and renderThumb's signature holds the size, so it redraws)
+    for (const p of thumbs.values()) if (p.canvas.isConnected) p.resize(...thumbDims(p.canvas));
     for (const k of thumbs.keys()) { try { renderThumb(k); } catch (e) { console.error(e); } }
   }
 
