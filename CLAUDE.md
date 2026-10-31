@@ -43,10 +43,10 @@ Each team has the same hierarchy.
 
   Pietro's team pushes PRs into the integration branch, where they run their own tier, and asks on the board for
   anything that needs a full gate or a GPU run.
-- **Pietro's orchestrator** runs his workers the same way. It talks to Alexander's orchestrator on the wave board
+- **Pietro's orchestrator** runs its workers the same way. It talks to Alexander's orchestrator on the wave board
   and in PR comments.
-- **Product decisions belong to Alexander**, asked on the issue. Pietro decides his own areas (sound, Italian, the
-  Windows GPU runner).
+- **Product decisions belong to Alexander**, asked on the issue. Pietro decides their own areas (sound, Italian,
+  the Windows GPU runner).
 - **The Mac GPU runner (`mac-gpu`)** is Alexander's: report a problem with it in an issue labelled `mac-runner`, which
   Alexander's local agent on the Mac picks up.
 
@@ -83,6 +83,8 @@ Each team has the same hierarchy.
   - for shader changes, the GLSL pages paired with the integration head (`node ci/glsl.js --filter … --ref …`).
 - When it is ready for a wave, mark the PR **Ready for review**. It keeps its base, the integration branch. That is
   the signal for Alexander's orchestrator.
+- A PR that changes what the page shows gets two reviews: ux's (design and accessibility) and eyes' screenshot
+  inspection (collisions, centring, clipping, targets; #470). The orchestrator asks both.
 - The hosted CI runners are shared, and a queue of runs delays everyone's gate:
   - push when the work is ready, not every commit;
   - don't re-run whole gates;
@@ -91,22 +93,23 @@ Each team has the same hierarchy.
 ## 4. Waves
 - Alexander's orchestrator merges the ready PRs of both teams into the integration branch. Then one wave PR goes into
   `main` and its full gate runs.
-- What breaks goes back to a worker: the PR's own worker when it is that PR's code (Pietro's orchestrator for his),
-  or a new worker the orchestrator creates for it. The fix comes back as a PR, and the wave merges when the gate is
-  green.
+- What breaks goes back to a worker: the PR's own worker when it is that PR's code (Pietro's orchestrator for
+  Pietro's team's PRs), or a new worker the orchestrator creates for it. The fix comes back as a PR, and the wave
+  merges when the gate is green.
 - Each merged wave is a release, deployed to the live page by hand: `v17.0-beta.N` is wave N, then `v17.0` and
   `v17.x`.
 - Only Alexander's orchestrator merges into the integration branch or `main` and runs the Pages deploy. The tag for each
   release is pushed by Alexander: the orchestrator's session cannot push tags.
 - While a wave's gate runs, work on the next issues from the integration head. After the wave merges, merge the
   integration branch into your branch.
-- **Freezes** are announced on the board. During the switch to ES modules (#20 phase 4), no `src/` PR merges.
-  Afterwards, bring a branch over with the notes in that PR.
+- **Freezes** are announced on the board. None is on now.
 
 ## 5. Talking to each other
 - About a PR: comment on the PR.
 - Coordination (claims, waves, freezes): comment on the wave board.
-- Product decisions belong to Alexander. Ask on the issue.
+- Product decisions belong to Alexander. Ask on the issue, and add the label `needs-alexander`. The question links
+  something to look at: an artifact, the live page, an HTML file or screenshots. Alexander answers and removes the
+  label.
 
 ## 6. Usage limits: hand the work over, don't strand it
 Any agent can run out of usage in the middle of a task. As soon as you see a usage warning, or before you stop:
