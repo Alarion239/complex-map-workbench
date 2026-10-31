@@ -228,6 +228,7 @@ artifact.
 - the topmost element at each control's centre is that control;
 - the boxes declared centred are centred, within 1 px;
 - no text is cut by a box that can't scroll, except a declared ellipsis;
+- no control's text shows past the control's own box (a label wider than its button, with nothing to clip it);
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;

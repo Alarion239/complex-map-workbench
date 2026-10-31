@@ -7,6 +7,7 @@
 //   centred(scope)           the boxes declared centred are, within their tolerance (INTENT.centred, data-center)
 //   noClippedText(scope)     no text is cut by its box, except an ellipsis that is declared (INTENT.ellipsis, data-ellipsis)
 //   noCutControls(scope)     no control is drawn past a panel that clips it and cannot scroll to it
+//   noTextSpill(scope)       no control's text shows past the control's own box (a nowrap label wider than its pill, #498)
 //   onGround(scope)          text over a plot (a canvas) sits on a ground: a box with a background, or a halo
 //   insideViewport()         no horizontal page scroll, and nothing visible is cut by the viewport's edge
 //   targetSizes(min)         each control is at least min × min px, or spaced as WCAG 2.2's 2.5.8 allows
@@ -409,6 +410,26 @@
     return out;
   }
 
+  // a control's text stays inside the control: a label wider than its button, with overflow visible, is cut by
+  // nothing (noClippedText passes it) and runs into its neighbours (the export dialog's caption pills in Italian, #498)
+  function noTextSpill(scope = document.body) {
+    const out = [];
+    for (const el of controls(scope)) {
+      if (!seen(el)) continue;
+      const cs = getComputedStyle(el), b = R(el.getBoundingClientRect());
+      const fs = parseFloat(cs.fontSize) || 13, ty = Math.max(1.5, 0.15 * fs);
+      for (const t of textBoxes(el)) {
+        if (t.kind !== 'text' || t.el.closest(CONTROL) !== el) continue;   // (a control's own text, not a nested control's)
+        const f = t.box;
+        const dx = cs.overflowX === 'visible' ? Math.max(b.l - f.l, f.r - b.r) : 0, dy = cs.overflowY === 'visible' ? Math.max(b.t - f.t, f.b - b.b) : 0;
+        if (dx <= 2 && dy <= ty) continue;   // (2 px, as noOverlap and noCutControls allow)
+        out.push(V('text-spill', el, null, { spill: [Math.round(Math.max(0, dx)), Math.round(Math.max(0, dy))], text: (t.el.textContent || '').trim().slice(0, 40) }, b));
+        break;
+      }
+    }
+    return out;
+  }
+
   // text over a plot (a canvas under it at its centre) sits on a ground: the text, or a box above the canvas that
   // holds it, has a background at least half opaque, or the text has a halo (a text-shadow, an SVG stroke painted
   // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint)
@@ -451,9 +472,9 @@
     const scope = opt.scope || document.body;
     const touch = opt.touch != null ? opt.touch : matchMedia('(pointer: coarse)').matches;
     // (the focus rings last: they move the focus)
-    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), onGround(scope), insideViewport(scope),
+    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), noTextSpill(scope), onGround(scope), insideViewport(scope),
       targetSizes(touch ? 44 : 24, scope), evenSpacing(scope), opt.focus ? focusRings(scope) : []);
   }
 
-  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
+  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, noTextSpill, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
 })(typeof window !== 'undefined' ? window : globalThis);
