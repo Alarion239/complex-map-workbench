@@ -51,6 +51,15 @@ for (const lang of ['en', 'ru', 'it']) {
     }
   }
 }
+// (rework on #473) the head is not fitted during a glide, and is fitted once it lands: ru at 1024, glide z → w₁ → w₂
+await open(1024, 768, false, 'ru');
+for (const go of [1, 2]) {
+  await ev(`__cmwSteps({ go: ${go} }); 1`);
+  for (let i = 0; i < 150; i++) { if (!(await ev('__cmwSteps().moving'))) break; await sleep(100); }
+  await settle(600);
+  const L = await ev(LAYOUT);
+  ok(`ru 1024 after a glide to plane ${go}: the head is one row`, L.off.length === 0 && L.hh <= 44 && L.lap.length === 0, L);
+}
 // the surface menu (en, 1280): one button, a menu of the three with the shown one checked, a pick changes the surface
 await open(1280, 800, false, 'en');
 await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
@@ -61,6 +70,8 @@ const after = await ev(`({ surf: __cmwSteps().surf, name: document.querySelector
 ok('a pick in the menu changes the surface, and the button names it', after.surf === 'land' && after.name === 'Surface: Landscape', after);
 // the phone: the same surface button in the header
 await open(390, 844, true, 'en');
+// (the steps view builds its head after the app's first layout: wait for it, at most 6 s on a software renderer)
+for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-surf1')`)); i++) await sleep(100);
 const ph = await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'), r = b.getBoundingClientRect(); return { ph: document.documentElement.classList.contains('ph'), home: document.getElementById('svHead').parentElement.id, name: b.getAttribute('aria-label'), h: Math.round(r.height), popup: b.getAttribute('aria-haspopup') }; })()`);
 ok('on a phone the header holds the same surface button, 40 px or more, with its menu', ph.ph && ph.home === 'top' && ph.name === 'Surface: Plane' && ph.h >= 40 && ph.popup === 'menu', ph);
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);

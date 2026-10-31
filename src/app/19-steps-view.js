@@ -589,10 +589,14 @@
   // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
   // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
   // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
-  // or a new title, button or surface): never in a frame of a glide (#320)
+  // or a new title, button or surface), and never while the view moves (#320)
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
+    // (not while the view moves: the title changes half-way through a glide, and a fit then is a forced layout in a frame;
+    // a view parked between two planes is at rest and is fitted; svSync's head key holds svMoving(), so the head is fitted
+    // once when the glide settles; rework on #473)
+    if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
     const key = [ph ? 1 : 0, E.headW || 0, E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
     if (key === E.fitKey) return;
