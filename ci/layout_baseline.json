@@ -6,14 +6,12 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "centred #toastHost div.toast × section#stage.stage": 12,
     "clipped #rightReadout span.rhint": 8,
     "control-cut #leftTabs button": 168,
     "control-cut #rightTabs button": 168,
     "control-cut #svStrip button.sv-fchip": 4,
     "control-cut #svStrip button.sv-plane": 2,
     "control-cut #svStrip button.sv-nav.sv-next": 2,
-    "ellipsis #svStrip span.sv-fn": 12,
     "focus-ring #leftTabs button": 11,
     "focus-ring #rightTabs button": 11,
     "focus-ring button.ph-row": 4,
@@ -31,7 +29,8 @@
     "target-size input#meshRange × #meshPresets button": 12,
     "target-size #meshPresets button × input#meshRange": 12,
     "target-size #chainBracket div.br-end.l × div#chainOpt0.card.region-card": 4,
-    "target-size #chainBracket div.br-end.r × div#chainOpt2.card": 4
+    "target-size #chainBracket div.br-end.r × div#chainOpt2.card": 4,
+    "toast-covers #toastHost div.toast × div#paneL.pane": 6
    }
   },
   "ru": {
@@ -39,15 +38,12 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "centred #toastHost div.toast × section#stage.stage": 4,
     "clipped #popHost span.ex-blurb": 8,
     "control-cut #leftTabs button": 56,
     "control-cut #rightTabs button": 56,
     "control-cut #svStrip button.sv-plane": 4,
-    "ellipsis #stage span.ph-cn": 8,
     "ellipsis #pal-o0 span.pal-desc": 4,
     "ellipsis #toastHost span": 2,
-    "ellipsis #svStrip span.sv-fn": 2,
     "focus-ring #meshPresets button": 5,
     "focus-ring button.ph-row": 4,
     "focus-ring #leftTabs button": 3,
@@ -67,7 +63,8 @@
     "target-size input#meshRange × #meshPresets button": 4,
     "target-size #meshPresets button × input#meshRange": 4,
     "target-size #chainBracket div.br-end.l × div#chainOpt0.card.region-card": 2,
-    "target-size #chainBracket div.br-end.r × div#chainOpt2.card": 2
+    "target-size #chainBracket div.br-end.r × div#chainOpt2.card": 2,
+    "toast-covers #toastHost div.toast × div#paneL.pane": 2
    }
   },
   "it": {
@@ -75,7 +72,6 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "centred #toastHost div.toast × section#stage.stage": 4,
     "clipped #rightReadout span.rhint": 4,
     "clipped #popHost span.ex-blurb": 4,
     "clipped #svStrip button.sv-nav.sv-next": 2,
@@ -84,7 +80,6 @@
     "control-cut #svStrip button.sv-plane": 2,
     "control-cut #dcSeg button": 2,
     "control-cut #svStrip button.sv-nav.sv-next": 2,
-    "ellipsis #svStrip span.sv-fn": 4,
     "focus-ring #meshPresets button": 5,
     "focus-ring button.ph-row": 4,
     "focus-ring #leftTabs button": 3,
@@ -104,7 +99,8 @@
     "target-size #meshPresets button × input#meshRange": 4,
     "target-size #chainBracket div.br-end.l × div#chainOpt0.card.region-card": 2,
     "target-size #chainBracket div.br-end.r × div#chainOpt2.card": 2,
-    "text-spill #xfCapLang button": 4
+    "text-spill #xfCapLang button": 4,
+    "toast-covers #toastHost div.toast × div#paneL.pane": 2
    }
   }
  }
