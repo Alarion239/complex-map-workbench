@@ -58,7 +58,7 @@ await ev(`Phone.open('more'); 1`); await settle(900);
 // (the sheet slides in from the right: measure once it lies inside the window)
 for (let i = 0; i < 40; i++) { const inside = await ev(`(() => { const e = document.querySelector('.ph-sheet[data-k="more"]'); return !!e && e.getBoundingClientRect().right <= innerWidth + 1 && getComputedStyle(e).transform === 'none'; })()`); if (inside) break; await sleep(250); }
 await settle(300);
-await key('Shift'); await sleep(100);
+await key('Tab'); await sleep(100);
 const rows = await ev(`(() => { const f = ${RING}; return [...document.querySelectorAll('.ph-sheet[data-k="more"] button.ph-row')].filter((e) => e.getClientRects().length).map((e) => f(e)); })()`);
 ok('740x360: the menu rows have a ring that no panel cuts, drawn inside the row', rows.length > 3 && rows.every((r) => !r.none && r.cut === 0 && r.off < 0), rows.slice(0, 3));
 // 7. the sphere's hint in the right readout wraps: nothing cut at 740 x 360, in en and ru
@@ -78,7 +78,7 @@ for (const [w, h, dockH] of [[360, 740, 110], [740, 360, 52]]) {
 // 8b. the export dialog's caption: its focus ring is inside the box
 await open(1024, 800);
 await key('e', 2); await settle(4500);
-await key('Shift'); await sleep(100);
+await key('Tab'); await sleep(100);
 const cap = await ev(`(() => { const e = document.querySelector('.xf-cap'); return e ? (${RING})(e) : null; })()`);
 ok('1024: the export caption has a ring that no scroller cuts, drawn inside the box', !!cap && !cap.none && cap.cut === 0 && cap.off < 0, cap);
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
