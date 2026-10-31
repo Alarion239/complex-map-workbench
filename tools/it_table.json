@@ -2800,7 +2800,6 @@
  "Compiling…": "Compilazione…",
  "The formula is long; the field below holds it in full.": "La formula è lunga; il campo qui sotto la contiene per intero.",
  "in short": "in breve",
- "Written in short; the step's own field holds the full formula.": "Scritta in breve; il campo del passo contiene la formula per intero.",
  "Written in short; each step's own field holds its full formula.": "Scritta in breve; il campo di ciascun passo contiene la sua formula per intero.",
  "Written in short; the field below holds the formula in full.": "Scritta in breve; il campo qui sotto contiene la formula per intero.",
  "Print settings": "Impostazioni di stampa",
@@ -3090,5 +3089,12 @@
  "Fast": "Veloce",
  "Slow": "Lenta",
  "Slower": "Più lenta",
- "Place on the chain": "Posizione nella catena"
+ "colour of {p}, carried": "colore trasportato da {p}",
+ "shapes only": "solo le forme",
+ "Hold and slide to read {f}": "Tieni premuto e scorri per leggere {f}",
+ "<span>In {w}</span>": "<span>In {w}</span>",
+ "<span>Targets in {out}</span>": "<span>Bersagli in {out}</span>",
+ "in {w}": "in {w}",
+ "Place on the chain": "Posizione nella catena",
+ "colour from {p}": "colore da {p}"
 }

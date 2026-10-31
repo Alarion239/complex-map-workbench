@@ -597,4 +597,4 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-speed { display: none; }
 :root.ph.sv .sv-cp .sv-cp-t { display: none; }
 :root.ph.sv .sv-cp { min-width: 44px; justify-content: center; }
-:root.ph.sv .sv-title .sv-tf { display: none; }
+:root.ph.sv .sv-title .sv-sep, :root.ph.sv .sv-title .sv-role { display: none; }
