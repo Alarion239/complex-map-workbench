@@ -58,8 +58,14 @@
     const k = svStage(), T = svT();
     if (k <= T) return undefined;
     if (T > 0 && derivIn(T, k)) return null;
+    /** @type {any} */
     let sols = [];
-    try { sols = zerosPolesTimed(T === 0 ? stageF(k) : rangeF(T, k), paneBox(paneL, leftView()), { target: { re: q.re, im: q.im }, max: 4 }, 4); } catch (e) { return null; }
+    const F = T === 0 ? stageF(k) : rangeF(T, k), box = paneBox(paneL, leftView());
+    try {
+      sols = zerosPolesTimed(F, box, { target: { re: q.re, im: q.im }, max: 4 }, 4);
+      // (a search that found nothing before its time ran out, a cold first call or a busy frame: once more with more time)
+      if (!sols.length && (sols.stopped || sols.incomplete)) sols = zerosPolesTimed(F, box, { target: { re: q.re, im: q.im }, max: 4 }, 16);
+    } catch (e) { return null; }
     const hit = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z));
     return hit.length ? hit[0].z : null;
   }
