@@ -1661,7 +1661,7 @@ const Constr = (function (factory) {
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
     // v16 review fixes
     orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, tangentNear, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
-    // v16.4: Inside C only (notes/orthogonal-circle/segments/SPEC.md)
+    // Inside C only (notes/orthogonal-circle/segments/SPEC.md)
     segOf, betweenOf, segAt, segSideOf, segSides, setSeg, setBetween, segCurves, mirrorIn, gcOf, onCarrier,
     get lastRecompute() { return lastRecompute; },
   };

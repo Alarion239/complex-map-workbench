@@ -619,7 +619,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-surf { display: none; }
 :root.ph.sv .sv-head .seg > button { padding: 0 8px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
-:root.ph.sv .sv-fchip { height: 44px; padding: 0 12px; border-radius: 22px; }
+:root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 12px; border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv .sv-speed { display: none; }

@@ -1,1 +1,0 @@
-node tools/measure.js --json --save > tools/measure.txt 2>&1  26.42s user 0.43s system 99% cpu 26.849 total

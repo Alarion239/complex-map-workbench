@@ -21,7 +21,10 @@ const open = async (w, h, mobile, lang, n) => {
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   const k = `${ns}${w}${lang}${n}`;
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps` }); await sleep(2500); await settle(600);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps` }); await sleep(1500);
+  // (until the steps view is built and its first frame drawn: a software renderer can take several seconds)
+  for (let i = 0; i < 50 && !(await ev(`!!(window.__cmwSteps && document.getElementById('svStrip') && document.documentElement.classList.contains('sv'))`).catch(() => false)); i++) await sleep(200);
+  await settle(800);
 };
 // (what the page shows at the centre of each control that is shown: the control itself, or the thing covering it)
 const probe = () => ev(`(() => {
@@ -78,6 +81,8 @@ for (const [w, h, mobile, lang] of [[1024, 768, false, 'ru'], [360, 780, true, '
 // (ux's wave 12 sweep) on the globe the dimmed draw tools say they are off
 await open(1024, 768, false, 'en', 3);
 await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1200);
+// (the tools are marked when the globe's first frame is drawn: up to 6 s on a software renderer)
+for (let i = 0; i < 30 && !(await ev(`document.querySelector('.tool[data-tool="annulus"]').getAttribute('aria-disabled') === 'true'`)); i++) await sleep(200);
 const off = await ev(`[...document.querySelectorAll('.tool[data-tool="annulus"], .tool[data-tool="sector"], .tool[data-tool="pgrid"]')].map((b) => b.getAttribute('aria-disabled'))`);
 ok('on the globe, Annulus, Sector and Polar grid are aria-disabled', off.length >= 3 && off.every((v) => v === 'true'), off);
 await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(800);

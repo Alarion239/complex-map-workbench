@@ -201,7 +201,7 @@ await section('A', async () => {
   await click(cb[0] + 2, cb[1] - 2); await settle(120);
   await click(p0[0], p0[1]); await settle(120);
   d = (await CI()).draft;
-  // (v16.3.1: a chip that would wrap keeps one line without its keyboard tail; the rings' chip in X at 1440 does.
+  // (a chip that would wrap keeps one line without its keyboard tail; the rings' chip in X at 1440 does.
   // v16.5 UX48 wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const a5 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   const a5base = ((d && d.rings && d.rings.length) ? 'Pick the touching point on the unit circle, or a ring for a tangent' : 'Pick the touching point on the unit circle') + ' · 2 of 2 · Touching';
@@ -470,7 +470,7 @@ await section('C', async () => {
   info.ruRows = { K: info.ruRow, L: await rowD(L.id), M: await rowD(M.id) };
   const N = ' ';
   const ub = `⌫${N}— отменить выбор · Esc`;   // (v16.5 UX48: what to pick, the count, then how to back up)
-  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it, as A5 accepts; #35: it
+  // (a chip drops its keyboard tail when it would wrap and fits one line without it, as A5 accepts; #35: it
   // first drops the tool's name, which the pane head's chip shows, and keeps the tail when that fits)
   const ruChip = (got, base, tail) => got === `${base} · ${tail}` || got === base || got === `${base.slice(0, base.lastIndexOf(' · '))} · ${tail}`;
   ok('C RU chips', ruChip(info.ruChips[0], 'Выберите прямую или окружность · Касание', esc) && ruChip(info.ruChips[1], 'Выберите точку касания (на кривой: единичная окружность) или точку вне её · 1 из 2 · Касание', ub) && ruChip(info.ruChips[2], 'Выберите точку вне кривой (единичная окружность) или штриховую касательную · 2 из 2 · Касание', ub) && ruChip(info.ruChips[3], 'Выберите точку касания (на кривой: единичная окружность) или кольцо для касательной · 2 из 2 · Касание', ub), info.ruChips);
