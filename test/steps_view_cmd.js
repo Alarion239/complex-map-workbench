@@ -143,6 +143,14 @@ const a11y = await ev(`({ strip: document.getElementById('svStrip').getAttribute
   chips: [...document.querySelectorAll('#svStrip .sv-fchip')].map((b) => b.getAttribute('aria-label')) })`);
 ok('the strip, the plane and the steps have names', /Planes of the chain/.test(a11y.strip) && /Plane w₁, 2 of 3/.test(a11y.pane) && a11y.chips.length === 2 && /Möbius/.test(a11y.chips[0]), a11y);
 
+// a view parked past half-way across the colour plane stays where it is: the plane it rounds to has another view
+// (Phase before the colour plane, X → Y after it) than the one last set, which is not a state from outside
+await ev(`__cmwSteps({ go: 0, now: true, T: 0 }); 1`); await settle(600);
+await ev(`__cmwSteps({ park: 0.6 }); 1`); await settle(600);
+await ev(`__cmwSteps({ scope: 'in' }); 1`); await settle(800);
+const pk = await S();
+ok('parked at 0.6 past the colour plane z, the view stays there', Math.abs(pk.x - 0.6) < 1e-9 && pk.T === 0 && pk.scope === 'in', pk);
+await ev(`__cmwSteps({ T: 2 }); 1`);
 // (perf on #460) parked between two planes, the view still takes an example: it opens on it, from its first plane
 await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settle(400);
 await ev(`__cmwSteps({ park: 1.5 }); 1`); await settle(600);
