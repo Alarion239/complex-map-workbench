@@ -22,7 +22,7 @@ for (const u of urls) {
   check(`${u.slice(0, 90)}: answered from vendor/`, !!a && a.body.length > 1000, a && a.body.length);
   if (a && /fonts\.googleapis/.test(u)) check(`${u.slice(0, 60)}: a font sheet (@font-face over woff2)`, a.type === 'text/css' && /@font-face\{font-family:"/.test(a.body.toString()) && /data:font\/woff2;base64,/.test(a.body.toString()));
 }
-check('the Russian sheet (Roboto Flex) gets the Russian set', /Roboto Flex/.test(V.answer('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz&display=swap').body.toString()));
+check('the font sheet has the interface face (Roboto Flex), the mono and the math faces, and neither Archivo nor B612 Mono', (() => { const t = V.answer('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz&display=swap').body.toString(); return /font-family:"Roboto Flex"/.test(t) && /font-family:"JetBrains Mono"/.test(t) && /font-family:"STIX Two Text"/.test(t) && !/Archivo|B612/.test(t); })());
 check('a URL it does not know: not answered', V.answer('https://cdnjs.cloudflare.com/ajax/libs/other/1.0/x.js') === null && V.answer('https://example.com/') === null);
 check('every pattern is https and ends in /*', V.PATTERNS.every((p) => /^https:\/\/[^/]+\/\*$/.test(p)));
 // a vendored file that is not the one LOCK.json records is never served: it throws, naming the file and both hashes
