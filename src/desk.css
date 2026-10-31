@@ -646,6 +646,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-bandx { position: absolute; right: -12px; top: -10px; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
 .sv-bandx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-play { font-size: 18px; }
+.sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
+.sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
 .sv-strip .sv-loop { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
 :root:not(.ph) .sv-playback { display: none; }
 .sv-loop.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

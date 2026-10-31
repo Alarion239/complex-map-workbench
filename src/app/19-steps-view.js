@@ -819,10 +819,11 @@
     try { localStorage.setItem('cmw-sv-loop', on ? '1' : '0'); } catch (_) { /* (no storage) */ }
     svSync();
   }
-  // ▶ and ⏸, the loop's state
+  // ▶ and pause, the loop's state
   function svPlaySync() {
     const E = SV.els, on = !!SV.play, label = on ? $t('Pause') : $t('Play');
-    E.play.textContent = on ? '⏸' : '▶';
+    // (the pause is two bars, drawn: no glyph of the bundled faces)
+    if (E.play.dataset.on !== String(on)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
     E.play.setAttribute('aria-pressed', String(on));
