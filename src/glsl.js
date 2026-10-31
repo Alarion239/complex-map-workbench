@@ -2135,7 +2135,6 @@ void ixAncTan(vec2 w) {
   const IX_FIN = { IPOW: 16, JOUK: 2, QUAD: 2, RAT2: 2 };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
-  const gf = (x) => flt(x);
   // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]
   function invOpFns(o, j, c) {
     const P = `ix${j}`, U = (i) => `uInv[${c + i}]`;

@@ -32,7 +32,7 @@ const AREAS = {
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
-  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex-en', 'raw-tex-ru', 'raw-tex-it'],   // (raw-tex: #465, a string's TeX never on screen)
+  i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
   views: ['views', 'formulas'],
   desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
@@ -121,7 +121,7 @@ const MAP = [
   ['tools/join_src.js', T0],
   ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
   ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
-  ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
+  ['notes/i18n/**', T0],                                                       // the i18n design and tables: unit tests only (t_i18n, t_terms, t_cyr, t_ux165_*)
   // the docs (a README beside the tests or the CI scripts too)
   ['**/*.md', T0],
   // the tests

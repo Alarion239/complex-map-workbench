@@ -206,7 +206,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
 :root.ph .pipe-wrap > #morphBtn {
   display: flex !important; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 64px; min-width: 64px; height: 48px; padding: 0 2px;
-  border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); white-space: normal; text-align: center;
+  border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: normal; text-align: center;
 }
 :root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
 :root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
@@ -616,7 +616,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-head .seg > button { padding: 0 8px; }
+:root.ph.sv .sv-head .seg > button { padding: 0 6px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 12px; border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
