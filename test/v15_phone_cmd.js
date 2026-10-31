@@ -67,6 +67,9 @@ const audit = (scope) => ev(`(() => {
   const small = []; let total = 0;
   for (let e of root.querySelectorAll(sel)) {
     if (e.closest('[hidden], .ph-inset .plot, .xf, .modal-bg')) continue;
+    // (the sheet's grab handle is the 18 px strip above its title row, #483; phone.css exempts it from the 44 px rule too,
+    // :not(.ph-grab): the head's row is the drag target, which test/phone_sheet_target_cmd.js holds to 44 px)
+    if (e.matches('.ph-grab')) continue;
     if (e.matches('input[type=checkbox], input[type=radio]') && e.closest('label')) e = e.closest('label');
     const s = getComputedStyle(e);
     if (!e.getClientRects().length || s.visibility === 'hidden' || +s.opacity === 0 || s.pointerEvents === 'none') continue;
