@@ -466,6 +466,8 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
 .ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
+/* (#483) its empty part drags the sheet, as the head does (phone.js), so a finger there does not scroll */
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { touch-action: none; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
 /* (the step's title is a 44 px button: its one line is centred in it, level with the f₃ chip and the type glyph beside it) */
 :root.ph .ph-sheet #propsPanel .insp-step .ihead .ttl-btn { line-height: 40px; }

@@ -52,6 +52,16 @@ for (const k of ['chain', 'edit', 'display', 'more']) {
   const g = await ev(`(() => { const ov = ${OV}; const g = document.querySelector('.ph-grab'); if (!g || !g.getClientRects().length) return null; const sh = g.closest('.ph-sheet'); const hits = []; for (const e of sh.querySelectorAll('.ph-st, .ttl, .ttl-btn, .ph-x, .ph-hundo, .ph-pill')) { if (!e.getClientRects().length) continue; const o = ov(g, e); if (o) hits.push([e.className.toString().slice(0, 20), ...o]); } return { k: sh.dataset.k, h: g.getBoundingClientRect().height, hits }; })()`);
   ok(`360: the ${k} sheet's grab handle is clear of its title`, !!g && g.hits.length === 0, g);
 }
+// 3b. the Editor's head is its 18 px bar, so its title row drags the sheet where nothing in it can be pressed: a press on an empty part of
+// the Inspector's .ihead and a drag up opens the sheet to its full height (and a drag that starts on the title button does not)
+await ev(`Phone.open('edit'); 1`); await settle(1200);
+const empty = await ev(`(() => { const ih = document.querySelector('.ph-sheet[data-k="edit"] #propsPanel .ihead'); if (!ih || !ih.getClientRects().length) return null; const r = ih.getBoundingClientRect(); const y = r.top + r.height / 2; for (let x = r.left + 4; x < r.right - 4; x += 3) if (document.elementFromPoint(x, y) === ih) return [x, y, r.height]; return null; })()`);
+ok('360: the Editor has an empty part of its title row to press', !!empty, empty);
+if (empty) {
+  ok('360: before the drag the sheet is not full', !(await ev(`document.documentElement.classList.contains('ph-full')`)), null);
+  await drag(empty[0], empty[1], empty[0], empty[1] - 120, 8, 30); await settle(900);
+  ok('360: a press and drag up on the .ihead\'s empty part opens the sheet full', await ev(`document.documentElement.classList.contains('ph-full')`), empty);
+}
 // 8a. the phone menu's rows in landscape: the ring is inside the row
 await open(740, 360, 'en', true);
 await ev(`Phone.open('more'); 1`); await settle(900);
