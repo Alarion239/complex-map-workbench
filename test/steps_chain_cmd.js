@@ -48,6 +48,7 @@ ok('each step has a chip with a ⋯ (menu button) and the thread ends with + Add
 await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settle(300);
 const m = await menu();
 const errs0 = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5); ok('no errors so far', !errs0.length, errs0);
+ok('the menu is named', await ev(`/f₂/.test(document.querySelector('#popHost .menu').getAttribute('aria-label') || '')`), null);
 ok('the ⋯ menu: Open in the Inspector and Show alone first, Bypass beside the moves, no Deformation', m[0] === 'Open in the Inspector' && m[1] === 'Show alone' && m[2] === 'Bypass this step' && m[3] === 'Move left' && !m.includes('Deformation') && m[m.length - 1] === 'Remove', m);
 await ev(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(300);
 ok('Esc closes the menu and the keyboard is back on its ⋯', (await where()) === 'more2', await where());
@@ -112,6 +113,7 @@ await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focu
 await kb('Delete'); await settle(400);
 const em = await ev(`({ n: __cmwP().steps.length, add: !!document.querySelector('#svStrip .sv-add'), msg: !document.querySelector('.sv-empty').hidden, text: document.querySelector('.sv-empty').textContent, prev: document.querySelector('.sv-prev').disabled, next: document.querySelector('.sv-next').disabled, speed: document.querySelector('.sv-speed').disabled, ring: document.querySelector('.sv-thumb').getAttribute('aria-disabled'), planes: __cmwSteps().planes.join() })`);
 ok('the empty chain: the z dot and + Add function, ‹ › ring and speed off, the plane says what to do', em.n === 0 && em.add && em.msg && /Add a function to send z/.test(em.text) && em.prev && em.next && em.speed && em.ring === 'true' && em.planes === '0', em);
+ok('the hint has a ground of its own (opaque), not bare text over the plot', await ev(`(() => { const b = getComputedStyle(document.querySelector('.sv-empty')); return b.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(b.borderTopWidth) >= 1; })()`), null);
 ok('… and the keyboard is on + Add function', (await where()) === 'add', await where());
 await undo();
 ok('Undo brings the last step back', (await types()).join() === 'mobius' && (await ev(`document.querySelector('.sv-empty').hidden`)), await types());

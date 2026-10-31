@@ -898,6 +898,7 @@
     while (out.length && out[out.length - 1] === 'sep') out.pop();
     const wrapped = svWrap(out, k);
     // (removing: svRemove has done it; the item's own run is not called again)
+    wrapped.menuLabel = $t('More actions for f{x}', { x: sub(k) });
     const pop = openMenu(anchor, wrapped);
     if (pop && lp) { svDeaf(pop); svClearOf(pop, lp.x, lp.y, anchor); }
     return pop;
