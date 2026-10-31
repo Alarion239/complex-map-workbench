@@ -390,15 +390,17 @@ jobs:
       # (#504: the image's package lists usually know the package, so it installs without refreshing them first; they are
       # refreshed only when that fails, as before. Each part's time goes to the log)
       - name: Mesa's Vulkan drivers (lavapipe)
+        # (needrestart's scan for services to restart after the install, about 1.4 s, has nothing to restart here: off,
+        # on sudo's own line, since sudo resets the environment)
         run: |
           t0=$(date +%s.%N)
           if dpkg -s mesa-vulkan-drivers >/dev/null 2>&1; then echo "mesa-vulkan-drivers: already installed"
-          elif sudo apt-get install -y -qq mesa-vulkan-drivers; then echo "mesa-vulkan-drivers: installed from the image's lists"
-          else sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers && echo "mesa-vulkan-drivers: installed after apt-get update"
+          elif sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers; then echo "mesa-vulkan-drivers: installed from the image's lists"
+          else sudo apt-get update -qq && sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers && echo "mesa-vulkan-drivers: installed after apt-get update"
           fi
           awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN { printf "Mesa step: %.1f s\n", b - a }'
-      # (fails when Chrome has no WebGL2 with these flags: no fallback, so the suites never run on another renderer)
-      - run: node ci/gpu_probe.js
+      # (ci/browser.js asks the job's first Chrome for its renderer before the first suite, and fails the job when it has
+      # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
       - if: always()
         uses: actions/upload-artifact@v6
