@@ -2100,7 +2100,9 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] .matrix tr > td:first-child { white-space: normal; line-height: 13px; padding-top: 3px; padding-bottom: 3px; }
 :root[data-lang="ru"] .matrix td:first-child .nm { font-stretch: 87.5%; hyphens: auto; }
 /* ui-11: a hint alone in a readout may take a second line rather than be cut */
-:root[data-lang="ru"] .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 24px; white-space: normal; line-height: 16px; padding-top: 3px; padding-bottom: 3px; }
+/* (#483) a hint alone in the chip wraps instead of being cut, in every language: the sphere's, "Drag to turn, tap a shape to select it; …",
+   was 175 px wider than the chip at 740×360 */
+.chip.readout:has(> .rhint:only-child) { height: auto; min-height: 24px; white-space: normal; line-height: 16px; padding-top: 3px; padding-bottom: 3px; }
 /* math-19: MathJax has no Cyrillic glyphs and sets each such letter as an SVG <text> in "serif"; STIX Two Text (the
    app's math face, Times metrics like that serif) has Cyrillic and matches the TeX letters around it */
 :root[data-lang="ru"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
