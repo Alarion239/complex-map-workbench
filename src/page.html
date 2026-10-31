@@ -72,9 +72,13 @@
   --f-ui: "Roboto Flex", "Helvetica Neue", Arial, system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --f-input: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* the semi-condensed captions and tool labels (they were Archivo at 87.5%): Roboto Flex's width axis is gentle and its optical
+     size follows the font size, so at 11-12 px it sets wider than Archivo did; width 75% and optical size 24 set the same words
+     within 2% of the old widths (Russian was already Roboto Flex at 87.5%, and keeps that below) */
+  --ui-narrow-stretch: 75%; --ui-narrow-var: "opsz" 24;
   --f-math: "STIX Two Text", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
   --t-micro: 400 10px/12px var(--f-mono);
-  --t-caption: semi-condensed 600 11px/14px var(--f-ui);
+  --t-caption: 600 11px/14px var(--f-ui);   /* (the captions add font-stretch and font-variation-settings, below the shorthand, which resets them) */
   --t-label: 500 12px/16px var(--f-ui);
   --t-body: 400 13px/18px var(--f-ui);
   --t-heading: 600 13px/18px var(--f-ui);
@@ -322,7 +326,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-row input[type=range] { width: 150px; min-width: 0; flex: 0 1 150px; accent-color: var(--accent); }
 .snd-row output { width: 40px; text-align: right; font: var(--t-readout); color: var(--ink-2); }
 .snd-tiers { margin: 6px 0 2px; padding: 6px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
-.snd-tiers legend { padding: 0; margin-bottom: 2px; font: var(--t-caption); color: var(--muted); }
+.snd-tiers legend { padding: 0; margin-bottom: 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .snd-chk { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
 .snd-chk input { flex: none; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--accent); }
 .snd-chk b { display: block; font: var(--t-label); color: var(--ink); }
@@ -589,7 +593,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   line-height: normal; cursor: default; font: var(--t-label); color: var(--ink-2); white-space: nowrap;
 }
 .legend-chip.calc-chip[hidden] { display: none; }
-.calc-chip .ch { font: var(--t-caption); color: var(--muted); }
+.calc-chip .ch { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .calc-chip .cl { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
 .calc-chip .cl > :first-child { overflow: hidden; text-overflow: ellipsis; }
 .calc-chip .cv { font: var(--t-readout); color: var(--ink); }
@@ -641,7 +645,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .int-cap i { font: var(--t-math-s); color: var(--ink-2); }
 .int-pop .icon-btn.copied { color: var(--good); }
 /* the shape panel lists the w-plane targets of the Preimage view under their own heading */
-.shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); color: var(--muted); }
+.shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .shapes .shapes-sub i { font: italic 500 12px/14px var(--f-math); color: var(--ink-2); }
 .shapes .shapes-sub::after { content: ""; flex: 1 1 auto; border-top: 1px solid var(--line); }
 .shapes > .shapes-sub:first-child { margin-top: 0; }
@@ -957,7 +961,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .card .err-msg:empty { display: none; }
 .card.bad .note, .card.bad .pchips { display: none; }
 .pchips { flex: 0 0 20px; height: 20px; margin-top: auto; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-.pchip { display: grid; place-items: center; font: var(--t-caption); color: var(--faint); border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.pchip { display: grid; place-items: center; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--faint); border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
 .pchip:first-child { border-left: 0; }
 .pchip.on { color: var(--good); background: var(--good-soft); }
 /* region card */
@@ -1019,7 +1023,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 .tool > svg, .tool > .tic { position: absolute; left: 50%; top: 5px; translate: -50% 0; width: 20px; height: 20px; display: block; overflow: visible; }
-.tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: semi-condensed; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .tool:hover { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .tool.on, .tool.on:hover, .tool[aria-pressed="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--inverse-ink); }
 /* Annulus, Sector and Polar grid while X shows its globe (P3b: they draw in Plane only) */
@@ -1111,7 +1115,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
   min-width: 18px; height: 18px; padding: 0 4px;
   border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: var(--r-1);
-  font: var(--t-caption); color: var(--muted); background: transparent; white-space: nowrap; vertical-align: 1px;
+  font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); background: transparent; white-space: nowrap; vertical-align: 1px;
 }
 
 /* ---------- 5.5 Inputs ---------- */
@@ -1261,7 +1265,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-row:not(:has(> .fval)) { grid-template-areas: "fl fl" "rng rng"; }
 .fader-stops { position: relative; display: flex; justify-content: space-between; margin-top: -2px; min-height: 22px; }
 .fader-stops > button {
-  position: relative; padding: 6px 0 0; font: var(--t-caption); color: var(--muted); white-space: nowrap;
+  position: relative; padding: 6px 0 0; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); white-space: nowrap;
   transition: color var(--t-fast) var(--ease-out);
 }
 .fader-stops > button::before { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 4px; background: var(--line-strong); }
@@ -1281,7 +1285,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 /* (#339) each name has its column's width, not the swatch's: the four columns share the row, so a Russian name wraps
    between its words ("Квадратная / сетка") and is not hyphenated inside one ("Растяже-ние") */
 .patterns { grid-template-columns: repeat(4, minmax(52px, 1fr)); column-gap: 4px; }
-.pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
+.pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
 .pat > canvas { display: block; width: 52px; height: 40px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; }
 .pat > span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; }
 /* [v16.5 UX95, UX86] a pattern's name wraps to two lines rather than being cut ("Sphere checker", "Square grid") */
@@ -1390,7 +1394,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .psec .foot, .psec .footnote, .well.domain + .lbl { display: block; margin-top: 8px; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
 .matrix { width: 100%; border-collapse: collapse; table-layout: fixed; font: var(--t-body); }
 .matrix th, .matrix td { height: 26px; padding: 0; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
-.matrix tr:first-child th, .matrix thead th { font: var(--t-caption); color: var(--muted); }
+.matrix tr:first-child th, .matrix thead th { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .matrix tr:first-child > :not(:first-child), .matrix thead th:not(:first-child) { width: 24px; }
 .matrix tr > :first-child { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
 .matrix td:first-child .idx, .matrix th:first-child .idx { margin-right: 6px; vertical-align: middle; }
@@ -1529,7 +1533,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pal-label { font: 500 13px/17px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pal-desc { font: 400 11.5px/15px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pal-props { display: flex; gap: 3px; }
-.pp { min-width: 11px; text-align: center; font: var(--t-caption); color: var(--faint); }
+.pp { min-width: 11px; text-align: center; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--faint); }
 .pp.on { color: var(--good); }
 .pal-empty { padding: 16px 12px; color: var(--muted); text-wrap: pretty; }
 /* with no candidate there is nothing to preview */
@@ -1953,7 +1957,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   .tool-more > summary::-webkit-details-marker { display: none; }
   .tool-more > summary > .ic-slot { position: absolute; left: 50%; top: 7px; translate: -50% 0; width: 18px; height: 18px; }
-  .tool-more > summary > .tm-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: var(--t-label); font-size: 11px; font-stretch: semi-condensed; }
+  .tool-more > summary > .tm-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: var(--t-label); font-size: 11px; font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); }
   .tool-more .tm-close, .tool-more[open] .tm-open { display: none; }
   .tool-more[open] .tm-close { display: inline; }
   .tool-more[open] > summary { background: var(--well); color: var(--ink); }
@@ -2018,6 +2022,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @font-face { font-family: "CMW Comma"; src: local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("DejaVu Sans"), local("Liberation Sans"); unicode-range: U+2C; }
 :root[data-lang="ru"] {
   --f-mono: "CMW Comma", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ui-narrow-stretch: 87.5%; --ui-narrow-var: normal;   /* (as before #288: Roboto Flex semi-condensed, its optical size automatic) */
 }
 /* until init() has translated the static text (the head script above): no English frame in Russian (review eng-1) */
 :root.i18n-wait #app { visibility: hidden; }
@@ -2106,7 +2111,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
    button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
 :root[data-lang="it"] .pat { white-space: normal; }
-:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
