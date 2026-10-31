@@ -109,10 +109,10 @@ for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
   // (the hint shows once a session, and never after a first probe: both memories cleared)
   await nav(`${U}/gl-helpers.html`); await sleep(300);
   await ev(`(() => { try { sessionStorage.removeItem('cmw-probe-taught'); localStorage.removeItem('cmw-probe-learned'); } catch (e) { /* */ } return 1; })()`);
-  await nav(`${U}/test.html?ns=stepnames-ph-${lang}-${Date.now()}&view=steps&lang=${lang}`); await settle(2500);
-  await ev('__cmwExample(8)'); await settle(1000);
+  await nav(`${U}/test.html?ns=stepnames-ph-${lang}-${Date.now()}&view=steps&lang=${lang}`); await settle(2000);
+  await ev('__cmwExample(8)'); await settle(500);
   ok(`${lang} ${pw} phone: the phone layout`, await ev('!!Phone._state().on'), null);
-  const hint = async (k) => { await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: ${k}, now: true }); 1`); await settle(700); return txt('#leftReadout .rteach'); };
+  const hint = async (k) => { await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: ${k}, now: true }); 1`); await settle(300); return txt('#leftReadout .rteach'); };
   const h0 = await hint(0), h1 = await hint(1);
   ok(`${lang} ${pw} phone: the hint on z names F(z)`, h0 !== null && /F\(z\)/.test(h0), h0);
   ok(`${lang} ${pw} phone: the hint on w₁ names f₂(w₁)`, h1 !== null && /f₂\(w₁\)/.test(h1), h1);
