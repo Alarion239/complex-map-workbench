@@ -178,12 +178,8 @@ H.fs = fs; H.path = path; H.DIR = DIR;
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
       try {
-        // (a suite that declares a name of its own, such as its own go(), keeps it: that helper is not passed in, where
-        // the parameter and the declaration would collide, "Identifier 'go' has already been declared")
-        const own = (k) => new RegExp(`(^|[^\\w$.])(const|let|var|function|class)\\s+${k}\\b`, 'm').test(body);
-        const keys = Object.keys(H).filter((k) => !own(k));
-        const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...keys, body);
-        out = await fn(...keys.map((k) => H[k]));
+        const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
+        out = await fn(...Object.values(H));
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
       fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
