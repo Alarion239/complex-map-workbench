@@ -49,7 +49,7 @@ ok('the offline page has MathJax and the faces inline', /id="cmw-mathjax"/.test(
 ok('the offline page has the PDF library inline, under the ids figure.js looks for', /id="cmw-jspdf"/.test(off) && /id="cmw-svg2pdf"/.test(off) && /jspdf\.umd\.min\.js["'], ["']cmw-jspdf["']\)/.test(pub) && /svg2pdf\.umd\.min\.js["'], ["']cmw-svg2pdf["']\)/.test(pub), null);
 // (its tags: the scripts keep the live page's CDN URLs as strings, used only where the inline faces are missing;
 // test/offline_cmd.js opens it with the network off and counts the requests)
-ok('the offline page has no CDN tag', !/<(?:link|script)\b[^>]*(?:fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\/libs\/mathjax|npm\/mathjax@)/.test(off), (off.match(/<(?:link|script)\b[^>]*(?:fonts\.g|mathjax)[^>]*>/g) || []).slice(0, 5));
+ok('the offline page has no CDN tag', !/<(?:link|script)\b[^>]*(?:fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\/libs\/mathjax|npm\/mathjax@|mathjax-stix2-font)/.test(off), (off.match(/<(?:link|script)\b[^>]*(?:fonts\.g|mathjax)[^>]*>/g) || []).slice(0, 5));
 ok('the offline page offers no download of itself', !/<meta name="cmw-offline"/.test(off), null);
 const named = /<meta name="cmw-offline" content="(\d+)">/.exec(pub);
 ok('the published page names the offline page\'s size', named && Number(named[1]) === Buffer.byteLength(off), { named: named && named[1], bytes: Buffer.byteLength(off) });
