@@ -545,8 +545,12 @@ const Tour = (() => {
     // (a single sign first, so a script inside braces is read before its group: z^{2^n} is z^(2ⁿ); what has no modifier
     // form is written in parentheses, as plain text writes it: ^(∞); a lone index without one follows its letter: Φ_M is ΦM)
     s = s.replace(/\^([^\s{(])/g, (m, a) => conv(a, SUP) || m).replace(/_([^\s{(])/g, (m, a) => conv(a, SUBS) || m);
-    s = s.replace(/\^\{([^{}]*)\}|\^(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUP) || '^(' + v + ')'; });
-    s = s.replace(/_\{([^{}]*)\}|_(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUBS) || ([...v].length === 1 ? v : '_(' + v + ')'); });
+    // ([#465] the innermost group first, so a script inside a script is read before the one around it: e^{w_{1}} is
+    // e^(w₁), not e^()w₁)
+    const sup = (v) => conv(v, SUP) || '^(' + v + ')', subs = (v) => conv(v, SUBS) || ([...v].length === 1 ? v : '_(' + v + ')');
+    for (let k = 0, t = ''; k < 4 && t !== s; k++) { t = s; s = s.replace(/\^\{([^{}]*)\}/g, (m, v) => sup(v)).replace(/_\{([^{}]*)\}/g, (m, v) => subs(v)); }
+    // (a bare ^( or _( stays: it is already text, a script written in parentheses)
+    s = s.replace(/\^([^\s{(])/g, (m, v) => sup(v)).replace(/_([^\s{(])/g, (m, v) => subs(v));
     s = s.replace(/[{}]/g, '').replace(/\u0001/g, '{').replace(/\u0002/g, '}');
     return s.replace(/\s*([<>=≠≤≥])\s*/g, ' $1 ').replace(/± (?=\w)/g, '±').replace(/\s+/g, ' ').trim();
   }

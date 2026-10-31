@@ -221,6 +221,10 @@ check('tex power', T.texPlain('z^3-1'), 'z³-1');
 // ([issue #260] the shapes of the Douady–Hubbard map: Φ and φ as letters, not the words Phi and varphi)
 check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg ΦM(z) = 2π· 1/3');   // ([#465] no stray _: M has no subscript form)
 check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ₋₁(z)| = 1.05');
+check('tex nested scripts', T.texPlain('w_{2}=e^{w_{1}}'), 'w₂ = e^(w₁)');   // ([#465] the subscript inside the superscript first)
+check('tex subscript then power', T.texPlain('z_{k}^{2}'), 'zₖ²');
+check('tex inverse', T.texPlain('w_{1}^{-1}'), 'w₁⁻¹');
+check('tex tower', T.texPlain('\\sum_{n=0}^{\\infty} z^{2^{n}}'), 'Σ_(n = 0)^(∞) z^(2ⁿ)');
 check('tex sub', T.texPlain('f_2\\circ f_1'), 'f₂∘ f₁');
 check('tex neq pm', T.texPlain('z\\neq\\pm i'), 'z ≠ ±i');
 check('tex oint', T.texPlain('\\oint=2\\pi i\\operatorname{Res}_i F=\\pi'), '∮ = 2π i Resᵢ F = π');
