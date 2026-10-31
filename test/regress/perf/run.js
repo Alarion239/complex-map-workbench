@@ -329,6 +329,7 @@ async function sceneStatics(prefix) {
 // A unit is one page load with its scenarios; --only / --skip select units by id (see --list).
 const UNITS = [];
 const unit = (id, desc, fn, extra) => UNITS.push(Object.assign({ id, desc, fn }, extra || {}));
+const unitLimitS = (u) => Math.max(UNIT_TIMEOUT_S, (u && u.timeoutS) || 0);
 
 // page code that presses the deformation's Play / Pause button when the app's playing state is not `play` (opening the
 // deformation starts it playing; the button's name is in its aria-label)
@@ -921,7 +922,11 @@ async function svInteractUnit(scene) {
   const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
   {
     const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = [];
+    // (the reps stop early, said in the details, when the next one would pass 75% of the unit's time limit: fewer reps,
+    // not a timeout, which aborts the whole run)
+    const t0 = Date.now(), budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.interact.${scene}`)) * 1000;
     for (let i = 0; i < REPS; i++) {
+      if (i > 0 && (Date.now() - t0) / i * (i + 1) > budget) { detail(`sv.interact.${scene}.reps`, `${i} of ${REPS} (the next rep would pass 75% of the unit's time limit)`); break; }
       await B.nav(`${BASE}test.html?ns=perfsvi${process.pid}_${++nsCounter}&view=steps`);
       await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
       await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
@@ -939,6 +944,8 @@ async function svInteractUnit(scene) {
         const r = await B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
         const l1 = await leg(() => B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 }));
         const l2 = await leg(() => B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }));
+        // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
+        if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
         if (scope === 'all') copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
       }
@@ -1732,7 +1739,7 @@ unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
-unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'));
+unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
@@ -1894,7 +1901,9 @@ async function main() {
       log(u.id + tag);
       CURRENT_UNIT = u.id;
       let timer = null;
-      const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`unit timed out after ${UNIT_TIMEOUT_S} s (machine stalled?)`)), UNIT_TIMEOUT_S * 1000); });
+      // (a unit may ask for a longer limit, extra.timeoutS: never shorter than --unit-timeout)
+      const limS = unitLimitS(u);
+      const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`unit timed out after ${limS} s (machine stalled?)`)), limS * 1000); });
       OPENED = []; scenes.set(res, OPENED);
       try { await Promise.race([u.fn(), timeout]); } catch (e) {
         failed.set(res, String(e && e.message || e));
