@@ -31,8 +31,8 @@ function namesIn(section) {
   return out;
 }
 // (v15: the names the new layout adds are in their own tables, so the v14 gate's copy of this test still passes)
-const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
-const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
+const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added for the steps view (#442)'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
+const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added for the steps view (#442)'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
 // (v16.4: the events the tour reads outside a Try it, its own table: not required to be used by one)
 const DOC_EVENTS_OUT = namesIn('### Events the tour reads outside a Try it');
 ok('INTEGRATION.md lists the events read outside a Try it', DOC_EVENTS_OUT.has('listen-started'), [...DOC_EVENTS_OUT]);
@@ -158,6 +158,8 @@ for (const s of steps) {
   }
   if (s.needs) ok(`${id}: needs is a feature name`, typeof s.needs === 'string' || Array.isArray(s.needs));
 }
+// (#442: the steps view's chapter, which only a page with ?view=steps has among its chapters)
+for (const s of T.PLANES.steps) for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`planes/${s.id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
 for (const e of DOC_EVENTS) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
 // (v16.4: a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)

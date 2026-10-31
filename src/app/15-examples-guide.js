@@ -2,7 +2,7 @@
   const EX = [
     { name: $t('Empty canvas'), tex: '', blurb: $t('No shapes and no functions: start from scratch.'), view: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [] },
     {
-      name: $t('Strip to disk'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }]], try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
+      name: $t('Strip to disk'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }]], try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), trySv: $t('Try: drag a corner of the strip, then press › twice to follow it to w₂.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed', test: (e) => !!e.last }]], tourSv: 'planes', tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
       shapes: [
         { kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' },
         { kind: 'line', a: [0, 0.8], b: [1, 0.8] },
@@ -11,12 +11,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), trySv: $t('Try: press › and watch the quadrant open onto the half-plane.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), trySv: $t('Try: drag the circle through 1, then press ›.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed' }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -30,22 +30,22 @@
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), trySv: $t('Try: press ›: the disk turns into itself.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
       steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
     },
     {
-      name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
+      name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), trySv: $t('Try: on z, find the points where every colour meets: the zeros of sin z.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.stage === 0 && e.mod < 0.05 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
       shapes: [{ kind: 'formula', expr: '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0' }, { kind: 'cgrid', a: [-1.5, 0], b: [1.5, 2.4], n: 6 }],
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: $t('Square root and its sheets'), tryDone: [[{ on: 'sheet-changed' }]], try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), tryDone: [[{ on: 'sheet-changed' }]], try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), trySv: $t('Try: click the chip f₁ and flip the sheet in the Inspector.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), trySv: $t('Try: press › twice: the half-plane becomes the disk, then wraps.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 2 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
@@ -55,7 +55,7 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the target 0, then press ‹: its preimages in z followed.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
@@ -87,7 +87,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: choose Landscape and look at the sheets of the logarithm.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -105,7 +105,7 @@
     },
     // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
-      name: $t('Zeros of the zeta function'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'land' }]], try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
+      name: $t('Zeros of the zeta function'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'land' }]], try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), trySv: $t('Try: choose Landscape and look for the zeros on the line Re z = 1/2.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
       shapes: [
         { kind: 'formula', expr: '0<\\Re z<1' },
         { kind: 'line', a: [0.5, 0], b: [0.5, 1] },
@@ -114,7 +114,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), trySv: $t('Try: hover near a pole on the negative axis: the readout’s |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -178,7 +178,7 @@
     // [issue #260] the Douady–Hubbard map with external rays and equipotentials of M, and the Böttcher coordinate of a
     // Julia set whose c is a slider (at the end of the list: the examples before keep their places)
     {
-      name: $t('The Douady–Hubbard map'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }, { on: 'dh-added' }]], try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
+      name: $t('The Douady–Hubbard map'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }, { on: 'dh-added' }]], try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), trySv: $t('Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
       shapes: [...['0', '1/3', '2/3', '1/7', '2/7', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: null, ci: i })),
         ...[1.02, 1.1, 1.5].map((r, i) => ({ kind: 'dheq', r, c: null, ci: 6 + (i % 2) }))],
       steps: [{ type: 'dh', params: { N: 64 } }], rightMode: 'color',
@@ -1089,6 +1089,7 @@
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
       tourOn: (ev, f) => tourApi.on(ev, f),
+      svOn: () => SV.on,
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },
