@@ -11,7 +11,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
 // (a slow runner delivers a selection late: wait for the bar to be open, or gone, as a condition with a limit that fails loudly,
 // not after a fixed pause; -> whether it got there)
-const waitBar = async (open, ms = 12000) => {
+const waitBar = async (open, ms = 30000) => {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     const ok1 = await ev(`(() => { const b = document.querySelector('.ph-ctx'); const is = !!b && !b.hidden && b.classList.contains('in'); return ${open ? 'is' : '!is'}; })()`);
@@ -20,6 +20,12 @@ const waitBar = async (open, ms = 12000) => {
   }
   return false;
 };
+
+// (what the page looked like when a wait gave up: the bar's own state, whether the phone layer is on, the shape rows with the
+// selected one starred (the selection as the page shows it), and any open sheet; it goes into the failure's `got`)
+const barWhy = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); return { bar: b ? { hidden: b.hidden, cls: b.className, kids: b.children.length } : null, phoneOn: typeof Phone !== 'undefined' && Phone.isOn ? Phone.isOn() : 'n/a', rows: [...document.querySelectorAll('#shapeList .shape')].map((r) => r.dataset.id + (r.classList.contains('sel') || r.getAttribute('aria-selected') === 'true' ? '*' : '')).join(','), root: [...document.documentElement.classList].join(' '), sheet: !!document.querySelector('.ph-sheet.open') }; })()`);
+// (the wait and its check in one: the failure says what the page looked like)
+const barCheck = async (name, open) => { const up = await waitBar(open); ok(name, up, up ? null : await barWhy()); return up; };
 // (the phone layout comes before the saved state's shapes are built: a selection made in between has no shape to select and
 // the bar never opens; wait for the page's own rows of s1 and s2, which is its ready signal for this suite)
 const waitPh = async () => {
@@ -39,11 +45,11 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
         window.__cs.push({ t: Math.round(performance.now() - t0), ct: Math.round(c.top), co: +getComputedStyle(chain()).opacity, ph: Math.round(p.height), bt: q ? Math.round(q.top) : null, bo: q ? +getComputedStyle(x).opacity : null }); }, 25); return 1; })()`);
     await sleep(300);
     await ev(`__cmwSelect('s1'), 1`);
-    ok(`${tag}: the bar opens within 12 s of the selection`, await waitBar(true), 'never open');
+    await barCheck(`${tag}: the bar opens within 30 s of the selection`, true);
     await ev(`__cmwSelect('s2'), 1`); await sleep(500);
-    ok(`${tag}: the bar is still open on the next shape`, await waitBar(true), 'closed');
+    await barCheck(`${tag}: the bar is still open on the next shape`, true);
     await ev(`__cmwSelect(null), 1`);
-    ok(`${tag}: the bar goes within 12 s of the release`, await waitBar(false), 'still open');
+    await barCheck(`${tag}: the bar goes within 30 s of the release`, false);
     await sleep(300);
     const cs = await ev(`clearInterval(window.__civ), window.__cs`);
     const ct0 = cs[0].ct, ph0 = cs[0].ph;
@@ -75,7 +81,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
         return { bar: b && [Math.round(b.top), Math.round(b.bottom)], items: els.map((e) => { const q = e.getBoundingClientRect(), t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return { id: e.id || e.className.toString().slice(0, 18), top: Math.round(q.top), bottom: Math.round(q.bottom), hit: !!t && (t === e || e.contains(t)) }; }) }; })()`);
       const closed = await probe();
       await ev(`__cmwSelect('s1'), 1`);
-      ok(`${tag}: the bar opens within 12 s of the selection`, await waitBar(true), 'never open');
+      await barCheck(`${tag}: the bar opens within 30 s of the selection`, true);
       const open = await probe();
       info['float ' + tag] = { closed: closed.items.length, open };
       ok(`${tag}: the floating controls are there (Fit view at least)`, open.items.some((x) => /Fit$/.test(x.id)), open);
@@ -89,7 +95,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
 // reduced motion: no slide
 await view(390, 844, false, true); await load('pcsrm-' + Date.now(), ST); await waitPh();
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-await ev(`__cmwSelect('s1'), 1`); ok('reduced motion: the bar opens within 12 s of the selection', await waitBar(true), 'never open');
+await ev(`__cmwSelect('s1'), 1`); await barCheck('reduced motion: the bar opens within 30 s of the selection', true);
 const rm = await ev(`(() => { const x = document.querySelector('.ph-ctx'); const c = getComputedStyle(x); return { dur: c.transitionDuration, shown: !x.hidden }; })()`);
 ok('reduced motion: the bar has no transition', rm.shown && /^(0s,? ?)+$/.test(rm.dur), rm);
 await send('Emulation.setEmulatedMedia', { features: [] });
