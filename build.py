@@ -31,10 +31,19 @@ _i = page.rindex('</style>')
 page = page[:_i] + (src / 'desk.css').read_text(encoding='utf-8') + (src / 'phone.css').read_text(encoding='utf-8') + page[_i:]
 js = js.replace('</script', '<\\/script')
 jsp = jsp.replace('</script', '<\\/script')
+# MathJax 4 with its STIX2 font (#288: the formulas in the face of the titles and inline math). The a11y layer is off
+# (no speech worker, no menu) but for the hidden MathML beside each SVG (a11y/assistive-mml.js, 4 KB: what MathJax 3
+# wrote too, the formula's text for a screen reader and for textContent); inline formulas are one SVG each, as MathJax 3's (no inline line breaks: the figure and
+# the export read one); the font's rarer ranges load on demand from svg/dynamic/ (TeX.set sets a formula again once
+# its range is in, 01-core.js). The font comes from MathJax's own default path for it, the version of MathJax:
+# cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3 (svg.js, svg/dynamic/*.js). svg.js is preloaded beside the
+# core, which would ask for it only once it runs, and so is the MathML component
 mj = """<script>
-window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false }, svg: { fontCache: 'local' }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
+window.MathJax = { options: { enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false, menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: true } } }, output: { font: 'mathjax-stix2' }, svg: { fontCache: 'local', linebreaks: { inline: false } }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
 </script>
-<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>
 """
 
 # ---- the Russian data as JSON blocks (notes/i18n/USER-DECISIONS.md, page size) ----
@@ -134,22 +143,31 @@ dist.mkdir(exist_ok=True)
 # ---- the offline page (issue #21, option b): the published page with its typesetter and faces inline ----
 # The live page loads MathJax and the web fonts from CDNs; dist/complex-map-workbench-offline.html (published next to
 # it, and linked from Settings) needs no network. tools/vendor.py writes vendor/ (pinned, checked by test/t_vendor.js),
-# and the build reads vendor/ only. MathJax goes in as a JSON block (never run while the page parses: tex-svg.js holds
-# a "<!--"), started from a Blob URL once the page has loaded and painted, as the CDN's async script arrived; the
+# and the build reads vendor/ only. MathJax and its STIX2 font go in as a JSON block (never run while the page parses),
+# started from Blob URLs once the page has loaded and painted, as the CDN's async script arrived; the
 # faces are @font-face rules with the woff2 inline; the Russian set (Roboto Flex) is a text block that page.html's head
 # script, or i18n.js, turns into a style element with the language.
 vendor = root / 'vendor'
 vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
-CDN_MJ = '<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>\n'
-assert mj.count(CDN_MJ) == 1, 'the MathJax script tag build.py replaces'
-mj_off = mj.replace(CDN_MJ, """<script>
+CDN_MJ = '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>\n'
+CDN_MJ_PRE = ('<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">\n'
+              '<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">\n')
+assert mj.count(CDN_MJ) == 1 and mj.count(CDN_MJ_PRE) == 1, 'the MathJax tags build.py replaces'
+mj_off = mj.replace(CDN_MJ_PRE, '').replace(CDN_MJ, """<script>
 (function () {
-  // (a Blob URL, async: the browser compiles the 2 MB off the main thread, as it did the CDN's script)
+  // (Blob URLs, async: the browser compiles MathJax off the main thread, as it did the CDN's script. The font and its
+  // ranges, and the MathML component, go to MathJax's loader as Blob URLs by name (loader.source), so the ranges still load on demand and
+  // nothing leaves the page; '#.js': the loader adds .js to a name without one)
   var done = false, go = function () {
     if (done) return; done = true;
     try {
-      var b = document.getElementById('cmw-mathjax'), s = document.createElement('script'), js = JSON.parse(b.textContent);
-      if (window.Blob && window.URL && URL.createObjectURL) { s.async = true; s.src = URL.createObjectURL(new Blob([js], { type: 'text/javascript' })); } else s.textContent = js;
+      var F = JSON.parse(document.getElementById('cmw-mathjax').textContent), src = {}, s = document.createElement('script');
+      var url = function (t) { return URL.createObjectURL(new Blob([t], { type: 'text/javascript' })); };
+      // (by a path of their own, [cmwblob]: a file:// page's Blob URLs, blob:null/…, are not absolute to the loader)
+      var L = window.MathJax.loader || (window.MathJax.loader = {}), P = L.paths || (L.paths = {});
+      for (var k in F) if (k !== 'core') { var u = url(F[k]), i = u.lastIndexOf('/'); P.cmwblob = u.slice(0, i); src[k] = '[cmwblob]' + u.slice(i) + '#.js'; }
+      L.source = src;
+      s.async = true; s.src = url(F.core);
       document.head.appendChild(s);
     } catch (e) { /* the TeX source shows */ }
   };
@@ -175,8 +193,13 @@ page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https:
 assert n_links == 3, f'the Google Fonts links build.py drops: {n_links}'
 # (the figure export's PDF library, jsPDF and svg2pdf.js, as JSON blocks too: figure.js starts them on the first PDF
 # export, issue #393; the live page loads them from their CDNs then)
+mjv = vendor / 'js' / 'mathjax-stix2'
+mj_files = {'core': (vendor / 'js' / 'tex-svg-nofont.js').read_text(encoding='utf-8'), '[mathjax-stix2]/svg': (mjv / 'svg.js').read_text(encoding='utf-8')}
+for f in sorted((mjv / 'svg' / 'dynamic').glob('*.js')):
+    mj_files[f'[mathjax-stix2]/svg/dynamic/{f.name}'] = f.read_text(encoding='utf-8')
+mj_files['a11y/assistive-mml'] = (vendor / 'js' / 'a11y' / 'assistive-mml.js').read_text(encoding='utf-8')
 pdf_blocks = ''.join(block(i, json.dumps((vendor / 'js' / f).read_text(encoding='utf-8'))) for i, f in [('cmw-jspdf', 'jspdf.umd.min.js'), ('cmw-svg2pdf', 'svg2pdf.umd.min.js')])
-offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8')))
+offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', json.dumps(mj_files))
            + pdf_blocks + mj_off + '<script>\n' + pub_js + '\n</script>\n')
 save(dist / 'complex-map-workbench-offline.html', offline)
 # the live page names the offline page's size (Settings: Download offline page); the offline page has no such entry
