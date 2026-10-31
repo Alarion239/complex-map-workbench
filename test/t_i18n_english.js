@@ -9,8 +9,8 @@ const vm = require('vm'), path = require('path');
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does; a snapshot holds it whole)
 const ROOT = path.join(__dirname, '..');
 const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
-const MODS = ['cx', 'parse', 'derivs', 'natpaths', 'funcs', 'invops', 'invpatterns', 'inverse', 'calc', 'glsl', 'region', 'curves'];
-const NAMES = { cx: 'CX', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', curves: 'Curves' };
+const MODS = ['cx', 'symbolic', 'parse', 'derivs', 'natpaths', 'funcs', 'invops', 'invpatterns', 'inverse', 'calc', 'glsl', 'region', 'curves'];
+const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', curves: 'Curves' };
 // (src/ no longer checks whether a module is there, issue #20 phase 3: src/'s contexts get the stand-ins of
 // test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which had none, so both
 // sides offer the same)
@@ -19,8 +19,9 @@ function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
   if (dir !== BASE) vm.runInContext(NO_RECOGNIZER, ctx);
-  // (the base's funcs.js and inverse.js still hold derivs.js, natpaths.js, invops.js and invpatterns.js, issue #20)
-  for (const f of files.filter((m) => dir !== BASE || !['derivs', 'natpaths', 'invops', 'invpatterns'].includes(m))) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+  // (the base's funcs.js, inverse.js and parse.js still hold derivs.js, natpaths.js, invops.js, invpatterns.js and
+  // symbolic.js, issue #20)
+  for (const f of files.filter((m) => dir !== BASE || !['derivs', 'natpaths', 'invops', 'invpatterns', 'symbolic'].includes(m))) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
 // gl.js's friendly() is not exported: its body is taken from the source and run in each context
