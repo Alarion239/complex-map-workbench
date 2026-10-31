@@ -851,7 +851,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await view(1440, 900, false, false);
 }
 
-// 6. (v16.1, the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
+// 6. (the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
 // (a) the Landscape with All sheets says exactly which sheets it draws, in the LaTeX caption (English and Russian),
 // the figure's own caption and the pane title: both / all n sheets for a finite covering, the window of infinitely
 // many (log, z^i) or of N (a 30th root), n of the infinitely many for several pieces, K of the total combinations when

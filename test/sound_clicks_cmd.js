@@ -71,7 +71,7 @@ async function run(tag, name, rate, o) {
   const parts = [];
   for (let i = 0; i < r.st.bytes; i += 1 << 20) parts.push(Buffer.from(await ev(`__rec.chunk(${i}, ${1 << 20})`), 'base64'));
   fs.writeFileSync(f + '.f32', Buffer.concat(parts));
-  // (v15.2: the harp's strings and every one-shot, as scheduled: [name, t (s, the context's clock), 0.006, 0]; a detection
+  // (the harp's strings and every one-shot, as scheduled: [name, t (s, the context's clock), 0.006, 0]; a detection
   // from 3 ms before to 6 ms after one is that note's own attack, counted apart as "designed")
   fs.writeFileSync(f + '.json', JSON.stringify({ f0: r.st.f0, rate: r.st.rate, log: r.log, cues: r.cues || [] }));
   res.runs.push({ tag, name, rate, notes: (r.cues || []).length, events: r.n, frames: r.st.frames, gaps: r.st.gaps, peak: +r.st.peak.toFixed(4), played: r.played, playingAfter: r.playing, voice: await ev(`__cmwSound().kind + ' ' + __cmwSound().engine`), onRelief: r.onRelief });

@@ -78,7 +78,7 @@ const Inverse = (() => {
   // =====================================================================================================
   // analytic level and gradient [L, gx, gy] of the built-in kinds (values identical to Region.levelOf)
   function kindLevel(s) {
-    // v16: a gcircle disc (or its complement): the form in float64 relative to its anchor (SPEC 2.2); shapePx applies
+    // a gcircle disc (or its complement): the form in float64 relative to its anchor (SPEC 2.2); shapePx applies
     // the complement sign afterwards, so the level here is the shape's without it
     if (s._g && s._g.A !== 0 && s.kind === 'disc') {
       const G = s._g, ox = G.o[0], oy = G.o[1], A = G.A, bx = G.B[0], by = G.B[1], c0 = G.C, cs = s.complement ? -1 : 1;
@@ -196,7 +196,7 @@ const Inverse = (() => {
         return centralPx(z, mul(z, dLX), mul(z, dLY));
       };
     } else if (s._g && s._g.A !== 0 && s.kind === 'disc') {
-      // v16: a gcircle disc; through 0 by incidence [C9]: near 0 it is its tangent half-plane there
+      // a gcircle disc; through 0 by incidence [C9]: near 0 it is its tangent half-plane there
       const G = s._g, gx = G.B[0] - G.A * G.o[0], gy = G.B[1] - G.A * G.o[1], gl = Math.hypot(gx, gy) || 1, d = C(-gy / gl, gx / gl);
       lamRule = (big, th, dLX, dLY) => (big ? sure(G.A < 0) : G.thru0 ? dirHalf(d, th, dLX, dLY, 1) : sure(at0()));
     } else if (bounded) {
