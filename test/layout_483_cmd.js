@@ -45,22 +45,24 @@ for (const w of [1440, 1280, 1024]) {
   ok(`${w}: the bracket's ends are 24 px wide at least and not over the labels`, br.n === 2 && br.w.every((x) => x >= 23.9) && br.hits.length === 0, br);
   info[`bracket ${w}`] = br.w;
 }
+// 3b. the Editor's head is its 18 px bar, so its title row drags the sheet where nothing in it can be pressed: a press on an empty part of
+// the Inspector's .ihead and a drag up opens the sheet to its full height (and a drag that starts on the title button does not)
+await open(360, 740, 'en', true);
+await ev(`Phone.open('edit'); 1`); await settle(1200);
+const empty = await ev(`(() => { const ih = document.querySelector('.ph-sheet[data-k="edit"] #propsPanel .ihead'); if (!ih || !ih.getClientRects().length) return null; const r = ih.getBoundingClientRect(); const y = r.top + r.height / 2; for (let x = r.left + 4; x < r.right - 4; x += 3) if (document.elementFromPoint(x, y) === ih) return [x, y, r.height]; return null; })()`);
+const ihDiag = empty ? null : await ev(`(() => { const sh = document.querySelector('.ph-sheet[data-k="edit"]'); const ih = sh && sh.querySelector('#propsPanel .ihead'); const r = ih && ih.getBoundingClientRect(); const t = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { sheet: !!sh, hidden: sh && sh.hidden, cls: sh && sh.className, ihead: r && [r.left, r.top, r.right, r.bottom].map(Math.round), top: t && (t.className || t.tagName).toString().slice(0, 40) }; })()`);
+ok('360: the Editor has an empty part of its title row to press', !!empty, ihDiag);
+if (empty) {
+  ok('360: before the drag the sheet is not full', !(await ev(`document.documentElement.classList.contains('ph-full')`)), null);
+  await drag(empty[0], empty[1], empty[0], empty[1] - 120, 8, 30); await settle(900);
+  ok('360: a press and drag up on the .ihead\'s empty part opens the sheet full', await ev(`document.documentElement.classList.contains('ph-full')`), empty);
+}
 // 3. the phone's sheets: the grab handle lies in the strip above the title, not over it
 await open(360, 740, 'en', true);
 for (const k of ['chain', 'edit', 'display', 'more']) {
   await ev(`Phone.open('${k}'); 1`); await settle(900);
   const g = await ev(`(() => { const ov = ${OV}; const g = document.querySelector('.ph-grab'); if (!g || !g.getClientRects().length) return null; const sh = g.closest('.ph-sheet'); const hits = []; for (const e of sh.querySelectorAll('.ph-st, .ttl, .ttl-btn, .ph-x, .ph-hundo, .ph-pill')) { if (!e.getClientRects().length) continue; const o = ov(g, e); if (o) hits.push([e.className.toString().slice(0, 20), ...o]); } return { k: sh.dataset.k, h: g.getBoundingClientRect().height, hits }; })()`);
   ok(`360: the ${k} sheet's grab handle is clear of its title`, !!g && g.hits.length === 0, g);
-}
-// 3b. the Editor's head is its 18 px bar, so its title row drags the sheet where nothing in it can be pressed: a press on an empty part of
-// the Inspector's .ihead and a drag up opens the sheet to its full height (and a drag that starts on the title button does not)
-await ev(`Phone.open('edit'); 1`); await settle(1200);
-const empty = await ev(`(() => { const ih = document.querySelector('.ph-sheet[data-k="edit"] #propsPanel .ihead'); if (!ih || !ih.getClientRects().length) return null; const r = ih.getBoundingClientRect(); const y = r.top + r.height / 2; for (let x = r.left + 4; x < r.right - 4; x += 3) if (document.elementFromPoint(x, y) === ih) return [x, y, r.height]; return null; })()`);
-ok('360: the Editor has an empty part of its title row to press', !!empty, empty);
-if (empty) {
-  ok('360: before the drag the sheet is not full', !(await ev(`document.documentElement.classList.contains('ph-full')`)), null);
-  await drag(empty[0], empty[1], empty[0], empty[1] - 120, 8, 30); await settle(900);
-  ok('360: a press and drag up on the .ihead\'s empty part opens the sheet full', await ev(`document.documentElement.classList.contains('ph-full')`), empty);
 }
 // 8a. the phone menu's rows in landscape: the ring is inside the row
 await open(740, 360, 'en', true);
