@@ -43,6 +43,10 @@
    "sha256": "0135c41e0f0e5c6f43c40bac71cc380ede68e42d6676414abfff40fff9b4c79f",
    "bytes": 873900
   },
+  "js/a11y/assistive-mml.js": {
+   "sha256": "9c1166c7c2ca2e57d5d25cc3bf71dc5369d32b9a4260151f998c0bed77d55dc3",
+   "bytes": 3639
+  },
   "js/jspdf.umd.min.js": {
    "sha256": "98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875",
    "bytes": 364463

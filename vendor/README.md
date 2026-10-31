@@ -8,6 +8,8 @@ directory only and never touches the network.
 - `js/tex-svg-nofont.js`: MathJax 4.1.3, the typesetter, and `js/mathjax-stix2/`: its STIX2 font (`svg.js`, and the
   rarer ranges in `svg/dynamic/` that MathJax loads on demand; #288). They go into the offline page as one JSON block,
   started after it loads; the font and its ranges reach MathJax's loader as Blob URLs, so nothing is fetched
+- `js/a11y/assistive-mml.js`: MathJax's hidden MathML beside each SVG (the formula's text, as MathJax 3 wrote it),
+  which the core loads; in the offline page's block too
 - `js/jspdf.umd.min.js`, `js/svg2pdf.umd.min.js`: jsPDF 2.5.1 and svg2pdf.js 2.2.3, the figure export's PDF library
   (JSON blocks too, started on the first PDF export, issue #393)
 - `fonts/`: Archivo, STIX Two Text, B612 Mono, JetBrains Mono (the page's faces) and Roboto Flex (the Russian
