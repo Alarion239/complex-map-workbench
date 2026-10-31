@@ -8,7 +8,8 @@
 // A violation is keyed by its boxes' structure (test/lib/layout.js key()), not their words: one bug in three languages
 // and four sizes is one row, seen at n points. DECLARED lists the violations that are meant, each with its reason; the
 // rest are the report. LAYOUT_CFG.mode 'report' passes and reports; 'gate' fails on a key that ci/layout_baseline.json
-// does not have, or one seen at more points than it records (the count only goes down, like ci/lint_ratchet.js).
+// does not have for this run (LAYOUT_CFG.label): the rows only go down, like ci/lint_ratchet.js (ci/layout_ratchet.js
+// writes the baseline). The points a row is seen at are reported, not gated: on software GL they vary by one or two.
 // A marked screenshot of each row's first point goes to shots/ (the violation red, the other box blue).
 // A preamble sets LAYOUT_CFG (ci/browser_suites.js): { langs, views, devices, themes, sizes, states, mode, shots }.
 // A command file for a CDP daemon (test/cdp_kit README).
@@ -75,13 +76,12 @@ info.ms = Date.now() - t0;
 info.counts = {};
 for (const r of report) info.counts[r.check] = (info.counts[r.check] || 0) + 1;
 info.declared = DECLARED.map((d, i) => ({ check: d.check, key: String(d.key), why: d.why, n: meant.get(i) || 0 }));
-// the gate: no key the baseline lacks, none seen at more points than it records (for the languages and views run here)
+// the gate: no key this run's baseline lacks; the keys it has and the run did not see are fixed (lower the baseline)
+const label = CFG.label || CFG.langs.join('+');
+const B = BASELINE && BASELINE.runs && BASELINE.runs[label];
+if (B) info.fixed = Object.keys(B).filter((k) => !rows.has(k));
 if (CFG.mode === 'gate') {
-  if (!BASELINE) fails.push('gate: ci/layout_baseline.json is missing');
-  else for (const r of report) {
-    const b = BASELINE.rows && BASELINE.rows[r.id];
-    if (b == null) fails.push(`new layout violation: ${r.id} (${r.el}${r.other ? ' × ' + r.other : ''}) at ${r.where[0]} ${JSON.stringify(r.detail)}`);
-    else if (r.n > b) fails.push(`more of a known layout violation: ${r.id}: ${r.n} points, the baseline has ${b}`);
-  }
+  if (!B) fails.push(`gate: ci/layout_baseline.json has no run ${label}`);
+  else for (const r of report) if (!(r.id in B)) fails.push(`new layout violation: ${r.id} (${r.el}${r.other ? ' × ' + r.other : ''}) at ${r.where[0]} ${JSON.stringify(r.detail)}${r.shot ? ' (shots/' + r.shot + ')' : ''}`);
 }
-return { pass: fails.length === 0, fails, mode: CFG.mode, info, report };
+return { pass: fails.length === 0, fails, mode: CFG.mode, label, info, report };

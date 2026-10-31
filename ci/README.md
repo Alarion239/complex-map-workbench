@@ -242,7 +242,12 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
 boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
-its first point (`shots/`). It is in **report mode**: it passes, and the report is triaged on #470.
+its first point (`shots/`, kept in the job's artifact although the suite passes: `keepShots` in `ci/browser_suites.js`).
+- **Report mode** (now): it passes, and the report is triaged on #470.
+- **The gate** (`mode: 'gate'`): a row whose key `ci/layout_baseline.json` lacks for its run fails. The rows only go
+  down, as with the lint ratchet: `node ci/layout_ratchet.js check|update .ci/browser/layout_invariants_cmd.js_<run>.json`
+  checks or lowers the baseline (`--init` wrote the first). The points a row is seen at are reported, not gated: on
+  software GL they vary by one or two from run to run.
 - **The design intent** is declared in `INTENT` (`test/lib/layout.js`) or on the element: `data-layer` (sits on top),
   `data-center="x|y|both"`, `data-ellipsis`.
 - **The violations that are meant** are declared in the suite's `DECLARED`, each with its reason.
@@ -391,5 +396,6 @@ Settings (environment variables):
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
+| `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
 | `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |
