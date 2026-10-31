@@ -59,7 +59,8 @@ ok('the Regions pop-up: grid lines, their step, chevrons and opacity, no swatch'
 await ev(`(() => { const c = document.getElementById('linesChk'); if (!c.checked) c.click(); return 1; })()`); await settle(600);
 const chipOn = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`);
 await ev(`document.getElementById('linesChk').click(); 1`); await settle(600);
-const chipOff = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`);
+let chipOff = '';
+for (let i = 0; i < 30 && (chipOff = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`)) !== 'Phase of z'; i++) await sleep(100);
 info.chip = [chipOn, chipOff];
 ok("Y's key chip: the cell with the grid lines on, the phase of z with them off", /^cell \S/.test(chipOn) && chipOff === 'Phase of z' && (await ev('__cmwRegions().lines')) === false, info.chip);
 await key('Escape'); await settle(300);
