@@ -641,5 +641,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-speed { flex: 0 0 auto; align-self: center; height: 36px; padding: 0 6px; font: 400 12px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
+.sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sv-thumb { position: absolute; z-index: 2; top: 50%; left: -15px; width: 30px; height: 30px; margin-top: -21px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; }
 .sv-cp { display: inline-flex; align-items: center; gap: 6px; }
