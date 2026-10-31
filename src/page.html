@@ -499,11 +499,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
    drops the icons, never the words */
 .pane.narrow :is(#leftTabs, #rightTabs) > button > svg { display: none; }
 .pane.narrow :is(#leftTabs, #rightTabs) > button { padding: 0 8px; }
-/* (#483) the panes' Plane | Sphere tabs: a 28 px strip with a 1 px border and no vertical padding leaves its buttons 26 px, above
-   WCAG 2.5.8's 24; with the 2 px padding of a plain .seg and min-height 28 px their bottom 4 px and focus ring were cut */
-:is(#leftTabs, #rightTabs) { padding: 0 2px; }
+/* (#483) the panes' Plane | Sphere tabs: their buttons are 28 px tall (min-height), so the strip is 30 px (28 and its 1 px border) with
+   no vertical padding; in a 28 px strip with the 2 px padding of a plain .seg their bottom 4 px and focus ring were cut */
+:is(#leftTabs, #rightTabs) { height: 30px; padding: 0 2px; }
 :is(#leftTabs, #rightTabs)::before { top: 0; bottom: 0; }
-:is(#leftTabs, #rightTabs) > button { min-height: 24px; }
+:is(#leftTabs, #rightTabs) > button { min-height: 28px; }
 /* the right title stays beside the icon-only modes while it fits (app.js fitRightTitle): first the role text
    goes (it would be cut to a few letters), then the whole title on a very narrow plate */
 .pane-title.terse .prole { display: none; }
