@@ -398,7 +398,7 @@ const Tour = (() => {
   // (#442, ux's spec) the steps view's chapter, "Planes". Only under ?view=steps (a property of the page, fixed at its load): there
   // it takes the place of Basics' X and Y steps (x, y, preimages, chain) and of the whole Deformation chapter. Each step puts the
   // view where its task needs it (svPlace) and is done by one of the events the steps view sends
-  const SV_ON = (() => { try { return window.cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })();
+  const SV_ON = (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })();
   const PLANES = {
     id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
     steps: [
@@ -429,10 +429,11 @@ const Tour = (() => {
     ],
   };
   if (SV_ON) {
+    const chs = /** @type {any[]} */ (CHAPTERS);
     const bi = CHAPTERS.findIndex((c) => c.id === 'basics'), di = CHAPTERS.findIndex((c) => c.id === 'deform');
-    if (bi >= 0) CHAPTERS[bi].steps = CHAPTERS[bi].steps.filter((st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
-    if (di >= 0) CHAPTERS.splice(di, 1);
-    CHAPTERS.splice(bi + 1, 0, PLANES);
+    if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
+    if (di >= 0) chs.splice(di, 1);
+    chs.splice(bi + 1, 0, PLANES);
   }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
   // point gave which
