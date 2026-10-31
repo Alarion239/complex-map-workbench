@@ -3105,7 +3105,7 @@
  "Try: click the chip f₁ and flip the sheet in the Inspector.": "Prova: clicca sul chip f₁ e cambia foglio nell'Ispettore.",
  "Try: press › twice: the half-plane becomes the disk, then wraps.": "Prova: premi › due volte: il semipiano diventa il disco, poi si avvolge.",
  "Try: on w₁, drag the target 0, then press ‹: its preimages in z followed.": "Prova: su w₁ trascina il bersaglio 0, poi premi ‹: le sue controimmagini in z lo hanno seguito.",
- "Try: choose Landscape and look at the sheets of the logarithm.": "Prova: scegli Paesaggio e guarda i fogli del logaritmo.",
+ "Try: choose Landscape and follow the cut of the logarithm.": "Prova: scegli Paesaggio e segui il taglio del logaritmo.",
  "Try: choose Landscape and look for the zeros on the line Re z = 1/2.": "Prova: scegli Paesaggio e cerca gli zeri sulla retta Re z = 1/2.",
  "Try: hover near a pole on the negative axis: the readout’s |Γ| grows without bound.": "Prova: passa vicino a un polo sull'asse negativo: |Γ| nella lettura cresce senza limite.",
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Prova: ingrandisci dove un raggio tocca M, oppure clicca su f₁ e aggiungi un tuo raggio (θ = 1/7, 2/7, …); oltre circa 10⁻⁵ il float32 della GPU sfoca l'immagine.",

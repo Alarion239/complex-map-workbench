@@ -466,7 +466,7 @@
  "Try: click the chip f₁ and flip the sheet in the Inspector.": "Попробуйте: нажмите на f₁ и переключите лист в Инспекторе.",
  "Try: press › twice: the half-plane becomes the disk, then wraps.": "Попробуйте: дважды нажмите ›: полуплоскость становится кругом, затем наматывается.",
  "Try: on w₁, drag the target 0, then press ‹: its preimages in z followed.": "Попробуйте: на w₁ перетащите цель 0, затем нажмите ‹: её прообразы в z сдвинулись следом.",
- "Try: choose Landscape and look at the sheets of the logarithm.": "Попробуйте: выберите «Рельеф» и посмотрите на листы логарифма.",
+ "Try: choose Landscape and follow the cut of the logarithm.": "Попробуйте: выберите «Рельеф» и проследите за разрезом логарифма.",
  "Try: choose Landscape and look for the zeros on the line Re z = 1/2.": "Попробуйте: выберите «Рельеф» и найдите нули на прямой Re z = 1/2.",
  "Try: hover near a pole on the negative axis: the readout’s |Γ| grows without bound.": "Попробуйте: наведите указатель на полюс на отрицательной оси: |Γ| в показаниях неограниченно растёт.",
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Попробуйте: приблизьте место, где луч встречает M, или нажмите на f₁ и добавьте свой луч (θ = 1/7, 2/7, …); после примерно 10⁻⁵ float32 видеокарты размывает картинку.",

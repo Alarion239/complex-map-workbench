@@ -87,7 +87,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: choose Landscape and look at the sheets of the logarithm.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: choose Landscape and follow the cut of the logarithm.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
