@@ -583,7 +583,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-surf { display: none; }
 :root.ph.sv .sv-head .seg > button { padding: 0 8px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; padding: 0 12px; border-radius: 22px; }

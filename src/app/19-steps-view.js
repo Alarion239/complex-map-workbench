@@ -487,11 +487,11 @@
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const scope = svSeg('sv-scope', $t('Where colour shows'), [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], () => SV.scope, (v) => { SV.scope = v; svSync(); requestRender('L'); });
-    const surf = svSeg('sv-surf', $t('Surface'), [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]], () => SV.surf, (v) => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); });
-    // (on a phone, one button for the surface, which steps through the three: the header has no room for three)
+    // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
+    // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
-    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', onclick: () => { const i = SURF.findIndex((x) => x[0] === SV.surf); const v = SURF[(i + 1) % 3][0]; SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); } });
-    bar.append(title, cp, scope, surf, surf1);
+    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
+    bar.append(title, cp, scope, surf1);
     head.prepend(bar);
     // the chain strip: ‹, a segment per plane with the step between, ›
     const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svStep(-1) }, '‹');
@@ -512,7 +512,9 @@
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
-    SV.els = { rail, slider: thumb, bar, head, title, cp, scope, surf, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
+    if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
+    SV.els = { rail, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
   }
   // the strip's planes and steps, rebuilt when the chain changes
@@ -561,8 +563,9 @@
       E.cp.setAttribute('aria-pressed', String(k === T));
       E.cp.classList.toggle('on', k === T);
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
-      E.surf1.textContent = sname; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
-      for (const g of [E.scope, E.surf]) for (const b of g.children) { const on = b.dataset.v === (g === E.scope ? SV.scope : SV.surf); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
+      E.surf1.innerHTML = `<span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`);
+      for (const b of E.scope.children) { const on = b.dataset.v === SV.scope; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
+      svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
       for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
@@ -575,6 +578,45 @@
     if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
     const c = E.centres, j = Math.max(0, Math.min(c.length - 1, Math.floor(x + 1e-9))), u = x - j;
     if (c.length) E.thumb.style.transform = `translateX(${(c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u).toFixed(1)}px)`;
+  }
+  // the surface's menu: the three, the shown one checked (a menu's keys are its own: svKeys leaves them alone)
+  function svSurfMenu() {
+    const E = SV.els;
+    const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); } }));
+    openMenu(E.surf1, Object.assign(items, { menuLabel: $t('Surface'), focusChecked: true }));
+  }
+  // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
+  // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
+  // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
+  // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
+  // or a new title, button or surface): never in a frame of a glide (#320)
+  function svFitHead() {
+    const E = SV.els;
+    if (!E || !E.head) return;
+    const ph = document.documentElement.classList.contains('ph');
+    const key = [ph ? 1 : 0, E.headW || 0, E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
+    if (key === E.fitKey) return;
+    E.fitKey = key;
+    const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
+    if (ph) { set(0); return; }
+    set(0);
+    const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
+    const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    // (what the rest of the head takes at the least: the strip as its style row and a ⋯, every other shown item as it is,
+    // a stretchy spacer as nothing; a gap before each)
+    const dc = $('dcSeg'), foot = $('leftFoot');
+    let keep = 0;
+    for (const c of head.children) {
+      if (c === E.bar || !c.getClientRects().length) continue;
+      const m = getComputedStyle(c);
+      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : 0) + 4 + 26 : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
+      keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
+    }
+    keep += 2;
+    let lvl = 0;
+    while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (the strip in the head fits its controls to the room the bar now leaves)
+    if (typeof layoutFoot === 'function') layoutFoot(true);
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
   function svPlaceText() {

@@ -1,0 +1,68 @@
+// The steps view's plane head (#441, behind ?view=steps), at 1024, 1280 and 1440 px in en, ru and it, on each plane
+// of Cayley, then cube with the colour plane last:
+// - the head is one row: every item it shows sits on the bar's row, none overlaps the next, none is cut;
+// - it keeps the style row (#247) and every control of the bar: the title, the colour plane, the scope, the surface;
+// - short of room, the colour-plane button keeps its wheel and its name (its words in its accessible name);
+// - the surface is one button, named "Surface: …", that opens a menu of the three, the shown one checked; a pick
+//   changes the surface;
+// - on a phone the head's controls are in the header and the surface button is the same one.
+// A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const fails = [], info = {};
+const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const ns = 'svh' + Date.now();
+// Cayley, then cube's chain with the upper half-plane: z → w₁ (Möbius) → w₂ (cube)
+const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
+  steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+const open = async (w, h, mobile, lang) => {
+  await view(w, h, false, mobile);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+};
+// the head's items, as laid out: each shown item's box, whether it is on the bar's row, cut or overlapping the next
+const LAYOUT = `(() => {
+  const head = document.querySelector('#paneL .pane-head'), bar = document.getElementById('svHead'), hr = head.getBoundingClientRect(), br = bar.getBoundingClientRect();
+  const items = [...bar.children, ...[...head.children].filter((c) => c !== bar)].filter((c) => c.getClientRects().length && c.getBoundingClientRect().width > 0.5);
+  const box = (c) => { const r = c.getBoundingClientRect(); return { id: c.id || String(c.className).split(' ').slice(0, 2).join('.'), x: Math.round(r.left - hr.left), y: Math.round(r.top - hr.top), w: Math.round(r.width), h: Math.round(r.height), cut: c.scrollWidth > c.clientWidth + 1 && getComputedStyle(c).overflow !== 'visible', mid: r.top + r.height / 2 }; };
+  const bs = items.map(box), row = br.top + br.height / 2;
+  const off = bs.filter((b) => Math.abs(b.mid - row) > 8).map((b) => b.id);
+  const lap = []; const xs = bs.filter((b) => Math.abs(b.mid - row) <= 8).sort((a, b) => a.x - b.x);
+  for (let i = 1; i < xs.length; i++) if (xs[i].x < xs[i - 1].x + xs[i - 1].w - 0.5) lap.push(xs[i - 1].id + '/' + xs[i].id);
+  const inHead = (sel) => { const e = bar.querySelector(sel) || head.querySelector(sel); return !!e && e.getClientRects().length > 0; };
+  return { hh: Math.round(hr.height), bar: bar.className, off, lap, cut: bs.filter((b) => b.cut).map((b) => b.id), right: Math.max(...bs.map((b) => b.x + b.w)), hw: Math.round(head.clientWidth),
+    has: { title: inHead('.sv-title'), cp: inHead('.sv-cp'), scope: inHead('.sv-scope'), surf: inHead('.sv-surf1'), styles: inHead('#dcSeg') },
+    cpName: (bar.querySelector('.sv-cp') || {}).getAttribute && bar.querySelector('.sv-cp').getAttribute('aria-label'),
+    surfName: bar.querySelector('.sv-surf1') && bar.querySelector('.sv-surf1').getAttribute('aria-label') };
+})()`;
+const runs = [];
+for (const lang of ['en', 'ru', 'it']) {
+  for (const [w, h] of [[1024, 768], [1280, 800], [1440, 900]]) {
+    await open(w, h, false, lang);
+    for (const go of [0, 1, 2]) {
+      await ev(`__cmwSteps({ go: ${go}, now: true }); 1`); await settle(700);
+      const L = await ev(LAYOUT), n = `${lang} ${w} plane ${go}`;
+      runs.push({ n, hh: L.hh, bar: L.bar });
+      ok(`${n}: the head is one row`, L.off.length === 0 && L.hh <= 44, L);
+      ok(`${n}: no item overlaps the next, none is cut, all inside the head`, L.lap.length === 0 && L.cut.length === 0 && L.right <= L.hw + 1, L);
+      ok(`${n}: the title, the colour plane, the scope, the surface and the style row all show`, Object.values(L.has).every(Boolean), L.has);
+      ok(`${n}: the colour plane and the surface are named`, !!L.cpName && /:/.test(L.surfName || ''), [L.cpName, L.surfName]);
+    }
+  }
+}
+// the surface menu (en, 1280): one button, a menu of the three with the shown one checked, a pick changes the surface
+await open(1280, 800, false, 'en');
+await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
+const menu = await ev(`(() => { const m = document.querySelector('.pop.menu'); if (!m) return null; return { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
+ok('the surface button opens a menu of the three, Plane checked', menu && menu.label === 'Surface' && menu.items.join() === 'Plane:true,Sphere:false,Landscape:false', menu);
+await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Landscape/.test(b.textContent)).click(); 1`); await settle(1500);
+const after = await ev(`({ surf: __cmwSteps().surf, name: document.querySelector('#svHead .sv-surf1').getAttribute('aria-label') })`);
+ok('a pick in the menu changes the surface, and the button names it', after.surf === 'land' && after.name === 'Surface: Landscape', after);
+// the phone: the same surface button in the header
+await open(390, 844, true, 'en');
+const ph = await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'), r = b.getBoundingClientRect(); return { ph: document.documentElement.classList.contains('ph'), home: document.getElementById('svHead').parentElement.id, name: b.getAttribute('aria-label'), h: Math.round(r.height), popup: b.getAttribute('aria-haspopup') }; })()`);
+ok('on a phone the header holds the same surface button, 40 px or more, with its menu', ph.ph && ph.home === 'top' && ph.name === 'Surface: Plane' && ph.h >= 40 && ph.popup === 'menu', ph);
+info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
+info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';
+return { pass: fails.length === 0, fails, info };
