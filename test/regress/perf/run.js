@@ -965,6 +965,7 @@ async function svInteractUnit(scene) {
       put(`${id}.fps`, 'info', 'frames/s', reps.map((r) => r.fps));
       put(`${id}.settle_jank_ms`, 'jank_ms', 'ms', reps.map((r) => r.jank));
     }
+    put(`sv.interact.${scene}.reps`, 'info', '', [R.orbit.length]);
     put(`sv.scrub.all.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
   }
 }
