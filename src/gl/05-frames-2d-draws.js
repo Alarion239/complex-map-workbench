@@ -521,12 +521,19 @@
     u2f(P, 'uInvScale', 1 / (st.view.s * dpr), 1 / (st.view.s * dpr));
     u4f(P, 'uVp', vpX, vpY, fw, fh);
     dcUniforms(P, st, dpr);
-    gl.disable(gl.BLEND);
+    // ((#366 prototype) st.dstAlpha: kept only where the frame's alpha is, the regions an alphaOnly pass drew: the
+    // colour times the alpha there, the alpha unchanged)
+    if (st.dstAlpha) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ZERO, gl.ZERO, gl.ONE);
+    else gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
+    if (st.dstAlpha) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
+  // ((#366 prototype) what follows writes the frame's alpha alone (on), or every channel again (off): a mask of the
+  // regions for drawColorPlot's dstAlpha)
+  function alphaOnly(on) { if (ok) gl.colorMask(!on, !on, !on, true); }
 
   // ---------------- preimages (Preimage mode) ----------------
   const TKIND = { disc: 1, rect: 2, polygon: 3, halfplane: 4, annulus: 5, sector: 6, formula: 7, segment: 11, line: 12, ray: 13, circle: 14, arc: 15, curve: 16, cgrid: 17, pgrid: 18, fcurve: 19 };

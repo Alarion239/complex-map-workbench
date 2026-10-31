@@ -58,6 +58,7 @@ const MAP = [
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone')],                                         // the header, its menus, the panels and drawers (#385)
+  ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone')],                           // the steps view (#366 prototype)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],

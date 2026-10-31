@@ -323,7 +323,8 @@
   const endMap = () => (S.focus === 0 ? { mode: 0, a: 0, b: nSteps() } : focusDeriv() ? { mode: 0, a: 0, b: S.focus } : { mode: 0, a: S.focus - 1, b: S.focus });
   // what the right plane plots over the left plane (Phase, Landscape, the phase sphere): the focused map, or, while
   // the deformation transport is open, its homotopy at t
-  const focusMap = endMap;
+  // ((#366 prototype) the steps view colours the shown plane from the colour plane: the map into it, 19)
+  const focusMap = () => (SV.on ? svMap() : endMap());
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
