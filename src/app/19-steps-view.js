@@ -876,14 +876,30 @@
       return;
     }
   }
-  // (the finger that raised the menu is not a choice: its lift, and the click that follows it, are swallowed, however long the
-  // press was held; the next tap chooses. A press with no pointer to follow is deaf for 450 ms)
-  function svDeaf(pop, id) {
+  // (the native long-press pattern: the finger that raised the menu chooses only if it was dragged onto an item, more than
+  // 8 px from where it pressed, and then lifted over it; a lift without that drag leaves the menu open and chooses nothing,
+  // whenever it comes, and a lift over the chip itself never opens its editor. The click that follows a lift is swallowed.
+  // A press with no pointer to follow is deaf for 450 ms)
+  function svDeaf(pop, id, x0, y0) {
     const t0 = performance.now();
-    let lifted = null;
-    const lift = (e) => { if (id == null || e.pointerId === id) { lifted = performance.now(); document.removeEventListener('pointerup', lift, true); document.removeEventListener('pointercancel', lift, true); } };
-    if (id != null) { document.addEventListener('pointerup', lift, true); document.addEventListener('pointercancel', lift, true); }
+    let lifted = null, moved = false, pass = false;
+    const over = (e) => { const el = document.elementFromPoint(e.clientX, e.clientY); const mi = el && el.closest && el.closest('.mi:not([disabled])'); return mi && pop.contains(mi) ? mi : null; };
+    const off = () => { document.removeEventListener('pointermove', move, true); document.removeEventListener('pointerup', lift, true); document.removeEventListener('pointercancel', lift, true); };
+    const move = (e) => {
+      if (e.pointerId !== id) return;
+      if (!moved && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) moved = true;
+      if (moved) { const mi = over(e); if (mi) mi.focus({ preventScroll: true }); }
+    };
+    const lift = (e) => {
+      if (e.pointerId !== id) return;
+      lifted = performance.now();
+      SV.noClickT = lifted;
+      off();
+      if (e.type === 'pointerup' && moved) { const mi = over(e); if (mi) { pass = true; try { mi.click(); } finally { pass = false; } } }
+    };
+    if (id != null) { document.addEventListener('pointermove', move, true); document.addEventListener('pointerup', lift, true); document.addEventListener('pointercancel', lift, true); }
     const eat = (e) => {
+      if (pass) return;
       const now = performance.now();
       const deaf = id == null ? now - t0 < 450 : lifted == null ? now - t0 < 8000 : now - lifted < 350;
       if (deaf) { e.stopPropagation(); e.preventDefault(); }
@@ -912,7 +928,7 @@
     // (removing: svRemove has done it; the item's own run is not called again)
     wrapped.menuLabel = $t('More actions for f{x}', { x: sub(k) });
     const pop = openMenu(anchor, wrapped);
-    if (pop && lp) { svDeaf(pop, lp.id); svClearOf(pop, lp.x, lp.y, anchor); }
+    if (pop && lp) { svDeaf(pop, lp.id, lp.x, lp.y); svClearOf(pop, lp.x, lp.y, anchor); }
     return pop;
   }
   function svBypass(k) {
