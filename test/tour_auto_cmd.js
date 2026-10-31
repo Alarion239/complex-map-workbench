@@ -111,7 +111,7 @@ if (kc) {
   at = await advancedAt('views/key', t0);
   check('key: a wheel at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 300), at);
 }
-// (v16.5: the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
+// (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
 try {
 // a hold: the palette left open 6 s (Palette and keys: its task is done when it opens)
@@ -258,7 +258,7 @@ try {
 // ---------------- the Sound chapter at 1440 (mouse): Grieg, the phase lines' laps, a loop; the settings come back
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await go('sound', 0);
-// (v16.5: the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
+// (the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 const ab = await center('.ts-act');
 await click(ab[0], ab[1]); t0 = Date.now();
@@ -267,13 +267,13 @@ let last = '', durMs = 0;
 while (Date.now() - t0 < 30000) {
   const t = await ev(`document.querySelector('#tourLead').textContent`);
   if (t !== last) { caps.push([Date.now() - t0, t.slice(0, 24)]); last = t; }
-  // (v16.5: the function's Listen along; its duration is the circle's length at the zoom, 250 px/s)
+  // (the function's Listen along; its duration is the circle's length at the zoom, 250 px/s)
   if (!durMs) durMs = 1000 * ((await ev(`(() => { const s = __cmwSound(); return s.listenFn ? s.listenFn.dur : 0; })()`)) || 0);
   if ((await cur()) !== 'sound/song') break;
   await sleep(40);
 }
 const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
-// (v16.5: the Mountain King's F is costly, so Listen along samples it first (f181c88, "Preparing to listen along")
+// (the Mountain King's F is costly, so Listen along samples it first (f181c88, "Preparing to listen along")
 // and starts seconds after the press: the fractions are counted from the playback's start, its first caption)
 const capT0 = capAt(/^Each note is/);
 check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from its start: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && capT0 != null && near(capAt(/^Each step is/) - capT0, 0.2 * durMs, 300) && near(capAt(/^The crack is/) - capT0, 0.29 * durMs, 300) && near(capAt(/^The second lap/) - capT0, 0.51 * durMs, 300), [durMs, caps]);
