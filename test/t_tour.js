@@ -219,8 +219,24 @@ check('tex |Im z|<π/2', T.texPlain('|\\operatorname{Im} z|<\\pi/2'), '|Im z| < 
 check('tex frac', T.texPlain('F(z)=\\frac{e^z-1}{e^z+1}'), 'F(z) = (eᶻ-1)/(eᶻ+1)');
 check('tex power', T.texPlain('z^3-1'), 'z³-1');
 // ([issue #260] the shapes of the Douady–Hubbard map: Φ and φ as letters, not the words Phi and varphi)
-check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg Φ_M(z) = 2π· 1/3');
-check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ_-1(z)| = 1.05');
+check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg ΦM(z) = 2π· 1/3');   // ([#465] no stray _: M has no subscript form)
+check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ₋₁(z)| = 1.05');
+check('tex nested scripts', T.texPlain('w_{2}=e^{w_{1}}'), 'w₂ = e^(w₁)');   // ([#465] the subscript inside the superscript first)
+check('tex subscript then power', T.texPlain('z_{k}^{2}'), 'zₖ²');
+check('tex inverse', T.texPlain('w_{1}^{-1}'), 'w₁⁻¹');
+check('tex tower', T.texPlain('\\sum_{n=0}^{\\infty} z^{2^{n}}'), 'Σ_(n = 0)^(∞) z^(2ⁿ)');
+// ([#465] a command is read, never shown by its name: the cases of eyes' re-check of cf66d6e)
+check('tex displaystyle', T.texPlain('\\displaystyle w_{1}=z^{2}'), 'w₁ = z²');
+check('tex the Mountain King', T.texPlain('\\displaystyle w_{2}=c\\,(\\rho w_1)^{s}\\prod_{j=1}^{25}\\left(\\frac{w_1-p_j}{w_1\\left(1-w_1/\\overline{p_j}\\right)}\\right)^{D_j/12}'), 'w₂ = c (ρ w₁)^(s)∏_(j = 1)²⁵((w₁-pⱼ)/(w₁(1-w₁/pⱼ*)))^(Dⱼ/12)');
+check('tex Gamma domain', T.texPlain('z\\notin\\{0,-1,-2,\\dots\\}'), 'z∉{0,-1,-2,…}');
+check('tex nested frac', T.texPlain('\\frac{\\frac{1}{z}}{z^{2}+1}'), '(1/z)/(z²+1)');
+check('tex sqrt', T.texPlain('\\sqrt{z^2-1}'), '√(z²-1)');
+check('tex left dot', T.texPlain('\\left. f \\right|_{z=0}'), 'f |_(z = 0)');
+check('tex an unknown command keeps its argument', T.texPlain('\\boldsymbol{x}+\\foo y'), 'x+ y');
+check('tex bigl', T.texPlain('\\bigl(z\\bigr)\\cdot 2'), '(z)· 2');
+check('tex complex plane', T.texPlain('\\mathbb{C}\\setminus\\{0\\}'), 'ℂ∖{0}');
+check('tex conjugate', T.texPlain('\\bar z+\\overline{w}'), 'z̄+w̄');
+check('tex no names left', /displaystyle|rho|frac|dots|left|right|bigl/.test([T.texPlain('\\displaystyle\\rho\\frac{1}{2}\\dots\\left(\\bigl(x\\bigr)\\right)')].join('')), false);
 check('tex sub', T.texPlain('f_2\\circ f_1'), 'f₂∘ f₁');
 check('tex neq pm', T.texPlain('z\\neq\\pm i'), 'z ≠ ±i');
 check('tex oint', T.texPlain('\\oint=2\\pi i\\operatorname{Res}_i F=\\pi'), '∮ = 2π i Resᵢ F = π');
