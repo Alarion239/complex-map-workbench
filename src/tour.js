@@ -520,11 +520,10 @@ const Tour = (() => {
     return out;
   }
   // TeX -> readable text (screen readers, and the page before MathJax has loaded)
-  // ([#465] every letter and sign Unicode has a modifier form for, so u_{k+1}, z^{-n} and \\sum_{n=0}^{N} read as text)
-  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', n: 'ⁿ', z: 'ᶻ', i: 'ⁱ', '-': '⁻', '+': '⁺', '−': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
-    a: 'ᵃ', b: 'ᵇ', c: 'ᶜ', d: 'ᵈ', e: 'ᵉ', f: 'ᶠ', g: 'ᵍ', h: 'ʰ', j: 'ʲ', k: 'ᵏ', l: 'ˡ', m: 'ᵐ', o: 'ᵒ', p: 'ᵖ', r: 'ʳ', s: 'ˢ', t: 'ᵗ', u: 'ᵘ', v: 'ᵛ', w: 'ʷ', x: 'ˣ', y: 'ʸ', N: 'ᴺ', T: 'ᵀ' };
-  const SUBS = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', k: 'ₖ', n: 'ₙ', t: 'ₜ', i: 'ᵢ', '+': '₊', '-': '₋', '−': '₋', '=': '₌', '(': '₍', ')': '₎',
-    a: 'ₐ', e: 'ₑ', h: 'ₕ', j: 'ⱼ', l: 'ₗ', m: 'ₘ', o: 'ₒ', p: 'ₚ', r: 'ᵣ', s: 'ₛ', u: 'ᵤ', v: 'ᵥ', x: 'ₓ' };
+  // ([#465] the modifier signs and letters the page's faces have (vendor/LOCK.json, t_vendor): u_{k+1} is uₖ₊₁, z^{-n} is
+  // z⁻ⁿ; texPlain writes the others as text)
+  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', n: 'ⁿ', z: 'ᶻ', i: 'ⁱ', '-': '⁻', '+': '⁺', '−': '⁻', '(': '⁽', ')': '⁾', j: 'ʲ', k: 'ᵏ', N: 'ᴺ' };
+  const SUBS = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', k: 'ₖ', n: 'ₙ', t: 'ₜ', i: 'ᵢ', '+': '₊', '-': '₋', '−': '₋', '(': '₍', ')': '₎', j: 'ⱼ' };
   function texPlain(src) {
     // ([#465] words in \\text{…} are words)
     let s = String(src).replace(/\\(?:text|textrm|mathrm|mbox)\{([^{}]*)\}/g, '$1');
