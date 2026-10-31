@@ -1,10 +1,11 @@
 import base64
+import gzip
+import io
 import json
 import pathlib
 import re
 import subprocess
 import sys
-from tools.src_parts import source
 root = pathlib.Path(__file__).parent
 # (the summary below prints non-ASCII glyphs: a Windows console's code page made the build exit 1 after writing dist/)
 try:
@@ -19,7 +20,7 @@ def save(p, s):
 
 src = root / 'src'
 page = (src / 'page.html').read_text(encoding='utf-8')
-# app.js and gl.js are kept as ordered parts, src/app/ and src/gl/ (issue #20, phase 2): source() joins them
+# app.js and gl.js are kept as ordered parts, src/app/ and src/gl/ (issue #20, phase 2): tools/bundle.mjs joins them
 def bundle(mode):
     out = root / 'dist' / f'bundle-{mode}.js'
     (root / 'dist').mkdir(exist_ok=True)
@@ -31,18 +32,26 @@ _i = page.rindex('</style>')
 page = page[:_i] + (src / 'desk.css').read_text(encoding='utf-8') + (src / 'phone.css').read_text(encoding='utf-8') + page[_i:]
 js = js.replace('</script', '<\\/script')
 jsp = jsp.replace('</script', '<\\/script')
+# MathJax 4 with its STIX2 font (#288: the formulas in the face of the titles and inline math). The a11y layer is off
+# (no speech worker, no menu) but for the hidden MathML beside each SVG (a11y/assistive-mml.js, 4 KB: what MathJax 3
+# wrote too, the formula's text for a screen reader and for textContent); inline formulas are one SVG each, as MathJax 3's (no inline line breaks: the figure and
+# the export read one); the font's rarer ranges load on demand from svg/dynamic/ (TeX.set sets a formula again once
+# its range is in, 01-core.js). The font comes from MathJax's own default path for it, the version of MathJax:
+# cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3 (svg.js, svg/dynamic/*.js). svg.js is preloaded beside the
+# core, which would ask for it only once it runs, and so is the MathML component
 mj = """<script>
-window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false }, svg: { fontCache: 'local' }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
+window.MathJax = { options: { enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false, menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: true } } }, output: { font: 'mathjax-stix2' }, svg: { fontCache: 'local', linebreaks: { inline: false } }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
 </script>
-<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>
 """
 
 # ---- the Russian data as JSON blocks (notes/i18n/USER-DECISIONS.md, page size) ----
-# The Russian table (src/i18n_ru.js) and the Cyrillic outline faces (src/cyr.js) go into the page as
-# <script type="application/json"> blocks, which the browser never runs: English pays their bytes only, never their
-# parse or compile. i18n.js parses the table on the first Russian lookup, cyr.js a face on its first Russian figure.
-# The blocks come before the app's script, which looks the table up while it loads (funcs.js's catalog in Russian).
-CYR_RE = re.compile(r'(?:[\u0400-\u04FF])')
+# The Russian table (src/i18n_ru.js) goes into the page as a <script type="application/json"> block, which the
+# browser never runs: English pays its bytes only, never their parse or compile. i18n.js parses the table on the
+# first Russian lookup. The blocks come before the app's script, which looks the table up while it loads (funcs.js's
+# catalog in Russian).
 
 
 def block(name, text):
@@ -54,73 +63,23 @@ ru_js = (src / 'i18n_ru.js').read_text(encoding='utf-8')
 m = re.search(r"^I18N\.define\('ru', (\".*\")\);\s*$", ru_js, re.S | re.M)
 assert m, 'src/i18n_ru.js: no I18N.define(\'ru\', "...")'
 ru_text = json.loads(m.group(1))
-ru_table = json.loads(ru_text)
-
-cyr_js = (src / 'cyr.js').read_text(encoding='utf-8')
-LIT = r'("(?:[^"\\]|\\.)*")'
-m = re.search(r'const RAW = \{ rm: ' + LIT + r', bx: ' + LIT + r', ti: ' + LIT + r' \};', cyr_js)
-assert m, 'src/cyr.js: no RAW faces'
-faces = {k: json.loads(json.loads(m.group(i + 1))) for i, k in enumerate(['rm', 'bx', 'ti'])}
-cyr_js = cyr_js[:m.start()] + 'const RAW = { rm: null, bx: null, ti: null };' + cyr_js[m.end():]
-
+json.loads(ru_text)                      # (the table itself is JSON)
 
 # the Italian table (src/i18n_it.js, generated by tools/make_it_table.py), a JSON block below like the Russian one
 it_js = (src / 'i18n_it.js').read_text(encoding='utf-8')
 m = re.search(r"^I18N\.define\('it', (\".*\")\);\s*$", it_js, re.S | re.M)
 assert m, 'src/i18n_it.js: no I18N.define(\'it\', "...")'
 it_text = json.loads(m.group(1))
-it_table = json.loads(it_text)
+json.loads(it_text)
 
 
-# the bold face keeps the glyphs bold Russian text uses: a bold run is set from it only when it holds Cyrillic
-# (cyr.js split), so these are the characters of the Russian (and literal) text of every bold caption segment
-# ({ b: ... } in src/*.js: "Figure 1." -> «Рис. 1.») and of every \textbf{...} group in the Russian table. Italian
-# bold text with an accented letter is set from the face too (cyr.js composes the letter from its base, the grave `
-# and the x-height of x), so its characters and those are kept as well
-def bold_texts(table):
-    out = []
-    app = '\n'.join(source(f) for f in ['figure.js', 'export.js', 'app.js'])
-    for mm in re.finditer(r'\{\s*b:\s*', app):
-        i, depth = mm.end(), 1
-        while i < len(app) and depth:
-            depth += {'{': 1, '}': -1}.get(app[i], 0)
-            i += 1
-        expr = app[mm.end():i - 1]
-        for k in re.findall(r"\$t\('((?:[^'\\]|\\.)*)'", expr):
-            v = table.get(k.replace("\\'", "'"))
-            out += list(v.values()) if isinstance(v, dict) else [v] if v else []
-        for q, tl in re.findall(r"'((?:[^'\\]|\\.)*)'|`([^`]*)`", expr):
-            out.append(q or re.sub(r'\$\{[^}]*\}', '', tl))
-    for v in table.values():
-        for s in (v.values() if isinstance(v, dict) else [v]):
-            out += re.findall(r'\\textbf\{([^{}]*)\}', s)
-    return out
-
-
-ACC_RE = re.compile(r'[àèéìíòóùúÀÈÉÌÒÓÙ]')
-ACC_BASE = {'à': 'a', 'è': 'e', 'é': 'e', 'ì': 'i', 'í': 'i', 'ò': 'o', 'ó': 'o', 'ù': 'u', 'ú': 'u', 'À': 'A', 'È': 'E', 'É': 'E', 'Ì': 'I', 'Ò': 'O', 'Ó': 'O', 'Ù': 'U'}
-bold = {ch for s in bold_texts(ru_table) if CYR_RE.search(s) for ch in s if ch not in ' \u00a0~'}
-for s in bold_texts(it_table):
-    if ACC_RE.search(s):
-        bold |= {ACC_BASE.get(ch, ch) for ch in s if ch not in ' \u00a0~'} | {'`', 'x'}
-bold = sorted(bold)
-bx = faces['bx']
-keep = [ch for ch in bold if ch in bx['glyphs']]
-missing = [ch for ch in bold if ch not in bx['glyphs']]
-assert not missing, f'bold Russian characters without a glyph: {missing}'
-bx['glyphs'] = {ch: g for ch, g in bx['glyphs'].items() if ch in keep}
-bx['kern'] = {p: v for p, v in bx['kern'].items() if all(c in keep for c in p)}
 data = block('cmw-i18n-ru', ru_text)
-for k in ['rm', 'bx', 'ti']:
-    if k == 'bx' and not keep:
-        continue                         # nothing is bold: no bold face (cyr.js then has a face without glyphs)
-    data += block('cmw-cyr-' + k, json.dumps(faces[k], ensure_ascii=False, separators=(',', ':')))
 # (the Italian table: parsed on the first Italian lookup only)
 data += block('cmw-i18n-it', it_text)
 
 # the interface language first (notes/i18n/DESIGN.md 1): i18n.js before cx.js, so the language is known before
-# funcs.js builds its catalog; the table and the faces are the data blocks above
-pre = '\n'.join([(src / 'i18n.js').read_text(encoding='utf-8'), cyr_js]).replace('</script', '<\\/script') + '\n'
+# funcs.js builds its catalog; the tables are the data blocks above
+pre = (src / 'i18n.js').read_text(encoding='utf-8').replace('</script', '<\\/script') + '\n'
 js, jsp = pre + js, pre + jsp
 body = page + '\n' + data + mj + '<script>\n' + js + '\n</script>\n'
 # the published page drops the test hooks (window.__cmw*); dist/test.html keeps them for testing
@@ -134,24 +93,45 @@ dist.mkdir(exist_ok=True)
 # ---- the offline page (issue #21, option b): the published page with its typesetter and faces inline ----
 # The live page loads MathJax and the web fonts from CDNs; dist/complex-map-workbench-offline.html (published next to
 # it, and linked from Settings) needs no network. tools/vendor.py writes vendor/ (pinned, checked by test/t_vendor.js),
-# and the build reads vendor/ only. MathJax goes in as a JSON block (never run while the page parses: tex-svg.js holds
-# a "<!--"), started from a Blob URL once the page has loaded and painted, as the CDN's async script arrived; the
-# faces are @font-face rules with the woff2 inline; the Russian set (Roboto Flex) is a text block that page.html's head
-# script, or i18n.js, turns into a style element with the language.
+# and the build reads vendor/ only. MathJax and its STIX2 font go in as a JSON block (never run while the page parses),
+# started from Blob URLs once the page has loaded and painted, as the CDN's async script arrived; the
+# faces are @font-face rules with the woff2 inline (one stylesheet, in every language: #288).
 vendor = root / 'vendor'
 vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
-CDN_MJ = '<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>\n'
-assert mj.count(CDN_MJ) == 1, 'the MathJax script tag build.py replaces'
-mj_off = mj.replace(CDN_MJ, """<script>
+CDN_MJ = '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>\n'
+CDN_MJ_PRE = ('<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">\n'
+              '<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">\n')
+assert mj.count(CDN_MJ) == 1 and mj.count(CDN_MJ_PRE) == 1, 'the MathJax tags build.py replaces'
+mj_off = mj.replace(CDN_MJ_PRE, '').replace(CDN_MJ, """<script>
 (function () {
-  // (a Blob URL, async: the browser compiles the 2 MB off the main thread, as it did the CDN's script)
+  // (Blob URLs, async: the browser compiles MathJax off the main thread, as it did the CDN's script. The font and its
+  // ranges, and the MathML component, go to MathJax's loader as Blob URLs by name (loader.source), so the ranges
+  // still load on demand and nothing leaves the page; '#.js': the loader adds .js to a name without one. #491: the
+  // block is the files' JSON gzipped, in base64, inflated by DecompressionStream, or by fflate where a browser lacks it)
+  var url = function (t) { return URL.createObjectURL(new Blob([t], { type: 'text/javascript' })); };
+  var inflate = function (b64) {
+    var bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    if (window.DecompressionStream) return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    return new Promise(function (ok, no) {
+      var f = document.createElement('script');
+      f.src = url(JSON.parse(document.getElementById('cmw-fflate').textContent));
+      f.onload = function () { try { ok(fflate.strFromU8(fflate.gunzipSync(u8))); } catch (e) { no(e); } };
+      f.onerror = no;
+      document.head.appendChild(f);
+    });
+  };
   var done = false, go = function () {
     if (done) return; done = true;
-    try {
-      var b = document.getElementById('cmw-mathjax'), s = document.createElement('script'), js = JSON.parse(b.textContent);
-      if (window.Blob && window.URL && URL.createObjectURL) { s.async = true; s.src = URL.createObjectURL(new Blob([js], { type: 'text/javascript' })); } else s.textContent = js;
+    inflate(JSON.parse(document.getElementById('cmw-mathjax').textContent)).then(function (text) {
+      var F = JSON.parse(text), src = {}, s = document.createElement('script');
+      // (by a path of their own, [cmwblob]: a file:// page's Blob URLs, blob:null/…, are not absolute to the loader)
+      var L = window.MathJax.loader || (window.MathJax.loader = {}), P = L.paths || (L.paths = {});
+      for (var k in F) if (k !== 'core') { var u = url(F[k]), i = u.lastIndexOf('/'); P.cmwblob = u.slice(0, i); src[k] = '[cmwblob]' + u.slice(i) + '#.js'; }
+      L.source = src;
+      s.async = true; s.src = url(F.core);
       document.head.appendChild(s);
-    } catch (e) { /* the TeX source shows */ }
+    }).catch(function () { /* the TeX source shows */ });
   };
   // after the first paint; in a background tab (no frames) a second after the load
   var later = function () { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 1000); };
@@ -169,14 +149,24 @@ def font_face(f):
 
 
 fonts = '<style id="cmw-fonts">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'main') + '</style>\n'
-fonts += '<script type="text/plain" id="cmw-fonts-ru">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'ru') + '</script>\n'
-# (the head's three Google Fonts lines go; the faces come before the head script, which reads #cmw-fonts-ru)
+# (the head's three Google Fonts lines go)
 page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https://fonts\.(?:googleapis|gstatic)\.com[^>]*>\n', '', page)
 assert n_links == 3, f'the Google Fonts links build.py drops: {n_links}'
 # (the figure export's PDF library, jsPDF and svg2pdf.js, as JSON blocks too: figure.js starts them on the first PDF
 # export, issue #393; the live page loads them from their CDNs then)
+mjv = vendor / 'js' / 'mathjax-stix2'
+mj_files = {'core': (vendor / 'js' / 'tex-svg-nofont.js').read_text(encoding='utf-8'), '[mathjax-stix2]/svg': (mjv / 'svg.js').read_text(encoding='utf-8')}
+for f in sorted((mjv / 'svg' / 'dynamic').glob('*.js')):
+    mj_files[f'[mathjax-stix2]/svg/dynamic/{f.name}'] = f.read_text(encoding='utf-8')
+mj_files['a11y/assistive-mml'] = (vendor / 'js' / 'a11y' / 'assistive-mml.js').read_text(encoding='utf-8')
+# (#491) the files' JSON gzipped (level 9, no name or time in the header: the same bytes from the same input), in base64:
+# 4.1 MB of JSON in 1.75 MB; the page inflates it (DecompressionStream, else fflate's inflate, a block of its own)
+_gz = io.BytesIO()
+with gzip.GzipFile(fileobj=_gz, mode='wb', compresslevel=9, mtime=0) as _g:
+    _g.write(json.dumps(mj_files).encode('utf-8'))
+mj_block = json.dumps(base64.b64encode(_gz.getvalue()).decode('ascii'))
 pdf_blocks = ''.join(block(i, json.dumps((vendor / 'js' / f).read_text(encoding='utf-8'))) for i, f in [('cmw-jspdf', 'jspdf.umd.min.js'), ('cmw-svg2pdf', 'svg2pdf.umd.min.js')])
-offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8')))
+offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('cmw-mathjax', mj_block) + block('cmw-fflate', json.dumps((vendor / 'js' / 'fflate.umd.js').read_text(encoding='utf-8')))
            + pdf_blocks + mj_off + '<script>\n' + pub_js + '\n</script>\n')
 save(dist / 'complex-map-workbench-offline.html', offline)
 # the live page names the offline page's size (Settings: Download offline page); the offline page has no such entry
@@ -188,5 +178,5 @@ test = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 </head><body>
 """ + body + "</body></html>\n"
 save(dist / 'test.html', test)
-print('built', len(body), 'bytes; Russian and Italian data blocks', len(data.encode()), 'bytes; bold glyphs', ''.join(keep) or 'none')
+print('built', len(body), 'bytes; Russian and Italian data blocks', len(data.encode()), 'bytes')
 print('published page', len(pub.encode()), 'bytes; offline page', off_bytes, 'bytes (MathJax, the PDF library and', len(fonts.encode()), 'bytes of faces inline)')

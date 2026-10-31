@@ -1,5 +1,0 @@
-<!doctype html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(4,204px);gap:4px;padding:4px">
-<script>
-const T = new URLSearchParams(location.search).get('t') || 'light', D = new URLSearchParams(location.search).get('d') || 'desktop';
-for (const n of ['c-xy-0','c-xy-1','c-xy-2','c-xy-3','c-ph-1','c-ph-2','c-ph-3','','c-la-1','c-la-2','c-la-3','','c-df-1','c-df-2','c-df-3']) { const i = document.createElement('img'); if (n) i.src = `../../${D}/img/${T}/${n}.png`; i.style.width = (D==='desktop'?200:96)+'px'; document.body.append(i); }
-</script>

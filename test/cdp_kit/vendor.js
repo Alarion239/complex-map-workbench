@@ -1,6 +1,6 @@
 // [#444] The CDN files the test page asks for, answered from vendor/ (CMW_VENDOR=1, opt-in; cdpd.js intercepts the
 // requests with CDP's Fetch domain): MathJax and the PDF library, and the Google Fonts CSS as @font-face rules over the
-// vendored woff2 (the main set; the Russian set for the Roboto Flex sheet), as build.py writes them into the offline page.
+// vendored woff2 (the one set, #288: every language has the same faces), as build.py writes them into the offline page.
 // A URL not listed here is not answered (null): it goes to the network as without the flag. CI never sets the flag, so
 // it keeps testing the live page's CDN path.
 'use strict';
@@ -10,10 +10,14 @@ const crypto = require('crypto');
 
 const VENDOR = path.join(__dirname, '..', '..', 'vendor');
 const FILES = {
-  'https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js': 'js/tex-svg.js',
+  'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js': 'js/tex-svg-nofont.js',
+  'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js': 'js/a11y/assistive-mml.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'js/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js': 'js/svg2pdf.umd.min.js',
 };
+// (#288) MathJax 4's STIX2 font, from the path MathJax gives it (its svg.js and the ranges it loads on demand,
+// svg/dynamic/*.js): a file there is served when LOCK.json records it, under js/mathjax-stix2/
+const DIRS = { 'https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/': 'js/mathjax-stix2/' };
 // the patterns cdpd.js asks Chrome to pause (every request to these hosts; an unlisted URL is let through)
 const PATTERNS = ['https://cdnjs.cloudflare.com/*', 'https://cdn.jsdelivr.net/*', 'https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'];
 
@@ -34,8 +38,9 @@ const faces = (dir, set) => lockOf(dir).faces.filter((f) => f.set === set).map((
 function answer(url, dir = VENDOR) {
   const u = String(url).split('#')[0];
   if (FILES[u]) return { body: read(dir, FILES[u]), type: 'text/javascript' };
-  if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(dir, /family=Roboto\+Flex/.test(u) ? 'ru' : 'main')), type: 'text/css' };
+  for (const [pre, rel] of Object.entries(DIRS)) if (u.startsWith(pre) && lockOf(dir).outputs[rel + u.slice(pre.length)]) return { body: read(dir, rel + u.slice(pre.length)), type: 'text/javascript' };
+  if (u.startsWith('https://fonts.googleapis.com/css2?')) return { body: Buffer.from(faces(dir, 'main')), type: 'text/css' };
   return null;
 }
 
-module.exports = { answer, PATTERNS, FILES };
+module.exports = { answer, PATTERNS, FILES, DIRS };

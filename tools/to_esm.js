@@ -15,8 +15,8 @@
 //     joined file is src/app.js);
 //   - src/main.js: the bundle's entry, `import './x.js';` in build.py's order, so the modules run in the order the
 //     concatenation ran them.
-// i18n.js and cyr.js stay classic scripts before the bundle (build.py prepends them; their I18N, $t, $tx, $tn and CYR
-// stay globals). Problems (exit 1 with --check): a name declared at the top of two files, a top-level (load-time) use of
+// i18n.js stays a classic script before the bundle (build.py prepends it; its I18N, $t, $tx and $tn stay
+// globals). Problems (exit 1 with --check): a name declared at the top of two files, a top-level (load-time) use of
 // a name a later file declares, an assignment to another file's name (read-only once imported), a top-level let/var/
 // function reassigned after its declaration (expose.js copies it once), a file with a CommonJS line of an unknown form.
 // Text is read and written as is: CRLF files keep CRLF (the Windows runner checks out with CRLF).
@@ -164,7 +164,7 @@ function main() {
   const last = order[order.length - 1];
   const main = [`// The bundle's entry (issue #20, phase 4; written by tools/to_esm.js): the app's modules in build.py's order, so`,
     `// they run in the order the concatenated script ran them; the test page's globals (expose.js) before ${last}. i18n.js and`,
-    `// cyr.js come before the bundle, as classic scripts.`,
+    `// comes before the bundle, as a classic script.`,
     ...order.slice(0, -1).map((f) => `import './${f}';`), `import './expose.js';`, `import './${last}';`].join(eol) + eol;
   fs.writeFileSync(path.join(SRC, 'main.js'), main);
   // a split file another module imports (gl.js: GLR) has no file of its own for node to load: a stand-in whose names

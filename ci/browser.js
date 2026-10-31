@@ -66,7 +66,24 @@ async function waitFor(files, child, ms) {
   }
 }
 
-// one run of one suite in a fresh daemon; -> { out (its return value), error, log, ms }
+// (#504 item 4) the renderer, asked once, of the first run's own Chrome (before its suite), in place of a separate
+// gpu_probe.js start on every browser job: the same JSON in the log, the same line in the summary, and no WebGL2 fails
+// the job with the same error. -> null until asked, then { webgl2, renderer, vendor, parallelCompile }
+let PROBE = null;
+const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|basic render|warp|microsoft basic|software/i;
+const PROBE_JS = `return await ev(\`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return { webgl2: false };
+  const e = gl.getExtension('WEBGL_debug_renderer_info');
+  return { webgl2: true, renderer: e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), vendor: e ? gl.getParameter(e.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+    parallelCompile: !!gl.getExtension('KHR_parallel_shader_compile'), floatTargets: !!gl.getExtension('EXT_color_buffer_float'), maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE) }; })()\`);`;
+function reportProbe(info) {
+  const software = !info.webgl2 || SOFTWARE_GL.test(`${info.renderer} ${info.vendor}`);
+  const machine = `${require('os').platform()} ${require('os').arch()} · ${(require('os').cpus()[0] || {}).model} · ${require('os').cpus().length} cores`;
+  const flags = [process.env.CMW_ANGLE && `--use-angle=${process.env.CMW_ANGLE}`, process.env.CMW_CHROME_ARGS].filter(Boolean).join(' ');
+  console.log(JSON.stringify(Object.assign({ software, machine }, info, { flags }), null, 1));
+  summary(`**WebGL2:** ${info.webgl2 ? esc(info.renderer) : 'none'}${software ? ' (software rendering)' : ''} · parallel compile ${info.parallelCompile ? 'yes' : 'no'}  \n${esc(machine)} · \`${esc(flags)}\`\n`);
+}
+// one run of one suite in a fresh daemon; -> { out (its return value), error, log, ms } (noWebgl2: the job's first
+// daemon has no WebGL2, and nothing else runs)
 async function runOne(file, run, port) {
   fs.rmSync(COPY, { recursive: true, force: true });
   fs.cpSync(KIT, COPY, { recursive: true, filter: (s) => !/[\\/](q|shots|chprof-[^\\/]*)$/.test(s) });
@@ -86,6 +103,16 @@ async function runOne(file, run, port) {
   try {
     const up = await waitFor([path.join(Q, 'READY'), FATAL], child, 90 * 1000);
     if (!up.endsWith('READY')) return { error: `the daemon did not start (${up === 'exit' ? `exit ${child.exitCode != null ? child.exitCode : child.signalCode}` : path.basename(up)})`, log: log + readIf(FATAL), ms: Date.now() - t0 };
+    if (!PROBE) {
+      fs.writeFileSync(path.join(Q, '0.tmp'), PROBE_JS);
+      fs.renameSync(path.join(Q, '0.tmp'), path.join(Q, '0.js'));
+      const got = await waitFor([path.join(Q, '0.out'), FATAL], child, 60 * 1000);
+      let info = null;
+      try { info = got.endsWith('0.out') ? JSON.parse(fs.readFileSync(got, 'utf8')) : null; } catch (e) { info = null; }
+      PROBE = info && typeof info === 'object' && !info.__daemonError ? info : { webgl2: false };
+      reportProbe(PROBE);
+      if (!PROBE.webgl2) return { noWebgl2: true, error: 'no WebGL2 in headless Chrome', log: log + readIf(FATAL), ms: Date.now() - t0 };
+    }
     const body = fs.readFileSync(path.join(ROOT, 'test', file), 'utf8');
     // (a preamble on the suite's first line keeps its line numbers)
     fs.writeFileSync(path.join(Q, '1.tmp'), (run.preamble ? run.preamble.replace(/\n/g, ' ') + ' ' : '') + body);
@@ -164,6 +191,8 @@ async function main() {
       n++;
       const name = file + (r.label ? ` (${r.label})` : '');
       const res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      // (gpu_probe.js's error and exit code: the suites never run on a Chrome without WebGL2)
+      if (res.noWebgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); return 1; }
       const fl = res.error ? [{ name: res.error }] : (res.out && res.out.__daemonError ? failures(res.out) : cfg.verdict ? cfg.verdict(res.out) : failures(res.out))
         || [{ name: 'no verdict in the result (fails, ok, or pass/of)', detail: res.out }];
       const t = fl.filter((f) => isTiming(file, f));
