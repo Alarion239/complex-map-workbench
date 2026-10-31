@@ -438,7 +438,7 @@
   // which of Undo and Redo is running: every way in (the buttons, the keys, the phone's Undo, a toast) clicks #undoBtn or
   // #redoBtn, so a capturing listener notes it before their own listeners restore an entry, and it is cleared after them
   let histDir = '';
-  document.addEventListener('click', (e) => { const b = e.target && e.target.closest ? e.target.closest('#undoBtn, #redoBtn') : null; histDir = b ? b.id : ''; }, true);
+  document.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const b = tg && tg.closest ? tg.closest('#undoBtn, #redoBtn') : null; histDir = b ? b.id : ''; }, true);
   document.addEventListener('click', () => { histDir = ''; });
   // restore() ends here: an undo or a redo says what it did
   function histSay() {
@@ -448,8 +448,8 @@
     else if (d === 'redoBtn' && hi > 0) histToast(histWhat(hist[hi - 1], hist[hi]), false);
   }
   // the Undo and Redo tooltips name the action, set when the pointer or the keyboard reaches them
-  document.addEventListener('pointerover', (e) => { const b = e.target && e.target.closest ? e.target.closest('#undoBtn, #redoBtn') : null; if (b) undoTip(b.id === 'undoBtn'); });
-  document.addEventListener('focusin', (e) => { if (e.target && (e.target.id === 'undoBtn' || e.target.id === 'redoBtn')) undoTip(e.target.id === 'undoBtn'); });
+  document.addEventListener('pointerover', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const b = tg && tg.closest ? tg.closest('#undoBtn, #redoBtn') : null; if (b) undoTip(b.id === 'undoBtn'); });
+  document.addEventListener('focusin', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg && (tg.id === 'undoBtn' || tg.id === 'redoBtn')) undoTip(tg.id === 'undoBtn'); });
   // the toast after an undo or a redo: what it did, and the way back (Redo is visible on a phone too)
   function histToast(what, undo) {
     const at = hi;

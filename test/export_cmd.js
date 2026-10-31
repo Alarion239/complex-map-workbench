@@ -12,7 +12,8 @@
 // and the dialog screenshots to <daemon>/shots/export-dlg-*.png. Prints {pass, fails, ...}.
 // Section 5 (notes/export-design/VIDEO-PREVIEW.md): the video preview in the dialog; 5b, the review's findings (vp-1 to
 // vp-8). CMW_ONLY=preview runs them alone; CMW_ONLY=1-3, 4 and user5 run sections 1 to 3, section 4 and section 6
-// alone, and 4a and 4b the two halves of section 4 (the CI runs it in parts: ci/browser_suites.js).
+// alone, and 4a and 4b the two halves of section 4; 4a-fig and 4a-vid split 4a again, its figures (and the Russian
+// captions) and its videos (#429; the CI runs these parts: ci/browser_suites.js).
 const BASE = process.env.CMW_BASE || 'http://localhost:8793/'; // (a daemon of your own: CMW_BASE=http://localhost:<port>/)
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -81,9 +82,9 @@ const build = async (tag, opts, fmts = ['pdf', 'svg', 'png', 'tex']) => {
   ok(`${tag}: snippet`, opts.for === 'homework' ? /\\begin\{figure\}\[H\]/.test(r.tex) && /\\ifdim\\linewidth</.test(r.tex) : opts.for === 'slides' ? /\\begin\{frame\}/.test(r.tex) : (r.star ? /\\begin\{figure\*\}\[tbp\]/.test(r.tex) : /\\begin\{figure\}\[tbp\]/.test(r.tex)) && /\\includegraphics\{/.test(r.tex), r.tex.slice(0, 400));
   return r;
 };
-// (CMW_ONLY=1-3: sections 1 to 3 alone; CMW_ONLY=4, 4a or 4b: section 4 or its half alone. Section 4 shares only
+// (CMW_ONLY=1-3: sections 1 to 3 alone; CMW_ONLY=4, 4a, 4a-fig, 4a-vid or 4b: section 4 or a part of it alone. Section 4 shares only
 // build with them)
-if (!['4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
+if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
 await open('xrexport');
 // X -> Y: the strip (a formula area, a line, a point), the Cayley map then the cube, the quarter plane squared
 for (const [ex, nm] of [[1, 'strip'], [8, 'cayleycube'], [2, 'quarter']]) {
@@ -299,12 +300,15 @@ const build3 = async (tag, opts) => {
   R.r3.figs[tag] = { W: r.W, H: r.H, ms: r.ms, imgs: r.nImg };
   return r;
 };
-// (CMW_ONLY=4a: the figures and videos of every view and the Russian captions; 4b: the dialog's videos. 4: both)
+// (CMW_ONLY=4a: the figures and videos of every view and the Russian captions; 4b: the dialog's videos. 4: both.
+// 4a-fig: 4a's figures and the Russian captions; 4a-vid: 4a's videos, #429: each view is set up in both)
+const FIG4 = process.env.CMW_ONLY !== '4a-vid', VID4 = process.env.CMW_ONLY !== '4a-fig';
 if (process.env.CMW_ONLY !== '4b') {
 for (const [kind, go] of VIEWS3) {
   await go(); await settle(2200);
   const dk = await ev('__cmwFig.defoOf()');
   ok(`${kind}: the view exports the deformation (defoOf)`, dk === kind, dk);
+  if (FIG4) {
   for (const [p, o] of Object.entries(P3)) {
     const r = await build3(`r3-film-${kind}-${p}`, o);
     if (!r) continue;
@@ -351,6 +355,8 @@ for (const [kind, go] of VIEWS3) {
     ok(`${kind} ${lang}: the PNG's own caption displays F, centred`, ci && ci.n === 1 && Math.abs(ci.b[0][0] - (ci.W - ci.b[0][1])) < 1.5, ci);
     ok(`${kind} ${lang}: the PNG's own caption: no two pieces of text overlap (lines spaced like TeX's \\lineskip)`, ci && ci.items > 20 && ci.over === 0, ci);
   }
+  } // (4a-vid skips the figures)
+  if (!VID4) continue;
   // the video of this view: frames rendered off-screen one by one, H.264 in MP4, the page keeps its frames
   const vopt = kind === 'plane' ? { size: '1920x1080', fps: 60, secs: 1, ends: 'bounce', look: 'print', paths: true, tlabel: true } : kind === 'globe' ? { size: '1080x1080', fps: 30, secs: 2, ends: 'once', look: 'light', paths: true, tlabel: true } : { size: '1280x720', fps: 30, secs: 2, ends: kind === 'land' ? 'loop' : 'once', look: kind === 'phase' ? 'print' : 'light', tlabel: true };
   const v = await ev(`await (async () => { try {
@@ -378,6 +384,7 @@ for (const [kind, go] of VIEWS3) {
   // of H in size, and clear of the frame's edge (2 % of H)
   if (kind === 'globe' || kind === 'phaseGlobe') ok(`video ${kind}: the infinity label is dark, large and inside the frame`, kind === 'phaseGlobe' && !v.inf ? true : !!v.inf && v.infInk != null && v.infInk < 80 && v.inf.fs >= 0.04 * v.H && v.inf.y0 >= 0.02 * v.H && v.inf.x0 >= 0.02 * v.W && v.inf.x1 <= 0.98 * v.W, { inf: v.inf, infInk: v.infInk, labels: v.labels });
 }
+if (VID4) { // (4a-fig skips the WebM fallback, the pace and the dark theme's video)
 // the fallback where H.264 cannot be encoded: VP9 in our WebM muxer (forced here), decoded back
 {
   const wv = await ev(`await (async () => { try { const r = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 1, ends: 'once', look: 'print', webm: true }, keepForCheck: true }); const chk = await __cmwFig.videoCheck(20, 256, 144);
@@ -415,8 +422,9 @@ for (const [kind, go] of VIEWS3) {
   R.r3.dark = dk;
   await view(1440, 900, false, false); await settle(600);
 }
+} // (4a-fig)
 } // (CMW_ONLY=4b skips the figures and the views' videos)
-if (process.env.CMW_ONLY !== '4a') {
+if (!['4a', '4a-fig', '4a-vid'].includes(process.env.CMW_ONLY)) {
 // the dialog: the format row (remembered), For Overleaf with a PNG, the deformation row, Save video, Cancel
 const dlg3 = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
 await open('xvr3dlg');
@@ -560,8 +568,8 @@ await key('Escape'); await settle(300);
   R.r3.hidden = { hidden: hv, visible: vv, tab: tg };
   ok('video in a hidden page: made at a pace close to a visible one (no one-frame-a-second timers)', hv && vv && hv.frames === vv.frames && (hv.vis !== 'hidden' || hv.ms < Math.max(3 * vv.ms, vv.ms + 4000)), { hv, vv });
 }
-} // (CMW_ONLY=4a skips the dialog's videos)
-if (process.env.CMW_ONLY !== '4b') {
+} // (CMW_ONLY=4a, 4a-fig and 4a-vid skip the dialog's videos)
+if (!['4b', '4a-vid'].includes(process.env.CMW_ONLY)) {
 await open('xvr3ru');
 // the X -> Y plane in Russian: the displayed F and the film caption in the caption language, for the LaTeX check
 await ev('__cmwExample(1); 1'); await settle(1500);
@@ -573,7 +581,7 @@ for (const [p, o] of Object.entries(P3)) await build3(`r3-ru-film-plane-${p}`, O
 await build3('r3-ru-xy-strip-article1', { for: 'article', lang: 'ru', view: 'xy' });
 await key('2'); await settle(1500);
 await build3('r3-ru-film-phase-homework', { for: 'homework', lang: 'ru' });
-} // (CMW_ONLY=4b skips the figures, the views' videos and the Russian captions)
+} // (CMW_ONLY=4b and 4a-vid skip the Russian captions)
 
 } // (CMW_ONLY=1-3 skips section 4)
 } // (CMW_ONLY=preview skips sections 1 to 4)
@@ -584,7 +592,7 @@ await build3('r3-ru-film-phase-homework', { for: 'homework', lang: 'ru' });
 // motion, it restarts on an option change, it stops when the format changes and when the dialog closes, and the page
 // keeps its frames while it fills and plays (no task of 50 ms or more; the animation frames on time)
 R.pv = {};
-if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
+if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
@@ -712,7 +720,7 @@ if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
 // frame, the button and the scrubber during a restart, a bigger window, reduced motion drawing only what is seen, the
 // scrubber quiet for a screen reader while it plays, a hidden page, a small device
 R.pv2 = {};
-if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
+if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !cv.hidden, cssW: Math.round(cv.getBoundingClientRect().width || parseFloat(cv.style.width) || 0), dpr: devicePixelRatio, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
@@ -852,7 +860,7 @@ if (!['user5', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
 // (b) the Export figure dialog's menus (More formats, Size) open over the dialog, inside the viewport, take the focus,
 // move with the arrows, close with Esc (the dialog stays) and with a press outside (the dialog stays); an item works
 // with a real click. At 1440 and 390 px (phone), light and dark.
-if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
+if (!['preview', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   R.u5 = { caps: {}, menus: {} };
   // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it)
   const loadSt = async (ns, st) => {
