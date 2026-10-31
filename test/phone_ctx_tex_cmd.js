@@ -30,6 +30,9 @@ async function openApp(lang, block) {
   const o = { v3: true, v4: true, v5: true, v6: true, shapes: SHAPES, steps: [{ type: 'affine', params: { a: '2', b: '0' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); try { sessionStorage.clear(); } catch (e) {} 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}` }); await sleep(2300);
+  // (with MathJax: until it has typeset the rows, at most 15 s; it starts after the first paint, 3 to 5 s on a software
+  // renderer, #288)
+  if (!block) for (let i = 0; i < 60 && !(await ev(`!!(window.MathJax && MathJax.tex2svg) && !!document.querySelector('#shapeList .shape .d svg')`)); i++) await sleep(250);
   await settle(800);
 }
 // the bar for shape id selected: its two lines, and the row's definition cell (its tooltip, whether MathJax typeset it)
