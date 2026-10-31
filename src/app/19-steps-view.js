@@ -552,7 +552,7 @@
     // 8 s on WARP for the Mountain King; tiers on #456)
     (window.requestIdleCallback || setTimeout)(svPrestart);
   }
-  // the phone's Sphere key on the plane (#471): in the steps view it toggles the view's surface, Plane ↔ Sphere; null
+  // the phone's Sphere key on the plane (#471): in the steps view it toggles the view's surface between Plane and Sphere; null
   // outside it, where the key works the pane's own tabs
   function svSphereKey() {
     if (!SV.on) return null;
