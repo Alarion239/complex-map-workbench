@@ -30,6 +30,8 @@
     { name: 'export dialog', key: ['e', 4], wait: 1500, dev: 'desktop', ready: `!!document.querySelector('.modal-bg') && !document.querySelector('.modal-bg .xf-wait')?.checkVisibility() && !!document.getElementById('xfTex')?.textContent.trim()` },
     { name: 'menu more', click: 'hdrMoreBtn', dev: 'phone' },
     ...['edit', 'tools', 'display', 'more', 'chain'].map((k) => ({ name: 'sheet ' + k, go: `(Phone.open(${JSON.stringify(k)}), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === ${JSON.stringify(k)}` })),
+    { name: 'sheet numbers', go: `(Phone.open('edit', { params: true }), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === 'edit'` },
+    { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
   ].map((s) => (s.click && !s.ready ? Object.assign({ ready: LAYER }, s) : s));
 
   const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -42,7 +44,9 @@
   };
   const clickId = (id) => ev(`(() => { const b = document.getElementById(${JSON.stringify(id)}); if (!b || !b.checkVisibility()) return false; b.click(); return true; })()`);
   // back to the start: menus, dialogs, sheets, the tour, the deformation and the view closed or reset
+  let undo = null;   // what puts back the last state that changed the page's own settings (the sphere)
   async function reset() {
+    if (undo) { await ev(`(() => { try { ${undo}; } catch (e) { /* */ } return 1; })()`); undo = null; }
     for (let i = 0; i < 2; i++) { await key('Escape'); await sleep(120); }
     await ev(`(() => { try { Tour.stop(); } catch (e) { /* */ } try { if (window.Phone && Phone.isOn()) Phone.close(true); } catch (e) { /* */ }
       try { __cmwMorph({ open: false }); } catch (e) { /* */ } try { if (__cmwLayout().main !== 'xy') __cmwSetMain('xy'); } catch (e) { /* */ }
@@ -55,6 +59,7 @@
     for (let tries = 0; tries < 2; tries++) {
       if (tries) await reset();
       if (st.go) await ev(st.go);
+      if (st.after) undo = st.after;
       if (st.click && !(await clickId(st.click))) return false;
       if (st.key) await key(st.key[0], st.key[1]);
       await settle(st.wait || 600);
@@ -85,6 +90,9 @@
         await size(sz);
         await theme(false);
         await settle(900);
+        // (phone's lesson, #474: a size listed is a size measured)
+        const got = await ev(`[innerWidth, innerHeight]`);
+        if (!Array.isArray(got) || got[0] !== sz.w || got[1] !== sz.h) { skipped.push(`${lang} ${view} ${sz.id}: NOT RENDERED (the page is ${JSON.stringify(got)})`); continue; }
         for (const st of states) {
           if ((st.dev && st.dev !== dev) || (st.views && !st.views.includes(view))) continue;
           await reset();

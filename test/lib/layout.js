@@ -6,20 +6,27 @@
 //   notCovered(scope)        the topmost element at each control's centre is that control (elementFromPoint)
 //   centred(scope)           the boxes declared centred are, within their tolerance (INTENT.centred, data-center)
 //   noClippedText(scope)     no text is cut by its box, except an ellipsis that is declared (INTENT.ellipsis, data-ellipsis)
+//   noCutControls(scope)     no control is drawn past a panel that clips it and cannot scroll to it
+//   onGround(scope)          text over a plot (a canvas) sits on a ground: a box with a background, or a halo
 //   insideViewport()         no horizontal page scroll, and nothing visible is cut by the viewport's edge
 //   targetSizes(min)         each control is at least min × min px, or spaced as WCAG 2.2's 2.5.8 allows
 //   focusRings(scope)        a control focused from the keyboard shows a ring that no box cuts
 //   evenSpacing(scope)       the rows declared even (INTENT.rows) have equal gaps, within their tolerance
 //   all(opt)                 every check above; opt: { touch, focus, scope }
+// (ux's desktop sweep and phone's phone sweeps, #474, are folded in here: an overlap counts only where one of the two
+// is painted on top, elementFromPoint at the overlap's centre; the layers are the stylesheets' z-index stack)
 // The design intent (what sits on top, what is centred, which ellipses are meant, which rows are even) is declared in
 // INTENT below or on the element (data-layer, data-center="x|y|both", data-ellipsis); the suite
 // (test/layout_invariants_cmd.js) declares the known violations, each with its reason.
 (function (root) {
   const INTENT = {
-    // the layers meant to sit on top of the page: a box in one of them may cover a box outside it
+    // the layers meant to sit on top of the page: a box in one of them may cover a box outside it. From the stylesheets'
+    // z-index stack, highest first (ux's table on #470): the tour's top layer and dimming, the warm-up bar, the phone's
+    // keys, the steps view's Playback sheet and scrim, menus over dialogs, dialogs, the phone's sound pop-up, menus and
+    // pop-ups, the phone's sheets and scrim, the tour strip; and toasts
     layers: [
-      '[data-layer]', '#popHost > *', '#toastHost', '.modal-bg', 'dialog[open]', ':popover-open', '[data-tour]',
-      '.ph-sheet', '.ph-scrim', '.snd-pop',
+      '[data-layer]', '.tour-top', '.tour-dim', '#warmBar', '.ph-keys', '.sv-sheet', '.sv-scrim', '.pop.over-modal', '.modal-bg',
+      'dialog[open]', '.snd-pop', '#popHost > *', '.pop', ':popover-open', '.ph-sheet', '.ph-scrim', '.tour-root', '[data-tour]', '#toastHost',
     ],
     // the boxes meant to be centred: sel, in (the container: 'parent' or a selector for closest()), axis ('x', 'y',
     // 'both'), what ('self': the box; 'content': the union of its visible children's boxes, centred in the box itself),
@@ -30,6 +37,7 @@
       { sel: '.icon-btn, .vbtn', what: 'content', axis: 'both', why: 'an icon button\'s icon (the zoom and fit buttons, the ⋯ and eye buttons)' },
       { sel: '.tool[data-tool]', what: 'content', axis: 'x', why: 'a drawing tool\'s icon over its name' },
       { sel: '#addStepBtn', what: 'content', axis: 'both', why: 'Add function\'s + and word in its tile' },
+      { sel: '.modal-bg > .modal', in: 'parent', axis: 'both', why: 'a dialog (Export, Settings, the gallery) in the viewport' },
     ],
     // the ellipses that are meant: a box matching one of these may cut its text with text-overflow: ellipsis
     ellipsis: [],
@@ -83,7 +91,8 @@
   const w = (q) => Math.max(0, q.r - q.l), h = (q) => Math.max(0, q.b - q.t);
 
   // the boxes that clip e: its ancestors whose overflow is not visible (a fixed box is not clipped by those above it);
-  // opt.scroll false leaves out the boxes e can be scrolled into view in (a scroller's edge cuts what is scrolled away)
+  // opt.scroll false leaves out the boxes e can be scrolled into view in (a scroller's edge cuts what is scrolled away);
+  // opt.only: the scrollers alone
   function clipOf(e, opt = {}) {
     let q = { l: -1e9, t: -1e9, r: 1e9, b: 1e9 };
     let fx = getComputedStyle(e).position === 'fixed';
@@ -98,8 +107,8 @@
       const sy = /(auto|scroll)/.test(cs.overflowY) && a.scrollHeight > a.clientHeight + 1;
       // (the padding box: the border does not show what it clips)
       const c = { l: b.left + a.clientLeft, t: b.top + a.clientTop, r: b.left + a.clientLeft + a.clientWidth, b: b.top + a.clientTop + a.clientHeight };
-      if (cs.overflowX !== 'visible' && (opt.scroll !== false || !sx)) { q.l = Math.max(q.l, c.l); q.r = Math.min(q.r, c.r); }
-      if (cs.overflowY !== 'visible' && (opt.scroll !== false || !sy)) { q.t = Math.max(q.t, c.t); q.b = Math.min(q.b, c.b); }
+      if (cs.overflowX !== 'visible' && (opt.scroll !== false || !sx) && (!opt.only || sx)) { q.l = Math.max(q.l, c.l); q.r = Math.min(q.r, c.r); }
+      if (cs.overflowY !== 'visible' && (opt.scroll !== false || !sy) && (!opt.only || sy)) { q.t = Math.max(q.t, c.t); q.b = Math.min(q.b, c.b); }
     }
     return q;
   }
@@ -178,7 +187,11 @@
       const a = live[i], b = live[j];
       if (a.L !== b.L || a.el === b.el || a.el.contains(b.el) || b.el.contains(a.el)) continue;
       const q = inter(a.s, b.s);
-      if (w(q) > tol && h(q) > tol) out.push(V('overlap', a.el, b.el, { kinds: a.kind + '/' + b.kind, by: [Math.round(w(q)), Math.round(h(q))] }, a.s, b.s));
+      if (w(q) <= tol || h(q) <= tol) continue;
+      // (only where one of the two is painted there: something above both, a scrim or a sheet, covers the collision)
+      const hit = document.elementFromPoint((q.l + q.r) / 2, (q.t + q.b) / 2);
+      if (hit && !(a.el.contains(hit) || b.el.contains(hit) || hit.contains(a.el) || hit.contains(b.el))) continue;
+      out.push(V('overlap', a.el, b.el, { kinds: a.kind + '/' + b.kind, by: [Math.round(w(q)), Math.round(h(q))] }, a.s, b.s));
     }
     return out;
   }
@@ -346,6 +359,43 @@
     return out;
   }
 
+  // a control drawn past the edge of a box that clips it and cannot scroll to it (ux's "controls past their panel"):
+  // part of it can never be seen or reached
+  function noCutControls(scope = document.body) {
+    const out = [];
+    for (const el of controls(scope)) {
+      const s = seen(el);
+      if (!s) continue;
+      // (a side a scroller also cuts is scrolled away: a panel round the scroller may clip at the same line)
+      const b = R(el.getBoundingClientRect()), q = clipOf(el, { scroll: false }), sc = clipOf(el, { only: true });
+      const side = (k, sg) => (sg * (b[k] - sc[k]) < -0.5 ? 0 : sg * (q[k] - b[k]));
+      const cut = Math.max(side('l', 1), side('t', 1), side('r', -1), side('b', -1));
+      if (cut > 2) out.push(V('control-cut', el, null, { cut: Math.round(cut) }, b));
+    }
+    return out;
+  }
+
+  // text over a plot (a canvas under it at its centre) sits on a ground: the text, or a box above the canvas that
+  // holds it, has a background at least half opaque, or the text has a halo (a text-shadow, an SVG stroke painted
+  // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint)
+  const alpha = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c || ''); if (!m) return 0; const p = m[1].split(/[\s,/]+/).filter(Boolean); return p.length > 3 ? parseFloat(p[3]) : 1; };
+  function onGround(scope = document.body) {
+    const out = [];
+    for (const t of textBoxes(scope)) {
+      const s = seen(t.el, t.box);
+      if (!s) continue;
+      const stack = document.elementsFromPoint((s.l + s.r) / 2, (s.t + s.b) / 2);
+      const ci = stack.findIndex((e) => e.tagName === 'CANVAS');
+      if (ci < 0 || !stack.slice(0, ci).some((e) => e === t.el || e.contains(t.el) || t.el.contains(e))) continue;
+      const above = stack.slice(0, ci);
+      const ground = above.some((e) => { const c = getComputedStyle(e); return alpha(c.backgroundColor) >= 0.5 || (c.backgroundImage && c.backgroundImage !== 'none') || (c.backdropFilter && c.backdropFilter !== 'none'); });
+      const tc = getComputedStyle(t.el);
+      const halo = (tc.textShadow && tc.textShadow !== 'none') || (t.el instanceof SVGElement && tc.stroke !== 'none' && /stroke/.test(tc.paintOrder));
+      if (!ground && !halo) out.push(V('no-ground', t.el, stack[ci], { text: (t.el.textContent || '').trim().slice(0, 40) }, t.box));
+    }
+    return out;
+  }
+
   function evenSpacing(scope = document.body) {
     const out = [];
     for (const d of INTENT.rows) {
@@ -367,9 +417,9 @@
     const scope = opt.scope || document.body;
     const touch = opt.touch != null ? opt.touch : matchMedia('(pointer: coarse)').matches;
     // (the focus rings last: they move the focus)
-    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), insideViewport(scope),
+    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), onGround(scope), insideViewport(scope),
       targetSizes(touch ? 44 : 24, scope), evenSpacing(scope), opt.focus ? focusRings(scope) : []);
   }
 
-  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, insideViewport, targetSizes, focusRings, evenSpacing, all };
+  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
 })(typeof window !== 'undefined' ? window : globalThis);
