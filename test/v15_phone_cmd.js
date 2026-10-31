@@ -67,6 +67,9 @@ const audit = (scope) => ev(`(() => {
   const small = []; let total = 0;
   for (let e of root.querySelectorAll(sel)) {
     if (e.closest('[hidden], .ph-inset .plot, .xf, .modal-bg')) continue;
+    // (the sheet's grab handle is the 18 px strip above its title row, #483; phone.css exempts it from the 44 px rule too,
+    // :not(.ph-grab): the head's row is the drag target, and the sheet check below holds that to 44 px)
+    if (e.matches('.ph-grab')) continue;
     if (e.matches('input[type=checkbox], input[type=radio]') && e.closest('label')) e = e.closest('label');
     const s = getComputedStyle(e);
     if (!e.getClientRects().length || s.visibility === 'hidden' || +s.opacity === 0 || s.pointerEvents === 'none') continue;
@@ -112,6 +115,26 @@ for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) for (co
       ok(`${tag}: ${k} sheet: no page scroll`, s1.sh <= s1.ih + 1 && s1.sw <= s1.iw + 1, s1);
       ok(`${tag}: ${k} sheet: nothing past the edges, no cut label`, !s1.out.length && !s1.cut.length, { out: s1.out, cut: s1.cut });
       ok(`${tag}: ${k} sheet: every control 44 × 44`, a1.n === 0, a1);
+      // the exemption above must not hide a real target: the sheet's drag target is its head row (the Editor's head is an 18 px bar, so
+      // there its title row, the Inspector's .ihead) and it is 44 px tall at least, and a press on an empty part of it and a drag up
+      // opens the sheet to its full height
+      // (the sheet slides in: measure once it lies inside the window and has stopped, as a slow runner may still be mid-slide)
+      for (let i = 0; i < 40; i++) { const inside = await ev(`(() => { const sh = document.querySelector('.ph-sheet:not([hidden])'); return !!sh && getComputedStyle(sh).transform === 'none' && sh.getBoundingClientRect().bottom <= innerHeight + 1; })()`); if (inside) break; await sleep(250); }
+      await settle(300);
+      const dt = await ev(`(() => { const sh = document.querySelector('.ph-sheet:not([hidden])'); if (!sh) return null;
+        const tgt = sh.dataset.k === 'edit' && !sh.classList.contains('nums') ? sh.querySelector('#propsPanel .ihead') : sh.querySelector('.ph-sh');
+        if (!tgt || !tgt.getClientRects().length) return { none: sh.dataset.k };
+        const r = tgt.getBoundingClientRect(), y = r.top + r.height / 2, pressable = 'button, a, input, select, textarea, summary, [role="button"], [tabindex]';
+        const xs = [];
+        for (let x = r.left + 4; x < r.right - 4; x += 3) { const el = document.elementFromPoint(x, y); if (el && tgt.contains(el) && !el.closest(pressable)) xs.push(x); }
+        const at = xs.length ? [xs[Math.floor(xs.length / 2)], y] : null;
+        return { k: sh.dataset.k, h: Math.round(r.height), at, full: document.documentElement.classList.contains('ph-full') };
+      })()`);
+      ok(`${tag}: ${k} sheet: its drag target is at least 44 px tall, with an empty part to press`, !!dt && !dt.none && dt.h >= 44 && !!dt.at, dt);
+      if (dt && dt.at && !dt.full) {
+        await drag(dt.at[0], dt.at[1], dt.at[0], dt.at[1] - 120, 8, 30); await settle(700);
+        ok(`${tag}: ${k} sheet: a press and drag up on its drag target opens it full`, await ev(`document.documentElement.classList.contains('ph-full')`), dt);
+      }
       info.audit[`${tag} ${k}`] = a1.total;
       if (w === 390 || k === 'edit') await shot(`v15ph-${k}-${tag}`);
       await closeSheet();
