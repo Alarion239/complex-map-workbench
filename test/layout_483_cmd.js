@@ -48,7 +48,10 @@ for (const w of [1440, 1280, 1024]) {
 // 3b. the Editor's head is its 18 px bar, so its title row drags the sheet where nothing in it can be pressed: a press on an empty part of
 // the Inspector's .ihead and a drag up opens the sheet to its full height (and a drag that starts on the title button does not)
 await open(360, 740, 'en', true);
-await ev(`Phone.open('edit'); 1`); await settle(1200);
+await ev(`Phone.open('edit'); 1`); await settle(900);
+// (the sheet slides up: measure once its title row is inside the window)
+for (let i = 0; i < 40; i++) { const inside = await ev(`(() => { const e = document.querySelector('.ph-sheet[data-k="edit"] #propsPanel .ihead'); return !!e && e.getBoundingClientRect().bottom <= innerHeight && getComputedStyle(e.closest('.ph-sheet')).transform === 'none'; })()`); if (inside) break; await sleep(250); }
+await settle(300);
 const empty = await ev(`(() => { const ih = document.querySelector('.ph-sheet[data-k="edit"] #propsPanel .ihead'); if (!ih || !ih.getClientRects().length) return null; const r = ih.getBoundingClientRect(); const y = r.top + r.height / 2; for (let x = r.left + 4; x < r.right - 4; x += 3) if (document.elementFromPoint(x, y) === ih) return [x, y, r.height]; return null; })()`);
 const ihDiag = empty ? null : await ev(`(() => { const sh = document.querySelector('.ph-sheet[data-k="edit"]'); const ih = sh && sh.querySelector('#propsPanel .ihead'); const r = ih && ih.getBoundingClientRect(); const t = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { sheet: !!sh, hidden: sh && sh.hidden, cls: sh && sh.className, ihead: r && [r.left, r.top, r.right, r.bottom].map(Math.round), top: t && (t.className || t.tagName).toString().slice(0, 40) }; })()`);
 ok('360: the Editor has an empty part of its title row to press', !!empty, ihDiag);
