@@ -609,9 +609,19 @@
       E.slider.setAttribute('aria-valuetext', svPlaceText());
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
-    if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; }
+    // (and, when the thread is longer than its rail (#497), the rail's width and the thread's: measured with the centres)
+    if (!E.centres || E.centresSig !== E.sig) { E.centres = [...E.track.querySelectorAll('.sv-plane')].map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.track.offsetWidth; }
     const c = E.centres, j = Math.max(0, Math.min(c.length - 1, Math.floor(x + 1e-9))), u = x - j;
-    if (c.length) E.thumb.style.transform = `translateX(${(c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u).toFixed(1)}px)`;
+    if (!c.length) return;
+    const tx = c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u;
+    E.thumb.style.transform = `translateX(${tx.toFixed(1)}px)`;
+    // a thread longer than its rail scrolls in it, the ring kept in view a plane's width from either end (a write, no read)
+    if (E.trackW > E.railW + 1) {
+      const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
+      const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
+      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; }
+    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; }
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
   function svPlaceText() {

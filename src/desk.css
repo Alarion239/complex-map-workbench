@@ -602,6 +602,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #morphBtn, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
 :root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
+/* (the pane keeps its column whatever its thread's length, #497: the grid's one column is no wider than the pane, and its
+   items may be narrower than their content) */
+:root.sv #paneL { grid-template-columns: minmax(0, 1fr); }
+:root.sv #paneL > * { min-width: 0; }
 :root.sv:not(.ph) #paneL > .pane-head { grid-row: 1; }
 :root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
 :root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
@@ -617,11 +621,13 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-title .sv-role { font: 400 14px/1 var(--f-ui); color: var(--muted); }
 .sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
+.sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; min-width: 0; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
 .sv-nav:disabled { opacity: .4; cursor: default; }
-.sv-rail { position: relative; flex: 1 1 auto; min-width: 0; touch-action: none; cursor: ew-resize; }
-.sv-track { position: relative; z-index: 1; display: flex; align-items: center; height: 100%; }
+/* (a thread longer than its rail scrolls in it, with no bar: the view keeps the shown plane in sight, #497) */
+.sv-rail { position: relative; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: none; cursor: ew-resize; }
+.sv-rail::-webkit-scrollbar { display: none; }
+.sv-track { position: relative; z-index: 1; display: flex; align-items: center; height: 100%; width: max-content; min-width: 100%; }
 .sv-plane { flex: 0 0 auto; width: 44px; min-width: 44px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; font: italic 400 12px/1 var(--f-math, serif); color: var(--ink-2); background: transparent; border: 0; border-radius: var(--r-2); cursor: pointer; }
 .sv-plane sub { font-style: normal; font-size: .7em; }
 .sv-node { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--line-strong); }
