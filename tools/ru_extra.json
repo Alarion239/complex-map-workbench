@@ -151,7 +151,6 @@
  "Compiling…": "Компиляция…",
  "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
  "in short": "кратко",
- "Written in short; the step's own field holds the full formula.": "Записано кратко; поле шага содержит формулу целиком.",
  "Written in short; each step's own field holds its full formula.": "Записано кратко; поле каждого шага содержит его формулу целиком.",
  "Written in short; the field below holds the formula in full.": "Записано кратко; поле ниже содержит формулу целиком.",
  "Print settings": "Параметры печати",
@@ -462,5 +461,13 @@
  "Hold for speed and loop": "Удерживайте — скорость и повтор",
  "Playback…": "Воспроизведение…",
  "Playing from {a} to {b}": "Воспроизведение от {a} до {b}",
- "Stopped at {p}": "Остановлено на {p}"
+ "Stopped at {p}": "Остановлено на {p}",
+ "colour of {p}, carried": "цвет, перенесённый из %{p}",
+ "shapes only": "только фигуры",
+ "Hold and slide to read {f}": "Удерживайте и ведите, чтобы прочитать %{f}",
+ "<span>In {w}</span>": "<span>В %{w}</span>",
+ "<span>Targets in {out}</span>": "<span>Цели в %{out}</span>",
+ "in {w}": "в %{w}",
+ "Place on the chain": "Место в цепочке",
+ "colour from {p}": "цвет из %{p}"
 }

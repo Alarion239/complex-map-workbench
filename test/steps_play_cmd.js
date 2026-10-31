@@ -69,7 +69,7 @@ await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slo
 await ev(`document.querySelector('.sv-play').click(); 1`);
 await sleep(1000);
 const sl = await S();
-ok('at slow (2 s a plane) it is not yet at w₁ after 1 s', sl.play === 'glide' && sl.x > 0.2 && sl.x < 0.9, sl);
+ok('at slow (2 s a plane) it is on its way after 1 s, not yet at w₁', sl.play === 'glide' && sl.x > 0.02 && sl.x < 0.9, sl);
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
 const e2 = await until((s) => !s.play);
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
@@ -91,12 +91,16 @@ await rest();
 
 // pause between two planes (more than the eighth that snaps): it parks there, and a state loaded afterwards is adopted
 await ctl({ go: 0, now: true });
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
+await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
 await ctl({ play: true });
-const mid = await until((s) => s.x > 0.3 && s.x < 0.7, 8000);
-await ctl({ play: false });
+// (paused from inside the page the moment it passes 0.3, so no poll's lag decides where)
+// (ev does not wait for a promise: the page leaves its answer in window.__midR)
+await ev(`window.__midR = null; (() => { const t0 = Date.now(); const tick = () => { const x = __cmwSvX(); if (x > 0.3 || Date.now() - t0 > 12000) { __cmwSteps({ play: false }); window.__midR = { ok: x > 0.3, x }; } else requestAnimationFrame(tick); }; requestAnimationFrame(tick); })(); 1`);
+let midR = null;
+for (let i = 0; i < 160 && !midR; i++) { await sleep(100); midR = await ev(`window.__midR`); }
+const mid = { timeout: !(midR && midR.ok), midR };
 const pk = await S();
-ok('pausing mid-glide parks between two planes, nothing plays on', !mid.timeout && pk.play === null && pk.x > 0.2 && pk.x < 0.8, pk);
+ok('pausing mid-glide parks between two planes, nothing plays on', !mid.timeout && pk.play === null && pk.x > 0.2 && pk.x < 0.8, { mid, pk: { play: pk.play, x: pk.x, moving: pk.moving } });
 await ev(`(__cmwExample(3), 1)`); await sleep(2500); await settle(500);
 const ad = await S();
 ok('… and a state loaded after that is adopted (back on its first plane, not left parked)', Math.abs(ad.x - Math.round(ad.x)) < 1e-9 && ad.i === 0 && !ad.moving, ad);

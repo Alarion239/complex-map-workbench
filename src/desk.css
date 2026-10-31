@@ -611,6 +611,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
 .sv-title sub { font-style: normal; font-size: 0.7em; }
+:root.sv .chip.readout .rteach { white-space: normal; }
+:root.sv .ruler-corner sub { font-style: normal; font-size: 0.72em; }
+.sv-title .sv-sep { font-style: normal; color: var(--muted); }
+.sv-title .sv-role { font: 400 14px/1 var(--f-ui); color: var(--muted); }
+.sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }

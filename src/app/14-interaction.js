@@ -1301,13 +1301,25 @@
       const sw = ok ? `<span class="sw" style="background:${phaseCss(wl)}"></span> ` : '';
       // panels.md 2: z, |z|, arg, then F as modulus and angle with its swatch (first, so it is never cut); where the
       // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
-      const fv = (dp) => rk(fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
+      // (the steps view's colour plane reads its own variable above: no second row for the identity)
+      const fv = (dp) => SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
       const forms = [
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))) + fv(4),
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + fv(4),
         () => rk(vin, fmtCxHtml(z, 3, zTol)) + fv(2),
       ];
-      for (let i = 0; i < forms.length; i++) {
+      // (the steps view's readout on a phone is two lines, as the classic one: z on the first, the map into the colour plane on the
+      // second, where one line of both was cut at 360–390 px)
+      const two = SV.on && document.documentElement.classList.contains('ph') && svMapName('text') !== null;
+      if (two) {
+        const z2 = [() => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))), () => rk(vin, fmtCxHtml(z, 4, zTol)), () => rk(vin, fmtCxHtml(z, 3, zTol))];
+        const m2 = [() => fv(4), () => fv(4), () => fv(2)];
+        const fits2 = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
+        for (let i = 0; i < z2.length; i++) {
+          lr.innerHTML = `<span class="rln">${z2[i]()}</span><span class="rln">${m2[i]()}</span>`;
+          if (i === z2.length - 1 || [...lr.children].every(fits2)) break;
+        }
+      } else for (let i = 0; i < forms.length; i++) {
         lr.innerHTML = forms[i]();
         if (i === forms.length - 1 || lr.scrollWidth <= lr.clientWidth + 1) break;
       }
@@ -1317,12 +1329,15 @@
       // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
       // (the key's "=" and parentheses in the maths face, as its letters: B612 Mono's "(" reads as "[" [UX105])
       const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
-      const wl = (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
+      // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
+      // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
+      const src = SV.on ? svSource(z) : undefined, eqv = SV.on ? '' : ` ${m('=')}`;
+      const wl = SV.on ? (dp) => (src === undefined ? '' : `<span class="rln">${rk(`${$t('colour from {p}', { p: wHtml(svT()) })}`, src ? fmtCxHtml(src, dp) : '—')}</span>`) : (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
       const forms = [
-        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
-        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr), 3)) + rk('arg', degs(Math.atan2(zr.im, zr.re), 2))}</span>` + wl(4),
-        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol))}</span>` + wl(4),
-        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 3, zTol))}</span>` + wl(3),
+        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
+        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr), 3)) + rk('arg', degs(Math.atan2(zr.im, zr.re), 2))}</span>` + wl(4),
+        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 4, zTol))}</span>` + wl(4),
+        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 3, zTol))}</span>` + wl(3),
       ];
       // (a line fits when its text, measured to the fraction of a pixel, does: scrollWidth rounds, and a line 0.4 px too
       // long was cut with an ellipsis at 1366 px)
