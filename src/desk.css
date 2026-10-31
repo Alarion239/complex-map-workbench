@@ -331,6 +331,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #toastHost[data-placed] { translate: -50% 0; }
 #toastHost[data-placed] .toast { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
 #toastHost[data-placed] .toast > span { text-wrap: pretty; line-height: 18px; }
+/* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
+   once wrapped to four lines and cut its longest word (ru, 1024) */
+#toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
+#toastHost[data-placed]:not([data-placed="head"]) .toast > span { flex: 1 1 auto; }
 #toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
 /* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
 #toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
