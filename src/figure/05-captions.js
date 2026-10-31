@@ -435,7 +435,7 @@
       const text = s.b != null ? s.b : s.i != null ? s.i : s.t;
       for (const p of String(text).split(lang === 'ru' ? /([ \t\r\n]+)/ : /(\s+)/)) {
         if (!p || (lang === 'ru' ? /^[ \t\r\n]+$/.test(p) : /^\s+$/.test(p))) continue;
-        const esc = p.replace(/\\/g, '').replace(/([#$%&_{}])/g, '\\$1');
+        const esc = p.replace(/[\\#$%&_{}]/g, (c) => (c === '\\' ? '' : '\\' + c));
         items.push(s.b != null ? `\\textbf{${esc}}` : s.i != null ? `\\textit{${esc}}` : `\\text{${esc}}`);
       }
     }

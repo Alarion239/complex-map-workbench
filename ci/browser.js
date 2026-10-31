@@ -175,8 +175,8 @@ async function main() {
       for (const f of k) known.push({ name, f, why: matches(KNOWN[file], f).why });
       const ok = !hard.length;
       if (!ok) failed++;
-      // (a passing suite's screenshots are not kept)
-      if (ok) fs.rmSync(shotsDir(file, r), { recursive: true, force: true });
+      // (a passing suite's screenshots are not kept, unless it reports with them: SUITES[f].keepShots)
+      if (ok && !(SUITES[file] && SUITES[file].keepShots)) fs.rmSync(shotsDir(file, r), { recursive: true, force: true });
       fs.writeFileSync(path.join(OUT, name.replace(/[^\w.-]+/g, '_') + '.json'), JSON.stringify({ file, run: r.label, ms: res.ms, error: res.error, out: res.out }, null, 1));
       const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}`;
       console.log(gh ? `::group::${head}` : `== ${head}`);

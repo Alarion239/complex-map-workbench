@@ -308,6 +308,7 @@
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
   // so after the step-card thumbnails or a finished homotopy it held its texture for nothing (U-b gate: the idle app
   // kept the thumbnails' evaluations of every shape). A later draw evaluates into a new one.
+  /** @type {any} */
   let tmpSweepT = 0;
   function sweepTmpLater() {
     if (tmpSweepT) return;
@@ -520,11 +521,59 @@
     u2f(P, 'uInvScale', 1 / (st.view.s * dpr), 1 / (st.view.s * dpr));
     u4f(P, 'uVp', vpX, vpY, fw, fh);
     dcUniforms(P, st, dpr);
-    gl.disable(gl.BLEND);
+    // ((#366 prototype) st.dstAlpha: kept only where the frame's alpha is, the regions an alphaOnly pass drew: the
+    // colour times the alpha there, the alpha unchanged)
+    // ((#439 I) st.alpha < 1: over what the frame holds at that opacity, source-over as a 2D draw at globalAlpha alpha,
+    // so a glide's cross-faded plots and the carried colour compose in one frame and reach the page in one copy)
+    const fade = !st.dstAlpha && st.alpha != null && st.alpha < 1;
+    if (st.dstAlpha) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ZERO, gl.ZERO, gl.ONE);
+    else if (fade) { gl.blendColor(0, 0, 0, st.alpha); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA); }
+    else gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
+    if (st.dstAlpha || fade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+  // ((#366 prototype) what follows writes the frame's alpha alone (on), or every channel again (off): a mask of the
+  // regions for drawColorPlot's dstAlpha)
+  function alphaOnly(on) { if (ok) gl.colorMask(!on, !on, !on, true); }
+
+  // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
+  // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
+  // (st.s, st.T); triangles longer than st.lim on the plane are left out. False when the program is not ready
+  function drawCarried(st) {
+    if (!ok) return false;
+    const P = program(st.s === st.T ? 'carryId' : 'carry', st.map);
+    if (!P) return false;
+    use(P, st.map);
+    const dpr = st.dpr || 1, g = st.mesh;
+    view2D(P, st.view, dpr, null);
+    u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy);
+    u2i(P, 'uN', g.nx, g.ny);
+    u1f(P, 'uLim', st.lim);
+    u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
+    dcUniforms(P, st, dpr);
+    // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    u1i(P, 'uKeyOn', k ? 1 : 0);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(empty());
+    if (k) {
+      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
+      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
+      u1i(P, 'uKSingN', sing.length);
+      const dt = gl.isEnabled(gl.DEPTH_TEST);
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
+      gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+      gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS);
+      if (!dt) gl.disable(gl.DEPTH_TEST);
+    } else gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
+    return true;
   }
 
   // ---------------- preimages (Preimage mode) ----------------

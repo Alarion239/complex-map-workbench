@@ -597,3 +597,51 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sh-insp > .shape-edit { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0; border-top: 0; }
 .sh-insp > .shape-edit .inp { height: 32px; padding: 0 8px; }
 .sh-acts { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ---------- (#366 prototype) the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
+:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #morphBtn, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
+:root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
+:root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
+:root.sv:not(.ph) #paneL > .pane-head { grid-row: 1; }
+:root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
+:root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
+:root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
+:root.sv:not(.ph) .sv-surf1 { display: none; }
+:root.sv:not(.ph) #paneL .pane-head { gap: 8px; flex-wrap: wrap; min-height: 40px; padding: 4px 6px 4px 10px; }
+.sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
+.sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
+.sv-title sub { font-style: normal; font-size: 0.7em; }
+:root.sv .chip.readout .rteach { white-space: normal; }
+:root.sv .ruler-corner sub { font-style: normal; font-size: 0.72em; }
+.sv-title .sv-sep { font-style: normal; color: var(--muted); }
+.sv-title .sv-role { font: 400 14px/1 var(--f-ui); color: var(--muted); }
+.sv-title .sv-role i { font-family: var(--f-math, serif); }
+.sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
+.sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
+.sv-nav:disabled { opacity: .4; cursor: default; }
+.sv-rail { position: relative; flex: 1 1 auto; min-width: 0; touch-action: none; cursor: ew-resize; }
+.sv-track { position: relative; z-index: 1; display: flex; align-items: center; height: 100%; }
+.sv-plane { flex: 0 0 auto; width: 44px; min-width: 44px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; font: italic 400 12px/1 var(--f-math, serif); color: var(--ink-2); background: transparent; border: 0; border-radius: var(--r-2); cursor: pointer; }
+.sv-plane sub { font-style: normal; font-size: .7em; }
+.sv-node { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--line-strong); }
+.sv-plane.cp .sv-node { width: 18px; height: 18px; border: 0; background: conic-gradient(from 90deg, #e8463f, #e8c13f, #4fc24a, #3fc8e8, #4b55e6, #d24be0, #e8463f); box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 2.5px var(--line-strong); }
+.sv-plane.on { color: var(--ink); }
+.sv-plane.on:not(.cp) .sv-node { background: var(--accent); border-color: var(--accent); }
+.sv-plane:focus-visible, .sv-step:focus-visible, .sv-nav:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-dot { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; background: conic-gradient(from 90deg, #e8463f, #e8c13f, #4fc24a, #3fc8e8, #4b55e6, #d24be0, #e8463f); box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 2.5px var(--line-strong); }
+/* the thread: a line through the planes' nodes; each step is a stretch of it (a drag moves along it) with its
+   function's chip on it */
+.sv-track::before { content: ""; position: absolute; left: 22px; right: 22px; top: calc(50% - 7px); height: 2px; margin-top: -1px; background: var(--line-strong); pointer-events: none; }
+.sv-step { position: relative; flex: 1 1 0; min-width: 52px; height: 100%; display: flex; align-items: center; justify-content: center; padding-bottom: 14px; }
+.sv-fchip { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
+.sv-fchip:hover { border-color: var(--accent); }
+.sv-fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-fchip .sv-fk { font: italic 400 16px/1 var(--f-math, serif); color: var(--ink); }
+.sv-fchip .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; padding: 0 6px; font: 400 12px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); }
+.sv-plane { position: relative; z-index: 1; }
+/* the glide's place on the strip: a ring round the shown plane's node that moves with it */
+.sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sv-thumb { position: absolute; z-index: 2; top: 50%; left: -15px; width: 30px; height: 30px; margin-top: -21px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; }
+.sv-cp { display: inline-flex; align-items: center; gap: 6px; }

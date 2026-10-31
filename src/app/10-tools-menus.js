@@ -412,19 +412,21 @@
     // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
     // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
     // ([v16.5 UX27] the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
-    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
+    // (the steps view has no X or Y: the shapes are grouped by the plane they are in, "In z", "In w₁", …)
+    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(0) }) : $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
     const counts = {}, pv = { n: 0 };
     // ([#253] then the shapes of each plane of the chain they were drawn in, by its name: "In the plane w₁")
     const rows = [];
     S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; rows.push([s, shapeRow(s, rowName(s, counts, pv), false)]); });
     for (const k of [...new Set([0, ...S.shapes.map(shapeStage)])].sort((x, y) => x - y)) {
-      if (k) host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In the plane {w}</span>', { w: wHtml(k) }) }));
+      if (k) host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(k) }) : $t('<span>In the plane {w}</span>', { w: wHtml(k) }) }));
       for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
     }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
-    {
-      const out = yAtF() ? '<i>w</i>' : wHtml(rightStage());
-      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
+    // (the steps view: targets are listed under the last plane, and with none there is no group, nothing to draw "in Y")
+    if (!SV.on || S.targets.length) {
+      const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
+      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
       if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tc = {};
       S.targets.forEach((s, i) => {
@@ -789,7 +791,7 @@
       html: '‹ ' + (back === 'F' ? $t('Back to {f}', { f: '<i>F</i>' }) : $t('Back to {f}', { f: fsub(back) })) }) : null;
     const crumbs = h('div', { class: 'sh-crumbs' }, h('span', { class: 'sh-path' }, isTarget(s) ? $t('Targets') : $t('Shapes'), ' › ', label), backBtn);
     const head = h('div', { class: 'ihead sh-ihead' }, h('span', { class: 'swatch', 'data-kind': kindType(s), style: swatchStyle(s) }), h('span', { class: 'ttl' }, label),
-      h('span', { class: 'sh-in' }, isTarget(s) ? $t('in Y') : $t('in X')));
+      h('span', { class: 'sh-in' }, SV.on ? $t('in {w}', { w: isTarget(s) ? svName(svPlanes()[svPlanes().length - 1]) : svName(shapeStage(s)) }) : isTarget(s) ? $t('in Y') : $t('in X')));
     const ed = shapeEditor(s);
     const used = h('div', { class: 'cm-ichips sh-used' });
     const acts = h('div', { class: 'sh-acts' },
@@ -972,7 +974,7 @@
     // ([v16.5 rail SPEC 4.3] the button was "Snap while drawing": it now names what it snaps to, the grid and figures)
     $('snapBtn').addEventListener('click', () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); });
     // on phones the More sheet of tools closes once a tool is picked
-    $('tools').addEventListener('click', (e) => { const tm = $('toolMore'); if (tm && tm.open && e.target.closest('.tool')) tm.open = false; });
+    $('tools').addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const tm = $('toolMore'); if (tm && tm.open && tg.closest('.tool')) tm.open = false; });
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
   }

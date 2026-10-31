@@ -107,10 +107,38 @@ const Inspector = (() => {
     }
     // a formula in its well: the full form when it fits, else the alternative (alt), then smaller; decided once per
     // formula (a drag holds its formula, so drag frames never force a layout here). 1: the alternative is shown.
+    //
+    // (#455) the choice needs the well's width: in a well that has none (the Inspector built while a phone's sheet is
+    // closed) nothing is decided, and the well is watched: when its width changes (the sheet opens, the phone turns)
+    // each formula in it is decided again, here, from the arguments it was last given
+    const pickArgs = new WeakMap(), pickForms = new WeakMap();
+    const pickRO = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
+      for (const { target: form } of entries) {
+        const st = pickForms.get(form), w = form.clientWidth;
+        if (!form.isConnected) { pickRO.unobserve(form); pickForms.delete(form); continue; }   // (a well the Inspector dropped)
+        if (!st || w === st.w) continue;
+        st.w = w;
+        if (!w) continue;
+        for (const node of [...st.nodes]) {
+          const a = pickArgs.get(node);
+          if (!a || !node.isConnected || !form.contains(node)) { st.nodes.delete(node); continue; }
+          delete node.dataset.pick;
+          fitPick(node, a.full, a.alt, a.display);
+        }
+      }
+    }) : null;
     function fitPick(node, full, alt, display = true) {
+      const form = node.closest('.iform');
+      if (form && pickRO) {
+        pickArgs.set(node, { full, alt, display });
+        let st = pickForms.get(form);
+        if (!st) { st = { w: form.clientWidth, nodes: new Set() }; pickForms.set(form, st); pickRO.observe(form); }
+        st.nodes.add(node);
+      }
       if (node.dataset.pick === full) { TeX.set(node, node.dataset.use === '1' ? alt : full, display); return node.dataset.use === '1' ? 1 : 0; }
       TeX.set(node, full, display);
       if (node.dataset.tex !== full || !TeX.ready) return 0;   // (held while input continues, or MathJax not yet loaded: decided when it is shown)
+      if (form && pickRO && !form.clientWidth) return 0;   // (no width yet: decided when it has one)
       node.dataset.pick = full;
       let use = 0;
       if (alt && !fitTex(node, 1)) { use = 1; TeX.set(node, alt, display); }
@@ -261,7 +289,7 @@ const Inspector = (() => {
     function focusCard(k) {
       let n = 0;
       const go = () => {
-        const c = document.querySelector(`#pipeline .card[data-k="${k}"]`);
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k}"]`));
         if (c && c.isConnected && document.activeElement !== c) c.focus({ preventScroll: true });
         // (held for 12 frames: the chain and the Inspector are drawn again after the split)
         if (++n < 12) requestAnimationFrame(go);
@@ -270,9 +298,10 @@ const Inspector = (() => {
     }
     // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
     // the quiet mark on a line written with a step's display form: "in short", the full-formula explanation in its tooltip
-    // and its accessible description (the step's own card says the same in its note)
-    function shortMark(forF) {
-      const tip = forF ? $t('Written in short; each step\'s own field holds its full formula.') : $t('Written in short; the step\'s own field holds the full formula.');
+    // and its accessible description, one wording on F's line and on the split offer's row (#453; the step's own card says
+    // the same in its note)
+    function shortMark() {
+      const tip = $t('Written in short; each step\'s own field holds its full formula.');
       return h('span', { class: 'shortmark', role: 'note', 'data-tip': tip, 'aria-description': tip, tabindex: '0' }, $t('in short'));
     }
     function fillRows(ol, rows, eq, showMark) {
@@ -458,7 +487,7 @@ const Inspector = (() => {
         else { const t = h('span'); chain.push([k, t]); li.append(t); }
         wl.append(li);
       });
-      const smark = shortMark(true);
+      const smark = shortMark();
       smark.hidden = true;
       const form = h('div', { class: 'iform' }, ftex, smark, flong, wl.childElementCount ? wl : null);
       const warn = h('div', { class: 'ierr', role: 'status' });

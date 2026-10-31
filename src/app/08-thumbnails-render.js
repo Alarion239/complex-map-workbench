@@ -438,6 +438,7 @@
       again = true;
     }
     if (tweens.length) { stepTweens(ts); again = true; }
+    if (svFrame(ts)) again = true;
     if (trans.glide) {
       if (stepPeek(ts)) again = true;
     } else if (trans.k) {
@@ -598,6 +599,7 @@
     if (fit) lastLeftSig = ls;
     if (fit && !sliced) { fitMs = performance.now() - tf; fitLate = 0; }
     endPeek();
+    svChainChanged();
     if (morph.open && !morphRange().steps.length) closeTransport();
     scheduleFix();
     updateLeds();

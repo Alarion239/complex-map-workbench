@@ -28,7 +28,7 @@ const GLSL = require('./glsl');
 const AREAS = {
   phone: ['tour-phone', 'tour-audit-phone', 'phone-swap-1', 'phone-swap-2', 'phone-swap-3', 'ux165-2', 'i18n-phone'],
   tour: ['tour', 'tour-phone', 'tour-audit-phone', 'tour-audit-desktop'],
-  export: ['export-1', 'export-2', 'export-3', 'images'],
+  export: ['export-1', 'export-2', 'export-3', 'export-4', 'images'],
   sound: ['sound'],
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
@@ -58,6 +58,7 @@ const MAP = [
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone')],                                         // the header, its menus, the panels and drawers (#385)
+  ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone')],                           // the steps view (#366 prototype)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
@@ -90,7 +91,7 @@ const MAP = [
   ['src/cyr.js', ui('export', 'i18n')],                                       // Cyrillic outlines in exported figures
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
-  ['src/{construct,constr}.js', ui('constructions')],                         // perp, constructions, the ux165 rail
+  ['src/{construct,constr,constrpoc,constrortho}.js', ui('constructions')],   // perp, constructions, the ux165 rail
   ['src/construct/**', ui('constructions')],                                  // construct.js in parts (#20), the same
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas
@@ -103,13 +104,14 @@ const MAP = [
   ['src/page.html', ui('desktop', 'phone')],                                  // the page's markup: both layouts
   ['src/desk.css', ui('desktop', 'phone')],                                   // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,parse,funcs,natpaths,derivs,homrange,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,parse,funcs,natpaths,derivs,homrange,invops,invpatterns,inverse,recognize,calc,region,curves,sphere,glsl,palette}.js', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
   ['tools/{cyr_template.js,make_cyr_module.py}', ui('export', 'i18n')],
   ['tools/melodies/**', ui('sound')],
   ['tools/join_src.js', T0],
+  ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
   ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
   ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
   // the docs (a README beside the tests or the CI scripts too)
@@ -190,12 +192,14 @@ function glslPagesOf(f) {
 // [#385] the files that name window.__cmw<name> (a whole word): the browser suites (test/*_cmd.js) and unit tests are
 // fine; anything else that calls a hook (the app itself, the quality and perf runners, ci/, the cdp kit) is outside
 function hookCallers(names) {
-  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[$]/g, '\\$&')).join('|')})\\b`);
+  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`);
   const suites = [], outside = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`;
-      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name)) walk(rel); continue; }
+      // (test/*_cdp/: a git-ignored copy of the cdp kit and its command files, which ci/browser.js and tools/inspect.js leave
+      // behind on a local run; no diff names it, and CI's checkout never has it)
+      if (e.isDirectory()) { if (!/^(node_modules|dist|\.ci|\.git|fixtures)$/.test(e.name) && !/^test\/[^/]+_cdp$/.test(rel)) walk(rel); continue; }
       if (!/\.(js|mjs|py|html)$/.test(e.name) || rel === 'src/app/21-test-hooks.js') continue;
       if (!re.test(fs.readFileSync(path.join(ROOT, rel), 'utf8'))) continue;
       if (/^test\/[^/]+_cmd\.js$/.test(rel)) { if (!EXCLUDED[e.name]) suites.push(e.name); } else if (!/^test\/t_[^/]+\.js$/.test(rel)) outside.push(rel);

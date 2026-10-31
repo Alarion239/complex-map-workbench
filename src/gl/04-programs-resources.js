@@ -101,6 +101,9 @@
     // TEMP-DEBUG-HOOK
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
+    // (#366 F: the steps view's carried colour, CARRY_VS)
+    carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
+    carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
     // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
     cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },
@@ -294,6 +297,36 @@ float wabs(vec2 w) {
       getProg(q.name, cur, true, { mode: q.mode });
       n++;
     }
+    return n;
+  }
+  // ((#366 prototype) the steps view's glide: the current chain's programs by name and map mode, started in the
+  // background (KHR_parallel_shader_compile) so the first glide finds them linked: the region meshes, the lines, their
+  // transform feedback, the colour plot and the pull-backs, in modes 0 (a plane) and 1 (a step's homotopy))
+  // (without the extension a link blocks: perf's suggestion on #448, they are linked one at a time in idle time
+  // instead, so the block lands before the first glide rather than in it)
+  function prestartNames(names, modes) {
+    if (!ok || lost || sideMode || !cur.info) return 0;
+    if (!pcExt) {
+      const todo = [];
+      for (const name of names) for (const m of modes) if (DEFS[name]) todo.push([name, m]);
+      const key = cur.key, idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 2000 }) : (f) => setTimeout(f, 50);
+      const next = () => {
+        if (!ok || lost || sideMode || cur.key !== key || !todo.length) return;
+        const [name, m] = todo.shift();
+        if (!progs.has(progId(name, cur, { mode: m }))) { try { getProg(name, cur, true, { mode: m }); } catch (e) { /* (a program this build has not) */ } }
+        idle(next);
+      };
+      idle(next);
+      return todo.length;
+    }
+    let n = 0;
+    for (const name of names) for (const m of modes) {
+      if (!DEFS[name]) continue;
+      const id = progId(name, cur, { mode: m });
+      if (progs.has(id)) continue;
+      try { getProg(name, cur, true, { mode: m }); n++; } catch (e) { /* (a program this build has not) */ }
+    }
+    if (n) schedulePoll();
     return n;
   }
   // (issue #72) the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
@@ -880,16 +913,27 @@ float wabs(vec2 w) {
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
       data[o + pc + 4] = d.tri[t];
     }
-    const buf = makeBuf(data);
+    // ((#366 prototype) d.dynamic: the data kept, for updatePreMesh to move its vertices frame by frame)
+    const buf = makeBuf(data, d.dynamic ? gl.DYNAMIC_DRAW : undefined);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
     gl.bindVertexArray(null);
-    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
+    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [], data: d.dynamic ? data : null, stride };
     preAll.set(res, true); preBytes += res.bytes;
     for (const [r] of preAll) { if (preBytes <= PRE_BYTES) break; if (r !== res) destroy(r); }
     return res;
+  }
+  // ((#366 prototype) a flat dynamic mesh's vertices moved: pos as createPreMesh's (2 per vertex, 6 per triangle), the
+  // other attributes kept; one upload, no new buffer)
+  function updatePreMesh(res, pos) {
+    if (!ok || !res || !res.data || res.sph || !res.n) return false;
+    const D = res.data, st = res.stride, nv = res.count;
+    for (let v = 0; v < nv; v++) { D[v * st] = pos[2 * v]; D[v * st + 1] = pos[2 * v + 1]; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
+    return true;
   }
   // st: {view, dpr, color, color2, edge, ink, alpha, pattern, cell, lines, sphN, stretch, sphere: {MVP, eye},
   //      scissor [x, y, w, h] (device px of the pane, bottom-left origin),

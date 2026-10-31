@@ -221,6 +221,51 @@ artifact.
   predicate where the check's name covers more than the bug), are printed in the summary and do not fail the job.
   Fix the app, and remove the entry.
 
+### Layout invariants and visual inspection (#470)
+
+**`test/layout_invariants_cmd.js`** checks the page's boxes with no one looking, through `test/lib/layout.js`:
+- no two visible controls or text boxes overlap, except across a layer meant to sit on top (a menu, a sheet, the tour);
+- the topmost element at each control's centre is that control;
+- the boxes declared centred are centred, within 1 px;
+- no text is cut by a box that can't scroll, except a declared ellipsis;
+- no horizontal page scroll, and nothing visible is cut by the viewport's edge;
+- targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
+- a control focused from the keyboard shows it, and its ring isn't cut;
+- the rows declared even are evenly spaced.
+
+It runs over the matrix of `test/lib/layout_matrix.js`:
+- **sizes:** phones 360, 390 and 412 portrait, 740×360 and 915×412 landscape; desktops 1024, 1280 and 1440;
+- **themes:** light and dark;
+- **views:** the classic view, and `?view=steps` where the build has it;
+- **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
+  sheets.
+
+There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
+boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
+its first point (`shots/`, kept in the job's artifact although the suite passes: `keepShots` in `ci/browser_suites.js`).
+- **Report mode** (now): it passes, and the report is triaged on #470.
+- **The gate** (`mode: 'gate'`): a row whose key `ci/layout_baseline.json` lacks for its run fails. The rows only go
+  down, as with the lint ratchet: `node ci/layout_ratchet.js check|update .ci/browser/layout_invariants_cmd.js_<run>.json`
+  checks or lowers the baseline (`--init` wrote the first). The points a row is seen at are reported, not gated: on
+  software GL they vary by one or two from run to run.
+- **The design intent** is declared in `INTENT` (`test/lib/layout.js`) or on the element: `data-layer` (sits on top),
+  `data-center="x|y|both"`, `data-ellipsis`.
+- **The violations that are meant** are declared in the suite's `DECLARED`, each with its reason.
+- **One state by hand:** `LAYOUT_CFG` in a preamble narrows the matrix, e.g.
+  `const LAYOUT_CFG = { langs: ['en'], views: ['classic'], sizes: ['390'], states: ['sheet edit'] };`.
+
+**`tools/inspect.js`** renders two builds over the same matrix and writes an HTML gallery. Each point shows the base and
+the head side by side with their difference, the share of pixels that changed, and the checks' results: new at the
+head, gone, or kept.
+- **Cloud sandbox:** use the sandbox's settings (above).
+- **Alexander's Mac:** use Chrome with the real GPU (ANGLE Metal). This is the one command:
+
+```sh
+npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head origin/<the PR's branch>
+# --full for every language and size; --sizes 390,1280 --states 'start,sheet edit' --langs ru to narrow it
+# the gallery: .ci/inspect/<base>-<head>/index.html (publish it as a private Artifact; never commit the pictures)
+```
+
 ## Reading the results
 
 Open the run (*Actions*, or the checks of a pull request), then a job: its **summary** lists every metric that got
@@ -259,10 +304,45 @@ node ci/glprof.js                                  # shader link times, cold and
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
+CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```
+
+### In a cloud sandbox (a Claude Code session on the web)
+
+The sandbox has no `google-chrome` and no route to the CDNs, and its GL is software only. What works there:
+
+```sh
+export CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome | head -1)   # Playwright's Chromium; the browser suites look for google-chrome
+export CMW_ANGLE=swiftshader CMW_CHROME_ARGS="--no-sandbox"                              # CPU rendering; no Vulkan flags
+node ci/browser.js --only '^key_popup_cmd' --port 9950                                   # a suite; --no-build skips build.py
+CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'                                # the same with MathJax and the faces from vendor/ (no CDN here; see "No network" below)
+node ci/snapshots.js && node ci/unit.js                                                  # unit tests (see the clone note below)
+npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
+```
+
+- **Do not use CI's Vulkan flags** (`--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`, `CMW_ANGLE=vulkan`) here: Chrome then has no WebGL, the colour keys are hidden and every picture is blank. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
+- **A shallow clone** lacks the old commits that `ci/snapshots.js` restores. It fetches them, and the six tests that read the snapshots fail with a line saying what is missing (never skip).
+- **Keep your own scripts' output out of the repository:** screenshots and measurements go to a scratch folder (a script run from the repository's root once left a `shots/` folder in it).
+- **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
+
+**Failures that happen in a sandbox and not in CI** (as reported on the PRs; check one on `main` before you suspect your change):
+- **No network, so no MathJax or faces from their CDNs:** formulas stay raw TeX, and the typeset checks fail. **`CMW_VENDOR=1`** (#457, below) makes the suites get MathJax, jsPDF and the fonts from `vendor/` (the fonts from `vendor/LOCK.json`'s faces) and passes everything else through. It fixes `custom_show_cmd` (`show: typeset`, `show: whole, at 70 %`) and takes `tour_cmd` from 81–84 to 89 of 95 checks, as tiers measured on #457 (SwiftShader, no CDN). It does not fix the timing and software-GL failures below. `seasong_cmd`'s `net::ERR_TUNNEL_CONNECTION_FAILED` console errors (reported on #319) were not part of #457's measurements.
+- **Timing, on a shared CPU with software GL:** `t_constr`'s speed checks (`perpForm`, `touchForm` and `tangentForm`), the frame-count checks in `sound_cmd`, and `land_release_cmd`'s "leaving Landscape frees the refinement".
+- **The tour suites:** `tour_auto_cmd`, `tour_cmd` and `ux165_learn_cmd` failed on `main` in a sandbox while CI ran them green (with `CMW_VENDOR=1` `tour_cmd` passes 89 of 95, and `tour_auto`, `ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail on timing and software GL, as tiers measured on #457); `ux165_learn_cmd` has thrown `Cannot read properties of null (reading 'l')` and failed with other checks on different runs. `repeat_cmd`'s "Write by zeros and poles" failed in one container and passed in another with the flags above.
+
+**No network (#444).** The test page loads MathJax, the PDF library and the Google Fonts from their CDNs, as the live
+page does. On a machine with no route to them (a cloud sandbox), formulas stay raw TeX and the checks that read typeset
+output fail. `CMW_VENDOR=1` makes the browser daemon (test/cdp_kit/cdpd.js) answer exactly those CDN files from
+`vendor/` (test/cdp_kit/vendor.js; the fonts as @font-face rules over the vendored faces, as the offline page has them)
+and lets every other request through. It is opt-in and never set in CI, which keeps testing the CDN path;
+test/t_vendor_serve.js checks that every CDN URL in src/ and build.py is answered. What it does not fix: in a sandbox
+with SwiftShader (no Vulkan/lavapipe, the CI's GL), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
+holes, the welcome, the palette's Try line are typeset checks) and `custom_show_cmd` passes, but `tour_auto`,
+`ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail there on timing and software-GL
+checks that pass in CI (30 Oct, f4e601a).
 
 ### The Landscape walls suite, by hand
 
@@ -315,4 +395,7 @@ Settings (environment variables):
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js/cyr.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
+| `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
+| `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
+| `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
 | `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |

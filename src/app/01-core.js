@@ -253,6 +253,8 @@
       exactImages: true,
       // v15: the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
+      // (S.sv, the steps view's {at, T, scope, surf, speed} (#366): absent until ?view=steps writes it, so the default
+      // view's saves are the same bytes as before; sanitizeState repairs it, Views.cleanSv)
     };
   }
   // target colors skip c4 (magenta), the palette ink nearest the pole color: roots must not read as poles
@@ -274,11 +276,13 @@
   let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
   // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
-  const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy() });
-  function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); } }
+  // (the steps view's place rides the entry like the focus: moving between planes is not an undo step, undo returns to the place it left)
+  const svCopy = () => { if (typeof svStore === 'function') svStore(); return S.sv ? JSON.parse(JSON.stringify(S.sv)) : null; };
+  const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy(), sv: svCopy() });
+  function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); hist[hi].sv = svCopy(); } }
   function commit() {
     const e = snap();
-    if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; return; }
+    if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; hist[hi].sv = e.sv; return; }
     hist = hist.slice(0, hi + 1);
     hist.push(e);
     if (hist.length > 200) hist.shift();
@@ -303,6 +307,8 @@
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     setFocusStep(f);
     if (e.range && typeof e.range === 'object') setOpt('homRange', JSON.parse(JSON.stringify(e.range))); else deleteOpt('homRange');
+    if (e.sv && typeof e.sv === 'object') setOpt('sv', Views.cleanSv(e.sv, svPlanesOf(S.steps))); else if (e.sv === null) deleteOpt('sv');
+    if (typeof svRestored === 'function') svRestored();
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
@@ -432,7 +438,7 @@
   // which of Undo and Redo is running: every way in (the buttons, the keys, the phone's Undo, a toast) clicks #undoBtn or
   // #redoBtn, so a capturing listener notes it before their own listeners restore an entry, and it is cleared after them
   let histDir = '';
-  document.addEventListener('click', (e) => { const b = e.target && e.target.closest ? e.target.closest('#undoBtn, #redoBtn') : null; histDir = b ? b.id : ''; }, true);
+  document.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const b = tg && tg.closest ? tg.closest('#undoBtn, #redoBtn') : null; histDir = b ? b.id : ''; }, true);
   document.addEventListener('click', () => { histDir = ''; });
   // restore() ends here: an undo or a redo says what it did
   function histSay() {
@@ -442,8 +448,8 @@
     else if (d === 'redoBtn' && hi > 0) histToast(histWhat(hist[hi - 1], hist[hi]), false);
   }
   // the Undo and Redo tooltips name the action, set when the pointer or the keyboard reaches them
-  document.addEventListener('pointerover', (e) => { const b = e.target && e.target.closest ? e.target.closest('#undoBtn, #redoBtn') : null; if (b) undoTip(b.id === 'undoBtn'); });
-  document.addEventListener('focusin', (e) => { if (e.target && (e.target.id === 'undoBtn' || e.target.id === 'redoBtn')) undoTip(e.target.id === 'undoBtn'); });
+  document.addEventListener('pointerover', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const b = tg && tg.closest ? tg.closest('#undoBtn, #redoBtn') : null; if (b) undoTip(b.id === 'undoBtn'); });
+  document.addEventListener('focusin', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg && (tg.id === 'undoBtn' || tg.id === 'redoBtn')) undoTip(tg.id === 'undoBtn'); });
   // the toast after an undo or a redo: what it did, and the way back (Redo is visible on a phone too)
   function histToast(what, undo) {
     const at = hi;
@@ -471,6 +477,7 @@
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
     if (S.homRange) HR.resolve(S, true);   // (v16: the bracket's indices current, SPEC 7)
+    if (typeof svStore === 'function') svStore();   // (#366: the steps view's place)
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
@@ -519,6 +526,8 @@
     const t = Region.defaultsFor(s.kind, C(0, 0), C(1, 1));
     return Object.keys(t).every((k) => (Array.isArray(t[k]) ? isXY(s[k]) : isNum(s[k])));
   }
+  // the stages of the chain's planes, z and the active steps (the steps view's positions, Views.cleanSv)
+  const svPlanesOf = (steps) => [0].concat(steps.map((st, i) => (st.on !== false ? i + 1 : 0)).filter(Boolean));
   function sanitizeState(o) {
     if (!o || typeof o !== 'object' || !Array.isArray(o.shapes) || !Array.isArray(o.steps)) return null;
     if (!o.v3) { o.meshN = 240; o.v3 = true; }
@@ -617,6 +626,7 @@
     st.sheets = !!st.sheets;
     st.exactImages = st.exactImages !== false;
     st.params = Params.sanitize(o.params);
+    { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }   // (#366)
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
     st.v5 = true;
     if (!PATTERNS.some((p) => p[0] === st.pattern)) st.pattern = d0.pattern;
@@ -771,7 +781,8 @@
   const activeSteps = () => S.steps.map((_, i) => i + 1).filter((k) => stepActive(k));
   // a focused d/dz step differentiates a function of z: its input plane is the z-plane
   const focusDeriv = () => S.focus > 0 && isDeriv(S.focus);
-  const leftStage = () => (S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
+  // ((#366 prototype) the steps view shows one plane of the chain: its stage, 19)
+  const leftStage = () => (SV.on ? svStage(Math.round(SV.g.x)) : S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
   // ([#383] while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
   // exports, its variable's name, its overlays; trans.at is -1 except then, 08)
   const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
@@ -800,13 +811,13 @@
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
   // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
   // pane of the split view (S.solo) or null
-  const solo = () => Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null);
+  const solo = () => (SV.on ? 'L' : Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null));
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)
   const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
-  const focusF = () => (S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
+  const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)
