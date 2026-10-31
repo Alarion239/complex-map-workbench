@@ -73,9 +73,12 @@
     const pending = new Set();
     // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one
     // not yet loaded throws with e.retry, a promise. Its nodes show the fallback and are set again when it settles,
-    // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the TeX source)
+    // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the TeX source). MathJax
+    // throws only for the first formula that asks for a range still loading: another one with a letter of it comes
+    // back with that letter as <text> in a system font, so while a range loads (loading) such a result waits too
     const RETRIES = 8;
     const waiting = new Map();   // key -> {nodes, tries, wait}
+    const loading = new Set();   // the retry promises not settled yet
     const fallback = (node, tex) => { node.innerHTML = ''; node.append(h('span', { class: 'tex-fallback' }, tex)); };
     function paint(node, tex, display) {
       if (!ready) {
@@ -88,9 +91,16 @@
       if (html === undefined) {
         const w = waiting.get(key);
         if (w && w.wait) { w.nodes.add(node); fallback(node, tex); return; }
-        try { html = MathJax.tex2svg(I18N.notation(tex), { display }).outerHTML; } catch (e) {
+        let retry = null;
+        try {
+          const out = MathJax.tex2svg(I18N.notation(tex), { display });
+          if (loading.size && out.querySelector('text')) { html = null; retry = Promise.all([...loading]); } else html = out.outerHTML;
+        } catch (e) {
           html = null;
-          if (e && e.retry && (!w || w.tries < RETRIES)) {
+          if (e && e.retry) { retry = e.retry; loading.add(retry); const done = () => loading.delete(e.retry); retry.then(done, done); }
+        }
+        if (html === null) {
+          if (retry && (!w || w.tries < RETRIES)) {
             const job = w || { nodes: new Set(), tries: 0, wait: false };
             job.tries++; job.wait = true; job.nodes.add(node);
             waiting.set(key, job);
@@ -101,7 +111,7 @@
               for (const n of nodes) if (n.isConnected && n.dataset.tex === tex) { delete n.dataset.rd; set(n, tex, display); }
               if (cache.has(key)) waiting.delete(key);
             };
-            e.retry.then(again, again);
+            retry.then(again, again);
             fallback(node, tex);
             return;
           }

@@ -27,7 +27,9 @@
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
   // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. The composer typesets synchronously, so it notes the promise, sets
-  // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again
+  // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again.
+  // MathJax throws only for the first formula that asks for a range still loading: another one with a letter of it
+  // comes back with that letter as <text> in a system font, so while the pass waits such a result is not kept either
   XD.waits = [];
   // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
   XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
@@ -59,6 +61,7 @@
     try {
       const node = window.MathJax.tex2svg(tex, { display: false });
       const svg = node.querySelector('svg');
+      if (XD.waits.length && svg.querySelector('text')) return { inner: '', glyphs: [], w: 0, a: 0, d: 0, vb0: 0, k: pt / 1000, tex, pt, color };
       const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
       const glyphs = [];
       svg.querySelectorAll('defs path[id]').forEach((p) => glyphs.push([p.id.replace(/^MJX-\d+-/, ''), p.getAttribute('d')]));
