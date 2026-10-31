@@ -3,6 +3,8 @@
   function phoneApi() {
     return {
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
+      // (the steps view's surface, for the plane's Sphere key: null outside the steps view)
+      svSphere: () => svSphereKey(), svOnSphere: () => (SV.on ? SV.surf === 'sphere' : null),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
       // (v15.1, build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's

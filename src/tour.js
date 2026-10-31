@@ -520,25 +520,97 @@ const Tour = (() => {
     return out;
   }
   // TeX -> readable text (screen readers, and the page before MathJax has loaded)
-  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', n: 'ⁿ', z: 'ᶻ', i: 'ⁱ', '-': '⁻', '+': '⁺' };
-  const SUBS = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', k: 'ₖ', n: 'ₙ', t: 'ₜ', i: 'ᵢ' };
+  // ([#465] the modifier signs and letters the page's faces have (vendor/LOCK.json, t_vendor): u_{k+1} is uₖ₊₁, z^{-n} is
+  // z⁻ⁿ; texPlain writes the others as text)
+  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', n: 'ⁿ', z: 'ᶻ', i: 'ⁱ', '-': '⁻', '+': '⁺', '−': '⁻', '(': '⁽', ')': '⁾', j: 'ʲ', k: 'ᵏ', N: 'ᴺ' };
+  const SUBS = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', k: 'ₖ', n: 'ₙ', t: 'ₜ', i: 'ᵢ', '+': '₊', '-': '₋', '−': '₋', '(': '₍', ')': '₎', j: 'ⱼ' };
+  // ([#465] a TeX command is read, never shown by its name: a style or a size is dropped (\displaystyle, \left, \bigl),
+  // a letter or a sign is its character (\rho, \dots, \cdot), a function's name stays a name (sin, Res), \frac{a}{b} is
+  // (a)/(b) at any depth, and any other command keeps only its argument. The characters are the faces' (t_vendor): a
+  // sign they lack is written in ASCII (\langle is <, \cup is U))
+  const TEX_SIGNS = {
+    alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ϵ', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', varrho: 'ϱ', sigma: 'σ', varsigma: 'ς', tau: 'τ', upsilon: 'υ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+    Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+    sum: 'Σ', prod: '∏', int: '∫', oint: '∮', infty: '∞', partial: '∂', ell: 'ℓ', prime: '′', circ: '∘', cdot: '·', times: '×', ast: '*', star: '*', dagger: '†',
+    dots: '…', ldots: '…', cdots: '…', dotsc: '…', dotsb: '…', vdots: '…',
+    neq: '≠', ne: '≠', le: '≤', leq: '≤', leqslant: '≤', ge: '≥', geq: '≥', geqslant: '≥', approx: '≈', sim: '~', equiv: '=', propto: '∝', pm: '±', mp: '∓',
+    to: '→', rightarrow: '→', leftarrow: '←', mapsto: '↦', Rightarrow: '=>', Leftrightarrow: '<=>', iff: '<=>', implies: '=>',
+    in: '∈', notin: '∉', subset: '⊂', subseteq: '⊂', cap: '∩', cup: 'U', setminus: '∖', neg: '¬', lnot: '¬', oplus: '⊕', perp: '⊥', angle: '∠',
+    lfloor: '⌊', rfloor: '⌋', lceil: '[', rceil: ']', langle: '<', rangle: '>', lvert: '|', rvert: '|', vert: '|', mid: '|', lVert: '‖', rVert: '‖', Vert: '‖',
+    quad: ' ', qquad: ' ', enspace: ' ', thinspace: ' ', medspace: ' ', thickspace: ' ',
+  };
+  const TEX_NAMES = new Set(['Re', 'Im', 'arg', 'Arg', 'log', 'Log', 'ln', 'exp', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'coth', 'arcsin', 'arccos', 'arctan', 'Res', 'det', 'deg', 'dim', 'gcd', 'max', 'min', 'sup', 'inf', 'lim', 'liminf', 'limsup', 'sgn', 'ker', 'mod', 'bmod', 'pmod']);
+  const TEX_DROP = new Set(['displaystyle', 'textstyle', 'scriptstyle', 'scriptscriptstyle', 'left', 'right', 'middle', 'big', 'Big', 'bigg', 'Bigg', 'bigl', 'bigr', 'Bigl', 'Bigr', 'biggl', 'biggr', 'Biggl', 'Biggr', 'limits', 'nolimits', 'mathstrut', 'strut', 'nonumber', 'notag']);
+  // a command's argument at i: a balanced group (its inside) or one token
+  function texArg(s, i) {
+    while (s[i] === ' ') i++;
+    if (s[i] === '{') {
+      for (let j = i, d = 0; j < s.length; j++) {
+        if (s[j] === '\\') { j++; continue; }
+        if (s[j] === '{') d++; else if (s[j] === '}' && --d === 0) return { v: s.slice(i + 1, j), end: j + 1 };
+      }
+      return { v: s.slice(i + 1), end: s.length };
+    }
+    const m = /^\\(?:[a-zA-Z]+|.)|^[^\s}]/.exec(s.slice(i));
+    return m ? { v: m[0], end: i + m[0].length } : null;
+  }
+  // the commands read (the scripts and the signs \{ \, are read after). A name (Im, log, an \operatorname) is set off
+  // by U+0003 marks, so two names written together keep a space between them (\operatorname{Im}\log z: "Im log z",
+  // not "Imlog z"); the marks are resolved once the names are read
+  function texCmds(s) {
+    const wrap = (x) => (/^\w+$/.test(x) ? x : '(' + x + ')');
+    let out = '';
+    for (let i = 0; i < s.length;) {
+      if (s[i] !== '\\') { out += s[i++]; continue; }
+      const m = /^\\([a-zA-Z]+)\*?/.exec(s.slice(i));
+      if (!m) { out += s.slice(i, i + 2); i += 2; continue; }
+      const w = m[1], j = i + m[0].length, a = texArg(s, j);
+      if (/^[dtc]?frac$/.test(w) && a) {
+        const b = texArg(s, a.end);
+        if (b) { out += `${wrap(texCmds(a.v))}/${wrap(texCmds(b.v))}`; i = b.end; continue; }
+      }
+      if (w === 'binom' && a) {
+        const b = texArg(s, a.end);
+        if (b) { out += `C(${texCmds(a.v)}, ${texCmds(b.v)})`; i = b.end; continue; }
+      }
+      if (w === 'sqrt') {
+        const n = /^\s*\[([^\]]*)\]/.exec(s.slice(j)), r = texArg(s, n ? j + n[0].length : j);
+        if (r) { out += n ? `${wrap(texCmds(r.v))}^{1/${n[1]}}` : `√${wrap(texCmds(r.v))}`; i = r.end; continue; }
+      }
+      // (\left. and \right. size nothing: the dot goes too)
+      if (TEX_DROP.has(w)) { const dot = /^(?:left|right|middle)$/.test(w) && /^\s*\./.exec(s.slice(j)); i = dot ? j + dot[0].length : j; continue; }
+      if (TEX_SIGNS[w] != null) { out += TEX_SIGNS[w]; i = j; continue; }
+      if (TEX_NAMES.has(w)) { out += '\u0003' + w + '\u0003'; i = j; continue; }
+      if (a && (s[j] === '{' || /^(?:bar|overline|hat|tilde|vec|dot|mathbb|mathrm|mathbf|mathcal|boldsymbol)$/.test(w))) {
+        // (any other command keeps its argument: \text{…} is its words, \operatorname{Res} a name, \mathbb{C} is ℂ, a
+        // bar is the conjugate: z̄, pⱼ*)
+        const v = texCmds(a.v);
+        out += w === 'operatorname' ? '\u0003' + v + '\u0003' : w === 'mathbb' && (v === 'C' || v === 'Z') ? (v === 'C' ? 'ℂ' : 'ℤ') : w === 'overline' || w === 'bar' ? (/^\p{L}$/u.test(v) ? v + '̄' : wrap(v) + '*') : v;
+        i = a.end; continue;
+      }
+      i = j;   // (a command without an argument that this reader does not know: nothing)
+    }
+    return out;
+  }
   function texPlain(src) {
-    let s = String(src);
-    const grp = '\\{((?:[^{}]|\\{[^{}]*\\})*)\\}';
-    for (let k = 0; k < 3; k++) s = s.replace(new RegExp('\\\\[dt]?frac' + grp + grp, 'g'), (m, a, b) => `${/^\w+$/.test(a) ? a : '(' + a + ')'}/${/^\w+$/.test(b) ? b : '(' + b + ')'}`);
-    // a name (Im, log, an \operatorname) is set off by U+0003 marks, so two names written together keep a space
-    // between them (\operatorname{Im}\log z: "Im log z", not "Imlog z"); the marks are resolved once the names are read
-    s = s.replace(/\\operatorname\{(\w+)\}/g, '\u0003$1\u0003').replace(/\\(Re|Im|arg|log|sin|cos|exp)\b/g, '\u0003$1\u0003');
-    const WORDS = { pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', zeta: 'ζ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉', Phi: 'Φ', phi: 'φ', varphi: 'φ' };
-    s = s.replace(/\\([a-zA-Z]+)/g, (m, w) => (WORDS[w] != null ? WORDS[w] : '\u0003' + w + '\u0003'));
+    let s = texCmds(String(src).replace(/\\\\/g, ' ').replace(/~/g, ' '));
     // a name's mark becomes a space between two letters (Im|log, i|Res), else nothing (sin|(z), log| z, Res|_i)
     s = s.replace(/\u0003+/g, (m, at, all) => (/\p{L}/u.test(all[at - 1] || '') && /\p{L}/u.test(all[at + m.length] || '') ? ' ' : ''));
     // escaped braces are set braces (kept); the others only group
     s = s.replace(/\\\{/g, '\u0001').replace(/\\\}/g, '\u0002');
     s = s.replace(/\\[,;!:]/g, ' ').replace(/\\ /g, ' ');
     const conv = (str, map) => ([...str].every((c) => map[c] != null) ? [...str].map((c) => map[c]).join('') : null);
-    s = s.replace(/\^\{([^{}]*)\}|\^(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUP) || '^(' + v + ')'; });
-    s = s.replace(/_\{([^{}]*)\}|_(\S)/g, (m, a, b) => { const v = a != null ? a : b; return conv(v, SUBS) || '_' + v; });
+    // ([#465] a degree, ^\circ, is the degree sign)
+    s = s.replace(/\^\{?∘\}?/g, '°');
+    // (a single sign first, so a script inside braces is read before its group: z^{2^n} is z^(2ⁿ); what has no modifier
+    // form is written in parentheses, as plain text writes it: ^(∞); a lone index without one follows its letter: Φ_M is ΦM)
+    s = s.replace(/\^([^\s{(])/g, (m, a) => conv(a, SUP) || m).replace(/_([^\s{(])/g, (m, a) => conv(a, SUBS) || m);
+    // ([#465] the innermost group first, so a script inside a script is read before the one around it: e^{w_{1}} is
+    // e^(w₁), not e^()w₁)
+    const sup = (v) => conv(v, SUP) || '^(' + v + ')', subs = (v) => conv(v, SUBS) || ([...v].length === 1 ? v : '_(' + v + ')');
+    for (let k = 0, t = ''; k < 4 && t !== s; k++) { t = s; s = s.replace(/\^\{([^{}]*)\}/g, (m, v) => sup(v)).replace(/_\{([^{}]*)\}/g, (m, v) => subs(v)); }
+    // (a bare ^( or _( stays: it is already text, a script written in parentheses)
+    s = s.replace(/\^([^\s{(])/g, (m, v) => sup(v)).replace(/_([^\s{(])/g, (m, v) => subs(v));
     s = s.replace(/[{}]/g, '').replace(/\u0001/g, '{').replace(/\u0002/g, '}');
     return s.replace(/\s*([<>=≠≤≥])\s*/g, ' $1 ').replace(/± (?=\w)/g, '±').replace(/\s+/g, ' ').trim();
   }

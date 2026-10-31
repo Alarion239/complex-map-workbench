@@ -51,7 +51,9 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   read from the diff (#385); a changed line outside every hook, a hook something other than the browser suites and
   unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. `init()`
   (`20-init.js`) keeps only the start-up: an area's wiring is in that area's part (`19-shell.js` the header, menus and
-  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). Every GLSL page whose inputs
+  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). A row can also
+  select by the diff's lines: `src/page.html`'s export dialog CSS (`.xf-…`, `.modal.xf`, `#xf…`) runs the export shards
+  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -221,6 +223,51 @@ artifact.
   predicate where the check's name covers more than the bug), are printed in the summary and do not fail the job.
   Fix the app, and remove the entry.
 
+### Layout invariants and visual inspection (#470)
+
+**`test/layout_invariants_cmd.js`** checks the page's boxes with no one looking, through `test/lib/layout.js`:
+- no two visible controls or text boxes overlap, except across a layer meant to sit on top (a menu, a sheet, the tour);
+- the topmost element at each control's centre is that control;
+- the boxes declared centred are centred, within 1 px;
+- no text is cut by a box that can't scroll, except a declared ellipsis;
+- no horizontal page scroll, and nothing visible is cut by the viewport's edge;
+- targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
+- a control focused from the keyboard shows it, and its ring isn't cut;
+- the rows declared even are evenly spaced.
+
+It runs over the matrix of `test/lib/layout_matrix.js`:
+- **sizes:** phones 360, 390 and 412 portrait, 740×360 and 915×412 landscape; desktops 1024, 1280 and 1440;
+- **themes:** light and dark;
+- **views:** the classic view, and `?view=steps` where the build has it;
+- **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
+  sheets.
+
+There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
+boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
+its first point (`shots/`, kept in the job's artifact although the suite passes: `keepShots` in `ci/browser_suites.js`).
+- **Report mode** (now): it passes, and the report is triaged on #470.
+- **The gate** (`mode: 'gate'`): a row whose key `ci/layout_baseline.json` lacks for its run fails. The rows only go
+  down, as with the lint ratchet: `node ci/layout_ratchet.js check|update .ci/browser/layout_invariants_cmd.js_<run>.json`
+  checks or lowers the baseline (`--init` wrote the first). The points a row is seen at are reported, not gated: on
+  software GL they vary by one or two from run to run.
+- **The design intent** is declared in `INTENT` (`test/lib/layout.js`) or on the element: `data-layer` (sits on top),
+  `data-center="x|y|both"`, `data-ellipsis`.
+- **The violations that are meant** are declared in the suite's `DECLARED`, each with its reason.
+- **One state by hand:** `LAYOUT_CFG` in a preamble narrows the matrix, e.g.
+  `const LAYOUT_CFG = { langs: ['en'], views: ['classic'], sizes: ['390'], states: ['sheet edit'] };`.
+
+**`tools/inspect.js`** renders two builds over the same matrix and writes an HTML gallery. Each point shows the base and
+the head side by side with their difference, the share of pixels that changed, and the checks' results: new at the
+head, gone, or kept.
+- **Cloud sandbox:** use the sandbox's settings (above).
+- **Alexander's Mac:** use Chrome with the real GPU (ANGLE Metal). This is the one command:
+
+```sh
+npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head origin/<the PR's branch>
+# --full for every language and size; --sizes 390,1280 --states 'start,sheet edit' --langs ru to narrow it
+# the gallery: .ci/inspect/<base>-<head>/index.html (publish it as a private Artifact; never commit the pictures)
+```
+
 ## Reading the results
 
 Open the run (*Actions*, or the checks of a pull request), then a job: its **summary** lists every metric that got
@@ -350,4 +397,7 @@ Settings (environment variables):
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
+| `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
+| `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
+| `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
 | `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |

@@ -198,6 +198,7 @@
   // a full search of the left view at w (bounded to about ms), merged into the tracked roots
   function hoverSearch(w, ms) {
     const box = paneBox(paneL, leftView()), size = Math.max(box.x1 - box.x0, box.y1 - box.y0);
+    /** @type {ZeroPoleList} */
     let sols = [];
     try { sols = zerosPolesTimed(focusF(), box, { target: { re: w.re, im: w.im }, max: 24 }, ms); } catch (e) { sols = []; sols.incomplete = true; }
     const found = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z)).map((r) => ({ z: r.z, mult: r.mult || 1 }));
@@ -349,10 +350,11 @@
       const ms = Math.max(40, Math.min(200, 600 / Math.max(1, nPts)));
       for (const s of S.targets) {
         if (s.visible === false || s.kind !== 'point') continue;
+        /** @type {ZeroPoleList} */
         let sols = [];
         try { sols = zerosPolesTimed(F, box, { target: { re: s.p[0], im: s.p[1] }, max: 40 }, ms); } catch (e) { err = e.message || String(e); sols = []; sols.incomplete = true; }
         // (filter returns a new array: keep the solver's flags for a capped or unfinished search)
-        const f = sols.filter((r) => r && r.z && CX.isFin(r.z));
+        const f = /** @type {ZeroPoleList} */ (sols.filter((r) => r && r.z && CX.isFin(r.z)));
         f.truncated = !!sols.truncated; f.incomplete = !!sols.incomplete;
         out.push({ s, sols: f });
       }
@@ -639,7 +641,7 @@
         hit: (x, y, r) => { if (!lFlat() || !zpStep()) return null; const m = zpHit(x, y, r); return m ? { k: m.k, kind: m.kind, i: m.i } : null; },
         field: (k, kind, i) => [...document.querySelectorAll(`[data-k="${k}"] input[data-zp="${kind}:${i}"]`)].find((el) => el.getClientRects().length > 0) || null,
         // (the fields are the Inspector's: Edit opens step k there, the temporary Inspector when the panel is hidden)
-        edit(k, kind, i) { inspectStep(k); const el = this.field(k, kind, i); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
+        edit(k, kind, i) { inspectStep(k); const el = /** @type {HTMLInputElement | null} */ (this.field(k, kind, i)); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
       },
       cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
       // step k in the Inspector (v15: a click on its card does the same)

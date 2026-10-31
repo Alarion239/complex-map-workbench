@@ -19,13 +19,14 @@ const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) 
 const W = (side, re, im) => ev(`__cmwW2S('${side}', ${re}, ${im})`);
 const snd = () => ev('__cmwSound()');
 const count = (list, name) => list.filter((x) => x === name).length;
-// cues made (names) and the voice's set() calls ([time, arg in turns or ln|F|, ln|F|]); both cleared on read
+// cues made (names) and the voice's set() calls ([time, arg in turns or ln|F|, ln|F|, the transport's t then]); both
+// cleared on read
 const spy = () => ev(`(() => {
   window.__made = []; window.__vset = [];
   for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; }
   // (v16.5, Hear the function, SOUND-PLAN 2.3: the harp, the tone and the Height voice are retired; F at the probe goes
   // to Sound.hear's seat / step / cut / pathless, one call per update, [time, arg in turns, ln|F|])
-  const hw = (fn) => function (s) { __vset.push([performance.now(), s && s.phi, s && s.ln]); return fn.apply(this, arguments); };
+  const hw = (fn) => function (s) { __vset.push([performance.now(), s && s.phi, s && s.ln, __cmwState().morph.T]); return fn.apply(this, arguments); };
   if (!Sound.hear.__w) { for (const k of ['seat', 'step', 'cut', 'pathless']) Sound.hear[k] = hw(Sound.hear[k]); Sound.hear.__w = 1; }
   return 1; })()`);
 // made cues, the updates, and the notes since the last take (Sound.hear.state().counts run since load): up and down
@@ -37,14 +38,19 @@ const wantDs = (f0, d) => Math.floor(f0 + d) - Math.floor(f0);
 const wantLines = (f0, d) => Math.floor(12 * (f0 + d) + 1e-9) - Math.floor(12 * f0 + 1e-9);
 // frames while something runs: rAF times, and the transport's t at each
 const frames = (ms) => ev(`await new Promise((res) => { const t = [], T = [], t0 = performance.now(); const f = () => { t.push(performance.now()); T.push(__cmwState().morph.T); if (performance.now() - t0 < ${ms}) requestAnimationFrame(f); else res({ t, T }); }; requestAnimationFrame(f); })`, ms + 20000);
-// every frame in which t moved has a voice update in the frame after it (set() calls between successive frames)
+// every frame in which t moved has a voice update of its own: a set() call made at that frame's t (the probe reads
+// the transport's t as it is when the engine is told, so a t is voiced only while it is the transport's). A set belongs
+// to its frame by the t it carries, not by when it ran: the app's re-track and this test's frame callback are both
+// requestAnimationFrame callbacks, and their order within a frame is not fixed (wave 12's gate, #502: one set ran just
+// before this test's callback in its frame, and a window between this test's frame times counted it in the frame
+// before)
 const perFrame = (fr, vset) => {
   let moved = 0, missed = 0, changed = 0;
-  for (let i = 2; i < fr.t.length - 1; i++) {
-    if (fr.T[i - 1] === fr.T[i - 2]) continue;
+  const voiced = new Set(vset.map((s) => s[3]));
+  for (let i = 1; i < fr.t.length - 2; i++) {
+    if (fr.T[i] === fr.T[i - 1]) continue;
     moved++;
-    const n = vset.filter((s) => s[0] > fr.t[i - 1] && s[0] <= fr.t[i] + 0.5).length;
-    if (!n) missed++;
+    if (!voiced.has(fr.T[i])) missed++;
   }
   for (let i = 1; i < vset.length; i++) if (vset[i][1] !== vset[i - 1][1] || vset[i][2] !== vset[i - 1][2]) changed++;
   return { moved, missed, sets: vset.length, changed };
