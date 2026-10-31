@@ -1234,12 +1234,12 @@
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
     if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
-    $('linesChk').addEventListener('change', (e) => { setOpt('lines', e.target.checked); requestRender('L', 'R', 'T'); save(); });
-    $('chevChk').addEventListener('change', (e) => { setOpt('chev', e.target.checked); requestRender('L', 'R'); save(); });
-    $('unitChk').addEventListener('change', (e) => { setOpt('unit', e.target.checked); requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { setOpt('alpha', +e.target.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
-    $('meshRange').addEventListener('input', (e) => { showMeshVal(posToMesh(+e.target.value)); });
-    $('patScale').addEventListener('input', (e) => { setOpt('patternScale', 2 ** +e.target.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
+    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R', 'T'); save(); });
+    $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
+    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R', 'T'); save(); });
+    $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
+    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
     radioKeys($('patternSeg'));
@@ -1262,7 +1262,7 @@
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
-      el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
+      el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
       $(side + 'ZoomIn').innerHTML = ICONS.plus;

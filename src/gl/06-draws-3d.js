@@ -1345,7 +1345,7 @@
       const qa = P(0), qb = P(1);
       if (!qa || !qb) return null;
       add(qa); add(qb);
-      const stack = [[0, 1, qa, qb, 0]];
+      const stack = /** @type {any[][]} */ ([[0, 1, qa, qb, 0]]);
       while (stack.length) {
         const [ta, tb, sa, sb, d] = stack.pop();
         if (Math.hypot(sb[0] - sa[0], sb[1] - sa[1]) <= 2 || d >= 14) continue;

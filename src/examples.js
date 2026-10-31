@@ -65,7 +65,7 @@ const Examples = (() => {
     exTryStop();
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) A.currentExample = i;
-    const xl = document.querySelector('#examplesBtn .exlabel');
+    const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
     setShapes([]); setSteps([]);
     // [issue #5] an example's own shared numbers (the partial sums' N) are marked ex: the next example takes away the ones it does
@@ -216,7 +216,7 @@ const Examples = (() => {
   function retryExampleThumbs() {
     clearTimeout(exRetryT);
     exRetryT = setTimeout(() => {
-      const imgs = document.querySelectorAll('#popHost .examples .ex-thumb');   // the gallery's images, in EX order
+      const imgs = /** @type {NodeListOf<HTMLImageElement>} */ (document.querySelectorAll('#popHost .examples .ex-thumb'));   // the gallery's images, in EX order
       for (const [i, key] of [...exWait]) {
         if (!GLR.ready(key)) continue;
         const url = renderExampleThumb(i);
