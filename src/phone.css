@@ -58,7 +58,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .panes.ph-one.ph-big-L > #paneR, :root.ph .panes.ph-one.ph-big-R > #paneL { display: none !important; }
 /* the inset: the other plane, live, bottom-left; a tap swaps */
 :root.ph .panes > .pane.ph-inset {
-  inset: auto auto 10px calc(var(--ruler) + 10px); width: 116px; height: 116px; z-index: 14;
+  inset: auto auto calc(10px + var(--ph-lift)) calc(var(--ruler) + 10px); width: 116px; height: 116px; z-index: 14;
   border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); overflow: hidden; --ruler: 0px;
 }
 :root.ph .pane.ph-inset .ruler, :root.ph .pane.ph-inset .ruler-corner, :root.ph .pane.ph-inset .tdock,
@@ -108,13 +108,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
 .ph-col { display: none; }
 :root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
-:root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: 64px; }
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(64px + var(--ph-lift)); }
 .ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
 .ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 :root.ph .viewstack > .vgroup:first-child, :root.ph #leftSolo, :root.ph #rightSolo { display: none !important; }
-:root.ph .viewstack { right: 8px; bottom: 8px; }
+:root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
@@ -226,6 +226,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .ph-undo:disabled { opacity: 0.45; }
 :root.ph #secDraw > .tool-more { display: block; flex: 1 1 0; min-width: 0; max-width: none; }
 :root.ph #secDraw > .tool-more > summary { height: 48px; }
+/* (page.html places the More label and its dots in a max-width 767 block: a phone sideways is wider, so they are placed here too) */
+:root.ph #secDraw > .tool-more > summary { position: relative; display: block; }
+:root.ph #secDraw > .tool-more > summary > .ic-slot { position: absolute; left: 50%; top: 7px; translate: -50% 0; width: 18px; height: 18px; }
+:root.ph #secDraw > .tool-more > summary > .tm-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; }
 :root.ph #secDraw > .tool-more > summary.ph-lit { background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--accent); }
 :root.ph #secDraw > .tool-more > summary > .ic-slot svg { width: 18px; height: 18px; }
 :root.ph #secDraw .tool > span, :root.ph #secDraw .tool-more .tm-label { font-size: 11px; line-height: 12px; white-space: normal; hyphens: manual; overflow-wrap: break-word; }
@@ -421,8 +425,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .tool-more > summary { list-style: none; }
 :root.ph #secDraw > .tool-more > summary::-webkit-details-marker { display: none; }
 :root.ph.ph-land .layout { margin-right: var(--ph-col); }
+/* the column takes the whole height: the header and the tour's row end where it begins (a sheet hides the column, but the strip stays where it was) */
+:root.ph.ph-land .top { margin-right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph.ph-land #secDraw {
-  left: auto; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
+  left: auto; right: 0; top: env(safe-area-inset-top, 0px); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
   padding: 4px 2px 4px 2px; border-top: 0; border-left: 1px solid var(--line-strong);
 }
 :root.ph.ph-land #secDraw > .tools { display: flex !important; flex: 0 0 auto; flex-direction: column-reverse; gap: 2px; width: 100%; }
@@ -438,7 +445,7 @@ html:not(.ph) .ph-only { display: none !important; }
 
 :root.ph.ph-land .ph-grab { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .ph-sheet, :root.ph .pipe-wrap { transition: none !important; }
+  .ph-sheet, :root.ph .pipe-wrap, .ph-ctx, :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: none !important; }
 }
 
 /* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
@@ -516,11 +523,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* UX38: the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
    lacks leaves its slot empty, so the others never move); keys and legends of the picture stay at the top right.
    (Wave 2 puts Both on top of this column.) */
-:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: 60px; right: 8px; }
-:root.ph .viewstack { right: 8px; bottom: 8px; }
+:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(60px + var(--ph-lift)); right: 8px; }
+:root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 /* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler)); }
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler)); }
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
 /* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
@@ -539,9 +546,18 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-badge[hidden] { display: none; }
 /* D3: the context bar above the tool row; the planes give up its height from the bottom */
 :root.ph { --ph-ctx: 0px; }
-:root.ph.ph-ctx-on, :root.ph.ph-toast-on { --ph-ctx: 56px; }
-.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
+/* (#463) the context bar overlays the bottom of the planes, above the chain bar (or the steps strip) and slides out from behind it:
+   nothing else on the screen moves for it. A toast still takes its row (the planes give it room) */
+/* (the controls floating at the planes' foot (Fit view, the Sphere and Display keys, the inset) ride up with the bar while it is open) */
+:root.ph { --ph-cbelow: var(--ph-chain); --ph-lift: 0px; }
+:root.ph:has(.ph-ctx.in:not(.under)) { --ph-lift: 56px; }
+:root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-lift: 104px; }
+:root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
+:root.ph.sv { --ph-cbelow: 60px; }
+:root.ph.ph-toast-on { --ph-ctx: 56px; }
+.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
+.ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
 :root.ph.ph-land .ph-ctx { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 .ph-ct { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .ph-ctn { font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -557,7 +573,6 @@ html:not(.ph) .ph-only { display: none !important; }
 /* a construction's sentence ("Pick a point or an empty spot · 1 of 3") may take two lines */
 .ph-ctx[data-k="construct"] .ph-ctn { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 13px; line-height: 17px; }
 /* the orthogonal circle's bar: its sentence, ⌫ and × over Whole | Inside | Outside */
-:root.ph.ph-ctx-tall { --ph-ctx: 104px; }
 .ph-ctx.tall { height: 104px; flex-wrap: wrap; align-content: center; row-gap: 4px; }
 .ph-ctx.tall > .ph-ct { flex: 1 1 0; min-height: 44px; }
 .ph-ctseg { flex: 1 0 100%; min-width: 0; display: flex; gap: 4px; }

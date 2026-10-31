@@ -38,7 +38,7 @@
     let r = null;
     try { r = Constr.recompute(S, changed || { all: true }, cmEnv()); } catch (e) { console.error('constructions', e); return null; }
     if (r.ids.length) cmEmit('recomputed', { ids: r.ids, kindChanged: r.kindChanged, undefChanged: r.undefChanged });
-    cmSync.last = r;
+    /** @type {any} */ (cmSync).last = r;
     return r;
   }
   // after a chain change: step uids and zero ids, then what is built on f1's zeros and on F(z0)
@@ -65,7 +65,7 @@
       Constr.syncSteps(o, env);
       const v = Constr.validate(o, env);
       Constr.recompute(o, { all: true }, env);
-      if (v.freed) { cmLoad.freed = v.freed; cmEmit('loadFreed', { n: v.freed }); }
+      if (v.freed) { /** @type {any} */ (cmLoad).freed = v.freed; cmEmit('loadFreed', { n: v.freed }); }
     } catch (e) { console.error('constructions (load)', e); }
   }
   // delete shapes through Constr.deletePlan (definitions cascade, bindings are freed [C17]); returns the plan
@@ -284,5 +284,5 @@
       pointOf: (nm) => numberPoint(nm),
       showPoint: (nm) => { if (!numberPoint(nm)) addNumberPoint(nm); },
     });
-    if (!attachParams.on) { attachParams.on = true; Params.on('change', onParamChange); }
+    if (!(/** @type {any} */ (attachParams)).on) { /** @type {any} */ (attachParams).on = true; Params.on('change', onParamChange); }
   }
