@@ -308,6 +308,7 @@
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
   // so after the step-card thumbnails or a finished homotopy it held its texture for nothing (U-b gate: the idle app
   // kept the thumbnails' evaluations of every shape). A later draw evaluates into a new one.
+  /** @type {any} */
   let tmpSweepT = 0;
   function sweepTmpLater() {
     if (tmpSweepT) return;

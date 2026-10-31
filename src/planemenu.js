@@ -102,10 +102,10 @@ const PlaneMenu = (() => {
     }
     if (!items.length) return false;
     // the app's menu: our items in its format; the head, icons and second lines are added below
-    const menuItems = items.map((it) => (it === 'sep' ? 'sep' : {
+    const menuItems = /** @type {any[] & { menuLabel?: string }} */ (items.map((it) => (it === 'sep' ? 'sep' : {
       label: it.label || plain(it.html || ''), key: it.key, danger: it.danger, disabled: it.disabled, run: it.run,
       labelEl: (() => { const l = tag('span', 'mi-label', it.html || esc(it.label || '')); if (it.sub) l.append(tag('span', 'mi-sub', it.sub)); return l; })(),
-    }));
+    })));
     menuItems.menuLabel = [...head.matchAll(/<span class="pm-h\d">(.*?)<\/span>(?=<span class="pm-h|$)/g)].map((m) => plain(m[1])).join('; ') || plain(head);
     const pop = api.openMenu(api.paneOf(side).ocanvas, menuItems, 'ctx-menu pm' + (touch ? ' pm-touch' : ''));
     if (!pop) return false;

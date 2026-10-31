@@ -173,6 +173,7 @@
   // release, the gate off 1.5 s later
   function singCmds(A, n0, mode, T, tier, o = {}) {
     const rel = mode === 'release', lvl = LV.hv * (rel ? 1.12 : 0.89) * lowMake(n0);
+    /** @type {any[]} */
     const cmds = [{ k: 'hv', at: T, amps: A, slew: rel ? (o.sounding ? 0.12 : 0.05) : 0.05, lvl, lt: rel ? 0.3 : 0.03, hum: 0.45, vow: 1, tier: TI[tier], tag: o.tag == null ? null : o.tag }];
     if (o.gate) cmds.push({ k: 'hv', at: T, gate: 1, t1: 0.04, n: o.gate });
     if (rel && o.gate) cmds.push({ k: 'hv', at: T + 1.5, gate: 0, t1: 0.13, n: o.gate, tag: o.tag });

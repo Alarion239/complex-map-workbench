@@ -14,7 +14,7 @@ check('three snapshots, each with a full commit hash', SNAPSHOTS.length === 3 &&
 const T = __dirname, tests = fs.readdirSync(T).filter((x) => x.endsWith('.js') && x !== 't_snapshots.js');
 // (a require or path.join whose string names a snapshot's src/: a path around snapshotDir)
 for (const s of SNAPSHOTS) {
-  const direct = new RegExp(`(require|path\\.join)\\([^)]*['"][^'"]*${s.dir.replace(/[.]/g, '\\.')}/src`);
+  const direct = new RegExp(`(require|path\\.join)\\([^)]*['"][^'"]*${s.dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/src`);
   const by = tests.filter((f) => direct.test(fs.readFileSync(path.join(T, f), 'utf8')));
   check(`${s.dir}/src: no test reads it but through snapshotDir`, !by.length, by);
 }
