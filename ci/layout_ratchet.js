@@ -10,8 +10,8 @@
 //   node ci/layout_ratchet.js check RESULT.json...    exit 1 on a new key
 //   node ci/layout_ratchet.js update RESULT.json...   write the runs' keys as the baseline (refused on a new key;
 //                                                     --init writes them all, for the first baseline)
-// RESULT.json: ci/browser.js's result of a run (.ci/browser/layout_invariants_cmd.js_<label>.json), or the suite's own
-// result ({ report, label }).
+// RESULT: ci/browser.js's result of a run (.ci/browser/layout_invariants_cmd.js_<label>.json), the suite's own result
+// ({ report, label }), or a job's log (its LAYOUT-RESULT lines: ci/browser_suites.js logLine), as saved from GitHub.
 const fs = require('fs');
 const path = require('path');
 
@@ -19,13 +19,19 @@ const BASELINE = process.env.CMW_LAYOUT_BASELINE || path.join(__dirname, 'layout
 const argv = process.argv.slice(2);
 const mode = argv[0], init = argv.includes('--init'), files = argv.slice(1).filter((a) => a !== '--init');
 if (!['check', 'update'].includes(mode) || !files.length) {
-  console.error('usage: node ci/layout_ratchet.js check|update [--init] RESULT.json...');
+  console.error('usage: node ci/layout_ratchet.js check|update [--init] RESULT.json|JOB.log...');
   process.exit(2);
 }
 const base = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : { runs: {} };
 const runs = {};
+const results = [];
 for (const f of files) {
-  const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+  const text = fs.readFileSync(f, 'utf8');
+  const lines = text.split('\n').map((l) => /LAYOUT-RESULT (\{.*\})\s*$/.exec(l)).filter(Boolean);
+  if (lines.length) { for (const m of lines) results.push([f, JSON.parse(m[1])]); continue; }
+  results.push([f, JSON.parse(text)]);
+}
+for (const [f, j] of results) {
   const out = j.out || j, label = j.run || out.label || (out.info && out.info.label);
   if (!out || !Array.isArray(out.report) || !label) { console.error(`${f}: not a layout_invariants_cmd.js result with a label`); process.exit(2); }
   const info = out.info || {};

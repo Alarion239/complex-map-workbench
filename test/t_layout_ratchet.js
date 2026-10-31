@@ -28,6 +28,10 @@ ok('update lowers the baseline', run('update', r3).status === 0 && Object.keys(J
 ok('another matrix fails and asks for --init', /another matrix/.test(run('check', res('en', ['overlap a × b'], { matrix: 'M2' })).stdout));
 ok('another renderer fails the check here', run('check', res('en', ['overlap a × b'], { renderer: 'Apple M2' })).status === 1);
 ok('a state that opened for the baseline and did not now fails', run('check', res('en', ['overlap a × b'], { skipped: ['en classic 390 sheet edit: did not open'] })).status === 1);
+// a job's log: the LAYOUT-RESULT line ci/browser.js prints (timestamps before it, as GitHub's logs have them)
+const lg = path.join(dir, 'job.log');
+fs.writeFileSync(lg, '2026-10-31T05:47:26.6Z ##[group]pass layout_invariants_cmd.js (en)\n2026-10-31T05:47:26.6Z LAYOUT-RESULT ' + JSON.stringify({ label: 'en', info: { matrix: 'M1', renderer: 'lavapipe', skipped: [] }, report: [{ id: 'overlap a × b', n: 3 }] }) + '\n');
+ok('a job\'s log is read by its LAYOUT-RESULT line', run('check', lg).status === 0);
 const r4 = res('ru', ['overlap a × b']);
 ok('another run is its own row of the baseline', run('check', r4).status === 1);
 fs.rmSync(dir, { recursive: true, force: true });

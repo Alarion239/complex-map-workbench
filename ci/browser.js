@@ -181,6 +181,8 @@ async function main() {
       const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}`;
       console.log(gh ? `::group::${head}` : `== ${head}`);
       if (res.out && res.out.pass != null && res.out.of != null) console.log(`${res.out.pass} of ${res.out.of}`);
+      // (a suite that reports, SUITES[f].logLine: its result in one line of the log, readable with the job's log alone)
+      if (res.out && SUITES[file] && SUITES[file].logLine) { try { console.log(SUITES[file].logLine(res.out)); } catch (e) { console.log(`logLine: ${e.message}`); } }
       for (const f of hard) console.log(`  FAIL ${f.name}${f.detail !== undefined ? ': ' + short(f.detail, 2000) : ''}`);
       for (const f of t) console.log(`  timing (not gated) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of sw) console.log(`  software renderer (not gated here) ${f.name}: ${short(f.detail, 600)}`);

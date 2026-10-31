@@ -149,6 +149,8 @@
     return L;
   }
 
+  // a layer's stacking order: its own z-index or the nearest positioned ancestor's (auto: 0)
+  const zOf = (e) => { for (let a = e; a && a !== document.documentElement; a = a.parentElement) { const z = getComputedStyle(a).zIndex; if (z !== 'auto') return +z; } return 0; };
   // the layers open now (visible), outermost first in document order; under(e): the topmost element at e's centre is
   // in a layer that does not hold e
   function openLayers() {
@@ -230,9 +232,10 @@
       const lab = hit.closest('label');
       if (lab && (lab.control === el || lab.contains(el))) continue;
       if (hit.contains(el) && (disabled(el) || getComputedStyle(el).pointerEvents === 'none')) continue;
-      // (a page control under a layer is meant to be covered; a layer's own control covered by anything else is not)
-      const Lh = layerOf(hit);
-      if (Lh && !layerOf(el)) continue;
+      // (a page control under a layer is meant to be covered, and so is a layer's control under a layer drawn above it,
+      // a sheet over the steps view's strip; a layer's control covered by anything else is not)
+      const Lh = layerOf(hit), Le = layerOf(el);
+      if (Lh && (!Le || (Lh !== Le && zOf(Lh) > zOf(Le)))) continue;
       out.push(V('covered', el, hit, { at: [Math.round(x), Math.round(y)] }, s));
     }
     return out;
@@ -291,7 +294,11 @@
       if (blk && own.overflowY !== 'visible' && !/(auto|scroll)/.test(own.overflowY)) { q.t = Math.max(q.t, c.t); q.b = Math.min(q.b, c.b); }
       // (glyph boxes stand a little past a tight line box: a tenth of the font size up and down is not a cut)
       const fs = parseFloat(own.fontSize) || 13, ty = Math.max(1.5, 0.15 * fs);
-      const cx = Math.max(q.l - full.l, full.r - q.r), cy = Math.max(q.t - full.t, full.b - q.b);
+      // (a side a scroller of an ancestor also cuts is scrolled away: a row at the edge of a scrolling list, under a
+      // panel that clips at the same line)
+      const sc = clipOf(t.el, { only: true });
+      const sd = (k, sg) => (sg * (full[k] - sc[k]) < -0.5 ? 0 : sg * (q[k] - full[k]));
+      const cx = Math.max(sd('l', 1), sd('r', -1)), cy = Math.max(sd('t', 1), sd('b', -1));
       // an ellipsis cuts the text inside its box: the box's scrollWidth says so
       const sw = t.el.scrollWidth > t.el.clientWidth + 1 && blk && /(hidden|clip)/.test(own.overflowX);
       if (cx <= 1 && cy <= ty && !sw) continue;

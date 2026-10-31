@@ -5,7 +5,8 @@
 //             screenshot writers), suites another job runs, superseded ones, and those that need the GPU machines
 //   SUITES    per suite: runs (one row each: a label, a preamble on the suite's first line, env), pages (extra pages
 //             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape), keepShots (keep its
-//             screenshots when it passes: a suite that reports with marked shots)
+//             screenshots when it passes: a suite that reports with marked shots), logLine (its result as one line
+//             of the job's log, from its result)
 //   TIMING    per suite, the checks that measure speed (by name): reported with their numbers, not gated. A check whose
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
@@ -74,6 +75,8 @@ const SUITES = {
   // violations go to its result's report, and the job does not fail on them)
   'layout_invariants_cmd.js': {
     keepShots: true,
+    // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
+    logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
       preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
   },
