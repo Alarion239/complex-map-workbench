@@ -446,5 +446,12 @@
  "Normal": "Обычно",
  "Slow": "Медленно",
  "Slower": "Очень медленно",
- "Place on the chain": "Место в цепочке"
+ "colour of {p}, carried": "цвет, перенесённый из %{p}",
+ "shapes only": "только фигуры",
+ "Hold and slide to read {f}": "Удерживайте и ведите, чтобы прочитать %{f}",
+ "<span>In {w}</span>": "<span>В %{w}</span>",
+ "<span>Targets in {out}</span>": "<span>Цели в %{out}</span>",
+ "in {w}": "в %{w}",
+ "Place on the chain": "Место в цепочке",
+ "colour from {p}": "цвет из %{p}"
 }
