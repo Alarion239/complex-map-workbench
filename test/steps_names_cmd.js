@@ -104,19 +104,26 @@ for (const lang of ['en', 'ru']) {
 }
 
 // the phone: the probe hint names the map into the colour plane (T = w₂ on z: F(z); on w₁: f₂(w₁))
-for (const lang of ['en', 'ru']) {
-  await view(390, 844, false, true);
+for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
+  await view(pw, 844, false, true);
   // (the hint shows once a session, and never after a first probe: both memories cleared)
   await nav(`${U}/gl-helpers.html`); await sleep(300);
   await ev(`(() => { try { sessionStorage.removeItem('cmw-probe-taught'); localStorage.removeItem('cmw-probe-learned'); } catch (e) { /* */ } return 1; })()`);
-  await nav(`${U}/test.html?ns=stepnames-ph-${lang}-${Date.now()}&view=steps&lang=${lang}`); await settle(2500);
-  await ev('__cmwExample(8)'); await settle(1000);
-  ok(`${lang} phone: the phone layout`, await ev('!!Phone._state().on'), null);
-  const hint = async (k) => { await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: ${k}, now: true }); 1`); await settle(700); return txt('#leftReadout .rteach'); };
+  await nav(`${U}/test.html?ns=stepnames-ph-${lang}-${Date.now()}&view=steps&lang=${lang}`); await settle(2000);
+  await ev('__cmwExample(8)'); await settle(500);
+  ok(`${lang} ${pw} phone: the phone layout`, await ev('!!Phone._state().on'), null);
+  const hint = async (k) => { await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: ${k}, now: true }); 1`); await settle(300); return txt('#leftReadout .rteach'); };
   const h0 = await hint(0), h1 = await hint(1);
-  ok(`${lang} phone: the hint on z names F(z)`, h0 !== null && /F\(z\)/.test(h0), h0);
-  ok(`${lang} phone: the hint on w₁ names f₂(w₁)`, h1 !== null && /f₂\(w₁\)/.test(h1), h1);
-  info[`${lang} phone`] = { h0, h1 };
+  ok(`${lang} ${pw} phone: the hint on z names F(z)`, h0 !== null && /F\(z\)/.test(h0), h0);
+  ok(`${lang} ${pw} phone: the hint on w₁ names f₂(w₁)`, h1 !== null && /f₂\(w₁\)/.test(h1), h1);
+  // (the hint wraps inside its chip, and the probing readout is two lines, none of them cut)
+  ok(`${lang} ${pw} phone: the hint is not wider than its chip`, await ev(`(() => { const h = document.querySelector('#leftReadout .rteach'); const c = document.getElementById('leftReadout'); return !h || (h.getBoundingClientRect().right <= c.getBoundingClientRect().right + 1); })()`), null);
+  await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: 1, now: true }); 1`); await settle(700);
+  const pc = await ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left + r.width * 0.6, r.top + r.height * 0.4]; })()`);
+  await move(pc[0], pc[1]); await settle(300);
+  const cut = await ev(`(() => { const l = [...document.querySelectorAll('#leftReadout > .rln')]; return { n: l.length, cut: l.filter((e) => { const rg = document.createRange(); rg.selectNodeContents(e); return rg.getBoundingClientRect().width > e.getBoundingClientRect().width + 1; }).length, text: document.getElementById('leftReadout').textContent }; })()`);
+  ok(`${lang} ${pw} phone: the probing readout is two lines, none cut`, cut.n === 2 && cut.cut === 0, cut);
+  info[`${lang} ${pw} phone`] = { h0, h1, cut };
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors', errs.length === 0, errs.slice(0, 3));

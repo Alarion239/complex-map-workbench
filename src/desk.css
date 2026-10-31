@@ -618,6 +618,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
 .sv-title sub { font-style: normal; font-size: 0.7em; }
+:root.sv .chip.readout .rteach { white-space: normal; }
 :root.sv .ruler-corner sub { font-style: normal; font-size: 0.72em; }
 .sv-title .sv-sep { font-style: normal; color: var(--muted); }
 .sv-title .sv-role { font: 400 14px/1 var(--f-ui); color: var(--muted); }
