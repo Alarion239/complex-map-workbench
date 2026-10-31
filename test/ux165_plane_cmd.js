@@ -512,10 +512,10 @@ await section('P51', async () => {
   ok('UX94 phone: Snap is a switch (a track after the word), not a filled pill', sw && sw.after === '""' && sw.w === '30px', sw);
   await shot('ux94-phone-snap');
   await key('Escape'); await settle(200);
-  // UX95: the Display sheet's region section is "Shapes" (#35) ([v17 D5, #82]: a heading of the sheet, no longer the left
-  // panel's #secDisplay)
-  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Shapes') && !hs.includes('Display') ? 'Shapes' : hs.join('|'); })()`);
-  ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Shapes', disp);
+  // UX95: the Display sheet's region section is "Regions" (#35; #363: the regions' display, as Y's head button names it)
+  // ([v17 D5, #82]: a heading of the sheet, no longer the left panel's #secDisplay)
+  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
+  ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
 });
 
 // ------------------------------------------------------------------- layout: the two-line readout, Snap, the touch ×
