@@ -90,7 +90,7 @@ const Examples = (() => {
       }
       if (mine.length || ps.length !== A.S.params.length || ps.some((q, i) => q !== A.S.params[i])) setParams(ps);
     }
-    setSel(null);   // (v15: a new example selects its last step)
+    setSel(null);   // (a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
     // landscape's sheets and height as it sets them. The layout comes first (merged-views.md): the meshing window below
@@ -135,7 +135,7 @@ const Examples = (() => {
     for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
     if (!spec) Params.render();
-    if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');   // (v16)
+    if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');
     // (an example that is played: the Phase key's n it was made for, one colour line a note)
     if (ex.sectors) setOpt('sectors', ex.sectors);
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
@@ -265,7 +265,7 @@ const Examples = (() => {
   }
 
   // ---------------- guide ----------------
-  // (v16) the guide's TeX in $…$ as typeset spans (the guide sets every [data-tex] after it is built)
+  // the guide's TeX in $…$ as typeset spans (the guide sets every [data-tex] after it is built)
   const guideTex = (s) => s.replace(/\$([^$]+)\$/g, (_, x) => `<span class="gtex" data-tex="${x.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></span>`);
   // v16.5 UX17: the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
   // or a gesture of the desktop (the tools on the left, the right pane, the Inspector, a double-click, a right-click,

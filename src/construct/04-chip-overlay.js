@@ -161,9 +161,9 @@
           const t = /** @type {HTMLElement} */ (box.firstElementChild), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
           if (t.offsetHeight > 2.6 * fs || el.getBoundingClientRect().right > plot.getBoundingClientRect().right - 8) segBox.replaceWith(mkSeg(true));
         }
-        // [v16.3.1] a chip that wraps keeps one line without its keyboard tail ("Esc cancels", or v16.5's "⌫ undo pick ·
+        // a chip that wraps keeps one line without its keyboard tail ("Esc cancels", or v16.5's "⌫ undo pick ·
         // Esc") when that is enough (the touching circle's "…, or a ring for a tangent" in X at 1440 x 900); when it is
-        // not, the whole text on two lines, else (it would be cut at two) the shorter one. (v16.4.1: after the Whole |
+        // not, the whole text on two lines, else (it would be cut at two) the shorter one. (after the Whole |
         // Inside choice above, so a chip that is one line with the icons keeps its tail, as in v16.4. v16.5: before the
         // refusal and the how-to lines below, and before rail-9 measures the chip)
         const noEsc = chipText(narrow, true);
