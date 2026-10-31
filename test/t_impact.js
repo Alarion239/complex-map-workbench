@@ -47,7 +47,7 @@ for (const f of ['tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIG
 for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layout-2`, same(select([f]).browser, [...AREAS.i18n, ...AREAS['layout-i18n'], 'smoke']), select([f]).browser);
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
 // ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
-ok('T1: desk.css -> the desktop and the phone shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']), select(['src/desk.css']).browser);
+ok('T1: desk.css -> the desktop, phone and layout-1 shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
 ok('T1: page.html -> desktop and phone', same(select(['src/page.html']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
@@ -101,7 +101,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/app/19-constructions.js -> T2, the constructions and the core shards', cm.tier === 'T2' && same(cm.browser, [...new Set([...AREAS.constructions, ...AREAS.core]), 'smoke']), cm.browser);
   // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
   const sv = select(['src/app/19-steps-view.js']);
-  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop and phone shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone]), 'smoke']), sv);
+  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop, phone and layout-1 shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), sv);
   // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
   ok('a part: src/app/19-shell.js -> the desktop, phone and layout-1 shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
   ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));

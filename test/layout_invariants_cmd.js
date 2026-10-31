@@ -79,7 +79,7 @@ info.declared = DECLARED.map((d, i) => ({ check: d.check, key: String(d.key), wh
 // the gate (tiers on #475): against this run's baseline, made on one renderer over one matrix. A key the baseline lacks
 // fails, and so does a state that did not open and was open then (its violations would quietly go); the keys it has
 // and the run did not see are fixed (lower the baseline). Another matrix asks for a new baseline; another renderer
-// (the GPU machines) is not gated: text is drawn otherwise there
+// fails too, asking for a new baseline (a runner image's new Mesa or LLVM would otherwise switch the gate off unseen)
 const label = CFG.label || CFG.langs.join('+');
 info.matrix = JSON.stringify({ langs: CFG.langs, views: CFG.views, devices: CFG.devices, themes: CFG.themes, sizes: CFG.sizes || null, states: (CFG.states || M.STATES.map((x) => x.name)) });
 info.renderer = await ev(`(() => { try { const g = document.createElement('canvas').getContext('webgl2'); const d = g.getExtension('WEBGL_debug_renderer_info'); return String(d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)); } catch (e) { return 'unknown'; } })()`);
@@ -88,7 +88,8 @@ if (B) info.fixed = Object.keys(B.rows || {}).filter((k) => !rows.has(k));
 if (CFG.mode === 'gate') {
   if (!B) fails.push(`gate: ci/layout_baseline.json has no run ${label}`);
   else if (B.matrix !== info.matrix) fails.push(`gate: the matrix changed since the baseline: make a new one (node ci/layout_ratchet.js update --init <this run's result>)`);
-  else if (B.renderer !== info.renderer) info.gate = `not gated: the baseline was made on ${B.renderer}, this run is on ${info.renderer}`;
+  // (tiers on #499: a runner image's new Mesa or LLVM must not switch the gate off quietly: it asks for a new baseline)
+  else if (B.renderer !== info.renderer) fails.push(`gate: the renderer changed since the baseline (was ${B.renderer}, now ${info.renderer}): make a new one from a CI run (node ci/layout_ratchet.js update --init <the job's log>)`);
   else {
     for (const r of report) if (!(r.id in B.rows)) fails.push(`new layout violation: ${r.id} (${r.el}${r.other ? ' × ' + r.other : ''}) at ${r.where[0]} ${JSON.stringify(r.detail)}${r.shot ? ' (shots/' + r.shot + ')' : ''}`);
     for (const sk of info.skipped) if (!(B.skipped || []).includes(sk)) fails.push(`a state that opened for the baseline did not: ${sk}`);

@@ -32,8 +32,13 @@ ok('a state that opened for the baseline and did not now fails', run('check', re
 const lg = path.join(dir, 'job.log');
 fs.writeFileSync(lg, '2026-10-31T05:47:26.6Z ##[group]pass layout_invariants_cmd.js (en)\n2026-10-31T05:47:26.6Z LAYOUT-RESULT ' + JSON.stringify({ label: 'en', info: { matrix: 'M1', renderer: 'lavapipe', skipped: [] }, report: [{ id: 'overlap a × b', n: 3 }] }) + '\n');
 ok('a job\'s log is read by its LAYOUT-RESULT line', run('check', lg).status === 0);
+// (tiers on #499: --init takes in a run with no baseline or over another matrix or renderer, not new keys over the same)
+ok('update --init refuses new keys over the same matrix and renderer', run('update', '--init', r2).status === 1 && !('clipped e' in JSON.parse(fs.readFileSync(B, 'utf8')).runs.en.rows));
+ok('update --rules takes them in (the checks changed)', run('update', '--rules', r2).status === 0 && 'clipped e' in JSON.parse(fs.readFileSync(B, 'utf8')).runs.en.rows);
+ok('update --init takes in a run over another renderer', run('update', '--init', res('en', ['overlap a × b', 'clipped f'], { renderer: 'lavapipe 2' })).status === 0 && JSON.parse(fs.readFileSync(B, 'utf8')).runs.en.renderer === 'lavapipe 2');
 const r4 = res('ru', ['overlap a × b']);
 ok('another run is its own row of the baseline', run('check', r4).status === 1);
+ok('update --init writes a new run beside the others', run('update', '--init', r4).status === 0 && Object.keys(JSON.parse(fs.readFileSync(B, 'utf8')).runs).join() === 'en,ru');
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`t_layout_ratchet: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

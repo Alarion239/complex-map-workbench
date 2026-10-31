@@ -77,6 +77,8 @@ const SUITES = {
   'layout_invariants_cmd.js': {
     keepShots: true,
     // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
+    // (the rows this run no longer sees: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
+    note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
     logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
       preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'gate' };` })),

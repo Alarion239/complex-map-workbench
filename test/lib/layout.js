@@ -8,6 +8,8 @@
 //   noClippedText(scope)     no text is cut by its box, except an ellipsis that is declared (INTENT.ellipsis, data-ellipsis)
 //   noCutControls(scope)     no control is drawn past a panel that clips it and cannot scroll to it
 //   noTextSpill(scope)       no control's text shows past the control's own box (a nowrap label wider than its pill, #498)
+//   toasts()                 a desktop toast covers no control; placed (data-placed), it is centred on its place, and in
+//                            the chain head it lies inside the head, with Clear chain stepped aside (ux on #499)
 //   onGround(scope)          text over a plot (a canvas) sits on a ground: a box with a background, or a halo
 //   insideViewport()         no horizontal page scroll, and nothing visible is cut by the viewport's edge
 //   targetSizes(min)         each control is at least min × min px, or spaced as WCAG 2.2's 2.5.8 allows
@@ -37,8 +39,9 @@
     // 'both'), what ('self': the box; 'content': the union of its visible children's boxes, centred in the box itself),
     // tol (px), why. ux's table on #470
     centred: [
-      { sel: '#leftTabs > button, #rightTabs > button, #viewSwitch > button', what: 'content', axis: 'x', why: 'a view tab: its icon and word as a pair (#335)' },
-      { sel: '.seg > button', what: 'content', axis: 'x', why: 'a segment\'s word (and icon) in its tile' },
+      // (both axes, ux for Alexander's #288 note: the label sits centred up and down too)
+      { sel: '#leftTabs > button, #rightTabs > button, #viewSwitch > button', what: 'content', axis: 'both', why: 'a view tab: its icon and word as a pair (#335)' },
+      { sel: '.seg > button', what: 'content', axis: 'both', why: 'a segment\'s word (and icon) in its tile' },
       { sel: '.icon-btn, .vbtn', what: 'content', axis: 'both', why: 'an icon button\'s icon (the zoom and fit buttons, the ⋯ and eye buttons)' },
       { sel: '.tool[data-tool]', what: 'content', axis: 'x', why: 'a drawing tool\'s icon over its name' },
       { sel: '#addStepBtn', what: 'content', axis: 'both', why: 'Add function\'s + and word in its tile' },
@@ -47,13 +50,14 @@
       { sel: '.ts-btn', what: 'content', axis: 'both', why: 'the tour strip\'s Back and ✕ icons' },
       { sel: '.sv-plane .sv-pn', against: '.sv-node', axis: 'x', why: 'a plane\'s name under its dot' },
       { sel: '.sv-thumb', against: '.sv-plane.on .sv-node', from: 'document', axis: 'both', why: 'the ring on the shown plane\'s dot (not parked: then no plane is .on)' },
-      { sel: '#toastHost > .toast', against: '.stage', from: 'document', axis: 'x', tol: 2, why: 'a toast over the stage' },
     ],
     // the ellipses that are meant: a box matching one of these may cut its text with text-overflow: ellipsis; named: only
     // when the box (or a control holding it) carries the whole text as its title or accessible name. ux on #470 and #483
     ellipsis: [
       { sel: '.ts-title', named: true, why: 'the tour strip\'s title: one line, the whole title as its name' },
       { sel: ':root.ph .pal-desc', why: 'the palette\'s row descriptions on a phone: one line per row; the whole one in its tooltip' },
+      { sel: '.sv-fchip .sv-fn', named: true, why: 'a steps-view chip\'s function name: one line, the whole name in the chip\'s label (ux on #499)' },
+      { sel: '.ph-cn', named: true, why: 'the phone\'s chain name: one line, the whole name as its label or tooltip (ux on #499)' },
     ],
     // the rows meant to be evenly spaced: sel (the row), tol (px), why
     rows: [],
@@ -430,6 +434,51 @@
     return out;
   }
 
+  // toasts (ux on #499, src/app/15-examples-guide.js placeToasts: "nothing covers the work area uninvited"). A desktop's
+  // toast goes in the chain head's free middle when it fits there on one line (data-placed="head"), else above the chain
+  // between the planes' button columns (data-placed), else where the CSS puts it. Whichever: it covers no control (the
+  // host is a layer, so noOverlap passes it over everything). Placed, its centre is the host's left (the host is
+  // translated by -50%); in the head it lies inside .pipe-head, covers no plane, and Clear chain has stepped aside. A
+  // phone's toasts have their own row (CSS), and are left to the other checks
+  function toasts() {
+    const out = [];
+    if (document.documentElement.classList.contains('ph')) return out;
+    const host = document.getElementById('toastHost');
+    if (!host) return out;
+    const placed = host.getAttribute('data-placed'), left = parseFloat(host.style.left);
+    for (const t of host.querySelectorAll(':scope > .toast')) {
+      if (!vis(t)) continue;
+      const b = R(t.getBoundingClientRect());
+      if (placed != null && Number.isFinite(left) && Math.abs((b.l + b.r) / 2 - left) > 1) out.push(V('toast-place', t, null, { centre: Math.round((b.l + b.r) / 2), left: Math.round(left) }, b));
+      for (const c of controls(document.body)) {
+        if (host.contains(c) || layerOf(c) || !seen(c)) continue;
+        const q = inter(b, R(c.getBoundingClientRect()));
+        if (w(q) > 2 && h(q) > 2) out.push(V('toast-covers', t, c, { by: [Math.round(w(q)), Math.round(h(q))] }, b, round(R(c.getBoundingClientRect()))));
+      }
+      // (not placed: placeToasts found no chain to place it by, e.g. the steps view, and the CSS's place is over the work
+      // area; above the chain, it sits over the planes' foot between their buttons by design)
+      if (placed == null) {
+        for (const p of document.querySelectorAll('.panes > .pane')) {
+          if (!vis(p)) continue;
+          const q = inter(b, R(p.getBoundingClientRect()));
+          if (w(q) > 2 && h(q) > 2) out.push(V('toast-covers', t, p, { by: [Math.round(w(q)), Math.round(h(q))], placed: 'no' }, b));
+        }
+      }
+      if (placed === 'head') {
+        const hd = document.querySelector('.pipe-head'), hb = hd ? R(hd.getBoundingClientRect()) : null;
+        if (hb && (b.l < hb.l - 1 || b.r > hb.r + 1 || b.t < hb.t - 1 || b.b > hb.b + 1)) out.push(V('toast-place', t, hd, { head: round(hb) }, b, hb));
+        const cc = document.getElementById('clearChain');
+        if (cc && vis(cc) && seen(cc)) out.push(V('toast-place', t, cc, { clearChain: 'shown' }, b));
+        for (const p of document.querySelectorAll('.panes > .pane')) {
+          if (!vis(p)) continue;
+          const q = inter(b, R(p.getBoundingClientRect()));
+          if (w(q) > 2 && h(q) > 2) out.push(V('toast-covers', t, p, { by: [Math.round(w(q)), Math.round(h(q))] }, b));
+        }
+      }
+    }
+    return out;
+  }
+
   // text over a plot (a canvas under it at its centre) sits on a ground: the text, or a box above the canvas that
   // holds it, has a background at least half opaque, or the text has a halo (a text-shadow, an SVG stroke painted
   // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint)
@@ -472,9 +521,9 @@
     const scope = opt.scope || document.body;
     const touch = opt.touch != null ? opt.touch : matchMedia('(pointer: coarse)').matches;
     // (the focus rings last: they move the focus)
-    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), noTextSpill(scope), onGround(scope), insideViewport(scope),
+    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), noTextSpill(scope), toasts(), onGround(scope), insideViewport(scope),
       targetSizes(touch ? 44 : 24, scope), evenSpacing(scope), opt.focus ? focusRings(scope) : []);
   }
 
-  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, noTextSpill, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
+  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, noTextSpill, toasts, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
 })(typeof window !== 'undefined' ? window : globalThis);
