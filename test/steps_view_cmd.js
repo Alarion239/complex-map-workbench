@@ -113,6 +113,22 @@ await ev(`(() => { const p = document.getElementById('plotL'), r = p.getBounding
   e('pointerdown', r.right - 10); for (let i = 1; i <= 4; i++) e('pointermove', r.right - 10 - i * 30); e('pointerup', r.right - 130); return 1; })()`);
 const sw = await rest();
 ok('a flick from the right edge goes on to w₁', sw.i === 1 && Math.abs(sw.x - 1) < 1e-9, sw);
+// (#471) a flick is judged by the events' own times: a frame stalled between them does not make it a park
+await ev(`__cmwSteps({ go: 0, now: true }); 1`); await settle(500);
+await ev(`(() => { const p = document.getElementById('plotL'), r = p.getBoundingClientRect(), y = r.top + r.height / 2;
+  const mk = (type, x) => new PointerEvent(type, { pointerId: 8, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 });
+  const evs = [mk('pointerdown', r.right - 10), ...[1, 2, 3, 4].map((i) => mk('pointermove', r.right - 10 - i * 30)), mk('pointerup', r.right - 130)];
+  p.dispatchEvent(evs[0]); const t = performance.now(); while (performance.now() - t < 450) { /* a stalled frame */ }
+  for (const e of evs.slice(1)) p.dispatchEvent(e); return 1; })()`);
+const sst = await rest();
+ok('a flick with a stalled frame inside it still goes on to w₁', sst.i === 1 && Math.abs(sst.x - 1) < 1e-9, sst);
+// (#471) the plane's own Sphere key switches the view's surface, and says so
+await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
+const sk = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
+ok('the plane\'s Sphere key puts the plane on the sphere', sk.surf === 'sphere' && sk.pressed === 'true', sk);
+await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
+const sk2 = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
+ok('… and back on the plane', sk2.surf === 'plane' && sk2.pressed === 'false', sk2);
 const head = await ev(`(() => { const t = document.getElementById('top'), h = document.getElementById('svHead'); return { inTop: !!h && h.parentNode === t, fits: t.scrollWidth <= t.clientWidth + 1 }; })()`);
 ok('the plane\'s controls are in the header, which does not scroll sideways', head.inTop && head.fits, head);
 // (ux on #448: the folded key is an image with a name, for axe's role-img-alt)

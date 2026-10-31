@@ -268,7 +268,8 @@ const Phone = (() => {
       const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
       const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
       sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
-      const onS = !!(sb && sb.classList.contains('on'));
+      const svS = side === 'L' && A.svOnSphere ? A.svOnSphere() : null;
+      const onS = svS != null ? svS : !!(sb && sb.classList.contains('on'));
       sph.setAttribute('aria-pressed', String(onS));
       sph.setAttribute('aria-label', onS ? $t('Plane') : $t('Sphere'));
       const other = side === 'L' ? 'Y' : 'X';
@@ -278,6 +279,8 @@ const Phone = (() => {
     }
   }
   function toggleSphere(side) {
+    // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it, #471)
+    if (A.svSphere && A.svSphere() != null) { setTimeout(syncPanes, 0); return; }
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     if (!tabs) return;
     const sb = tabs.querySelector('button[data-mode="sphere"]'), pb = tabs.querySelector('button[data-mode="plane"]');

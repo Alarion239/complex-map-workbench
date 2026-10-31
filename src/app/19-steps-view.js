@@ -548,6 +548,18 @@
     svApply();
     save();
     if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
+    // (the programs a new colour plane needs, started when the page is idle: else they link on the first glide past it,
+    // 8 s on WARP for the Mountain King; tiers on #456)
+    (window.requestIdleCallback || setTimeout)(svPrestart);
+  }
+  // the phone's Sphere key on the plane (#471): in the steps view it toggles the view's surface, Plane ↔ Sphere; null
+  // outside it, where the key works the pane's own tabs
+  function svSphereKey() {
+    if (!SV.on) return null;
+    SV.surf = SV.surf === 'sphere' ? 'plane' : 'sphere';
+    if (SV.surf === 'sphere') prestartGlobe();
+    svApply();
+    return SV.surf;
   }
   // the strip: a press on a plane goes there; a drag along it scrubs through the deformation, and the glide settles on
   // the nearest plane when it is let go
@@ -605,7 +617,7 @@
       e.stopImmediatePropagation(); e.preventDefault();
       svKeepView();
       SV.anim = null;
-      SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge, t0: performance.now() };
+      SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge, t0: e.timeStamp };
       try { plot.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
     }, true);
     plot.addEventListener('pointermove', (e) => {
@@ -623,8 +635,9 @@
       e.stopImmediatePropagation();
       SV.drag = null;
       const dx = e.clientX - d.px;
-      // a flick (short and quick) goes one plane on; otherwise the view stays where it was let go
-      if (Math.abs(dx) > 40 && performance.now() - d.t0 < 300) svGo(dx < 0 ? Math.floor(d.x0 + 1e-6) + 1 : Math.ceil(d.x0 - 1e-6) - 1);
+      // a flick (short and quick) goes one plane on; otherwise the view stays where it was let go. (The events' own times:
+      // a stalled frame between them delays the handler, not the finger; phone on #448)
+      if (Math.abs(dx) > 40 && e.timeStamp - d.t0 < 300) svGo(dx < 0 ? Math.floor(d.x0 + 1e-6) + 1 : Math.ceil(d.x0 - 1e-6) - 1);
       else svLetGo();
     };
     plot.addEventListener('pointerup', up, true);
