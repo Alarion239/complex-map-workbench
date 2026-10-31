@@ -371,9 +371,13 @@
       if (still) plot(a, 1);
       else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
     };
-    // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, in one frame into cc;
-    // then the grid, cc and the outlines one by one)
-    if (svMaskOn() && svMaskFrame(pane, cc, map, still ? a : undefined, frame, colour)) {
+    // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
+    // the outlines over it, in one frame and one copy to the page; without the GL grid, the frame goes into cc and the
+    // layers one by one)
+    const masked = svMaskOn() && svMaskFrame(pane, cc, map, still ? a : undefined, frame, colour);
+    if (masked === 'page') {
+      // (drawn: the frame is on the page)
+    } else if (masked) {
       if (GLR.drawGrid) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
       pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
       svOutlines(pane, map);
@@ -405,9 +409,13 @@
   // k, the later planes' pulled back) write the frame's alpha; the colour layer (colour(), which draws into the open
   // frame) writes over it its colour alone, on the plane's paper and grid; then the colour is kept where the alpha is (keepInAlpha). The
   // frame goes into cc. False (nothing drawn) without the GL calls or while keepInAlpha's program links
+  // (#440 follow-up) with the GL grid, the frame is the page's: the grid under the kept colour (as #503's Everywhere
+  // frame), the outlines over it, and drawScene's one blit goes to the pane ('page'); otherwise into cc (true)
   function svMaskFrame(pane, cc, map, k, frame, colour) {
     if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
-    const mp = svProxy(pane, cc.canvas);
+    const page = !!GLR.drawGrid;
+    let onPage = false;
+    const mp = page ? Object.create(pane) : svProxy(pane, cc.canvas);
     mp.begin = () => {};
     const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
     try {
@@ -425,13 +433,19 @@
           colour();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
+          if (page) {
+            GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under: true });
+            svOutlines(pane, map, frame);
+            onPage = true;
+          }
           frame.open = false; frame.keep = false;
         },
       }));
     } catch (e) { console.error('steps view mask', e); }
     GLR.writeMask(true, true);
     for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-    return true;
+    // (a frame that failed before its colour went in: the layers one by one, from an empty cc)
+    return onPage ? 'page' : true;
   }
   // keep only what is inside the regions under map (and, at rest on plane k, the later planes' regions pulled back) of
   // the picture in the 2D context cc

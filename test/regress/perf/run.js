@@ -901,8 +901,10 @@ async function svFirstGlideUnit() {
 // orbit on the globe (Surface: Sphere, Space held). One unit per scene (each within UNIT_TIMEOUT_S on a GPU): the
 // default page, zeta and the Mountain King (by name), on a GPU only. gl_copies: GLR.blit calls per frame drawn while
 // scrubbing Everywhere, at most SV_COPIES_LIMIT (#492, #503: the grid, the colour layer and the outlines in one GL
-// frame, one copy). The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
-const SV_COPIES_LIMIT = 1.25;
+// frame, one copy), and while scrubbing Inside regions at most SV_COPIES_IN_LIMIT (#440's follow-up: the grid and
+// the outlines in G's masked frame, one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there
+// (refCannot)
+const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -921,7 +923,7 @@ async function svInteractUnit(scene) {
   };
   const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
   {
-    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = [];
+    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] };
     // (the reps stop early, said in the details, when the next one would pass 75% of the unit's time limit: fewer reps,
     // not a timeout, which aborts the whole run)
     const t0 = Date.now(), budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.interact.${scene}`)) * 1000;
@@ -947,7 +949,7 @@ async function svInteractUnit(scene) {
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
-        if (scope === 'all') copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
+        copies[scope].push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
       }
       // Inside regions (left from the scrub), parked: a pan of the plane (middle drag, as the other units' pans)
       await park();
@@ -966,7 +968,8 @@ async function svInteractUnit(scene) {
       put(`${id}.settle_jank_ms`, 'jank_ms', 'ms', reps.map((r) => r.jank));
     }
     put(`sv.interact.${scene}.reps`, 'info', '', [R.orbit.length]);
-    put(`sv.scrub.all.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
+    put(`sv.scrub.all.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.all)], { limit: SV_COPIES_LIMIT, samples: copies.all.map(r3) });
+    put(`sv.scrub.in.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.in)], { limit: SV_COPIES_IN_LIMIT, samples: copies.in.map(r3) });
   }
 }
 async function cardsStartupUnit() {

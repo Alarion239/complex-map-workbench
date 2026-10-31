@@ -70,14 +70,20 @@ const hP = await hash('sv_park');
 ok('the parked picture is neither plane\'s', hP !== hZ && hP !== h1, [hP, hZ, h1]);
 ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-thumb').getAttribute('aria-valuetext'))`), null);
 // (#492) a parked frame, Everywhere: the grid, the colour layer and the outlines are one GL frame, one copy into the page
-// (GLR.blit), once the glide's programs are ready (while one compiles, the CPU carry's layers go one by one)
-let blits = -1;
-for (let i = 0; i < 40 && blits !== 1; i++) {
-  const rb = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `new Promise((r) => { const b = GLR.blit; let n = 0; GLR.blit = function (...x) { n++; return b.apply(this, x); }; __cmwSteps({ scope: 'all' }); requestAnimationFrame(() => requestAnimationFrame(() => { GLR.blit = b; r(n); })); })` });
-  blits = rb.result ? rb.result.value : rb;
-  if (blits !== 1) await sleep(500);
-}
+// (GLR.blit), once the glide's programs are ready (while one compiles, the CPU carry's layers go one by one); (#440's
+// follow-up) Inside regions too: the grid under G's masked frame and the outlines over it
+const blitsAt = async (scope) => {
+  let n = -1;
+  for (let i = 0; i < 40 && n !== 1; i++) {
+    const rb = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `new Promise((r) => { const b = GLR.blit; let n = 0; GLR.blit = function (...x) { n++; return b.apply(this, x); }; __cmwSteps({ scope: '${scope}' }); requestAnimationFrame(() => requestAnimationFrame(() => { GLR.blit = b; r(n); })); })` });
+    n = rb.result ? rb.result.value : rb;
+    if (n !== 1) await sleep(500);
+  }
+  return n;
+};
+const blitsIn = await blitsAt('in'), blits = await blitsAt('all');
 ok('a parked frame reaches the page in one GL copy', blits === 1, blits);
+ok('a parked frame, Inside regions, reaches the page in one GL copy', blitsIn === 1, blitsIn);
 await press('ArrowRight'); const sn = await rest();
 ok('→ from 0.5 goes on to w₁', sn.i === 1 && Math.abs(sn.x - 1) < 1e-9, sn);
 // Shift+→: a quarter of a step, and the view stays there
@@ -206,5 +212,5 @@ await open(1280, 800, false, false);
 const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, R: document.getElementById('paneR').getBoundingClientRect().width > 0 })`);
 ok('without ?view=steps the app is the classic view', !cl.sv && !cl.strip && !cl.on && cl.R, cl);
 
-info.checks = 'steps view: desktop, parking, one GL copy, colour plane, Inside regions, reduced motion, phone swipe, classic';
+info.checks = 'steps view: desktop, parking, one GL copy (Everywhere, Inside regions), colour plane, Inside regions, reduced motion, phone swipe, classic';
 return { pass: fails.length === 0, fails, info };
