@@ -89,6 +89,10 @@
   }
   function renderLeft() {
     const pane = paneL;
+    // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
+    // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
+    if (SV.on && svMoving()) { svRenderMoving(pane); return; }
+    if (SV.on) { svCheck(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
@@ -471,7 +475,10 @@
     // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
     const hv = typeof homView === 'function' ? homView() : null;
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
-    GLR.drawColorPlot({ map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz });
+    const cst = { map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    GLR.drawColorPlot(cst);
+    // ((#366 prototype) Inside regions: the colour only inside the regions of this plane, 19)
+    if (svMaskOn()) svMaskColour(pane, cst);
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
     if (S.outline && !artMode) {
       const map0 = stageMap(leftStage());
@@ -983,7 +990,8 @@
     const regions = [], lines = [];
     // o.hom: the homotopy at time t (Morph transport): image mode lifts the shapes under H_t, phase mode paints H_t
     const hom = o.hom || null;
-    const map = hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage);   // shapes live in the z-plane
+    // ((#366 prototype) o.lineMap: the steps view's glide moves the shapes in either paint, 19)
+    const map = o.lineMap || (hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage));   // shapes live in the z-plane
     const cell = patternCell();
     const halo = GLR.hexRGB(TH.halo);
     // the same map cache keys as drawScene: orbiting the globe re-evaluates nothing (spec 8.1); homotopy frames go
@@ -1062,7 +1070,7 @@
       }
     }
     const info = GLR.drawSphere({
-      map: hom ? hom.map : focusMap(), mode: imageMode ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
@@ -1164,6 +1172,8 @@
     return out.length ? out : null;
   }
   function renderSphereLeft(pane) {
+    // ((#366 prototype) the steps view's Inside regions on the globe, 19)
+    if (svMaskOn() && lPhase()) return svSphereIn(pane);
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
     // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat

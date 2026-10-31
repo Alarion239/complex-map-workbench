@@ -494,7 +494,7 @@
       for (const p of String(text).split(XD.lang === 'ru' ? /([ \t\r\n]+)/ : /(\s+)/)) {
         if (!p) continue;
         if (XD.lang === 'ru' ? /^[ \t\r\n]+$/.test(p) : /^\s+$/.test(p)) { if (cur.length) { words.push(cur); cur = []; } continue; }
-        const esc = p.replace(/\\/g, '').replace(/([#$%&_{}])/g, '\\$1');
+        const esc = p.replace(/[\\#$%&_{}]/g, (c) => (c === '\\' ? '' : '\\' + c));
         cur.push(XD.tex(s.b != null ? `\\textbf{${esc}}` : s.i != null ? `\\textit{${esc}}` : `\\text{${esc}}`, pt, color));
       }
     }
