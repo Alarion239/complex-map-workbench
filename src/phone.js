@@ -810,7 +810,7 @@ const Phone = (() => {
     group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }),
       off ? row(I.download, off.label, () => { close(true); off.run(); }) : null);
     // (#438) the steps view's Playback sheet (speed and loop): its button is the one in the header menu a phone hides, so this row presses it
-    const svPb = document.querySelector('.sv-playback');
+    const svPb = /** @type {HTMLElement | null} */ (document.querySelector('.sv-playback'));
     const playRow = svPb ? row('', svPb.textContent, () => { close(true); setTimeout(() => svPb.click(), 0); }) : null;
     group($tx('menu group', 'Look'), playRow, seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
       seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
