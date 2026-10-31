@@ -12,8 +12,8 @@ directory only and never touches the network.
   which the core loads; in the offline page's block too
 - `js/jspdf.umd.min.js`, `js/svg2pdf.umd.min.js`: jsPDF 2.5.1 and svg2pdf.js 2.2.3, the figure export's PDF library
   (JSON blocks too, started on the first PDF export, issue #393)
-- `fonts/`: Archivo, STIX Two Text, B612 Mono, JetBrains Mono (the page's faces) and Roboto Flex (the Russian
-  interface's, added with the language), from the @fontsource packages, subset to the characters the app's sources
+- `fonts/`: Roboto Flex (the interface, in every language), JetBrains Mono (readouts and input) and STIX Two Text (math),
+  from the @fontsource packages, subset to the characters the app's sources
   use plus the letters a user may type, their variation axes cut to the ranges the CSS uses
 - `licenses/`: the packages' licenses (MathJax and its STIX2 font: Apache-2.0, the font's as its package.json declares
   it; jsPDF and svg2pdf.js: MIT; the fonts: SIL OFL 1.1)

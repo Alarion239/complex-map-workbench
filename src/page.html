@@ -2,12 +2,13 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
 <script>
 /* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
-   Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal);
-   Russian also starts the Cyrillic faces' stylesheet now (the offline page's are inline). English returns at once. */
+   Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal).
+   English returns at once. (The faces are in the one stylesheet above in every language: Google Fonts serves Roboto Flex
+   and JetBrains Mono per unicode-range subset, so Cyrillic is fetched only when it is set.) */
 (function () {
   try {
     var q = new URLSearchParams(location.search), l = q.get('lang'), ns = q.get('ns') || '', p = null, n = '';
@@ -18,17 +19,10 @@
       else { n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); l = /^ru(-|$)/.test(n) ? 'ru' : /^it(-|$)/.test(n) ? 'it' : 'en'; }
     }
     if (l === 'en') return;
-    var d = document.documentElement, k = document.createElement('link');
+    var d = document.documentElement;
     l = l === 'pseudo' ? 'ru' : l;
     d.lang = l; d.setAttribute('data-lang', l); d.classList.add('i18n-wait');
     addEventListener('load', function () { d.classList.remove('i18n-wait'); });
-    if (l !== 'ru') return;
-    // (the offline page, issue #21: the faces are inline, build.py's #cmw-fonts-ru, and go in as a style element)
-    var f = document.getElementById('cmw-fonts-ru');
-    if (f) { k = document.createElement('style'); k.id = 'i18n-fonts'; k.textContent = f.textContent; document.head.appendChild(k); return; }
-    k.id = 'i18n-fonts'; k.rel = 'stylesheet';
-    k.href = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
-    document.head.appendChild(k);
   } catch (e) { /* the page shows as before */ }
 })();
 </script>
@@ -73,13 +67,18 @@
   --shadow-3: 0 10px 28px #121A2029, 0 2px 6px #121A2014;
   --scrim: #121A205C;
   /* type */
-  --f-ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
-  --f-mono: "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* [v16.5 UX105] typed input: round parentheses and a tight decimal point (B612 Mono's "(" reads as "[", "0.5" as "0. 5") */
+  /* (#288) one interface face, Roboto Flex, in all three languages (it has the width axis the semi-condensed captions use, and
+     Cyrillic), and one mono, JetBrains Mono, for readouts and typed input alike (round parentheses, a tight decimal point) */
+  --f-ui: "Roboto Flex", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --f-input: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* the semi-condensed captions and tool labels (they were Archivo at 87.5%): Roboto Flex's width axis is gentle and its optical
+     size follows the font size, so at 11-12 px it sets wider than Archivo did; width 75% and optical size 24 set the same words
+     within 2% of the old widths (Russian was already Roboto Flex at 87.5%, and keeps that below) */
+  --ui-narrow-stretch: 75%; --ui-narrow-var: "opsz" 24;
   --f-math: "STIX Two Text", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
   --t-micro: 400 10px/12px var(--f-mono);
-  --t-caption: semi-condensed 600 11px/14px var(--f-ui);
+  --t-caption: 600 11px/14px var(--f-ui);   /* (the captions add font-stretch and font-variation-settings, below the shorthand, which resets them) */
   --t-label: 500 12px/16px var(--f-ui);
   --t-body: 400 13px/18px var(--f-ui);
   --t-heading: 600 13px/18px var(--f-ui);
@@ -327,7 +326,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-row input[type=range] { width: 150px; min-width: 0; flex: 0 1 150px; accent-color: var(--accent); }
 .snd-row output { width: 40px; text-align: right; font: var(--t-readout); color: var(--ink-2); }
 .snd-tiers { margin: 6px 0 2px; padding: 6px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
-.snd-tiers legend { padding: 0; margin-bottom: 2px; font: var(--t-caption); color: var(--muted); }
+.snd-tiers legend { padding: 0; margin-bottom: 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .snd-chk { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
 .snd-chk input { flex: none; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--accent); }
 .snd-chk b { display: block; font: var(--t-label); color: var(--ink); }
@@ -569,14 +568,14 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .chip.readout .rp { white-space: nowrap; }
 .chip.readout .rp + .rp { margin-left: 12px; }
 .chip.readout .rp .rv { margin-right: 0; }
-/* idle hints (Landscape, Sphere) are words, so Archivo; B612 Mono stays for measured numbers */
+/* idle hints (Landscape, Sphere) are words, so the UI face; the mono face stays for measured numbers */
 .chip.readout .rhint { font: var(--t-label); color: var(--muted); }
 .pane.no-rulers .ruler, .pane.no-rulers .ruler-corner { visibility: hidden; }
 /* a 3D stage (Landscape, Sphere, the domain globe) has no rulers: it fills the whole plate body, centred */
 .pane.no-rulers .pane-body > .plot { grid-area: 1 / 1 / 3 / 3; }
 .field-err { grid-column: 1 / -1; margin-top: 2px; font: 400 11.5px/16px var(--f-ui); color: var(--error); }
 .chip.readout .rv i, .chip.readout .rk i { font: italic 500 12.5px/16px var(--f-math); }
-/* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in Archivo */
+/* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in the UI face */
 .chip.readout .rk .rm { font: 500 12.5px/16px var(--f-math); }
 .chip.readout .rk .rm sub { font: 500 9px/1 var(--f-math); vertical-align: -0.25em; }
 .chip.readout .rk .rw { font: var(--t-label); }
@@ -592,13 +591,13 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   -webkit-mask: radial-gradient(circle, transparent 5.5px, #000 6.5px); mask: radial-gradient(circle, transparent 5.5px, #000 6.5px); }
 .legend-chip.collapsed[data-kind="image"]::after { border-radius: 2px; opacity: 0.6; -webkit-mask: none; mask: none;
   background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 11px 11px; box-shadow: inset 0 0 0 1px var(--ink-2); }
-/* Preimage and Integral readings: roots found, integrals, winding numbers (words in Archivo, numbers in B612 Mono) */
+/* Preimage and Integral readings: roots found, integrals, winding numbers (words in the UI face, numbers in the mono face) */
 .legend-chip.calc-chip {
   display: grid; gap: 2px; width: max-content; max-width: min(248px, calc(100% - 16px)); padding: 6px 8px 7px;
   line-height: normal; cursor: default; font: var(--t-label); color: var(--ink-2); white-space: nowrap;
 }
 .legend-chip.calc-chip[hidden] { display: none; }
-.calc-chip .ch { font: var(--t-caption); color: var(--muted); }
+.calc-chip .ch { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .calc-chip .cl { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
 .calc-chip .cl > :first-child { overflow: hidden; text-overflow: ellipsis; }
 .calc-chip .cv { font: var(--t-readout); color: var(--ink); }
@@ -623,7 +622,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   .pane .plot:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 120px; }
 }
 .options.transport > .tclose { flex: 0 0 auto; margin-left: auto; }
-/* the integral popover (a right click on a curve): values in B612 Mono, math in STIX, words in Archivo */
+/* the integral popover (a right click on a curve): values in the mono face, math in STIX, words in the UI face */
 .pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
 .int-pop .pop-title { padding: 0 4px 0 10px; }
 .int-pop .pop-title .grow { flex: 1 1 auto; }
@@ -650,7 +649,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .int-cap i { font: var(--t-math-s); color: var(--ink-2); }
 .int-pop .icon-btn.copied { color: var(--good); }
 /* the shape panel lists the w-plane targets of the Preimage view under their own heading */
-.shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); color: var(--muted); }
+.shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .shapes .shapes-sub i { font: italic 500 12px/14px var(--f-math); color: var(--ink-2); }
 .shapes .shapes-sub::after { content: ""; flex: 1 1 auto; border-top: 1px solid var(--line); }
 .shapes > .shapes-sub:first-child { margin-top: 0; }
@@ -966,7 +965,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .card .err-msg:empty { display: none; }
 .card.bad .note, .card.bad .pchips { display: none; }
 .pchips { flex: 0 0 20px; height: 20px; margin-top: auto; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-.pchip { display: grid; place-items: center; font: var(--t-caption); color: var(--faint); border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.pchip { display: grid; place-items: center; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--faint); border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
 .pchip:first-child { border-left: 0; }
 .pchip.on { color: var(--good); background: var(--good-soft); }
 /* region card */
@@ -1029,7 +1028,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 .tool > svg, .tool > .tic { position: absolute; left: 50%; top: 5px; translate: -50% 0; width: 20px; height: 20px; display: block; overflow: visible; }
-.tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: semi-condensed; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .tool:hover { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .tool.on, .tool.on:hover, .tool[aria-pressed="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--inverse-ink); }
 /* Annulus, Sector and Polar grid while X shows its globe (P3b: they draw in Plane only) */
@@ -1121,7 +1120,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
   min-width: 18px; height: 18px; padding: 0 4px;
   border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: var(--r-1);
-  font: var(--t-caption); color: var(--muted); background: transparent; white-space: nowrap; vertical-align: 1px;
+  font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); background: transparent; white-space: nowrap; vertical-align: 1px;
 }
 
 /* ---------- 5.5 Inputs ---------- */
@@ -1272,7 +1271,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-stops { position: relative; display: flex; justify-content: space-between; margin-top: 0; min-height: 24px; }
 /* (#483) the stops are 24 px targets (WCAG 2.5.8) and start where the slider ends, not 2 px inside it */
 .fader-stops > button {
-  position: relative; min-width: 24px; min-height: 24px; padding: 6px 0 0; font: var(--t-caption); color: var(--muted); white-space: nowrap;
+  position: relative; min-width: 24px; min-height: 24px; padding: 6px 0 0; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); white-space: nowrap;
   transition: color var(--t-fast) var(--ease-out);
 }
 .fader-stops > button::before { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 4px; background: var(--line-strong); }
@@ -1292,7 +1291,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 /* (#339) each name has its column's width, not the swatch's: the four columns share the row, so a Russian name wraps
    between its words ("Квадратная / сетка") and is not hyphenated inside one ("Растяже-ние") */
 .patterns { grid-template-columns: repeat(4, minmax(52px, 1fr)); column-gap: 4px; }
-.pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
+.pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
 .pat > canvas { display: block; width: 52px; height: 40px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; }
 .pat > span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; }
 /* [v16.5 UX95, UX86] a pattern's name wraps to two lines rather than being cut ("Sphere checker", "Square grid") */
@@ -1405,7 +1404,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .psec .foot, .psec .footnote, .well.domain + .lbl { display: block; margin-top: 8px; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
 .matrix { width: 100%; border-collapse: collapse; table-layout: fixed; font: var(--t-body); }
 .matrix th, .matrix td { height: 26px; padding: 0; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
-.matrix tr:first-child th, .matrix thead th { font: var(--t-caption); color: var(--muted); }
+.matrix tr:first-child th, .matrix thead th { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .matrix tr:first-child > :not(:first-child), .matrix thead th:not(:first-child) { width: 24px; }
 .matrix tr > :first-child { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
 .matrix td:first-child .idx, .matrix th:first-child .idx { margin-right: 6px; vertical-align: middle; }
@@ -1544,7 +1543,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pal-label { font: 500 13px/17px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pal-desc { font: 400 11.5px/15px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pal-props { display: flex; gap: 3px; }
-.pp { min-width: 11px; text-align: center; font: var(--t-caption); color: var(--faint); }
+.pp { min-width: 11px; text-align: center; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--faint); }
 .pp.on { color: var(--good); }
 .pal-empty { padding: 16px 12px; color: var(--muted); text-wrap: pretty; }
 /* with no candidate there is nothing to preview */
@@ -1969,7 +1968,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   .tool-more > summary::-webkit-details-marker { display: none; }
   .tool-more > summary > .ic-slot { position: absolute; left: 50%; top: 7px; translate: -50% 0; width: 18px; height: 18px; }
-  .tool-more > summary > .tm-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: var(--t-label); font-size: 11px; font-stretch: semi-condensed; }
+  .tool-more > summary > .tm-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: var(--t-label); font-size: 11px; font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); }
   .tool-more .tm-close, .tool-more[open] .tm-open { display: none; }
   .tool-more[open] .tm-close { display: inline; }
   .tool-more[open] > summary { background: var(--well); color: var(--ink); }
@@ -2025,18 +2024,16 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @media (max-width: 429px) {
   .top > .mark { margin-right: auto; }
 }
-/* i18n (notes/i18n/DESIGN.md 4), Russian only: Archivo and B612 Mono have no Cyrillic. I18N.applyPage() sets
-   data-lang="ru" and loads Roboto Flex and JetBrains Mono (Google Fonts serves them per unicode-range subset). Roboto
-   Flex comes first, so a mixed label ("Сохранить PDF", "Формула 1") is one face (review i18n-13); readouts keep B612
-   Mono for their digits and Cyrillic falls through to JetBrains Mono. English never matches these rules and loads
-   nothing new. */
+/* i18n (notes/i18n/DESIGN.md 4), Russian: the faces are the same as in English (#288: Roboto Flex and JetBrains Mono both
+   have Cyrillic), so a mixed label ("Сохранить PDF", "Формула 1") is one face (review i18n-13); I18N.applyPage() sets
+   data-lang="ru" and redraws the canvas text once the Cyrillic ranges have loaded. */
 /* review ui-4: a monospace comma takes a whole cell, so 0,5 read as «0, 5». "CMW Comma" is the comma alone
-   (unicode-range) from a proportional system face, first in the Russian mono stack: on screen and on the canvas
+   (unicode-range) from a proportional system face, first in the Russian and Italian mono stacks: on screen and on the canvas
    (rulers, chips, legend, 3D ticks) a decimal comma is narrow. English never names this face, so never loads it */
 @font-face { font-family: "CMW Comma"; src: local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("DejaVu Sans"), local("Liberation Sans"); unicode-range: U+2C; }
 :root[data-lang="ru"] {
-  --f-ui: "Roboto Flex", "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
-  --f-mono: "CMW Comma", "B612 Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --f-mono: "CMW Comma", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ui-narrow-stretch: 87.5%; --ui-narrow-var: normal;   /* (as before #288: Roboto Flex semi-condensed, its optical size automatic) */
 }
 /* until init() has translated the static text (the head script above): no English frame in Russian (review eng-1) */
 :root.i18n-wait #app { visibility: hidden; }
@@ -2116,7 +2113,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* i18n, Italian: the app's own faces cover it (Latin with accents), so only the decimal comma (as in Russian: a narrow
    CMW Comma before the mono face), the CSS-generated preview word and MathJax's <text> letters (accented letters in
    \text{} have no TeX glyph) are set here */
-:root[data-lang="it"] { --f-mono: "CMW Comma", "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+:root[data-lang="it"] { --f-mono: "CMW Comma", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 :root[data-lang="it"] .texprev:empty::before { content: "Anteprima"; }
 :root[data-lang="it"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
 /* the Russian tool cells (DESIGN.md 8.1, 8.2): two lines of 11 px, wrapping at spaces and soft hyphens
@@ -2127,7 +2124,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
    button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
 :root[data-lang="it"] .pat { white-space: normal; }
-:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 

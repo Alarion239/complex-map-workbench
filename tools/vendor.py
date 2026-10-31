@@ -35,9 +35,7 @@ LOCK = VENDOR / 'LOCK.json'
 PACKAGES = {
     'mathjax': '4.1.3',
     '@mathjax/mathjax-stix2-font': '4.1.3',
-    '@fontsource-variable/archivo': '5.3.0',
     '@fontsource-variable/stix-two-text': '5.3.0',
-    '@fontsource/b612-mono': '5.3.0',
     '@fontsource-variable/jetbrains-mono': '5.3.0',
     '@fontsource-variable/roboto-flex': '5.3.0',
     'jspdf': '2.5.1',
@@ -61,23 +59,18 @@ LICENSE_FROM = {
 MJ_FONT = ('@mathjax/mathjax-stix2-font', 'mathjax-stix2', re.compile(r'svg\.js|svg/dynamic/[a-z-]+\.js'))
 # The faces, as the Google Fonts stylesheets they replace asked for them (src/page.html, src/i18n.js): the family,
 # the package and its file pattern ({r}: a unicode range's name), the style, the axes' ranges (the others pinned to
-# their defaults), the CSS weight and stretch. set 'ru': the Russian set, loaded with the language only.
+# their defaults), the CSS weight and stretch. set: 'main' (every face is in it: the interface is one face, Roboto Flex, in all
+# three languages, #288).
 FACES = [
-    dict(family='Archivo', pkg='@fontsource-variable/archivo', file='archivo-{r}-standard-normal.woff2', style='normal',
-         axes={'wght': (400, 700), 'wdth': (75, 125)}, weight='400 700', stretch='75% 125%', set='main'),
     dict(family='STIX Two Text', pkg='@fontsource-variable/stix-two-text', file='stix-two-text-{r}-wght-normal.woff2',
          style='normal', axes={'wght': (400, 700)}, weight='400 700', set='main'),
     dict(family='STIX Two Text', pkg='@fontsource-variable/stix-two-text', file='stix-two-text-{r}-wght-italic.woff2',
          style='italic', axes={'wght': (400, 700)}, weight='400 700', set='main'),
-    dict(family='B612 Mono', pkg='@fontsource/b612-mono', file='b612-mono-{r}-400-normal.woff2', style='normal',
-         weight='400', set='main'),
-    dict(family='B612 Mono', pkg='@fontsource/b612-mono', file='b612-mono-{r}-700-normal.woff2', style='normal',
-         weight='700', set='main'),
     dict(family='JetBrains Mono', pkg='@fontsource-variable/jetbrains-mono', file='jetbrains-mono-{r}-wght-normal.woff2',
          style='normal', axes={'wght': (400, 700)}, weight='400 700', set='main'),
     dict(family='Roboto Flex', pkg='@fontsource-variable/roboto-flex', file='roboto-flex-{r}-full-normal.woff2',
          style='normal', axes={'opsz': (8, 144), 'wdth': (75, 125), 'wght': (400, 700)}, weight='400 700',
-         stretch='75% 125%', set='ru'),
+         stretch='75% 125%', set='main'),
 ]
 # the letters a user may type beyond the sources' own: ASCII, Latin-1, basic Greek and Cyrillic, punctuation
 BASE = [(0x20, 0x7E), (0xA0, 0xFF), (0x391, 0x3C9), (0x400, 0x45F), (0x2010, 0x2027), (0x2030, 0x205E), (0x2212, 0x2212)]

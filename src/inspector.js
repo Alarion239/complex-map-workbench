@@ -101,8 +101,14 @@ const Inspector = (() => {
       const w = wOf();
       if (w <= avail + 0.5) return true;
       if (minScale >= 1) return false;
-      const f = Math.max(minScale, Math.floor((avail / w) * 100) / 100);
+      // (the width does not scale exactly with the size: the glyphs' advances and the math's spacing round, and by a pixel or two
+      // with a face whose x-height differs; so the scale is corrected up to twice from the width it gave)
+      let f = Math.max(minScale, Math.floor((avail / w) * 100) / 100);
       node.style.fontSize = Math.round(f * 100) + '%';
+      for (let i = 0; i < 2 && wOf() > avail + 0.5 && f > minScale; i++) {
+        f = Math.max(minScale, Math.floor(f * (avail / wOf()) * 100) / 100 - 0.01);
+        node.style.fontSize = Math.round(f * 100) + '%';
+      }
       return wOf() <= avail + 0.5;
     }
     // a formula in its well: the full form when it fits, else the alternative (alt), then smaller; decided once per
@@ -204,7 +210,7 @@ const Inspector = (() => {
       const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, typing: false };
       if (split) {
         split.open = foldOpen();
-        // (v16.1: the tour's unfolding, below, is not the viewer's fold)
+        // (the tour's unfolding, below, is not the viewer's fold)
         split.addEventListener('toggle', () => { if (split.dataset.tourOpen) { delete split.dataset.tourOpen; syncFoldLabel(split); return; } if (!split.hidden) { foldSave(split.open); syncFoldLabel(split); } });
         // (hidden from the first keystroke in the formula field until the text is committed: Enter or leaving the field)
         const fx = params.querySelector('input[data-pkey="expr"]');
@@ -633,7 +639,7 @@ const Inspector = (() => {
       if (!skeleton()) return;
       mountParams();
       const sel = A.sel();
-      // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
+      // (a selected construction shows its Construction view while the selection is the region; construct.js)
       const cmSig = (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
       // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
       const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;

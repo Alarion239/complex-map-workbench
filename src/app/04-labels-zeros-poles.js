@@ -9,7 +9,7 @@
   }
   // the curves drawn in this plane: shapes of 'list' under F (from drawPoints)
   function labelCurves(pane, F, list) { labelReg(pane).curves.push({ F, list }); }
-  // labels: STIX italic for variables, Archivo for words. it: {x, y, text, word?, rad? (marker radius)}
+  // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, rad? (marker radius)}
   function placeLabels(ctx, pane, items) {
     const r = labelReg(pane);
     for (const it of items) { r.items.push(it); r.marks.push([it.x, it.y, it.rad || 8]); }
@@ -157,7 +157,7 @@
     if (!opt.thin) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
     for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
-      const mk = Construct.pointMark(s);   // (v16: 'helper' | 'ring' | null)
+      const mk = Construct.pointMark(s);   // ('helper' | 'ring' | null)
       const idx = mk === 'helper' ? -1 : pi++;
       if (s._atInf) continue;
       const w = (opt.list ? F : shapeF(s, F, opt.k))(C(s.p[0], s.p[1]));
@@ -520,7 +520,7 @@
       el.append(zpFields(st, k, pre));
       el.scrollTop = top;
     }
-    if (insp) insp.refreshParams(k);   // (v15: the Inspector's editor)
+    if (insp) insp.refreshParams(k);   // (the Inspector's editor)
   }
   function zpSet(k, kind, i, v) {
     const st = S.steps[k - 1];
@@ -567,7 +567,7 @@
     refreshZpCard(k);
     return list.length - 1;
   }
-  // the Inspector's Add zero / Add pole (v15, DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
+  // the Inspector's Add zero / Add pole (DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
   // input (X when it shows that plane, else the view that plane would have), snapped to the grid; never Show alone
   function zpAddFromCard(k, kind) {
     const here = !!zpStep() && zpStep().k === k;
@@ -669,7 +669,7 @@
     const finger = ptrTouch;
     let best = null, bd = Infinity;
     for (const [key, hz] of Region.handlesOf(sel)) {
-      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (v16: a bound handle is no handle; v16.3: nor a fixed shape's)
+      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; v16.3: nor a fixed shape's)
       const [hx, hy] = pane.w2s(hz);
       if (finger) { const d = Math.hypot(hx - x, hy - y); if (d < 22 && d < bd) { bd = d; best = key; } }
       else if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) return key;

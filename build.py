@@ -145,8 +145,7 @@ dist.mkdir(exist_ok=True)
 # it, and linked from Settings) needs no network. tools/vendor.py writes vendor/ (pinned, checked by test/t_vendor.js),
 # and the build reads vendor/ only. MathJax and its STIX2 font go in as a JSON block (never run while the page parses),
 # started from Blob URLs once the page has loaded and painted, as the CDN's async script arrived; the
-# faces are @font-face rules with the woff2 inline; the Russian set (Roboto Flex) is a text block that page.html's head
-# script, or i18n.js, turns into a style element with the language.
+# faces are @font-face rules with the woff2 inline (one stylesheet, in every language: #288).
 vendor = root / 'vendor'
 vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
 CDN_MJ = '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>\n'
@@ -187,8 +186,7 @@ def font_face(f):
 
 
 fonts = '<style id="cmw-fonts">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'main') + '</style>\n'
-fonts += '<script type="text/plain" id="cmw-fonts-ru">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'ru') + '</script>\n'
-# (the head's three Google Fonts lines go; the faces come before the head script, which reads #cmw-fonts-ru)
+# (the head's three Google Fonts lines go)
 page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https://fonts\.(?:googleapis|gstatic)\.com[^>]*>\n', '', page)
 assert n_links == 3, f'the Google Fonts links build.py drops: {n_links}'
 # (the figure export's PDF library, jsPDF and svg2pdf.js, as JSON blocks too: figure.js starts them on the first PDF
