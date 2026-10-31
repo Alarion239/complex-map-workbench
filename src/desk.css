@@ -116,6 +116,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .iform .ftex.long { white-space: normal; font: var(--t-label); color: var(--muted); }
 .iform .wl { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13.5px; }
 .iform .wl > div { white-space: nowrap; }
+/* ([#465] the formula read as text is as tall as the typeset line it stands for, so the sheet does not move when MathJax
+   arrives: a step line is a line of text; F's line keeps the height of a typeset one with scripts) */
+.iform .tex-fallback { min-height: 0; line-height: 1.15; vertical-align: top; }
+.iform .ftex:not(.long) { min-height: 22px; }
 .inote { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
 .inote:empty { display: none; }
 .ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
