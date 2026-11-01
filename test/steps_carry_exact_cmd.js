@@ -8,8 +8,8 @@
 //   m = -6 … 6, or -2 … 2 where exp's and sin's families multiply past the 512 points listed), Everywhere, on the last
 //   plane at rest, at three colour planes each;
 // - the Joukowski airfoil example, Inside regions (its region: outside the circle through 1) and Everywhere, plane w1 at
-//   rest coloured from z, and Everywhere parked at 0.3 and 0.6 (the deformation's poles and its disc branch's tanh pole
-//   in the window);
+//   rest coloured from z, and Everywhere parked at 0.25, 0.3, 0.5 and 0.6 (the deformation's poles and its disc branch's
+//   tanh pole in the window; the two sheets overlapping) and held mid-glide at 0.25 and 0.5;
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong, every sample's points listed, and none left on the bare paper;
@@ -65,6 +65,26 @@ const steady = async () => {
 };
 // (the view brought to { go | park, T, scope } and asked again until it holds, as a state the page loads late puts the
 // view back on its first plane; then the programs linked and the plane drawn again)
+// (the thread pressed at plane z and held at x, as a scrub: pointer events on the rail, the move past its 6 px, no
+// release until __svScrubUp; true once the frame holds still)
+const scrub = async (x) => {
+  await ev(`(() => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 71, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
+    window.__svScrubUp = () => ev('pointerup', cx);
+    return 1;
+  })()`);
+  let prev = null;
+  for (let i = 0; i < 20; i++) {
+    await settled({ until: 'GLR.pendingLinks === 0', max: 10000 });
+    const now = await ev('(() => { const c = document.getElementById("canvasL"); return Array.from(c.getContext("2d").getImageData(0, 0, c.width, c.height).data.filter((v, i) => i % 4093 === 0)).join(","); })()');
+    if (now === prev) return true;
+    prev = now;
+  }
+  return false;
+};
 const reach = async (name, o) => {
   const want = `__cmwSteps().T === ${o.T} && __cmwSteps().scope === ${JSON.stringify(o.scope)} && !__cmwSteps().play && !__cmwSteps().anim && ${o.park != null ? `Math.abs(__cmwSteps().x - ${o.park}) < 1e-9` : `__cmwSteps().i === ${o.go} && Math.abs(__cmwSteps().x - ${o.go}) < 1e-9`}`;
   let there = false;
@@ -111,10 +131,21 @@ if (EX >= 0) {
   if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW, nx: 60, ny: 40, tol: 14, min: 401, filled: 1501 });
   // (Everywhere at rest: each point against its front preimage under the shared key)
   if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW, nx: 60, ny: 40, tol: 14, min: 401 });
-  // (parked, Everywhere: H_u's poles and its disc branch's tanh pole in the window)
-  for (const park of [0.3, 0.6]) {
+  // (parked, Everywhere: H_u's poles and its disc branch's tanh pole in the window; at 0.25 and 0.5 the two sheets
+  // overlap over much of the plane)
+  for (const park of [0.25, 0.3, 0.5, 0.6]) {
     const key = `Joukowski, Everywhere, parked at ${park}`;
     if (await reach(key, { park, T: 0, scope: 'all' })) await judge(key, { nx: 32, ny: 20, skip, skipW, nex: 60 });
+  }
+  // (a frame of a glide: the thread held mid-scrub at x, the path a glide draws (no fix-up, the poles' coarse search),
+  // on a frame that holds still)
+  for (const x of [0.25, 0.5]) {
+    const key = `Joukowski, Everywhere, mid-glide at ${x}`;
+    if (await reach(key, { go: 0, T: 0, scope: 'all' }) && await scrub(x)) {
+      ok(`${key}: the view is held there, gliding`, await ev(`Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving`), await ev('__cmwSteps()'));
+      await judge(key, { nx: 32, ny: 20, skip, skipW, nex: 60 });
+    }
+    await ev('window.__svScrubUp && window.__svScrubUp(); 1');
   }
 }
 
@@ -140,9 +171,9 @@ await ev('window.__sclc.restoreContext(); 1');
 await settled({ until: '!GLR.lost && GLR.ok', max: 10000, panes: false });
 ok('after a lost and restored GL context: the frame is drawn and holds still', await steady(), null);
 await judge('after a lost and restored GL context', { nx: 32, ny: 20, skip: { circles: [[0, 0, 0.6], [0, 0, 1.6]], eps: 0.08 } });
-// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 4 of
+// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 8 of
 // Joukowski, 8 of the powers and the restored context)
-const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 4 + 8 + 1;
+const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 8 + 8 + 1;
 ok('every case was judged', Object.keys(info.cases).length === want, { judged: Object.keys(info.cases).length, want });
 const all = Object.values(info.cases).filter(Boolean);
 info.summary = `${all.filter((r) => r.considered >= MIN_N && r.rate <= MAX_BAD && r.blank === 0).length} of ${all.length} cases pass`;
