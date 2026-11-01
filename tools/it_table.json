@@ -3290,7 +3290,7 @@
  "Open the chain, click $f_1$, then Show alone.": "Apri la catena, fai clic su $f_1$, poi «Mostra da solo».",
  "Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.": "Tocca qui per aggiungere un passo: sceglilo dal catalogo o digita una formula come $\\sin(z^2)$. Per riordinare, trascina una scheda tenendola per l'intestazione.",
  "Open the chain with the steps button under the planes and click Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.": "Apri la catena con il pulsante dei passi sotto i piani e fai clic su «Aggiungi funzione»: scegline una dal catalogo o digita una formula come $\\sin(z^2)$. Per riordinare, trascina un passo per la sua maniglia.",
- "Tap the add card.": "Tocca la scheda di aggiunta.",
+ "Tap Add function.": "Tocca «Aggiungi funzione».",
  "Open the chain, then click Add function.": "Apri la catena, poi fai clic su «Aggiungi funzione».",
  "X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel.": "X → Y mostra i due piani affiancati. «Fase» e «Paesaggio» sono rappresentazioni di $F$ su X, ciascuna in un unico pannello largo.",
  "X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen. Keys {1} {2} {3}.": "X → Y mostra i due piani. «Fase» e «Paesaggio» sono rappresentazioni di $F$ su X, ciascuna a tutto schermo. Tasti {1} {2} {3}.",
