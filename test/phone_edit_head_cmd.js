@@ -29,17 +29,20 @@ const geo = (scrollTo) => ev(`(() => {
   }
   return { top: sc.scrollTop, max, sheet: R(sh), head: R(head), scroller: sr, und: btn[0], x: btn[1], grab: R(grab), hit };
 })()`);
+// opens the page and a sheet, waiting for the phone layout, then for the sheet to be open and still
+const openSheet = async (url, kind) => {
+  await go(url);
+  await settled({ until: `!!window.Phone && Phone.isOn()` });
+  await ev(`(Phone.open(${JSON.stringify(kind)}), 1)`);
+  await settled({ until: `Phone.sheet() === ${JSON.stringify(kind)} && !!document.querySelector('.ph-sheet.open')` });
+};
 const touch = async (type, x, y) => send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
 for (const [lang, w, vw] of [['en', 360, 'classic'], ['ru', 360, 'classic'], ['it', 360, 'classic'], ['it', 360, 'steps'], ['en', 390, 'classic'], ['ru', 390, 'classic'], ['it', 390, 'classic'], ['en', 740, 'classic'], ['it', 740, 'classic']]) {
   const tag = `${lang} ${w} ${vw}`;
   await view(w, w === 740 ? 360 : 780, false, true);   // (740 × 360 is the landscape side panel)
-  await nav(`http://localhost:${PORT}/test.html?ns=peh${lang}${w}${vw[0]}${Date.now() % 100000}${lang === 'en' ? '' : '&lang=' + lang}${vw === 'steps' ? '&view=steps' : ''}`);
-  await sleep(4500);
-  await ev(`(Phone.open('edit'), 1)`);
-  await sleep(2000);
+  await openSheet(`http://localhost:${PORT}/test.html?ns=peh${lang}${w}${vw[0]}${Date.now() % 100000}${lang === 'en' ? '' : '&lang=' + lang}${vw === 'steps' ? '&view=steps' : ''}`, 'edit');
   for (const at of [0, 169, 'end']) {
     const g = await geo(at);
-    await sleep(250);
     const k = `${tag} scrolled ${at}`;
     if (!g || g.noScroller) { ok(`${k}: the Edit sheet is open with a scroller`, false, g); continue; }
     info[k] = { top: g.top, max: g.max, hit: g.hit };
@@ -57,9 +60,10 @@ for (const [lang, w, vw] of [['en', 360, 'classic'], ['ru', 360, 'classic'], ['i
   const g0 = await geo(0);
   if (g0 && g0.x) {
     const cx = (g0.x.l + g0.x.r) / 2, cy = (g0.x.t + g0.x.b) / 2, top0 = g0.sheet.t;
-    await touch('touchStart', cx, cy); await sleep(60);
-    for (let i = 1; i <= 8; i++) { await touch('touchMove', cx, cy - i * 14); await sleep(30); }
-    await touch('touchEnd'); await sleep(700);
+    await touch('touchStart', cx, cy);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', cx, cy - i * 14);
+    await touch('touchEnd');
+    await settled();
     const after = await ev(`(() => { const s = document.querySelector('.ph-sheet'); return s ? s.getBoundingClientRect().top : null; })()`);
     ok(`${tag}: a drag that starts on × does not move the sheet`, after != null && Math.abs(after - top0) <= 1, [top0, after]);
   }
@@ -71,17 +75,18 @@ const planeH = `Math.round(document.getElementById('paneL').getBoundingClientRec
 for (const [w, h] of [[390, 844], [360, 780], [360, 640], [360, 568]]) {
   const tag = `${w} x ${h}`;
   await view(w, h, false, true);
-  await nav(`http://localhost:${PORT}/test.html?ns=pehp${w}${h}${Date.now() % 100000}`);
-  await sleep(4500);
-  await ev(`(window.__s = [], window.__sample = (ms) => new Promise((res) => { const t0 = performance.now(); const tick = () => { window.__s.push(${planeH}); if (performance.now() - t0 < ms) requestAnimationFrame(tick); else res(1); }; requestAnimationFrame(tick); }), 1)`);
-  await ev(`(Phone.open('tools'), 1)`); await sleep(1500);
+  await openSheet(`http://localhost:${PORT}/test.html?ns=pehp${w}${h}${Date.now() % 100000}`, 'tools');
+  // the planes' height, a frame at a time, until no animation is running for three frames
+  await ev(`(window.__s = [], window.__sample = () => new Promise((res) => { let quiet = 0; const t0 = performance.now(); const tick = () => { window.__s.push(${planeH}); quiet = document.getAnimations().some((a) => a.playState === 'running') ? 0 : quiet + 1; if (quiet >= 3 || performance.now() - t0 > 4000) res(1); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); }), 1)`);
   const tools = await ev(planeH);
-  await ev(`(window.__s = [], Phone.open('edit'), window.__sample(900), 1)`); await sleep(1300);
+  await ev(`(window.__s = [], Phone.open('edit'), window.__sample())`);
+  await settled({ until: `Phone.sheet() === 'edit'` });
   const opened = await ev(`({ h: ${planeH}, seq: [...new Set(window.__s)], hp: parseFloat(document.documentElement.style.getPropertyValue('--ph-hp')) })`);
   ok(`${tag}: the planes are at least 200 px with the Edit sheet open`, opened.h >= 200, opened);
   ok(`${tag}: they give the strip's 26 px only where that leaves them 200 px or more`, opened.h === (tools - 26 >= 200 ? tools - 26 : tools), { tools, opened });
   ok(`${tag}: from the Tools sheet to the Edit sheet the planes change in one step`, opened.seq.length <= 2, opened.seq);
-  await ev(`(window.__s = [], Phone.close(), window.__sample(900), 1)`); await sleep(1300);
+  await ev(`(window.__s = [], Phone.close(), window.__sample())`);
+  await settled({ until: `!Phone.sheet()` });
   const closed = await ev(`({ h: ${planeH}, seq: [...new Set(window.__s)] })`);
   ok(`${tag}: closing the sheet gives the planes back in one step`, closed.seq.length <= 2, closed.seq);
   info[`planes ${tag}`] = { tools, edit: opened.h, seq: opened.seq, closed: closed.h };
