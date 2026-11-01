@@ -1,5 +1,5 @@
 // The thread's F chip, the whole map (behind ?view=steps):
-// - on a laptop one chip sits after the thread, before "+ Add function": the italic F and "The whole map", no ⋯, not a step of the
+// - on a laptop one chip sits after the thread, before "+ Add function": the italic F and "Whole map", no ⋯, not a step of the
 //   chain (the step chips are as many as the steps), a Tab stop, in the strip's own row;
 // - a click, and Enter on it from the keyboard, select F: the Inspector shows the composition, the natural domain and the
 //   guarantees, and the chip says it is pressed (aria-pressed), and not pressed again once a step is selected;
@@ -29,7 +29,7 @@ const insp = () => ev(`(document.getElementById('propsPanel') || document.body).
 
 await open(1280, 800, false, 'en');
 const f0 = await whole();
-ok('the F chip is after the thread and before + Add function, a button with the whole map\'s name', f0 && f0.afterRail && f0.beforeAdd && f0.tag === 'BUTTON' && /F/.test(f0.text) && /The whole map/.test(f0.text) && f0.label === 'The whole map', f0);
+ok('the F chip is after the thread and before + Add function, a button named Whole map', f0 && f0.afterRail && f0.beforeAdd && f0.tag === 'BUTTON' && /F/.test(f0.text) && /Whole map/.test(f0.text) && f0.label === 'Whole map', f0);
 ok('it has no ⋯, it is a Tab stop, and it is not one of the step chips (as many as the steps)', f0 && !f0.more && f0.tab === 0 && f0.chips === 3, f0);
 ok('it is not pressed while a step, not F, is selected', f0 && f0.pressed === 'false', f0);
 await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`);
@@ -76,7 +76,7 @@ for (const lang of ['en', 'ru', 'it']) {
 for (const lang of ['ru', 'it']) {
   await open(1280, 800, false, lang);
   const f = await whole();
-  ok(`${lang}: the chip's name is translated`, f && f.label && f.label !== 'The whole map' && !/The whole map/.test(f.text), f);
+  ok(`${lang}: the chip's name is translated`, f && f.label && f.label !== 'Whole map' && !/Whole map/.test(f.text), f);
 }
 
 // a phone: the chain sheet has the whole-map row, so the strip has no chip
