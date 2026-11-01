@@ -32,7 +32,7 @@ const SHARDS = [
   { id: 'i18n', suites: ['i18n_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang'] },                    // 334 + 164 + 112
   { id: 'i18n-desktop', suites: ['i18n_walk_cmd.js#1440'] },                                                // 693
   { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark'] },                                              // 601
-  { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#deform', 'phone_swap_cmd.js#views'] },                  // 379 + 326
+  { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#deform', 'phone_swap_cmd.js#views', 'phone_toast_chain_cmd.js'] },   // 379 + 326 + 37
   { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate', 'phone_swap_cmd.js#sphere'] },   // 333 + 242 + 205
   { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet', 'phone_landscape_cmd.js', 'phone_sheets_cmd.js', 'phone_sheet_target_cmd.js'] },   // 227 + 256 + 197 + 39
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js', 'warm_bar_cmd.js', 'dh_cmd.js'] },     // 287 + 113 + 75 + 70
