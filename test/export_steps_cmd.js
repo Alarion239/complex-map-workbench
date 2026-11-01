@@ -1,4 +1,4 @@
-// The steps view's Export → Image is the shown plane (#633): for Strip to disk and the zeta function, a coloured plane
+// The steps view's Export → Image is the shown plane: for Strip to disk and the zeta function, a coloured plane
 // in Plane, Sphere and Landscape and a plane past the colour plane, the figure's picture is the stage's. A grid of cells
 // over the stage, each the median of 3 x 3 samples (so a thin line or label does not decide it), is compared with the
 // same points of the figure's raster: by world coordinate on a plane (the figure's window, Figure.build's box), by
@@ -123,7 +123,7 @@ for (const c of CASES) {
   ok(`${tag}: the figure's picture is the stage's (${Math.round(AGREE * 100)}% of the coloured cells within ${TOL} per channel)`, n >= 12 && agree / n >= AGREE, { cells: n, agree: n ? +(agree / n).toFixed(3) : 0, bad });
 }
 // the captions in Russian and Italian too: each formula in them parses with no error and no unknown command (the scan
-// of export_tex_cmd, #546), and they name the plane's map
+// of export_tex_cmd), and they name the plane's map
 await go(`${base}/test.html?view=steps&ns=xsvl${Date.now() % 1e7}`);
 await settled({ until: 'window.MathJax && typeof MathJax.tex2mml === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
 await ev(`(__cmwExample(1), 1)`);
