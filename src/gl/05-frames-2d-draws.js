@@ -387,14 +387,19 @@
   }
   // a carried-colour draw under the sheet key k (none: the draw order). depth: 'only' (default) a depth of its own;
   // 'first', 'mid', 'last' draws sharing one depth, so the key orders the points of all of them: the first clears it,
-  // the last clears it after
+  // the last clears it after. Unblended: the carried colour is opaque (alpha 1, which the premultiplied blend only
+  // copies), and an opaque draw lets a tiling GPU shade only the front sheet's fragments, where a blended one shades
+  // every sheet's, each the colour's whole chain
   function carryDraw(k, depth, draw) {
-    if (!k) { draw(); return; }
-    const depthMode = depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';
-    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
-    if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
-    draw();
-    if (last) carryDepthEnd();
+    gl.disable(gl.BLEND);
+    try {
+      if (!k) { draw(); return; }
+      const depthMode = depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
+      if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
+      draw();
+      if (last) carryDepthEnd();
+    } finally { gl.enable(gl.BLEND); }
   }
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
