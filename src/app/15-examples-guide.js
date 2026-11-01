@@ -993,6 +993,7 @@
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
   // o.ms: how long an ordinary one stays)
   function toast(msg, actionLabel, action, isUndo, o) {
+    if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
     if (!host) return;
     host.innerHTML = '';
