@@ -440,16 +440,6 @@
     drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
     if (rest) drawRulers(pane, 'L');
   }
-  // the regions drawn as a mask (#591): fn with the regions' look set to solid, opaque and without lines, then put back
-  function withSolidRegions(fn) {
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
-    try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      return fn();
-    } finally {
-      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-    }
-  }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
   // - on the GPU, in one frame and one copy to the page (#545): the regions' fills (drawScene's fills, #561) write the

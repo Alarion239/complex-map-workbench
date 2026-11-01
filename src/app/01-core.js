@@ -267,6 +267,17 @@
   function deleteOpt(key) { delete S[key]; }
   function setViewOpt(pane, key, v) { if (pane) S.view[pane][key] = v; else S.view[key] = v; }
   function takeId() { return S.nextId++; }
+  // the regions drawn as a mask (#591; the steps view's masks, sphereView's inRegions): fn with the regions' look set
+  // to solid, opaque and without lines, then put back
+  function withSolidRegions(fn) {
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    try {
+      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+      return fn();
+    } finally {
+      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+    }
+  }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
