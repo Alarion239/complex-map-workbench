@@ -67,7 +67,7 @@ const PROBE = `(() => {
   let frac = null;
   if (L && L.anchor && L.holes[0]) { const a = L.anchor, v = { l: Math.max(2, a.l), t: Math.max(2, a.t), r: Math.min(innerWidth - 2, a.r), b: Math.min(innerHeight - 2, a.b) }, h = L.holes[0]; const ar = Math.max(0, v.r - v.l) * Math.max(0, v.b - v.t); frac = ar ? Math.max(0, Math.min(h.r, v.r) - Math.max(h.l, v.l)) * Math.max(0, Math.min(h.b, v.b) - Math.max(h.t, v.t)) / ar : 1; }
   // the app's layers left open (a phone's sheet a step opens is part of the step, and so is the laptop's popover a step
-  // opens, data-tour-layer naming that step: [v17 D4] the patterns step's Display ▾; still open at a later step, it counts)
+  // opens, data-tour-layer naming that step: [v17 D4] a step's Regions ▾; still open at a later step, it counts)
   const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]') && !(c && /** @type {HTMLElement} */ (e).dataset.tourLayer === c.chapter + '/' + c.id)).length;
   const pn = rb(document.querySelector('#panes'));
   return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.w)), minH: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.h)), chapMin: btns.some((b) => b.n === 'ts-chap') ? Math.min(...btns.filter((b) => b.n === 'ts-chap').map((b) => Math.min(b.w, b.h))) : null, gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
@@ -127,8 +127,9 @@ for (const cfg of runs) {
   }
   // every step this build has was visited
   const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
-  // (46 steps since issue #13 took out edit/zpHere, the planes' menu's "Add zero of f₁ here")
-  check(`${tag}: every step visited (46, less what the layout leaves out)`, n >= 44, n);
+  // (46 steps since issue #13 took out edit/zpHere, the planes' menu's "Add zero of f₁ here"; 45 since #363 took out
+  // Views' Patterns step. A phone's layout leaves two out)
+  check(`${tag}: every step visited (45, less what the layout leaves out)`, n >= 43, n);
   await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
   }
   // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app

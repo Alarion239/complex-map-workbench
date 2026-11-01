@@ -76,7 +76,7 @@ const Phone = (() => {
     // page.html's #regionsHome ([v17 D5, #82]: no longer a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
-    els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
+    els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
     // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)

@@ -150,11 +150,6 @@
   "ru": "клетка %{x}",
   "note": "UX20: the pattern key's chip in Y's pane head."
  },
- "key.sphere": {
-  "en": "Sphere cells",
-  "ru": "Клетки сферы",
-  "note": ""
- },
  "key.height": {
   "en": "Height key",
   "ru": "Шкала высоты",
@@ -166,9 +161,9 @@
   "note": "X's chip in Phase."
  },
  "key.tip.pattern": {
-  "en": "Pattern key: point at it to unfold, click to keep it open",
-  "ru": "Шкала узора: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
-  "note": ""
+  "en": "Regions key: point at it to unfold, click to keep it open",
+  "ru": "Шкала областей: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+  "note": "#363: the regions' key (their fill, the phase of z, and the grid's cell), Y's chip in X → Y."
  },
  "key.tip.colour": {
   "en": "Colour key: point at it to unfold, click to keep it open",
