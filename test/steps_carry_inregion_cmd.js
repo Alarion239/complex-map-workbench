@@ -80,6 +80,50 @@ for (let k = 0; k < W.length; k++) {
 info.compared = n; info.wrong = bad; info.worst = worst; info.wrongAt = badAt;
 ok('at rest on w1: each region point has the colour of its exact preimage (at most 1 % wrong)', n > 400 && bad <= 0.01 * n, { n, bad, worst });
 
+// Everywhere, the same plane at rest: at each point w the front one of its two preimages z = w ± sqrt(w^2 - 1) under the
+// shared sheet key (__cmwSvKey: D = log2(1 + |z - c| / R) + the pole penalty, ties by one step of 2^-8 octave, then the
+// larger Im z), whose colour plane z shows. (The old grid carry: its 1.5x window and its facets.)
+{
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 1, now: true }); __cmwSteps({ T: 0 }); 1`);
+  await wait();
+  const key = await ev('__cmwSvKey(1)'), kc = [(key.win.x0 + key.win.x1) / 2, (key.win.y0 + key.win.y1) / 2];
+  const Dk = (z) => { let d = Math.log2(1 + Math.hypot(z[0] - kc[0], z[1] - kc[1]) / key.R); for (const p of key.sing) d += Math.max(0, Math.log2(key.rs / Math.max(Math.hypot(z[0] - p[0], z[1] - p[1]), 1e-30))); return d; };
+  const q8 = (d) => Math.round(d * 256);
+  const Wa = [], Za = [];
+  for (let j = 0; j < 40; j++) for (let i = 0; i < 60; i++) {
+    const w = [v.cx + (i / 59 - 0.5) * 0.8 * pane.w / v.s, v.cy + (j / 39 - 0.5) * 0.8 * pane.h / v.s];
+    const ax = w[0] * w[0] - w[1] * w[1] - 1, ay = 2 * w[0] * w[1], m = Math.hypot(ax, ay);
+    const sx = Math.sqrt(Math.max(0, (m + ax) / 2)), sy = (ay < 0 ? -1 : 1) * Math.sqrt(Math.max(0, (m - ax) / 2));
+    const c = [[w[0] + sx, w[1] + sy], [w[0] - sx, w[1] - sy]].map((z) => ({ z, D: Dk(z) }));
+    c.sort((a, b) => (q8(a.D) !== q8(b.D) ? a.D - b.D : 0) || (b.z[1] - a.z[1]));
+    const f = c[0].z;
+    // (away from the seam of that choice, the outlines' images, the trailing edge's mark and label, the cut [-1, 1])
+    if (Math.abs(c[0].D - c[1].D) < 0.05 || Math.abs(outside(f)) < 0.12 || Math.abs(Math.hypot(f[0], f[1]) - 1) < 0.08 || Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1) continue;
+    if (Math.abs(f[0] - v.cx) > 0.45 * pane.w / v.s || Math.abs(f[1] - v.cy) > 0.45 * pane.h / v.s) continue;
+    Wa.push(w); Za.push(f);
+  }
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ T: 0 }); 1`);
+  await wait();
+  const refA = await ev(`__cmwLPx(${JSON.stringify(Za)}).px`);
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 1, now: true }); __cmwSteps({ T: 0 }); 1`);
+  await wait();
+  const gotA = await ev(`__cmwLPx(${JSON.stringify(Wa)}).px`);
+  let nA = 0, badA = 0, paperA = 0, worstA = 0;
+  for (let k = 0; k < Wa.length; k++) {
+    if (!gotA[k] || !refA[k]) continue;
+    nA++;
+    const p = gotA[k][4];
+    if (Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6) paperA++;
+    let best = 1e9;
+    for (const q of refA[k]) best = Math.min(best, Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2])));
+    worstA = Math.max(worstA, best);
+    if (best > 14) badA++;
+  }
+  info.everywhere = { n: nA, wrong: badA, paper: paperA, worst: worstA };
+  ok('Everywhere at rest on w1: each point has the colour of its front preimage under the shared key (at most 1 % wrong)', nA > 400 && badA <= 0.01 * nA, info.everywhere);
+  ok('Everywhere at rest on w1: no point on the bare paper', paperA === 0, info.everywhere);
+}
+
 // (#584, multiple coverings) w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): plane
 // w1 coloured from z, at rest and parked halfway (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions
 // and Everywhere. At each point w the front point of those landing there (in the annulus, or any) is the shared sheet
