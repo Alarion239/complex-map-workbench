@@ -20,12 +20,15 @@ const open = async () => {
 };
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const quiet = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
-// how many pixels of the plane's canvas (its rulers' margin left out) are within `tol` (a distance in RGB) of a shape's ink
-const ink = (id, tol = 22) => ev(`(() => {
+// the share of the canvas the rulers take on each side, left out of what is counted; and how far a pixel of a curve may be from
+// its ink in RGB (the casing's edge and the antialiasing blend a curve's outer pixels toward the plane, its core is the ink)
+const RULER_MARGIN = 0.14, INK_TOLERANCE = 22;
+// how many pixels of the plane's canvas (its rulers' margin left out) are within the tolerance of a shape's ink
+const ink = (id, tol = INK_TOLERANCE) => ev(`(() => {
   const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], x = c && c.getContext('2d');
   if (!x) return { __exc: 'no 2d canvas in #plotL' };
   const hex = __cmwInk(${JSON.stringify(id)}), v = parseInt(hex.slice(1), 16), R = v >> 16 & 255, G = v >> 8 & 255, B = v & 255;
-  const m = Math.round(Math.min(c.width, c.height) * 0.14), w = c.width - 2 * m, h = c.height - 2 * m, d = x.getImageData(m, m, w, h).data;
+  const m = Math.round(Math.min(c.width, c.height) * ${RULER_MARGIN}), w = c.width - 2 * m, h = c.height - 2 * m, d = x.getImageData(m, m, w, h).data;
   let n = 0; const near = (i) => Math.hypot(d[i] - R, d[i + 1] - G, d[i + 2] - B) <= ${tol};
   for (let i = 0; i < d.length; i += 4) if (near(i)) n++;
   return { hex, n };

@@ -463,12 +463,12 @@
     const ink = shapeInk(s);
     const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
     const area = kindType(s) === 'area';
-    let w = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
-    let cw = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-    if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { w += 0.75; cw += 0.75; }
-    if (!opt.thin && s.id === hoverShape) { w += 0.5; cw += 0.5; }
-    const st = { width: w * dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1 };
-    if (cw) st.casing = { color: GLR.hexRGB(TH.halo), alpha: TH.haloA, width: cw * dpr };
+    let width = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
+    let casingWidth = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
+    if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { width += 0.75; casingWidth += 0.75; }
+    if (!opt.thin && s.id === hoverShape) { width += 0.5; casingWidth += 0.5; }
+    const st = { width: width * dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1 };
+    if (casingWidth) st.casing = { color: GLR.hexRGB(TH.halo), alpha: TH.haloA, width: casingWidth * dpr };
     return st;
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
