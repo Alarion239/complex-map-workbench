@@ -620,8 +620,12 @@
       if (!sel) continue;
       sel.disabled = !ok;
       sel.value = S.homAll && ok ? 'all' : 'steps';
+      // (a disabled select gets no pointer events, so its reason is the native title and a description)
       sel.dataset.tip = tip;
+      sel.title = tip;
+      sel.setAttribute('aria-description', ok ? '' : tip);
     }
+    if (E.play) E.play.setAttribute('aria-description', ok ? `${$t('Hold for speed and loop')}. ${$t('Glide order')}: ${S.homAll ? $t('All at once') : $t('Step by step')}` : $t('Hold for speed and loop'));
   }
   function svBuild() {
     const head = document.querySelector('#paneL .pane-head');

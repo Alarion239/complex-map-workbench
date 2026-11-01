@@ -72,7 +72,7 @@ ok('▶ is 44 px, before ‹, labelled Play; Loop is a toggle, off', d0.play && 
 
 const lh = await ev(`document.querySelector('.sv-loop').getBoundingClientRect().height`);
 ok('the Loop toggle is 36 px high, as the speed select', lh >= 35.5 && lh <= 37, lh);
-ok('▶ says how to reach Speed and Loop', await ev(`document.querySelector('.sv-play').getAttribute('aria-description') === 'Hold for speed and loop'`), 'desc');
+ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold for speed and loop\\. Glide order: (Step by step|All at once)$/.test(document.querySelector('.sv-play').getAttribute('aria-description'))`), 'desc');
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
