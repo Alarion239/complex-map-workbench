@@ -1427,7 +1427,9 @@
         if (it.id === 'remove') { svRemove(k); return it.id; }
         if (it.id === 'bypass') return svBypass(k);
         if (it.id === 'moveL' || it.id === 'moveR') return svMove(k, it.id === 'moveL' ? -1 : 1);
-        const r = run();
+        let r;
+        SV.quiet = true;
+        try { r = run(); } finally { SV.quiet = false; }
         if (!SV.want) SV.own = false;
         else if (it.id === 'insert' || it.id === 'replace') svWatchPalette();
         // (what the item says: an element it shows; the chain's own return is a hidden card)
@@ -1437,6 +1439,16 @@
         return svLayerOpen() ? null : svEl(k, 'chip');
       } });
     });
+  }
+  // a message for an edit made on the thread (#515 would take the rail for it and hide the thread, with the focus on it): none on a
+  // desktop. It is said in the live region; Undo stays in the top bar's ↶ and Ctrl+Z; the focus stays on its chip (ux's choice A)
+  function svQuietToast(msg) {
+    if (!SV.on || !SV.els || document.documentElement.classList.contains('ph')) return false;
+    const a = document.activeElement, inRail = !!(a && a.closest && a.closest('#svStrip .sv-rail, #svStrip .sv-add'));
+    if (!(SV.quiet || SV.want || inRail)) return false;
+    SV.els.live.textContent = '';
+    setTimeout(() => { if (SV.els) SV.els.live.textContent = msg; }, 30);
+    return true;
   }
   // open step k in the Inspector; on a phone its sheet (a card's tap does it there, the thread's chip is not a card)
   function svInspect(k) {
@@ -1503,27 +1515,29 @@
     if (!st) return;
     const was = st.on !== false, name = defOf(st).label;
     svEdit(k, 0, -1);
-    SV.own = true;
-    toggleBypass(k);
-    SV.shift = null; SV.own = false;
-    undoToast(was ? $t('Bypassed f{x} ({name}).', { x: sub(k), name }) : $t('Turned f{x} back on.', { x: sub(k) }));
+    SV.own = true; SV.quiet = true;
+    try {
+      toggleBypass(k);
+      SV.shift = null; SV.own = false;
+      undoToast(was ? $t('Bypassed f{x} ({name}).', { x: sub(k), name }) : $t('Turned f{x} back on.', { x: sub(k) }));
+    } finally { SV.quiet = false; }
     return svEl(k, 'more');
   }
   function svMove(k, d) {
     const n = S.steps.length, j = k + d;
     if (j < 1 || j > n) return null;
     if (SV.alone === k) SV.alone = j; else if (SV.alone === j) SV.alone = k;
-    SV.own = true;
-    const r = moveStep(k, d);
-    SV.own = false;
+    SV.own = true; SV.quiet = true;
+    let r;
+    try { r = moveStep(k, d); } finally { SV.quiet = false; SV.own = false; }
     return r ? svEl(j, 'chip') : null;
   }
   function svRemove(k) {
     const n = S.steps.length;
     if (!S.steps[k - 1]) return;
     svEdit(k, -1);
-    SV.own = true;
-    removeStep(k);
+    SV.own = true; SV.quiet = true;
+    try { removeStep(k); } finally { SV.quiet = false; }
     SV.shift = null; SV.own = false;
     svWant(k > 1 ? k - 1 : n > 1 ? 1 : 'add', k > 1 ? 'more' : 'chip');
     svWantFocusNow();
