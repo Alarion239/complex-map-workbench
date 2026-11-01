@@ -18,10 +18,10 @@ const Tour = (() => {
   // ---------------------------------------------------------------- content
   // Scenes are in the format of the app's examples (EX in app.js). `needs` names an app feature the scene relies on
   // (api.has(feature) === false: a step falls back to the next scene of its list, or is left out). `look` is the
-  // display the copy assumes; the tour applies it with api.setLook right after api.loadScene, so a user's own pattern,
-  // opacity or Landscape height never makes the copy false (restore() brings the user's look back).
+  // display the copy assumes; the tour applies it with api.setLook right after api.loadScene, so a user's own opacity
+  // or Landscape height never makes the copy false (restore() brings the user's look back).
   // (v16.4: phaseKey, Y's Phase key; sectors, the phase sectors of Tiles: 12 lines 30° apart, Hear the function's notes)
-  const LOOK = { pattern: 'checker', alpha: null, height: 'log', sheets: false, phaseStyle: 'enhanced', paths: true, allAtOnce: false, phaseKey: false, sectors: 12 };
+  const LOOK = { alpha: null, height: 'log', sheets: false, phaseStyle: 'enhanced', paths: true, allAtOnce: false, phaseKey: false, sectors: 12 };
   const look = (o) => Object.assign({}, LOOK, o || {});
   const SCENES = {
     strip: {
@@ -136,8 +136,8 @@ const Tour = (() => {
           lead: 'Practice freely: what you draw here is cleared at the end.',
           body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image: about two minutes. What you draw during the tour is cleared when it ends, and your own work comes back exactly as it was.' },
         { id: 'x', anchor: 'paneL', title: 'X: the domain', before: [['plane', 'L'], ['tool', 'select']],
-          body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
-          touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.',
+          body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
+          touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.',
           try: { text: 'Drag empty space in X, or scroll to zoom.', touch: 'Drag empty space in X, or pinch.', on: 'view-moved', test: (e) => !e || (e.pane === 'L' && e.how !== 'orbit'), ctl: ['tool:select'] } },
         { id: 'y', anchor: 'paneR', title: 'Y: the image', before: [['plane', 'R'], ['tool', 'select']],
           lead: 'The strip becomes the unit disc, and angles are kept.',
@@ -210,9 +210,6 @@ const Tour = (() => {
           touch: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.', deskTouch: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.', phoneFine: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
           body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
           try: { text: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
-        { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }], ['panel', 'left', 'display']],
-          body: 'The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F\'(z)|$: blue shrinks, amber grows.',
-          try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch', ctl: ['patStretch'], then: 'Blue shrinks, amber grows: $|F\'|$ at each point.' } },
       ],
     },
     {
@@ -433,10 +430,9 @@ const Tour = (() => {
     formula: '#secFormula', shapes: '#secShapes',
     // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
     ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
-    // ([v17 D4; #247] on the laptop the regions' display is behind Y's pattern button in the pane head: the open popover's
-    // patterns, or the button; on a phone the Display sheet's section)
+    // ([v17 D4; #247; #363] on the laptop the regions' display is behind Y's Regions button in the pane head: the open
+    // popover, or the button; on a phone the Display sheet's section)
     display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#rightFoot .pat-btn')),
-    patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.pat-pop #patternSeg') || document.querySelector('#rightFoot .pat-btn')),
     // (#246: on a phone the chain, its Add tile and F are rows of the chain sheet; while it is closed, its "N steps ▾"
     // button in the chain bar, which opens it)
     chain: '.pipe-wrap', addStep: () => inChainSheet('#addStepBtn'), panes: '#panes', paneL: '#paneL', paneR: '#paneR',
@@ -459,10 +455,10 @@ const Tour = (() => {
     soundBtn: '#soundBtn', soundBar: '#soundPh',
     // the Phase style control of the Phase view's options (Tiles, Plain, …, Cauchy)
     phaseStyle: '#dcSeg',
-    // (#247: Y's Phase key is in its head, or behind its ⋯, or, when the head holds no toggle, in the pattern button's
-    // pop-up above the patterns: the check while it is in the page, else the button that holds it)
+    // (#247: Y's Phase key is in its head, or behind its ⋯, or, when the head holds no toggle, in the Regions button's
+    // pop-up above the regions' options: the check while it is in the page, else the button that holds it)
     phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c && document.body.contains(c) ? c.closest('label') || c : yOpts(); },
-    // Y's Display options button (#247: the head's ⋯, or the pattern button when the toggles are merged into its pop-up),
+    // Y's Display options button (#247: the head's ⋯, or the Regions button when the toggles are merged into its pop-up),
     // where the Phase key goes when Y's head has no room for it
     rightOpts: () => yOpts(),
     // (v16.5 UX20) X's Display options button (#247: the head's ⋯, when the Phase style or Landscape's options do not fit
@@ -479,7 +475,6 @@ const Tour = (() => {
     // outside the row is the More key, which then carries the tool's icon and name
     'tool:disc': toolBtn('disc'), 'tool:select': toolBtn('select'), 'tool:line': toolBtn('line'), 'tool:circle3': toolBtn('circle3'),
     viewPhase: '#viewSwitch > [data-mode="phase"]', viewLand: '#viewSwitch > [data-mode="land"]',
-    patStretch: () => vis1('#patternSeg .pat[data-pat="stretch"]'),
     splitBtn: '#propsPanel .insp-step .split-offer:not([hidden]) .so-btn',
     // the card f₁; the card f₂, whose ⋯ shows on it (on a phone, where a card has none, f₂'s ⋯ in the Editor sheet that
     // a tap on the card opens)
@@ -494,7 +489,7 @@ const Tour = (() => {
   };
   // the first visible match of a selector (a control that has a copy elsewhere, hidden in this layout)
   function vis1(sel) { for (const e of document.querySelectorAll(sel)) if (visible(e)) return e; return null; }
-  // Y's display options: its ⋯ button, or the pattern button when the toggles are merged into the patterns' pop-up (#247)
+  // Y's display options: its ⋯ button, or the Regions button when the toggles are merged into its pop-up (#247)
   function yOpts() { return document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn'); }
   // (#246) a control of the chain: itself, or on a phone with the chain sheet closed, the button that opens it
   function inChainSheet(sel) { return !document.documentElement.classList.contains('ph') ? document.querySelector(sel) : vis1(sel) || vis1('.ph-csteps'); }
