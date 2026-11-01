@@ -85,7 +85,7 @@
   // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
   // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
-  const REGION_K_VS = (fetch, sheet) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet });
+  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip });
   const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
@@ -98,9 +98,12 @@
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
-    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS(true) },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
     // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
-    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS(true) },
+    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS() },
+    // (both again for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
+    regionKSX: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
+    regionKSCX: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },

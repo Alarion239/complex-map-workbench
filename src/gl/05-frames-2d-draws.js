@@ -353,9 +353,9 @@
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
-    const fill = cuts && P ? program('regionKSC', st.map) : null;
+    const fill = cuts && P ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
     let full = null;
-    if (cuts && !fill) { P = full = program('regionKS', st.map); if (P) e = null; }
+    if (cuts && !fill) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
@@ -367,7 +367,7 @@
       u1f(Q, 'uKLim', st.lim || 1e30);
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
-      u1i(Q, 'uKPass', 0);
+      if (clip) u1i(Q, 'uKPass', 0);
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
