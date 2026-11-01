@@ -12,6 +12,7 @@
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
     i: 0,            // the shown plane, an index into svPlanes()
+    at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
@@ -54,6 +55,8 @@
   // the map from the shown plane into the colour plane as a function: what the probe reads (the identity past it, where
   // the plane carries shapes and no colour of its own)
   function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }
+  // the plane the shown plane's colour is carried from, "w₁", when it is past the colour plane (the key says so, #442); else ''
+  const svCarriedFrom = () => (SV.on && svStage() > svT() && !svColoured() ? svName(svT()) : '');
   // what the key's caption calls the colouring, "arg and |f₂|": the map into the colour plane, or the plane's own variable
   const svKeyName = (k = svStage()) => svMapName('text', k) || svName(k);
   // past the colour plane the colour is carried, so the probe names where its point comes from in the colour plane T: a
@@ -79,7 +82,7 @@
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role;
-    if (!svColoured(k)) role = k > T ? $t('colour of {p}, carried', { p: wHtml(T) }) : $t('shapes only');
+    if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
     else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: '' });
     else role = $t('phase of {ofV}', { ofV: map });
@@ -151,6 +154,7 @@
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     if (o.speed) { SV.speed = o.speed; svPlayRebase(); if (SV.els) { if (SV.els.speed) SV.els.speed.value = o.speed; if (SV.els.sheetSpeed) SV.els.sheetSpeed.value = o.speed; } }   // (a state without one keeps the device's)
     SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
+    SV.at = Math.abs(o.at - SV.i) < 1e-6 ? SV.i : null;
     return true;
   }
   // an undo put another S.sv under the view
@@ -198,10 +202,14 @@
     requestRender('L');
   }
   function svArrive() {
-    const i = Math.round(SV.g.x);
+    const i = Math.round(SV.g.x), was = SV.at;
     SV.g.set(i);
     SV.i = i;
     svApply();
+    // (the tour and an example's Try line listen for it: a plane reached other than the one it was at; not a plane the view was
+    // opened on)
+    SV.at = i;
+    if (was !== i) { const n = svPlanes().length; tourEmit('plane-changed', { i, n, last: i === n - 1 }); }
     if (typeof sndRelayout === 'function') sndRelayout();
     const live = SV.els && SV.els.live;
     if (live) live.textContent = svLabel();
@@ -637,7 +645,7 @@
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
-    const scope = svSeg('sv-scope', $t('Where colour shows'), [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], () => SV.scope, (v) => { SV.scope = v; svSync(); requestRender('L'); });
+    const scope = svSeg('sv-scope', $t('Where colour shows'), [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], () => SV.scope, (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -713,7 +721,7 @@
         E.track.append(svStepEl(k));
       }
       // (a plane is a node, the colour plane's filled with the wheel; its name is small: the steps are the buttons)
-      E.track.append(h('button', { type: 'button', class: 'sv-plane' + (k === T ? ' cp' : ''), 'data-i': String(i), 'aria-label': k === T ? `${svName(k)}, ${$t('colour plane')}` : svName(k), 'data-tip': k === T ? $t('The colour plane') : '', onclick: (e) => { e.stopPropagation(); svGo(i); } },
+      E.track.append(h('button', { type: 'button', class: 'sv-plane' + (k === T ? ' cp' : ''), 'data-i': String(i), 'aria-label': k === T ? `${svName(k)}, ${$t('colour plane')}` : svName(k), 'data-tip': k === T ? $t('The colour plane') : $t('Go to {p}', { p: svName(k) }), onclick: (e) => { e.stopPropagation(); svGo(i); } },
         h('span', { class: 'sv-node', 'aria-hidden': 'true' }), h('span', { class: 'sv-pn', html: svNameHtml(k) })));
     });
     if (!al) {
@@ -815,7 +823,7 @@
   // the surface's menu: the three, the shown one checked (a menu's keys are its own: svKeys leaves them alone)
   function svSurfMenu() {
     const E = SV.els;
-    const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); } }));
+    const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); } }));
     openMenu(E.surf1, Object.assign(items, { menuLabel: $t('Surface'), focusChecked: true }));
   }
   // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
@@ -879,10 +887,24 @@
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
     save();
+    tourEmit('colour-plane-set', { k });
     if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
     // (the programs a new colour plane needs, started when the page is idle: else they link on the first glide past it,
     // 8 s on WARP for the Mountain King; tiers on #456)
     (window.requestIdleCallback || setTimeout)(svPrestart);
+  }
+  // the tour's own placing of the view (#442): plane i at once, the colour plane T (an index among the planes; -1 the last), the
+  // scope and the surface; sends none of the events the user's own moves send
+  function svTourPlace(o) {
+    if (!SV.on || !SV.els || !o) return false;
+    const P = svPlanes();
+    if (o.T != null) SV.T = o.T < 0 || o.T >= P.length - 1 ? -1 : P[o.T];
+    if (o.scope) SV.scope = o.scope;
+    if (o.surf) SV.surf = o.surf;
+    if (o.i != null) { const i = Math.max(0, Math.min(P.length - 1, o.i | 0)); SV.anim = null; SV.g.max = P.length - 1; SV.g.set(i); SV.i = i; SV.at = i; }
+    svApply();
+    save();
+    return true;
   }
   // the phone's Sphere key on the plane (#471): in the steps view it toggles the view's surface between Plane and Sphere; null
   // outside it, where the key works the pane's own tabs
@@ -891,6 +913,7 @@
     SV.surf = SV.surf === 'sphere' ? 'plane' : 'sphere';
     if (SV.surf === 'sphere') prestartGlobe();
     svApply();
+    tourEmit('surface-changed', { s: SV.surf });
     return SV.surf;
   }
   // the strip: a press on a plane goes there; a drag along it scrubs through the deformation, and the glide settles on
@@ -1006,6 +1029,8 @@
     requestRender('L', 'OL');
     const live = SV.els && SV.els.live;
     if (live) live.textContent = $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.ceil(x)]) });
+    SV.at = null;
+    tourEmit('thread-parked', { x });
   }
   // a dialog, a menu, a popover, a pop-up or a phone sheet is open over the page (its keys are its own)
   function svLayerOpen() {
