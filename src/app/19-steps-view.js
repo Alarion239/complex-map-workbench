@@ -420,25 +420,29 @@
   // (opened if need be). False (nothing more drawn) unless every shape draws so
   // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
   // the subdivision only places it, and the map at every vertex was most of a glide frame's cost: perf on #587)
+  // F (at rest or parked: the map's CPU function): each mesh with the tiling's fix-up under it (carryFix: its cells
+  // the map bends too much refined, drawn as an extra mesh of their own, their base cells skipped), once it lands
   const SV_CARRY_L = 2;
-  function svCarryRegions(pane, map, T, b, frame) {
+  function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
     const key = svSheetKey(b);
     const carry = svCarryStyle(T);
-    const res = [];
+    const draws = [];
     for (const x of list) {
       // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
       const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
       if (!r || !r.meshRes) return false;
-      res.push(r.meshRes);
+      const fx = F ? carryFix(x, F, map) : null;
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after)
-    for (let i = 0; i < res.length; i++) {
-      const depth = res.length === 1 ? 'only' : i === 0 ? 'first' : i === res.length - 1 ? 'last' : 'mid';
-      if (!GLR.drawRegion(res[i], { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) {
+    for (let i = 0; i < draws.length; i++) {
+      const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
+      if (!GLR.drawRegion(d.res, { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
       }
@@ -481,7 +485,7 @@
       if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
       // travel on, each fragment its point's colour)
-      else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && svCarryRegions(pane, map, T, still ? a : b, frame)) carried = true;
+      else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
       // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
       // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling; its
       // removal is #589)
