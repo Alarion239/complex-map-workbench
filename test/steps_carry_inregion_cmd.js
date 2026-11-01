@@ -6,8 +6,8 @@
 // camera. A point counts as wrong when its pixel differs by more than 14 in a channel from all 9 pixels around z's (a
 // phase edge or a contour between two pixels is not an error). Left out: points whose front point jumps when w is
 // moved 1.5 px (a seam of that choice), and points near outlines, cuts and labels.
-// - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside regions
-//   (and every region point coloured, past the window too) and Everywhere; Everywhere held mid-glide at 0.25.
+// - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside
+//   regions (and every region point coloured, past the window too) and Everywhere; Everywhere held mid-glide at 0.25.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
 //   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere.
 // - F = sin(((e^z - 1) / (e^z + 1))^2), Everywhere at rest on its last plane: the whole plane near a family of poles.
@@ -89,6 +89,7 @@ async function check(tag, at, b, P, pts, cand, min) {
   const r = await compare(at, W, Z);
   info[tag] = Object.assign(r, { leftOut: left });
   const x = at.hold != null ? at.hold : at.park != null ? at.park : at.go;
+  // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
   ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < (at.hold != null ? 0.01 : 1e-9) && r.state.T === 0, r.state);
   ok(`${tag}: the front point's colour, at most 1 % wrong`, r.n > min && r.wrong <= 0.01 * r.n, info[tag]);
   ok(`${tag}: no point on the bare paper (no tears, no window edge)`, r.paper === 0, info[tag]);
@@ -134,14 +135,20 @@ await wait();
     const tanh = (y) => { const e = ex([2 * y[0], 2 * y[1]]); return div([e[0] - 1, e[1]], [e[0] + 1, e[1]]); };
     const inv = (z) => div([1, 0], z);
     const H = (z) => (z[0] * z[0] + z[1] * z[1] < 1 ? tanh([(1 + t) * atanh(z)[0], (1 + t) * atanh(z)[1] - Math.PI / 2 * t]) : inv(tanh(mul([1 + t, 0], atanh(inv(z))))));
+    // (a candidate is a point at w when the forward formula gives w back within HIT, the float error of the inverse and
+    // forward formulas; two within SAME are one point; left out: within OUTLINE of the circle's outline in z, as the
+    // rest cases, within AXIS of plane z's axes, whose lines the reference draws over the colour, and within LABEL of
+    // the trailing edge's label in w)
+    const HIT = 1e-7, SAME = 1e-9, OUTLINE = 0.12, AXIS = 0.04, LABEL = 1.1;
     const heldCand = (w) => {
       const out = [], aw = atanh(w), ac = atanh(inv(w));
       for (let k = -3; k <= 3; k++) {
         for (const z of [tanh([aw[0] / (1 + t), (aw[1] + Math.PI / 2 * t + Math.PI * k) / (1 + t)]), inv(tanh([ac[0] / (1 + t), (ac[1] + Math.PI * k) / (1 + t)]))]) {
           if (!z.every(Number.isFinite)) continue;
           const h = H(z);
-          if (Math.hypot(h[0] - w[0], h[1] - w[1]) > 1e-7 || out.some((e) => Math.hypot(e.z[0] - z[0], e.z[1] - z[1]) < 1e-9)) continue;
-          out.push({ z, out: Math.abs(outside(z)) < 0.12 || Math.min(Math.abs(z[0]), Math.abs(z[1])) < 0.04 || Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1 });
+          if (Math.hypot(h[0] - w[0], h[1] - w[1]) > HIT || out.some((e) => Math.hypot(e.z[0] - z[0], e.z[1] - z[1]) < SAME)) continue;
+          const near = Math.abs(outside(z)) < OUTLINE || Math.min(Math.abs(z[0]), Math.abs(z[1])) < AXIS;
+          out.push({ z, out: near || Math.hypot(w[0] - 1.6, w[1] - 0.1) < LABEL });
         }
       }
       return out;
