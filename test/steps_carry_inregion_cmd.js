@@ -7,7 +7,7 @@
 // phase edge or a contour between two pixels is not an error). Left out: points whose front point jumps when w is
 // moved 1.5 px (a seam of that choice), and points near outlines, cuts and labels.
 // - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside regions
-//   (and every region point coloured, past the window too) and Everywhere.
+//   (and every region point coloured, past the window too) and Everywhere; Everywhere held mid-glide at 0.25.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
 //   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere.
 // - F = sin(((e^z - 1) / (e^z + 1))^2), Everywhere at rest on its last plane: the whole plane near a family of poles.
@@ -36,11 +36,25 @@ const fronts = async (lists, b) => ev(`(() => {
   });
 })()`);
 // the colours at the points W of the state `at` against plane z's at the points Z: {n, wrong, paper, worst, state}
+// at.hold: the thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user
+// holding the thread; the frame is read once its programs are linked and two frames are alike
+async function hold(x) {
+  await ev(`(() => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 71, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
+    window.__svScrubUp = () => ev('pointerup', cx);
+    return 1;
+  })()`);
+  await settled({ max: 30000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
+}
 async function compare(at, W, Z) {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const ref = await ev(`__cmwLPx(${JSON.stringify(Z)}).px`);
-  await steps(Object.assign({ surf: 'plane' }, at));
+  if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else await steps(Object.assign({ surf: 'plane' }, at));
   const state = await ev('__cmwSteps()'), got = await ev(`__cmwLPx(${JSON.stringify(W)}).px`);
+  if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   let n = 0, wrong = 0, paper = 0, worst = 0;
   const ex = [];
   for (let k = 0; k < W.length; k++) {
@@ -74,8 +88,8 @@ async function check(tag, at, b, P, pts, cand, min) {
   });
   const r = await compare(at, W, Z);
   info[tag] = Object.assign(r, { leftOut: left });
-  const x = at.park != null ? at.park : at.go;
-  ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < 1e-9 && r.state.T === 0, r.state);
+  const x = at.hold != null ? at.hold : at.park != null ? at.park : at.go;
+  ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < (at.hold != null ? 0.01 : 1e-9) && r.state.T === 0, r.state);
   ok(`${tag}: the front point's colour, at most 1 % wrong`, r.n > min && r.wrong <= 0.01 * r.n, info[tag]);
   ok(`${tag}: no point on the bare paper (no tears, no window edge)`, r.paper === 0, info[tag]);
 }
@@ -108,6 +122,31 @@ await wait();
   info['Joukowski in rest'].regionPoints = { n: all.length, paper };
   ok('Joukowski in rest: every region point is coloured, past the window too', all.length > 1500 && paper === 0, { n: all.length, paper });
   await check('Joukowski all rest', { scope: 'all', go: 1, now: true }, 1, P, pts, both, 400);
+  // held mid-glide at x = 0.25: the path H_t (t = 0.25), tanh((1 + t) artanh z - i pi t / 2) on the disc and
+  // coth((1 + t) arcoth z) outside it; its points at w from each branch's inverse over k, kept where the forward
+  // formula gives w back; near the unit circle (the path's cut, the lower semicircle) and the label left out
+  {
+    const t = 0.25, mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+    const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+    const lg = (a) => [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])], ex = (a) => [Math.exp(a[0]) * Math.cos(a[1]), Math.exp(a[0]) * Math.sin(a[1])];
+    const atanh = (z) => { const l = lg(div([1 + z[0], z[1]], [1 - z[0], -z[1]])); return [l[0] / 2, l[1] / 2]; };
+    const tanh = (y) => { const e = ex([2 * y[0], 2 * y[1]]); return div([e[0] - 1, e[1]], [e[0] + 1, e[1]]); };
+    const inv = (z) => div([1, 0], z);
+    const H = (z) => (z[0] * z[0] + z[1] * z[1] < 1 ? tanh([(1 + t) * atanh(z)[0], (1 + t) * atanh(z)[1] - Math.PI / 2 * t]) : inv(tanh(mul([1 + t, 0], atanh(inv(z))))));
+    const heldCand = (w) => {
+      const out = [], aw = atanh(w), ac = atanh(inv(w));
+      for (let k = -3; k <= 3; k++) {
+        for (const z of [tanh([aw[0] / (1 + t), (aw[1] + Math.PI / 2 * t + Math.PI * k) / (1 + t)]), inv(tanh([ac[0] / (1 + t), (ac[1] + Math.PI * k) / (1 + t)]))]) {
+          if (!z.every(Number.isFinite)) continue;
+          const h = H(z);
+          if (Math.hypot(h[0] - w[0], h[1] - w[1]) > 1e-7 || out.some((e) => Math.hypot(e.z[0] - z[0], e.z[1] - z[1]) < 1e-9)) continue;
+          out.push({ z, out: Math.abs(Math.hypot(z[0], z[1]) - 1) < 0.08 || Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1 });
+        }
+      }
+      return out;
+    };
+    await check('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, 1, P, pts, heldCand, 400);
+  }
 }
 
 // ---- multiple coverings: w = z^n on an annulus about 0 ----
