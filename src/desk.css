@@ -718,9 +718,9 @@ select.sel.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; }
 .sv-play { font-size: 19px; }
 .sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
-.sv-strip .sv-loop { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
+.sv-strip .sv-loop, .sv-strip .sv-paths { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
 :root:not(.ph) .sv-playback { display: none; }
-.sv-loop.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sv-loop.on, .sv-paths.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .sv-rail.hold .sv-thumb { background: color-mix(in srgb, var(--accent) 25%, transparent); transition: background .45s linear; }
 .sv-rail.arm .sv-thumb { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sv-rail.hold .sv-thumb { transition: none; } }
@@ -730,7 +730,7 @@ select.sel.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; }
 .sv-sheet-h { display: flex; align-items: center; justify-content: space-between; font: 600 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet select.sel.sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }
-.sv-sheet .sv-loop { height: 44px; min-width: 96px; }
+.sv-sheet .sv-loop, .sv-sheet .sv-paths { height: 44px; min-width: 96px; }
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
 .pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
