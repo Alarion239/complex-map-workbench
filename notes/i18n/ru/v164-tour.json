@@ -392,7 +392,7 @@
  },
  "fix.c3.touch": {
   "en": "Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.",
-  "ru": "«Ещё» › «По трём точкам», затем коснитесь $z_0$, $z_1$, $z_2$.",
+  "ru": "«Ещё» › «Окружность по трём точкам», затем коснитесь $z_0$, $z_1$, $z_2$.",
   "note": "Shortened from 78 characters (SPEC 3)."
  },
  "fix.range.touch": {
