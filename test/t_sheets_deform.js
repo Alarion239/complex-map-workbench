@@ -239,8 +239,8 @@ check('end cases ran', endCases >= 60, endCases);
 }
 // the Joukowski path while it deforms: a point is continued on the formula of its cell centre's side of the unit circle
 // (the disk's tanh((1 + t) artanh z - i pi t/2), the exterior's coth((1 + t) arcoth z)), as the GPU's chainSheetHom
-// continues it; a point on its centre's side is the plain H_t. The two formulas meet on the upper semicircle and differ on
-// the lower one, the path's cut
+// continues it; a point on its centre's side is the plain H_t. The two formulas meet on the upper semicircle and
+// differ on the lower one, the path's cut
 {
   const ch = chain([{ type: 'joukowski' }]), S = ch.S, built = ch.built, n = ch.n();
   S.homRange = { a: 1, b: 1 };
@@ -256,12 +256,14 @@ check('end cases ran', endCases >= 60, endCases);
       if (!near(a, ext(t)(zin), 1e-9)) across++;
       if (!near(b, disk(t)(zout), 1e-9)) across++;
       if (!near(FN.sheetMapEval(S.steps, built, m, zin, zin, 0, W, n), H(zin), 1e-9) || !near(FN.sheetMapEval(S.steps, built, m, zout, zout, 0, W, n), H(zout), 1e-9)) same++;
+      // (differ: a looser 1e-6, as it asks that two values be apart, so a near-miss counts as equal; the others ask for
+      // equality to float error)
       if (th > Math.PI && near(a, H(zin), 1e-6)) differ++;
       checks += 3;
     }
     check(`jouk T=${T}: a point across the unit circle from its centre is on the centre's formula`, across === 0, across);
     check(`jouk T=${T}: a point on its centre's side is the plain H_t`, same === 0, same);
-    check(`jouk T=${T}: on the lower semicircle, the path's cut, the two sides' formulas differ (the check sees the branch)`, differ === 0, differ);
+    check(`jouk T=${T}: on the lower semicircle, the path's cut, the two sides' formulas differ, so the first check tells the branches apart`, differ === 0, differ);
   }
 }
 // (v16.1 review math-7) the drawn count and the caption's count agree: a typed near-fraction is a window
