@@ -53,6 +53,10 @@ const dom = await ev(`({ sv: document.documentElement.classList.contains('sv'), 
 ok('one plane, the strip with 2 steps and 3 planes, no chain row and no Y pane', dom.sv && dom.strip && dom.steps === 2 && dom.dots === 3 && dom.chain === 'none' && dom.R === 0, dom);
 // (an area example opens with Inside regions: Everywhere first, for the pictures below)
 await ev(`__cmwSteps({ scope: 'all' }); 1`);
+// (z's first picture once the page has settled: the fonts loaded (with CMW_VENDOR=1 they land late) and the colour key
+// drawn again after them, from a cleared canvas; at startup the key's first picture could differ from every later one
+// by up to 3/255 on its ring's edges, which failed the check against it below now and then)
+await ev(`document.fonts.ready.then(() => { const c = document.getElementById('legendCanvasL'); if (c) c.width = 0; __cmwSteps({ surf: 'plane' }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); })`);
 const hZ = await hash('sv_z');
 await press('ArrowRight');
 const m1 = await S();
