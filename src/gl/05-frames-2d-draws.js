@@ -353,7 +353,8 @@
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
-    const fill = cuts && P ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
+    const probe = globalThis.__svCarryProbe || {};
+    const fill = cuts && P && !probe.noKSC ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
     let full = null;
     if (cuts && !fill) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
@@ -368,6 +369,7 @@
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
       if (clip) u1i(Q, 'uKPass', 0);
+      u1i(Q, 'uKFlat', probe.flatColor ? 1 : 0);
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
@@ -397,7 +399,7 @@
   // copies), and an opaque draw lets a tiling GPU shade only the front sheet's fragments, where a blended one shades
   // every sheet's, each the colour's whole chain
   function carryDraw(k, depth, draw) {
-    gl.disable(gl.BLEND);
+    if (!(globalThis.__svCarryProbe || {}).blend) gl.disable(gl.BLEND);
     try {
       if (!k) { draw(); return; }
       const depthMode = depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';

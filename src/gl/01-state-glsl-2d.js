@@ -1118,8 +1118,10 @@ void main() {
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}in vec2 vP;
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+uniform int uKFlat;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  if (uKFlat == 1) { o = vec4(0.5, 0.5, 0.5, 1.0); return; }
+  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
