@@ -37,7 +37,15 @@ const menu = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map(
 const pick = async (label) => { const r = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`); await settle(350); return r; };
 const undo = async () => { await ev(`document.getElementById('undoBtn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.getElementById('undoBtn').click(); 1`); await settle(400); await ev(`document.querySelectorAll('#toastHost .toast').forEach((x) => x.remove()); 1`); await settle(250); };   // (the Undid message takes the rail while it shows: the next step starts after it)
 const say = () => ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`);
-const quiet = async (what, re) => { await sleep(150); const s = await say(), n = await ev(`!!document.querySelector('.sv-toast') || !!document.querySelector('#toastHost .toast')`), a = await where(); ok(`${what}: no message over the thread, said in the live region, the focus not on <body>`, !n && re.test(s) && a !== 'body', { n, s, a }); };
+// (the live region is cleared and set again 30 ms later, so that the same words are read twice: on a loaded machine one read can land
+// between the two. It is read until it says the words, for at most 4 s, and a message over the thread seen at any read fails the check)
+const quiet = async (what, re) => {
+  await sleep(150);
+  let s = await say(), n = false;
+  const toast = () => ev(`!!document.querySelector('.sv-toast') || !!document.querySelector('#toastHost .toast')`);
+  n = await toast();
+  for (let i = 0; i < 40 && !re.test(s); i++) { await sleep(100); s = await say(); n = n || await toast(); }
+  const a = await where(); ok(`${what}: no message over the thread, said in the live region, the focus not on <body>`, !n && re.test(s) && a !== 'body', { n, s, a }); };
 // Ctrl+Z, then redo, with the focus on the thread: the same three things as after the edit (nothing over the thread, said, the focus kept)
 const zcycle = async (what) => {
   await kb('z', { ctrlKey: true }); await quiet(what + ', Ctrl+Z', /^Undid/);
