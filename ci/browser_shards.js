@@ -25,7 +25,7 @@ const SHARDS = [
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
   { id: 'tour', suites: ['tour_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_tasks_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'tour_skip_hover_cmd.js', 'phone_fwell_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js', 'tour_it360_cmd.js'] },                   // 552 + 16 + 44
-  { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 557
+  { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone', 'example_lane_cut_cmd.js'] },               // 557
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
   // ([#465] raw TeX on screen, a language a run)
   { id: 'raw-tex', suites: ['raw_tex_cmd.js#en', 'raw_tex_cmd.js#ru', 'raw_tex_cmd.js#it'] },
@@ -33,11 +33,11 @@ const SHARDS = [
   { id: 'i18n-desktop', suites: ['i18n_walk_cmd.js#1440'] },                                                // 693
   { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark'] },                                              // 601
   { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#deform', 'phone_swap_cmd.js#views', 'phone_toast_chain_cmd.js'] },   // 379 + 326 + 37
-  { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate', 'phone_swap_cmd.js#sphere'] },   // 333 + 242 + 205
-  { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet', 'phone_landscape_cmd.js', 'phone_sheets_cmd.js', 'phone_edit_head_cmd.js', 'phone_sheet_target_cmd.js'] },   // 227 + 256 + 197 + 39
+  { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate', 'phone_swap_cmd.js#sphere', 'phone_focus_margin_cmd.js'] },   // 333 + 242 + 205
+  { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet', 'phone_landscape_cmd.js', 'phone_sheets_cmd.js', 'phone_sheet_target_cmd.js', 'phone_edit_head_cmd.js'] },   // 227 + 256 + 197 + 39
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js', 'warm_bar_cmd.js', 'dh_cmd.js'] },     // 287 + 113 + 75 + 70
   { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js', 'line_slice_cmd.js'] },   // 226 + 176 + 47 + 31 + 52
-  { id: 'views', suites: ['steps_view_cmd.js', 'steps_chain_cmd.js', 'steps_play_cmd.js', 'mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'mode_chips_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js', 'display_inline_cmd.js', 'land_cards_cmd.js', 'sphere_light_cmd.js', 'overlay_ghost_cmd.js', 'steps_names_cmd.js', 'steps_width_cmd.js', 'steps_long_549_cmd.js', 'layout_483_cmd.js', 'toasts_515_cmd.js', 'steps_head_cmd.js', 'regions_phase_cmd.js', 'tour_planes_cmd.js', 'example_try_sv_cmd.js', 'steps_parked_pan_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26; land_cards_cmd 128; sphere_light_cmd 36 locally (SwiftShader); overlay_ghost_cmd 17 without its opt-in cold loads; steps_width_cmd 60
+  { id: 'views', suites: ['steps_view_cmd.js', 'steps_chain_cmd.js', 'steps_play_cmd.js', 'mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'mode_chips_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js', 'display_inline_cmd.js', 'land_cards_cmd.js', 'sphere_light_cmd.js', 'overlay_ghost_cmd.js', 'steps_names_cmd.js', 'steps_width_cmd.js', 'steps_long_549_cmd.js', 'layout_483_cmd.js', 'toasts_515_cmd.js', 'steps_head_cmd.js', 'regions_phase_cmd.js', 'tour_planes_cmd.js', 'example_try_sv_cmd.js', 'steps_parked_pan_cmd.js', 'sv_curve_menu_cmd.js', 'steps_labels_cmd.js', 'steps_curves_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26; land_cards_cmd 128; sphere_light_cmd 36 locally (SwiftShader); overlay_ghost_cmd 17 without its opt-in cold loads; steps_width_cmd 60
   { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js', 'clear_chain_open_cmd.js'] },            // 210 + 172 + 116

@@ -1391,6 +1391,8 @@
     // (#440) st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
     // these regions write the frame's alpha, then the globe draws its colour alone over them, kept where the alpha is
     const masked = !!(P && st.maskRegions && keepInAlpha(true));
+    // (a mask that cannot draw yet draws nothing: never the colour over the whole globe)
+    if (st.maskRegions && !masked) { resetState(); return null; }
     if (masked) {
       gl.colorMask(false, false, false, false);
       use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
