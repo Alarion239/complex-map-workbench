@@ -250,13 +250,26 @@
   // TEMP-DEBUG-HOOK
 
   // TEMP-DEBUG-HOOK (removed before publishing): the steps view's carried colour against the exact one (#590)
+  // (#584) the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
+  // a] each, row by row), or null off the pane; and the view they were read in (steps_carry_inregion_cmd.js)
+  /** @type {any} */ (window).__cmwLPx = (pts) => {
+    const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, c = paneL.canvas.getContext('2d'), img = c.getImageData(0, 0, W, H).data;
+    const px = pts.map(([x, y]) => {
+      const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
+      if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
+      const out = [];
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
+      return out;
+    });
+    return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
+  };
   // (#551, #584, #590) the points of plane z that the shown frame's points [[re, im], ...] come from, each with its image in
   // the colour plane T: [[x, y, gx, gy], ...] per point (the region tiling's own points and the colour they carry); null
   // where the plan has no inverse or the preimages pass the cap. At rest on plane b (default the one shown) through the
   // plan z → b (Inverse.pointPre: every branch of each op, and of a periodic family, exp's and the trig functions', the
   // members m = -K … K of each base). Parked between planes (svBetween: H_u after the steps before b) the points v of
-  // plane b - 1 with H_u(v) = w first, by the probe's search over the key's window widened by one window each side (zerosPolesTimed, as
-  // svSource), then that plan back to z. The array's .b is the plane whose sheet key the frame is drawn with
+  // plane b - 1 with H_u(v) = w first (a grid's triangles about w, then Newton: see below), then that plan back to z.
+  // The array's .b is the plane whose sheet key the frame is drawn with
   /** @type {any} */ (window).__cmwSvPre = (pts, K = 6, b) => {
     const fr = svBetween(), park = b == null && !(fr.u <= 1e-6 || fr.b === fr.a) && !isDeriv(fr.b);
     const k = b == null ? (park ? fr.b : svStage()) : b, T = svT(), G = T === 0 ? (z) => z : stageF(T);
@@ -268,21 +281,51 @@
       const e = 1e-6 * (1 + CX.abs(p));
       return { p, a: CX.scale(/** @type {any} */ (H)(CX.add(p, C(e, 0))), e), r: 0.25 * mx };
     });
+    // (the points of plane b - 1 that H_u takes to w, beside its cuts too (Joukowski's path is piecewise, its cut the
+    // lower unit semicircle): H_u on a NX × NY grid over the box, each grid triangle whose image holds w a start for
+    // Newton, kept where it converges; the triangles filed by their images' boxes over the samples' box)
+    const NX = 360, NY = 240, hx = (box.x1 - box.x0) / NX, hy = (box.y1 - box.y0) / NY, img = new Float64Array(2 * (NX + 1) * (NY + 1));
+    /** @type {any} */
+    let tri = null, pb = null;
+    const BX = 64, BY = 40;
+    if (H) {
+      for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { let v = null; try { v = H(C(box.x0 + i * hx, box.y0 + j * hy)); } catch (e) { v = null; } const n = 2 * (j * (NX + 1) + i); img[n] = v && CX.isFin(v) ? v.re : NaN; img[n + 1] = v && CX.isFin(v) ? v.im : NaN; }
+      pb = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+      for (const [x, y] of pts) { pb.x0 = Math.min(pb.x0, x); pb.x1 = Math.max(pb.x1, x); pb.y0 = Math.min(pb.y0, y); pb.y1 = Math.max(pb.y1, y); }
+      const bw = (pb.x1 - pb.x0) / BX || 1, bh = (pb.y1 - pb.y0) / BY || 1;
+      tri = Array.from({ length: BX * BY }, () => /** @type {number[][]} */ ([]));
+      const V = (i, j) => { const n = 2 * (j * (NX + 1) + i); return [img[n], img[n + 1], i, j]; };
+      for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) for (const t of [[V(i, j), V(i + 1, j), V(i + 1, j + 1)], [V(i, j), V(i + 1, j + 1), V(i, j + 1)]]) {
+        if (t.some((q) => Number.isNaN(q[0]) || Number.isNaN(q[1]))) continue;
+        const x0 = Math.min(t[0][0], t[1][0], t[2][0]), x1 = Math.max(t[0][0], t[1][0], t[2][0]), y0 = Math.min(t[0][1], t[1][1], t[2][1]), y1 = Math.max(t[0][1], t[1][1], t[2][1]);
+        if (x1 < pb.x0 || x0 > pb.x1 || y1 < pb.y0 || y0 > pb.y1) continue;
+        const a0 = Math.max(0, Math.floor((x0 - pb.x0) / bw)), a1 = Math.min(BX - 1, Math.floor((x1 - pb.x0) / bw)), b0 = Math.max(0, Math.floor((y0 - pb.y0) / bh)), b1 = Math.min(BY - 1, Math.floor((y1 - pb.y0) / bh));
+        // (a triangle whose image spans much of the samples' box straddles a cut or a pole: its points, if any, come
+        // from its neighbours or the poles' seeds)
+        if ((a1 - a0 + 1) * (b1 - b0 + 1) > 64) continue;
+        const flat = t.flat();
+        for (let bj = b0; bj <= b1; bj++) for (let bi = a0; bi <= a1; bi++) tri[bj * BX + bi].push(flat);
+      }
+      pb.bw = bw; pb.bh = bh;
+    }
     const out = pts.map(([re, im]) => {
       let vs = [C(re, im)];
       if (H) {
-        /** @type {any} */
-        let sols = [];
-        try { sols = zerosPolesTimed(H, box, { target: { re, im }, max: 16 }, 20); } catch (e) { return null; }
-        if (sols.stopped) return null;
-        vs = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z)).map((r) => r.z);
-        // (near a simple pole p of H_u, H(v) ≈ a / (v - p): the points there, p + a / w, which a search of the box
-        // misses, polished by Newton)
-        const w = C(re, im);
-        for (const q of poles) {
-          const v = newtonTo(H, w, CX.add(q.p, CX.div(q.a, w)), 1, 1e-10 * (1 + CX.abs(w)), q.r);
-          if (v && !vs.some((x) => CX.abs(CX.sub(x, v)) < 1e-7 * (1 + CX.abs(v)))) vs.push(v);
+        vs = [];
+        const w = C(re, im), tol = 1e-10 * (1 + CX.abs(w)), lim = 2 * Math.hypot(hx, hy);
+        const add = (v) => { if (v && CX.isFin(v) && !vs.some((x) => CX.abs(CX.sub(x, v)) < 1e-7 * (1 + CX.abs(v)))) vs.push(v); };
+        const bi = Math.min(BX - 1, Math.max(0, Math.floor((re - pb.x0) / pb.bw))), bj = Math.min(BY - 1, Math.max(0, Math.floor((im - pb.y0) / pb.bh)));
+        for (const f of tri[bj * BX + bi]) {
+          // (barycentric coordinates of w in the image triangle, with a little slack)
+          const [ax, ay, ai, aj, bx, by, bi2, bj2, cx, cy, ci, cj] = f, d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+          if (!d) continue;
+          const l1 = ((by - cy) * (re - cx) + (cx - bx) * (im - cy)) / d, l2 = ((cy - ay) * (re - cx) + (ax - cx) * (im - cy)) / d, l3 = 1 - l1 - l2;
+          if (l1 < -0.05 || l2 < -0.05 || l3 < -0.05) continue;
+          const zi = l1 * ai + l2 * bi2 + l3 * ci, zj = l1 * aj + l2 * bj2 + l3 * cj;
+          add(newtonTo(H, w, C(box.x0 + zi * hx, box.y0 + zj * hy), 1, tol, lim));
         }
+        // (near a simple pole p of H_u, H(v) ≈ a / (v - p): the points there, p + a / w, polished by Newton)
+        for (const q of poles) add(newtonTo(H, w, CX.add(q.p, CX.div(q.a, w)), 1, tol, q.r));
       }
       const zs = [];
       for (const v of vs) {

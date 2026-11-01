@@ -11,7 +11,8 @@
 // outline, a label): a sample with any point there is not counted; opts.skipW: the same on the shown frame's point [x, y]
 // (an image of a branch cut of the deformation, a label placed in that plane).
 // Parked between two planes it is the frame (H_u after the steps before b) whose points __cmwSvPre lists, by the key of b.
-// Returns { considered, wrong, blank, none, unlisted, rate, ex } (blank: a wrong sample left the plane's paper).
+// Returns { considered, wrong, blank, none, unlisted, filled, paper, rate, ex } (blank: a wrong sample left the plane's
+// paper; filled: the samples with a point, judged or not; paper: those of them on the bare paper).
 // opts: { b, nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
 // nex = 3 (wrong samples kept in ex, each with w, its points [x, y, D] and the front's colour) }
 (function carryCompare(o) {
@@ -38,7 +39,7 @@
     k.sort((p, q) => (Inverse.front(p, q) ? -1 : Inverse.front(q, p) ? 1 : 0));
     return k.filter((e) => e.D - k[0].D < 0.02).map((e) => e.p);
   };
-  let considered = 0, wrong = 0, blank = 0, none = 0, unlisted = 0;
+  let considered = 0, wrong = 0, blank = 0, none = 0, unlisted = 0, filled = 0, paper = 0;
   const ex = [];
   for (let s = 0; s < at.length; s++) {
     let P0 = pre[5 * s];
@@ -47,6 +48,8 @@
     if (skip && P0.some((z) => skip([z[0], z[1]]))) continue;
     if (own) P0 = P0.filter((z) => own([z[0], z[1]]));
     if (!P0.length) { none++; continue; }
+    // (every sample with a point is coloured, judged or not: none on the paper)
+    { const [qx, qy] = at[s], m = 4 * (qy * W + qx); filled++; if (Math.max(d[m], d[m + 1], d[m + 2]) - Math.min(d[m], d[m + 1], d[m + 2]) < 6) paper++; }
     const nb = [1, 2, 3, 4].map((k) => (pre[5 * s + k] || []).filter((z) => !own || own([z[0], z[1]])));
     if (nb.some((q) => q.length !== P0.length)) continue;
     const cand = fronts(P0);
@@ -58,5 +61,5 @@
     if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < 12) blank++;
     if (ex.length < (o.nex || 3)) ex.push({ px, py, w: pts[5 * s], got, want: cand.slice(0, 3).map((z) => col(z).map(Math.round)), z: cand[0].slice(0, 2), all: P0.map((z) => [z[0], z[1], Inverse.sheetKey(prep, CX.C(z[0], z[1]), null)]) });
   }
-  return { considered, wrong, blank, none, unlisted, rate: considered ? +(wrong / considered).toFixed(4) : null, ex };
+  return { considered, wrong, blank, none, unlisted, filled, paper, rate: considered ? +(wrong / considered).toFixed(4) : null, ex };
 })

@@ -750,7 +750,7 @@
     return out;
   }
   const POLE_NA = 48, POLE_NR = 60, POLE_Q = 0.88, POLE_MAX = 8, POLE_EVERY = 120;
-  const poleM = { R: 0, res: null, key: '', mk: '', at: [], t: 0, full: false };
+  const poleM = { R: 0, res: null, key: '', mk: '', at: [], t: 0, full: false, views: /** @type {any[]} */ ([]) };
   function poleMeshes(map, full) {
     if (!GLR.ok || !goodWin(clipWin)) return [];
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2, r0 = R / 6;
@@ -789,8 +789,15 @@
       poleM.key = key;
       poleM.full = full;
     }
-    const base = poleM.res;
-    return poleM.at.map((p) => Object.assign(Object.create(base), { org: [p.re, p.im] }));
+    // (a view per pole, kept while its pole stays: its own origin and its own cache of the map's places (res.tmp, the
+    // cached carry path's, keyed by map and chain, not by origin), started afresh when the pole moves)
+    const base = poleM.res, vs = poleM.views || (poleM.views = []);
+    if (vs.length && Object.getPrototypeOf(vs[0]) !== base) vs.length = 0;
+    return poleM.at.map((p, i) => {
+      let v = vs[i];
+      if (!v || v.org[0] !== p.re || v.org[1] !== p.im) v = vs[i] = Object.assign(Object.create(base), { org: [p.re, p.im], tmp: new Map() });
+      return v;
+    });
   }
   // SPEC 8.8: what to draw for forward shape s in a view -> null (today's GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the

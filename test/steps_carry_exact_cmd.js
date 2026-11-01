@@ -12,7 +12,9 @@
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong and none left on the bare paper; then a lost and restored GL
-// context draws exact again.
+// context draws exact again. The rows of steps_carry_inregion_cmd.js (the Joukowski and annulus cases) keep its
+// thresholds or stricter: a tolerance of 14 per channel, over 400 (Joukowski) or 200 (the powers) samples judged, and
+// over 1500 region points coloured, none on the paper, Inside regions at rest.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = { cases: {} };
@@ -70,8 +72,8 @@ const judge = async (name, o = {}) => {
   info.cases[name] = r;
   // (a chain whose preimages here are too many to list, as exp first and sin after it: no samples, said in info)
   if (r && r.unlisted > 500 && !o.must) { r.note = 'the preimages cannot be listed here (more than 512)'; return r; }
-  ok(`${name}: the carried colour is the exact one (at most ${MAX_BAD * 100} % of ${r && r.considered} samples off)`, r && r.considered >= MIN_N && r.rate <= MAX_BAD, r);
-  ok(`${name}: no sample on the bare paper`, r && r.blank === 0, r);
+  ok(`${name}: the carried colour is the exact one (at most ${MAX_BAD * 100} % of ${r && r.considered} samples off)`, r && r.considered >= (o.min || MIN_N) && r.rate <= MAX_BAD, r);
+  ok(`${name}: no sample on the bare paper`, r && r.blank === 0 && r.paper === 0 && r.filled >= (o.filled || 0), r);
   return r;
 };
 
@@ -97,13 +99,13 @@ if (EX >= 0) {
   const own = '(z) => Math.hypot(z[0] + 0.12, z[1] - 0.1) > 1.1244998888';
   // (the circle, outlined over the colour, and the trailing edge's mark and label, as shaders' case left them out)
   const skip = '(z) => Math.abs(Math.hypot(z[0] + 0.12, z[1] - 0.1) - 1.1244998888) < 0.08';
-  if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true });
+  if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true, nx: 60, ny: 40, tol: 14, min: 401, filled: 1501 });
   // (shaders' #587 review: Everywhere at rest, each point against its front preimage under the shared key)
-  if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true });
+  if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true, nx: 60, ny: 40, tol: 14, min: 401 });
   // (#551 the staircases: H_u's poles in the window while parked, Everywhere)
   for (const park of [0.3, 0.6]) {
     const key = `Joukowski, Everywhere, parked at ${park}`;
-    if (await reach(key, { park, T: 0, scope: 'all' })) await judge(key, { nx: 32, ny: 20, skip, must: true });
+    if (await reach(key, { park, T: 0, scope: 'all' })) await judge(key, { nx: 32, ny: 20, skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true, nex: 60 });
   }
 }
 
@@ -118,7 +120,7 @@ for (const n of [2, 3]) {
     // (parked, the principal power z^p, p = 1 + (n - 1) u: its cut, arg z = ±π, lands on arg w = ±pπ, where either side may
     // show)
     const p = 1 + (n - 1) * (park || 0), skipW = park == null ? null : `(w) => [${p} * Math.PI, ${-p} * Math.PI].some((a) => { const d = Math.atan2(w[1], w[0]) - a; return Math.abs(Math.atan2(Math.sin(d), Math.cos(d))) < 0.06; })`;
-    if (await reach(key, park == null ? { go: 1, T: 0, scope } : { park, T: 0, scope })) await judge(key, Object.assign({ must: true, skip, skipW }, park == null ? {} : { nx: 32, ny: 20 }, scope === 'in' ? { own } : {}));
+    if (await reach(key, park == null ? { go: 1, T: 0, scope } : { park, T: 0, scope })) await judge(key, Object.assign({ must: true, skip, skipW, nx: 44, ny: 30, tol: 14, min: 201 }, scope === 'in' ? { own } : {}));
   }
 }
 
@@ -132,6 +134,10 @@ for (let i = 0; i < 100; i++) { if (await ev('GLR.pendingLinks === 0')) break; a
 await sleep(400);
 await ev(`__cmwSteps({ surf: 'plane' }); new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))`);
 await judge('after a lost and restored GL context', { nx: 32, ny: 20, must: true, skip: '(z) => { const m = Math.hypot(z[0], z[1]); return Math.abs(m - 0.6) < 0.08 || Math.abs(m - 1.6) < 0.08; }' });
+// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 4 of
+// Joukowski, 8 of the powers and the restored context)
+const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 4 + 8 + 1;
+ok('every case was judged', Object.keys(info.cases).length === want, { judged: Object.keys(info.cases).length, want });
 const all = Object.values(info.cases).filter((r) => r && !r.note);
 info.summary = `${all.filter((r) => r.considered >= MIN_N && r.rate <= MAX_BAD && r.blank === 0).length} of ${all.length} cases pass`;
 return { pass: fails.length === 0, fails, info };
