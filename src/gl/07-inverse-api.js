@@ -124,6 +124,26 @@
   // compilers cannot fold, so its text is new to the machine (macOS caches compiled Metal libraries system-wide, and
   // ANGLE strips comments): its compile and first draw are cold, as on a user's first visit
   let coldNonce = 0;
+  // (#584) the carried colour's variant of the inverse program (extra = INV_CARRY): each covering sheet's point z on
+  // plane uGs is shaded with the colour plane's colour of it, dcolor(G(z)), G the stages (uGs, uGt] (the forward
+  // chain's chainRange, compiled in beside the walker), its footprints from the walk's dz across and down a pixel
+  // (dcolorD: the screen's derivatives mean nothing inside the walk)
+  const INV_CARRY = { carry: true, pre: '', main: '' };
+  // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
+  function invCarrySrc(info) {
+    return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
+  }
+  function invCarryFns() {
+    return DCOLOR.replace('uniform float uDpr;', '') + `
+uniform int uGs; uniform int uGt;
+vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
+  if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
+  if (uGs >= uGt) return dcolorD(z, dX, dY);
+  vec2 w = chainRange(z, uGs, uGt);
+  return dcolorD(w, chainRange(z + dX, uGs, uGt) - w, chainRange(z + dY, uGs, uGt) - w);
+}
+`;
+  }
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
@@ -133,7 +153,7 @@
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns() : '') + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
@@ -179,20 +199,22 @@
     const info = cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
-    if (invFailed.has(inv.key)) return { state: 'error', reason: 'compile failed' };
-    const fk = (extra ? 'test:' + hashStr(extra.pre + extra.main) + '|' : '') + (pack ? pack.formsKey : '');
+    // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws, #584)
+    const ik = inv.key + (extra && extra.carry ? '|carry' : '');
+    if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
+    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
       if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : 'not started' };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv) return { state: 'pending', reason: 'forward programs first' };
-      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: inv.key, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
+      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
       progs.set(id, e);
       try {
         const [vs, fs] = invSources(info, B, globe, pack ? pack.forms : [], extra);
         e.srcLen = fs.length;
         startLink(e, vs, fs, false);
-      } catch (err) { e.state = 'error'; e.error = String(err.message || err); if (!invFailed.has(inv.key)) { invFailed.add(inv.key); console.info('exact images: inverse program not built (' + e.error + ')'); } }
+      } catch (err) { e.state = 'error'; e.error = String(err.message || err); if (!invFailed.has(ik)) { invFailed.add(ik); console.info('exact images: inverse program not built (' + e.error + ')'); } }
       evictInv();
     }
     e.used = ++useClock; e.frame = invFrame;
@@ -214,8 +236,8 @@
   // build, stalled the GPU process 75-200 ms: P2 review)
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
-    if (!inv || !inv.ok || invFailed.has(inv.key)) return null;
-    const fk = (extra ? 'test:' + hashStr(extra.pre + extra.main) + '|' : '') + (pack ? pack.formsKey : '');
+    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
+    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
     const order = [3, 5, INV_B_MAX].filter((b) => b !== Bwant).sort((a, b) => (a > Bwant) !== (b > Bwant) ? (a > Bwant ? -1 : 1) : (a > Bwant ? a - b : b - a));
     for (const B of order) {
       const e = progs.get(invProgKey(inv, B, globe, fk));
@@ -413,7 +435,9 @@
     if (!rec || !rec.ok) return 'error';
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    let pr = /** @type {any} */ (invProgram(B, globe, true, st.extra));
+    // (#584 st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
+    const extra = st.carry && !globe ? INV_CARRY : st.extra;
+    let pr = /** @type {any} */ (invProgram(B, globe, true, extra));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
     // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
@@ -421,7 +445,7 @@
     // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
     const defer = st.motion || st.coldOk === false;
     if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
-      const alt = invAltProgram(B, globe, st.extra, true);
+      const alt = invAltProgram(B, globe, extra, true);
       if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
       else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
     }
@@ -504,6 +528,14 @@
     u4f(P, 'uShBox', ...rec.box);
     // look (regionUniforms with the pattern origin Q = 0: the walk's z is absolute)
     regionUniforms(P, Object.assign({ pattern: 'solid' }, look, { dpr: st.dpr || 1 }), [0, 0]);
+    if (extra === INV_CARRY) {
+      // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
+      if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+      u1i(P, 'uPattern', 9);
+      u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T);
+      dcUniforms(P, st.carry, st.dpr || 1);
+      bindLut(P);
+    }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
     if (globe) {
       // (the scissor of the image's w-box on the sphere, globeScissorOf: device px of the pane, intersected with the
@@ -779,7 +811,7 @@
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)

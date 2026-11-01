@@ -242,7 +242,7 @@
   }
 
   // ---------------- regions and lines ----------------
-  const PATTERNS = { solid: 0, checker: 1, polar: 2, tiles: 3, grid: 4, polargrid: 5, phase: 6, stretch: 7, sphere: 8 };
+  const PATTERNS = { solid: 0, checker: 1, polar: 2, tiles: 3, grid: 4, polargrid: 5, phase: 6, stretch: 7, sphere: 8, carry: 9 };
   function fadeUniforms(P, f) {
     if (f && f.R != null) {
       u1i(P, 'uFadeMode', 2); u4f(P, 'uFade', f.cx || 0, f.cy || 0, f.R, 0); u1f(P, 'uFadeW', 0.08 * f.R);
@@ -335,8 +335,60 @@
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
+  // (#584) st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's colour
+  // (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice point,
+  // not four times per vertex, most of a glide frame on #587's first Mac run); -> true when drawn, false while its
+  // program compiles
+  // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
+  function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  function drawRegionCarry(res, st) {
+    if (!ok || !res || !res.n) return false;
+    const L = st.L || 4;
+    // (a deformation whose path has a cut the sheets continue: each triangle on its centre's sheet, regionKS, uncached)
+    const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
+    const S = cuts ? program('regionKS', st.map) : null;
+    let e = !S && rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    if (e === PENDING) e = null;
+    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    let P = S || (e ? program('regionKC', st.map) : null);
+    if (!P) { e = null; P = program('regionK', st.map); }
+    if (!P) return false;
+    const set = (Q) => {
+      use(Q, st.map);
+      if (e) bindCache(Q, e);
+      view2D(Q, st.view, st.dpr || 1, res.org);
+      regionUniforms(Q, st, res.org);
+      u1f(Q, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
+      u1f(Q, 'uKLim', st.lim || 1e30);
+      u1i(Q, 'uKeyOn', k ? 1 : 0);
+      if (k) {
+        const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+        sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+        u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
+        if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
+        u1i(Q, 'uKSingN', sing.length);
+      }
+      u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+    };
+    gl.bindVertexArray(meshVAO(res, L, st.skip));
+    const n = regionTemplate(L).count;
+    set(P);
+    if (k) {
+      // (st.depth: 'only' (default) one draw with a depth of its own; 'first', 'mid', 'last' draws sharing one depth, so
+      // the sheet key orders the points of all of them: the first clears it, the last clears it after)
+      const dm = st.depth || 'only', first = dm === 'only' || dm === 'first', last = dm === 'only' || dm === 'last';
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
+      if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (last) carryDepthEnd();
+    } else gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    gl.bindVertexArray(null);
+    return true;
+  }
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
+    if (st.carry) return drawRegionCarry(res, st);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
     try {

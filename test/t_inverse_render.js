@@ -37,7 +37,7 @@ function render(sc, view, pattern, opts = {}) {
   if (!plan.ok) throw new Error(plan.reason);
   const win = sc.win || Q.boxOf(sc.srcView);
   const look = { alpha: opts.alpha ?? 1, pattern, cell: sc.cell || Q.cellOf(sc), sphN: 16 };
-  return Inverse.renderCPU(plan, sc.shapes, Object.assign({ W, H, win }, view), look, null, { tieReverse: opts.tieReverse });
+  return Inverse.renderCPU(plan, sc.shapes, Object.assign({ W, H, win }, view), look, null, {});
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -203,7 +203,11 @@ for (const name of ['expH', 'zi_H', 'e1z_disc']) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// (h) golden emulation: today's forward draw (emulated) vs the inverse render of the bounded controls
+// (h) golden emulation: today's forward draw (emulated) vs the inverse render of the bounded controls. Where a region
+// covers a pixel more than once, both show the front point of the one sheet key the region tiling, the pre-mapped
+// meshes and the steps view's colours share (Inverse.sheetKey: the point nearest the window's centre, the poles
+// penalised, keys within TIE_D tied and ordered by the tie rule; #584). The golden was the meshes' build order (the
+// last triangle drawn in front) until #584 made that key the forward draw's depth too
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (h) golden emulation');
 {
@@ -211,13 +215,16 @@ console.log('--- (h) golden emulation');
   const EDGE = hex('#093B9B'), HALO = hex('#FCFDFD'), PLANE = hex('#FCFDFD');
   const LOOKF = { pattern: 'solid', c0: hex('#3B6FD4'), c1: hex('#8CABE5'), k: EDGE };
   // the forward draw: Region.buildMesh at Q = 60, the L = 4 GPU template, the 0.2-edge midpoint test, linear source
-  // interpolation inside each sub-triangle, its footprint, mesh order, alpha 1 (notes/proto/lead-inv/golden_cmp.js)
+  // interpolation inside each sub-triangle, its footprint, the shared sheet key's front point per pixel (its depth,
+  // PRE_KEY), alpha 1 (notes/proto/lead-inv/golden_cmp.js)
   function forward(sc, view, pattern) {
     const steps = sc.steps.map(St), built = builtOf(steps);
     const F = (z) => { for (const b of built) z = b.f(z); return z; };
+    const win = sc.win || Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
+    const kp = { win, R, rs: R / 8, sing: Inverse.keySing(planOf(sc.steps), win) };
     const mesh = Region.buildMesh(sc.shapes[0], Q.boxOf(sc.srcView), 60);
     const cell = Q.cellOf(sc), look = Object.assign({}, LOOKF, { pattern, cell });
-    const col = new Float32Array(W * H * 3), cov = new Uint8Array(W * H);
+    const col = new Float32Array(W * H * 3), cov = new Uint8Array(W * H), best = new Array(W * H);
     const L = 4, S = mesh.src, T = mesh.tri, sub = [];
     for (let i = 0; i < L; i++) for (let j = 0; i + j < L; j++) { sub.push([[i, j], [i + 1, j], [i, j + 1]]); if (i + j < L - 1) sub.push([[i + 1, j], [i + 1, j + 1], [i, j + 1]]); }
     const px = (w) => [(w.re - view.cx) * view.s + W / 2, H / 2 - (w.im - view.cy) * view.s];
@@ -242,7 +249,10 @@ console.log('--- (h) golden emulation');
         for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
           const b = bary(x + 0.5, y + 0.5);
           if (b[0] < -1e-12 || b[1] < -1e-12 || b[2] < -1e-12) continue;
-          const z = srcAt(b), pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] }), k = y * W + x;
+          const z = srcAt(b), k = y * W + x, cand = { z, D: Inverse.sheetKey(kp, z, null), lam: null };
+          if (best[k] && !Inverse.front(cand, best[k])) continue;
+          best[k] = cand;
+          const pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] });
           col[3 * k] = pc.col[0]; col[3 * k + 1] = pc.col[1]; col[3 * k + 2] = pc.col[2]; cov[k] = 1;
         }
       }
@@ -275,11 +285,21 @@ console.log('--- (h) golden emulation');
       check(`golden ${name}.${variant} <= 0.05 %`, gd.frac <= 0.0005, `${(100 * gd.frac).toFixed(3)} %`);
     }
   }
-  const sc = Q.SCENES.find((s) => s.name === 'disc_cube');
-  const rev = render(sc, sc.rightView, 'checker', { tieReverse: true });
-  const gdr = composite(sc, sc.rightView, 'pattern', rev);
-  console.log(`disc_cube.pattern with the tie rule reversed: golden_diff ${(100 * gdr.frac).toFixed(3)} %`);
-  check('the tie rule matters: reversed disc_cube.pattern > 0.1 %', gdr.frac > 0.001, `${(100 * gdr.frac).toFixed(3)} %`);
+  // the key is continuous (#584): no tie class (the old key's D = 0 over the whole window, ordered by the tie rule
+  // alone, flipped sheets along the window's sides). Along a line from the window's centre out across its side, D
+  // grows strictly and never faster than its Lipschitz bound 1 / (R ln 2) per unit
+  {
+    const sc = Q.SCENES.find((s) => s.name === 'disc_cube'), win = Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
+    const kp = { win, R, rs: R / 8, sing: [] }, cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, h = (win.x1 - cx) / 200;
+    let grows = true, maxRate = 0;
+    for (let i = 0; i < 400; i++) {
+      const d0 = Inverse.sheetKey(kp, C(cx + i * h, cy), null), d1 = Inverse.sheetKey(kp, C(cx + (i + 1) * h, cy), null);
+      if (!(d1 > d0)) grows = false;
+      maxRate = Math.max(maxRate, (d1 - d0) / h);
+    }
+    console.log(`sheet key across the window's side: grows ${grows}, max rate ${maxRate.toFixed(5)} (bound ${(1 / (R * Math.LN2)).toFixed(5)})`);
+    check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= 1.0001 / (R * Math.LN2), `${grows} ${maxRate}`);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -255,8 +255,116 @@
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
   // (#366 prototype) the steps view: where it is, what it shows; d moves it (±1, or a plane index with to)
+  // (#584) the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
+  // {win, R, rs, sing}, as svSheetKey
+  /** @type {any} */ (window).__cmwSvKey = (b) => { const k = svSheetKey(b == null ? svStage() : b); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }; };
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() } }; };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing): the steps view's carried colour against the exact one (#590)
+  // (#584) the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
+  // a] each, row by row), or null off the pane; and the view they were read in (steps_carry_inregion_cmd.js)
+  /** @type {any} */ (window).__cmwLPx = (pts) => {
+    const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, c = paneL.canvas.getContext('2d'), img = c.getImageData(0, 0, W, H).data;
+    const px = pts.map(([x, y]) => {
+      const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
+      if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
+      const out = [];
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
+      return out;
+    });
+    return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
+  };
+  // (#551, #584, #590) the points of plane z that the shown frame's points [[re, im], ...] come from, each with its image in
+  // the colour plane T: [[x, y, gx, gy], ...] per point (the region tiling's own points and the colour they carry); null
+  // where the plan has no inverse or the preimages pass the cap. At rest on plane b (default the one shown) through the
+  // plan z → b (Inverse.pointPre: every branch of each op, and of a periodic family, exp's and the trig functions', the
+  // members m = -K … K of each base). Parked between planes (svBetween: H_u after the steps before b) the points v of
+  // plane b - 1 with H_u(v) = w first (a grid's triangles about w, then Newton: see below), then that plan back to z.
+  // The array's .b is the plane whose sheet key the frame is drawn with
+  /** @type {any} */ (window).__cmwSvPre = (pts, K = 6, b) => {
+    const fr = svBetween(), park = b == null && !(fr.u <= 1e-6 || fr.b === fr.a) && !isDeriv(fr.b);
+    const k = b == null ? (park ? fr.b : svStage()) : b, T = svT(), G = T === 0 ? (z) => z : stageF(T);
+    const plan = invPlan(0, park ? k - 1 : k), H = park ? homF(fr.b, fr.u) : null;
+    const kw = svSheetKey(k).win, mx = kw.x1 - kw.x0, my = kw.y1 - kw.y0;
+    const box = { x0: kw.x0 - mx, x1: kw.x1 + mx, y0: kw.y0 - my, y1: kw.y1 + my };
+    // (each pole p of H_u, polesOf, with its residue a, from H at a small distance e: a ≈ H(p + e) e)
+    const poles = (H ? polesOf(H, box, 16, 128, 80) : []).map((p) => {
+      const e = 1e-6 * (1 + CX.abs(p));
+      return { p, a: CX.scale(/** @type {any} */ (H)(CX.add(p, C(e, 0))), e), r: 0.25 * mx };
+    });
+    // (the points of plane b - 1 that H_u takes to w, beside its cuts too (Joukowski's path is piecewise, its cut the
+    // lower unit semicircle): H_u on a NX × NY grid over the box, each grid triangle whose image holds w a start for
+    // Newton, kept where it converges; the triangles filed by their images' boxes over the samples' box)
+    const NX = 360, NY = 240, hx = (box.x1 - box.x0) / NX, hy = (box.y1 - box.y0) / NY, img = new Float64Array(2 * (NX + 1) * (NY + 1));
+    /** @type {any} */
+    let tri = null, pb = null;
+    const BX = 64, BY = 40;
+    if (H) {
+      const Hv = (x, y) => { let v = null; try { v = H(C(x, y)); } catch (e) { v = null; } return v && CX.isFin(v) ? [v.re, v.im, x, y] : null; };
+      for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { const v = Hv(box.x0 + i * hx, box.y0 + j * hy), n = 2 * (j * (NX + 1) + i); img[n] = v ? v[0] : NaN; img[n + 1] = v ? v[1] : NaN; }
+      pb = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, bw: 1, bh: 1 };
+      for (const [x, y] of pts) { pb.x0 = Math.min(pb.x0, x); pb.x1 = Math.max(pb.x1, x); pb.y0 = Math.min(pb.y0, y); pb.y1 = Math.max(pb.y1, y); }
+      pb.bw = (pb.x1 - pb.x0) / BX || 1; pb.bh = (pb.y1 - pb.y0) / BY || 1;
+      tri = Array.from({ length: BX * BY }, () => /** @type {number[][]} */ ([]));
+      // (a triangle [[wx, wy, zx, zy] × 3]: the buckets its image's box covers; filed when that is at most 64 of them
+      // (a wider one straddles a cut or a pole); its span in buckets, Infinity with a point undefined)
+      const span = (t) => {
+        if (t.some((q) => !q)) return { n: Infinity };
+        const x0 = Math.min(t[0][0], t[1][0], t[2][0]), x1 = Math.max(t[0][0], t[1][0], t[2][0]), y0 = Math.min(t[0][1], t[1][1], t[2][1]), y1 = Math.max(t[0][1], t[1][1], t[2][1]);
+        if (x1 < pb.x0 || x0 > pb.x1 || y1 < pb.y0 || y0 > pb.y1) return { n: 0, out: true };
+        const a0 = Math.max(0, Math.floor((x0 - pb.x0) / pb.bw)), a1 = Math.min(BX - 1, Math.floor((x1 - pb.x0) / pb.bw)), b0 = Math.max(0, Math.floor((y0 - pb.y0) / pb.bh)), b1 = Math.min(BY - 1, Math.floor((y1 - pb.y0) / pb.bh));
+        return { n: (a1 - a0 + 1) * (b1 - b0 + 1), a0, a1, b0, b1 };
+      };
+      const file = (t, sp) => { if (sp.out || !(sp.n <= 64)) return; const flat = t.flat(); for (let bj = sp.b0; bj <= sp.b1; bj++) for (let bi = sp.a0; bi <= sp.a1; bi++) tri[bj * BX + bi].push(flat); };
+      const V = (i, j) => { const n = 2 * (j * (NX + 1) + i); return Number.isNaN(img[n]) ? null : [img[n], img[n + 1], box.x0 + i * hx, box.y0 + j * hy]; };
+      // (a cell whose image is wide (beyond 4 buckets) or undefined somewhere: beside a pole of H_u, or across a cut, as
+      // Joukowski's disc beside the tanh pole at |z| → 1, which covers much of the plane at u = 0.3: on a 16 × 16 grid
+      // of its own, where H_u is near enough linear again)
+      const SUB = 16;
+      for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+        const A = V(i, j), B = V(i + 1, j), Cc = V(i + 1, j + 1), D = V(i, j + 1), t1 = [A, B, Cc], t2 = [A, Cc, D], s1 = span(t1), s2 = span(t2);
+        if (s1.n <= 4 && s2.n <= 4) { file(t1, s1); file(t2, s2); continue; }
+        const x0 = box.x0 + i * hx, y0 = box.y0 + j * hy, g = [];
+        for (let q = 0; q <= SUB; q++) for (let r = 0; r <= SUB; r++) g.push(Hv(x0 + r * hx / SUB, y0 + q * hy / SUB));
+        const G = (r, q) => g[q * (SUB + 1) + r];
+        for (let q = 0; q < SUB; q++) for (let r = 0; r < SUB; r++) for (const t of [[G(r, q), G(r + 1, q), G(r + 1, q + 1)], [G(r, q), G(r + 1, q + 1), G(r, q + 1)]]) file(t, span(t));
+      }
+    }
+    const out = pts.map(([re, im]) => {
+      let vs = [C(re, im)];
+      if (H) {
+        vs = [];
+        const w = C(re, im), tol = 1e-10 * (1 + CX.abs(w));
+        const add = (v) => { if (v && CX.isFin(v) && !vs.some((x) => CX.abs(CX.sub(x, v)) < 1e-7 * (1 + CX.abs(v)))) vs.push(v); };
+        const bi = Math.min(BX - 1, Math.max(0, Math.floor((re - pb.x0) / pb.bw))), bj = Math.min(BY - 1, Math.max(0, Math.floor((im - pb.y0) / pb.bh)));
+        for (const f of tri[bj * BX + bi]) {
+          // (barycentric coordinates of w in the image triangle, with a little slack; the start, the same mix of its
+          // points)
+          const [ax, ay, azx, azy, bx, by, bzx, bzy, cx, cy, czx, czy] = f, d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+          if (!d) continue;
+          const l1 = ((by - cy) * (re - cx) + (cx - bx) * (im - cy)) / d, l2 = ((cy - ay) * (re - cx) + (ax - cx) * (im - cy)) / d, l3 = 1 - l1 - l2;
+          if (l1 < -0.05 || l2 < -0.05 || l3 < -0.05) continue;
+          const sz = Math.max(Math.hypot(bzx - azx, bzy - azy), Math.hypot(czx - azx, czy - azy));
+          add(newtonTo(H, w, C(l1 * azx + l2 * bzx + l3 * czx, l1 * azy + l2 * bzy + l3 * czy), 1, tol, 2 * sz));
+        }
+        // (near a simple pole p of H_u, H(v) ≈ a / (v - p): the points there, p + a / w, polished by Newton)
+        for (const q of poles) add(newtonTo(H, w, CX.add(q.p, CX.div(q.a, w)), 1, tol, q.r));
+      }
+      const zs = [];
+      for (const v of vs) {
+        const r = plan.ops && plan.ops.length ? Inverse.pointPre(plan, v, 512, { fam: K }) : { exact: true, zs: [v] };
+        if (!r.exact) return null;
+        zs.push(...r.zs);
+      }
+      return zs.filter((z) => CX.abs(z) < 1e6).map((z) => { let g = null; try { g = G(z); } catch (e) { g = null; } return g && CX.isFin(g) ? [z.re, z.im, g.re, g.im] : null; }).filter(Boolean);
+    });
+    /** @type {any} */ (out).b = k;
+    return out;
+  };
+  // (#590) the poles the steps view's carried colour draws its log-polar meshes about (poleMeshes), [[re, im], ...]
+  /** @type {any} */ (window).__cmwSvPoles = () => poleM.at.map((p) => [p.re, p.im]);
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK

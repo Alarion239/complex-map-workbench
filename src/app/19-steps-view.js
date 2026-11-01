@@ -367,6 +367,91 @@
     GLR.blit(cc);
     return true;
   }
+  // (#584) The colour the points carry, by the region tiling's own machinery (Alexander on #584: "use the machinery
+  // we have for carrying region patterns, just apply it to colors"): Inside regions, each visible region; Everywhere,
+  // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
+  // unbounded regions are). Each point z (on plane 0) is coloured with the colour plane's colour of it,
+  // dcolor(f_T ∘ … ∘ f_1(z)), wherever the map takes it. Where several points land on one pixel, the one in front is
+  // the tiling's own: the one nearest the window's centre, away from the map's poles (Inverse.sheetKey, svSheetKey)
+  const SV_ALL = { id: '__svAll', kind: 'disc', c: [1e9, 0], r: 1e-6, complement: true, visible: true };
+  function svCarryShapes() {
+    if (SV.scope !== 'in' || !svMaskOn()) return [SV_ALL];
+    const areas = visibleAreas();
+    return areas.some((x) => shapeStage(x)) ? null : areas;
+  }
+  // the sheet key's parameters for the image on plane b: the region tiling's own (smKeyOf: clipWin, half its diagonal
+  // R, R / 8, Inverse.keySing of the map to b; with no inverse plan to b, the window alone), the one key the inverse
+  // pass, the pre-mapped meshes and these meshes all order sheets by (Inverse.sheetKey)
+  function svSheetKey(b) {
+    const k = smKeyOf(stageMap(b));
+    if (k) return k;
+    const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
+    return { win: clipWin, R, rs: R / 8, sing: [] };
+  }
+  const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
+  // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
+  // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
+  // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
+  // (opened if need be). False (nothing more drawn) unless every shape takes that path: a region of a later plane, a
+  // map with no inverse, a program still compiling
+  function svCarryExact(pane, a, T, frame) {
+    const list = svCarryShapes();
+    if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || a <= T || derivIn(0, a)) return false;
+    const map = stageMap(a), recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
+    const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
+    if (paths.some((p) => p.path !== 'inverse')) return false;
+    const carry = svCarryStyle(T);
+    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    for (let i = 0; i < list.length; i++) {
+      const p = paths[i];
+      let res = 'error';
+      try {
+        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+      } catch (e) { console.error('steps view exact colour', e); }
+      // (a shape drawn already stays: the next path draws over it)
+      if (res !== 'drawn') return false;
+    }
+    return true;
+  }
+  // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
+  // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
+  // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
+  // (opened if need be). False (nothing more drawn) unless every shape draws so
+  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
+  // the subdivision only places it, and the map at every vertex was most of a glide frame's cost: perf on #587)
+  // F (at rest or parked: the map's CPU function): each mesh with the tiling's fix-up under it (carryFix: its cells
+  // the map bends too much refined, drawn as an extra mesh of their own, their base cells skipped), once it lands
+  const SV_CARRY_L = 2;
+  function svCarryRegions(pane, map, T, b, frame, F) {
+    const list = svCarryShapes();
+    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
+    const key = svSheetKey(b);
+    const carry = svCarryStyle(T);
+    const draws = [];
+    for (const x of list) {
+      // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
+      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+      if (!r || !r.meshRes) return false;
+      const fx = F ? carryFix(x, F, map) : null;
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
+    }
+    // (#590: the whole plane's points about the frame's map's poles, on log-polar meshes there, under the same depth;
+    // a fine search at rest or parked)
+    if (list.includes(SV_ALL)) for (const pr of poleMeshes(map, !svGliding())) draws.push({ res: pr, L: SV_CARRY_L, skip: null });
+    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
+    // clears it, the last clears it after)
+    for (let i = 0; i < draws.length; i++) {
+      const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
+      if (!GLR.drawRegion(d.res, { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) {
+        if (i > 0) GLR.carryDepthEnd();
+        return false;
+      }
+    }
+    return true;
+  }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
@@ -398,7 +483,16 @@
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
       let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
-      if (still ? !svColoured(a) : !isDeriv(b)) {
+      // (#584: at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
+      // svCarryExact; the carried grid only where neither path can draw)
+      if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
+      // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
+      // travel on, each fragment its point's colour)
+      else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
+      // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
+      // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling; its
+      // removal is #589)
+      else if (still ? !svColoured(a) : !isDeriv(b)) {
         carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
       }
       // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
