@@ -9,18 +9,19 @@ const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
 const menu = () => ev(`(() => { const p = document.querySelector('#popHost .pop.menu.pm'); return p ? [...p.querySelectorAll('.mi')].map((b) => b.dataset.pm) : null; })()`);
-const closeAll = async () => { for (let i = 0; i < 2 && (await ev(`!!document.querySelector('#popHost .pop')`)); i++) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await settled({ floor: 100, max: 2000 }); } };
+const closeAll = async () => { for (let i = 0; i < 2 && (await ev(`!!document.querySelector('#popHost .pop')`)); i++) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await settled({ max: 2000, until: `!document.querySelector('#popHost .pop')` }); } };
 const rclick = async (x, y) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
-  await settled({ floor: 150, max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
+  await settled({ max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
 };
-// the client point of w in the left plane, once the pane's view holds still (two reads 200 ms apart agree)
+// the client point of w in the left plane, once the pane's view holds still (two reads, each once the page is
+// quiet, agree)
 const at = async (re, im) => {
   let p = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
   for (let i = 0; i < 20; i++) {
-    await settled({ floor: 200, max: 3000 });
+    await settled({ max: 3000 });
     const q = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
     if (Math.abs(q[0] - p[0]) < 0.5 && Math.abs(q[1] - p[1]) < 0.5) return q;
     p = q;
@@ -37,8 +38,8 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: url ? 0 : 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await go(`${BASE}/test.html?ns=${ns}${url ? '&' + url : ''}`);
-  await settled({ floor: 300, max: 15000, until: `typeof __cmwPlaneMenu === 'function'${url ? " && typeof __cmwSteps === 'function'" : ''}` });
-  if (toPlane) { await ev(`${toPlane}, 1`); await settled({ floor: 300, max: 15000, until: `!__cmwSteps().moving` }); }
+  await settled({ max: 15000, until: `typeof __cmwPlaneMenu === 'function'${url ? " && typeof __cmwSteps === 'function'" : ''}` });
+  if (toPlane) { await ev(`${toPlane}, 1`); await settled({ max: 15000, until: `!__cmwSteps().moving` }); }
   ok(`${where}: the left plane is w₁`, (await ev(`__cmwPlaneMenu().leftStage()`)) === 1, await ev(`__cmwPlaneMenu().leftStage()`));
   await closeAll();
   const [x1, y1] = await at(0, 1.1);
@@ -50,7 +51,7 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
     const pick = await ev(`(() => { const b = document.querySelector('#popHost .pop.menu.pm .mi[data-pm="integral"]'); const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`);
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pick[0], y: pick[1], button: 'left', buttons: 1, clickCount: 1 });
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pick[0], y: pick[1], button: 'left', buttons: 0, clickCount: 1 });
-    await settled({ floor: 200, max: 5000, until: `!!document.querySelector('#popHost .int-pop')` });
+    await settled({ max: 5000, until: `!!document.querySelector('#popHost .int-pop')` });
     const box = await ev(`__cmwPlaneMenu().curveBox('c1')`);
     // (the curve the integral runs along: the circle in plane w₁, its box 0.6 by 0.6 about 0.8i; 0.02 is room for the
     // sampled polygon's sag inside the circle, where the curve of a wrong plane is off by more than 0.5)
