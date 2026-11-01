@@ -1,8 +1,8 @@
-// A control the focus scrolls into view is left room for its focus ring (#601): on a phone at 360 × 780 with the tour's
-// Constructions step open (the Tools sheet's tiles end exactly at the scroller's foot), focusing the Formula tile the way a
-// keyboard does (the browser scrolls it into view) leaves its 3 px ring inside the scroller, light and dark. The layout
-// suite's focus-ring check reads the control's scroll-margin instead of scrolling (it focuses with preventScroll), so this is
-// the proof that the browser does what that check assumes.
+// Keyboard focus leaves a control room for its focus ring (#601): on a phone at 360 × 780 with the tour's Constructions step
+// open (the Tools sheet's tiles end exactly at the scroller's foot), Tab to the Formula tile, the last row, scrolls it into the
+// scroller far enough that its 3 px ring (2 px outline, 1 px offset) is not cut at the foot, light and dark. This is the page's own
+// rule (`:focus-visible { scroll-margin: 8px }`, src/page.html) at work, and what the layout suite's focus-ring check assumes:
+// it focuses with preventScroll, so it reads the control's scroll-margin instead of the scroll (test/lib/layout.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
@@ -17,19 +17,28 @@ for (const dark of [false, true]) {
     c.steps.forEach((st, i) => { const n = (T.leadFor(st) || '').length + (T.copyFor(st, null) || '').length + (st.try ? (T.tryFor(st.try) || '').length : 0); if (n > len) { len = n; best = i; } });
     Tour.start({ chapter: 'construct', step: best }); return best; })()`);
   await sleep(3000);
-  const g = await ev(`(() => {
-    const sh = document.querySelector('.ph-sheet.open'), sb = sh && sh.querySelector('.ph-sb:not([hidden])');
-    const f = [...document.querySelectorAll('.ph-tile')].find((t) => /Formula/.test(t.textContent));
-    if (!sb || !f) return null;
-    const before = sb.scrollTop;
-    f.focus({ focusVisible: true });
-    const q = sb.getBoundingClientRect(), b = f.getBoundingClientRect(), cs = getComputedStyle(f);
-    const grow = (parseFloat(cs.outlineWidth) || 0) + (parseFloat(cs.outlineOffset) || 0);
-    return { before, after: sb.scrollTop, canScroll: sb.scrollHeight > sb.clientHeight + 1, room: q.bottom - b.bottom, grow, margin: cs.scrollMarginBottom, focused: document.activeElement === f };
+  // the tile before Formula, focused without scrolling; then the keyboard moves on to Formula
+  const pre = await ev(`(() => {
+    const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])');
+    if (!sb) return null;
+    sb.scrollTop = 0;
+    const t = [...sb.querySelectorAll('.ph-tile')], i = t.findIndex((x) => /Formula/.test(x.textContent));
+    if (i < 1) return null;
+    t[i - 1].focus({ preventScroll: true });
+    return { canScroll: sb.scrollHeight > sb.clientHeight + 1, top: sb.scrollTop };
   })()`);
-  await sleep(300);
-  info[tag] = g;
-  ok(`${tag}: the Tools sheet and its Formula tile are there`, !!g && g.focused, g);
-  if (g) ok(`${tag}: after the focus scrolled it, the Formula tile's ring (${g && g.grow} px) fits above the scroller's foot`, g.room >= g.grow - 0.5, g);
+  ok(`${tag}: the Tools sheet is open with the Formula tile after another`, !!pre, pre);
+  if (!pre) continue;
+  await key('Tab');
+  await sleep(500);
+  const g = await ev(`(() => {
+    const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])');
+    const f = [...document.querySelectorAll('.ph-tile')].find((t) => /Formula/.test(t.textContent));
+    const q = sb.getBoundingClientRect(), b = f.getBoundingClientRect(), cs = getComputedStyle(f);
+    return { top: sb.scrollTop, room: q.bottom - b.bottom, grow: (parseFloat(cs.outlineWidth) || 0) + (parseFloat(cs.outlineOffset) || 0), margin: cs.scrollMarginBottom, focused: document.activeElement === f, visible: f.matches(':focus-visible') };
+  })()`);
+  info[tag] = Object.assign({ pre }, g);
+  ok(`${tag}: Tab reaches the Formula tile and shows its focus ring`, g.focused && g.visible, g);
+  ok(`${tag}: the focus scrolled the tile clear of the scroller's foot by the page's scroll-margin`, g.room >= g.grow - 0.5, g);
 }
 return { pass: fails.length === 0, fails, info };
