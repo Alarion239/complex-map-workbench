@@ -1208,15 +1208,8 @@
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
-    const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]), pathsOn = S.morphPaths !== false && !noPaths;
-    const pathsTip = noPaths ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : pathsOn ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P');
-    for (const b of [E.paths, E.sheetPaths]) {
-      if (!b) continue;
-      if (b.getAttribute('aria-pressed') !== String(pathsOn)) b.setAttribute('aria-pressed', String(pathsOn));
-      b.classList.toggle('on', pathsOn);
-      if (b.disabled !== noPaths) b.disabled = noPaths;
-      if (b.dataset.tip !== pathsTip) b.dataset.tip = pathsTip;
-    }
+    const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]);
+    for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); }
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
   function svTogglePlay() { if (SV.play) svPause(true); else svPlay(); }
