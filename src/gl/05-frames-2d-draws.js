@@ -593,11 +593,13 @@
     gl.bindVertexArray(empty());
     // (#551) st.outer, a coarse grid over a wider window: drawn first, so the fine grid wins where both reach a pixel (a
     // tie of the sheet key, LEQUAL; or over it without the key) and the outer one fills only what lies beyond it
+    // (#551) st.polars, log-polar grids about the poles ({x, y, rho0, drho, dth, nx, ny}: radius exp(rho0 + j drho),
+    // angle i dth), drawn after the outer grid and before the fine one, for the exact programs
     const grids = () => {
-      const m = st.mesh;
-      for (const g of X && st.outer ? [st.outer, m] : [m]) {
-        u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy);
-        if (g === m) u4f(P, 'uHole', 0, 0, 0, 0); else u4f(P, 'uHole', m.x0, m.y0, m.x0 + m.nx * m.dx, m.y0 + m.ny * m.dy);
+      const m = st.mesh, list = X ? [...(st.outer ? [st.outer] : []), ...(st.polars || []), m] : [m];
+      for (const g of list) {
+        if (g.drho) { u4f(P, 'uCGrid', 0, 0, g.dth, 0); u4f(P, 'uPolar', g.x, g.y, g.rho0, g.drho); } else { u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy); u4f(P, 'uPolar', 0, 0, 0, 0); }
+        if (g === m || g.drho) u4f(P, 'uHole', 0, 0, 0, 0); else u4f(P, 'uHole', m.x0, m.y0, m.x0 + m.nx * m.dx, m.y0 + m.ny * m.dy);
         u2i(P, 'uN', g.nx, g.ny);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
       }
