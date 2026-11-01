@@ -19,7 +19,7 @@
 // eps } (about 0).
 // Returns { considered, wrong, blank, none, unlisted, filled, paper, rate, ex }: blank, a wrong sample on the plane's
 // paper; filled, the samples with a point, judged or not; paper, those of them on the bare paper; ex, up to opts.nex
-// wrong samples, each with w, its points [x, y, D] and the front's colour.
+// wrong samples, each with w, its points [x, y, D] and the front's colour; paperAt, up to 8 of the samples on the paper.
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
 // nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
 (function carryCompare(o) {
@@ -63,7 +63,7 @@
     return k.filter((e) => e.D - k[0].D < 0.02).map((e) => e.p);
   };
   let considered = 0, wrong = 0, blank = 0, none = 0, unlisted = 0, filled = 0, paper = 0;
-  const ex = [];
+  const ex = [], paperAt = [];
   for (let s = 0; s < at.length; s++) {
     let P0 = pre[5 * s];
     if (P0 == null) { unlisted++; continue; }
@@ -72,7 +72,7 @@
     if (own) P0 = P0.filter((z) => own(z));
     if (!P0.length) { none++; continue; }
     // (every sample with a point is coloured, judged or not: none on the paper)
-    { const [qx, qy] = at[s], m = 4 * (qy * W + qx); filled++; if (Math.max(d[m], d[m + 1], d[m + 2]) - Math.min(d[m], d[m + 1], d[m + 2]) < 6) paper++; }
+    { const [qx, qy] = at[s], m = 4 * (qy * W + qx); filled++; if (Math.max(d[m], d[m + 1], d[m + 2]) - Math.min(d[m], d[m + 1], d[m + 2]) < 6) { paper++; if (paperAt.length < 8) paperAt.push({ px: qx, py: qy, w: pts[5 * s], got: [d[m], d[m + 1], d[m + 2]] }); } }
     const nb = [1, 2, 3, 4].map((k) => (pre[5 * s + k] || []).filter((z) => !own || own(z)));
     if (nb.some((q) => q.length !== P0.length)) continue;
     const cand = fronts(P0);
@@ -84,7 +84,7 @@
     if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < 12) blank++;
     if (ex.length < o.nex) ex.push({ px, py, w: pts[5 * s], got, want: cand.slice(0, 3).map((z) => col(z).map(Math.round)), z: cand[0].slice(0, 2), all: P0.map((z) => [z[0], z[1], keyOf(z)]) });
   }
-  return { considered, wrong, blank, none, unlisted, filled, paper, rate: considered ? +(wrong / considered).toFixed(4) : null, ex };
+  return { considered, wrong, blank, none, unlisted, filled, paper, rate: considered ? +(wrong / considered).toFixed(4) : null, ex, paperAt };
 
   // The points v of plane b - 1 with H_u(v) = w, for each sample w ([C, ...] per point; see above)
   function deformRoots(f, ws) {

@@ -207,16 +207,19 @@ if (EX >= 0) {
   await ev(`__cmwSet('dc', 'enhanced'); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); 1`);
   await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().anim', max: 20000 });
   const jsk = { style: 'enhanced', skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 };
+  // (along the cut the airfoil's outline, its ink and halo, crosses the cut's image: kept 0.12 off it in z, as
+  // steps_carry_inregion_cmd.js keeps its points)
+  const jsc = Object.assign({}, jsk, { skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.12 } });
   if (await reach(key, { park: 0.5, T: 1, scope: 'all' })) {
     await judge(key, Object.assign({ nx: 32, ny: 20 }, jsk));
     // (along the deformation's tear, the image of the lower unit semicircle (joukHom's cut) from both sides, its ends at
     // ±1 (the region's outline meets it at 1) left out: the band
     // edges there are the exact image's, a seam, not the cells' interpolation across it)
-    await judge(`${key}, along the cut's image`, Object.assign({ at: await seamPts([0, 0], 1, -Math.PI + 0.15, -0.15), min: 200 }, jsk));
+    await judge(`${key}, along the cut's image`, Object.assign({ at: await seamPts([0, 0], 1, -Math.PI + 0.15, -0.15), min: 200 }, jsc));
   }
   await ev(`__cmwSteps({ go: 0, now: true }); 1`);
   if (await reach(`${key.replace('parked at 0.5', 'mid-glide at 0.25')}`, { go: 0, T: 1, scope: 'all' }) && await scrub(0.25)) {
-    await judge(`Joukowski, enhanced, colour plane w1, mid-glide at 0.25, along the cut's image`, Object.assign({ at: await seamPts([0, 0], 1, -Math.PI + 0.15, -0.15), min: 200 }, jsk));
+    await judge(`Joukowski, enhanced, colour plane w1, mid-glide at 0.25, along the cut's image`, Object.assign({ at: await seamPts([0, 0], 1, -Math.PI + 0.15, -0.15), min: 200 }, jsc));
   }
   await ev('window.__svScrubUp && window.__svScrubUp(); 1');
 }
