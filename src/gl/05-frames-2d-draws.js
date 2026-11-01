@@ -336,29 +336,40 @@
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
   // (#584) st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's colour
-  // (regionK, flat, uncached: the chain evaluates its places and its colours); -> true when drawn, false while its
+  // (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice point,
+  // not four times per vertex, most of a glide frame on #587's first Mac run); -> true when drawn, false while its
   // program compiles
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
-    const P = program('regionK', st.map);
-    if (!P) return false;
-    use(P, st.map);
-    view2D(P, st.view, st.dpr || 1, res.org);
-    regionUniforms(P, st, res.org);
-    u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T);
-    dcUniforms(P, st.carry, st.dpr || 1);
-    u1f(P, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
-    // (the sheet key, st.key {win, R, rs, sing}, as drawCarried's: the default framebuffer has a depth buffer)
+    const L = st.L || 4;
+    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    if (e === PENDING) e = null;
+    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    u1i(P, 'uKeyOn', k ? 1 : 0);
-    gl.bindVertexArray(meshVAO(res, st.L || 4, st.skip));
-    const n = regionTemplate(st.L || 4).count;
+    let P = e ? program('regionKC', st.map) : null;
+    if (!P) { e = null; P = program('regionK', st.map); }
+    if (!P) return false;
+    const set = (Q) => {
+      use(Q, st.map);
+      if (e) bindCache(Q, e);
+      view2D(Q, st.view, st.dpr || 1, res.org);
+      regionUniforms(Q, st, res.org);
+      u1f(Q, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
+      u1f(Q, 'uKLim', st.lim || 1e30);
+      u1i(Q, 'uKeyOn', k ? 1 : 0);
+      if (k) {
+        const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+        sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+        u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
+        if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
+        u1i(Q, 'uKSingN', sing.length);
+      }
+      u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+    };
+    gl.bindVertexArray(meshVAO(res, L, st.skip));
+    const n = regionTemplate(L).count;
+    set(P);
     if (k) {
-      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
-      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
-      u1i(P, 'uKSingN', sing.length);
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);

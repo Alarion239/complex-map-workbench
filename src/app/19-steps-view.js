@@ -380,6 +380,20 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: [] };
   }
+  // SV_ALL's tessellated mesh over the tiling's window (its far sides stretched to infinity, as any unbounded region's):
+  // coarser than a region's (80 base cells a side, not fullRes's 140): it has no edge to draw, each fragment's colour
+  // is its own point's exactly, and the map at its lattice points was most of a glide frame (perf, #587's first Mac
+  // run). Kept while the window stays
+  let svAllRes = null;
+  function svAllMesh() {
+    const key = JSON.stringify(clipWin);
+    if (svAllRes && svAllRes.key === key) return svAllRes;
+    if (svAllRes && svAllRes.meshRes) GLR.destroy(svAllRes.meshRes);
+    let mesh = null;
+    try { mesh = Region.buildMesh(SV_ALL, clipWin, 80); } catch (e) { mesh = null; }
+    svAllRes = { key, meshRes: mesh && mesh.tri.length && GLR.ok ? GLR.createMesh(Region.meshInstances(mesh)) : null };
+    return svAllRes;
+  }
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
@@ -419,10 +433,10 @@
     const key = svSheetKey(b);
     const carry = svCarryStyle(T);
     for (const x of list) {
-      const r = shapeGPU(x);
+      const r = x === SV_ALL ? svAllMesh() : shapeGPU(x);
       if (!r || !r.meshRes) return false;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key })) return false;
+      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) return false;
     }
     return true;
   }

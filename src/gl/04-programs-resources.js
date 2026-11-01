@@ -80,13 +80,30 @@
   // mesh, wherever the map takes it, is coloured with the colour plane's colour of its source point z,
   // dcolor(f_T ∘ … ∘ f_{s+1}(z)) (uGs, uGt; the same z the region's patterns read, made absolute: vSrc + uQ), so the
   // colour travels with the region's points as its patterns do
-  const REGION_K_FS = () => {
-    const t = REGION_FS(false), end = '  o = vec4(col * a, a);\n}';
-    if (t.split('void main() {').length !== 2 || t.split(end).length !== 2) throw new Error('REGION_FS changed: regionK');
-    // (where the map folds, several points on one pixel: the sheet key of the point as its depth, PRE_KEY)
-    return t.replace('void main() {', DCOLOR.replace('uniform float uDpr;', '') + PRE_KEY_UNI + 'uniform int uGs; uniform int uGt;\nvoid main() {')
-      .replace(end, '  vec2 zk = vSrc + uQ;\n  col = dcolor(uGs >= uGt ? zk : chainRange(zk, uGs, uGt));\n' + PRE_KEY.replace(/\bsa\b/g, 'zk') + end);
+  // (#584) the steps view's carried colour on a region's tessellated mesh: the region tiling's vertex stage (its places,
+  // from the chain or the map cache), handing the fragment stage each point's absolute source point vP; the fragment
+  // stage is the carried colour's own, CARRY_FS: dcolor(chainRange(vP, uGs, uGt)) with the shared sheet key (PRE_KEY),
+  // nothing of the region's patterns (their whole chain per fragment was most of a glide frame: perf on #587). Its
+  // triangles: also those a few pixels small whose middle strays (a fold of the map where two sheets meet, so the
+  // sheets' seam is the fold's own curve, not the drop of whole triangles beside it); one torn across a cut is large
+  // and still left out, and so is one longer than uKLim (a third of the pane, as drawCarried's lim: a point the map
+  // sends far, whose triangle would cover the pane many times over and place nothing well)
+  const REGION_K_VS = (fetch) => {
+    const vs = '  vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;\n';
+    const pos = fetch === 'local' ? null : '  gl_Position = vec4(((w - uCenter) - uCenterLo) * uScale, 0.0, 1.0);';
+    const t = REGION_VS(false, fetch);
+    if (t.split(vs).length !== 2 || !pos || t.split(pos).length !== 2) throw new Error('REGION_VS changed: regionK');
+    // (the sheet key per vertex, as its depth: PRE_KEY's formula on the vertex's source point)
+    const key = PRE_KEY_UNI + 'float kDepth(vec2 sa) {\n' + PRE_KEY.replace('  if (uKeyOn > 0) {', '  float gd = 0.0;\n  if (uKeyOn > 0) {')
+      .replace(/gl_FragDepth = x \/ \(x \+ 1024\.0\);/, 'gd = x / (x + 1024.0);').replace('  } else gl_FragDepth = gl_FragCoord.z;', '  }') + '  return gd;\n}\n';
+    return t.replace('uniform mat4 uMVP;', 'uniform mat4 uMVP; uniform float uKPx; uniform float uKLim;\nout vec2 vP;\n' + key)
+      .replace(vs, vs + '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n')
+      .replace('good = good && midOk(w0, w1, w2, wm);', 'float ke = max(max(len2(w1 - w0), len2(w2 - w1)), len2(w0 - w2));\n  good = good && (midOk(w0, w1, w2, wm) || ke < uKPx) && ke < uKLim;')
+      .replace(pos, '  gl_Position = vec4(((w - uCenter) - uCenterLo) * uScale, uKeyOn > 0 ? 2.0 * kDepth(vP) - 1.0 : 0.0, 1.0);');
   };
+  // (its fragment stage: CARRY_FS without the per-fragment key, the vertex stage's depth orders the sheets, so a
+  // fragment behind the front sheet drawn already is dropped before its colour is computed)
+  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false).replace(PRE_KEY, '');
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
@@ -95,8 +112,10 @@
     // (its triangles: also those a few pixels small whose middle strays, a fold of the map where two sheets meet, so
     // the sheets' seam is the fold's own curve and not the drop of whole triangles beside it; a triangle torn across a
     // cut is large and still left out)
-    regionK: { chain: true, vs: () => REGION_VS(false, 'chain').replace('uniform mat4 uMVP;', 'uniform mat4 uMVP; uniform float uKPx;')
-      .replace('good = good && midOk(w0, w1, w2, wm);', 'good = good && (midOk(w0, w1, w2, wm) || max(max(len2(w1 - w0), len2(w2 - w1)), len2(w0 - w2)) < uKPx);'), fs: () => F_UTIL + REGION_K_FS() },
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS },
+    // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
+    // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
