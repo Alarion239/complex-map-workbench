@@ -11,7 +11,7 @@
 //   rest coloured from z, and Everywhere parked at 0.25, 0.3, 0.5 and 0.6 (the deformation's poles and its disc branch's
 //   tanh pole in the window; the two sheets overlapping) and held mid-glide at 0.25 and 0.5; and with the example's own
 //   colour plane w1, parked and held mid-glide at 0.25 and 0.5, and parked at 0.25 and 0.5 straight from rest on a fresh
-//   page;
+//   page, read 3 s after the park and again once the frame holds still;
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong, every sample's points listed, and none left on the bare paper;
@@ -171,6 +171,10 @@ for (const park of [0.25, 0.5]) {
   await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().anim', max: 20000 });
   await ev(`__cmwSteps({ park: ${park} }); 1`);
   ok(`${key}: the view is there`, (await settled({ until: `Math.abs(__cmwSteps().x - ${park}) < 1e-9 && __cmwSteps().T === 1`, max: 8000 })).ok, await ev('__cmwSteps()'));
+  // (a fixed wait on purpose: the frame a user sees 3 s after a park, with nothing else asking for a frame, is the
+  // behaviour under test)
+  await sleep(3000);
+  await judge(`${key}, 3 s after the park`, { nx: 32, ny: 20, skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 });
   ok(`${key}: the frame is drawn and holds still`, await steady(), null);
   await judge(key, { nx: 32, ny: 20, skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 });
 }
@@ -197,9 +201,9 @@ await ev('window.__sclc.restoreContext(); 1');
 await settled({ until: '!GLR.lost && GLR.ok', max: 10000, panes: false });
 ok('after a lost and restored GL context: the frame is drawn and holds still', await steady(), null);
 await judge('after a lost and restored GL context', { nx: 32, ny: 20, skip: { circles: [[0, 0, 0.6], [0, 0, 1.6]], eps: 0.08 } });
-// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 14 of
+// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 16 of
 // Joukowski, 8 of the powers and the restored context)
-const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 14 + 8 + 1;
+const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 16 + 8 + 1;
 ok('every case was judged', Object.keys(info.cases).length === want, { judged: Object.keys(info.cases).length, want });
 const all = Object.values(info.cases).filter(Boolean);
 info.summary = `${all.filter((r) => r.considered >= MIN_N && r.rate <= MAX_BAD && r.blank === 0).length} of ${all.length} cases pass`;

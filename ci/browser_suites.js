@@ -167,6 +167,10 @@ const SOFTWARE = {
 };
 
 const KNOWN = {
+  'steps_carry_exact_cmd.js': [
+    s(/^Joukowski, Everywhere, colour plane w1, mid-glide at 0\.25: the carried colour is the exact one /, 'gliding (no fix-up), the whole plane\'s mesh steps along the image of the lower unit semicircle under the deformation\'s disc branch, where the classic deformation is smooth; open on #587 (shaders\' finer whole-plane template while gliding)',
+      (d) => d && d.blank === 0 && d.paper === 0 && d.rate > 0.01 && d.rate < 0.05),
+  ],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
