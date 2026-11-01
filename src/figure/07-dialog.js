@@ -14,7 +14,7 @@
   const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
   // the build options from the remembered settings
   // the steps view keeps its own crop, As on screen until changed there: its figure is the stage's picture
-  const cropOf = (s) => (A.svOn && A.svOn() ? s.svCrop || 'screen' : s.crop);
+  const cropOf = (s) => (A.svOn() ? s.svCrop || 'screen' : s.crop);
   function optsOf(s, extra) {
     const sk = sizeKey(s);
     return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: cropOf(s), svPic: s.svPic, axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
@@ -248,7 +248,7 @@
     const ftBtn = h('button', { type: 'button', class: 'xf-disc', 'aria-expanded': String(!!set.fine), onclick: () => { set.fine = !set.fine; ftBody.hidden = !set.fine; ftBtn.setAttribute('aria-expanded', String(set.fine)); ftBtn.querySelector('.xf-chev').innerHTML = set.fine ? ICON.down : ICON.right; saveSet(set); } });
     ftBtn.append(h('span', { class: 'xf-chev', html: set.fine ? ICON.down : ICON.right }), h('span', null, $t('Fine-tune')), h('small', null, view === 'xy' ? $t('Crop · Axes · Panels') : view === 'land' ? $t('Crop') : $t('Crop · Axes')));
     const fr = (label, el) => h('div', { class: 'xf-fr' }, h('span', null, label), el);
-    ftBody.append(fr($t('Crop'), segB('xfCrop', cropOf(set), [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { if (A.svOn && A.svOn()) set.svCrop = v; else set.crop = v; changed(); }, $t('Crop'))));
+    ftBody.append(fr($t('Crop'), segB('xfCrop', cropOf(set), [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { if (A.svOn()) set.svCrop = v; else set.crop = v; changed(); }, $t('Crop'))));
     const axesSeg = () => segB('xfAxes', set.axes[set.for] || PRESET[set.for].axes, [['box', $t('Box')], ['cross', $t('Cross')], ['none', $t('None')]], (v) => { set.axes[set.for] = v; changed(); }, $t('Axes'));
     let axesEl = axesSeg();
     const axesRow = fr($t('Axes'), axesEl);
