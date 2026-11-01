@@ -2,7 +2,7 @@
 'use strict';
 // The lint ratchet (issue #20, phase 1): ESLint errors and tsc errors may not grow beyond ci/lint_baseline.json, and the
 // baseline may only shrink. The count a tool reports today is the baseline; fix findings, then lower the baseline.
-// A baseline of 0 is the floor: the tool is clean, and any error it reports again fails the check (the baseline cannot go
+// A baseline of 0 is the floor: the tool is clean, and any error it reports fails the check (the baseline cannot go
 // lower, and `update` never raises it).
 //   node ci/lint_ratchet.js check eslint.json tsc.txt     exit 1 when either count is above its baseline
 //   node ci/lint_ratchet.js update eslint.json tsc.txt    write the counts as the new baseline (refused when one is higher)

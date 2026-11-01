@@ -1,5 +1,5 @@
 'use strict';
-// node test/t_lint_ratchet.js : ci/lint_ratchet.js (the lint ratchet, issue #20): a count above the baseline fails, below it
+// node test/t_lint_ratchet.js : ci/lint_ratchet.js (the lint ratchet): a count above the baseline fails, below it
 // asks to lower it, `update` never raises the baseline, and a baseline of 0 is the floor, where a single error fails.
 const fs = require('fs');
 const os = require('os');
