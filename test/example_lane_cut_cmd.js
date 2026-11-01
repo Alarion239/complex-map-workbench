@@ -9,7 +9,8 @@ const fails = [], info = {};
 // (Italian wording that is Pietro's, five lines at 360 (issue #576); any other line over four fails)
 const KNOWN_FIFTH = new Set(['it La mappa di Douady–Hubbard']);
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// polls an expression until it is truthy (the condition, not a fixed wait)
+const until = async (expr, ms = 10000) => { for (const t0 = Date.now(); Date.now() - t0 < ms;) { const v = await ev(expr); if (v) return v; await sleep(50); } return null; };
 const PROBE = `(() => {
   const l = document.querySelector('.tour-lane[data-lane="example"]');
   if (!l) return null;
@@ -23,15 +24,17 @@ const PROBE = `(() => {
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 844]]) {
   const tag = `${lang} ${w}`;
   await view(w, h, false, true);
-  await nav(`http://localhost:${PORT}/test.html?ns=exlane-${lang}-${w}-${Date.now() % 1000000}&view=steps${lang === 'en' ? '' : '&lang=' + lang}`); await settle(2500);
+  await nav(`http://localhost:${PORT}/test.html?ns=exlane-${lang}-${w}-${Date.now() % 1000000}&view=steps${lang === 'en' ? '' : '&lang=' + lang}`); await until(`typeof __cmwExample === 'function' && typeof Tour !== 'undefined' && document.readyState === 'complete'`);
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
-  let n = 0, grown = 0, maxLines = 2; const tooLong = [];
+  let n = 0, grown = 0, maxLines = 2, lastName = null; const tooLong = [];
   for (let i = 0; i < 60; i++) {
     const thrown = await ev(`(() => { try { __cmwExample(${i}); return false; } catch (e) { return true; } })()`);
     if (thrown) break;
-    await settle(900);
-    const p = await ev(PROBE);
+    // (the lane has laid out when it shows this example's name and its probe stops changing between two reads)
+    let p = null, prev = '';
+    for (let k = 0; k < 100; k++) { p = await ev(PROBE); const cur = JSON.stringify(p); if (p && p.name !== lastName && cur === prev) break; prev = cur; await sleep(50); }
     if (!p) continue;
+    lastName = p.name;
     n++; if (p.grow) grown++;
     maxLines = Math.max(maxLines, p.lines || 2);
     if (p.lines > 4) { tooLong.push(`${p.name} (${p.lines} lines)`); ok(`${tag}: "${p.name}": needs at most four lines`, KNOWN_FIFTH.has(`${lang} ${p.name}`), p.lines); }
@@ -43,6 +46,4 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 8
   info[tag] = { lanes: n, grown, maxLines, needAFifthLine: tooLong };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); 1');
 }
-// (LANE_INFO=1 puts the info into the result, for a run that reads the line counts)
-if (typeof process !== 'undefined' && process.env.LANE_INFO) fails.push('INFO ' + JSON.stringify(info));
 return { pass: fails.length === 0, fails, info };
