@@ -75,11 +75,12 @@ for (const c of CH) {
 // what the tour covers (the lead's list): each topic has a step
 const ids = new Set(steps.map((s) => `${s.ch}/${s.id}`));
 for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x', 'basics/y', 'basics/preimages',
-  'views/phase', 'views/land', 'views/sphere', 'views/patterns', 'deform/toggle', 'deform/paths', 'deform/order',
+  'views/phase', 'views/land', 'views/sphere', 'deform/toggle', 'deform/paths', 'deform/order',
   'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
   'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
+const stepOf0 = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
@@ -174,9 +175,13 @@ ok('scenes: examples format', Object.values(T.SCENES).every((sc) => Array.isArra
 // (v16.4: a scene the app holds, app: placeholders; the app's sceneSpec gives the example)
 ok('scenes with app: needs the app feature and no shapes or steps of their own', Object.values(T.SCENES).filter((sc) => sc.app).every((sc) => sc.needs === sc.app && !sc.shapes.length && !sc.steps.length));
 check('the harp scenes: (z - 1)/(z + 1), Tiles with 12 sectors; the loop a circle once round the zero 1', [T.SCENES.harp.steps[0].params, T.SCENES.harp.look.phaseStyle, T.SCENES.harp.look.sectors, T.SCENES.harpLoop.shapes], [{ a: '1', zeros: '1', poles: '-1' }, 'enhanced', 12, [{ kind: 'circle', c: [1, 0], r: 0.6 }]]);
-// every scene sets the whole look the copy assumes (a user's Stretch pattern or Re F height never leaks in)
+// every scene sets the whole look the copy assumes (a user's opacity or Re F height never leaks in)
 for (const [k, sc] of Object.entries(T.SCENES)) ok(`scene ${k}: a full look`, sc.look && Object.keys(T.LOOK).every((x) => x in sc.look) && Object.keys(sc.look).every((x) => x in T.LOOK), sc.look);
-ok('scenes: Checker by default', Object.values(T.SCENES).every((sc) => sc.look.pattern === 'checker'));
+// (#363) regions are filled by the phase alone: the tour has no Patterns step, nothing waits for a pattern picked, and
+// its look sets no pattern
+ok('no Patterns step, and no step waits for a pattern', !CH.some((c) => c.steps.some((s) => s.id === 'patterns' || (s.try && s.try.on === 'pattern-changed'))));
+ok('the look sets no pattern', !('pattern' in T.LOOK) && Object.values(T.SCENES).every((sc) => !('pattern' in sc.look)) && !CH.some((c) => c.steps.some((s) => (s.before || []).some((a) => a[0] === 'look' && 'pattern' in a[1]))));
+ok("X's step says the regions are coloured by the phase", /coloured by the phase of \$z\$/.test(stepOf0('basics', 'x').body) && !/checkerboard/.test(stepOf0('basics', 'x').body + stepOf0('basics', 'x').touch));
 check('the Landscape sheets scene: Im height and all sheets', [T.SCENES.logSheets.look.height, T.SCENES.logSheets.look.sheets], ['im', true]);
 const stepOf = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 ok('Draw a shape lights the Disc tool itself', [].concat(stepOf('basics', 'draw').anchor)[0] === 'tool:disc' && stepOf('basics', 'draw').live === true);
@@ -184,7 +189,6 @@ ok('Circle through three points lights its tool, and opens a phone\'s More tools
 ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
 // (v15: and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
 ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools:shapes']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
-ok('Patterns sets Checker first, so Choose Stretch can always tick', stepOf('views', 'patterns').before.some((a) => a[0] === 'look' && a[1].pattern === 'checker'));
 ok('Phase key starts it off, so Turn on Phase key can always tick', stepOf('views', 'key').before.some((a) => a[0] === 'look' && a[1].phaseKey === false));
 ok('All steps at once starts it off', stepOf('deform', 'order').before.some((a) => a[0] === 'look' && a[1].allAtOnce === false));
 check('Paths: toggled twice, so it ends on', stepOf('deform', 'paths').try.count, 2);
@@ -285,7 +289,7 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
 // the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
 // adds no zeros)
-check('46 steps: 40 tasks (2 doors), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [46, 40, 2, 6]);   // (#34: y, targets, domain, deriv and cauchy have a task)
+check('45 steps: 39 tasks (2 doors), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [45, 39, 2, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);

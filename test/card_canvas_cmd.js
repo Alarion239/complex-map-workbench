@@ -12,25 +12,25 @@ const STATE = `(() => { if (typeof __cmwCards !== 'function') return null; const
   return { n: c.cards.length, drawn: c.cards.length > 0 && c.cards.every((x) => x.sig), rows }; })()`;
 const wrong = (s) => (s ? s.rows.filter((x) => x.vis && x.have !== x.want) : [{ have: 'no state' }]);
 // the cards drawn and their canvases right, or the time is up (then the state it ended in)
-const settled = async (max = 30000) => { const t0 = Date.now(); let s = null; while (Date.now() - t0 < max) { s = await ev(STATE); if (s && s.n && s.drawn && !wrong(s).length) return s; await sleep(250); } return s; };
+const cardSettled = async (max = 30000) => { const t0 = Date.now(); let s = null; while (Date.now() - t0 < max) { s = await ev(STATE); if (s && s.n && s.drawn && !wrong(s).length) return s; await sleep(250); } return s; };
 const CASES = [[1024, 700, 4], [1100, 700, 6], [1152, 720, 4], [1280, 800, 6], [1440, 900, 4]];
 for (const [w, h, thr] of CASES) {
   const tag = `${w} (cpu x${thr})`;
   await send('Emulation.setCPUThrottlingRate', { rate: thr });
   await view(w, h, false, false);
   await nav(`${base}/test.html?ns=cc${w}${Date.now() % 1000000}`);
-  let s = await settled();
+  let s = await cardSettled();
   info[tag] = s && s.rows;
   ok(`${tag}: after a load, every card's canvas matches its box`, s && s.n >= 2 && s.drawn && !wrong(s).length, s);
   // a chain edit: another example's chain rebuilds the cards
   await ev('(__cmwExample(3), 1)');
   await sleep(300);
-  s = await settled();
+  s = await cardSettled();
   ok(`${tag}: after a chain edit, every card's canvas matches its box`, s && s.n >= 2 && s.drawn && !wrong(s).length, s);
   // a resize of the window: the boxes change, the canvases follow
   await view(w + 140, h, false, false);
   await sleep(500);
-  s = await settled();
+  s = await cardSettled();
   ok(`${tag}: after the window is resized, every card's canvas matches its box`, s && s.n >= 2 && s.drawn && !wrong(s).length, s);
 }
 await send('Emulation.setCPUThrottlingRate', { rate: 1 });

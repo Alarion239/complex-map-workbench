@@ -66,7 +66,11 @@ H.view = async (w, h, dark, mobile) => {
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }] }, S);
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!mobile, maxTouchPoints: mobile ? 5 : 1 }, S);
 };
-H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); };
+// (#363) a pattern load() seeded for a namespace is set again whenever that namespace's page is opened anew: the app
+// itself opens every saved pattern as the phase
+H.seeded = null;
+H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
+H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed(); };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
 // It answers whether the load came in time; a page that did not load says so in the suite's log.
 H.go = async (url, ms = 15000) => {
@@ -76,6 +80,7 @@ H.go = async (url, ms = 15000) => {
   const ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), ms); })]);
   clearTimeout(t);
   if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url})` });
+  if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363, as H.nav)
   return ok;
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
@@ -143,6 +148,11 @@ H.load = async (ns, st, extra) => {
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns }, S); await sleep(2200);
+  // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
+  // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
+  // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
+  H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
+  await H.reseed();
   return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
@@ -157,6 +167,8 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js)
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8') }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
   const done = new Set();
   for (;;) {

@@ -58,7 +58,16 @@ for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
         const e = (type, x) => p.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }));
         e('pointerdown', r.right - 10); for (let i = 1; i <= 4; i++) e('pointermove', r.right - 10 - i * 30); e('pointerup', r.right - 130); return 1; })()`); return true; },
       'a tap on a plane\'s dot': async () => { const c = await centre('#svStrip .sv-plane'); if (c) await click(c[0], c[1]); return !!c; },
+      // (ux on #460: the rail is hidden under the message, so a press on its body only dismisses it: the shown plane stays)
+      'a tap on the message itself': async () => {
+        const c = await ev(`(() => { const e = document.querySelector('#toastHost .toast > span'); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+        if (!c) return false;
+        x0 = await ev(`__cmwSvX()`);
+        await click(c[0], c[1]);
+        return true;
+      },
     };
+    let x0 = null;
     let first = true;
     for (const [way, go] of Object.entries(ways)) {
       if (!first) { await add('sine'); await shown(); await settle(120); }
@@ -68,6 +77,10 @@ for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
       await settle(500);
       const after = await state();
       if (after.toast || after.cls || !after.rail) fails.push(`${at}: going on by ${way} did not dismiss the toast and restore the rail: ${JSON.stringify(after)}`);
+      if (way === 'a tap on the message itself') {
+        const x1 = await ev(`__cmwSvX()`);
+        if (x0 == null || Math.abs(x1 - x0) > 1e-6) fails.push(`${at}: a tap on the message moved the shown plane (${x0} → ${x1}): it must only dismiss it`);
+      }
     }
   }
 }

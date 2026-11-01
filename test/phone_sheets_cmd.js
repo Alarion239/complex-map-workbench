@@ -1,7 +1,7 @@
 // The phone's sheets in English, Russian and Italian at 360, 390 and 412 px (#251): a sheet's title is whole (it wraps to a
 // second line before it is cut), the Tools sheet's grabber lies clear of its Snap pill, the Numbers sheet says its title once
 // with its Tip in view, the planes' readouts are not cut (Russian's "w 2 / дел." in the right plane), and the Display
-// sheet's pattern names wrap between words (#339). A command file for a CDP daemon (test/cdp_kit README); prints
+// sheet's regions show no pattern swatches (#363). A command file for a CDP daemon (test/cdp_kit README); prints
 // { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -26,10 +26,9 @@ for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['
     const t = await evr(`(() => { const e = document.querySelector('.ph-sheet .ph-st'); return e && { text: e.textContent, sw: e.scrollWidth, cw: e.clientWidth, sh: e.scrollHeight, ch: e.clientHeight }; })()`);
     ok(`${at}: the ${k} sheet's title is whole`, t && t.text.length > 0 && t.sw <= t.cw + 1 && t.sh <= t.ch + 1, t);
     if (k === 'display') {
-      // (#339) a pattern's name breaks between its words, not inside one: each word lies on one line ("Растяжение" was
-      // hyphenated at the 52 px swatch's width), and no name is cut by the two-line clamp
-      const pw = await evr(`(() => { const ls = [...document.querySelectorAll('.ph-sheet .patterns .pat > span')].filter((e) => e.getClientRects().length); if (!ls.length) return null; const bad = []; for (const l of ls) { const tn = l.firstChild; if (!tn || tn.nodeType !== 3) continue; const re = /\\S+/g; let m; while ((m = re.exec(tn.data))) { const r = document.createRange(); r.setStart(tn, m.index); r.setEnd(tn, m.index + m[0].length); const tops = new Set([...r.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(q.top))); if (tops.size > 1) bad.push([m[0], 'split']); } if (l.scrollHeight > l.clientHeight + 1) bad.push([l.textContent, 'clamped']); } return { n: ls.length, bad }; })()`);
-      ok(`${at}: the Display sheet's pattern names break between words, none cut`, pw && pw.n > 0 && pw.bad.length === 0, pw);
+      // (#363) the regions' display: no pattern swatches (their fill is the phase of z), and its labels whole
+      const rg = await evr(`(() => { const b = document.querySelector('.ph-sheet #regionsBox'); if (!b || !b.getClientRects().length) return null; const cut = [...b.querySelectorAll('.check > span, .fl, .lbl')].filter((e) => e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)).map((e) => e.textContent); return { swatches: b.querySelectorAll('#patternSeg, .pat, canvas').length, lines: !!b.querySelector('#linesChk'), cut }; })()`);
+      ok(`${at}: the Display sheet's regions: grid lines, no pattern swatches, no label cut`, rg && rg.swatches === 0 && rg.lines && rg.cut.length === 0, rg);
     }
     if (k === 'tools') {
       const g = await evr(rect('.ph-grab')), s = await evr(rect('.ph-pill.ph-snap'));
