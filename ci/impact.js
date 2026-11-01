@@ -218,13 +218,18 @@ function hookCallers(names) {
   for (const d of ['src', 'test', 'ci', 'tools']) walk(d);
   return { suites, outside };
 }
+// the text of file f at commit rev, or null when git cannot show it (a new or deleted file, an unknown commit: an answer
+// for the callers, so its stderr is quiet)
+function showAt(rev, f) {
+  try { return execFileSync('git', ['show', `${rev}:${f}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch (e) { return null; }
+}
 // [#385] the hooks a diff of src/app/21-test-hooks.js changes: each changed line (old and new) belongs to the hook
 // defined at or above it (a line "  window.__cmw<name> =" starts one, the comments before it belong to it); null when a
 // changed line is above every hook or in a statement that is not one (a helper between hooks)
 function hooksOfDiff(from, head, f) {
   let diff;
   try { diff = git('diff', '-U0', '--no-renames', from, head, '--', f); } catch (e) { return null; }
-  const text = (rev) => { try { return git('show', `${rev}:${f}`).split('\n'); } catch (e) { return []; } };
+  const text = (rev) => { const t = showAt(rev, f); return t == null ? [] : t.split('\n'); };
   const lines = { old: text(from), new: text(head) };
   // (the hook of line n, 1-based: the next definition at or after the comment block n is in, else the one above it)
   const hookAt = (L, n) => {
@@ -253,8 +258,7 @@ function linesOfDiff(from, head, f) {
 // [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits (an added or removed
 // run included); null when either side cannot be read or parsed
 function runsOfDiff(from, head, f) {
-  // (stderr quiet: a side git cannot show is an answer here, null, not an error)
-  const runs = (rev) => { try { return JSON.parse(execFileSync('git', ['show', `${rev}:${f}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).runs || {}; } catch (e) { return null; } };
+  const runs = (rev) => { try { return JSON.parse(showAt(rev, f)).runs || {}; } catch (e) { return null; } };
   const a = runs(from), b = runs(head);
   if (!a || !b) return null;
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
@@ -298,10 +302,12 @@ function select(files, opts = {}) {
       }
     }
     if (e.runs) {
-      // (the runs whose entry differs between the two commits; every run without a diff or when the file cannot be read)
-      const changed = opts.runsOf ? opts.runsOf(f) : null, keys = Object.keys(e.runs).filter((k) => !changed || changed.includes(k));
+      // (the runs whose entry differs between the two commits; every run without a diff, when the file cannot be read, or
+      // when a changed run has no entry in the row: a new run, a renamed key)
+      const changed = opts.runsOf ? opts.runsOf(f) : null, known = !changed || changed.every((k) => k in e.runs);
+      const keys = Object.keys(e.runs).filter((k) => !changed || !known || changed.includes(k));
       for (const k of keys) for (const a of e.runs[k]) for (const id of AREAS[a]) browser.add(id);
-      wantSmoke = true; got.push(`the shards of runs ${keys.join(', ') || 'none'} (${changed ? 'its changed runs' : 'no diff'})`);
+      wantSmoke = true; got.push(`the shards of runs ${keys.join(', ') || 'none'} (${!changed ? 'no diff' : known ? 'its changed runs' : `a changed run the row does not know: ${changed.filter((k) => !(k in e.runs)).join(', ')}`})`);
     }
     if (e.harness) { wantSmoke = true; got.push('the smoke shard'); }
     if (e.suite) {

@@ -52,6 +52,7 @@ for (const f of ['src/phone.css', 'src/desk.css', 'src/page.html', 'src/app/19-s
   ok('T1: layout_baseline.json, only it rows changed -> layout-2 alone', same(lb(['it']), ['layout-2', 'smoke']), lb(['it']));
   ok('T1: layout_baseline.json, only en rows changed -> layout-1 alone', same(lb(['en']), ['layout-1', 'smoke']), lb(['en']));
   ok('T1: layout_baseline.json, en and ru changed -> both', same(lb(['en', 'ru']), ['layout-1', 'layout-2', 'smoke']), lb(['en', 'ru']));
+  ok('T1: layout_baseline.json, a changed run the row does not know (a new de run) -> every layout shard (fail safe)', same(lb(['de']), ['layout-1', 'layout-2', 'smoke']) && same(lb(['it', 'de']), ['layout-1', 'layout-2', 'smoke']), [lb(['de']), lb(['it', 'de'])]);
   ok('T1: layout_baseline.json without a diff (or unreadable) -> both', same(lb(undefined), ['layout-1', 'layout-2', 'smoke']) && same(lb(null), ['layout-1', 'layout-2', 'smoke']), [lb(undefined), lb(null)]);
   // (runsOfDiff on real commits, git show at both: 7c06b290 changed every run's matrix and rows (#565); a commit
   // against itself changes none; a revision git does not know cannot be read: null, so every run)
