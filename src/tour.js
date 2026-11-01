@@ -1784,15 +1784,22 @@ const Tour = (() => {
     if (changed && mode !== 'desk') call('slot', where);   // (the app's phone layout shares out its height again)
     paintNext(ui);
   }
+  // the phone's row under the header: the one place that writes its height (--ph-tour), for the strip and for the lane (#586),
+  // true when it changed; PH_LINE: a line of the strip's or the lane's text, 17 px
+  const PH_LINE = 17;
+  const phTourGet = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
+  function phTourSet(px) {
+    if (phTourGet() === px) return false;
+    document.documentElement.style.setProperty('--ph-tour', px + 'px');
+    return true;
+  }
   // a phone's row: 68 px in portrait (76 for three lines), 48 under a landscape header (56), none in the header
   function setPhTour(r) {
     const ui = r.ui, n = ui.lines || 2;
     ui.strip.dataset.lines = String(n);
     // (#553: Italian at 360 px needs four lines for "Tieni premuto dentro il disco…": the row grows by a line, 17 px, again)
     const v = ui.mode === 'port' ? (n >= 4 ? 93 : n === 3 ? 76 : 68) : ui.mode === 'row' ? (n >= 4 ? 72 : n === 3 ? 56 : 48) : 0;
-    const st = document.documentElement.style;
-    if (st.getPropertyValue('--ph-tour') !== v + 'px') { st.setProperty('--ph-tour', v + 'px'); return true; }
-    return false;
+    return phTourSet(v);
   }
   // a resize or a layout change: the strip's place, then its lines, measured again
   function remount(r) { r.forceRow = false; mountStrip(r); fitLines(r); }
@@ -3103,7 +3110,7 @@ const Tour = (() => {
     lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
     const st = document.documentElement.style;
     if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
-    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = lanePhH(); }   // (baseH: the row's own height, which laneFit grows from (#586))
+    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = phTourGet(); }   // (baseH: the row's own height, which laneFit grows from (#586))
     call('slot', where);
     laneFit();
   }
@@ -3119,7 +3126,7 @@ const Tour = (() => {
     const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
     // (#586: a phone's lane, back to its own height first, then grown below if the line needs more)
     box.classList.remove('grow'); delete tx.dataset.lines;
-    if (!desk && lane.baseH && lanePhH() !== lane.baseH) laneSetH(lane.baseH);
+    if (!desk && lane.baseH && phTourGet() !== lane.baseH) laneSetH(lane.baseH);
     if (!over()) return;
     if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
     if (desk) { box.classList.add('two'); return; }
@@ -3128,17 +3135,13 @@ const Tour = (() => {
     // (ux on #614: at most four lines, 82 px: a line that would need a fifth is cut there, and the check lists it for the wording's owner)
     box.classList.add('grow');
     tx.style.webkitLineClamp = 'unset'; tx.style.lineClamp = 'unset';
-    const full = Math.max(2, Math.ceil((tx.scrollHeight - 1) / 17));
+    const full = Math.max(2, Math.ceil((tx.scrollHeight - 1) / PH_LINE));
     tx.style.webkitLineClamp = ''; tx.style.lineClamp = '';
-    laneSetH(Math.max(lane.baseH || 56, Math.min(4, full) * 17 + 14));
+    laneSetH(Math.max(lane.baseH || 56, Math.min(4, full) * PH_LINE + 14));
     tx.dataset.lines = String(full);
   }
-  const lanePhH = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
   function laneSetH(px) {
-    const st = document.documentElement.style;
-    if (lanePhH() === px) return;
-    st.setProperty('--ph-tour', px + 'px');
-    call('slot', lane.mode === 'head' ? 'head' : 'stage');
+    if (phTourSet(px)) call('slot', lane.mode === 'head' ? 'head' : 'stage');
   }
   function laneHide(id, anim) {
     if (!lane || (id && lane.id !== id)) return false;
