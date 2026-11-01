@@ -564,22 +564,31 @@ const Inverse = (() => {
   // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
-  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
-  function pointPre(plan, p, cap = LEAF_CAP) {
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out. opts.fam = K (#551): a periodic
+  // family (exp, the trig functions: type 'add') gives its members m = -K … K of each base, and the result says
+  // truncated (its zs are those members' preimages, not all of them)
+  function pointPre(plan, p, cap = LEAF_CAP, opts = {}) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
-    let total = 1;
+    const K = opts.fam;
+    let total = 1, truncated = false;
     for (const o of plan.ops) {
-      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin')) return { exact: false, reason: 'a step with infinitely many branches' };
-      total *= o.fam ? o.fam.count : 1;
+      const fam = o.fam && o.fam.type === 'add' && K != null;
+      if (!fam && (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin'))) return { exact: false, reason: 'a step with infinitely many branches' };
+      if (o.lattice) return { exact: false, reason: 'a step with infinitely many branches' };
+      total *= fam ? (2 * K + 1) * o.fam.nb : o.fam ? o.fam.count : 1;
+      truncated = truncated || fam;
       if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
     }
     let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
     for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
       const o = plan.ops[i], next = [];
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
+      const members = o.fam && o.fam.type === 'add' && K != null
+        ? (w) => o.fam.bases(w).filter(Boolean).flatMap((b) => Array.from({ length: 2 * K + 1 }, (_, i) => ({ u: add(b, scale(o.fam.p, i - K)), lvl: 0 })))
+        : (w) => o.pre(w);
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
-        for (const mem of o.pre(w)) {
+        for (const mem of members(w)) {
           if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
           const each = m * (mem.mult || 1);
           // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
@@ -590,7 +599,7 @@ const Inverse = (() => {
       }
       cur = next;
     }
-    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
+    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total, truncated };
   }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are

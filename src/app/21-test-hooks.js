@@ -245,29 +245,13 @@
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() } }; };
   // (#551) the preimages in the colour plane of the shown plane's points [[re, im], ...], through the plan T → shown
-  // plane: every branch of each op, as Inverse.pointPre, and of a periodic family (exp, the trig functions) the members
-  // m = -K … K of each base, those within |z| < 1e6 (null: the plan has no inverse there, or a lattice)
+  // plane (Inverse.pointPre: every branch of each op, and of a periodic family, exp's and the trig functions', the members
+  // m = -K … K of each base; null where the plan has no inverse or the preimages pass the cap)
   /** @type {any} */ (window).__cmwSvPre = (pts, K = 6) => {
     const T = svT(), k = svStage();
     if (k <= T) return null;
     const plan = invPlan(T, k);
-    if (!plan.ok || plan.ops.some((o) => o.lattice || (o.fam && o.fam.type !== 'fin' && o.fam.type !== 'add'))) return pts.map(() => null);
-    const fin = (u) => CX.isFin(u) && Math.hypot(u.re, u.im) < 1e6;
-    return pts.map(([re, im]) => {
-      let cur = [C(re, im)];
-      for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
-        const o = plan.ops[i], next = [];
-        const keep = (u) => { if (fin(u) && !next.some((q) => Math.hypot(q.re - u.re, q.im - u.im) <= 1e-7 * (1 + Math.hypot(u.re, u.im)))) next.push(u); };
-        for (const w of cur) {
-          if (o.fam && o.fam.type === 'add') {
-            for (const b of o.fam.bases(w)) if (b) for (let m = -K; m <= K; m++) keep(CX.add(b, CX.scale(o.fam.p, m)));
-          } else for (const mem of o.pre(w)) if (mem.lvl >= 0) keep(mem.u);
-        }
-        if (next.length > 512) return null;
-        cur = next;
-      }
-      return cur.map((z) => [z.re, z.im]);
-    });
+    return pts.map(([re, im]) => { const r = Inverse.pointPre(plan, C(re, im), 512, { fam: K }); return r.exact ? r.zs.filter((z) => CX.abs(z) < 1e6).map((z) => [z.re, z.im]) : null; });
   };
   // (#551) the sheet key svCarry gives the carried colour at rest past the colour plane: the camera's window of plane T,
   // its half diagonal R, rs = R / 8 and the plan's accumulation points (the shader reads the first four)

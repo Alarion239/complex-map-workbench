@@ -10,6 +10,9 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = { cases: {} };
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+// (#551, #587) the sheet a sample shows when it has several preimages in the window: 'tiling' (the exact images' own
+// key, Inverse.front) or 'centre' (the one nearest the window's centre)
+const RULE = 'tiling';
 const MAX_BAD = 0.02;   // the share of a case's samples that may be wrong (antialiased seams, the probe's rounding)
 const TOL = 24;         // a channel's distance to the exact colour, in 0-255
 const M = (a, b, c, d) => ({ type: 'mobius', params: { a, b, c, d }, on: true });
@@ -31,6 +34,7 @@ const CHAINS = {
 // (the shown plane sampled against its exact preimages: { considered, wrong, blank, none, unlisted, beyond, beyondWrong,
 // rate, ex })
 const SAMPLE = `(() => {
+    const RULE = ${JSON.stringify(RULE)};
     const c = document.getElementById('canvasL'), x = c.getContext('2d'), W = c.width, H = c.height, d = x.getImageData(0, 0, W, H).data;
     const b = c.getBoundingClientRect(), sx = b.width / W, sy = b.height / H, M = __cmwPlaneMenu();
     const NX = 40, NY = 25, m = 48, pts = [], at = [];
@@ -44,22 +48,20 @@ const SAMPLE = `(() => {
     const col = (z) => z[2] || (z[2] = GLR.phaseRGB(Math.atan2(z[1], z[0]), 0.75).map((v) => v * 255));
     const dist = (p, q) => Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2]));
     const near = (zs, z) => { let best = null, bd = Infinity; for (const q of zs) { const e = Math.hypot(q[0] - z[0], q[1] - z[1]); if (e < bd) { bd = e; best = q; } } return best; };
-    // (of several preimages the sample must show the front one, by the carry's sheet key, its depth (__cmwSvKey): the
-    // exact images' D, the smallest = log2(1 + dist(z, the camera's window) / R) + the sum over the plan's
-    // accumulation points p of max(0, log2(rs / |z - p|)); on a tie (D = 0, in the window) the one nearest the
-    // window's centre (#551, the carry's key: the principal branch around the view). Within a hair of a
-    // tie (a seam between two sheets) either may show)
+    // (of several preimages the sample must show the front one, ranked by the exact images' own sheet key: D =
+    // Inverse.sheetKey over the key the steps view draws with (__cmwSvKey), and on a tie RULE: 'tiling', Inverse.front's
+    // larger Im z then Re z; 'centre', the one nearest the window's centre. Within a hair of a tie (a seam between two
+    // sheets) either may show)
     const v = M.view('L'), hw = b.width / 2 / v.s, hh = b.height / 2 / v.s, K = __cmwSvKey();
-    const Dk = (z) => {
-      let D = Math.log2(1 + Math.hypot(Math.max(K.win[0] - z[0], 0, z[0] - K.win[2]), Math.max(K.win[1] - z[1], 0, z[1] - K.win[3])) / K.R);
-      for (const p of K.sing) D += Math.max(0, Math.log2(K.rs / Math.max(Math.hypot(z[0] - p[0], z[1] - p[1]), 1e-30)));
-      return Math.min(D, 1e6);
-    };
+    const prep = { win: { x0: K.win[0], y0: K.win[1], x1: K.win[2], y1: K.win[3] }, R: K.R, rs: K.rs, sing: K.sing.map((q) => CX.C(q[0], q[1])) };
+    const Dk = (z) => Math.min(Inverse.sheetKey(prep, CX.C(z[0], z[1]), null), 1e6);
     const inWin = (z) => Math.abs(z[0] - v.cx) < 1.5 * hw && Math.abs(z[1] - v.cy) < 1.5 * hh;
+    const cx0 = (K.win[0] + K.win[2]) / 2, cy0 = (K.win[1] + K.win[3]) / 2, rc = (z) => Math.hypot(z[0] - cx0, z[1] - cy0);
     const fronts = (zs) => {
-      const cx0 = (K.win[0] + K.win[2]) / 2, cy0 = (K.win[1] + K.win[3]) / 2, rc = (z) => Math.hypot(z[0] - cx0, z[1] - cy0);
-      const k = zs.map((z) => [Dk(z), z, rc(z)]).sort((p, q) => p[0] - q[0] || p[2] - q[2]);
-      return k.filter((e) => e[0] - k[0][0] < 0.02 && (e[0] > 0 || e[2] - k[0][2] < 0.02 * K.R)).map((e) => e[1]);
+      const k = zs.map((z) => ({ z: CX.C(z[0], z[1]), D: Dk(z), p: z }));
+      k.sort(RULE === 'centre' ? (p, q) => p.D - q.D || rc(p.p) - rc(q.p) : (p, q) => (Inverse.front(p, q) ? -1 : Inverse.front(q, p) ? 1 : 0));
+      const f = k[0];
+      return k.filter((e) => e.D - f.D < 0.02 && (e.D > 0 || (RULE === 'centre' ? rc(e.p) - rc(f.p) < 0.02 * K.R : f.p[1] - e.p[1] < 0.02 * hh))).map((e) => e.p);
     };
     let considered = 0, wrong = 0, blank = 0, none = 0, unlisted = 0, beyond = 0, beyondWrong = 0;
     const ex = [];
