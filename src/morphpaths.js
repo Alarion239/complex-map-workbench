@@ -906,7 +906,8 @@ const MorphPaths = (() => {
     const lv = A.S.focus > 1 ? `w_{${A.S.focus - 1}}` : 'z', Fname = A.S.focus === 0 ? 'F' : `f_{${A.S.focus}}`;
     const Ftex = A.S.focus === 0 ? compositeTexShort() : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const mapM = Ftex ? `${Fname}(${lv})=${Ftex}` : Fname;
-    const patWord = { checker: $tx('pat', 'checkerboard'), polar: $tx('pat', 'checkerboard'), sphere: $tx('pat', 'checkerboard'), tiles: $tx('pat', 'tiles'), grid: $tx('pat', 'lines'), polargrid: $tx('pat', 'lines') }[A.S.pattern] || $tx('pat', 'coloured');
+    // (#363) the image's fill: the phase of z carried by the map, the one region fill
+    const patWord = capT('coloured by the phase of %{z}', { z: { m: 'z' } });
     const out = [];
     const hom = morphHomSegs(Tend);
     const nSets = lineShapes.length || pts.length;
@@ -954,7 +955,7 @@ const MorphPaths = (() => {
       else if (mx.nodes) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa} (the middle of each step) and a bar at %{qn}, where one step ends and the next begins%{clause}.', args));
       else out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa}%{clause}.', args));
     }
-    out.push(...patternSegs(Fname));
+    out.push(...patternSegs());
     if (vis.some((s) => kindType(s) === 'area' && Region.isOpen(s))) out.push({ t: $t(' Dashed boundaries do not belong to the sets.') });
     return out.map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
   }
