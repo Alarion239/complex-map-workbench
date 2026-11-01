@@ -910,10 +910,10 @@ async function svFirstGlideUnit() {
 // the outlines in G's masked frame, one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there
 // (refCannot)
 const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
-// (#608) the label pass of a frame on the move: no curve to sample through the map (it was 5 to 8 ms on the Mac's zeta glide). What is
-// left is placing and drawing the labels themselves: the Mac measured 0.5 ms a pass on the default scene (no zeta in it) and
-// 1.1 to 1.7 ms on zeta's, on a loaded machine. The limit sits above that floor and well below the sampling's cost, so it fails
-// if the sampling comes back
+// The label pass of a frame on the move samples no curve through the map; what it costs is placing and drawing the labels
+// themselves: 0.5 ms a pass on the default scene (no zeta in it) and 1.1 to 1.7 ms on zeta's, measured on the Mac on a loaded
+// machine. The limit sits above that floor and well below the cost of the sampling (5 to 8 ms on zeta), so it fails if the
+// sampling returns
 const SV_LABEL_MS_LIMIT = 2;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
 async function svInteractUnit(scene) {

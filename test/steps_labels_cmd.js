@@ -1,6 +1,6 @@
-// The steps view's labels cost nothing while the view moves, and are exact at rest (#608, behind ?view=steps):
+// The steps view's labels keep off no curve while the view moves, and are exact at rest (behind ?view=steps):
 // - the label pass keeps the labels off the curves by sampling each curve through the plane's map, up to 600 evaluations a
-//   curve (zeta's, 5 to 8 ms a frame on the Mac). A view on the move, a glide or a scrub, places its labels with no curve
+//   curve. A view on the move, a glide or a scrub, places its labels with no curve
 //   to keep off: its passes sample none (the perf run's sv.glide.zeta times them);
 // - the frame a glide lands in, and a view parked between two planes, are at rest: their labels are the ones a fresh
 //   render at that place gives (the same texts at the same places), in Everywhere and in Inside regions.

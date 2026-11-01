@@ -32,7 +32,7 @@ ok('the merge\'s table: every string is in the shipped table', ents.every(([, v]
 
 // ---- learn UX97 + chain UX81: one Alt+←/→ branch in chainKey (the same key, built twice)
 const ck = fnBody(APP, 'chainKey');
-// (#595: the Alt+arrow reading is stepEditKey's, once, for the chain's cards and the steps view's chips; chainKey moves through it)
+// (the Alt+arrow reading is stepEditKey's, once, for the chain's cards and the steps view's chips; chainKey moves through it)
 const sk = fnBody(APP, 'stepEditKey');
 ok('chainKey: one Alt+arrow branch, through stepEditKey and moveCard', (sk.match(/[^!]e\.altKey && /g) || []).length === 1 && (ck.match(/[^!]e\.altKey && /g) || []).length === 0 && /stepEditKey\(e\)/.test(ck) && /moveCard\(k, ed\.move\)/.test(ck), { sk: sk.slice(0, 200), ck: ck.slice(0, 300) });
 ok('a card\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move left'\), icon: 'chevL', key: touchUI\(\) \? '' : 'Alt ←'/.test(APP) && /label: \$t\('Move right'\), icon: 'chevR', key: touchUI\(\) \? '' : 'Alt →'/.test(APP));

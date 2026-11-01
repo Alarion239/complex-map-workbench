@@ -439,7 +439,7 @@
   // Delete or Backspace remove it (remove: true)
   function stepEditKey(e) {
     if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return { move: e.key === 'ArrowLeft' ? -1 : 1 };
-    if (e.key === 'Delete' || e.key === 'Backspace') return { remove: true };   // (any modifier: ⌘⌫ on a Mac, as the chain's cards took it)
+    if (e.key === 'Delete' || e.key === 'Backspace') return { remove: true };   // (any modifier: ⌘⌫ on a Mac)
     return null;
   }
   function chainKey(e, k) {

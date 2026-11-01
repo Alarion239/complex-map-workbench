@@ -37,7 +37,7 @@
     try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (labelProbe) labelProbe(performance.now() - t0, r.curves.length); }
   }
   // (a probe for the time of a pass and the curves it keeps the labels off, set by the test page and the perf run: none in the
-  // published page, #608)
+  // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
   function flushLabelsIn(pane, r) {
@@ -161,8 +161,8 @@
     // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
     // (opt.lite: a view on the move, a glide or a scrub, places its labels with no curve to keep off: sampling every curve
-    // through the plane's map is up to 600 evaluations a curve, 5 to 8 ms a frame on the zeta example (#608); the view at rest,
-    // and so the frame a glide lands in, keeps the labels off the curves)
+    // through the plane's map costs up to 600 evaluations a curve; the view at rest, and so the frame a glide lands in, keeps the
+    // labels off the curves)
     if (!opt.thin && !opt.lite) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
     for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
