@@ -17,7 +17,7 @@ let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, info); } else if (process.env.V) console.log('ok  ', name, info); }
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
-for (const [f, nm] of [['cx', 'CX'], ['symbolic', 'Symbolic'], ['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['sheets', 'Sheets'], ['funcs', 'Funcs']]) vm.runInContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
+for (const [f, nm] of [['cx', 'CX'], ['symbolic', 'Symbolic'], ['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['sheets', 'Sheets'], ['formulasteps', 'FormulaSteps'], ['funcs', 'Funcs']]) vm.runInContext(require('./src_text').source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
 const { Expr } = ctx;
 
 const [s1, s2] = SEASONG.steps;
