@@ -19,10 +19,8 @@ const MEASURE = `(() => {
   return { n: all.length, small: small.map((i) => i.n + ' "' + i.t + '" ' + i.w + 'x' + i.h), covered: items.filter((i) => i.covered).map((i) => i.n + ' "' + i.t + '"'), offs: offs.map((i) => i.n + ' "' + i.t + '" ' + i.l + ',' + i.tp + ' ' + i.w + 'x' + i.h), overl: overl.slice(0, 12), clip: clip.slice(0, 10), pageOver };
 })()`;
 const out = {};
-const cfg = JSON.parse(await ev('JSON.stringify(window.__auditCfg || null)')) || null;
 const W = (typeof SWEEPW !== 'undefined' && SWEEPW) || [[360, 740], [390, 844], [412, 915]];
 const LANGS = ['en', 'ru', 'it'];
-const which = (typeof AUDIT !== 'undefined' && AUDIT) || null;
 for (const [w, h] of W) for (const lang of LANGS) {
   const key = `${w}-${lang}`;
   const r = {};
