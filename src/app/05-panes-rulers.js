@@ -963,9 +963,9 @@
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
   function sphereView(pane, c, base, o) {
-    // (o.inRegions: Inside regions, the steps view's (#440, #592): the globe with its regions, then over it the colour
-    // globe kept inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's
-    // program links (a frame or two) the regions' globe alone; the frame is asked again when it has)
+    // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
+    // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
+    // (a frame or two) the regions' globe alone; the frame is asked again when it has)
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));

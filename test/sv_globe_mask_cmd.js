@@ -8,7 +8,7 @@
 // covers it; neither moves the edge); 1 to 3 px from the boundary is a mask that has drifted; further out is the
 // globe's own drawing (the equator, the graticule, its silhouette), which crosses no rim. Fails when the drifted pixels
 // pass 5 % of the rim's length (+ 10), when the inside more than 10 px from the rim is not coloured, or when a scene
-// reads too little; and, the frame drawn while the mask's program links (#592), when it colours outside the regions.
+// reads too little; and, the frame drawn while the mask's program links, when it colours outside the regions.
 // Needs WebGL. A command file for a CDP daemon.
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -81,7 +81,7 @@ for (const [name, shape, runs] of SCENES) for (const [surf, k, linking] of runs)
   const rect = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; })()`);
   const clip = { x: rect[0], y: rect[1], width: rect[2], height: rect[3], scale: 1 };
   const shotB = (await send('Page.captureScreenshot', { format: 'png', clip })).data;
-  // (linking: the frame drawn while the mask's program links, GLR.keepInAlpha not ready (#592): the regions' globe
+  // (linking: the frame drawn while the mask's program links, GLR.keepInAlpha not ready: the regions' globe
   // alone, never the colour over the whole globe)
   await ev(`${linking ? 'GLR.keepInAlpha = () => false; ' : ''}__cmwSteps({ scope: 'in' }), 1`); await quiet();
   const st = await ev(`(() => { const s = __cmwSteps(); return { stage: s.stage, surf: s.surf, scope: s.scope }; })()`);
