@@ -808,7 +808,7 @@
         const mx = (clipWin.x1 - clipWin.x0) / 2, my = (clipWin.y1 - clipWin.y0) / 2;
         const box = { x0: clipWin.x0 - mx, x1: clipWin.x1 + mx, y0: clipWin.y0 - my, y1: clipWin.y1 + my };
         // (while gliding the grid is sized to about POLE_GLIDE_MS of work, from the cost of a few calls of F, as
-        // zerosPolesTimed budgets its own: about 1-8 ms at 48 x 30 for the zeta example on a slow CPU, perf on #574)
+        // zerosPolesTimed budgets its own: about 1-8 ms at 48 x 30 for the zeta example on a slow CPU)
         let gx = 96, gy = 60;
         if (!full) {
           const t0 = performance.now();

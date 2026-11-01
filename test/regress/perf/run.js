@@ -985,7 +985,7 @@ async function svInteractUnit(scene) {
 // copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
 const SV_GLIDE_JANK_MS = 25;
-// (#551, perf on #574) the landing of a glide: its frame, the first at rest, at most this (as A2's first glide)
+// (#551) the landing of a glide: its frame, the first at rest, at most this (as A2's first glide)
 const SV_LANDING_LIMIT = 50;
 async function svGlideUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -1052,7 +1052,7 @@ async function svGlideUnit(scene) {
     put(`${pre}.landing_ms`, 'limit', 'ms', [Math.max(0, ...landing)], { limit: SV_LANDING_LIMIT, samples: landing.map(r3) });
   }
 }
-// (#551, perf on #574) the worst case of the colour at rest past the colour plane (the carry's, or the exact pass that
+// (#551) the worst case of the colour at rest past the colour plane (the carry's, or the exact pass that
 // takes its place at rest, #584): a plane parked half-way, settled, at dpr 2, on the zeros of
 // zeta and the Mountain King (their long chains): frames drawn one after another with nothing moving (each one the rest
 // frame's, as a parked pan's frame after it stops). Measures frame_p95_ms and longest_ms (kind limit, the watchdog's side)

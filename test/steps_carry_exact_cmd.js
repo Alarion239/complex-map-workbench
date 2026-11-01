@@ -87,7 +87,7 @@ for (const [name, steps] of Object.entries(CHAINS)) {
   }
 }
 
-// (shaders' case, #584) the Joukowski airfoil example: its region is the outside of the circle |z - c| = r
+// the Joukowski airfoil example: its region is the outside of the circle |z - c| = r
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
@@ -97,10 +97,10 @@ if (EX >= 0) {
   await sleep(1500);
   await ev(`__cmwSet('dc', 'phase'); 1`);
   const own = '(z) => Math.hypot(z[0] + 0.12, z[1] - 0.1) > 1.1244998888';
-  // (the circle, outlined over the colour, and the trailing edge's mark and label, as shaders' case left them out)
+  // (the circle, outlined over the colour, and the trailing edge's mark and label)
   const skip = '(z) => Math.abs(Math.hypot(z[0] + 0.12, z[1] - 0.1) - 1.1244998888) < 0.08';
   if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true, nx: 60, ny: 40, tol: 14, min: 401, filled: 1501 });
-  // (shaders' #587 review: Everywhere at rest, each point against its front preimage under the shared key)
+  // (Everywhere at rest: each point against its front preimage under the shared key)
   if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true, nx: 60, ny: 40, tol: 14, min: 401 });
   // (#551 the staircases: H_u's poles in the window while parked, Everywhere)
   for (const park of [0.3, 0.6]) {
@@ -109,7 +109,7 @@ if (EX >= 0) {
   }
 }
 
-// (shaders' case, #584, multiple coverings) w = z^n on the annulus 0.6 < |z| < 1.6, its image covering n times
+// (multiple coverings) w = z^n on the annulus 0.6 < |z| < 1.6, its image covering n times
 for (const n of [2, 3]) {
   await open({ v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', dc: 'phase', srcView: { cx: 0, cy: 0, s: 90 }, shapes: [{ id: 1, kind: 'annulus', c: [0, 0], r1: 0.6, r2: 1.6 }], steps: [{ type: 'pown', params: { n } }] });
   const own = '(z) => { const m = Math.hypot(z[0], z[1]); return m > 0.6 && m < 1.6; }';
@@ -124,7 +124,7 @@ for (const n of [2, 3]) {
   }
 }
 
-// (perf on #574) a lost GL context: once the browser gives it back, the carry draws exact again (the last case, sampled
+// a lost GL context: once the browser gives it back, the carry draws exact again (the last case, sampled
 // again)
 await ev('(() => { const x = GLR.gl.getExtension("WEBGL_lose_context"); window.__sclc = x; x.loseContext(); return 1; })()');
 await sleep(500);
