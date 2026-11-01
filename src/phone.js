@@ -76,7 +76,7 @@ const Phone = (() => {
     // page.html's #regionsHome ([v17 D5, #82]: no longer a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
-    els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
+    els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
     // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
@@ -398,6 +398,9 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
+    // (#464) a sheet gives up the message's row (phone.css): the card the app scrolled into view for the step just added (bornCards,
+    // before the message and the sheet's new edge) is scrolled into view again once the sheet has its new size
+    if (wantToast && els.sheet && c.contains('ph-sheet-on')) setTimeout(() => { const card = els.sheet && els.sheet.querySelector('#pipeline .card[aria-selected="true"]'); if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 260);
     syncPanes(); A.resize();
   }
   function ctx(force) {
@@ -665,7 +668,15 @@ const Phone = (() => {
   // The sheet also swallows a stray click and its focus for 400 ms after a resize.)
   function grabber(head) {
     let y0 = null, dy = 0, id = null, onGrab = false, tap = 0, tapT = 0;
-    head.addEventListener('pointerdown', (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } });
+    const down = (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } };
+    head.addEventListener('pointerdown', down);
+    // (#483: the Editor's head is its 18 px bar, with the grab handle cut to it so that it no longer covers the title row; the title row,
+    // the Inspector's .ihead, drags the sheet too, wherever nothing in it can be pressed)
+    els.sheet.addEventListener('pointerdown', (e) => {
+      const t = /** @type {Element} */ (e.target);
+      if (kind !== 'edit' || els.sheet.classList.contains('nums') || !t.closest || !t.closest('#propsPanel .ihead') || t.closest('button, a, input, select, textarea, summary, [role="button"], [tabindex]')) return;
+      down(e);
+    });
     head.addEventListener('pointermove', (e) => { if (y0 == null || e.pointerId !== id) return; dy = e.clientY - y0; if (Math.abs(dy) > 4) els.sheet.style.transform = `translateY(${Math.max(full ? -0 : -40, dy)}px)`; });
     const end = (e) => {
       if (y0 == null || e.pointerId !== id) return;
@@ -822,7 +833,10 @@ const Phone = (() => {
     const off = typeof A.offlinePage === 'function' ? A.offlinePage() : null;
     group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }),
       off ? row(I.download, off.label, () => { close(true); off.run(); }) : null);
-    group($tx('menu group', 'Look'), seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
+    // (#438) the steps view's Playback sheet (speed and loop): its button is the one in the header menu a phone hides, so this row presses it
+    const svPb = /** @type {HTMLElement | null} */ (document.querySelector('.sv-playback'));
+    const playRow = svPb ? row('', svPb.textContent, () => { close(true); setTimeout(() => svPb.click(), 0); }) : null;
+    group($tx('menu group', 'Look'), playRow, seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
       seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
     const field = h('input', { class: 'ph-search', type: 'search', enterkeyhint: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: $t('Search tools, functions, help…'), 'aria-label': $t('Search tools, functions, help…') });
     const blocks = groups.filter((g) => g.rows.length).map((g) => ({ g, head: h('h3', { class: 'ph-h' }, g.title) }));

@@ -150,6 +150,8 @@ async function startChrome() {
   const t = await send('Target.createTarget', { url: 'about:blank' }, null);
   S = (await send('Target.attachToTarget', { targetId: t.targetId, flatten: true }, null)).sessionId;
   await send('Runtime.enable'); await send('Page.enable');
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (test/cdp_kit/pin_view.js)
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
   await send('Emulation.setDeviceMetricsOverride', { width: VIEWPORT.width, height: VIEWPORT.height, deviceScaleFactor: VIEWPORT.dpr, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });
   const ev = async (expr, awaitPromise = false) => {
@@ -225,13 +227,13 @@ async function renderRun(B, run, opt) {
   const key = 'complex-map-workbench-v1:' + ns;
   // the saved state is written before any app script runs (fresh profile, own namespace per scene)
   const seeded = 'qreg-seeded:' + ns;
-  // (v15: the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
+  // (the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
   const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; window.__qregCanvas = ${JSON.stringify(run.canvas || 'canvasR')}; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
   const t0 = Date.now();
   B.logs.length = 0;
   await B.send('Page.navigate', { url: `${opt.base}/test.html?ns=${ns}` });
   // wait for the app, then until the right canvas stops changing and nothing is in progress
-  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false;
+  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false, patSet = false;
   const deadline = t0 + opt.timeoutMs;
   await sleep(600);
   while (Date.now() < deadline) {
@@ -241,6 +243,9 @@ async function renderRun(B, run, opt) {
       const r = await B.ev(`({ h: __qreg.hash(), b: __qreg.busy(), ready: typeof __cmwState === 'function' })`);
       h = r.ready ? r.h : null; busy = r.b;
       // (a globe's camera is not in the saved state: pinned here once the app is up, before the canvas may settle)
+      // (#363: the app opens a saved pattern as the phase, the user's one region fill; the scenes' patterns, solid,
+      // checker and polar, are the renderer's own and are set here through the test hook once the app is up)
+      if (r.ready && !patSet && run.state && run.state.pattern && run.state.pattern !== 'phase') { await B.ev(`__cmwSet('pattern', ${JSON.stringify(run.state.pattern)}), 1`); patSet = true; last = null; continue; }
       if (r.ready && run.cam && !camSet) { const { side, ...o } = run.cam; await B.ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(o)}), 1`); camSet = true; last = null; continue; }
     } catch (e) { h = null; }
     const now = Date.now();

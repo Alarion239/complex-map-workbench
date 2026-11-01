@@ -138,7 +138,7 @@
     if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (review v16 regress-6: saved from here on)
     rebuild(); buildShapeList(); buildPipeline(); buildDisplay();
     setFocus(Math.min(S.focus || 0, S.steps.length));
-    const xl = document.querySelector('#examplesBtn .exlabel');
+    const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
       setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
       if (m.morph.open && morphRange().steps.length) openTransport();
@@ -176,7 +176,6 @@
   function tourSetLook(lk) {
     if (!lk || typeof lk !== 'object') return;
     const d0 = blankState();
-    if ('pattern' in lk) setOpt('pattern', PATTERNS.some((p) => p[0] === lk.pattern) ? lk.pattern : d0.pattern);
     if ('alpha' in lk) setOpt('alpha', isNum(lk.alpha) ? Math.max(0.2, Math.min(1, lk.alpha)) : d0.alpha);
     if ('height' in lk) setOpt('height', ['log', 'abs', 're', 'im'].includes(lk.height) ? lk.height : d0.height);
     if ('sheets' in lk) setOpt('sheets', !!lk.sheets);
@@ -257,6 +256,8 @@
     soundPlaying: () => !!(snd.play || snd.prep),
     soundState: () => ({ on: !!sndP.on, events: !!sndP.events, sonify: !!sndP.sonify, audio: SND ? SND.state().audio : 'none', playing: !!(snd.play || snd.prep) }),
     setView: (main) => setMain(main),
+    // (#442: the steps view's chapter "Planes" puts the view where its step needs it)
+    svPlace: (o) => svTourPlace(o),
     setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
     setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },
     // (v16: a scene's bracket; null: every step)
@@ -265,7 +266,7 @@
     focusStep: (k) => { k = Math.max(0, Math.min(S.steps.length, k | 0)); if (k !== S.focus) setFocus(k); },
     // (v15: on a phone the right panel is the Editor sheet, the Inspector)
     // ['panel', 'left', sheet]: the left panel, or on a phone the sheet that holds that part of it ('tools': the
-    // shapes and the formula; 'display': the patterns); a drawer the tour opened closes with the next step's closeSheet.
+    // shapes and the formula; 'display': the regions' display); a drawer the tour opened closes with the next step's closeSheet.
     // ['panel', 'sheet', k]: a phone's sheet k only (the Display sheet holds the large plane's options and, while the
     // deformation shows, its order); nothing elsewhere
     // (r3 review regress-2) early: a chapter's start opens the side panel one of its steps docks, so the stage keeps
@@ -281,7 +282,7 @@
         return;
       }
       if (side === 'sheet') return;
-      // ([v17 D4; #247] the regions' display is behind Y's pattern button on the laptop: its step opens that popover, which
+      // ([v17 D4; #247] the regions' display is behind Y's Regions button on the laptop: its step opens that popover, which
       // is the step's own layer, as a phone's sheet is: it carries the step's id (data-tour-layer), and the next step that
       // does not ask for it closes it, closeSheet)
       if (side === 'left' && sheet === 'display') {
@@ -350,7 +351,7 @@
     },
   };
   function tourWire() {
-    // the events the app sends from delegated listeners: t scrubbed (v16.4: a pattern picked is sent by its setter)
+    // the events the app sends from delegated listeners: t scrubbed
     document.addEventListener('input', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg && tg.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
     tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held
     Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash

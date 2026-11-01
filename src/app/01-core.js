@@ -66,26 +66,64 @@
     morph: msvg('<rect x="1.5" y="6" width="4" height="4"/><path d="M6.5 6.5c2-3 4.5-3 6 0"/><path d="M11.5 4.5l1 2-2.2.3"/><circle cx="12.5" cy="10.5" r="2" fill="currentColor" stroke="none"/>'),
   };
 
-  // ---------------- TeX via MathJax (falls back to source text) ----------------
+  // ---------------- TeX via MathJax (falls back to the formula as plain text) ----------------
+  // ([#465] until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
+  // «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)
   const TeX = (() => {
     const cache = new Map();
     let ready = false;
     const pending = new Set();
+    // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one
+    // not yet loaded throws with e.retry, a promise. Its nodes show the fallback and are set again when it settles,
+    // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the formula read as
+    // text). MathJax throws only for the first formula that asks for a range still loading: another one with a letter
+    // of it comes back with that letter as <text> in a system font, so while a range loads (loading) such a result
+    // waits too
+    const RETRIES = 8;
+    const waiting = new Map();   // key -> {nodes, tries, wait}
+    const loading = new Set();   // the retry promises not settled yet
+    const fallback = (node, tex) => { node.innerHTML = ''; node.append(h('span', { class: 'tex-fallback' }, texTitle(tex))); };
     function paint(node, tex, display) {
       if (!ready) {
-        node.innerHTML = '';
-        node.append(h('span', { class: 'tex-fallback' }, tex));
+        fallback(node, tex);
         pending.add(node);
         return;
       }
       const key = (display ? 'D' : 'I') + tex;
       let html = cache.get(key);
       if (html === undefined) {
-        try { html = MathJax.tex2svg(I18N.notation(tex), { display }).outerHTML; } catch (e) { html = null; }
+        const w = waiting.get(key);
+        if (w && w.wait) { w.nodes.add(node); fallback(node, tex); return; }
+        let retry = null;
+        try {
+          const out = MathJax.tex2svg(I18N.notation(tex), { display });
+          if (loading.size && out.querySelector('text')) { html = null; retry = Promise.all([...loading]); } else html = out.outerHTML;
+        } catch (e) {
+          html = null;
+          if (e && e.retry) { retry = e.retry; loading.add(retry); const done = () => loading.delete(e.retry); retry.then(done, done); }
+        }
+        if (html === null) {
+          if (retry && (!w || w.tries < RETRIES)) {
+            const job = w || { nodes: new Set(), tries: 0, wait: false };
+            job.tries++; job.wait = true; job.nodes.add(node);
+            waiting.set(key, job);
+            const again = () => {
+              job.wait = false;
+              const nodes = [...job.nodes];
+              job.nodes.clear();
+              for (const n of nodes) if (n.isConnected && n.dataset.tex === tex) { delete n.dataset.rd; set(n, tex, display); }
+              if (cache.has(key)) waiting.delete(key);
+            };
+            retry.then(again, again);
+            fallback(node, tex);
+            return;
+          }
+          waiting.delete(key);
+        }
         if (cache.size > 3000) cache.clear();
         cache.set(key, html);
       }
-      if (html == null) node.textContent = tex; else node.innerHTML = html;
+      if (html == null) node.textContent = texTitle(tex); else node.innerHTML = html;
     }
     function set(node, tex, display = false) {
       if (node.dataset.tex === tex && node.dataset.rd === String(ready)) { held.delete(node); return; }
@@ -155,7 +193,7 @@
     TH.axisRGB = GLR.hexRGB(TH.axis);
     inkCache.clear();
     // a system theme change (Auto) restyles the chrome before we hear of it: settle its color transitions at once
-    try { if (document.getAnimations) for (const a of document.getAnimations()) if (/color/.test(a.transitionProperty || '')) a.finish(); } catch (e) { /* ignore */ }
+    try { if (document.getAnimations) for (const a of document.getAnimations()) if (/color/.test(/** @type {any} */ (a).transitionProperty || '')) a.finish(); } catch (e) { /* ignore */ }
   }
   // ---- colors of a shape: preset index (tokens) or a custom hex with OKLCH-derived shades ----
   const inkCache = new Map();
@@ -231,7 +269,7 @@
   function takeId() { return S.nextId++; }
   function blankState() {
     return {
-      shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
+      shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
       alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
       patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
@@ -535,7 +573,6 @@
       o.v4 = true; o.alpha = 0.85; o.meshN = 240;
       for (const sh of o.shapes) { if (!sh || typeof sh !== 'object') continue; const i = OLD_PALETTE.indexOf(sh.color); if (i >= 0) { sh.ci = i; delete sh.color; } else if (!sh.color) sh.ci = sh.ci || 0; }
     }
-    if (o.pattern === 'hue') o.pattern = 'phase';
     delete o.quality;
     let dropped = 0;
     const steps = [];
@@ -629,7 +666,9 @@
     { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }   // (#366)
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
     st.v5 = true;
-    if (!PATTERNS.some((p) => p[0] === st.pattern)) st.pattern = d0.pattern;
+    // (#363) regions are filled by the phase of z alone: a saved or linked pattern (checker, stretch, ...) opens as the
+    // phase; its cell (patternScale) stays the grid lines' spacing
+    st.pattern = 'phase';
     if (!DC_STYLES.some((p) => p[0] === st.dc)) st.dc = d0.dc;
     if (st.solo !== 'L' && st.solo !== 'R') st.solo = null;
     // enumerated settings: an unknown value (another build, a damaged save) falls back to the default

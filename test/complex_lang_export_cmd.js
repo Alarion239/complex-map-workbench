@@ -15,7 +15,7 @@ const STATE = {
   shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [1, 1], ci: 0, visible: true }],
   steps: [{ type: 'mobius', params: { a: '1', b: 'a', c: '0', d: '1' }, on: true }, { type: 'custom', params: { expr: 'conj(a) z', cut: 180 }, on: true }],
   params: [{ name: 'a', value: 0.5, im: 0.3, min: -2, max: 2, step: 0.01 }],
-  srcView: { cx: 0, cy: 0, s: 110 }, pattern: 'checker', v5: true, v6: true,
+  srcView: { cx: 0, cy: 0, s: 110 }, v5: true, v6: true,
 };
 const numbersLine = () => ev(`[...document.querySelectorAll('#propsPanel .inums')].map((e) => e.textContent).filter(Boolean).join(' | ')`);
 const rowValue = () => ev(`(document.querySelector('.prm-row[data-name="a"] .prm-val') || {}).value || ''`);

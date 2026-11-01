@@ -95,7 +95,7 @@
     const a = document.activeElement;
     if (a && a !== document.body && focusVia === 'key') return false;
     e.preventDefault(); e.stopPropagation();
-    if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+    if (a && a !== document.body && typeof /** @type {HTMLElement} */ (a).blur === 'function') /** @type {HTMLElement} */ (a).blur();
     return true;
   };
   window.addEventListener('keydown', (e) => {
@@ -281,6 +281,7 @@
     sourceViewChanged.pending = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
   }
+  sourceViewChanged.t = undefined; sourceViewChanged.pending = false;
   sourceViewChanged.flush = () => {
     if (!sourceViewChanged.pending) return;
     clearTimeout(sourceViewChanged.t);
@@ -1291,6 +1292,12 @@
     const zt = Math.max(zTol, 1e-12 * Math.max(Math.abs(z.re), Math.abs(z.im)));
     const zr = { re: Math.abs(z.re) < zt ? 0 : z.re, im: Math.abs(z.im) < zt ? 0 : z.im };
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
+    // (the steps view's own probe, for the tour and an example's Try line: the shown plane, the value of the map into the colour
+    // plane at the point (undefined past it, where the plane carries shapes and no colour of its own), #442)
+    if (SV.on && tourL.probe) {
+      const wp = lPhase() ? focusF()(z) : null;
+      tourEmit('probe', { pane: 'L', stage: leftStage(), past: svStage() > svT(), z: [z.re, z.im], w: wp && CX.isFin(wp) ? [wp.re, wp.im] : null, mod: wp ? (CX.isFin(wp) ? CX.abs(wp) : Infinity) : undefined });
+    }
     // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
     // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
     let wOnce;   // ([v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)
@@ -1327,7 +1334,7 @@
     } else {
       // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
       // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
-      // (the key's "=" and parentheses in the maths face, as its letters: B612 Mono's "(" reads as "[" [UX105])
+      // (the key's "=" and parentheses in the maths face, as its letters: the old mono face's (B612 Mono) "(" read as "[" [UX105])
       const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
       // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
       // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
@@ -1498,7 +1505,7 @@
       const tag = t.tagName.toLowerCase(), mod = e.ctrlKey || e.metaKey, kk = I18N.keyOf(e) || '', key = kk.toLowerCase();
       if (t.closest('#popHost') && !(mod && key === 'k') && !(e.shiftKey && !mod && !e.altKey && key === 'm')) return;
       // text fields keep their keys and native undo; a select keeps plain keys (type-ahead), not ⌘Z
-      const textEntry = t.isContentEditable || tag === 'textarea' || (tag === 'input' && /^(|text|number|search|email|url|tel|password)$/.test((t.getAttribute('type') || '').toLowerCase()));
+      const textEntry = /** @type {HTMLElement} */ (t).isContentEditable || tag === 'textarea' || (tag === 'input' && /^(|text|number|search|email|url|tel|password)$/.test((t.getAttribute('type') || '').toLowerCase()));
       const typing = textEntry || tag === 'select';
       if (mod && key === 'z' && !textEntry) {
         e.preventDefault();

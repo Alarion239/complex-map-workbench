@@ -1,5 +1,5 @@
 'use strict';
-// Sound for Complex Map Workbench (v15.2: notes/sound/AS-BUILT-v152.md). The app's hooks live in app.js (the "sound"
+// Sound for Complex Map Workbench (notes/sound/AS-BUILT-v152.md). The app's hooks live in app.js (the "sound"
 // block); the controls in page.html (#soundCtl, #sndPop).
 // =====================================================================================================================
 // What the sounds are made of: palette B (notes/sound/v2/DESIGN.md, board.html with board-fixes.md), the user's choice

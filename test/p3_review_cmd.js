@@ -283,9 +283,8 @@ await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, dev
 ok('two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms', R.exp2long.every((r) => r.ok && r.long.every((d) => d <= 50) && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')), R.exp2long);
 ok('first switch to X Sphere at dpr 2: no main-thread task over 50 ms', R.xswitch.every((r) => r.long.every((d) => d <= 50)), R.xswitch);
 
-// ---- 6. the Sphere checker tooltip follows the pattern size (n x n/2 cells: 128 at x1, 512 at x1/2)
-R.tip = await ev(`await (async () => { const t = () => (document.querySelector('#patternSeg .pat[aria-label="Sphere checker"]') || {}).dataset?.tip || ''; const a = t(); const el = document.getElementById('patScale'); el.value = -1; el.dispatchEvent(new Event('input')); await new Promise((r) => setTimeout(r, 50)); const b = t(); el.value = 0; el.dispatchEvent(new Event('input')); return [a, b]; })()`);
-ok('Sphere checker tooltip: 128 cells at x1, 512 at x1/2', /: 128 cells/.test(R.tip[0]) && /: 512 cells/.test(R.tip[1]), R.tip);
+// (6., the Sphere checker swatch's tooltip, went with the region patterns' menu, #363: the spherical checker drawn
+// through the test hook above is the renderer's, which stays)
 
 R.logs = logs().filter((l) => /error|exception/i.test(l.t) && !/404/.test(l.m)).slice(0, 6);
 ok('no console errors', R.logs.length === 0, R.logs);

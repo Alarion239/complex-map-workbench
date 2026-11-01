@@ -457,7 +457,8 @@
     ctx.restore();
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
-  // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes)}
+  // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
+  // fills (the fills alone, no strokes: a mask of the regions, #440)}
   function drawScene(pane, map, role, opt = {}) {
     const list = S.shapes.filter((s) => s.visible !== false);
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
@@ -671,7 +672,7 @@
     // a bounded shape whose preparation waited (frame budget) is drawn inverse on the next frame
     if (live && prepDeferred) { prepDeferred = false; requestRender(role); }
     const halo = GLR.hexRGB(TH.halo);
-    for (const s of hideStrokes || artMode ? [] : list) {
+    for (const s of hideStrokes || artMode || opt.fills ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
       const sm = shapeMap(s, map);
@@ -713,8 +714,8 @@
   // a formula as plain text for a tooltip outside English (review eng-10): Tour's reading of TeX, the screen's comma
   const texTitle = (tex) => {
     try {
-      const p = Tour._t && Tour._t.texPlain;
-      if (!p) return tex;
+      // ([#465] without the tour's reader: the commands and braces dropped, never the source as it is)
+      const p = (Tour._t && Tour._t.texPlain) || ((x) => x.replace(/\\[a-zA-Z]+/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim());
       // (a fraction of two single symbols or numbers is π/2, not (π)/2: verify-8)
       const one = '(\\\\(?:pi|infty|alpha|gamma|zeta|theta)|[A-Za-z0-9]+(?:\\.[0-9]+)?)';
       const t = I18N.notation(tex).replace(new RegExp(`\\\\[dt]?frac\\{${one}\\}\\{${one}\\}`, 'g'), '$1/$2').replace(/\\times(?![A-Za-z])/g, ' × ').replace(/\\operatorname\{([^{}]+)\}\s*/g, '$1 ').replace(/\\(?:left|right)(?![A-Za-z])\.?/g, '').replace(/\\(?:text|mathrm|textrm)\{([^{}]*)\}/g, '$1')
@@ -723,7 +724,7 @@
       // where the language writes one: English keeps 0.5, #321)
       const pt = p(t);
       return (I18N.comma() ? pt.replace(/(\d)\.(\d)/g, '$1,$2') : pt).replace(/-/g, (m, i, str) => (/[А-Яа-яЁё]/.test(str[i - 1] || '') && /[А-Яа-яЁё]/.test(str[i + 1] || '') ? m : '−'));
-    } catch (e) { return tex; }
+    } catch (e) { return String(tex).replace(/\\[a-zA-Z]+/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim(); }
   };
   // an example's word label ('trailing edge') is stored in English and translated where it is shown, so a caption in
   // the other language and a save reopened in the other language read right (review math-5); a user's label is as typed

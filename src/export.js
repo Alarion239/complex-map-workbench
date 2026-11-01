@@ -13,7 +13,7 @@ const Export = (() => {
     morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
     pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, fNameTex, parkedAt,
     runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
-    smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
+    smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
   // Files go through the viewer's downloads capability in claude.ai (the viewer confirms each save); a copy of the
   // page opened on its own saves with a plain download link.
@@ -58,17 +58,23 @@ const Export = (() => {
   const FIG_DPI = 300;
   const PT = 96 / 72;                  // px per point
   const mjCache = new Map();
+  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // yet loaded throws with e.retry, a promise. mj() typesets synchronously, so it notes the promise and gives the
+  // fallback for that formula (uncached); buildFigure waits for mjWaits and builds again. (Another formula with a
+  // letter of a range still loading comes back with it as <text> in a system font, not a throw: uncached as well)
+  let mjWaits = [];
   // TeX as a MathJax SVG (vector paths): {markup, w, h, va} at font size px; null without MathJax
   function mj(tex, px, color = '#000') {
     const key = `${px}|${color}|${tex}`;
     if (mjCache.has(key)) return mjCache.get(key);
     const MJ = window.MathJax;
-    let out = null;
+    let out = null, waiting = false;
     if (tex && MJ && typeof MJ.tex2svg === 'function') {
       try {
         const node = MJ.tex2svg(I18N.notation(tex), { display: false });
         const svg = node && node.querySelector('svg');
-        if (svg) {
+        if (svg && mjWaits.length && svg.querySelector('text')) waiting = true;
+        else if (svg) {
           const ex = px * 0.431;
           const w = parseFloat(svg.getAttribute('width')) * ex, hh = parseFloat(svg.getAttribute('height')) * ex;
           const va = (parseFloat(String(svg.style.verticalAlign || '0').replace('ex', '')) || 0) * ex;
@@ -79,7 +85,10 @@ const Export = (() => {
           if (!/^<svg[^>]*\sxmlns="/.test(markup)) markup = markup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
           if (w > 0 && hh > 0) out = { markup, w, h: hh, va };
         }
-      } catch (e) { out = null; }
+      } catch (e) {
+        out = null;
+        if (e && e.retry) { mjWaits.push(e.retry); waiting = true; }
+      }
     }
     if (!out) {
       // without MathJax: the TeX source as plain serif text (rare: MathJax loads with the page)
@@ -88,7 +97,7 @@ const Export = (() => {
       out = { markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hh}"><text x="0" y="${px}" font-family="Times New Roman, Times, serif" font-style="italic" font-size="${px}" fill="${color}">${t.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</text></svg>`, w, h: hh, va: -px * 0.2 };
     }
     if (mjCache.size > 2000) mjCache.clear();
-    mjCache.set(key, out);
+    if (!waiting) mjCache.set(key, out);
     return out;
   }
   // place a typeset item with its baseline at (x, y); anchor: 'start' | 'middle' | 'end'
@@ -247,13 +256,14 @@ const Export = (() => {
     const Fn = side === 'L' && morphOn() && lPaintsF() ? 'H_t' : A.S.focus === 0 ? 'F' : focusDeriv() ? `w_{${A.S.focus}}` : `f_{${A.S.focus}}`;
     if (side === 'L' && lColor() && A.S.dc !== 'classic') return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.25, '-\\frac{\\pi}{2}'], [0.5, '0'], [0.75, '\\frac{\\pi}{2}'], [1, '\\pi']] };
     if (side === 'L' && lColor()) return { title: `|${Fn}|`, stops: [[0, '#000000'], [0.5, '#8a8f93'], [1, '#ffffff']], ticks: [[0, '0'], [0.5, '1'], [1, '\\infty']] };
-    if (side === 'R' && rImage() && A.S.pattern === 'stretch') return { title: `|${Fn}'|`, stops: [[0, A.TH.stretchShrink], [0.5, A.TH.stretchMid], [1, A.TH.stretchGrow]], ticks: [[0, '\\tfrac18'], [0.5, '1'], [1, '8']] };
     if (side === 'L' && lGlobe() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
     if (side === 'L' && lLand() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
     return null;
   }
   // ---- the caption, as segments: {t: text} and {m: TeX}; also as LaTeX source ----
-  const texEsc = (s) => String(s).replace(/\\/g, '\\textbackslash{}').replace(/([#$%&_{}])/g, '\\$1').replace(/~/g, '\\textasciitilde{}').replace(/\^/g, '\\textasciicircum{}');
+  // (one pass over the special characters: a replacement's own braces are not escaped again, as they were when the backslash
+  // was replaced first and the braces after it)
+  const texEsc = (s) => String(s).replace(/[\\#$%&_{}~^]/g, (c) => (c === '\\' ? '\\textbackslash{}' : c === '~' ? '\\textasciitilde{}' : c === '^' ? '\\textasciicircum{}' : '\\' + c));
   // a caption sentence as segments: the template is translated whole (DESIGN.md 1) and its %{slots} hold segments,
   // so the word order follows the language. cs 'gen': the genitive form ("the images of ...", Russian needs the case)
   // (a plain-string value joins the text around it, as one segment)
@@ -361,20 +371,13 @@ const Export = (() => {
     for (const j of act) arg = A.built[j - 1].tex(arg);
     return act.length ? (arg.s.length <= 320 ? arg.s : null) : 'z';
   }
-  // the sentence on the image's shading (the pattern carried from the z-plane)
-  function patternSegs(Fname) {
-    const cell = { m: I18N.texNum(CX.fmtNum(patternCell(), 3)) }, z = { m: 'z' };
-    switch (A.S.pattern) {
-      case 'checker': return capT(' Regions are shaded by a checkerboard of squares of side %{cell} in the %{z}-plane, carried by the map.', { cell, z });
-      case 'polar': return capT(' Regions are shaded by a log-polar checkerboard in the %{z}-plane, whose cells stay square under conformal maps.', { z });
-      case 'tiles': return capT(' Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.', {});
-      case 'grid': return capT(' Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.', { z, cell });
-      case 'polargrid': return capT(' Lines are circles about 0 and rays from 0 in the %{z}-plane.', { z });
-      case 'phase': return capT(' Regions are coloured by the argument of the source point.', {});
-      case 'stretch': return capT(' The colour shows the local scale factor %{F} (bar).', { F: { m: `|${Fname}'|` } });
-      case 'sphere': return capT(' Regions are shaded by a checkerboard of %{n} longitude sectors and %{n2} latitude bands of the Riemann sphere of the %{z}-plane, carried by the map.', { n: { m: String(sphN()) }, n2: { m: String(sphN() / 2) }, z });
-      default: return [];
-    }
+  // the sentence on the image's shading: the phase of z carried by the map (#363: the one region fill), and its grid
+  // lines when they are drawn (the pattern 'solid' of the steps view's masks draws no image a caption describes)
+  function patternSegs() {
+    if (A.S.pattern !== 'phase') return [];
+    const out = capT(' Regions are coloured by the argument of the source point.', {});
+    if (A.S.lines) out.push(...capT(' Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.', { z: { m: 'z' }, cell: { m: I18N.texNum(CX.fmtNum(patternCell(), 3)) } }));
+    return out;
   }
   function figureCaption(panels) {
     const out = [];
@@ -449,7 +452,7 @@ const Export = (() => {
       push(...lab('b'), ...r);
     }
     // the shading (Image)
-    if (panels.includes('R') && rImage() && vis.some((s) => kindType(s) === 'area')) push(...patternSegs(Fname));
+    if (panels.includes('R') && rImage() && vis.some((s) => kindType(s) === 'area')) push(...patternSegs());
 
     if (vis.some((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s))) push({ t: $t(' Dashed boundaries do not belong to the sets.') });
     if (hm) push(...homDef());
@@ -569,12 +572,23 @@ const Export = (() => {
   // mesh ended on a budget, which the dialog's note reports)
   // (each call tags its export meshes with its own generation, so a cancelled call's cleanup never drops the meshes
   // of the call that replaced it)
+  // (#288: a pass that met a range of MathJax's STIX2 font not yet loaded, mjWaits, is built again once the ranges are
+  // in, at most 8 passes)
   async function buildFigure(opt) {
     const gen = ++sm.exportGen;
+    const alive = opt.alive || (() => true);
     try {
-      const f = await buildFigureNow(Object.assign({}, opt, { expGen: gen }));
-      if (f) f.partial = sm.exportPartial | 0;
-      return f;
+      for (let pass = 0; ; pass++) {
+        mjWaits = [];
+        const f = await buildFigureNow(Object.assign({}, opt, { expGen: gen }));
+        if (f && mjWaits.length && pass < 7) {
+          await Promise.all(mjWaits.map((p) => p.catch(() => {})));
+          if (alive()) continue;
+          return null;
+        }
+        if (f) f.partial = sm.exportPartial | 0;
+        return f;
+      }
     } finally { smDropExport(gen); }
   }
   async function buildFigureNow(opt) {
@@ -827,7 +841,7 @@ const Export = (() => {
       if (chain && chain.some((q) => !q.tex)) chain = null;
     }
     return { shapeList, shapeListGen, nShapes: vis.length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
-      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
+      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs() : [], height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
   }
   // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
   const hueBytes = (t) => keyRGB((2 * t - 1) * Math.PI).map((x) => Math.round(255 * x));
@@ -937,7 +951,7 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
+    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
   }
   return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();

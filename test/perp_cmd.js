@@ -277,7 +277,7 @@ await section('A', async () => {
   ok('A10 its row names the side', /^perpendicular to side 1 of Polygon 1, through /.test(await rowD(K7.id) || ''), await rowD(K7.id));
   info.rowK7 = await rowD(K7.id);
   await key('Escape'); await settle(100);
-  // (v16.5: every click clear of the construction chip, which takes two lines with Whole | Inside | Outside [UX51, UX55]:
+  // (every click clear of the construction chip, which takes two lines with Whole | Inside | Outside [UX51, UX55]:
   // a click on its buttons is the chip's, not the plane's)
   const chipBox = () => ev(`(() => { const c = document.getElementById('draftChipL'); if (c.hidden) return null; const r = c.getBoundingClientRect(); return [r.left - 8, r.top - 8, r.right + 8, r.bottom + 8]; })()`);
   const clear = (q, b) => !b || !(q[0] >= b[0] && q[0] <= b[2] && q[1] >= b[1] && q[1] <= b[3]);
@@ -411,8 +411,8 @@ await section('C', async () => {
   info.ruTile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { label: s.textContent.replace(/\\u00ad/g, '-'), w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, tip: b.dataset.tip, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('C RU tile «Ортого­нальная» fits on two lines at most', info.ruTile.label === 'Ортого-нальная' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Ортогональная окружность  W', info.ruTile);
   await tool('perp');
-  // (v16.3.1: at 1440 the chip with «Esc — отмена» took two lines in X's 427 px; it now keeps one line without it.
-  // v16.4.1: with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
+  // (at 1440 the chip with «Esc — отмена» took two lines in X's 427 px; it now keeps one line without it.
+  // with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
   // keeps the whole text on two lines, not cut, as v16.4 showed it)
   const ruChip = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`);
   // (#35: a chip that would wrap drops the tool's name first, which the pane head's chip shows, and keeps «Esc — отмена»

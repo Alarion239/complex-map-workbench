@@ -25,12 +25,16 @@
 // statements, four cracks, ending on the theme's last A.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
-const TAU = 2 * Math.PI, dry = process.argv.includes('--dry');
+// (--dry, or required from a test: nothing is written)
+const TAU = 2 * Math.PI, dry = process.argv.includes('--dry') || require.main !== module;
 
 // ---- the app's own parser and complex arithmetic (src/cx.js, parse.js, funcs.js in a vm, as test/t_seasong.js)
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
-for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
+// (the modules are ES modules since #20's phase 4: test/src_text.js gives their text as a script, without the import lines and
+// export { } lines that a vm cannot run; the same files in the same order as test/t_seasong.js)
+const { source } = require('../test/src_text');
+for (const [f, nm] of [['cx', 'CX'], ['symbolic', 'Symbolic'], ['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['sheets', 'Sheets'], ['formulasteps', 'FormulaSteps'], ['funcs', 'Funcs']]) vm.runInContext(source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
 const Expr = ctx.Expr;
 const C = (re, im) => ({ re, im });
 const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
@@ -174,7 +178,7 @@ const js = `'use strict';
 // ${r4(move)} s at ${O.V} px/s, four statements of the theme, four cracks); sectors, the Phase key's n (12: a line is a
 // semitone); design, the constants and where they come from (the tool's header).
 const SEASONG = ${JSON.stringify(SEASONG)};
-if (typeof module !== 'undefined' && module.exports) module.exports = { SEASONG };
+export { SEASONG };
 `;
 if (!dry) { fs.writeFileSync(path.join(ROOT, 'src', 'seasong.js'), js); console.log('wrote src/seasong.js (' + js.length + ' bytes)'); }
 module.exports = { SEASONG, exprU, exprH, F };

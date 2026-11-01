@@ -1,4 +1,4 @@
-// The phone layout (v15, src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
+// The phone layout (src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
 // Checks, at 360 × 780, 390 × 844 and 430 × 932, light and dark, English and Russian: one screen without page scroll
 // or sideways overflow; no control under 44 × 44 on the main screen, in each sheet and in the long-press menu; every
 // task of DESIGN.md 5 with its tap count; X | Y side by side above an open sheet, the planes resized once, after the
@@ -39,7 +39,7 @@ const hold = async (x, y, ms, slide) => {
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await settle(300);
 };
-const st = () => ev(`(() => { const s = __tourApi.snapshot().state; return { steps: s.steps.length, shapes: s.shapes.length, pattern: s.pattern, view: s.view && s.view.main, params: s.steps.map((x) => x.params), ph: Phone._state() }; })()`);
+const st = () => ev(`(() => { const s = __tourApi.snapshot().state; return { steps: s.steps.length, shapes: s.shapes.length, pattern: s.pattern, lines: s.lines, view: s.view && s.view.main, params: s.steps.map((x) => x.params), ph: Phone._state() }; })()`);
 // the screen: no page scroll, nothing past the edges, no cut label
 const screen = () => ev(`(() => {
   const de = document.documentElement, iw = innerWidth, ih = innerHeight;
@@ -67,6 +67,9 @@ const audit = (scope) => ev(`(() => {
   const small = []; let total = 0;
   for (let e of root.querySelectorAll(sel)) {
     if (e.closest('[hidden], .ph-inset .plot, .xf, .modal-bg')) continue;
+    // (the sheet's grab handle is the 18 px strip above its title row, #483; phone.css exempts it from the 44 px rule too,
+    // :not(.ph-grab): the head's row is the drag target, which test/phone_sheet_target_cmd.js holds to 44 px)
+    if (e.matches('.ph-grab')) continue;
     if (e.matches('input[type=checkbox], input[type=radio]') && e.closest('label')) e = e.closest('label');
     const s = getComputedStyle(e);
     if (!e.getClientRects().length || s.visibility === 'hidden' || +s.opacity === 0 || s.pointerEvents === 'none') continue;
@@ -131,7 +134,8 @@ await T('Draw a disc and watch its image', 1, async () => { const n0 = (await st
 await T('Change a parameter of an existing step', 3, async () => { await tap('#pipeline .card[data-k="2"]', 500); const f = await center('#propsPanel input[id^="i2_"]'); if (!f) return 'no field'; taps++; await touch(f[0], f[1]); await settle(200); await ev(`(() => { const e = document.activeElement; e.select && e.select(); })()`); await type('2'); await key('Enter'); await settle(400); const p = await panes(); const v = (await st()).params[1]; return (p.L && p.R && p.L.w > 150 && p.R.w > 150 && p.L.b <= p.sheetTop && Object.values(v).includes('2')) || { p, v }; });
 await T('Add a step and change its parameter', 4, async () => { const n0 = (await st()).steps; await tap('#addStepBtn', 600); await type('sin'); await settle(300); await key('Enter'); await settle(700); const n1 = (await st()).steps; await tap(`#pipeline .card[data-k="${n1}"]`, 500); const f = await center('#propsPanel input'); const p = await panes(); if (f) { taps++; await touch(f[0], f[1]); await settle(200); } return (n1 === n0 + 1 && p.L && p.R && p.L.w > 150 && p.L.b <= p.sheetTop) || { n0, n1, p, f }; });
 await ev(`document.getElementById('undoBtn').click()`); await settle(400);
-await T('Change the pattern', 2, async () => { const p0 = (await st()).pattern; await tap('#plotL .ph-dsp', 500); const t = await center(`.ph-sheet #patternSeg .pat:not(.on)`); if (!t) return 'no swatch'; taps++; await touch(t[0], t[1]); await settle(400); const p1 = (await st()).pattern; const pn = await panes(); return (p1 !== p0 && pn.L.b <= pn.sheetTop && pn.R && pn.R.w > 150) || { p0, p1, pn }; });
+// (#363: the regions' fill is the phase, no pattern to choose; their grid lines are the Display sheet's region option)
+await T('Turn the grid lines on regions off', 2, async () => { const l0 = (await st()).lines; await tap('#plotL .ph-dsp', 500); const t = await center(`.ph-sheet label:has(#linesChk)`); if (!t) return 'no Grid lines check'; taps++; await touch(t[0], t[1]); await settle(400); const s1 = await st(); const pn = await panes(); return (s1.lines === !l0 && s1.pattern === 'phase' && pn.L.b <= pn.sheetTop && pn.R && pn.R.w > 150) || { l0, s1, pn }; });
 await T("See F's formula and guarantees", 2, async () => { await tap('#pipeline .ftile', 500); const t = await ev(`(() => { const e = document.querySelector('#propsPanel'); return e ? e.innerText : ''; })()`); return /Analytic|Not implied|Natural domain|domain/i.test(t) || t.slice(0, 200); });
 await T('Drag a shared number and watch X and Y', 3, async () => { await ev(`Params.add('a', { value: 0.5, min: -2, max: 2, step: 0.01 })`); await settle(300); const nm = await ev(`document.querySelector('.ph-nums').textContent`); await tap('.ph-nums', 600); const sl = await ev(`(() => { const e = document.querySelector('#propsPanel input[type=range]'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return [b.left + 6, b.top + b.height / 2, b.right - 6]; })()`); if (!sl) return 'no slider'; taps++; await drag(sl[0] + (sl[2] - sl[0]) / 2, sl[1], sl[0] + (sl[2] - sl[0]) * 0.8, sl[1], 6, 16); await settle(300); const v = await ev(`Params.get('a')`); const p = await panes(); return (/a/.test(nm) && v !== 0.5 && p.L && p.R && p.L.b <= p.sheetTop) || { nm, v, p }; });
 // (issue #13: the long-press menu is an object's; a held empty plane opens nothing)

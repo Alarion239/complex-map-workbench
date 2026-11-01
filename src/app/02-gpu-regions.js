@@ -662,7 +662,7 @@
   // the two still maps a paused homotopy frame lies between (normalizeMap's ends), or null
   function homEnds(m) {
     const base = m.base || 0;
-    if ((m.post || 0) > (m.mode === 1 ? m.b || m.hi || 0 : m.b || 0)) return null;   // (v16: a bracket's post: no still ends)
+    if ((m.post || 0) > (m.mode === 1 ? m.b || m.hi || 0 : m.b || 0)) return null;   // (a bracket's post: no still ends)
     if (m.mode === 1) { const k = m.hi || 0; return [{ mode: 0, a: base, b: Math.max(base, k - 1) }, { mode: 0, a: base, b: k }]; }
     if (m.mode === 2 || m.mode === 3) return [{ mode: 0, a: base, b: m.a || 0 }, { mode: 0, a: base, b: m.b || 0 }];
     return null;
@@ -1095,10 +1095,11 @@
       if (!size) size = Math.max(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
       const was = cellBase;
       cellBase = Axes.niceStep(size / 10);
-      // [v16.5 UX91] a shape the user just added refits the pattern on everything: said once, with where to change it
-      if (cellSay && was && was !== cellBase && S.pattern !== 'sphere') {
+      // [v16.5 UX91] a shape the user just added refits the grid on everything: said once, with where to change it
+      // (#363: while the regions' grid lines are drawn, the one thing the cell changes)
+      if (cellSay && was && was !== cellBase && S.lines) {
         const x = I18N.num(CX.fmtNum(cellBase * (S.patternScale || 1), 4).replace('-', '−'));
-        setTimeout(() => toast($t('The pattern cell is now {x}, fitted to the shapes; Display → Cell changes it.', { x })), 0);
+        setTimeout(() => toast($t('The grid step is now {x}, fitted to the shapes; Regions → Grid step changes it.', { x })), 0);
         cellSaid = true;
       }
       cellSay = false;
@@ -1132,7 +1133,7 @@
   const mapKeyOf = (map) => `${map.mode}|${map.a || 0}|${map.b || 0}|${map.hi || 0}|${map.t || 0}|${map.base || 0}|${chainSig[Math.max(map.b || 0, map.hi || 0, map.post || 0)] || ''}|${map.post || 0}`;
   // the CPU twin of a GPU map spec (dash phases of mapped strokes follow its arc length); map.base: the stage of the
   // source plane of a homotopy (0, the z-plane, by default)
-  function cpuMap(map) { return HR.cpuMap(map); }   // (v16: with map.post, src/homrange.js)
+  function cpuMap(map) { return HR.cpuMap(map); }   // (with map.post, src/homrange.js)
   // Per segment of r.lineRes (createLines order): the arc length of the curve under F at the segment start and the
   // segment's length, so dashes keep their rhythm along the mapped curve (cached per map key)
   function arcOf(r, F, key) {

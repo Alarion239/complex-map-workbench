@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Windows laptop and Mac ([RUNNERS.md](RUNNERS.md)) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -51,7 +51,9 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   read from the diff (#385); a changed line outside every hook, a hook something other than the browser suites and
   unit tests calls (the app, the quality and perf runners, `ci/`), or no diff to read (`--files`) is T3. `init()`
   (`20-init.js`) keeps only the start-up: an area's wiring is in that area's part (`19-shell.js` the header, menus and
-  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). Every GLSL page whose inputs
+  panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). A row can also
+  select by the diff's lines: `src/page.html`'s export dialog CSS (`.xf-…`, `.modal.xf`, `#xf…`) runs the export shards
+  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -74,12 +76,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
   other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
   and so does every later push while it is not a draft.
-- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing once its
-  push's run on that commit has passed: the job *ready* finds the newest other Gate run of this PR on the same commit,
-  and only if it passed does the plan select no job (tier `none`), the unit job skip, and the **Gate** job check that
-  run again and carry its verdict. Queued, running, failed, cancelled or none: the run is the usual one, so a green
-  Gate never stands on a commit before a gate passed there. Either way it has a concurrency group of its own and never
-  cancels the push's run (#379, `test/t_gate_ready.js`).
+- **Ready for review into another branch** (an agent's PR into the integration branch) re-runs nothing when its
+  push's run on that commit has passed or is still queued or running: the job *ready* finds the newest other Gate run
+  of this PR on the same commit; if it passed, or is queued, waiting or in progress, the plan selects no job (tier
+  `none`), the unit job skips, and the **Gate** job waits for that run to finish (polling once a minute, up to 330
+  minutes) and carries its verdict. It waits rather than skipping because a job's check exists only once the job
+  starts: a ready run that passed at once would be the only Gate check on the commit while the push's run still went.
+  Failed, cancelled or none: the run is the usual one, so a green Gate never stands on a commit before a gate passed
+  there. Either way it has a concurrency group of its own and never cancels the push's run (#379,
+  `test/t_gate_ready.js`).
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
@@ -125,7 +130,8 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate (`gpu-gate.yml`, our machines). Its Windows laptop compiles on one core (FXC): the glsl page alone took
+The GPU gate (`gpu-gate.yml`, our machines; the Windows laptop's runner was removed on 2026-11-01, #169, so its column
+below applies once a Windows runner is back). Its Windows laptop compiles on one core (FXC): the glsl page alone took
 over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
 runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
 
@@ -228,6 +234,9 @@ artifact.
 - the topmost element at each control's centre is that control;
 - the boxes declared centred are centred, within 1 px;
 - no text is cut by a box that can't scroll, except a declared ellipsis;
+- no control's text shows past the control's own box (a label wider than its button, with nothing to clip it);
+- a desktop toast covers no control; placed, it is centred on its place (in the chain head, inside it, with Clear chain
+  stepped aside); unplaced, it covers no plane;
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
@@ -243,11 +252,20 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
 boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
 its first point (`shots/`, kept in the job's artifact although the suite passes: `keepShots` in `ci/browser_suites.js`).
-- **Report mode** (now): it passes, and the report is triaged on #470.
-- **The gate** (`mode: 'gate'`): a row whose key `ci/layout_baseline.json` lacks for its run fails. The rows only go
-  down, as with the lint ratchet: `node ci/layout_ratchet.js check|update .ci/browser/layout_invariants_cmd.js_<run>.json`
-  checks or lowers the baseline (`--init` wrote the first). The points a row is seen at are reported, not gated: on
-  software GL they vary by one or two from run to run.
+- **The gate** (on, `mode: 'gate'` in `ci/browser_suites.js`): a row whose key `ci/layout_baseline.json` lacks for its
+  run fails the job, and so does a state that opened for the baseline and doesn't now. The baseline was made from CI's
+  own runs (lavapipe). Another matrix or another renderer (a runner image's new Mesa or LLVM) fails too, and asks for a
+  new baseline from a CI run (`update --init`).
+- **The baseline only goes down**, as with the lint ratchet. When a PR fixes rows, the job's summary lists them, and
+  `node ci/layout_ratchet.js update <the saved job logs, or .ci/browser/layout_invariants_cmd.js_<run>.json>` lowers
+  it. It reads the `LAYOUT-RESULT` line of a job's log, so no artifact download is needed.
+- **New rows:** a new violation is fixed, or, when it is meant, declared in the suite's `DECLARED` with its reason (ux
+  reviews it). `update --init` takes in only a run with no baseline, or one over another matrix or renderer. A PR that
+  changes the checks themselves (`test/lib/layout.js`, `DECLARED`) takes their new keys in with `update --rules`; its
+  diff shows why. The baseline holds only real, known violations, each one meant to be fixed, most with an issue.
+- The points a row is seen at are reported, not gated.
+- **Which PRs run it:** a change to the suite or its libraries; the shell (`19-shell.js`) and the phone's files run
+  `layout-1` (en), the languages' tables `layout-2` (ru, it); every T3 runs both.
 - **The design intent** is declared in `INTENT` (`test/lib/layout.js`) or on the element: `data-layer` (sits on top),
   `data-center="x|y|both"`, `data-ellipsis`.
 - **The violations that are meant** are declared in the suite's `DECLARED`, each with its reason.
@@ -392,10 +410,10 @@ Settings (environment variables):
 | `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
-| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js/cyr.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
-| `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |
+| `ci/RUNNERS.md` | setting up our Mac (and, again, a Windows laptop: #169) as runners |

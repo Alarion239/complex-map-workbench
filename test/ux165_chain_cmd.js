@@ -120,7 +120,7 @@ for (const [q, first, fix] of [['sin(z', 'Close the bracket: sin(z)', 'sin'], ['
   ok(`UX23 "${q}": the repair row first, the message in grey with its place marked, Enter fixes`, rows[0] && rows[0].label === first && ps.err && /Not a formula yet/.test(ps.err) && ps.bad && !ps.red && rgb(ps.errColor) === hexRgb(ps.muted) && ps.verb === ' to fix', { rows: rows.map((r) => r.label), ps });
   if (q === 'sin(z') {
     const ff = await ev(`({ q: getComputedStyle(document.querySelector('.pal-err .pe-q')).fontFamily, inp: getComputedStyle(document.getElementById('palInput')).fontFamily })`);
-    ok('UX23 the typed formula is shown in the palette input\'s face (B612 Mono drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
+    ok('UX23 the typed formula is shown in the palette input\'s face (the old mono face, B612 Mono, drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
     await shot2('ux23-palette-error');
     const n0 = (await P()).steps.length;
     await key('Enter'); await settle(900);
@@ -174,6 +174,7 @@ await key('Escape'); await settle(300);
 await grab();
 
 // ---- UX84, UX22: the empty chain's F tile, Formula cards, the + card's label ----
+// (a Formula card's tooltip and aria label read its formula as text, z^2 as z²: #465)
 await openApp('test.html', { shapes: [DISC], steps: [] });
 let ft = await ev(`(() => { const t = document.querySelector('#pipeline .ftile'); return { ident: t.classList.contains('ident'), fF: t.querySelector('.fF').innerText.replace(/\\s+/g, ' '), lit: [...t.querySelectorAll('.lamp')].filter((l) => l.getClientRects().length).length, aria: t.getAttribute('aria-label') }; })()`);
 ok('UX84 an empty chain\'s F tile reads F = z, with no guarantees listed', ft.ident && /^F\s?=\s?z$/.test(ft.fF.replace(/ /g, ' ').replace(/\s+/g, ' ').trim()) && ft.lit === 0 && /^F = z/.test(ft.aria), ft);
@@ -183,7 +184,7 @@ await shot2('ux84-empty-chain');
 await palType('z^2+1/z'); rows = await palRows();
 await key('Enter'); await settle(900);
 const card = await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="1"]'); return { nm: c.querySelector('.nm').textContent, tip: c.dataset.tip, aria: c.getAttribute('aria-label') }; })()`);
-ok('UX84 a typed step is a "Formula" card; the formula only in its tooltip and aria label', rows[0].label === 'Formula' && card.nm === 'Formula' && /z\^2\+1\/z/.test(card.tip || '') && /Formula z\^2\+1\/z/.test(card.aria), { row: rows[0], card });
+ok('UX84 a typed step is a "Formula" card; the formula only in its tooltip and aria label', rows[0].label === 'Formula' && card.nm === 'Formula' && /z²\+1\/z/.test(card.tip || '') && /Formula z²\+1\/z/.test(card.aria), { row: rows[0], card });
 ft = await ev(`document.querySelector('#pipeline .ftile').classList.contains('ident')`);
 ok('UX84 with a step, the tile shows its guarantees again', ft === false, ft);
 // four steps: no label

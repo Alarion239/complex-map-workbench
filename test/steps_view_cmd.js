@@ -53,6 +53,10 @@ const dom = await ev(`({ sv: document.documentElement.classList.contains('sv'), 
 ok('one plane, the strip with 2 steps and 3 planes, no chain row and no Y pane', dom.sv && dom.strip && dom.steps === 2 && dom.dots === 3 && dom.chain === 'none' && dom.R === 0, dom);
 // (an area example opens with Inside regions: Everywhere first, for the pictures below)
 await ev(`__cmwSteps({ scope: 'all' }); 1`);
+// (z's first picture once the page has settled: the fonts loaded (with CMW_VENDOR=1 they land late) and the colour key
+// drawn again after them, from a cleared canvas; at startup the key's first picture could differ from every later one
+// by up to 3/255 on its ring's edges, which failed the check against it below now and then)
+await ev(`document.fonts.ready.then(() => { const c = document.getElementById('legendCanvasL'); if (c) c.width = 0; __cmwSteps({ surf: 'plane' }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); })`);
 const hZ = await hash('sv_z');
 await press('ArrowRight');
 const m1 = await S();
@@ -69,6 +73,21 @@ ok('parked at 0.5: the deformation there, between z and w₁', Math.abs(sp.x - 0
 const hP = await hash('sv_park');
 ok('the parked picture is neither plane\'s', hP !== hZ && hP !== h1, [hP, hZ, h1]);
 ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-thumb').getAttribute('aria-valuetext'))`), null);
+// (#492) a parked frame, Everywhere: the grid, the colour layer and the outlines are one GL frame, one copy into the page
+// (GLR.blit), once the glide's programs are ready (while one compiles, the CPU carry's layers go one by one); (#440's
+// follow-up) Inside regions too: the grid under G's masked frame and the outlines over it
+const blitsAt = async (scope) => {
+  let n = -1;
+  for (let i = 0; i < 40 && n !== 1; i++) {
+    const rb = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `new Promise((r) => { const b = GLR.blit; let n = 0; GLR.blit = function (...x) { n++; return b.apply(this, x); }; __cmwSteps({ scope: '${scope}' }); requestAnimationFrame(() => requestAnimationFrame(() => { GLR.blit = b; r(n); })); })` });
+    n = rb.result ? rb.result.value : rb;
+    if (n !== 1) await sleep(500);
+  }
+  return n;
+};
+const blitsIn = await blitsAt('in'), blits = await blitsAt('all');
+ok('a parked frame reaches the page in one GL copy', blits === 1, blits);
+ok('a parked frame, Inside regions, reaches the page in one GL copy', blitsIn === 1, blitsIn);
 await press('ArrowRight'); const sn = await rest();
 ok('→ from 0.5 goes on to w₁', sn.i === 1 && Math.abs(sn.x - 1) < 1e-9, sn);
 // Shift+→: a quarter of a step, and the view stays there
@@ -105,6 +124,15 @@ info.globe = { gUp, gLo, aLo };
 ok('on the globe, Inside regions changes the picture', gIn !== gAll, [gIn, gAll]);
 ok('… the upper half-plane coloured and the lower one paper; coloured everywhere without it', !grey(gUp) && grey(gLo) && !grey(aLo), info.globe);
 await ev(`__cmwSteps({ scope: 'in', surf: 'plane' }); 1`); await settle(800);
+// (#440) Inside regions is drawn on the GPU: no read-back of a canvas at rest, parked, while gliding, or on the globe
+await ev(`(() => { const P = CanvasRenderingContext2D.prototype, f = P.getImageData; window.__gid = 0; P.getImageData = function (...a) { window.__gid++; return f.apply(this, a); }; window.__gidF = f; return 1; })()`);
+await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settle(600);
+await ev(`__cmwSteps({ park: 0.5 }); 1`); await settle(600);
+await ev(`__cmwSteps({ go: 0 }); 1`); await rest();
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1500);
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(800);
+const gid = await ev(`(() => { CanvasRenderingContext2D.prototype.getImageData = window.__gidF; return window.__gid; })()`);
+ok('Inside regions reads no canvas back (at rest, parked, gliding, on the globe)', gid === 0, gid);
 // (#471) axe on the steps view: on z, parked between planes, on the globe
 const ax = {};
 ax.z = await axe();
@@ -114,9 +142,16 @@ await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(600);
 ok('desktop: no axe violation in the steps view (z, parked, Sphere)', !ax.z.length && !ax.parked.length && !ax.sphere.length, ax);
 // (ux's review of #448) the arrows of a focused radio group, or of an open pop-up, are theirs: the plane stays
 const before = (await S()).x;
-await ev(`(() => { const b = document.querySelector('#svHead .sv-surf [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
+await ev(`__cmwSteps({ scope: 'all' }); 1`); await settle(300);
+await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
 const rg = await S();
-ok('→ on a focused Surface radio picks the next surface, not the next plane', rg.x === before && rg.surf === 'sphere', rg);
+ok('→ on a focused scope radio picks the next one, not the next plane', rg.x === before && rg.scope === 'in', rg);
+// (#441) the surface is one button with a menu: its keys are the menu's, and a pick changes the surface, not the plane
+await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
+await ev(`(() => { const m = document.querySelector('.pop.menu'); const t = document.activeElement; t.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })); return !!m; })()`); await settle(300);
+await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((e) => /Sphere/.test(e.textContent)); if (b) b.click(); return !!b; })()`); await settle(600);
+const sm = await S();
+ok('the surface menu picks Sphere, and its keys leave the plane alone', sm.x === before && sm.surf === 'sphere', sm);
 await ev(`__cmwSteps({ surf: 'plane' }); document.activeElement.blur(); 1`); await settle(600);
 await ev(`document.getElementById('examplesBtn').click(); 1`); await settle(600);
 await press('ArrowRight');
@@ -188,5 +223,5 @@ await open(1280, 800, false, false);
 const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, R: document.getElementById('paneR').getBoundingClientRect().width > 0 })`);
 ok('without ?view=steps the app is the classic view', !cl.sv && !cl.strip && !cl.on && cl.R, cl);
 
-info.checks = 'steps view: desktop, parking, colour plane, Inside regions, reduced motion, phone swipe, classic';
+info.checks = 'steps view: desktop, parking, one GL copy (Everywhere, Inside regions), colour plane, Inside regions, reduced motion, phone swipe, classic';
 return { pass: fails.length === 0, fails, info };

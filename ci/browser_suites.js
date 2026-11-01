@@ -5,7 +5,8 @@
 //             screenshot writers), suites another job runs, superseded ones, and those that need the GPU machines
 //   SUITES    per suite: runs (one row each: a label, a preamble on the suite's first line, env), pages (extra pages
 //             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape), keepShots (keep its
-//             screenshots when it passes: a suite that reports with marked shots)
+//             screenshots when it passes: a suite that reports with marked shots), logLine (its result as one line
+//             of the job's log, from its result)
 //   TIMING    per suite, the checks that measure speed (by name): reported with their numbers, not gated. A check whose
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
@@ -68,14 +69,22 @@ const SUITES = {
     runs: [{ label: '1440' }, { label: '390-dark', preamble: 'globalThis.WALK = { w: 390, dark: true };' }],
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
+  // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
+  'raw_tex_cmd.js': { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}'; globalThis.MJ = ${l !== 'it'};` })) },
+  'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
-  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In report mode the
-  // violations go to its result's report, and the job does not fail on them)
+  // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
+  // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
+  // baseline and does not now; the rest go to its result's report)
   'layout_invariants_cmd.js': {
     keepShots: true,
+    // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
+    // (the rows this run no longer sees: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
+    note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
+    logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
-      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'report' };` })),
+      preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'gate' };` })),
   },
 };
 
@@ -114,13 +123,14 @@ const TIMING = {
 
 const s = (re, why, measured) => ({ re, why, measured });
 const SOFTWARE = {
-  // (the tour masks its rings off an open layer frame by frame; the audit looks once, 450 ms and 2 frames after the
-  // layer opens, during its 4-px pop-in, which here is 1-3 frames: the mask is an earlier frame's. Only when the layer is
+  // (the tour masks its rings off an open layer frame by frame; the audit looks once, two frames after the layer shows
+  // and its animations end (#504: no fixed 450 ms), which can still fall in its 4-px pop-in, 1-3 frames here: the mask
+  // is an earlier frame's. Only when the layer is
   // on top at all its points, the tour stays and the layer closes)
   'tour_audit_cmd.js': [
     s(/ layer (palette|export|toast)\*?: the tour covers none of it, its rings masked off it, the tour stays$/, 'one look during the layer\'s pop-in, which takes 1-3 frames here: the rings\' mask is from an earlier frame',
       (d) => d && JSON.stringify(d.kinds) === '["ringOverLayer"]' && d.g && Array.isArray(d.g.lay) && d.g.lay.every((x) => x === 'ok') && d.g.strip === true && d.after && d.after.active === true && d.after.layer === false),
-    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s, before the audit\'s look (450 ms and 2 frames of seconds each)',
+    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s (a timer), before the audit\'s look (its frames take seconds each here)',
       (d) => d && JSON.stringify(d.kinds) === '["noLayer"]'),
   ],
   'tour_cmd.js': [s(/^Sphere: one lit panel \(and the strip's window\) and a ring on its surface control$/, 'the ring comes once the shade\'s morph ends, seconds later here (the CI screenshot right after shows it)',
@@ -166,10 +176,31 @@ const old = (commit) => (dist, name) => {
   fs.copyFileSync(path.join(R.dist, 'test.html'), path.join(dist, name));
   console.log(`dist/${name}: test.html of ${commit}`);
 };
+// test.html with its MathJax tags (build.py's CDN tags: the preloads of the STIX2 font and of the MathML component,
+// and MathJax 4's core) replaced
+const MJ_TAG = ['<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@mathjax/mathjax-stix2-font@4.1.3/svg.js">',
+  '<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/a11y/assistive-mml.js">',
+  '<script async src="https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-svg-nofont.js"></script>'].join('\n');
+const mjPage = (dist, tag) => { const t = fs.readFileSync(path.join(dist, 'test.html'), 'utf8'); if (t.split(MJ_TAG).length !== 2) throw new Error('test.html: its MathJax tags'); return t.replace(MJ_TAG, tag); };
+// MathJax 4 from vendor/ in dist/mj/: the core, the MathML component it loads from its own folder (a11y/) and the
+// STIX2 font (mathjax-stix2/, svg.js and the ranges it loads on demand), which test-mj.html points the loader at
+const VJS = path.join(__dirname, '..', 'vendor', 'js');
+const copyDir = (from, to) => { fs.mkdirSync(to, { recursive: true }); for (const e of fs.readdirSync(from, { withFileTypes: true })) (e.isDirectory() ? copyDir : fs.copyFileSync)(path.join(from, e.name), path.join(to, e.name)); };
 const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
+  // ([#465] the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
+  // from vendor/, not the CDN, so the typeset page is the same on every runner)
+  'mj': (dist, name) => {
+    const d = path.join(dist, name);
+    fs.mkdirSync(path.join(d, 'a11y'), { recursive: true });
+    fs.copyFileSync(path.join(VJS, 'tex-svg-nofont.js'), path.join(d, 'tex-svg-nofont.js'));
+    fs.copyFileSync(path.join(VJS, 'a11y', 'assistive-mml.js'), path.join(d, 'a11y', 'assistive-mml.js'));
+    copyDir(path.join(VJS, 'mathjax-stix2'), path.join(d, 'mathjax-stix2'));
+  },
+  'test-mj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '<script>window.MathJax.loader = { paths: { \'mathjax-stix2\': \'mj/mathjax-stix2\' } };</script>\n<script async src="mj/tex-svg-nofont.js"></script>')),
+  'test-nomj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '')),
   // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)

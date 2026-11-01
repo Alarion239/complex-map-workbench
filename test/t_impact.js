@@ -35,18 +35,37 @@ ok('T0: an excluded suite runs nowhere here', select(['test/inv_bench_cmd.js']).
 const tour = select(['src/tour.js']);
 ok('T1: src/tour.js -> the tour shards and smoke', tour.tier === 'T1' && same(tour.browser, [...AREAS.tour, 'smoke']) && !tour.glsl.length && !tour.quality.length && !tour.perf, tour);
 const ph = select(['src/phone.css', 'src/phone.js']);
-ok('T1: src/phone.* -> the phone shards', ph.tier === 'T1' && same(ph.browser, [...AREAS.phone, 'smoke']), ph.browser);
+ok('T1: src/phone.* -> the phone shards', ph.tier === 'T1' && same(ph.browser, [...AREAS.phone, ...AREAS.layout, 'smoke']), ph.browser);
 ok('T1: src/figure/ (figure.js in parts) -> export and images', same(select(['src/figure/03-views.js']).browser, [...AREAS.export, 'smoke']));
 ok('T1: sound and the sea song', same(select(['src/sound.js', 'src/seasong.js']).browser, ['sound', 'smoke']));
 ok('T1: src/sound/ (sound.js in parts) -> sound', same(select(['src/sound/03-lifecycle-cues.js']).browser, ['sound', 'smoke']));
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 ok('T1: constr.js\'s modules (issue #20) -> the same as constr.js', ['src/constrpoc.js', 'src/constrortho.js'].every((f) => same(select([f]).browser, select(['src/constr.js']).browser) && same(select([f]).glsl, select(['src/constr.js']).glsl)));
 ok('T1: src/construct/ (construct.js in parts) -> the constructions shards', same(select(['src/construct/04-chip-overlay.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
-for (const f of ['src/i18n.js', 'src/i18n_ru.js', 'tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIGN.md']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
+for (const f of ['tools/it_table.json', 'tools/ru_extra.json']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
+// (the languages' tables also run the layout gate's Russian and Italian shard, #470)
+for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layout-2`, same(select([f]).browser, [...AREAS.i18n, ...AREAS['layout-i18n'], 'smoke']), select([f]).browser);
+// (notes/ is read by unit tests at most: a notes-only diff, #516's deletions included, runs no browser shard)
+for (const f of ['notes/i18n/DESIGN.md', 'notes/i18n/ru/phase2b-fixes.json', 'notes/i18n/inventory_tools/build.js', 'notes/i18n/latex/xe.out', 'notes/sound/review-deformation/a.md']) ok(`T0: ${f} -> the unit tests only`, select([f]).tier === 'T0' && !select([f]).browser.length, select([f]));
+ok('T0: a notes-only diff (#516) selects no browser shard', (() => { const p = select(['notes/i18n/inventory_tools/extract.js', 'notes/i18n/latex/pdf.out', 'notes/proto/incremental/x.js', 'notes/v16-user5/review-regress-evidence/cmds/a_cmd.js']); return p.tier === 'T0' && !p.browser.length && !p.glsl.length; })());
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
 // ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
-ok('T1: desk.css -> the desktop and the phone shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']), select(['src/desk.css']).browser);
-ok('T1: page.html -> desktop and phone', same(select(['src/page.html']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+ok('T1: desk.css -> the desktop, phone and layout-1 shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
+ok('T1: page.html -> desktop and phone', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+// (the export dialog's CSS in page.html: its lines select the export shards too (#498: .xf-body changed and no export
+// shard ran); without a diff, so do they)
+{
+  const DP = [...new Set([...AREAS.desktop, ...AREAS.phone])];
+  for (const l of ['.xf-body { display: grid; }', '.modal.xf { width: 1120px; }', ':root[data-lang="ru"] #xfSize .xf-dim { display: none; }', 'select.xf-select { appearance: auto; }', '.btn.xf-dest { height: 34px; }']) ok(`T1: page.html's export dialog line "${l}" -> desktop, phone and export`, same(select(['src/page.html'], { linesOf: () => ['.top { }', l] }).browser, [...new Set([...DP, ...AREAS.export]), 'smoke']), select(['src/page.html'], { linesOf: () => [l] }).browser);
+  ok('T1: page.html without its diff -> the export shards too (fail safe)', AREAS.export.every((id) => select(['src/page.html']).browser.includes(id)));
+  ok('T1: page.html, a line that only names xf in a word (.prefix-box) -> no export shard', !select(['src/page.html'], { linesOf: () => ['.boxf-x { }', '.xfoo { }'] }).browser.some((id) => AREAS.export.includes(id)));
+}
+// (a new suite in no shard's list runs in the catch-all shard, in its own PR: #498's export_fit_cmd.js, #510's tour_words_cmd.js)
+{
+  const fsx = require('fs'), px = require('path'), f = px.join(__dirname, 'zz_t_impact_new_cmd.js');
+  fsx.writeFileSync(f, 'return { pass: true };\n');
+  try { ok('T1: a new suite no shard lists -> the catch-all shard (new)', same(select(['test/zz_t_impact_new_cmd.js']).browser, ['new', 'smoke']), select(['test/zz_t_impact_new_cmd.js']).browser); } finally { fsx.rmSync(f, { force: true }); }
+}
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
 ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_cmd.js']).browser, ['export-1', 'export-2', 'export-3', 'export-4', 'smoke']));
@@ -64,6 +83,12 @@ const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
 // (issue #20: the inverse's ops and patterns, out of inverse.js, are inputs of the same page only)
 for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
+// (issue #20: region.js's line refinement, out of it, selects what region.js selects)
+ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
+// (issue #20: funcs.js's sheets and formula steps, out of it, select what funcs.js selects)
+for (const f of ['src/sheets.js', 'src/formulasteps.js']) ok(`T2: ${f} -> the same as src/funcs.js`, (() => { const a = select([f]), b = select(['src/funcs.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
+// (issue #20: parse.js's symbolic calculus, out of it, selects what parse.js selects)
+ok('T2: src/symbolic.js -> the same as src/parse.js', (() => { const a = select(['src/symbolic.js']), b = select(['src/parse.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
 ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
@@ -99,9 +124,9 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/app/19-constructions.js -> T2, the constructions and the core shards', cm.tier === 'T2' && same(cm.browser, [...new Set([...AREAS.constructions, ...AREAS.core]), 'smoke']), cm.browser);
   // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
   const sv = select(['src/app/19-steps-view.js']);
-  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop and phone shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone]), 'smoke']), sv);
+  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop, phone and layout-1 shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), sv);
   // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
-  ok('a part: src/app/19-shell.js -> the desktop and phone shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+  ok('a part: src/app/19-shell.js -> the desktop, phone and layout-1 shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
   ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));
   const H = 'src/app/21-test-hooks.js';
   ok('the test hooks without their diff (--files): T3', select([H]).tier === 'T3' && select([H], { hooksOf: () => null }).tier === 'T3');

@@ -193,7 +193,12 @@
     Object.assign(line.style, { left: x0 + 'px', width: Math.max(2, x1 - x0) + 'px', top: top + 'px', height: drop + 'px' });
     const st = HR.stops(S);
     for (const [el, c, v, ok] of [[L.querySelector('.br-end.l'), ca, r.a, st.okA], [L.querySelector('.br-end.r'), cb, r.b, st.okB]]) {
-      Object.assign(el.style, { left: Math.round(c.offsetLeft) + 'px', width: Math.round(c.offsetWidth) + 'px', top: '0px', height: Math.round(c.offsetTop + c.offsetHeight) + 'px' });
+      // (#483) a 24 px target at least (WCAG 2.5.8), centred on the connector, which is 16 px wide at 1280 and under; and above the
+      // connector's labels (z, w₁, w) instead of over them, so a press on a label is not a press on the handle. The compact chain
+      // keeps its labels at the top, so its handle still runs the whole height
+      const cw = Math.round(c.offsetWidth), w = Math.max(24, cw), cv = /** @type {HTMLElement | null} */ (c.querySelector('.conn-var'));
+      const labelTop = cv && !host.classList.contains('compact') ? Math.round(c.offsetTop + cv.offsetTop) : 0;
+      Object.assign(el.style, { left: Math.round(c.offsetLeft + (cw - w) / 2) + 'px', width: w + 'px', top: '0px', height: (labelTop >= 24 ? labelTop : Math.round(c.offsetTop + c.offsetHeight)) + 'px' });
       el.setAttribute('aria-valuenow', String(v)); el.setAttribute('aria-valuetext', fUni(v));
       el.setAttribute('aria-valuemin', String(Math.min(...ok))); el.setAttribute('aria-valuemax', String(Math.max(...ok)));
     }
@@ -383,29 +388,30 @@
   // a step of a type this build does not know still gets a card (its error comes from Funcs.build)
   const defOf = (st) => Funcs.DEFS[st.type] || { label: String(st.type), params: [] };
   const cardButton = (k) => document.querySelector(`#pipeline .card[data-k="${k}"] .nm`);
-  function stepMenu(anchor, k, opt) {
+  // (#437: stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
+  function stepMenuItems(anchor, k, opt) {
     const st = S.steps[k - 1], d = defOf(st);
     // (D1, issue #23: Replace… first: the palette, ready to replace this step)
-    const items = /** @type {any[]} */ ([{ label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
+    const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
     // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
     if (opt && opt.full) {
       const b0 = built[k - 1];
-      if (!isDerivStep(st, b0)) items.push({ label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
-      items.push({ label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
+      if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
+      items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
       // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
       // none on a touch screen)
-      { label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
-      { label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
-      { label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
-      { label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
+      { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
+      { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
+      { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     // (v16: which steps the deformation deforms, SPEC 6.5)
-    if (activeSteps().length >= 2) items.push({ label: $t('Deformation'), kids: deformItems(k) });
+    if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ label: $t('Repeat'), kids: rk }); }
+    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk }); }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
@@ -416,9 +422,10 @@
     // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
     if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
     if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
-    items.push('sep', { label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
-    openMenu(anchor, items);
+    items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
+    return items;
   }
+  function stepMenu(anchor, k, opt) { return openMenu(anchor, stepMenuItems(anchor, k, opt)); }
   // v15 (DESIGN.md 2.4): a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
   // the lens in the Inspector's head)
   function cardClick(k) { selectStep(k); }
@@ -701,6 +708,8 @@
         if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
         input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
         commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; #442 Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
       // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
@@ -799,7 +808,8 @@
       c.root.classList.toggle('bad', bad);
       const d = defOf(st);
       // (v16.5 UX84: a typed step is a "Formula"; its formula is in the tooltip and the aria label, never on the card)
-      const fx = st.type === 'custom' && st.params && st.params.expr ? String(st.params.expr) : '';
+      // ([#465] read as text: \frac{1}{z} is 1/z and z^3 is z³ in the tooltip and to a screen reader)
+      const fx = st.type === 'custom' && st.params && st.params.expr ? texTitle(String(st.params.expr)) : '';
       const lab = `f${sub(k)}, ${d.label}` + (fx ? ` ${fx}` : '') + (S.focus === k ? $t(', shown alone') : '') + (st.on === false ? $t(', bypassed') : '') + (bad ? $t(', error: {msg}', { msg: b.error }) : '');
       if (c.root.getAttribute('aria-label') !== lab) c.root.setAttribute('aria-label', lab);
       const tip = bad ? `f${sub(k)} (${b.def ? b.def.label : d.label}): ${b.error}` : fx ? `f${sub(k)}(z) = ${fx}` : null;
@@ -1074,7 +1084,12 @@
     // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
     const pipeHead = document.querySelector('.pipe-head');
     if (pipeHead && typeof ResizeObserver === 'function') {
-      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const fitPipeHead = () => {
+        // (#566: the heading shrinks first, as CSS has it; one that is cut, or a row that still does not fit, hides it)
+        const title = pipeHead.querySelector(':scope > h2');
+        pipeHead.classList.remove('notitle');
+        if (pipeHead.scrollWidth > pipeHead.clientWidth + 1 || (title && title.scrollWidth > title.clientWidth + 1)) pipeHead.classList.add('notitle');
+      };
       const ro = new ResizeObserver(fitPipeHead);
       ro.observe(pipeHead);
       for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }
