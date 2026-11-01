@@ -994,10 +994,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'jouk': {
         // inside the unit disk the branch arg Cz in (pi/2, 3pi/2): tanh((1 + t) artanh z - i pi t/2) (Funcs joukHom);
         // c J (nat.scaled): times c^t, lc = log c a uniform
-        const J = 'vec2 J = dot(z, z) < 1.0 ? cx_tanhS(cx_atanhS(z) * (1.0 + t) - vec2(0.0, CX_HALF_PI * t)) : cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 + t)));';
-        if (!nat.scaled) return { h: `${T0}${J}\n  return J;`, write() {} };
+        const J = (c) => `vec2 J = dot(${c}, ${c}) < 1.0 ? cx_tanhS(cx_atanhS(z) * (1.0 + t) - vec2(0.0, CX_HALF_PI * t)) : cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 + t)));`;
+        // (hc: the branch of the triangle's centre zc, continued across the unit circle; dom: z's side of that circle
+        // as seen from zc, positive on zc's side, where the continuation is the path itself)
+        const dom = 'float g = dot(z, z) - 1.0;\n  return dot(zc, zc) < 1.0 ? -g : g;';
+        if (!nat.scaled) return { h: `${T0}${J('z')}\n  return J;`, hc: `${T0}${J('zc')}\n  return J;`, dom, write() {} };
         const lc = A.cell();
-        return { h: `${T0}${J}\n  return cmul(cexp(${lc.v} * t), J);`, write(put, b) { const d = Funcs.natData(b); putC(put, lc, d && d.lc ? d.lc : C(0, 0)); } };
+        return { h: `${T0}${J('z')}\n  return cmul(cexp(${lc.v} * t), J);`, hc: `${T0}${J('zc')}\n  return cmul(cexp(${lc.v} * t), J);`, dom, write(put, b) { const d = Funcs.natData(b); putC(put, lc, d && d.lc ? d.lc : C(0, 0)); } };
       }
       // the Moebius one-parameter group (degree 1, however entered): the path slots of the affine and Moebius steps
       case 'mob': {
@@ -1237,7 +1240,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       case 'joukowski': {
         const np = natPlan(P, b.nat, A);
-        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: np ? np.h : LIN(P), own1: !!(np && np.own1), write() {} };
+        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc, dom: np && np.dom, write() {} };
       }
       case 'ijouk': {
         const sg = A.cell();
@@ -1299,7 +1302,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const shared = type === 'poly' ? { P: cells[0], Q: null } : lists[1].length > 1 ? { P: cells[0], Q: cells[1] } : null;
         const np = natPlan(P, b.nat, A, { shared });
         return {
-          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc,
+          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc, dom: np && np.dom,
           write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); if (np) np.write(put, b); },
         };
       }
@@ -1319,7 +1322,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         f += '  return w;';
         const np2 = natPlan(P, b.nat, A);
         return {
-          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P), own1: !!(np2 && np2.own1), hc: np2 && np2.hc,
+          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P), own1: !!(np2 && np2.own1), hc: np2 && np2.hc, dom: np2 && np2.dom,
           write(put) {
             putC(put, a, zp.a);
             zc.forEach((c, i) => putC(put, c, zp.zeros[i]));
@@ -1340,7 +1343,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const res = genCustom(ast, P, A, TH, writers, lines, baked, shape);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc,
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc, dom: np && np.dom,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
@@ -1847,18 +1850,21 @@ vec2 cx_binom(vec2 a, vec2 b) {
       + '  if (post > b && k > b && k <= post) return 1;\n  return 0;\n}\n';
     // end > 0 (F's last step, v16.1 review math-5): F's digits, every live step in (base, end]; a step the map does not
     // apply yet reads its digits and does not act (Funcs.sheetMapEval's end)
-    let hcFns = '';
+    // (cxs0_dom: after a call, the least side value of z against a cut it was continued across (a path's dom: positive
+    // on zc's side of its cut, where the continuation is the path itself); 1e30 where no path has one)
+    let hcFns = 'float cxs0_dom = 1e30;\n';
     const shHead = sh.length;
     sh += 'vec2 chainSheetHom(vec2 zc, vec2 z, int mode, int base, int a, int hi, int b, int post, float t, int combo, int end) {\n'
-      + '  vec4 p = vec4(zc, z);\n  highp int c = combo;\n  int h;\n';
+      + '  vec4 p = vec4(zc, z);\n  highp int c = combo;\n  int h;\n  cxs0_dom = 1e30;\n';
     for (const { P, k, plan } of live) {
       sh += `  h = cxs0_how(${k}, mode, base, a, hi, b, post);\n`;
       if (plan.deriv) { sh += '  if (h > 0) return vec2(cx_nan());\n'; continue; }
       const sp = spl.get(k);
       if (!sp && plan.hc) {
         // (a path with a cut of its own, z^n's z^(1 + (n - 1)t): on the local cut opposite its input at the centre)
-        hcFns += `vec2 ${P}_hc(vec2 z, float t, vec2 zc) {\n  ${plan.hc}\n}\n`;
-        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_hc(p.xy, t, p.xy), ${P}_hc(p.zw, t, p.xy));\n`;
+        hcFns += `vec2 ${P}_hc(vec2 z, float t, vec2 zc) {\n  ${plan.hc}\n}\n` + (plan.dom ? `float ${P}_dom(vec2 z, vec2 zc) {\n  ${plan.dom}\n}\n` : '');
+        const dom = plan.dom ? ` cxs0_dom = min(cxs0_dom, ${P}_dom(p.zw, p.xy));` : '';
+        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) {${dom} p = vec4(${P}_hc(p.xy, t, p.xy), ${P}_hc(p.zw, t, p.xy)); }\n`;
       } else if (!sp) {
         sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
       } else if (sp.custom) {
@@ -1893,6 +1899,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
         k,
         f: fo ? 'other' : sp ? (pc ? 'sheet' : 'other') : 'none',
         h: ho ? 'other' : sp ? (sp.custom && !sp.homCall ? 'other' : pc ? 'sheet' : 'other') : plan.hc ? 'sheet' : 'none',
+        // (a path whose cut the sheet programs continue on a triangle's centre branch and clip at the cut, dom)
+        clip: !sp && !!plan.hc && !!plan.dom,
       });
     }
 

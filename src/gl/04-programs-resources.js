@@ -86,7 +86,7 @@
   // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
   const REGION_K_VS = (fetch, sheet) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet });
-  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false, false);
+  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
@@ -94,11 +94,11 @@
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
     // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
     // triangle's own sheet)
-    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS },
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS() },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
-    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
-    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS(true) },
     // (and on a pre-mapped mesh, drawPreCarry: places mapped on the CPU, the carried colour per fragment, its depth
     // the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },

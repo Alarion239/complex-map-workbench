@@ -375,7 +375,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_UNI}` : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_UNI}` : ''}${o.sheet ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -383,16 +383,29 @@ ${FETCH(fetch)}
 ${LIFT}
 ${BARY}
 ${VALID}
-${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\n' : ''}void main() {
+${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }\n' : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
 ${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
-  vec2 w0 = onCentreSheet(zc, s0), w1 = onCentreSheet(zc, s1), w2 = onCentreSheet(zc, s2);
-  vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0);` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
+  float d0, d1, d2, dMid;
+  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
+  vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);
+  // (uKPass 1: only a triangle across a clipped cut, again on the branch of a vertex past it, for its part there)
+  if (uKPass == 1) {
+    if (!(d0 < 0.0 || d1 < 0.0 || d2 < 0.0)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    zc = srcOf(d0 < 0.0 ? s0 : (d1 < 0.0 ? s1 : s2));
+    w0 = onCentreSheet(zc, s0, d0); w1 = onCentreSheet(zc, s1, d1); w2 = onCentreSheet(zc, s2, d2);
+    wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);
+  }` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
   vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}
   int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}  float sa = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y);
+${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet ? `  vSide = c == 0 ? d0 : (c == 1 ? d1 : d2);
+  // (a side value interpolated across the triangle is off by up to h^2 / 4 for |z|^2 - 1, h its longest source edge:
+  // the fragments that close to the cut are kept, so the two sides meet without a gap)
+  vec2 q0 = srcOf(s0), q1 = srcOf(s1), q2 = srcOf(s2);
+  vSideTol = 0.25 * max(max(dot(q1 - q0, q1 - q0), dot(q2 - q1, q2 - q1)), dot(q0 - q2, q0 - q2));
+` : ''}  float sa = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y);
   float wa = (w1.x - w0.x) * (w2.y - w0.y) - (w2.x - w0.x) * (w1.y - w0.y);
   vJac = 0.5 * log2(max(abs(wa), 1e-35) / max(abs(sa), 1e-35));
   bool good = aSkip < 0.5 && cfin(w0) && cfin(w1) && cfin(w2) && cfin(wm);
@@ -1076,13 +1089,14 @@ void main() {
   // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh), turned back into the source point)
-  const CARRY_FS = (id, key = true, pre = false) => `
+  // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
+  // triangle's branch was continued across left out)
+  const CARRY_FS = (id, key = true, pre = false, clip = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_UNI : ''}in vec2 vP;
-${pre ? 'uniform int uPreZ;\n' : ''}out vec4 o;
+${pre ? 'uniform int uPreZ;\n' : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : exp(clamp(vP.x * (TAU / 16.0), -80.0, 80.0)) * vec2(cos(vP.y * (TAU / 16.0)), sin(vP.y * (TAU / 16.0)))' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : exp(clamp(vP.x * (TAU / 16.0), -80.0, 80.0)) * vec2(cos(vP.y * (TAU / 16.0)), sin(vP.y * (TAU / 16.0)))' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;

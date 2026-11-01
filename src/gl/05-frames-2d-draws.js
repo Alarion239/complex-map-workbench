@@ -344,8 +344,11 @@
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
-    // (a deformation whose path has a cut the sheets continue: each triangle on its centre's sheet, regionKS, uncached)
-    const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
+    // (a deformation whose path has a cut the sheets continue: each triangle on its centre's sheet, regionKS, uncached;
+    // a cut clipped (cutKinds' clip): each triangle cut at it, and a second pass for the triangles across it, on the
+    // branch past it)
+    const m = st.map || {}, kinds = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : [];
+    const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
     const S = cuts ? program('regionKS', st.map) : null;
     let e = !S && rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
@@ -363,11 +366,15 @@
       u1f(Q, 'uKLim', st.lim || 1e30);
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+      u1i(Q, 'uKPass', 0);
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
-    carryDraw(k, st.depth, () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n));
+    carryDraw(k, st.depth, () => {
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (P === S && clip) { u1i(P, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+    });
     gl.bindVertexArray(null);
     return true;
   }
