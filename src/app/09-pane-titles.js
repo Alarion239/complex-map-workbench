@@ -1085,7 +1085,7 @@
     if (box.hidden === want) box.hidden = !want;
     // (the folded chip on a phone shows a glyph of its key: the hue wheel, arg increasing counterclockwise from red at
     // 1, or a checker for the Regions key)
-    if (kind && box.parentNode && box.parentNode.classList && box.parentNode.classList.contains('pane-head')) {
+    if (kind && box.parentNode && /** @type {HTMLElement} */ (box.parentNode).classList && /** @type {HTMLElement} */ (box.parentNode).classList.contains('pane-head')) {
       let sm = box.querySelector(':scope > .lg-sum');
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
