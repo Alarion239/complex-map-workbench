@@ -174,7 +174,10 @@ const NatPaths = (() => {
   // the path is continuous and injective on the disk too (J is): with arcoth z = artanh z − iπ/2 there and
   // coth(x − iπ/2) = tanh x, H_t(z) = tanh((1 + t) artanh z − iπt/2) for |z| < 1. One branch arg Cz ∈ (−π/2, 3π/2)
   // in all: its cut is the lower unit semicircle (between the disk and the exterior); the upper one closes onto [−1, 1].
-  const joukHom = (t) => (z) => (z.re * z.re + z.im * z.im < 1 ? serS('tanh', CX.sub(sc(serS('atanh', z), 1 + t), C(0, HPI * t))) : cothX(sc(arcothS(z), 1 + t)));
+  // joukAt(t, inside): the disk's formula (inside) or the exterior's, for every z (the landscape continues the branch
+  // of a cell's centre across the circle: Sheets localCutHom)
+  const joukAt = (t, inside) => (z) => (inside ? serS('tanh', CX.sub(sc(serS('atanh', z), 1 + t), C(0, HPI * t))) : cothX(sc(arcothS(z), 1 + t)));
+  const joukHom = (t) => (z) => joukAt(t, z.re * z.re + z.im * z.im < 1)(z);
   const ijoukHom = (sg) => (t) => (z) => cothX(CX.sub(sc(arcothS(z), 1 - t / 2), C(0, sg < 0 ? HPI * t : 0)));
   // names in a caption phrase: o = {f, p, c, a} (all at once and in turn, several steps: f_k, p_k, ..., so that one
   // sentence never gives one letter two meanings)
@@ -485,7 +488,7 @@ const NatPaths = (() => {
   function natData(b) { return b && b.natData ? b.natData : null; }
 
 
-  return { mobHom, mobHomTex, linHom, powHom, expHom, expHomTex, logHom, logHomTex, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
+  return { mobHom, mobHomTex, linHom, powHom, expHom, expHomTex, logHom, logHomTex, joukAt, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
