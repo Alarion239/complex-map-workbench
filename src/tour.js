@@ -3103,7 +3103,7 @@ const Tour = (() => {
     lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
     const st = document.documentElement.style;
     if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
-    else { st.removeProperty('--tour-h'); lane.baseH = mode === 'port' ? 56 : mode === 'row' ? 48 : 0; st.setProperty('--ph-tour', lane.baseH + 'px'); }
+    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = lanePhH(); }   // (baseH: the row's own height, which laneFit grows from (#586))
     call('slot', where);
     laneFit();
   }
