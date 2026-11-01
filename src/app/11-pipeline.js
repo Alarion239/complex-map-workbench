@@ -184,12 +184,12 @@
     const L = $('chainBracket'), host = $('pipeline');
     if (!L || L.hidden || !host) return;
     const n = nSteps(), r = homRangeOk() || { a: 1, b: n };
-    const ca = host.querySelector(`.conn[data-conn="${r.a}"]`), cb = host.querySelector(`.conn[data-conn="${r.b + 1}"]`);
+    const ca = /** @type {HTMLElement | null} */ (host.querySelector(`.conn[data-conn="${r.a}"]`)), cb = /** @type {HTMLElement | null} */ (host.querySelector(`.conn[data-conn="${r.b + 1}"]`));
     if (!ca || !cb) return;
     const ph = brPhone(), drop = ph ? 14 : host.classList.contains('compact') ? 10 : 20;
     const x0 = Math.round(ca.offsetLeft + ca.offsetWidth / 2), x1 = Math.round(cb.offsetLeft + cb.offsetWidth / 2);
     const top = ph ? Math.max(0, Math.round(ca.offsetTop) - 5) : 3;
-    const line = L.querySelector('.br-line');
+    const line = /** @type {HTMLElement} */ (L.querySelector('.br-line'));
     Object.assign(line.style, { left: x0 + 'px', width: Math.max(2, x1 - x0) + 'px', top: top + 'px', height: drop + 'px' });
     const st = HR.stops(S);
     for (const [el, c, v, ok] of [[L.querySelector('.br-end.l'), ca, r.a, st.okA], [L.querySelector('.br-end.r'), cb, r.b, st.okB]]) {
@@ -263,7 +263,7 @@
     const c = brCand(side, to);
     brTip(el, side, c.stop);
     brSet(c, false);
-    const again = $('chainBracket') && $('chainBracket').querySelector('.br-end.' + side);
+    const again = /** @type {HTMLElement | null} */ ($('chainBracket') && $('chainBracket').querySelector('.br-end.' + side));
     if (again && document.activeElement !== again) again.focus({ preventScroll: true });
   }
   function brDown(e, side, el) {
@@ -277,7 +277,7 @@
       if (!brDrag) return;
       const host = $('pipeline'), hb = host.getBoundingClientRect(), x = ev.clientX - hb.left + host.scrollLeft;
       let j = 1;
-      for (let k = 1; k <= nSteps(); k++) { const c = host.querySelector(`.card[data-k="${k}"]`); if (c && c.offsetLeft + c.offsetWidth / 2 < x) j = k + 1; }
+      for (let k = 1; k <= nSteps(); k++) { const c = /** @type {HTMLElement | null} */ (host.querySelector(`.card[data-k="${k}"]`)); if (c && c.offsetLeft + c.offsetWidth / 2 < x) j = k + 1; }
       const c = brCand(side, side === 'l' ? j : j - 1);
       brTip(el, side, c.stop);
       if (brSet(c, true) && sndP.ui !== false) soundCue('snap');
@@ -366,7 +366,7 @@
       thumbs.set(k, new Pane(card.canvas));
     });
     host.append(connector(S.steps.length + 1));
-    host.lastChild.classList.add('conn-last');
+    /** @type {HTMLElement} */ (host.lastChild).classList.add('conn-last');
     updateBracket();   // (v16: the deformation's bracket, a tab stop after the cards and before the Add tile)
     host.append(h('button', { class: 'add-card' + (S.steps.length <= 3 ? ' labelled' : ''), id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
       h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (v16.5 UX22: the label the short chain shows, desk.css)
@@ -375,7 +375,7 @@
     // (v15 review design-14: the listbox owns the options only, the region card, the step cards and F, through
     // aria-owns; the connectors are aria-hidden and the Add tile is its own tab stop after the listbox, not an item in it)
     host.removeAttribute('role'); host.removeAttribute('aria-label');
-    const opts = [...host.querySelectorAll(':scope > [role="option"]')];
+    const opts = /** @type {HTMLElement[]} */ ([...host.querySelectorAll(':scope > [role="option"]')]);
     for (const o of opts) o.id = 'chainOpt' + (o.classList.contains('ftile') ? 'F' : o.dataset.k);
     host.prepend(h('div', { class: 'chain-lb', id: 'chainListbox', role: 'listbox', 'aria-label': $t('Function chain'), 'aria-orientation': 'horizontal', 'aria-owns': opts.map((o) => o.id).join(' ') }));
     if ($('chainBracket') && $('addStepBtn')) host.insertBefore($('chainBracket'), $('addStepBtn'));
@@ -432,18 +432,26 @@
   // (v16.5 UX81) move step k one place and keep the keyboard on its card (the chain is drawn again)
   function moveCard(k, d) {
     if (!moveStep(k, d)) return;
-    const c = document.querySelector(`#pipeline .card[data-k="${k + d}"]`);
+    const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k + d}"]`));
     if (c) c.focus({ preventScroll: true });
+  }
+  // the keys that edit a step, read once for the chain's cards and the steps view's chips: Alt+← / Alt+→ move it (move: -1, 1),
+  // Delete or Backspace remove it (remove: true)
+  function stepEditKey(e) {
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return { move: e.key === 'ArrowLeft' ? -1 : 1 };
+    if (e.key === 'Delete' || e.key === 'Backspace') return { remove: true };   // (any modifier: ⌘⌫ on a Mac, as the chain's cards took it)
+    return null;
   }
   function chainKey(e, k) {
     if (e.target !== e.currentTarget) return;
     const n = S.steps.length, cur = k === 'F' ? n + 1 : k;
-    const go = (j) => { e.preventDefault(); const el = j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
+    const go = (j) => { e.preventDefault(); const el = /** @type {HTMLElement | null} */ (j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`)); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
     // (v16.5 UX81 / UX97: Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
     // keeps the keyboard; the chain and learn pieces built the same key, merged as one)
-    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const ed = stepEditKey(e);
+    if (ed && ed.move) {
       e.preventDefault(); e.stopPropagation();
-      if (k > 0 && k !== 'F') moveCard(k, e.key === 'ArrowLeft' ? -1 : 1);
+      if (k > 0 && k !== 'F') moveCard(k, ed.move);
       return;
     }
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(Math.min(n + 1, cur + 1));
@@ -453,7 +461,7 @@
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStep(k); }
     // (the physical L key on any layout: «д» on ЙЦУКЕН; review russian-5)
     else if (String((I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
+    else if (ed && ed.remove && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
   }
   function makeCard(st, k) {
     const d = defOf(st);
@@ -530,7 +538,7 @@
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
     const lit = Inspector.STRONG.filter((key) => words[key]);
     const show = new Set(lit.slice(0, 2));
-    for (const el of t.querySelectorAll('.lamp')) {
+    for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp'))) {
       const key = el.dataset.lamp, on = !!words[key];
       el.classList.toggle('on', on);
       el.hidden = !show.has(key);
@@ -541,12 +549,12 @@
     // (the strongest first in the list's order)
     const fl = t.querySelector('.fl');
     for (const key of lit.slice(0, 2).reverse()) { const el = fl.querySelector(`.lamp[data-lamp="${key}"]`); if (el) fl.prepend(el); }
-    t.querySelector('.fnone').hidden = lit.length > 0;
+    /** @type {HTMLElement} */ (t.querySelector('.fnone')).hidden = lit.length > 0;
     const names = BADGES.filter(([key]) => words[key]).map(([, n]) => n);
     // (v16.5 UX84: an empty chain is the identity: the tile says F = z, not its guarantees)
     const id = !act.length;
     t.classList.toggle('ident', id);
-    if (id) for (const el of t.querySelectorAll('.lamp, .fnone')) el.hidden = true;
+    if (id) for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp, .fnone'))) el.hidden = true;
     t.setAttribute('aria-label', id ? $t('F = z: no steps yet') : names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
   }
   // dragging horizontally on a label changes a numeric field
@@ -779,7 +787,7 @@
   // keep the card's field and the compact popover's field in step
   function syncParam(k, key, from) {
     const v = S.steps[k - 1] && S.steps[k - 1].params[key];
-    for (const el of document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`)) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`))) {
       if (el.id === `${from}${k}_${key}` || document.activeElement === el) continue;
       const t = el.dataset.num ? numShow(v) : String(v);
       if (String(el.value) !== t) el.value = t;
@@ -1068,7 +1076,7 @@
   // (#385) the chain head: compact or full, View all, Clear chain, its fit
   function setupChainHead() {
     for (const b of $('chainMode').children) b.addEventListener('click', () => {
-      setOpt('compact', b.dataset.mode === 'compact');
+      setOpt('compact', /** @type {HTMLElement} */ (b).dataset.mode === 'compact');
       const hgt = S.compact ? 96 : 188;
       document.documentElement.style.setProperty('--chain-h', hgt + 'px');
       try { localStorage.setItem(lsk('cmw-chain-h2'), String(hgt)); } catch (e) { /* ignore */ }
