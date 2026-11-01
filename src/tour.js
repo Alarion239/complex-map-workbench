@@ -467,7 +467,7 @@ const Tour = (() => {
     // (#442: the steps view's thread, its ring, its Colour from here button, its two choices (a segmented control, or on a phone one
     // button that steps through them) and the first function chip)
     svStrip: '#svStrip', svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
-    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svF: () => vis1('#svStrip .sv-fall'),
+    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svF: () => vis1('#svStrip .sv-wholemap'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },

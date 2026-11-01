@@ -599,8 +599,8 @@
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
     // (F, the whole map, at the thread's end: it opens the Inspector's page of the composition, its domain and its guarantees; no ⋯, no drag,
     // no step of the chain)
-    const fall = svChipBtn({ class: 'sv-fall', 'aria-pressed': 'false', 'aria-label': $t('The whole map'), 'data-tip': $t('The whole map'), onclick: () => svInspect('F') }, '<i>F</i>', $t('The whole map'));
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), fall, add, next, speed, loop, bandx);
+    const wholeMap = svChipBtn({ class: 'sv-wholemap', 'aria-pressed': 'false', 'aria-label': $t('The whole map'), 'data-tip': $t('The whole map'), onclick: () => svInspect('F') }, '<i>F</i>', $t('The whole map'));
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), wholeMap, add, next, speed, loop, bandx);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -623,7 +623,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, fall, empty, rail, play, loop, band, bandx, speed, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -672,7 +672,7 @@
     }
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
-    E.fall.hidden = !!al || !S.steps.length;
+    E.wholeMap.hidden = !!al || !S.steps.length;
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
   }
@@ -1543,7 +1543,7 @@
   }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
   function svFSync() {
-    const f = SV.on && SV.els && SV.els.fall;
+    const f = SV.on && SV.els && SV.els.wholeMap;
     if (!f) return;
     const on = String(S.sel === 'F');
     if (f.getAttribute('aria-pressed') !== on) f.setAttribute('aria-pressed', on);
