@@ -28,8 +28,10 @@ const R = [], ROWS = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // (#504: readiness waits, not fixed sleeps; the kit's settled(): two frames, no finite animation running, and its until)
 // a step has settled: the strip no longer busy (show() sets aria-busy at once, before its first await), the spotlight's
-// morph over; a floor of 350 ms for the step's own 300 ms re-sync of its buttons (syncAct, a sound step)
-const STEADY = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
+// morph over; a floor of 350 ms for the step's own 300 ms re-sync of its buttons (syncAct, a sound step); and the web
+// fonts in (display=swap: a face the strip uses first can swap in after the load, changing cut, titleOk and the sizes;
+// ux's review)
+const STEADY = `document.fonts.status === 'loaded' && (!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
 const settle = () => settled({ floor: 350, panes: false, until: STEADY });
 // a layer the step opened is shown (a layer that never opens still fails: after the cap, as noLayer)
 const shown = (sel) => settled({ panes: false, max: 3000, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
