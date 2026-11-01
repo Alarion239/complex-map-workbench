@@ -56,11 +56,15 @@ for (const f of ['src/phone.css', 'src/desk.css', 'src/page.html', 'src/app/19-s
   ok('T1: layout_baseline.json without a diff (or unreadable) -> both', same(lb(undefined), ['layout-1', 'layout-2', 'smoke']) && same(lb(null), ['layout-1', 'layout-2', 'smoke']), [lb(undefined), lb(null)]);
   // (runsOfDiff on real commits, git show at both: 7c06b290 changed every run's matrix and rows (#565); a commit
   // against itself changes none; a revision git does not know cannot be read: null, so every run)
-  // (the Gate's unit job checks out the whole history, fetch-depth 0; a shallow clone without these commits skips them,
-  // saying so, rather than failing for a reason that is not the change's)
+  // (the Gate's unit job checks out the whole history, fetch-depth 0; a local shallow clone without these commits skips
+  // them, saying so, rather than failing for a reason that is not the change's)
   const { runsOfDiff } = require('../ci/impact.js');
   const has = (rev) => { try { require('child_process').execFileSync('git', ['cat-file', '-e', `${rev}^{commit}`], { cwd: require('path').join(__dirname, '..'), stdio: 'ignore' }); return true; } catch (e) { return false; } };
-  if (!has('7c06b290') || !has('7c06b290~1')) console.log('SKIP runsOfDiff on real commits: 7c06b290 or its parent is not in this clone (a shallow checkout); the Gate runs it');
+  // (in CI, CI=true, the history must be there: a missing commit fails instead of skipping)
+  if (!has('7c06b290') || !has('7c06b290~1')) {
+    if (process.env.CI) ok('runsOfDiff on real commits: 7c06b290 and its parent are in this CI checkout (fetch-depth 0)', false);
+    else console.log('SKIP runsOfDiff on real commits: 7c06b290 or its parent is not in this clone (a shallow checkout); the Gate runs it');
+  }
   else {
     const real = runsOfDiff('7c06b290~1', '7c06b290', 'ci/layout_baseline.json');
     ok('runsOfDiff, a real commit that changed every run -> en, ru, it', same(real || [], ['en', 'ru', 'it']), real);
