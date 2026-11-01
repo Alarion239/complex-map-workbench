@@ -664,7 +664,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-fchip .sv-fk { font: italic 400 16px/1 var(--f-math, serif); color: var(--ink); }
 .sv-fchip .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; padding: 0 6px; font: 400 12px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); }
+select.sel.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
 .sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -729,7 +729,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 57; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line-strong); border-radius: var(--r-4) var(--r-4) 0 0; display: grid; gap: 12px; }
 .sv-sheet-h { display: flex; align-items: center; justify-content: space-between; font: 600 16px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
-.sv-sheet .sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }
+.sv-sheet select.sel.sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }
 .sv-sheet .sv-loop { height: 44px; min-width: 96px; }
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */

@@ -608,28 +608,19 @@
     const { name, role } = svTitleParts();
     return `${name}<span class="sv-sep"> · </span><span class="sv-role">${role}</span>`;
   }
-  function svSeg(cls, label, items, cur, pick) {
-    const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
-    for (const [id, text, tip] of items) {
-      g.append(h('button', { type: 'button', role: 'radio', 'data-v': id, 'data-tip': tip || '', 'aria-checked': String(cur() === id), tabindex: cur() === id ? '0' : '-1', class: cur() === id ? 'on' : '', onclick: () => pick(id) }, text));
-    }
-    // (a radio group: one Tab stop, the checked one; ← → pick the next and move the focus with it)
-    g.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-      const bs = [...g.children], i = bs.indexOf(/** @type {HTMLElement} */ (e.target));
-      if (i < 0) return;
-      e.preventDefault();
-      const n = bs[(i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length];
-      pick(n.dataset.v); n.focus();
-    });
-    return g;
+  // the glide speed's select (the shared field-styled one, selectEl) and the Loop toggle, the strip's and the playback sheet's
+  function svSpeedSel(title) {
+    return selectEl(null, SV.speed, [['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]], svSetSpeed, title, 'sv-speed');
+  }
+  function svLoopBtn(cls, tip) {
+    return h('button', { type: 'button', class: cls, 'aria-pressed': String(SV.loop), 'data-tip': tip || null, onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
   }
   function svBuild() {
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
-    const scope = svSeg('sv-scope', $t('Where colour shows'), [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], () => SV.scope, (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); });
+    const scope = seg(null, SV.scope, [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -642,11 +633,10 @@
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => svSetSpeed(e.target.value) },
-      ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
+    const speed = svSpeedSel($t('Glide speed'));
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
-    const loop = h('button', { type: 'button', class: 'btn small sv-loop', 'aria-pressed': String(SV.loop), 'data-tip': $t('Start over at the end'), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+    const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
     // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it (#501), and inside the band it lay under the plane buttons)
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
@@ -753,7 +743,7 @@
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
-      for (const b of E.scope.children) { const on = b.dataset.v === SV.scope; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
+      setSeg(E.scope, SV.scope);
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
@@ -1307,9 +1297,8 @@
     const E = SV.els;
     if (!E.sheet) {
       const scrim = h('div', { class: 'sv-scrim', onclick: () => svSheetClose() });
-      const sel = h('select', { class: 'sv-speed', 'aria-label': $t('Speed'), onchange: (e) => svSetSpeed(e.target.value) },
-        ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v }, t)));
-      const lp = h('button', { type: 'button', class: 'btn sv-loop', 'aria-pressed': String(SV.loop), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+      const sel = svSpeedSel($t('Speed'));
+      const lp = svLoopBtn('btn sv-loop');
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
         h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('div', { class: 'sv-sheet-r' }, lp));
@@ -1600,11 +1589,12 @@
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
     const wrap = h('span', { class: 'sv-fwrap' + (off ? ' off' : '') }, chip, more);
     wrap.addEventListener('keydown', (e) => {
-      if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      const ed = stepEditKey(e);
+      if (ed && ed.move) {
         e.preventDefault(); e.stopPropagation();
-        const el = svMove(k, e.key === 'ArrowLeft' ? -1 : 1);
+        const el = svMove(k, ed.move);
         if (el) el.focus({ preventScroll: true });
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !e.altKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); e.stopPropagation(); svRemove(k); }
+      } else if (ed && ed.remove) { e.preventDefault(); e.stopPropagation(); svRemove(k); }
       else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { e.preventDefault(); e.stopPropagation(); svStepMenu(/** @type {HTMLElement} */ (e.target), k); }
     });
     // (right-click, and the touch's long press: the phone's chips have no ⋯)

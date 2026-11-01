@@ -435,15 +435,23 @@
     const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k + d}"]`));
     if (c) c.focus({ preventScroll: true });
   }
+  // the keys that edit a step, read once for the chain's cards and the steps view's chips: Alt+← / Alt+→ move it (move: -1, 1),
+  // Delete or Backspace remove it (remove: true)
+  function stepEditKey(e) {
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return { move: e.key === 'ArrowLeft' ? -1 : 1 };
+    if (e.key === 'Delete' || e.key === 'Backspace') return { remove: true };   // (any modifier: ⌘⌫ on a Mac, as the chain's cards took it)
+    return null;
+  }
   function chainKey(e, k) {
     if (e.target !== e.currentTarget) return;
     const n = S.steps.length, cur = k === 'F' ? n + 1 : k;
     const go = (j) => { e.preventDefault(); const el = /** @type {HTMLElement | null} */ (j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`)); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
     // (v16.5 UX81 / UX97: Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
     // keeps the keyboard; the chain and learn pieces built the same key, merged as one)
-    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const ed = stepEditKey(e);
+    if (ed && ed.move) {
       e.preventDefault(); e.stopPropagation();
-      if (k > 0 && k !== 'F') moveCard(k, e.key === 'ArrowLeft' ? -1 : 1);
+      if (k > 0 && k !== 'F') moveCard(k, ed.move);
       return;
     }
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(Math.min(n + 1, cur + 1));
@@ -453,7 +461,7 @@
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStep(k); }
     // (the physical L key on any layout: «д» on ЙЦУКЕН; review russian-5)
     else if (String((I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
+    else if (ed && ed.remove && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
   }
   function makeCard(st, k) {
     const d = defOf(st);
