@@ -253,7 +253,8 @@ function linesOfDiff(from, head, f) {
 // [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits (an added or removed
 // run included); null when either side cannot be read or parsed
 function runsOfDiff(from, head, f) {
-  const runs = (rev) => { try { return JSON.parse(git('show', `${rev}:${f}`)).runs || {}; } catch (e) { return null; } };
+  // (stderr quiet: a side git cannot show is an answer here, null, not an error)
+  const runs = (rev) => { try { return JSON.parse(execFileSync('git', ['show', `${rev}:${f}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).runs || {}; } catch (e) { return null; } };
   const a = runs(from), b = runs(head);
   if (!a || !b) return null;
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
