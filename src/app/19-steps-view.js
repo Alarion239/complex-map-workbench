@@ -437,7 +437,7 @@
       draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
       if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
-    // (#590: the whole plane's points about the frame's map's poles, on log-polar meshes there, under the same depth;
+    // (the whole plane's points about the frame's map's poles, on log-polar meshes there, under the same depth;
     // a fine search at rest or parked)
     if (list.includes(SV_ALL)) for (const pr of poleMeshes(map, !svGliding())) draws.push({ res: pr, L: SV_CARRY_L, skip: null });
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }

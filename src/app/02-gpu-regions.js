@@ -751,19 +751,9 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: invSing(plan) };
   }
-  // (#551, #590) Log-polar meshes about the poles in plane z of a map of the steps view's carried colour: a glide's
-  // h_{b,u} after the steps before b (the deformation's poles at that u: Joukowski's -i cot(pi k / (1 + u)), and F's as
-  // u nears 1), or a plane's own map. Near a pole the points land far out, and the whole plane's mesh (the steps view's
-  // SV_ALL), cut in cells of the window, places them in long thin triangles whose edges show as steps; rings in a
-  // geometric ratio about the pole (NR rings from R/6 down to about 5e-4 of it, NA sectors: near squares in log-polar
-  // terms) map to well-shaped triangles. One mesh of those rings, about 0 (rebuilt when the window's R changes), drawn
-  // once per pole: a view of it ([res] with its own origin, the pole) per pole. The poles: polesOf over the
-  // window widened by half (polesOf), kept per map and window; while the map moves (full false) the search runs on a
-  // coarser grid at most every POLE_EVERY ms and the last poles are followed by Newton on 1/F between. At most POLE_MAX
-  // poles
   // The poles of F in box (at most max, [C]): F on an nx × ny grid, each node where |F| is a local maximum and steep
-  // (above twice its least neighbour, as near a pole |F| grows as 1 / distance) a start for Newton on 1/F, kept where it converges inside the box to a point
-  // where 1/F is 0 (a pole is a zero of 1/F). Unlike the argument principle of zerosPolesTimed it holds beside a branch
+  // (above twice its least neighbour, as near a pole |F| grows as 1 / distance) a start for Newton on 1/F, kept where
+  // it converges inside the box to a point where 1/F is 0 (a pole is a zero of 1/F). Unlike the argument principle of zerosPolesTimed it holds beside a branch
   // cut of F (a deformation's power, Joukowski's along a glide). About nx·ny calls of F
   function polesOf(F, box, max = 8, nx = 64, ny = 40) {
     const hx = (box.x1 - box.x0) / nx, hy = (box.y1 - box.y0) / ny, m = new Float64Array((nx + 1) * (ny + 1));
@@ -781,6 +771,15 @@
     }
     return out;
   }
+  // Log-polar meshes about the poles in plane z of a map of the steps view's carried colour: a glide's
+  // h_{b,u} after the steps before b (the deformation's poles at that u, and F's as u nears 1), or a plane's own map. Near a pole the points land far out, and the whole plane's mesh (the steps view's
+  // SV_ALL), cut in cells of the window, places them in long thin triangles whose edges show as steps; rings in a
+  // geometric ratio about the pole (NR rings from R/6 down to about 5e-4 of it, NA sectors: near squares in log-polar
+  // terms) map to well-shaped triangles. One mesh of those rings, about 0 (rebuilt when the window's R changes), drawn
+  // once per pole: a view of it ([res] with its own origin, the pole) per pole. The poles: polesOf over the
+  // window widened by half, kept per map and window; while the map moves (full false) the search runs on a coarser
+  // grid sized to about POLE_GLIDE_MS of work, at most every POLE_EVERY ms, and the last poles are followed by Newton on
+  // 1/F between. At most POLE_MAX poles
   const POLE_NA = 48, POLE_NR = 60, POLE_Q = 0.88, POLE_MAX = 8, POLE_EVERY = 120, POLE_GLIDE_MS = 1;
   const poleM = { R: 0, res: null, key: '', mk: '', at: [], t: 0, full: false, views: /** @type {any[]} */ ([]) };
   function poleMeshes(map, full) {

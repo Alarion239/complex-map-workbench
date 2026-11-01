@@ -567,7 +567,7 @@ const Inverse = (() => {
   // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
-  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out. opts.fam = K (#551): a periodic
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out. opts.fam = K: a periodic
   // family (exp, the trig functions: type 'add') gives its members m = -K … K of each base, and the result says
   // truncated (its zs are those members' preimages, not all of them)
   function pointPre(plan, p, cap = LEAF_CAP, opts = {}) {
