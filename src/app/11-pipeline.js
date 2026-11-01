@@ -83,6 +83,28 @@
   }
   // ([#398] the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
   const repeatMoved = (k, rp) => tourEmit('repeat-changed', { k, n: rp ? rp.n : 0, len: rp ? rp.len : 0, by: rp && rp.by ? rp.by : null });
+  // the repeat that text typed into an N field asks for (a whole number, or the name of a shared number), or null when it
+  // is no change: the bracket's field and the Inspector's row read it alike
+  function repeatFromText(st, t) {
+    const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
+    if (ns.length === 1 && Params.get(ns[0]) !== undefined) return st.repeat.by !== ns[0] ? { n: st.repeat.n, len: st.repeat.len, by: ns[0] } : null;
+    if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) return { n: v, len: st.repeat.len };
+    return null;
+  }
+  // the block that step k is in, as repeatBlocks gives it, or null
+  const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
+  // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
+  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
+  function focusRepeatField(k) {
+    if (!SV.on) return document.querySelector(`#pipeline .rep-bracket[data-k="${k}"] .rep-n`);
+    svInspect(k);
+    const t0 = performance.now(), look = () => {
+      const f = /** @type {HTMLInputElement | null} */ (document.querySelector('.insp-repeat .rep-n'));
+      if (f && f.getClientRects().length) { f.focus(); f.select(); } else if (performance.now() - t0 < 1500) requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+    return null;
+  }
   let repRO = null;
   function updateRepeats() {
     const host = $('pipeline');
@@ -103,10 +125,7 @@
           const t = inp.value.trim(), st = typedFor || S.steps[+L.dataset.k - 1];
           typedFor = null;
           if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
-          const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
-          let rp = null;
-          if (ns.length === 1 && Params.get(ns[0]) !== undefined) { if (st.repeat.by !== ns[0]) rp = { n: st.repeat.n, len: st.repeat.len, by: ns[0] }; }
-          else if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) rp = { n: v, len: st.repeat.len };
+          const rp = repeatFromText(st, t);
           if (!rp) return;
           st.repeat = rp;
           chainChanged(false);
@@ -147,11 +166,11 @@
   // the ⋯ menu's Repeat: the blocks that may end at step k (back to a d/dz or another repeat), or N and End for its own
   function repeatItems(k) {
     const own = repeatBlocks().find((r) => r.a <= k && k <= r.b);
-    if (own) return [{ label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
+    if (own) return [{ label: $t('Repeat…'), run: () => focusRepeatField(own.b) }, { label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
     const kids = [], prevEnd = Math.max(0, ...repeatBlocks().filter((r) => r.b < k).map((r) => r.b));
     for (let j = k; j > prevEnd && j >= Math.max(1, k - 5); j--) {
       if (isDerivStep(S.steps[j - 1], built[j - 1])) break;
-      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); const c = document.querySelector(`#pipeline .rep-bracket[data-k="${k}"] .rep-n`); return c || null; } });
+      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); return focusRepeatField(k); } });
     }
     return kids;
   }
