@@ -10,13 +10,14 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 for (const dark of [false, true]) {
   const tag = dark ? 'dark' : 'light';
   await view(360, 780, dark, true);
-  await nav(`http://localhost:${PORT}/test.html?ns=pfm${tag}${Date.now() % 100000}`);
-  await sleep(4500);
+  await go(`http://localhost:${PORT}/test.html?ns=pfm${tag}${Date.now() % 100000}`);
+  await settled({ until: `typeof Tour !== 'undefined' && !!window.Phone && Phone.isOn()` });
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false);
     const T = Tour._t, c = T.CHAPTERS.find((x) => x.id === 'construct'); let best = 0, len = -1;
     c.steps.forEach((st, i) => { const n = (T.leadFor(st) || '').length + (T.copyFor(st, null) || '').length + (st.try ? (T.tryFor(st.try) || '').length : 0); if (n > len) { len = n; best = i; } });
     Tour.start({ chapter: 'construct', step: best }); return best; })()`);
-  await sleep(3000);
+  // the step has opened the Tools sheet with its tiles
+  await settled({ until: `(() => { const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])'); return !!sb && [...sb.querySelectorAll('.ph-tile')].some((t) => /Formula/.test(t.textContent)); })()` });
   // the tile before Formula, focused without scrolling; then the keyboard moves on to Formula
   const pre = await ev(`(() => {
     const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])');
@@ -30,7 +31,7 @@ for (const dark of [false, true]) {
   ok(`${tag}: the Tools sheet is open with the Formula tile after another`, !!pre, pre);
   if (!pre) continue;
   await key('Tab');
-  await sleep(500);
+  await settled({ until: `/Formula/.test((document.activeElement || {}).textContent || '')` });
   const g = await ev(`(() => {
     const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])');
     const f = [...document.querySelectorAll('.ph-tile')].find((t) => /Formula/.test(t.textContent));
