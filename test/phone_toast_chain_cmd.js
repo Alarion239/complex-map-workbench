@@ -1,4 +1,5 @@
-// A phone's toast does not cover the chain sheet's rows (#464, from Alexander's screenshot on #58): at 360 × 640 and 390 × 844,
+// A phone's toast does not cover the chain sheet's rows (#464, from Alexander's screenshot on #58): at 360 × 640 and 390 × 844 (and in landscape,
+// 740 × 360 and 915 × 412),
 // in English, Russian and Italian, with the chain sheet open (the chain bar's "N steps ▾"), a step added the way the palette adds one
 // shows "Added f₄ …  Show alone  Undo", and that message:
 //   - meets no row of the sheet: not the Numbers row, the F tile, any card, nor the Add function row (the rows that are inside the
@@ -32,25 +33,30 @@ const measure = () => ev(`(() => {
   const rows = [...(sheet ? sheet.querySelectorAll('.ph-nums, #ftile, #pipeline .card, #add-card') : [])].filter(vis).map((e) => ({ id: e.id || e.className.split(' ')[0], b: sb ? clip(e.getBoundingClientRect()) : null }))
     .filter((r) => r.b && r.b.bottom > r.b.top + 1 && r.b.right > r.b.left + 1);
   const under = rows.filter((r) => inter(r.b, tb)).map((r) => r.id);
+  // (the step just added is the selected card: it is to be seen in the sheet's list, above the message, not scrolled away under it)
+  const nc = sheet && sheet.querySelector('#pipeline .card[aria-selected="true"]'), ncr = nc && nc.getBoundingClientRect();
+  const newCard = nc && sb ? { id: nc.id, seen: +(Math.max(0, Math.min(ncr.bottom, sb.bottom) - Math.max(ncr.top, sb.top)) / Math.max(1, ncr.height)).toFixed(2) } : null;
   const btns = [...t.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, at = document.elementFromPoint(x, y); return { t: b.textContent.trim() || b.className, hit: !!at && (at === b || b.contains(at)) }; });
   const sp = t.querySelector('span');
   return { text: sp && sp.textContent, box: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), sheet: sb && [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), full: document.documentElement.classList.contains('ph-full'),
-    win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, under, rows: rows.length, btns,
+    win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, under, newCard, rows: rows.length, btns,
     cut: sp ? Math.max(0, sp.scrollWidth - sp.clientWidth) : 0, placed: host.getAttribute('data-placed') };
 })()`);
-for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844]]) {
+// (portrait 360 × 640 and 390 × 844, the width of Alexander's screenshot; landscape 740 × 360 and 915 × 412, where the sheet is a side panel)
+for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360], [915, 412]]) {
   const tag = `${lang} ${w}×${h}`;
   await fresh(w, h, lang);
   await ev(`document.querySelector('.ph-csteps').click(); 1`); await settle(900);
   ok(`${tag}: the chain sheet is open`, await ev(`!!document.querySelector('.ph-sheet[data-k="chain"].open')`), null);
-  // (700 ms after the toast shows: the sheet's 220 ms to make way for it)
+  // (a second after the toast shows: the sheet's 220 ms to make way for it, and the list's scroll to the card just added)
   let m = null;
-  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await settle(700); m = await measure(); } }
+  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await settle(1000); m = await measure(); } }
   info[tag] = m;
   ok(`${tag}: a toast shows after a step is added`, !!m, null);
   if (!m) continue;
   ok(`${tag}: the toast covers no row of the chain sheet`, m.under.length === 0, { under: m.under, box: m.box, sheet: m.sheet, rows: m.rows, placed: m.placed });
   ok(`${tag}: the toast is inside the window`, m.win, { box: m.box });
+  ok(`${tag}: the step just added is in view in the sheet`, m.newCard && m.newCard.seen >= 0.9, { newCard: m.newCard, box: m.box, sheet: m.sheet });
   ok(`${tag}: the toast's words are not cut`, m.cut <= 1, { cut: m.cut, text: m.text });
   ok(`${tag}: its buttons can be pressed`, m.btns.length >= 2 && m.btns.every((b) => b.hit), m.btns);
 }
