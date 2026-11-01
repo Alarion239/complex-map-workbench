@@ -418,7 +418,7 @@
     const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      drawScene(mp, map, null, Object.assign(k == null ? { noGrid: true, cache: false } : { noGrid: true, domain: k === 0, plane: k }, {
+      drawScene(mp, map, null, Object.assign(k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k }, {
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
@@ -449,7 +449,7 @@
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
       // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
-      drawScene(mp, map, null, k == null ? { noGrid: true, cache: false } : { noGrid: true, domain: k === 0, plane: k });
+      drawScene(mp, map, null, k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k });
       if (k != null) stagePullbacks(mp, k);
     } catch (e) { console.error('steps view mask', e); }
     for (const key of Object.keys(keep)) setOpt(key, keep[key]);
