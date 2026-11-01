@@ -505,7 +505,7 @@
       if (s.visible === false || kindType(s) === 'point') continue;
       const map = shapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
-      GLR.drawLines(r.lineRes, { map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } });
+      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() })));
     }
     if (!frame) GLR.blit(pane.ctx);
   }

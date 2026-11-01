@@ -456,6 +456,21 @@
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
   }
+  // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
+  // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
+  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin
+  function shapeStroke(s, dpr, opt = {}) {
+    const ink = shapeInk(s);
+    const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
+    const area = kindType(s) === 'area';
+    let w = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
+    let cw = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
+    if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { w += 0.75; cw += 0.75; }
+    if (!opt.thin && s.id === hoverShape) { w += 0.5; cw += 0.5; }
+    const st = { width: w * dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1 };
+    if (cw) st.casing = { color: GLR.hexRGB(TH.halo), alpha: TH.haloA, width: cw * dpr };
+    return st;
+  }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
   // fills (the fills alone, no strokes: a mask of the regions, #440)}
@@ -671,7 +686,6 @@
     }
     // a bounded shape whose preparation waited (frame budget) is drawn inverse on the next frame
     if (live && prepDeferred) { prepDeferred = false; requestRender(role); }
-    const halo = GLR.hexRGB(TH.halo);
     for (const s of hideStrokes || artMode || opt.fills ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
@@ -680,15 +694,8 @@
       // the strokes that go with the fill drawn (a hold's own strokes while it stands in for the current mesh)
       const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
-      const ink = shapeInk(s);
-      const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const area = kindType(s) === 'area';
-      let w = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
-      let cw = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-      if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { w += 0.75; cw += 0.75; }
-      if (!opt.thin && s.id === hoverShape) { w += 0.5; cw += 0.5; }
-      const st = { map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, width: w * pane.dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null };
-      if (cw) st.casing = { color: halo, alpha: TH.haloA, width: cw * pane.dpr };
+      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
       if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
