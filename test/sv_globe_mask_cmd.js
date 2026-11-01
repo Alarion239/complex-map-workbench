@@ -63,6 +63,9 @@ async function measure(a64, b64, W, H, k, shape) {
   }
   return { valid, inT, edge, spill, short };
 }
+// (#504: the kit's settled() rather than fixed sleeps: the panes' GPU frames done, the steps view still, and the globe's
+// region meshes built; a slow runner waits longer instead of capturing a frame before the mask's program links)
+const quiet = () => settled({ floor: 300, max: 15000, until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)" });
 await view(1200, 800, false, false);
 for (const [name, shape, runs] of SCENES) for (const [surf, k] of runs) {
   const at = `${name}, ${surf}, plane ${k}`;
@@ -72,12 +75,12 @@ for (const [name, shape, runs] of SCENES) for (const [surf, k] of runs) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
   for (let i = 0; i < 40 && !(await ev(`typeof __cmwSteps === 'function' && typeof __cmwLeftZ === 'function'`)); i++) await sleep(250);
-  await sleep(2000);
-  await ev(`__cmwSteps({ go: ${k}, now: true, surf: '${surf}', scope: 'all' }), 1`); await sleep(4500);
+  await quiet();
+  await ev(`__cmwSteps({ go: ${k}, now: true, surf: '${surf}', scope: 'all' }), 1`); await quiet();
   const rect = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; })()`);
   const clip = { x: rect[0], y: rect[1], width: rect[2], height: rect[3], scale: 1 };
   const shotB = (await send('Page.captureScreenshot', { format: 'png', clip })).data;
-  await ev(`__cmwSteps({ scope: 'in' }), 1`); await sleep(4500);
+  await ev(`__cmwSteps({ scope: 'in' }), 1`); await quiet();
   const st = await ev(`(() => { const s = __cmwSteps(); return { stage: s.stage, surf: s.surf, scope: s.scope }; })()`);
   ok(`${at}: the view is the scene's`, st.stage === k && st.surf === surf && st.scope === 'in', st);
   const shotA = (await send('Page.captureScreenshot', { format: 'png', clip })).data;
