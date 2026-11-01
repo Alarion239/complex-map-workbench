@@ -526,6 +526,10 @@ float ixLog2Det(vec4 J) {
 // ---- one candidate (SPEC 4.2 Leaf): coverage with the facing rule, then admission (twin merge, shading on admission)
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
+#ifdef IX_CARRY
+  // (#584) the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
+  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
+#endif
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average

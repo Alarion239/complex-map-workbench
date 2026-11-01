@@ -186,18 +186,31 @@ vec3 pwheel(float th, float L, float ref, vec3 pb) {
   if (uPal == 0) return wheel(th, L);
   return L <= ref ? pb * (L / ref) : mix(pb, vec3(1.0), (L - ref) / (1.0 - ref));
 }
+vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g, vec2 gw, vec2 fw0);
 vec3 dcolor(vec2 w) {
   // every derivative first, in uniform control flow
   float r = wabs(w);
   float th = wang(w);
-  float q = TAU / max(uSectors, 1.0);
   float lr = log(clamp(r, 1e-37, 3e38));
-  float flr = fwidth(lr);
-  float xm = lr / q, fm = flr / q;
-  float xp = th / q, fp = argWidth(w) / q;
   vec2 g = w / max(uGrid, 1e-30);
-  vec2 gw = fwidth(g);
-  vec2 fw0 = fwidth(w);
+  return dcolorAt(w, r, th, lr, fwidth(lr), argWidth(w), g, fwidth(g), fwidth(w));
+}
+// (#584) the same colour with the footprints given: wx, wy, the change of w over one device pixel across and down
+// (a colour taken where the screen's derivatives mean nothing, as for each sheet inside the inverse pass's walk);
+// d ln w = dw / w gives the widths of ln |w| and arg w
+vec3 dcolorD(vec2 w, vec2 wx, vec2 wy) {
+  float r = wabs(w);
+  float th = wang(w);
+  float lr = log(clamp(r, 1e-37, 3e38));
+  float rr = max(r * r, 1e-37);
+  vec2 lx = vec2(dot(wx, w), wx.y * w.x - wx.x * w.y) / rr, ly = vec2(dot(wy, w), wy.y * w.x - wy.x * w.y) / rr;
+  vec2 fw0 = abs(wx) + abs(wy);
+  return dcolorAt(w, r, th, lr, abs(lx.x) + abs(ly.x), abs(lx.y) + abs(ly.y), w / max(uGrid, 1e-30), fw0 / max(uGrid, 1e-30), fw0);
+}
+vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g, vec2 gw, vec2 fw0) {
+  float q = TAU / max(uSectors, 1.0);
+  float xm = lr / q, fm = flr / q;
+  float xp = th / q, fp = faw / q;
   vec3 pb = uPal == 0 ? vec3(0.0) : arbc(th, lr);
   if (!(abs(w.x) < 3e38 && abs(w.y) < 3e38)) {
     if (abs(w.x) > 3e38 || abs(w.y) > 3e38) return vec3(0.96078);  // +-infinity: #F5F5F5

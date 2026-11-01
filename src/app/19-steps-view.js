@@ -359,6 +359,32 @@
     GLR.blit(cc);
     return true;
   }
+  // (#584) Inside regions at rest on plane a past the colour plane T: the colour each region's points carry, drawn
+  // exactly, by the region tiling's own inverse pass (GLR.drawInverse): at each pixel w of plane a, the region's points
+  // z (on plane 0) with F_a(z) = w, each coloured with the colour plane's colour of it, dcolor(f_T ∘ … ∘ f_1(z)), so
+  // the colour is the region's points' own wherever the region reaches, with no grid, no window and no other sheet.
+  // Into the open GL frame (the mask frame's, its colour alone). False (nothing drawn) unless every visible region
+  // takes that path: a region of a later plane, a map with no inverse, a program still compiling
+  function svCarryExact(pane, a, T) {
+    if (!GLR.drawInverse || !GLR.packShapes || a <= T || derivIn(0, a)) return false;
+    const areas = S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
+    if (!areas.length || areas.some((x) => shapeStage(x))) return false;
+    const map = stageMap(a), recs = GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x))).recs;
+    const paths = areas.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
+    if (paths.some((p) => p.path !== 'inverse')) return false;
+    const carry = { s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark };
+    for (let i = 0; i < areas.length; i++) {
+      const p = paths[i];
+      let res = 'error';
+      try {
+        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: areas[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+      } catch (e) { console.error('steps view exact colour', e); }
+      // (a region drawn already stays: the carried grid goes under the rest, the frame's colour kept as it is)
+      if (res !== 'drawn') return false;
+    }
+    return true;
+  }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
@@ -390,7 +416,10 @@
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
       let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
-      if (still ? !svColoured(a) : !isDeriv(b)) {
+      // (#584: at rest past the colour plane, Inside regions on the GPU, each region's points take their colour exactly,
+      // as the region tiling places them: svCarryExact; the carried grid where it cannot)
+      if (still && !svColoured(a) && frame.keep && svCarryExact(pane, a, T)) carried = true;
+      else if (still ? !svColoured(a) : !isDeriv(b)) {
         carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
       }
       // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
