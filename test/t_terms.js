@@ -4,7 +4,7 @@
 //   node test/t_terms.js
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
-const GENERATED = new Set(['i18n_ru.js', 'i18n_it.js', 'cyr.js', 'seasong.js']);
+const GENERATED = new Set(['i18n_ru.js', 'i18n_it.js', 'seasong.js']);
 const files = [path.join(ROOT, 'src', 'page.html'),
   ...fs.readdirSync(path.join(ROOT, 'src')).filter((f) => f.endsWith('.js') && !GENERATED.has(f)).map((f) => path.join(ROOT, 'src', f)),
   // (the split files' parts, src/<name>/: app, gl, figure, construct; test/src_text.js)
