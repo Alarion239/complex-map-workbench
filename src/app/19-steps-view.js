@@ -27,6 +27,9 @@
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
+  // (#551) where the carried colour is exact (svCarry): 'rest', when nothing moves (at rest on a plane or parked), the glides
+  // and drags keeping the cheaper carry; or 'all', every frame (a setting kept on this device, for measuring both)
+  SV.exact = (() => { try { return localStorage.getItem('cmw-sv-exact') === 'all' ? 'all' : 'rest'; } catch (e) { return 'rest'; } })();
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   function svPlanes() { return [0].concat(activeSteps()); }
@@ -265,14 +268,16 @@
       const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
       const plan = a > s ? invPlan(s, a) : null;
       const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
-      // (#551) the points further out, a coarse grid over twelve times the camera's window: behind the window's own in
-      // the sheet key, they colour what the window's points do not reach (a contracting step, a far branch)
+      // (#551) exact (SV.exact: when nothing moves, no glide, Play or drag; or always): the fragment stage solves for the point of each triangle
+      // that bends, so a triangle may span the view (uLim; only one torn across a cut or a pole, longer, is left out), and
+      // the points further out, a coarse grid over twelve times the camera's window, behind the window's own in the
+      // sheet key, colour what the window's points do not reach (a contracting step, a far branch). Else the carry of
+      // #439: interpolated points, triangles up to 0.35 of the view, the window alone
+      const exact = SV.exact === 'all' || (!SV.anim && !SV.play && !(SV.drag && SV.drag.moved));
       const OX = 12, onx = 48, ony = Math.max(8, Math.round(onx * pane.h / Math.max(1, pane.w))), ohw = OX * hw / ext, ohy = OX * hy / ext;
-      const outer = { x0: v.cx - ohw, y0: v.cy - ohy, dx: 2 * ohw / onx, dy: 2 * ohy / ony, nx: onx, ny: ony };
-      // (#551: a triangle may span the view, uLim, since the fragment stage solves for the point of each one that bends;
-      // only one torn across a cut or a pole, longer, is left out)
+      const outer = exact ? { x0: v.cx - ohw, y0: v.cy - ohy, dx: 2 * ohw / onx, dy: 2 * ohy / ony, nx: onx, ny: ony } : null;
       if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
-      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, outer, lim: Math.max(pane.w, pane.h) / v.s, key,
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, outer, exact, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, limX: Math.max(pane.w, pane.h) / v.s, key,
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
         if (frame) frame.open = true; else GLR.blit(cc);
         return true;

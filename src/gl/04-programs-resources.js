@@ -104,6 +104,9 @@
     // (#366 F: the steps view's carried colour, CARRY_VS)
     carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
     carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
+    // (#551) the carried colour exact: the steps view at rest
+    carryX: { chain: true, vs: () => CARRYX_VS, fs: () => UTIL + DCOLOR + CARRYX_FS(false) },
+    carryXId: { chain: true, vs: () => CARRYX_VS, fs: () => UTIL + DCOLOR + CARRYX_FS(true) },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
     // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
     cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },

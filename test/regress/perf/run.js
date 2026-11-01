@@ -994,15 +994,17 @@ async function svGlideUnit(scene) {
     const w = await windowStats(a, b);
     return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, jank: await jankIn(a, b), a, b });
   };
-  for (const dpr of [1, 2]) {
-    const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
+  // (#551) the steps view's carried colour exact at rest only (SV.exact 'rest', the default: a glide keeps the cheaper
+  // carry) at dpr 1 and 2, and exact in every frame ('all', .all) at dpr 1: one run measures both
+  for (const [dpr, exact] of [[1, 'rest'], [2, 'rest'], [1, 'all']]) {
+    const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}${exact === 'all' ? '.all' : ''}`;
     const R = [], copies = [], links = [], longInt = [], dprOk = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
       for (let i = 0; i < REPS; i++) {
-        // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
-        // limit: fewer reps, not a timeout, which aborts the whole run)
-        if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
+        // (the reps stop early, said in the details, when the next would pass this pass's third of 75% of the unit's
+        // time limit: fewer reps, not a timeout, which aborts the whole run)
+        if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 3) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
         await B.nav(`${BASE}test.html?ns=perfsvg${process.pid}_${++nsCounter}&view=steps`);
         await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
         await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
@@ -1010,7 +1012,7 @@ async function svGlideUnit(scene) {
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
-        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
+        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, exact: '${exact}' }), 1`);
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)

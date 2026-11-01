@@ -571,15 +571,19 @@
 
   // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
   // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
-  // (st.s, st.T); triangles longer than st.lim on the plane are left out. False when the program is not ready
+  // (st.s, st.T); triangles longer than st.lim on the plane are left out (st.limX for the exact programs). False when
+  // the program is not ready
   function drawCarried(st) {
     if (!ok) return false;
-    const P = program(st.s === st.T ? 'carryId' : 'carry', st.map);
+    // (#551) st.exact: the exact programs, carryX and carryXId; while they link, the plain ones draw it (the frame is
+    // marked pending, so it is drawn again once they are ready)
+    const name = st.s === st.T ? 'carryId' : 'carry', X = st.exact ? program(name === 'carry' ? 'carryX' : 'carryXId', st.map) : null;
+    const P = X || program(name, st.map);
     if (!P) return false;
     use(P, st.map);
     const dpr = st.dpr || 1;
     view2D(P, st.view, dpr, null);
-    u1f(P, 'uLim', st.lim);
+    u1f(P, 'uLim', X && st.limX ? st.limX : st.lim);
     u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
     dcUniforms(P, st, dpr);
     // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
@@ -591,7 +595,7 @@
     // tie of the sheet key, LEQUAL; or over it without the key) and the outer one fills only what lies beyond it
     const grids = () => {
       const m = st.mesh;
-      for (const g of st.outer ? [st.outer, m] : [m]) {
+      for (const g of X && st.outer ? [st.outer, m] : [m]) {
         u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy);
         if (g === m) u4f(P, 'uHole', 0, 0, 0, 0); else u4f(P, 'uHole', m.x0, m.y0, m.x0 + m.nx * m.dx, m.y0 + m.ny * m.dy);
         u2i(P, 'uN', g.nx, g.ny);
