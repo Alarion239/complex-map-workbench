@@ -293,10 +293,12 @@ console.log('--- (h) golden emulation');
     console.log(`disc_cube.pattern with the sheet order reversed: golden_diff ${(100 * gdr.frac).toFixed(3)} %`);
     check('the sheet order matters: reversed disc_cube.pattern > 0.1 %', gdr.frac > 0.001, `${(100 * gdr.frac).toFixed(3)} %`);
   }
-  // the key is continuous: no tie class (a D of 0 over the whole window, ordered by the tie rule alone, would flip
-  // sheets along the window's sides). Along a line from the window's centre out across its side, D
-  // grows strictly and never faster than its Lipschitz bound 1 / (R ln 2) per unit
+  // the key is continuous across the window's sides, so two sheets whose keys are near trade places along a smooth
+  // curve, not along the window's edges: along a line from the window's centre out across its side, D grows strictly
+  // and never faster than its Lipschitz bound 1 / (R ln 2) per unit (KEY_RATE_SLACK: the rate is a finite difference
+  // over h, a hair above the derivative's bound)
   {
+    const KEY_RATE_SLACK = 1.0001;
     const sc = Q.SCENES.find((s) => s.name === 'disc_cube'), win = Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     const kp = { win, R, rs: R / 8, sing: [] }, cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, h = (win.x1 - cx) / 200;
     let grows = true, maxRate = 0;
@@ -306,7 +308,7 @@ console.log('--- (h) golden emulation');
       maxRate = Math.max(maxRate, (d1 - d0) / h);
     }
     console.log(`sheet key across the window's side: grows ${grows}, max rate ${maxRate.toFixed(5)} (bound ${(1 / (R * Math.LN2)).toFixed(5)})`);
-    check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= 1.0001 / (R * Math.LN2), `${grows} ${maxRate}`);
+    check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= KEY_RATE_SLACK / (R * Math.LN2), `${grows} ${maxRate}`);
   }
 }
 

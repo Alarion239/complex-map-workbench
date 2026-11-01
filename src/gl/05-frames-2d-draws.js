@@ -344,14 +344,17 @@
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
-    // (a deformation whose path has a cut the sheets continue: each triangle on its centre's sheet, regionKS, uncached)
+    // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
+    // triangles they tear across a cut on their centre's sheet (regionKSC, the fill); without the cache, every triangle
+    // on its centre's sheet (regionKS, the chain at every vertex))
     const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
-    const S = cuts ? program('regionKS', st.map) : null;
-    let e = !S && rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    let P = S || (e ? program('regionKC', st.map) : null);
+    let P = e ? program('regionKC', st.map) : null;
+    const fill = cuts && P ? program('regionKSC', st.map) : null;
+    if (cuts && !fill) { P = program('regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
@@ -381,8 +384,12 @@
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
       if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
       if (last) carryDepthEnd();
-    } else gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    } else {
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+    }
     gl.bindVertexArray(null);
     return true;
   }
