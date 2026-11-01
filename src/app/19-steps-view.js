@@ -435,7 +435,7 @@
     const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      drawScene(mp, map, null, Object.assign(k == null ? { noGrid: true, cache: false } : { noGrid: true, domain: k === 0, plane: k }, {
+      drawScene(mp, map, null, Object.assign(k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k }, {
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
@@ -468,7 +468,7 @@
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
       // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
-      drawScene(mp, map, null, k == null ? { noGrid: true, cache: false } : { noGrid: true, domain: k === 0, plane: k });
+      drawScene(mp, map, null, k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k });
       if (k != null) stagePullbacks(mp, k);
     } catch (e) { console.error('steps view mask', e); }
     for (const key of Object.keys(keep)) setOpt(key, keep[key]);
@@ -574,7 +574,8 @@
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
       // (the plane's cached maps, as its own frame draws them; the exact images' inverse passes keep their alpha)
-      drawScene(mp, stageMap(k), null, { noGrid: true, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
+      // (#560: the fills alone, as the moving frame's mask, so the rim does not shift at a glide's landing)
+      drawScene(mp, stageMap(k), null, { noGrid: true, fills: true, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
         over: () => { stagePullbacks(mp, k, true); GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
     } catch (e) { console.error('steps view mask', e); }
     GLR.alphaOnly(false);
