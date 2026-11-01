@@ -555,7 +555,8 @@
     try {
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
       // (the plane's cached maps, as its own frame draws them; the exact images' inverse passes keep their alpha)
-      drawScene(mp, stageMap(k), null, { noGrid: true, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
+      // (#560: the fills alone, as the moving frame's mask, so the rim does not shift at a glide's landing)
+      drawScene(mp, stageMap(k), null, { noGrid: true, fills: true, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
         over: () => { stagePullbacks(mp, k, true); GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
     } catch (e) { console.error('steps view mask', e); }
     GLR.alphaOnly(false);
