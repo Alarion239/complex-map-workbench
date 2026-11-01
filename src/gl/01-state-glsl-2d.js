@@ -628,15 +628,18 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
 }
 `;
   // the sheet key of the inverse path (SPEC 5.1, 5.2) per fragment, as its depth (flat pre-mapped meshes, uKeyOn 1):
-  // the front sheet of every sample is the one the inverse path shows, not the leaf order's (a leaf's D is one value
-  // for the whole leaf, and leaves of equal D were ordered by their vertices' Im z: triangle-jagged shard seams where
-  // sheets meet). Depth: D = 0 (inside W, outside every rs-disc: the tie class) in [0.05, 0.45], larger Im z nearer,
-  // then larger Re z; D > 0 in [0.5, 0.95], monotone in D. sa (PAT_PRE.pre) is the fragment's source point.
-  // (D from the distance to the window's centre, as Inverse.sheetKey, blended with the tie rule (larger Im z,
-  // then larger Re z, in front) within about 2^-8 octave, Inverse.front's TIE_D: a map symmetric about the centre
-  // gives its sheets equal keys, which the mesh's placement (1e-3 of |z|) would order fragment by fragment; no steps
-  // in D, whose edges would draw contours where near-equal keys straddle them). preKeyDepth(sa): that depth of source
-  // point sa, for a fragment stage (PRE_KEY) or a vertex stage (REGION_VS's carry option)
+  // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
+  // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
+  // preKeyDepth(sa), sa the source point (PAT_PRE.pre in a fragment stage, PRE_KEY; REGION_VS's carry option in a
+  // vertex stage): x = 256 D + 0.999 (tie order), depth x / (x + 1024).
+  // - 256 = 1 / Inverse.front's TIE_D: keys a tie step apart are one unit of x apart, and the tie order, in [0, 1) and
+  //   scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric about the centre
+  //   gives its sheets equal D, which the mesh's placement (1e-3 of |z|) would otherwise order fragment by fragment.
+  //   x is blended, not stepped: a step's edge would draw a contour where near-equal keys straddle it.
+  // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
+  //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
+  // - x / (x + 1024) maps x >= 0 into [0, 1), monotone, finest for small D (depth 0.5 at D = 4). D is capped at 1e4
+  //   (a point that far behind is behind every point that matters) so x stays finite.
   const PRE_KEY_UNI = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
 float preKeyDepth(vec2 sa) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);

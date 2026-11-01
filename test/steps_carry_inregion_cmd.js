@@ -10,14 +10,15 @@
 //   (and every region point coloured, past the window too) and Everywhere.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
 //   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere.
-// A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/steps_carry_inregion_cmd.js
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-const wait = async () => { await sleep(400); await settled({ max: 20000 }); };
-const ready = async () => { for (let i = 0; i < 120 && !(await ev('typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function"').catch(() => false)); i++) await sleep(250); };
+// (quiet: no GL frame pending, and the tiling's fix-up landed under a parked map)
+const wait = async () => { await settled({ max: 20000, until: '__cmwSvFixed()' }); };
+const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the points of a grid over the inner 80 % of the pane, and whether z is where plane z's picture shows it
 const paneOf = async () => ev('(() => { const q = __cmwLPx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; })()');
@@ -81,10 +82,10 @@ async function check(tag, at, b, P, pts, cand, min) {
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}` }); await sleep(2300);
+await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
 await ready();
 await ev(`__cmwExample(${EX}); 1`);
-await sleep(1500);
+await wait();
 {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 60, 40);
@@ -111,9 +112,9 @@ await sleep(1500);
 for (const n of [2, 3]) {
   const ns = `cexz${n}${Date.now()}`;
   const st = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 90 }, shapes: [{ id: 1, kind: 'annulus', c: [0, 0], r1: 0.6, r2: 1.6 }], steps: [{ type: 'pown', params: { n } }] };
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&view=steps` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 44, 30);

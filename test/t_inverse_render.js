@@ -215,8 +215,8 @@ console.log('--- (h) golden emulation');
   const LOOKF = { pattern: 'solid', c0: hex('#3B6FD4'), c1: hex('#8CABE5'), k: EDGE };
   // the forward draw: Region.buildMesh at Q = 60, the L = 4 GPU template, the 0.2-edge midpoint test, linear source
   // interpolation inside each sub-triangle, its footprint, the shared sheet key's front point per pixel (its depth,
-  // PRE_KEY), alpha 1 (notes/proto/lead-inv/golden_cmp.js)
-  function forward(sc, view, pattern) {
+  // PRE_KEY), alpha 1 (notes/proto/lead-inv/golden_cmp.js); rev: the order reversed, the hindmost point shown
+  function forward(sc, view, pattern, rev = false) {
     const steps = sc.steps.map(St), built = builtOf(steps);
     const F = (z) => { for (const b of built) z = b.f(z); return z; };
     const win = sc.win || Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
@@ -249,7 +249,7 @@ console.log('--- (h) golden emulation');
           const b = bary(x + 0.5, y + 0.5);
           if (b[0] < -1e-12 || b[1] < -1e-12 || b[2] < -1e-12) continue;
           const z = srcAt(b), k = y * W + x, cand = { z, D: Inverse.sheetKey(kp, z, null), lam: null };
-          if (best[k] && !Inverse.front(cand, best[k])) continue;
+          if (best[k] && !(rev ? Inverse.front(best[k], cand) : Inverse.front(cand, best[k]))) continue;
           best[k] = cand;
           const pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] });
           col[3 * k] = pc.col[0]; col[3 * k + 1] = pc.col[1]; col[3 * k + 2] = pc.col[2]; cov[k] = 1;
@@ -258,10 +258,10 @@ console.log('--- (h) golden emulation');
     }
     return { col, cov };
   }
-  function composite(sc, view, variant, inv) {
+  function composite(sc, view, variant, inv, rev = false) {
     const map = { at: pixelAt(view), spx: view.s };
     const TG = MET.truthGrid(sc.truth, Q.cellOf(sc), map, W, H);
-    const fw = forward(sc, view, variant === 'mask' ? 'solid' : 'checker');
+    const fw = forward(sc, view, variant === 'mask' ? 'solid' : 'checker', rev);
     const A = Buffer.alloc(W * H * 4), B = Buffer.alloc(W * H * 4);
     for (let k = 0; k < W * H; k++) {
       const d = Math.min(Math.abs(TG.sdf[k]), TG.stroke ? TG.stroke[k] : Infinity);
@@ -283,6 +283,14 @@ console.log('--- (h) golden emulation');
       console.log(`${(name + '.' + variant).padEnd(22)} golden_diff ${(100 * gd.frac).toFixed(3)} % (${gd.n} px)`);
       check(`golden ${name}.${variant} <= 0.05 %`, gd.frac <= 0.0005, `${(100 * gd.frac).toFixed(3)} %`);
     }
+  }
+  // the order matters: the forward draw with the sheet order reversed is far from the inverse render (so the golden
+  // checks above see which point is in front)
+  {
+    const sc = Q.SCENES.find((x) => x.name === 'disc_cube'), kd = kept['disc_cube.pattern'];
+    const gdr = composite(sc, sc.rightView, 'pattern', kd ? kd.r : render(sc, sc.rightView, 'checker'), true);
+    console.log(`disc_cube.pattern with the sheet order reversed: golden_diff ${(100 * gdr.frac).toFixed(3)} %`);
+    check('the sheet order matters: reversed disc_cube.pattern > 0.1 %', gdr.frac > 0.001, `${(100 * gdr.frac).toFixed(3)} %`);
   }
   // the key is continuous: no tie class (a D of 0 over the whole window, ordered by the tie rule alone, would flip
   // sheets along the window's sides). Along a line from the window's centre out across its side, D
