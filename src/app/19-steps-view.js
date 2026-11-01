@@ -51,7 +51,7 @@
     const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
     return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
   }
-  // the export's caption parts for the shown plane (#633): its variable; the map that colours it (into the colour plane)
+  // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
   // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is one step
   function svFigParts() {
     const k = svStage(), T = svT(), coloured = svColoured(k), [a, b] = coloured ? [k, T] : [0, k];

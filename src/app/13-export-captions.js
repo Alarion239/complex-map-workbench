@@ -272,7 +272,7 @@
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
   // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
   let artLandBox = null;
-  // the steps view (#633): the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
+  // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
   const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
   // the shapes to it from z (carried: the caption says "the images of ... under it")
