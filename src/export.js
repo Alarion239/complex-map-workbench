@@ -261,7 +261,9 @@ const Export = (() => {
     return null;
   }
   // ---- the caption, as segments: {t: text} and {m: TeX}; also as LaTeX source ----
-  const texEsc = (s) => String(s).replace(/\\/g, '\\textbackslash{}').replace(/([#$%&_{}])/g, '\\$1').replace(/~/g, '\\textasciitilde{}').replace(/\^/g, '\\textasciicircum{}');
+  // (one pass over the special characters: a replacement's own braces are not escaped again, as they were when the backslash
+  // was replaced first and the braces after it)
+  const texEsc = (s) => String(s).replace(/[\\#$%&_{}~^]/g, (c) => (c === '\\' ? '\\textbackslash{}' : c === '~' ? '\\textasciitilde{}' : c === '^' ? '\\textasciicircum{}' : '\\' + c));
   // a caption sentence as segments: the template is translated whole (DESIGN.md 1) and its %{slots} hold segments,
   // so the word order follows the language. cs 'gen': the genitive form ("the images of ...", Russian needs the case)
   // (a plain-string value joins the text around it, as one segment)
