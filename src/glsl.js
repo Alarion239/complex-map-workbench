@@ -412,6 +412,115 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     const x = n[k];
     return !!x && typeof x === 'object' && (Array.isArray(x) ? x.some((y) => !!y && !!y.t && hasParam(y)) : !!x.t && hasParam(x));
   }));
+  // ---- [issue #395] a large formula of z, constants, + − × ÷, integer powers and log alone (the Mountain King's
+  // sum of 15 log pairs of 10 shapes): its ops, in the order the straight-line code takes them, go into uniforms,
+  // four to a vec4, and one loop runs them on a small stack, calling the same cmul / cdiv / clog (cx_ipow32 or cipow
+  // for a power) on the same values in the same order, so the values are the same. Written out, Direct3D's FXC
+  // inlines every helper at every call: 29 log nodes made the sheet function 196 KiB and the Landscape edge
+  // programs 220 and 466 KiB (link time grows about as size^2.9). Smaller formulas keep their straight-line code.
+  // The threshold, in ops: below it the straight-line code stays (it is cheap to compile, and a uniform-driven loop
+  // costs a few instructions per op at every pixel); above it the written-out code is what FXC takes minutes over
+  // (the Mountain King's exponent: 283 ops). The default page's and the gallery's formulas are far below it.
+  // GLChain.ratLogMin(n) changes it (the GLSL page's A/B: the same chain, both ways, the same values bit for bit)
+  let RL_MIN = 64;
+  // the number of ops of such a formula (postfix, a constant subtree one op), or 0 when it holds anything else
+  function ratLogOps(ast) {
+    const dep = Expr.depends;
+    let n = 0, ok = true;
+    const walk = (x) => {
+      if (!ok) return;
+      if (!dep(x)) { n++; return; }
+      switch (x.t) {
+        case 'var': if (x.n !== 'z') ok = false; n++; return;
+        case 'neg': walk(x.a); n++; return;
+        case 'add': case 'sub': case 'mul': case 'div':
+          walk(x.a); walk(x.b);
+          // (a constant operand is folded into the op: its own op is not one)
+          n += dep(x.a) && dep(x.b) ? 1 : 0;
+          return;
+        case 'pow': {
+          // (an integer exponent without a shared number: written out by genCustom, cipow in the sheet code)
+          if (dep(x.b) || hasParam(x.b) || (Funcs.branchNode && Funcs.branchNode(x))) { ok = false; return; }
+          const v = Expr.compile(x.b, { theta: 0 })(C(0, 0));
+          if (!(v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096)) { ok = false; return; }
+          walk(x.a); n++;
+          return;
+        }
+        case 'call': if (x.f !== 'log') { ok = false; return; } walk(x.a); n++; return;
+        default: ok = false;
+      }
+    };
+    walk(ast);
+    return ok ? n : 0;
+  }
+  // the op list of such a formula, in the order the straight-line code takes them: ops (5-bit codes), and the values
+  // they read, in the order they read them: consts (a constant node, or {pow: n} an integer exponent) and logs (the
+  // log nodes, for their sheet digits). Read in order, each from one block of consecutive cells, so an op names
+  // none, and four ops go in a float (16 to a vec4): the uniforms stay near what the written-out code used.
+  // Ops: 0 z, 1 a constant, 2-5 + − × ÷, 6 neg, 7 an integer power, 8 log, 9-12 x op k, 13-16 k op x (k a constant)
+  function ratLogList(ast) {
+    const dep = Expr.depends, ops = [], consts = [], logs = [];
+    let d = 0, maxD = 0;
+    const up = () => { d++; maxD = Math.max(maxD, d); };
+    const BIN = { add: 0, sub: 1, mul: 2, div: 3 };
+    const walk = (x) => {
+      if (!dep(x)) { consts.push(x); ops.push(1); up(); return; }
+      switch (x.t) {
+        case 'var': ops.push(0); up(); return;
+        case 'neg': walk(x.a); ops.push(6); return;
+        case 'add': case 'sub': case 'mul': case 'div': {
+          const k = BIN[x.t];
+          if (!dep(x.b)) { walk(x.a); consts.push(x.b); ops.push(9 + k); return; }
+          if (!dep(x.a)) { walk(x.b); consts.push(x.a); ops.push(13 + k); return; }
+          walk(x.a); walk(x.b); ops.push(2 + k); d--;
+          return;
+        }
+        case 'pow': { walk(x.a); consts.push({ pow: Expr.compile(x.b, { theta: 0 })(C(0, 0)).re, node: x }); ops.push(7); return; }
+        case 'call': { walk(x.a); logs.push(x); ops.push(8); return; }
+      }
+      throw new Error(`GLChain: not a log-pair formula ('${x.t}')`);
+    };
+    walk(ast);
+    return { ops, consts, logs, maxD: Math.max(1, maxD) };
+  }
+  // n consecutive cells (A.cell), -> the first one's index
+  function ratLogCells(A, n, each) {
+    let c0 = -1;
+    for (let i = 0; i < n; i++) {
+      const cell = A.cell();
+      if (i === 0) c0 = cell.c; else if (cell.c !== c0 + i) throw new Error('GLChain: cells not consecutive');
+      each(cell, i);
+    }
+    return Math.max(0, c0);
+  }
+  // the ops' slots (consecutive, four 5-bit codes to a float) and their writer; -> the first slot. The map's code and
+  // the sheet code of one formula have the same ops: one chain's allocator gives them one set of slots (its values()
+  // writes every plan, so the slots are written whichever plan takes them)
+  const rlShared = new WeakMap();
+  function ratLogOpSlots(A, ops, writers, ast) {
+    if (!rlShared.has(A)) rlShared.set(A, new Map());
+    const key = astSig(ast), seen = rlShared.get(A).get(key);
+    if (seen != null) return seen;
+    const ns = Math.ceil(ops.length / 16), sl = [];
+    for (let k = 0; k < ns; k++) sl.push(A.slot());
+    if (!sl.every((x, k) => x.s === sl[0].s + k)) throw new Error('GLChain: op slots not consecutive');
+    const f = (i) => { let v = 0; for (let j = 3; j >= 0; j--) v = v * 32 + (4 * i + j < ops.length ? ops[4 * i + j] : 0); return v; };
+    writers.push((put) => { sl.forEach((x, k) => { put(x.c, f(4 * k), f(4 * k + 1)); put(x.c + 1, f(4 * k + 2), f(4 * k + 3)); }); });
+    rlShared.get(A).set(key, sl[0].s);
+    return sl[0].s;
+  }
+  // a cell by index (consecutive cells: two to a vec4)
+  const RL_CELL = (i) => `(${i} - 2 * (${i} / 2) == 1 ? uChain[${i} / 2].zw : uChain[${i} / 2].xy)`;
+  // the loop's head: op i's code (highp: a float of four codes passes 16 bits), and the constants' pointer kc
+  const RL_HEAD = (s0, n, k0) => `  highp int kc = ${k0};
+  for (int i = 0; i < max(${n}, uNoUnroll); i++) {
+    vec4 o4 = uChain[${s0} + (i >> 4)];
+    int j4 = (i >> 2) & 3;
+    highp int w4 = int(j4 == 0 ? o4.x : j4 == 1 ? o4.y : j4 == 2 ? o4.z : o4.w);
+    highp int op = (w4 >> (5 * (i & 3))) & 31;
+    vec2 kv = vec2(0.0);
+    if (op == 1 || op == 7 || op >= 9) { kv = ${RL_CELL('kc')}; kc++; }`;
+
   // baked: when given (a custom step, whose key holds it), constant exponents are specialized and their kinds pushed
   // here; without it (d/dz, whose key holds its own source) they stay uniforms through cx_powk
   function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = []) {
@@ -778,6 +887,37 @@ ${inner.map((x) => '  ' + x).join('\n')}
         }
       }
       throw new Error(`GLChain: cannot compile '${n.t}'`);
+    }
+    // [issue #395] a large log-pair formula: its ops in uniforms and one loop (ratLogList), not written out
+    if (baked && ratLogOps(ast) >= RL_MIN) {
+      shape.push('L');
+      const { ops, consts, maxD } = ratLogList(ast);
+      const k0 = ratLogCells(A, consts.length, (cell, i) => {
+        const x = consts[i];
+        if (x.pow != null) { baked.push(['i', x.pow]); writers.push((put) => put(cell.c, x.pow, 0)); }
+        else writers.push((put, th) => putC(put, cell, constOf(x, th)));
+      });
+      const s0 = ratLogOpSlots(A, ops, writers, ast);
+      const K = `${P}_k`, q = `${P}_q`;
+      out.push(`  vec2 ${K}[${maxD}];
+  int ${q} = 0;
+${RL_HEAD(s0, ops.length, k0)}
+    if (op == 0) { ${K}[${q}] = z; ${q}++; }
+    else if (op == 1) { ${K}[${q}] = kv; ${q}++; }
+    else if (op >= 2 && op <= 5) {
+      vec2 b = ${K}[${q} - 1], a = ${K}[${q} - 2];
+      ${q}--;
+      ${K}[${q} - 1] = op == 2 ? a + b : op == 3 ? a - b : op == 4 ? cmul(a, b) : cdiv(a, b);
+    } else {
+      vec2 x = ${K}[${q} - 1];
+      highp int e = int(kv.x);
+      ${K}[${q} - 1] = op == 6 ? -x : op == 8 ? clog(x, ${TH}, 0.0)
+        : op == 7 ? (e == 0 ? vec2(1.0, 0.0) : cx_ipow32(x, e < 0, e < 0 ? -e : e))
+        : op == 9 ? x + kv : op == 10 ? x - kv : op == 11 ? cmul(x, kv) : op == 12 ? cdiv(x, kv)
+        : op == 13 ? kv + x : op == 14 ? kv - x : op == 15 ? cmul(kv, x) : cdiv(kv, x);
+    }
+  }`);
+      return tv(`${K}[0]`);
     }
     return g(ast);
   }
@@ -1576,9 +1716,53 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       throw new Error(`GLChain: cannot compile '${n.t}'`);
     }
+    // [issue #395] a large log-pair formula: its ops in uniforms and one loop on (zc, zw) pairs (ratLogList); each log
+    // node's sheet digit and local cut as node() writes them, in the same order
+    if (ratLogOps(ast) >= RL_MIN) {
+      const { ops, consts, logs, maxD } = ratLogList(ast);
+      const k0 = ratLogCells(A, consts.length, (cell, i) => {
+        const x = consts[i];
+        writers.push((put) => (x.pow != null ? put(cell.c, x.pow, 0) : putC(put, cell, constOf(x))));
+      });
+      // (each log node's cell as node() writes it: its sheet count and the formula's cut, in tree order)
+      const r0 = ratLogCells(A, logs.length, (cell, i) => { const bn = Funcs.branchNode(logs[i]); rads.push(cell); writers.push((put) => put(cell.c, bn.n, theta)); });
+      const s0 = ratLogOpSlots(A, ops, writers, ast);
+      const K = `${P}_k`, q = `${P}_q`;
+      lines.push(`  vec4 ${K}[${maxD}];
+  int ${q} = 0;
+  highp int lc = ${r0};
+${RL_HEAD(s0, ops.length, k0)}
+    if (op == 0) { ${K}[${q}] = vec4(zc, zw); ${q}++; }
+    else if (op == 1) { ${K}[${q}] = vec4(kv, kv); ${q}++; }
+    else if (op >= 2 && op <= 5) {
+      vec4 b = ${K}[${q} - 1], a = ${K}[${q} - 2];
+      ${q}--;
+      ${K}[${q} - 1] = op == 2 ? vec4(a.xy + b.xy, a.zw + b.zw) : op == 3 ? vec4(a.xy - b.xy, a.zw - b.zw)
+        : op == 4 ? vec4(cmul(a.xy, b.xy), cmul(a.zw, b.zw)) : vec4(cdiv(a.xy, b.xy), cdiv(a.zw, b.zw));
+    } else if (op == 8) {
+      vec4 x = ${K}[${q} - 1];
+      vec2 rc = ${RL_CELL('lc')};
+      lc++;
+      float s = cxs0_dig(rc.x, c) + floor((rc.y - carg(x.xy)) / (2.0 * CX_PI)), t = carg(x.xy) + CX_PI;
+      ${K}[${q} - 1] = vec4(clog(x.xy, t, s), clog(x.zw, t, s));
+    } else {
+      vec4 x = ${K}[${q} - 1];
+      highp int e = int(kv.x);
+      ${K}[${q} - 1] = op == 6 ? -x : op == 7 ? vec4(cipow(x.xy, e), cipow(x.zw, e))
+        : op == 9 ? vec4(x.xy + kv, x.zw + kv) : op == 10 ? vec4(x.xy - kv, x.zw - kv)
+        : op == 11 ? vec4(cmul(x.xy, kv), cmul(x.zw, kv)) : op == 12 ? vec4(cdiv(x.xy, kv), cdiv(x.zw, kv))
+        : op == 13 ? vec4(kv + x.xy, kv + x.zw) : op == 14 ? vec4(kv - x.xy, kv - x.zw)
+        : op == 15 ? vec4(cmul(kv, x.xy), cmul(kv, x.zw)) : vec4(cdiv(kv, x.xy), cdiv(kv, x.zw));
+    }
+  }`);
+      return { res: pair(`${K}[0].xy`, `${K}[0].zw`), rads, block: { c0: r0, n: logs.length } };
+    }
     const res = g(ast);
     return { res, rads };
   }
+  // the statements that read a sheet plan's digits without acting (a step not applied yet): its own skip() (a block of
+  // consecutive radix cells read in one loop, issue #395), or one cxs0_dig per radix
+  const skipOf = (sp) => (sp.skip ? sp.skip() : sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' '));
   // Sheet plan of one step: null (single-valued: both points through P_f), or {rads: [radix cell .x], apply: GLSL
   // statements updating vec4 p (digits already read into P_sh0..), fn: extra functions, write}
   function sheetPlan(P, b, A) {
@@ -1629,13 +1813,14 @@ vec2 cx_binom(vec2 a, vec2 b) {
         body += sp.custom ? `  ${sp.apply()}\n` : `  { float s0 = cxs0_dig(${sp.rads[0]}, c); ${sp.apply(['s0'])} }\n`;
         if (sp.custom) {
           const hom = sp.homCall ? sp.homCall(`x - ${q}.0`) : 'p = vec4(cx_nan());';
-          hbody += `  if (j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+          hbody += `  if (j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${skipOf(sp)} }\n`;
         } else {
           hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
         }
       });
       return {
         rads, custom: true, apply: () => `p = ${P}_s(p, c);`,
+        skip: () => subs.filter((x) => x.sp).map((x) => skipOf(x.sp)).join(' '),
         homCall: (t) => `p = ${P}_sh(p, c, ${t});`,
         fn: `${fn}vec4 ${P}_s(vec4 p, inout highp int c) {\n${body}  return p;\n}\n`,
         // (the path's function goes with chainSheetHom, into the sheet programs only: GLChain's sheetHom)
@@ -1649,11 +1834,12 @@ vec2 cx_binom(vec2 a, vec2 b) {
     const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && hasParam(n.b)) || ['a', 'b'].some((k) => hasNode(n[k])));
     if (!hasNode(ast)) return null;
     const writers = [], lines = [];
-    const { res, rads } = genCustomPair(ast, `${P}_p`, A, writers, lines, (v.cut ?? 180) * Math.PI / 180);
+    const { res, rads, block } = genCustomPair(ast, `${P}_p`, A, writers, lines, (v.cut ?? 180) * Math.PI / 180);
     if (!rads.length) return null;
     return {
       rads: rads.map((r) => r.x),
       custom: true,
+      ...(block ? { skip: () => `for (int i = 0; i < max(${block.n}, uNoUnroll); i++) { highp int ri = ${block.c0} + i; cxs0_dig(${RL_CELL('ri')}.x, c); }` } : {}),
       apply: () => `p = ${P}_s(p, c);`,
       fn: `vec4 ${P}_s(vec4 p, inout highp int c) {\n  vec2 zc = p.xy, zw = p.zw;\n${lines.join('\n')}\n  return vec4(${res[0]}, ${res[1]});\n}\n`,
       write(put) { for (const w of writers) w(put); },
@@ -1801,7 +1987,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const sp = spl.get(k);
         if (!sp) { src += `  if (a < ${k} && b >= ${k}) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n`; continue; }
         if (sp.custom) {
-          src += `  if (b >= ${k} && d0 < ${k}) {\n    if (a < ${k}) ${sp.apply()}\n    else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n  }\n`;
+          src += `  if (b >= ${k} && d0 < ${k}) {\n    if (a < ${k}) ${sp.apply()}\n    else { ${skipOf(sp)} }\n  }\n`;
         } else {
           src += `  if (b >= ${k} && d0 < ${k}) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (a < ${k}) ${sp.apply(['s0'])}\n  }\n`;
         }
@@ -1863,7 +2049,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
       } else if (sp.custom) {
         const hom = sp.homCall ? sp.homCall('t') : 'p = vec4(cx_nan());';
-        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) ${hom}\n  else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) ${hom}\n  else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${skipOf(sp)} }\n`;
       } else {
         sh += `  if (h > 0) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (h == 1 || t >= 1.0) ${sp.apply(['s0'])}\n    else if (t > 0.0) ${sp.homApply(['s0'], 't')}\n  }\n  else if (${k} > base && ${k} <= end) cxs0_dig(${sp.rads[0]}, c);\n`;
       }
@@ -2454,7 +2640,8 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
+  const ratLogMin = (n) => { const o = RL_MIN; if (n != null) RL_MIN = n; return o; };
+  return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust, ratLogMin };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
