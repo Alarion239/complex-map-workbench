@@ -16,7 +16,6 @@ const rclick = async (x, y) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
   await settled({ floor: 150, max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
 };
-// the client point of w in the left plane
 // the client point of w in the left plane, once the pane's view holds still (two reads 200 ms apart agree)
 const at = async (re, im) => {
   let p = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
@@ -34,7 +33,8 @@ const CIRCLE = { id: 'c1', kind: 'circle', c: [0, 0.8], r: 0.3, ci: 0, visible: 
 await view(1440, 900, false, false);
 for (const [where, url, go] of [['steps view, plane w₁', 'view=steps', `__cmwSteps({ go: 1, now: true })`], ['classic view, step 2 focused', '', '']]) {
   const ns = 'svcm' + Date.now();
-  await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(300);
+  await send('Page.navigate', { url: `${BASE}/gl-helpers.html` });
+  await settled({ floor: 100, max: 5000, until: `location.pathname.endsWith('/gl-helpers.html') && document.readyState === 'complete'` });
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: url ? 0 : 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}${url ? '&' + url : ''}` });
