@@ -439,7 +439,7 @@
     }
     // (#590: the whole plane's points about the frame's map's poles, on log-polar meshes there, under the same depth;
     // a fine search at rest or parked)
-    if (list.includes(SV_ALL)) res.push(...poleMeshes(map, !svGliding()));
+    if (list.includes(SV_ALL)) for (const pr of poleMeshes(map, !svGliding())) draws.push({ res: pr, L: SV_CARRY_L, skip: null });
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after)
