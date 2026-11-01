@@ -180,6 +180,7 @@
       const sel = (b.dataset.mode ?? b.dataset.v) === String(value);
       b.classList.toggle('on', sel);
       b.setAttribute('aria-checked', String(sel));
+      b.tabIndex = sel ? 0 : -1;   // (one Tab stop: the checked one, as roveRadios keeps every radio group)
       if (sel) on = b;
     }
     if (on) {
@@ -187,23 +188,28 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  function seg(id, value, options, onchange, label) {
-    const el = h('div', { class: 'seg small', id, role: 'radiogroup', 'aria-label': label });
+  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
+  // view's scope switch does; without it ← → stop at the ends)
+  function seg(id, value, options, onchange, label, opt) {
+    const o = opt || {};
+    const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title] of options) {
-      el.append(h('button', { 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
+      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
     requestAnimationFrame(() => setSeg(el, value));
     setSeg(el, value);
     el.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const bs = [...el.children], i = bs.findIndex((b) => b.classList.contains('on'));
-      const j = Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+      const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
+      if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
+      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      if (i < 0) return;
+      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
       bs[j].click(); bs[j].focus(); e.preventDefault();
     });
     return el;
   }
-  function selectEl(id, value, options, onchange, title) {
-    const sel = h('select', { class: 'sel', id, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
+  function selectEl(id, value, options, onchange, title, cls) {
+    const sel = h('select', { class: 'sel' + (cls ? ' ' + cls : ''), id: id || null, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
     sel.value = value;
     return sel;
   }

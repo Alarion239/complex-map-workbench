@@ -6,7 +6,6 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "focus-ring button.ph-tile": 3,
     "target-size input#meshRange × #meshPresets button": 12
    }
   },
@@ -26,12 +25,6 @@
    "skipped": [],
    "rows": {
     "clipped #popHost span.ex-blurb": 4,
-    "covered input#i2_b.inp × button.ph-hundo": 4,
-    "covered #propsPanel button.icon-btn.argand × button.ph-hundo": 4,
-    "overlap button.ph-hundo × input#i2_b.inp": 4,
-    "overlap button.ph-hundo × #propsPanel button.icon-btn.argand": 4,
-    "overlap button.ph-x × input#i2_b.inp": 4,
-    "overlap button.ph-x × #propsPanel button.icon-btn.argand": 4,
     "target-size input#meshRange × #meshPresets button": 4
    }
   }

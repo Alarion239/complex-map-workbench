@@ -51,8 +51,26 @@ ruff check
 - **No new globals without a reason.** A file exposes one name (`const Tour = (() => { ... return api; })()`); the
   linter reads those names from `src/` itself. A file that also runs in the node unit tests exports itself with
   `module.exports` and is then listed in `types/globals.d.ts`.
-- **Comments say what the code does and why.** Link a spec in `notes/` where it explains a decision. Leave version
-  labels (`// v15:`) and the file's history to git.
+- **Comments describe the code as it is now:** what it does, its contract (inputs, outputs, units, invariants) and,
+  where the code can't show it, why it must be this way. Link a spec in `notes/` where it explains a decision.
+- **A comment never tells the code's history.** No "was", "used to", "previously", "no longer", "now" or "instead of
+  the old …"; no names of removed functions or earlier implementations; no version or wave labels (`// v15:`,
+  `[v17 D5]`, "wave 13"); no PR or issue numbers as a changelog ("fixed in #552", "after #587"). How the code got
+  here belongs in the commit message and the PR, and git keeps it. An issue number is fine in a `TODO(#N)` and when
+  it points at an open bug or a spec.
+- **An edit leaves no stale comment.** Rewrite or delete the comments your change makes wrong, and don't add a
+  comment about the change itself.
+- **Prefer clear code to a comment that explains it.** If a block needs a comment to be followed, simplify it first.
+  Maths, numerics and regular expressions are the exception: there a comment saying what is computed helps.
+- **Solve today's problem.** No options, parameters, flags or generality that nothing uses yet, and no unused
+  exports.
+- **Names say what a thing is or does:** long enough to be clear, short enough to read, no abbreviation a newcomer
+  couldn't expand, and consistent with the rest of the file.
+- **Document an API where it is defined.** An exported function, or a module's `api`, gets a short comment: what it
+  is for, how to call it, what it returns, and its units.
+- **No dead or commented-out code, no `console.log` or debug flags, no `TODO` without an issue number, and no
+  unexplained magic numbers** (name a constant instead).
+- **Keep functions short.** A new function over about 80 lines needs a reason; split it where a split is natural.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/seasong.js`
   (each names its generator at the top).
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
@@ -72,6 +90,33 @@ ruff check
   `max-lines` warns when it does. When a file shrinks, lower its number; once it is under 1500, drop it from the table.
   `max-lines-per-function` is today's largest function, so a change that makes one bigger is flagged. Lower the limits
   when you split something; never raise them.
+
+## Review
+
+Every PR into the integration branch gets two automatic reviews before it merges. Each gives a verdict: 🟢 passes,
+🟡 small items with their file and line, 🔴 a rule is broken and the PR does not merge until it is fixed. A matter of
+taste that no rule here covers is a "Nit:" and never blocks.
+
+- **standards** checks the lines a PR adds or changes against the rules in this file:
+  - **tests:** a new behaviour or fix comes with a test that fails without it, and the PR says so. No test is
+    skipped, deleted or loosened, and no threshold is raised without a stated reason. A test folded into another
+    lists each old case and the check that now covers it, equally strict or stricter. Tests wait for a condition,
+    never for a fixed time;
+  - no images, binaries or secrets committed;
+  - generated files regenerated with their tools;
+  - the lint and type ratchet only goes down;
+  - the code rules above: comments, simplicity, names, API docs and hygiene;
+  - one subject per PR, with no reformatting mixed into a behaviour change. A change to how the project is built,
+    tested, run or released updates the docs (`README.md`, `ci/README.md`, this file), and deleted code takes its
+    docs with it;
+  - the PR body: its issue (`Fixes #N` or `Part of #N`), what changed, and how it was tested.
+- **reuse** checks that a change reuses the engines and helpers we already have, generalizing them where needed,
+  instead of adding a second copy.
+
+A change to what the page shows also gets ux's and eyes' reviews, and a change to the renderer or the maths gets
+perf's reading of a Mac GPU run. The checklist follows Google's engineering practices,
+[What to look for in a code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html)
+(CC BY 3.0).
 
 ## Pull requests
 

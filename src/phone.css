@@ -39,7 +39,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #viewSwitch > button.on { background: var(--seg-on, var(--surface)); color: var(--ink); box-shadow: var(--shadow-1); }
 :root.ph #viewSwitch > button > .mic { display: none; }
 :root.ph #viewSwitch > button > span { display: inline !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-:root.ph #viewSwitch > button[data-mode="xy"] > span { font: italic 500 16px/1 var(--f-math); }
+:root.ph #viewSwitch > button[data-mode="xy"] > span { font: italic 500 15px/1 var(--f-math); }
 :root.ph #viewSwitch > button[data-mode="xy"] > span i { font: inherit; }
 :root.ph .top > #hdrMoreBtn { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
 
@@ -79,7 +79,7 @@ html:not(.ph) .ph-only { display: none !important; }
 @media (prefers-reduced-motion: reduce) { :root.ph .panes > .pane.ph-inset.ph-pulse { animation: none; } }
 .ph-swap { display: none; }
 :root.ph .pane.ph-inset > .ph-swap { display: block; position: absolute; inset: 0; z-index: 20; width: 100%; height: 100%; padding: 0; margin: 0; background: transparent; border: 0; border-radius: inherit; cursor: pointer; }
-.ph-swap > .ph-tag { position: absolute; left: 6px; top: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-1); background: var(--ink); color: var(--bg); font: italic 600 14px/20px var(--f-math); }
+.ph-swap > .ph-tag { position: absolute; left: 6px; top: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-1); background: var(--ink); color: var(--bg); font: italic 600 13px/20px var(--f-math); }
 .ph-swap > .ph-tag i { font: inherit; }
 .ph-swap > .ph-swic { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--r-1); background: var(--overlay); border: 1px solid var(--line-strong); color: var(--ink); }
 .ph-swap:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -139,7 +139,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-crow > .ph-cstep svg { width: 20px; height: 20px; }
 .ph-crow > .ph-cstep:disabled { color: var(--muted); opacity: .45; }
 .ph-crow > .ph-cchip { flex: 1 1 auto; min-width: 44px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; padding: 0 8px; text-align: left; overflow: hidden; }
-.ph-cchip > .ph-cf { font: italic 500 16px/18px var(--f-math); white-space: nowrap; }
+.ph-cchip > .ph-cf { font: italic 500 15px/18px var(--f-math); white-space: nowrap; }
 .ph-cchip > .ph-cf svg { width: 16px; height: 16px; vertical-align: -3px; }
 .ph-cchip > .ph-cn { max-width: 100%; font: 500 11px/13px var(--f-ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ph-cchip > .ph-cn:empty, .ph-cchip > .ph-cn[hidden] { display: none; }
@@ -180,14 +180,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #pipeline .card.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
 :root.ph #pipeline .add-card { order: 2; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 48px; margin: 0; padding: 0 12px; border-radius: var(--r-3); }
 :root.ph #pipeline .add-card > .kbd { display: none; }
-:root.ph #pipeline .add-card > span:not(.kbd) { display: inline-flex !important; max-height: none; writing-mode: horizontal-tb; transform: none; font: 500 14px/18px var(--f-ui); }
+:root.ph #pipeline .add-card > span:not(.kbd) { display: inline-flex !important; max-height: none; writing-mode: horizontal-tb; transform: none; font: 500 13px/18px var(--f-ui); }
 :root.ph #pipeline .add-card svg { width: 18px; height: 18px; }
 /* the whole map first: F, its name, and its guarantees as one line of words */
 :root.ph #pipeline .ftile { order: -1; display: grid; grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; row-gap: 2px; align-items: center;
   width: 100%; min-height: 56px; height: auto; margin: 0; padding: 6px 12px 6px 8px; border-radius: var(--r-3); text-align: left; }
 :root.ph #pipeline .ftile > .fF { grid-column: 1; grid-row: 1 / span 2; font: italic 500 24px/1 var(--f-math); }
 :root.ph #pipeline .ftile > .fF > .fid { display: none; }
-:root.ph #pipeline .ftile > .fwm { grid-column: 2; grid-row: 1; display: block; font: 600 14px/18px var(--f-ui); }
+:root.ph #pipeline .ftile > .fwm { grid-column: 2; grid-row: 1; display: block; font: 600 13px/18px var(--f-ui); }
 :root.ph #pipeline .ftile > .fl, :root.ph #pipeline .ftile > .fnone { grid-column: 2; grid-row: 2; display: flex; flex-wrap: wrap; gap: 2px 10px; font: 500 12px/16px var(--f-ui); color: var(--ink-2); }
 /* (each guarantee its dot and its word on one line, in every language: the laptop's narrow Russian tile stacks them) */
 :root.ph #pipeline .ftile .fl { flex-direction: row; align-items: center; width: auto; max-width: none; }
@@ -201,7 +201,7 @@ html:not(.ph) .ph-only { display: none !important; }
   flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 52px; max-width: 72px; height: 52px; padding: 0 6px;
   background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-3);
 }
-.ph-nums > .ph-na { font: italic 600 16px/1 var(--f-math); }
+.ph-nums > .ph-na { font: italic 600 15px/1 var(--f-math); }
 .ph-nums > .ph-nn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/13px var(--f-ui); color: var(--muted); }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
 :root.ph .pipe-wrap > #morphBtn {
@@ -209,7 +209,7 @@ html:not(.ph) .ph-only { display: none !important; }
   border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: normal; text-align: center;
 }
 :root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
-:root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
+:root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 10px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
 :root.ph:has(#viewSwitch > [data-mode="land"].on) .ph-sph { display: none; }
 :root.ph .pipe-wrap > #morphBtn > :is(svg, .mic) { width: 16px; height: 16px; flex: 0 0 16px; }
 
@@ -355,7 +355,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sb #propsPanel { min-height: 0; }
 /* every control at least 44 × 44 (DESIGN.md 4), fields 44 px tall with 16 px text */
 :root.ph .ph-sheet :is(button, select, summary, [role="radio"], [role="button"], [role="switch"]):not(.ph-grab) { min-height: 44px; min-width: 44px; }
-:root.ph .ph-sheet input:not([type="checkbox"], [type="radio"], [type="range"]), :root.ph .ph-sheet textarea { min-height: 44px; font-size: 16px; }
+:root.ph .ph-sheet input:not([type="checkbox"], [type="radio"], [type="range"]), :root.ph .ph-sheet textarea { min-height: 44px; font-size: 16px; }   /* (16 px, off the type scale on purpose: iOS Safari zooms the page into a field set smaller than 16 px; ci/unit.js lists it) */
 :root.ph .ph-sheet input[type="range"] { height: 44px; min-height: 44px; }
 :root.ph .ph-sheet :is(label.check, label.fader-row) { min-height: 44px; }
 :root.ph .ph-sheet label.check { display: flex; align-items: center; }
@@ -405,7 +405,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-seg { display: flex; flex: 0 0 auto; padding: 2px; gap: 2px; background: var(--well); border-radius: var(--r-2); }
 .ph-seg > button { min-width: 52px; height: 44px; padding: 0 8px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink-2); font: 500 13px/1 var(--f-ui); }
 .ph-seg > button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
-.ph-link { min-height: 44px; padding: 0 8px; background: none; border: 0; color: var(--accent-text, var(--accent)); font: 500 14px/1 var(--f-ui); }
+.ph-link { min-height: 44px; padding: 0 8px; background: none; border: 0; color: var(--accent-text, var(--accent)); font: 500 13px/1 var(--f-ui); }
 .ph-switch { position: relative; flex: 0 0 auto; width: 52px; min-width: 52px; height: 44px; padding: 0; background: none; border: 0; }
 .ph-switch::before { content: ""; position: absolute; left: 2px; right: 2px; top: 9px; height: 26px; border-radius: 13px; background: var(--line-strong); transition: background var(--t-fast); }
 .ph-switch::after { content: ""; position: absolute; left: 5px; top: 12px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-1); transition: transform var(--t-fast) var(--ease-out); }
@@ -466,13 +466,15 @@ html:not(.ph) .ph-only { display: none !important; }
 
 /* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
 /* (design-3's lamp-only F tile went with the tile, #246: the chain sheet's whole-map row names its guarantees) */
-/* design-10: the Editor has one head, the Inspector's: the grabber is a thin bar above it, × floats at its right end */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 18px; height: 18px; padding: 0; border-bottom: 0; }
-/* (its tap area is 18 px tall, above the head's title, clear of the head's buttons) */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 18px; z-index: 2; }
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
-.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
+/* The Edit sheet has one head, the Inspector's. A strip above the scroller holds the grabber's bar, centred, and Undo and × at its
+   right end, so the buttons never sit over the step's fields, whatever the scroll. The strip is 44 px: the two 44 px buttons,
+   4 px apart, 4 px (and the safe area) from the edge */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 44px; height: 44px; padding: 0 calc(4px + env(safe-area-inset-right, 0px)) 0 0; gap: 4px; justify-content: flex-end; border-bottom: 0; }
+/* (the grabber's tap area is the strip's middle, clear of the buttons: 28 % to 72 % of the sheet, the bar centred in it) */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 28%; right: 28%; height: 44px; z-index: 2; }
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab::before { top: 20px; }
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > :is(.ph-hundo, .ph-x) { position: relative; z-index: 3; background: none; }
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { min-height: 44px; margin-top: 0; }
 /* (#483) its empty part drags the sheet, as the head does (phone.js), so a finger there does not scroll */
 .ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { touch-action: none; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
@@ -522,11 +524,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .pal-head > .pal-input { min-width: 0; flex: 1 1 auto; }
 :root.ph .pal-cancel { flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px; background: none; border: 0; border-radius: var(--r-2); color: var(--accent-text, var(--accent)); font: 600 15px/1 var(--f-ui); }
 :root.ph .pal-atrow { flex: 0 0 auto; display: flex; padding: 4px 12px 6px; border-bottom: 1px solid var(--line); }
-:root.ph .pal-at { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 14px; background: var(--well); border: 1px solid var(--line-strong); border-radius: 22px; color: var(--ink); font: 500 14px/1 var(--f-ui); }
+:root.ph .pal-at { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 14px; background: var(--well); border: 1px solid var(--line-strong); border-radius: 22px; color: var(--ink); font: 500 13px/1 var(--f-ui); }
 :root.ph .pal-at i { font: italic 500 15px/16px var(--f-math); }
 :root.ph .pal-at sub { font-size: 10px; }
 :root.ph .pal-atrow { gap: 8px; }
-:root.ph .pal-atrow .pal-where { min-height: 44px; height: auto; padding: 0 10px 0 14px; border-radius: 22px; font: 500 14px/1 var(--f-ui); }
+:root.ph .pal-atrow .pal-where { min-height: 44px; height: auto; padding: 0 10px 0 14px; border-radius: 22px; font: 500 13px/1 var(--f-ui); }
 :root.ph .pal-at[hidden] { display: none; }
 :root.ph .pal-at-ic { display: inline-grid; place-items: center; color: var(--ink-2); }
 :root.ph .pal-at-ic svg { width: 14px; height: 14px; }
@@ -536,8 +538,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .shape-row { grid-template-columns: 20px minmax(0, 1fr) 44px 44px; column-gap: 4px; height: auto; min-height: 48px; padding: 2px 16px 2px 8px; }
 :root.ph .ph-sheet .shape-row > .icon-btn { margin: 0; }
 :root.ph .ph-sheet .shape-name { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding: 4px 0; white-space: normal; -webkit-mask-image: none; mask-image: none; }
-:root.ph .ph-sheet .shape-name .k { font-size: 14px; line-height: 18px; }
-:root.ph .ph-sheet .shape-name .d { flex: 1 0 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; line-height: 16px; }
+:root.ph .ph-sheet .shape-name .k { font-size: 13px; line-height: 18px; }
+:root.ph .ph-sheet .shape-name .d { flex: 1 0 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; line-height: 16px; }
 /* UX38: the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
    lacks leaves its slot empty, so the others never move); keys and legends of the picture stay at the top right.
    (Wave 2 puts Both on top of this column.) */
@@ -552,11 +554,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* UX46: the symbol strip sits on the keyboard's top edge (--ph-kbraw is the keyboard's own height; --ph-kb adds the strip) */
 .ph-keys { position: fixed; left: 0; right: 0; bottom: var(--ph-kbraw, 0px); z-index: 60; display: flex; gap: 2px; height: 44px; padding: 0 2px; overflow-x: auto; background: var(--surface); border-top: 1px solid var(--line); }
 .ph-keys[hidden] { display: none; }
-.ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 16px/1 var(--f-ui); }
+.ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 15px/1 var(--f-ui); }
 .ph-keys > button:active { background: var(--well); }
 /* D6: the Tools sheet's tabs (Draw, Construct, Shapes N) and the More key's shape count */
 .ph-tabs { display: flex; gap: 2px; padding: 2px; margin: 0 0 8px; background: var(--well); border-radius: var(--r-2); }
-.ph-tabs > button { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink-2); font: 500 14px/1 var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-tabs > button { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink-2); font: 500 13px/1 var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ph-tabs > button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
 .ph-tiles[hidden], .ph-tabpane[hidden] { display: none; }
 :root.ph #secDraw > .tool-more > summary { position: relative; }
@@ -585,9 +587,9 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
 :root.ph.ph-land .ph-ctx { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 .ph-ct { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
-.ph-ctn { font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ph-cts { font: 400 12.5px/16px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ph-cb { flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); color: var(--ink); font: 600 14px/1 var(--f-ui); }
+.ph-ctn { font: 600 13px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-cts { font: 400 12px/16px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-cb { flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); color: var(--ink); font: 600 13px/1 var(--f-ui); }
 .ph-cb.prim { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .ph-cb.ico { padding: 0; display: grid; place-items: center; }
 .ph-cb:disabled { opacity: 0.45; }
@@ -618,7 +620,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
 :root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 44px; }
-:root.ph.sv .sv-title { font-size: 17px; margin: 0 2px; }
+:root.ph.sv .sv-title { font-size: 19px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }

@@ -538,18 +538,8 @@
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
-    drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
+    drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     if (rest) drawRulers(pane, 'L');
-  }
-  // the regions drawn as a mask (#591): fn with the regions' look set to solid, opaque and without lines, then put back
-  function withSolidRegions(fn) {
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
-    try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      return fn();
-    } finally {
-      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-    }
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -606,7 +596,7 @@
       if (s.visible === false || kindType(s) === 'point') continue;
       const map = shapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
-      GLR.drawLines(r.lineRes, { map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } });
+      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() })));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
@@ -632,39 +622,6 @@
       pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
     }
     leftSphereInfo = info;
-  }
-  // Inside regions on the globe: the globe with its regions, then over it the colour globe only where a region is. On
-  // the GPU (#440): the colour globe's frame keeps its colour where the regions wrote its alpha (sphereView's
-  // maskRegions, GLR.drawSphere); else the regions drawn white on a black globe make a mask, read back
-  let svSphCv = null, svSphMask = null;
-  function svSphereIn(pane) {
-    const k = svStage(), o = { stage: k, plane: !!xView().eq, role: 'L' };
-    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: true }, o));
-    if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-      try {
-        withSolidRegions(() => sphereView(pane, camL, CAML, Object.assign({ imageMode: false, maskRegions: true }, o)));
-      } catch (e) { console.error('steps view globe mask', e); }
-      return info;
-    }
-    svSphCv = svCanvas(svSphCv, pane);
-    sphereView(svProxy(pane, svSphCv), camL, CAML, Object.assign({ imageMode: false }, o));
-    svSphMask = svCanvas(svSphMask, pane);
-    const keepTH = TH, keepInk = printInk;
-    try {
-      TH = Object.assign({}, TH, { plane: '#000000', planeRGB: [0, 0, 0], gridMajor: '#000000', axisRGB: [0, 0, 0], inkRGB: [0, 0, 0], faint: '#000000', landTop: '#000000', landBottom: '#000000', landShadow: '#000000', halo: '#000000', muted: '#000000' });
-      printInk = () => ({ c0: '#ffffff', alt: '#ffffff', edge: '#ffffff' });
-      withSolidRegions(() => sphereView(svProxy(pane, svSphMask), camL, CAML, Object.assign({ imageMode: true }, o)));
-    } catch (e) { console.error('steps view globe mask', e); }
-    TH = keepTH; printInk = keepInk;
-    const mc = svSphMask.getContext('2d'), img = mc.getImageData(0, 0, svSphMask.width, svSphMask.height), d = img.data;
-    // (a lit white region stays light; the black globe, its sheen and the ground stay dark)
-    for (let q = 0; q < d.length; q += 4) { const l = (d[q] + d[q + 1] + d[q + 2]) / 3; d[q + 3] = l > 110 ? 255 : l > 70 ? Math.round((l - 70) * 255 / 40) : 0; }
-    mc.putImageData(img, 0, 0);
-    const c = svSphCv.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = 'destination-in'; c.drawImage(svSphMask, 0, 0); c.globalCompositeOperation = 'source-over';
-    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svSphCv, 0, 0); pane.ctx.restore();
-    return info;
   }
   // Inside regions: the region mask of plane k, drawn opaque into a canvas the size of the pane's
   let svMaskCv = null, svColCv = null;
@@ -709,28 +666,19 @@
     const { name, role } = svTitleParts();
     return `${name}<span class="sv-sep"> · </span><span class="sv-role">${role}</span>`;
   }
-  function svSeg(cls, label, items, cur, pick) {
-    const g = h('div', { class: 'seg small sv-seg ' + cls, role: 'radiogroup', 'aria-label': label });
-    for (const [id, text, tip] of items) {
-      g.append(h('button', { type: 'button', role: 'radio', 'data-v': id, 'data-tip': tip || '', 'aria-checked': String(cur() === id), tabindex: cur() === id ? '0' : '-1', class: cur() === id ? 'on' : '', onclick: () => pick(id) }, text));
-    }
-    // (a radio group: one Tab stop, the checked one; ← → pick the next and move the focus with it)
-    g.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-      const bs = [...g.children], i = bs.indexOf(/** @type {HTMLElement} */ (e.target));
-      if (i < 0) return;
-      e.preventDefault();
-      const n = bs[(i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length];
-      pick(n.dataset.v); n.focus();
-    });
-    return g;
+  // the glide speed's select (the shared field-styled one, selectEl) and the Loop toggle, the strip's and the playback sheet's
+  function svSpeedSel(title) {
+    return selectEl(null, SV.speed, [['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]], svSetSpeed, title, 'sv-speed');
+  }
+  function svLoopBtn(cls, tip) {
+    return h('button', { type: 'button', class: cls, 'aria-pressed': String(SV.loop), 'data-tip': tip || null, onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
   }
   function svBuild() {
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
-    const scope = svSeg('sv-scope', $t('Where colour shows'), [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], () => SV.scope, (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); });
+    const scope = seg(null, SV.scope, [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -743,11 +691,10 @@
     const next = h('button', { type: 'button', class: 'sv-nav sv-next', 'aria-label': $t('Next plane'), 'data-tip': $t('Next plane  →'), onclick: () => svStep(1) }, '›');
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
-    const speed = h('select', { class: 'sv-speed', 'aria-label': $t('Glide speed'), 'data-tip': $t('Glide speed'), onchange: (e) => svSetSpeed(e.target.value) },
-      ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v, selected: v === SV.speed ? '' : null }, t)));
+    const speed = svSpeedSel($t('Glide speed'));
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
-    const loop = h('button', { type: 'button', class: 'btn small sv-loop', 'aria-pressed': String(SV.loop), 'data-tip': $t('Start over at the end'), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+    const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
     // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it (#501), and inside the band it lay under the plane buttons)
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
@@ -854,7 +801,7 @@
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
-      for (const b of E.scope.children) { const on = b.dataset.v === SV.scope; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); }
+      setSeg(E.scope, SV.scope);
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
@@ -1408,9 +1355,8 @@
     const E = SV.els;
     if (!E.sheet) {
       const scrim = h('div', { class: 'sv-scrim', onclick: () => svSheetClose() });
-      const sel = h('select', { class: 'sv-speed', 'aria-label': $t('Speed'), onchange: (e) => svSetSpeed(e.target.value) },
-        ...[['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]].map(([v, t]) => h('option', { value: v }, t)));
-      const lp = h('button', { type: 'button', class: 'btn sv-loop', 'aria-pressed': String(SV.loop), onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+      const sel = svSpeedSel($t('Speed'));
+      const lp = svLoopBtn('btn sv-loop');
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
         h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('div', { class: 'sv-sheet-r' }, lp));
@@ -1701,11 +1647,12 @@
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
     const wrap = h('span', { class: 'sv-fwrap' + (off ? ' off' : '') }, chip, more);
     wrap.addEventListener('keydown', (e) => {
-      if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      const ed = stepEditKey(e);
+      if (ed && ed.move) {
         e.preventDefault(); e.stopPropagation();
-        const el = svMove(k, e.key === 'ArrowLeft' ? -1 : 1);
+        const el = svMove(k, ed.move);
         if (el) el.focus({ preventScroll: true });
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !e.altKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); e.stopPropagation(); svRemove(k); }
+      } else if (ed && ed.remove) { e.preventDefault(); e.stopPropagation(); svRemove(k); }
       else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { e.preventDefault(); e.stopPropagation(); svStepMenu(/** @type {HTMLElement} */ (e.target), k); }
     });
     // (right-click, and the touch's long press: the phone's chips have no ⋯)
