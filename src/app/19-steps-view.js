@@ -462,6 +462,9 @@
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
       // travel on, each fragment its point's colour)
       else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && svCarryRegions(pane, map, T, still ? a : b, frame)) carried = true;
+      // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
+      // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling; its
+      // removal is #589)
       else if (still ? !svColoured(a) : !isDeriv(b)) {
         carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
       }
