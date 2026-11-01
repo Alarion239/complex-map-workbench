@@ -197,7 +197,7 @@
  },
  "add.dup": {
   "en": "Duplicated f{x} as f{x2}.",
-  "ru": "Шаг f{x} продублирован как f{x2}.",
+  "ru": "Копия f{x}: f{x2}.",
   "note": "UX01 toast after Duplicate."
  },
  "add.moved": {

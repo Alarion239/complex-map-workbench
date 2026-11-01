@@ -388,29 +388,30 @@
   // a step of a type this build does not know still gets a card (its error comes from Funcs.build)
   const defOf = (st) => Funcs.DEFS[st.type] || { label: String(st.type), params: [] };
   const cardButton = (k) => document.querySelector(`#pipeline .card[data-k="${k}"] .nm`);
-  function stepMenu(anchor, k, opt) {
+  // (#437: stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
+  function stepMenuItems(anchor, k, opt) {
     const st = S.steps[k - 1], d = defOf(st);
     // (D1, issue #23: Replace… first: the palette, ready to replace this step)
-    const items = /** @type {any[]} */ ([{ label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
+    const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
     // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
     if (opt && opt.full) {
       const b0 = built[k - 1];
-      if (!isDerivStep(st, b0)) items.push({ label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
-      items.push({ label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
+      if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
+      items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
       // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
       // none on a touch screen)
-      { label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
-      { label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
-      { label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
-      { label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
+      { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
+      { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
+      { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     // (v16: which steps the deformation deforms, SPEC 6.5)
-    if (activeSteps().length >= 2) items.push({ label: $t('Deformation'), kids: deformItems(k) });
+    if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ label: $t('Repeat'), kids: rk }); }
+    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk }); }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
@@ -421,9 +422,10 @@
     // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
     if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
     if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
-    items.push('sep', { label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
-    openMenu(anchor, items);
+    items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
+    return items;
   }
+  function stepMenu(anchor, k, opt) { return openMenu(anchor, stepMenuItems(anchor, k, opt)); }
   // v15 (DESIGN.md 2.4): a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
   // the lens in the Inspector's head)
   function cardClick(k) { selectStep(k); }

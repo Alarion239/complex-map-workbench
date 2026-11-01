@@ -177,7 +177,7 @@
       if (!msg && q && !inHead) { act = q; msg = q.msg; }
       const on = !!msg;
       if (sc.firstChild.textContent !== msg) sc.firstChild.textContent = msg;
-      let ab = sc.querySelector('.chip-act');
+      let ab = /** @type {HTMLElement | null} */ (sc.querySelector('.chip-act'));
       const kind = act ? (act.stop ? 'stop' : 'listen') : '';
       if (ab && ab.dataset.kind !== kind) { ab.remove(); ab = null; }
       if (act && !ab) {
@@ -213,7 +213,7 @@
     const k = `${merged}|${off}`;
     if (k === globeToolsOff) return;
     globeToolsOff = k;
-    for (const b of document.querySelectorAll('.tool[data-tool]')) {
+    for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) {
       if (b.dataset.tool === 'select') continue;
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
@@ -478,7 +478,7 @@
     // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
     const hv = typeof homView === 'function' ? homView() : null;
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
-    const cst = { map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    const cst = { map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     if (!(svMaskOn() && svMaskGPU(pane, cst))) { GLR.drawColorPlot(cst); if (svMaskOn()) svMaskColour(pane, cst); }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
@@ -728,6 +728,7 @@
     render3D.pick = info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
+  render3D.linear = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -1149,7 +1150,7 @@
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = `italic 500 13px ${TH.math}`;
-    const pts = [['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', lift(1, 0)], ['i', lift(0, 1)], ['−1', lift(-1, 0)], ['−i', lift(0, -1)]];
+    const pts = /** @type {[string, number[]][]} */ ([['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', lift(1, 0)], ['i', lift(0, 1)], ['−1', lift(-1, 0)], ['−i', lift(0, -1)]]);
     for (const [lab, p] of pts) {
       const f = facing(p);
       const u = Math.max(0, Math.min(1, (f - 0.05) / 0.25)), a = u * u * (3 - 2 * u);   // smoothstep(0.05, 0.3, n·v)
@@ -1225,7 +1226,7 @@
       vsw.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         const i = MAINS.findIndex((x) => x[0] === S.view.main), j = Math.max(0, Math.min(MAINS.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setMain(MAINS[j][0]); vsw.children[j].focus(); e.preventDefault();
+        setMain(MAINS[j][0]); /** @type {HTMLElement} */ (vsw.children[j]).focus(); e.preventDefault();
       });
     }
     for (const side of ['L', 'R']) {
@@ -1235,7 +1236,7 @@
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
         const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setView(side, list[j][0]); el.children[j].focus(); e.preventDefault();
+        setView(side, list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
       });
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
@@ -1265,10 +1266,10 @@
     for (const id of ['leftLegend', 'rightLegend']) {
       const el = $(id);
       if (!el) continue;
-      try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
+      try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
-      el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
+      el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
       $(side + 'ZoomIn').innerHTML = ICONS.plus;
