@@ -1,6 +1,7 @@
 # The gate on our own machines with real GPUs (ci/RUNNERS.md): the paired perf suite (desktop units and the emulated
-# phone) with the suite's own tolerances, image quality and GLSL conformance on the Windows laptop and the Mac,
-# registered as self-hosted runners with the label `gpu`. Once they are (GPU_RUNNERS), speed is gated here, not in the
+# phone) with the suite's own tolerances, image quality and GLSL conformance on the Mac, registered as a self-hosted
+# runner with the label `gpu` (the Windows laptop's runner was removed on 2026-11-01, #169: Windows GPU results are
+# skipped until one is back; the Windows paths below stay for it). Once they are (GPU_RUNNERS), speed is gated here, not in the
 # Gate on GitHub's machines.
 #
 # Off until the repository variable GPU_RUNNERS is 'true' (Settings > Secrets and variables > Actions > Variables), so
@@ -31,10 +32,10 @@ on:
         required: false
         default: ''
       machines:
-        description: 'Which machines (windows-hosted: mode glprof only, GitHub''s windows-latest, Direct3D 11 on WARP, against the reference)'
+        description: 'Which machines (mac: the only GPU runner now, #169; windows and both: the Windows GPU runner was removed, windows fails at once, both runs the Mac; windows-hosted: mode glprof only, GitHub''s windows-latest, Direct3D 11 on WARP, against the reference)'
         type: choice
-        options: [both, windows, mac, windows-hosted]
-        default: both
+        options: [mac, both, windows, windows-hosted]
+        default: mac
       shards:
         description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
         required: false
@@ -127,14 +128,20 @@ jobs:
       - id: machines
         shell: bash
         run: |
+          # (#169: the self-hosted Windows GPU runner was removed (2026-11-01), so a job for it would queue forever. The Mac
+          # is the only GPU machine: every event (a push, the nightly run, the label gpu-gate) and the default run it alone;
+          # windows fails at once, both runs the Mac and says so. Windows GPU results are skipped until a runner is back.)
           case "${{ inputs.machines }}" in
-            windows) echo 'machines=["Windows"]' >> "$GITHUB_OUTPUT" ;;
+            windows) echo "::error::Windows GPU runner removed (#169): no machine would take this run's jobs. Run machines mac, or windows-hosted with mode glprof."; exit 1 ;;
+            both) echo "::warning::Windows GPU runner removed (#169): machines both runs the Mac only."
+                  echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT"
+                  echo "Windows GPU runner removed (#169): the Mac only." >> "$GITHUB_STEP_SUMMARY" ;;
             # (GitHub's Windows machine: shader link times only, the gates need our GPUs)
             windows-hosted)
               if [ "${{ inputs.mode }}" != glprof ]; then echo "::error::machines windows-hosted runs mode glprof only"; exit 1; fi
               echo 'machines=["Windows-hosted"]' >> "$GITHUB_OUTPUT" ;;
             mac) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
-            *) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
+            *) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
           esac
       # the GLSL jobs: macOS runs its pages whole (minutes). Windows (FXC on one core: the glsl page alone took over 170
       # minutes a side on the nightly run of 2026-10-29, cut off at the job's limit) runs every chain in parts, the
