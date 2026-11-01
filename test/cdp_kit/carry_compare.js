@@ -18,8 +18,8 @@
 // opts.skipW, samples near which the same holds in the shown plane, { discs: [[x, y, r], ...] } or { rays: [angle, ...],
 // eps } (about 0).
 // Returns { considered, wrong, blank, none, unlisted, filled, paper, rate, ex }: blank, a wrong sample on the plane's
-// paper; filled, the samples with a point, judged or not; paper, those of them on the bare paper where their own colour
-// is not near grey; ex, up to opts.nex
+// paper; filled, the samples with a point, judged or not; paper, the judged ones on the bare paper where their own
+// colour is not near grey; ex, up to opts.nex
 // wrong samples, each with w, its points [x, y, D] and the front's colour; paperAt, up to 8 of the samples on the paper.
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
 // nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
@@ -88,14 +88,15 @@
     if (own) P0 = P0.filter((z) => own(z));
     if (!P0.length) { none++; continue; }
     const nb = [1, 2, 3, 4].map((k) => (pre[5 * s + k] || []).filter((z) => !own || own(z)));
-    // (every sample with a point is coloured, judged or not: none on the paper, unless its own colour is near grey
-    // there, as at a zero of the map into the colour plane)
-    { const [qx, qy] = at[s], m = 4 * (qy * W + qx), g = [d[m], d[m + 1], d[m + 2]]; filled++; if (spread(g) < 6 && spread(colFp(fronts(P0)[0], nb)) >= 24) { paper++; if (paperAt.length < 8) paperAt.push({ px: qx, py: qy, w: pts[5 * s], got: g }); } }
+    filled++;
     if (nb.some((q) => q.length !== P0.length)) continue;
     const cand = fronts(P0);
     if (cand.length > 64 || cand.some((z) => nb.some((q) => dist(col(z), col(near(q, z))) > o.steep))) continue;
     considered++;
     const [px, py] = at[s], n = 4 * (py * W + px), got = [d[n], d[n + 1], d[n + 2]];
+    // (a judged sample on the paper where its own colour is not near grey: where the colour changes slowly, so not a
+    // zero of the map nor its |g| = 1 stroke, which the steep test leaves out)
+    if (spread(got) < 6 && cand.every((z) => spread(colFp(z, nb)) >= 24)) { paper++; if (paperAt.length < 8) paperAt.push({ px, py, w: pts[5 * s], got }); }
     if (cand.some((z) => dist(got, colFp(z, nb)) <= o.tol)) continue;
     wrong++;
     if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < 12) blank++;
