@@ -5,7 +5,7 @@
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
   function fitTitle(side, noNote, noDisp, noEmpty) {
-    const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
+    const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && /** @type {HTMLElement | null} */ (t.nextElementSibling);
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
     // ([v17 D4; #247] the head's pattern button shows its caret unless the title needs that room: then its swatch alone,
@@ -149,10 +149,10 @@
     $('rightFit').hidden = !rImage();
     $('leftFit').hidden = false;
     buildRightFoot();
-    for (const c of document.querySelectorAll('.card')) c.classList.toggle('focus', +c.dataset.k === S.focus);
+    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.card'))) c.classList.toggle('focus', +c.dataset.k === S.focus);
     syncSel();
     $('viewAllBtn').setAttribute('aria-pressed', String(S.focus === 0));
-    if (setupFormula.refresh) setupFormula.refresh();
+    if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
     updateToolHint();
     updateLeds();
@@ -812,7 +812,7 @@
       watchFader(rng);
       // ([v16.5 fix regress-1] a row too tight for the readout in words: the short form, measured once here, where the
       // dock is laid out anyway)
-      { const lab = f.querySelector('#morphLabel'), tc = f.querySelector('.tclose');
+      { const lab = /** @type {HTMLElement | null} */ (f.querySelector('#morphLabel')), tc = f.querySelector('.tclose');
         if (lab && tc && play.getClientRects().length && tc.getBoundingClientRect().top > play.getBoundingClientRect().bottom - 4) { lab.dataset.short = '1'; setText(lab, morphReadout(true)); } }
       // (v16: a phone's transport labels, measured once the dock is laid out: here, then on the next frames and renders)
       if (scrub.dataset.fit) { const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } }
