@@ -12,6 +12,7 @@
 //   tanh pole in the window; the two sheets overlapping) and held mid-glide at 0.25 and 0.5; and with the example's own
 //   colour plane w1, parked and held mid-glide at 0.25 and 0.5, and parked at 0.25 and 0.5 straight from rest on a fresh
 //   page, read 3 s after the park and again once the frame holds still;
+// - the enhanced style: the Joukowski example in it, parked at 0.5 (colour plane w1), and z^2 parked at 0.5;
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong, every sample's points listed, and none left on the bare paper;
@@ -179,6 +180,26 @@ for (const park of [0.25, 0.5]) {
   await judge(key, { nx: 32, ny: 20, skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 });
 }
 
+// the enhanced style (modulus and phase tiles): the Joukowski example in its own style, parked at 0.5 on a new page
+// (colour plane w1), and z^2 parked at 0.5 Everywhere
+if (EX >= 0) {
+  const key = 'Joukowski, enhanced, colour plane w1, parked at 0.5';
+  await view(1280, 800, false, false);
+  await go(`http://localhost:${PORT}/test.html?view=steps&lang=en&ns=sce${Date.now()}`);
+  await settled({ until: 'typeof __cmwSvFrame === "function" && typeof __cmwExample === "function"', max: 30000 });
+  await ev(`__cmwExample(${EX}); 1`);
+  await settled({ until: '__cmwSteps().planes.length === 2', max: 20000 });
+  await ev(`__cmwSet('dc', 'enhanced'); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); 1`);
+  await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().anim', max: 20000 });
+  if (await reach(key, { park: 0.5, T: 1, scope: 'all' })) await judge(key, { nx: 32, ny: 20, style: 'enhanced', skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 });
+}
+{
+  const key = 'z^2, enhanced, Everywhere parked at 0.5';
+  await open({ v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', dc: 'enhanced', srcView: { cx: 0, cy: 0, s: 90 }, shapes: [{ id: 1, kind: 'annulus', c: [0, 0], r1: 0.6, r2: 1.6 }], steps: [{ type: 'pown', params: { n: 2 } }] });
+  await ev(`__cmwSet('dc', 'enhanced'); 1`);
+  if (await reach(key, { park: 0.5, T: 0, scope: 'all' })) await judge(key, { nx: 32, ny: 20, style: 'enhanced', skip: { circles: [[0, 0, 0.6], [0, 0, 1.6]], eps: 0.08 }, skipW: { rays: [1.5 * Math.PI, -1.5 * Math.PI], eps: 0.06 }, nex: 60 });
+}
+
 // (multiple coverings) w = z^n on the annulus 0.6 < |z| < 1.6, its image covering n times
 for (const n of [2, 3]) {
   await open({ v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', dc: 'phase', srcView: { cx: 0, cy: 0, s: 90 }, shapes: [{ id: 1, kind: 'annulus', c: [0, 0], r1: 0.6, r2: 1.6 }], steps: [{ type: 'pown', params: { n } }] });
@@ -202,8 +223,8 @@ await settled({ until: '!GLR.lost && GLR.ok', max: 10000, panes: false });
 ok('after a lost and restored GL context: the frame is drawn and holds still', await steady(), null);
 await judge('after a lost and restored GL context', { nx: 32, ny: 20, skip: { circles: [[0, 0, 0.6], [0, 0, 1.6]], eps: 0.08 } });
 // (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 16 of
-// Joukowski, 8 of the powers and the restored context)
-const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 16 + 8 + 1;
+// Joukowski, 2 in the enhanced style, 8 of the powers and the restored context)
+const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 16 + 2 + 8 + 1;
 ok('every case was judged', Object.keys(info.cases).length === want, { judged: Object.keys(info.cases).length, want });
 const all = Object.values(info.cases).filter(Boolean);
 info.summary = `${all.filter((r) => r.considered >= MIN_N && r.rate <= MAX_BAD && r.blank === 0).length} of ${all.length} cases pass`;

@@ -2,7 +2,8 @@
 // shown frame (a plane at rest, or parked between two planes) is sampled on a grid of the left pane. Each sample w's
 // points of plane z, each with its image in the colour plane T, are listed from the frame's own maps (__cmwSvFrame);
 // they are ranked by the frame's sheet key (Inverse.sheetKey and Inverse.front, the region tiling's), and the pixel must
-// have the front point's colour: the phase wheel at the arg of its image in T (GLR.phaseRGB at 0.75, the Phase style).
+// have the front point's colour: the style's colouring of its image in T (opts.style 'phase' or 'enhanced', with
+// opts.sectors; Inverse.dcolorRGB, the GPU's dcolorAt).
 // A sample where the colour changes fast (a neighbour 1.5 px away has another number of points, or the front point's
 // colour moves more than opts.steep) is not counted; a seam (another point within a hair of the front in the key) may
 // show either.
@@ -20,9 +21,9 @@
 // paper; filled, the samples with a point, judged or not; paper, those of them on the bare paper; ex, up to opts.nex
 // wrong samples, each with w, its points [x, y, D] and the front's colour.
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
-// nex = 3 }
+// nex = 3, style = 'phase', sectors = 12 }
 (function carryCompare(o) {
-  o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null, nex: 3 }, o || {});
+  o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null, nex: 3, style: 'phase', sectors: 12 }, o || {});
   const C = CX.C;
   const angle = (a, b) => { const d = a - b; return Math.abs(Math.atan2(Math.sin(d), Math.cos(d))); };
   const own = !o.own ? null : o.own.outside ? (([x, y]) => Math.hypot(x - o.own.outside[0], y - o.own.outside[1]) > o.own.outside[2])
@@ -46,8 +47,9 @@
     for (const v of vs) { const r = fr.pre(v); if (!r) return null; zs.push(...r); }
     return zs.filter((z) => CX.abs(z) < 1e6).map((z) => { let g = null; try { g = fr.G(z); } catch (e) { g = null; } return g && CX.isFin(g) ? [z.re, z.im, g.re, g.im] : null; }).filter(Boolean);
   });
-  // (a point [x, y, gx, gy]: its colour, the wheel at arg of its image in T, kept on it)
-  const col = (z) => z[4] || (z[4] = GLR.phaseRGB(Math.atan2(z[3], z[2]), 0.75).map((t) => t * 255));
+  // (a point [x, y, gx, gy]: its colour, the style's colouring of its image in T (Inverse.dcolorRGB, the GPU's
+  // dcolorAt as a point sample), kept on it)
+  const col = (z) => z[4] || (z[4] = Inverse.dcolorRGB(o.style, Math.atan2(z[3], z[2]), Math.log(Math.max(Math.hypot(z[2], z[3]), 1e-300)), 0, 0, o.sectors).map((t) => t * 255));
   const dist = (p, q) => Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2]));
   const near = (zs, z) => { let best = null, bd = Infinity; for (const q of zs) { const e = Math.hypot(q[0] - z[0], q[1] - z[1]); if (e < bd) { bd = e; best = q; } } return best; };
   const keyOf = (z) => Math.min(Inverse.sheetKey(prep, C(z[0], z[1]), null), 1e6);

@@ -37,7 +37,7 @@ const Inverse = (() => {
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, stepOps, rationalForm
   } = InvOps;
-  const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
+  const { PATTERNS, sqAA, hexRGB, patternColor, dcolorRGB } = InvPatterns;
 
   // =====================================================================================================
   // 3. Plans (SPEC 3.4) and the program key (4.4)
@@ -1581,7 +1581,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
+    shapePx, patternColor, dcolorRGB, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
