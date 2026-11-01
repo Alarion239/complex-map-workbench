@@ -267,21 +267,21 @@
     return x1 - x0 > 1 && svAllOk(x0, x1) ? { x0, x1 } : null;
   }
   function svBetween() {
-    const P = svPlanes(), x = SV.g.x, sp = SV.span;
-    if (sp && sp.x1 < P.length && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6 && svAllOk(sp.x0, sp.x1)) {
-      const a = P[sp.x0], b = P[sp.x1], u = (x - sp.x0) / (sp.x1 - sp.x0), Fa = stageF(a);
-      const Hs = P.slice(sp.x0 + 1, sp.x1 + 1).map((k) => homF(k, u));
-      const H = (z) => { let w = z; for (const f of Hs) w = f(w); return w; };
-      return { a, b, u, map: { mode: 3, a, b, t: u }, F: (z) => H(Fa(z)), H, near: u < 0.5 ? a : b, all: true };
+    const P = svPlanes(), x = SV.g.x, span = SV.span;
+    if (span && span.x1 < P.length && x > span.x0 + 1e-6 && x < span.x1 - 1e-6 && svAllOk(span.x0, span.x1)) {
+      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), fromA = stageF(a);
+      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, u));
+      const H = (z) => { let w = z; for (const f of homs) w = f(w); return w; };
+      return { a, b, u, map: { mode: 3, a, b, t: u }, F: (z) => H(fromA(z)), H, near: u < 0.5 ? a : b, all: true };
     }
     const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
     const still = u <= 1e-6 || b === a, jump = !still && isDeriv(b);
     const map = still ? stageMap(a) : jump ? stageMap(u < 0.5 ? a : b) : { mode: 1, hi: b, t: u };
     // (its CPU twin, for the points: H_u after the steps before b, as transState)
-    const Ht = still || jump ? null : homF(b, u);
-    const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, Fp) => (z) => H(Fp(z)))(Ht, stageF(b - 1));
-    return { a, b, u, map, F, H: Ht, near: u < 0.5 ? a : b, all: false };
+    const hom = still || jump ? null : homF(b, u);
+    const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
+    return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
   // The colour carried by the points: a grid over plane s's window (the camera's, half again as wide), each vertex

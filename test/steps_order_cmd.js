@@ -25,8 +25,8 @@ const reopen = async (nsx) => {
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
-// a glide part-way (from a plane at x = 0): read until the thread's place is past `from`, for at most ~4 s (state reads, not a sleep)
-const underway = async (from = 0.25) => { for (let i = 0; i < 80; i++) { const s = await S(); if ((s.anim || s.play) && s.x >= from) return s; await sleep(25); } return await S(); };
+// a glide part-way (from a plane at x = 0): read until the thread's place is past `from`, for at most ~4 s (a condition wait)
+const underway = async (from = 0.25) => { await settled({ panes: false, max: 4000, until: `(() => { const s = __cmwSteps(); return (s.anim || s.play) && s.x >= ${from}; })()` }); return await S(); };
 const pick = (v) => ev(`(() => { const e = document.querySelector('#svStrip .sv-order'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('change', { bubbles: true })); return e.value; })()`);
 
 await open(base([step('exp'), step('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), step('pown', { n: 3 })]), ns);
@@ -114,6 +114,6 @@ for (const lang of ['en', 'ru', 'it']) {
   const clear = sorted.every((i, k) => !k || i.l >= sorted[k - 1].r - 0.5);
   info[`1024 ${lang}`] = { strip: box.strip.map(Math.round), rail: Math.round(rail.w), order: Math.round(box.items.find((i) => i.q === '.sv-order').w) };
   ok(`1024 ${lang}: the strip's controls sit inside it, on one row, overlapping nothing, the select's text uncut`, inside && oneRow && clear && box.scroll <= 0 && box.order <= 1, box);
-  ok(`1024 ${lang}: the rail keeps room for the thread (at least 160 px)`, rail.w >= 160, rail);
+  ok(`1024 ${lang}: the rail keeps room for the thread (at least 160 px, what the F chip's strip keeps)`, rail.w >= 160, rail);
 }
 return { pass: fails.length === 0, fails, info };
