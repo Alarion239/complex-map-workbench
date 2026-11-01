@@ -50,7 +50,14 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   ok(`${tag}: the chain sheet is open`, await ev(`!!document.querySelector('.ph-sheet[data-k="chain"].open')`), null);
   // (a second after the toast shows: the sheet's 220 ms to make way for it, and the list's scroll to the card just added)
   let m = null;
-  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await settle(1000); m = await measure(); } }
+  for (let i = 0; i < 3 && !m; i++) {
+    await ev(`__cmwAddStep('exp')`);
+    if (await shown()) {
+      await settle(1000); m = await measure();
+      // (the list's smooth scroll to the card just added takes longer on a slow start: measured again, up to eight times, until the card is in view)
+      for (let j = 0; j < 8 && m && !(m.newCard && m.newCard.seen >= 0.9); j++) { await sleep(500); const n = await measure(); if (!n) break; m = n; }
+    }
+  }
   info[tag] = m;
   ok(`${tag}: a toast shows after a step is added`, !!m, null);
   if (!m) continue;
