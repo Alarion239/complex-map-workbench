@@ -1082,6 +1082,45 @@ async function cardsStartupUnit() {
 // deformation, which plays; 2 s of playback are measured. The reference cannot paint H_t in its phase pane (its
 // deformation is a view of the right pane), so this unit is like-for-unlike against it and is gated by the absolute
 // 60 fps budget (compare_perf BUDGET60: frame p95 <= 14 ms, fps >= 55); `.view` says which picture played.
+// [issue #395] the Mountain King in Landscape (its formula's ops in uniforms, one loop: #569), on a GPU only (its
+// programs take minutes to link on a software renderer; CMW_SV_SOFT=1 runs it anyway): (a) an orbit at rest, (b) the
+// deformation playing, about 3 s. The example opens in its own view: Landscape is set after it, then 3 s idle for links
+async function landKingUnit() {
+  const pre = 'landscape.king';
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(pre, 'skipped: a software renderer (the Mountain King\'s programs take minutes to link there)'); return; }
+  const orbit = [], frame = [], cpu = [], fps = [];
+  for (let i = 0; i < REPS; i++) {
+    await openApp(sceneState('default', { rightMode: '3d', meshN: 240 }));
+    await B.ev(`__cmwExample(${exampleIndex('In the Hall of the Mountain King')}), 1`);
+    await settle(await pageNow());
+    await B.ev("__cmwSetMain('land'), 1");
+    await sleep(3000);
+    await settle(await pageNow());
+    const main = await B.ev('typeof __cmwLayout === \'function\' ? __cmwLayout().main : \'\'');
+    if (main !== 'land') throw new Error(`${pre}: the Mountain King did not open in Landscape (${main})`);
+    const side = await B.ev("typeof __cmwPaneOf === 'function' ? __cmwPaneOf('3d', 'image') : 'R'");
+    // (a) an orbit at rest, there and back
+    const l1 = await dragLeg(side, 160, 60, 'left'), l2 = await dragLeg(side, -160, -60, 'left');
+    if (!l1.drawn.length || !l2.drawn.length) throw new Error(`${pre}: the orbit drew no frames`);
+    orbit.push(legSummary([l1, l2], 'pointermove'));
+    // (b) the deformation playing in Landscape (its programs linked in the first second)
+    const ok = await B.ev(`(() => { const b = document.getElementById('morphBtn'); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); ${morphPlayIf(true)} return true; })()`);
+    if (!ok) throw new Error(`${pre}: no deformation button`);
+    await sleep(1500);
+    const a = await pageNow();
+    await sleep(3000);
+    const b = await pageNow();
+    const w = await windowStats(a, b);
+    if (!w.drawn.length) throw new Error(`${pre}: the deformation drew no frames`);
+    frame.push(quant(w.frame, 0.95)); cpu.push(quant(w.cpu, 0.95)); fps.push(w.drawn.length * 1000 / w.dur);
+    await B.ev(`(() => { ${morphPlayIf(false)} return 1; })()`);
+  }
+  putInteraction(`${pre}.orbit`, orbit);
+  put(`${pre}.morph.frame_p95_ms`, 'frame_ms', 'ms', frame);
+  put(`${pre}.morph.cpu_p95_ms`, 'frame_ms', 'ms', cpu);
+  put(`${pre}.morph.fps`, 'throughput', 'frames/s', fps);
+}
 async function morphViewsUnit() {
   for (const [mode, main] of [['color', 'phase'], ['3d', 'land']]) {
     for (const scene of ['default', 'scrub']) {
@@ -1792,6 +1831,7 @@ for (const scene of ['default', 'logUHP', 'chain4']) {
 unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
+unit('landscape.king', 'Landscape: the Mountain King (#395), an orbit at rest and the deformation playing, on a GPU', landKingUnit, { timeoutS: 600 });
 // iteration (#6): the default N of the Mandelbrot example in Phase (its pan L is the X -> Y view: the sphere mesh of
 // the escape-test region on the CPU). (No Landscape unit: on a software renderer one orbit of it outlasts the unit's
 // 180 s, which would end the shard's run; landscape.default takes 120 s there)
