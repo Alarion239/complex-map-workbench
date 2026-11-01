@@ -31,15 +31,14 @@ const at = async (re, im) => {
 const under = (x, y) => ev(`(() => { const e = document.elementFromPoint(${x}, ${y}); return e ? e.id || String(e.className) : null; })()`);
 const CIRCLE = { id: 'c1', kind: 'circle', c: [0, 0.8], r: 0.3, ci: 0, visible: true, stage: 1 };
 await view(1440, 900, false, false);
-for (const [where, url, go] of [['steps view, plane w₁', 'view=steps', `__cmwSteps({ go: 1, now: true })`], ['classic view, step 2 focused', '', '']]) {
+for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `__cmwSteps({ go: 1, now: true })`], ['classic view, step 2 focused', '', '']]) {
   const ns = 'svcm' + Date.now();
-  await send('Page.navigate', { url: `${BASE}/gl-helpers.html` });
-  await settled({ floor: 100, max: 5000, until: `location.pathname.endsWith('/gl-helpers.html') && document.readyState === 'complete'` });
+  await go(`${BASE}/gl-helpers.html`);
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: url ? 0 : 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}${url ? '&' + url : ''}` });
+  await go(`${BASE}/test.html?ns=${ns}${url ? '&' + url : ''}`);
   await settled({ floor: 300, max: 15000, until: `typeof __cmwPlaneMenu === 'function'${url ? " && typeof __cmwSteps === 'function'" : ''}` });
-  if (go) { await ev(`${go}, 1`); await settled({ floor: 300, max: 15000, until: `!__cmwSteps().moving` }); }
+  if (toPlane) { await ev(`${toPlane}, 1`); await settled({ floor: 300, max: 15000, until: `!__cmwSteps().moving` }); }
   ok(`${where}: the left plane is w₁`, (await ev(`__cmwPlaneMenu().leftStage()`)) === 1, await ev(`__cmwPlaneMenu().leftStage()`));
   await closeAll();
   const [x1, y1] = await at(0, 1.1);
