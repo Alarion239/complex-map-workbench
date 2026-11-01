@@ -398,6 +398,9 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
+    // (#464) a sheet gives up the message's row (phone.css): the card the app scrolled into view for the step just added (bornCards,
+    // before the message and the sheet's new edge) is scrolled into view again once the sheet has its new size
+    if (wantToast && els.sheet && c.contains('ph-sheet-on')) setTimeout(() => { const card = els.sheet && els.sheet.querySelector('#pipeline .card[aria-selected="true"]'); if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 260);
     syncPanes(); A.resize();
   }
   function ctx(force) {

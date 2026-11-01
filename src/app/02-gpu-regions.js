@@ -463,15 +463,15 @@
   // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag or a playing morph
   const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open));
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
-  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them; null when the
-  // job went stale (fixJob.token moved on)
-  async function computeFix(mesh, F, token) {
+  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (busy: fixBusy,
+  // or the caller's wider test); null when the job went stale (fixJob.token moved on)
+  async function computeFix(mesh, F, token, busy = fixBusy) {
     const g = fixGen(mesh, F, { ms: FIX_SLICE });
     for (;;) {
       const st = g.next();
       if (st.done) return st.value;
       await yieldNow();
-      while (fixBusy() && token === fixJob.token) await yieldNow(60);
+      while (busy() && token === fixJob.token) await yieldNow(60);
       if (token !== fixJob.token) return null;
     }
   }
@@ -548,6 +548,35 @@
       if ((t & 63) === 63 && due()) { yield; t0 = performance.now(); }
     }
     return { flags, extra: new Float32Array(extra), trouble };
+  }
+  // #584: the fix-up of shape s's mesh under the steps view's map at rest or parked (F its CPU map): the same job
+  // (fixGen in idle slices, computeFix) as the tiling's, in r.fix.SV by the map's key, so a carried colour whose
+  // cells the map bends too much (near a pole of a branch's continuation, the Joukowski path's disc at t = 0.3) is
+  // refined there as a region's is. -> the fix-up, or null until it lands (the job then redraws the left pane)
+  function carryFix(s, F, map) {
+    const r = gpu.get(s.id);
+    if (!r || !r.mesh || !r.meshRes || typeof F !== 'function') return null;
+    const mk = mapKeyOf(map), f = r.fix.SV, job = r.meshKey + '|' + mk;
+    if (f && f.meshKey === r.meshKey && f.mapKey === mk) return f;
+    if (r.svJob === job) return null;
+    r.svJob = job;
+    const meshKey = r.meshKey, meshRes = r.meshRes;
+    // (it also waits out the steps view's glides: its frames are motion too)
+    computeFix(r.mesh, F, fixJob.token, () => fixBusy() || (SV.on && svGliding())).then((res) => {
+      if (r.svJob === job) r.svJob = null;
+      if (res && r.meshKey === meshKey && r.meshRes === meshRes) {
+        const old = r.fix.SV && r.fix.SV.meshKey === meshKey && r.fix.SV.skip ? r.fix.SV : null;
+        const fx = old || { meshKey, skip: GLR.createSkip(meshRes, res.flags) };
+        if (old) GLR.setSkip(fx.skip, res.flags);
+        if (fx.extraRes) GLR.destroy(fx.extraRes);
+        fx.extraRes = res.extra.length ? GLR.createMesh(res.extra) : null;
+        fx.mapKey = mk; fx.res = res;
+        r.fix.SV = fx;
+      }
+      // (a job a newer fix-up cancelled is asked again by this redraw)
+      requestRender('L');
+    }, () => { if (r.svJob === job) r.svJob = null; });
+    return null;
   }
   async function runFix() {
     if (!GLR.ok) return;

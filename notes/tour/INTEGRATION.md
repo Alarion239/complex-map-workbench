@@ -636,3 +636,38 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
   tour start takes the slot.
 - `step-focused` (the chain piece, UX01): an add, a move or a duplicate that leaves the focus where it was emits none
   (`setFocus(k, quiet)`).
+
+## 10. The steps view's tour (#442)
+
+Under `?view=steps` (a property of the page, fixed at its load) the tour's chapter list changes: a chapter "Planes" (id
+`planes`, 8 steps, `PLANES` in `src/tour.js`) takes the place of Basics' X and Y steps (`x`, `y`, `preimages`, `chain`) and of
+the whole Deformation chapter. A step puts the view where its task needs it with the adapter call
+`svPlace({ i, T, scope, surf })` (the plane `i` at once, the colour plane `T` as an index among the planes with -1 the last,
+the scope `'all' | 'in'`, the surface `'plane' | 'sphere' | 'land'`; it sends none of the events below). `svPlace` is among the
+calls a borrowed canvas needs: a tour that cannot put the user's work back skips the steps that make it.
+
+### Anchors added for the steps view (#442)
+
+| anchor | element |
+|---|---|
+| `svStrip` | the thread, `#svStrip` |
+| `svRing` | the ring that marks the place on the thread, `#svStrip .sv-thumb` |
+| `svCp` | Colour from here, `#svHead .sv-cp` |
+| `svScope` | the Everywhere / Inside regions choice, `#svHead .sv-scope` |
+| `svSurf` | the surface choice: the segmented control, or on a phone the one button that steps through the three |
+| `svChip` | the first function chip on the thread, `#svStrip .sv-fchip` |
+
+### Events added for the steps view (#442)
+
+| event | payload | emit when |
+|---|---|---|
+| `plane-changed` | `{ i, n, last }` | the view arrives on a plane other than the one it was on (a press on ‹ ›, a dot, a key, a flick); `last` is true on the last plane |
+| `thread-parked` | `{ x }` | the ring is let go between two planes and the view stays there |
+| `colour-plane-set` | `{ k }` | Colour from here, or C, makes plane `k` (a stage) the colour plane |
+| `surface-changed` | `{ s: 'plane' \| 'sphere' \| 'land' }` | the user chooses a surface (the choice, the phone's button, its Sphere key) |
+| `scope-changed` | `{ s: 'all' \| 'in' }` | the user chooses Everywhere or Inside regions |
+| `step-selected` | `{ k }` | a step is selected for the Inspector (a click on a card, or on a function chip of the steps view's thread) |
+| `probe` | `{ pane: 'L', stage, past, z, w, mod }` | (the steps view's own, besides Y's) the pointer reads a point of the shown plane; `w` and `mod` are the map into the colour plane there, undefined past it (`past`: the plane is after the colour plane) |
+
+`sheet-changed` is also sent when a sheet is typed into a step's field (the Inspector's or a card's), not only through ‹ ›.
+The steps view's Try lines (`trySv`, `tryDoneSv`, `tourSv` on an example) use these events; a chip's click sends `step-selected`.

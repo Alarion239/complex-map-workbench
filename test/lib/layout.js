@@ -239,6 +239,9 @@
       if (hit.contains(el) && (disabled(el) || getComputedStyle(el).pointerEvents === 'none')) continue;
       // (a page control under a layer is meant to be covered, and so is a layer's control under a layer drawn above it,
       // a sheet over the steps view's strip; a layer's control covered by anything else is not)
+      // (the tour's dimming covers everything but the lit patch, by design, and it is the top layer of ux's table; its
+      // owner `.tour-root` sits at z auto, so the z comparison below would read it as under a sheet it is over)
+      if (hit.closest('.tour-dim')) continue;
       const Lh = layerOf(hit), Le = layerOf(el);
       if (Lh && (!Le || (Lh !== Le && zOf(Lh) > zOf(Le)))) continue;
       out.push(V('covered', el, hit, { at: [Math.round(x), Math.round(y)] }, s));
