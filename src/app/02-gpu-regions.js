@@ -751,7 +751,7 @@
     }
     return out;
   }
-  const POLE_NA = 48, POLE_NR = 60, POLE_Q = 0.88, POLE_MAX = 8, POLE_EVERY = 120;
+  const POLE_NA = 48, POLE_NR = 60, POLE_Q = 0.88, POLE_MAX = 8, POLE_EVERY = 120, POLE_GLIDE_MS = 1;
   const poleM = { R: 0, res: null, key: '', mk: '', at: [], t: 0, full: false, views: /** @type {any[]} */ ([]) };
   function poleMeshes(map, full) {
     if (!GLR.ok || !goodWin(clipWin)) return [];
@@ -778,7 +778,16 @@
       if (full || !same || now - poleM.t >= POLE_EVERY) {
         const mx = (clipWin.x1 - clipWin.x0) / 2, my = (clipWin.y1 - clipWin.y0) / 2;
         const box = { x0: clipWin.x0 - mx, x1: clipWin.x1 + mx, y0: clipWin.y0 - my, y1: clipWin.y1 + my };
-        at = polesOf(F, box, POLE_MAX, full ? 96 : 48, full ? 60 : 30);
+        // (while gliding the grid is sized to about POLE_GLIDE_MS of work, from the cost of a few calls of F, as
+        // zerosPolesTimed budgets its own: about 1-8 ms at 48 x 30 for the zeta example on a slow CPU, perf on #574)
+        let gx = 96, gy = 60;
+        if (!full) {
+          const t0 = performance.now();
+          for (let i = 0; i < 9; i++) { try { F(C(box.x0 + (box.x1 - box.x0) * (i % 3 + 0.37) / 3, box.y0 + (box.y1 - box.y0) * (Math.floor(i / 3) + 0.41) / 3)); } catch (e) { /* a pole: still a call */ } }
+          const n = POLE_GLIDE_MS / Math.max(1e-4, (performance.now() - t0) / 9);
+          gx = Math.max(12, Math.min(48, Math.round(Math.sqrt(1.6 * n)))); gy = Math.max(8, Math.min(30, Math.round(gx / 1.6)));
+        }
+        at = polesOf(F, box, POLE_MAX, gx, gy);
         poleM.t = now;
       }
       if (!at || (!at.length && same)) {
