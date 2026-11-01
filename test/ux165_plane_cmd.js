@@ -423,8 +423,9 @@ await section('L86', async () => {
   await laptop();
   await load(NS + 'n', { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 60 }, snap: true });
   await settle(700);
-  info.l86 = await ev(`({ tool: document.querySelector('#tools .tool[data-tool="cgrid"]').dataset.tip, pat: (document.querySelector('#patternSeg [data-pat="grid"], #patternSeg .pat[data-v="grid"]') || {}).textContent || [...document.querySelectorAll('#patternSeg .pat')].map((b) => b.textContent.trim()).join('|') })`);
-  ok('UX86 the tool is "Line grid", the pattern "Square grid"', info.l86.tool === 'Line grid' && /Square grid/.test(info.l86.pat), info.l86);
+  // (#363: the region patterns, "Square grid" among them, are gone: the regions are filled by the phase)
+  info.l86 = await ev(`({ tool: document.querySelector('#tools .tool[data-tool="cgrid"]').dataset.tip, pats: document.querySelectorAll('#patternSeg, [data-pat]').length })`);
+  ok('UX86 the tool is "Line grid", and no pattern menu', info.l86.tool === 'Line grid' && info.l86.pats === 0, info.l86);
   // UX94: Snap says its state in a word
   const sn = await ev(`(() => { const b = document.getElementById('snapBtn'); return { t: b.textContent.trim(), on: b.getAttribute('aria-pressed'), bg: getComputedStyle(b).backgroundColor }; })()`);
   ok('UX94 the Snap button says "Snap" and is filled when on', sn.t === 'Snap' && sn.on === 'true' && sn.bg !== 'rgba(0, 0, 0, 0)', sn);
@@ -433,7 +434,7 @@ await section('L86', async () => {
   const a = await W(0.3, 0.2);
   await drag(a[0], a[1], a[0] + 24, a[1], 8, 16); await settle(400);
   info.l91 = await toastText();
-  ok('UX91 a word when an added shape refits the pattern cell', /^The pattern cell is now .*, fitted to the shapes/.test(info.l91), info.l91);
+  ok('UX91 a word when an added shape refits the grid step (#363: the grid lines\' step)', /^The grid step is now .*, fitted to the shapes/.test(info.l91), info.l91);
   // UX94: off is outlined, not filled (moves that snap are the rail piece's, work/xu1-rail)
   await tool('select');
   const id = (await ST()).list[0].id;
@@ -511,10 +512,10 @@ await section('P51', async () => {
   ok('UX94 phone: Snap is a switch (a track after the word), not a filled pill', sw && sw.after === '""' && sw.w === '30px', sw);
   await shot('ux94-phone-snap');
   await key('Escape'); await settle(200);
-  // UX95: the Display sheet's region section is "Shapes" (#35) ([v17 D5, #82]: a heading of the sheet, no longer the left
-  // panel's #secDisplay)
-  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Shapes') && !hs.includes('Display') ? 'Shapes' : hs.join('|'); })()`);
-  ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Shapes', disp);
+  // UX95: the Display sheet's region section is "Regions" (#35; #363: the regions' display, as Y's head button names it)
+  // ([v17 D5, #82]: a heading of the sheet, no longer the left panel's #secDisplay)
+  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
+  ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
 });
 
 // ------------------------------------------------------------------- layout: the two-line readout, Snap, the touch ×
@@ -536,7 +537,7 @@ await section('LAY', async () => {
   await move(5, 400); await settle(200);
   const ct2 = await ev(`Math.round(document.getElementById('draftChipL').getBoundingClientRect().top)`);
   ok('UX10 the chip stays put when the readout goes back to one line', ct2 === g.ct, [g.ct, ct2]);
-  // the key's "=" and parentheses in the maths face (not B612 Mono's "[")
+  // the key's "=" and parentheses in the maths face (not the old mono face's "[")
   await move(p[0], p[1]); await settle(200);
   const ff = await ev(`[...document.querySelectorAll('#leftReadout .rln .rk .rm')].map((e) => getComputedStyle(e).fontFamily.split(',')[0])`);
   ok('UX105 the readout key\'s "(" and "=" are set in STIX', ff.length >= 3 && ff.every((f) => /STIX/.test(f)), ff);

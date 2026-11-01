@@ -1,9 +1,9 @@
 // gate.yml, a pull request marked ready for review (#379). Into another branch than main its run has a concurrency
 // group of its own (it never cancels its push's run), and the job ready looks for the newest other Gate run of this PR
-// on the same commit: only if that one passed does nothing run again (the plan's tier none, the unit job skipped, the
-// Gate job checking that run again and carrying its verdict); queued, running, failed, cancelled or none, the run is
-// the usual one, so a green Gate never stands on a commit before a gate passed there. Into main (a wave PR) it is
-// never short-circuited. Node and bash (jq for the stubbed gh), no YAML library. Run: node test/t_gate_ready.js
+// on the same commit: when that one passed, or is still queued or running (its push's run), nothing runs again (the
+// plan's tier none, the unit job skipped, the Gate job checking that run again, waiting for it while it runs, and
+// carrying its verdict); failed, cancelled or none, the run is the usual one, so a green Gate never stands on a commit
+// before a gate passed there. Into main (a wave PR) it is never short-circuited. Node and bash (jq for the stubbed gh), no YAML library. Run: node test/t_gate_ready.js
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -47,8 +47,9 @@ const run = (id, status, conclusion, t, prs = [7]) => ({ id, status, conclusion,
 const mirror = (runs) => bash(`gh() { local q=; while [ $# -gt 0 ]; do [ "$1" = --jq ] && q="$2"; shift; done; jq -r "$q" "$H"; }; ${look}`, { H: hist(runs), GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r', HEAD_SHA: 'abc', PR: '7' });
 const cases = [
   ['the push run passed: mirrored', [run(5, 'completed', 'success', 1)], '5'],
-  ['still running: no mirror (the usual run)', [run(5, 'completed', 'success', 1), run(6, 'in_progress', null, 2)], ''],
-  ['queued: no mirror', [run(6, 'queued', null, 2)], ''],
+  ['still running: mirrored (the Gate job waits for it, not the same tier twice)', [run(5, 'completed', 'success', 1), run(6, 'in_progress', null, 2)], '6'],
+  ['queued: mirrored', [run(6, 'queued', null, 2)], '6'],
+  ['waiting (an approval): mirrored', [run(6, 'waiting', null, 2)], '6'],
   ['failed: no mirror', [run(6, 'completed', 'failure', 2)], ''],
   ['cancelled: no mirror', [run(6, 'completed', 'cancelled', 2)], ''],
   ['no other run: no mirror', [], ''],
@@ -77,11 +78,21 @@ const gate = job('gate');
 ok('the Gate job may read the runs (actions: read)', /permissions:\n\s+contents: read\n\s+actions: read/.test(gate));
 const g = /run: \|\n([\s\S]*)$/.exec(gate);
 const gscript = g ? g[1].split('\n').map((l) => l.slice(10)).join('\n').replace(/\$\{\{ needs\.\w+\.result \}\}/g, 'skipped').replace('[ "skipped" = success ] || { echo "::error::plan', '[ "success" = success ] || { echo "::error::plan') : '';
-const check = (reply) => bash(`gh() { echo "${reply}"; }; ${gscript}`, { TIER: 'none', MIRROR: '5', PR: '7', HEAD_SHA: 'abc', GITHUB_REPOSITORY: 'o/r', SEL_GLSL: 'false', SEL_QUALITY: 'false', SEL_BROWSER: 'false' });
+// (replies: the look-ups in turn, the last one repeated; sleep stubbed; a reply 'ERR' is a failed look-up)
+const check = (...replies) => { const f = path.join(dir, 'r' + ++n); fs.writeFileSync(f, replies.join('\n') + '\n');
+  return bash(`sleep() { :; }; gh() { local r; r=$(head -n 1 "$R"); [ "$(wc -l < "$R")" -gt 1 ] && sed -i 1d "$R"; [ "$r" = ERR ] && return 1; echo "$r"; }; ${gscript}`,
+    { R: f, TIER: 'none', MIRROR: '5', PR: '7', HEAD_SHA: 'abc', GITHUB_REPOSITORY: 'o/r', SEL_GLSL: 'false', SEL_QUALITY: 'false', SEL_BROWSER: 'false' }); };
 ok('Gate: a passing mirrored run of this PR on this commit passes', check('completed success abc true').status === 0, check('completed success abc true'));
 ok('Gate: a mirrored run that did not pass fails', check('completed failure abc true').status === 1);
 ok('Gate: a mirrored run on another commit fails', check('completed success def true').status === 1);
 ok('Gate: a mirrored run of another PR fails', check('completed success abc false').status === 1);
+// (#379 follow-up: a mirrored run still going is waited for, its verdict carried; never green before it passed)
+const w = check('in_progress  abc true', 'queued  abc true', 'completed success abc true');
+ok('Gate: a running mirrored run is waited for, then its pass carried', w.status === 0 && (w.stdout.match(/run 5:/g) || []).length === 3, w);
+ok('Gate: a running mirrored run that then fails fails', check('in_progress  abc true', 'completed failure abc true').status === 1);
+ok('Gate: a look-up that keeps failing while it waits fails (after 5 tries)', (() => { const r = check('in_progress  abc true', 'ERR'); return r.status === 1 && (r.stdout.match(/run 5:/g) || []).length === 6; })());
+ok('Gate: one failed look-up while it waits is retried', check('in_progress  abc true', 'ERR', 'completed success abc true').status === 0);
+ok('Gate: the job may wait as long as a Gate run (timeout-minutes when tier none)', /timeout-minutes: \$\{\{ needs\.plan\.outputs\.tier == 'none' && \d{3} \|\| 5 \}\}/.test(gate), (/timeout-minutes: .*/.exec(gate) || [])[0]);
 
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`t_gate_ready: ${pass} passed, ${fail} failed`);

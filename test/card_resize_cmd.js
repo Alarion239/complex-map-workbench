@@ -34,13 +34,13 @@ const analyse = (rows, well) => {
   }
   return { frames: n, worstShownDistortionPct: +(worst * 100).toFixed(2), staleFrames: stale, wrongBars };
 };
-const settled = async () => { for (let i = 0; i < 100; i++) { const s = await ev(`(() => { const c = __cmwCards().cards; const d = Math.min(window.devicePixelRatio || 1, 2);
+const cardsSettled = async () => { for (let i = 0; i < 100; i++) { const s = await ev(`(() => { const c = __cmwCards().cards; const d = Math.min(window.devicePixelRatio || 1, 2);
   return { drawn: c.length > 0 && c.every((x) => x.sig), ok: [...document.querySelectorAll('#pipeline .card canvas')].every((e) => { const r = e.getBoundingClientRect(); return !(r.width > 0) || (e.width === Math.round(r.width * d) && e.height === Math.round(r.height * d)); }), n: c.length }; })()`); if (s && s.drawn && s.ok) return s; await sleep(250); } return await ev(`__cmwCards().cards.length`); };
 const run = async (name, setup, step, thr) => {
   await send('Emulation.setCPUThrottlingRate', { rate: thr });
   await setup();
   await nav(`${base}/test.html?ns=cr${name}${thr}${Date.now() % 1000000}`);
-  const before = await settled();
+  const before = await cardsSettled();
   const vis = await ev(`[...document.querySelectorAll('#pipeline .card canvas')].filter((e) => e.getBoundingClientRect().width > 0).length`);
   ok(`${name} (cpu x${thr}): the cards are shown and drawn before the resize`, vis >= 2 && before && before.drawn, { vis, before });
   await ev(SAMPLER);
@@ -51,7 +51,7 @@ const run = async (name, setup, step, thr) => {
   info[`${name} x${thr}`] = a;
   ok(`${name} (cpu x${thr}): no card shows a stretched picture (distortion at most 2 %)`, a.frames > 0 && a.worstShownDistortionPct <= 2, a);
   ok(`${name} (cpu x${thr}): a stale picture keeps its own aspect on the card's well colour`, a.wrongBars === 0, a);
-  const end = await settled();
+  const end = await cardsSettled();
   ok(`${name} (cpu x${thr}): after the redraw every canvas matches its box`, end && end.drawn && end.ok, end);
   return a;
 };

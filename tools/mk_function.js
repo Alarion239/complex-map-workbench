@@ -30,7 +30,7 @@ const TAU = 2 * Math.PI, dry = process.argv.includes('--dry');
 // ---- the app's own parser and complex arithmetic (src/cx.js, parse.js, funcs.js in a vm, as test/t_seasong.js)
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
-for (const [f, nm] of [['cx', 'CX'], ['parse', 'Expr'], ['funcs', 'Funcs']]) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
+for (const [f, nm] of [['cx', 'CX'], ['symbolic', 'Symbolic'], ['parse', 'Expr'], ['sheets', 'Sheets'], ['formulasteps', 'FormulaSteps'], ['funcs', 'Funcs']]) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
 const Expr = ctx.Expr;
 const C = (re, im) => ({ re, im });
 const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);

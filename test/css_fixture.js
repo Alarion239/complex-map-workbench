@@ -68,18 +68,20 @@
     row(2, 'area', 'Half-plane 2', '\\Im z > 0', '') + '</div>' +
     row(3, 'curve', 'Line 3', 'line through 0, 1+i', '') + '</div>' +
     row(4, 'point', 'Point a', '0.5+0.5i', 'hidden-shape', true) + '</div>';
-  // patterns
-  const PATS = ['Checker', 'Conformal', 'Graph paper', 'Polar web', 'Tiles', 'Phase', 'Area scale', 'Solid'];
-  $('patternSeg').innerHTML = PATS.map((p, i) => `<button class="pat${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}"><canvas width="104" height="80"></canvas><span>${p}</span></button>`).join('');
-  const cs = getComputedStyle(document.documentElement);
-  const tok = (n) => cs.getPropertyValue(n).trim();
-  [...$('patternSeg').querySelectorAll('canvas')].forEach((c, i) => {
-    const x = c.getContext('2d');
-    x.fillStyle = tok('--c1-alt'); x.fillRect(0, 0, 104, 80);
-    x.fillStyle = tok('--c1');
-    if (i === 7) { x.fillRect(0, 0, 104, 80); return; }
-    for (let a = 0; a < 104; a += 16) for (let b = 0; b < 80; b += 16) if (((a + b) / 16) % 2 === 0) x.fillRect(a + (i * 3) % 8, b, 16, 16);
-  });
+  // patterns (#363: the page has none since the regions' fill is the phase alone)
+  if ($('patternSeg')) {
+    const PATS = ['Checker', 'Conformal', 'Graph paper', 'Polar web', 'Tiles', 'Phase', 'Area scale', 'Solid'];
+    $('patternSeg').innerHTML = PATS.map((p, i) => `<button class="pat${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}"><canvas width="104" height="80"></canvas><span>${p}</span></button>`).join('');
+    const cs = getComputedStyle(document.documentElement);
+    const tok = (n) => cs.getPropertyValue(n).trim();
+    [...$('patternSeg').querySelectorAll('canvas')].forEach((c, i) => {
+      const x = c.getContext('2d');
+      x.fillStyle = tok('--c1-alt'); x.fillRect(0, 0, 104, 80);
+      x.fillStyle = tok('--c1');
+      if (i === 7) { x.fillRect(0, 0, 104, 80); return; }
+      for (let a = 0; a < 104; a += 16) for (let b = 0; b < 80; b += 16) if (((a + b) / 16) % 2 === 0) x.fillRect(a + (i * 3) % 8, b, 16, 16);
+    });
+  }
   $('patDesc').textContent = 'Squares stay squares under conformal maps.';
   $('patScale').value = 0; $('patScaleVal').textContent = '×1';
   $('alphaRange').value = 0.85; $('alphaVal').textContent = '0.85';
@@ -148,7 +150,7 @@
     c.width = Math.max(1, c.clientWidth * d); c.height = Math.max(1, c.clientHeight * d);
     const x = c.getContext('2d'); x.scale(d, d);
     const L = vertical ? c.clientHeight : c.clientWidth, Wd = vertical ? c.clientWidth : c.clientHeight;
-    x.strokeStyle = tok('--ruler-tick'); x.fillStyle = tok('--axis-label'); x.font = '10px "B612 Mono"'; x.lineWidth = 1;
+    x.strokeStyle = tok('--ruler-tick'); x.fillStyle = tok('--axis-label'); x.font = '10px "JetBrains Mono"'; x.lineWidth = 1;
     x.beginPath();
     for (let i = 0, k = 0; i < L; i += 10, k++) {
       const len = k % 10 === 0 ? 7 : k % 5 === 0 ? 5 : 3, p = Math.round(i) + 0.5;
@@ -163,7 +165,7 @@
   function lg() {
     const c = $('legendCanvas'), x = c.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0); x.clearRect(0, 0, 136, 72);
     for (let a = 0; a < 360; a += 2) { x.strokeStyle = `oklch(0.75 0.12 ${29 - a})`; x.lineWidth = 10; x.beginPath(); x.arc(36, 36, 19, a * Math.PI / 180, (a + 3) * Math.PI / 180); x.stroke(); }
-    x.fillStyle = tok('--ink-2'); x.font = '11px "Archivo"'; x.fillText('×1.69 per band', 66, 58);
+    x.fillStyle = tok('--ink-2'); x.font = '11px "Roboto Flex"'; x.fillText('×1.69 per band', 66, 58);
     const gr = x.createLinearGradient(66, 0, 130, 0); gr.addColorStop(0, tok('--plane')); gr.addColorStop(1, tok('--ink')); x.fillStyle = gr; x.fillRect(66, 30, 64, 8);
   }
   function paint() {
