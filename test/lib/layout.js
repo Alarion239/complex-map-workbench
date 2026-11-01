@@ -393,7 +393,11 @@
       // there is in view (a control scrolled partly away shows its ring once it is scrolled to)
       // (the viewport's edge too counts only where the control's edge is in view)
       const qa = inter(clipOf(el), viewport()), qn = clipOf(el, { scroll: false });
-      const side = (k, sg) => Math.max(sg * (qn[k] - ring[k]), sg * (b[k] - qa[k]) >= -0.5 ? sg * (qa[k] - ring[k]) : 0);
+      // (a control with a scroll-margin of at least the ring's reach is scrolled that far clear of a scroller's edge when the
+      // focus brings it into view, so a scroller's edge does not cut its ring; this check focuses with preventScroll, so it
+      // reads the margin instead of the scroll, #601)
+      const sm = { l: parseFloat(cs.scrollMarginLeft) || 0, t: parseFloat(cs.scrollMarginTop) || 0, r: parseFloat(cs.scrollMarginRight) || 0, b: parseFloat(cs.scrollMarginBottom) || 0 };
+      const side = (k, sg) => Math.max(sg * (qn[k] - ring[k]), sg * (b[k] - qa[k]) >= -0.5 && sm[k] < grow - 0.5 ? sg * (qa[k] - ring[k]) : 0);
       const cut = Math.max(side('l', 1), side('t', 1), side('r', -1), side('b', -1));
       if (cut > Math.max(1, grow / 2)) out.push(V('focus-ring', el, null, { ring: 'cut', grow: +grow.toFixed(1), cut: Math.round(cut) }, ring));
     }

@@ -342,6 +342,9 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; padding: 8px 0 4px; }
 .ph-tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; min-height: 60px; padding: 8px 2px 4px; background: none; border: 1px solid transparent; border-radius: var(--r-2); color: var(--ink-2); }
 .ph-tile.on { background: var(--well); color: var(--ink); border-color: var(--accent); }
+/* (#601: a control the browser scrolls into view for the focus lands flush with the scroller's edge, and its focus ring, 3 px outside
+   the box, was cut there: the Formula tile at the foot of the Tools sheet. The margin makes the browser leave the ring its room) */
+:root.ph .ph-sb :is(button, input, select, textarea, summary, a[href], [tabindex]) { scroll-margin: 4px; }
 .ph-tile .ph-ic svg { width: 20px; height: 20px; display: block; overflow: visible; }
 .ph-tl { font: 500 11px/12px var(--f-ui); text-align: center; hyphens: manual; overflow-wrap: break-word; max-width: 100%; }
 /* the app's sections inside the sheets: open, flat, 44 px rows */
