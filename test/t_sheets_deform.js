@@ -237,6 +237,33 @@ check('end cases ran', endCases >= 60, endCases);
     }
   }
 }
+// the Joukowski path while it deforms: a point is continued on the formula of its cell centre's side of the unit circle
+// (the disk's tanh((1 + t) artanh z - i pi t/2), the exterior's coth((1 + t) arcoth z)), as the GPU's chainSheetHom
+// continues it; a point on its centre's side is the plain H_t. The two formulas meet on the upper semicircle and differ on
+// the lower one, the path's cut
+{
+  const ch = chain([{ type: 'joukowski' }]), S = ch.S, built = ch.built, n = ch.n();
+  S.homRange = { a: 1, b: 1 };
+  const disk = (t) => (z) => CX.tanh(CX.sub(CX.mul(C(1 + t, 0), CX.atanh(z)), C(0, Math.PI * t / 2)));
+  const ext = (t) => (z) => CX.inv(CX.tanh(CX.mul(C(1 + t, 0), CX.atanh(CX.inv(z)))));
+  for (const T of [0.37, 0.75]) {
+    const m = ch.HR.state(S, T, true).map, t = m.t, H = ch.HR.cpuMap(m);
+    let across = 0, same = 0, differ = 0;
+    for (let i = 0; i < 24; i++) {
+      const th = 0.3 + (2 * Math.PI - 0.6) * i / 23, u = C(Math.cos(th), Math.sin(th));
+      const zin = CX.mul(C(0.93, 0), u), zout = CX.mul(C(1.07, 0), u);
+      const a = FN.sheetMapEval(S.steps, built, m, zout, zin, 0, W, n), b = FN.sheetMapEval(S.steps, built, m, zin, zout, 0, W, n);
+      if (!near(a, ext(t)(zin), 1e-9)) across++;
+      if (!near(b, disk(t)(zout), 1e-9)) across++;
+      if (!near(FN.sheetMapEval(S.steps, built, m, zin, zin, 0, W, n), H(zin), 1e-9) || !near(FN.sheetMapEval(S.steps, built, m, zout, zout, 0, W, n), H(zout), 1e-9)) same++;
+      if (th > Math.PI && near(a, H(zin), 1e-6)) differ++;
+      checks += 3;
+    }
+    check(`jouk T=${T}: a point across the unit circle from its centre is on the centre's formula`, across === 0, across);
+    check(`jouk T=${T}: a point on its centre's side is the plain H_t`, same === 0, same);
+    check(`jouk T=${T}: on the lower semicircle, the path's cut, the two sides' formulas differ (the check sees the branch)`, differ === 0, differ);
+  }
+}
 // (v16.1 review math-7) the drawn count and the caption's count agree: a typed near-fraction is a window
 check('math-7: alpha 0.333333333 is a window', FN.stepSheets(FN.build({ type: 'powa', params: Object.assign(FN.defaults('powa'), { alpha: '0.333333333' }) }))[0].n === 0);
 check('math-7: alpha 1/3 has 3 sheets', FN.stepSheets(FN.build({ type: 'powa', params: Object.assign(FN.defaults('powa'), { alpha: '0.3333333333333333' }) }))[0].n === 3);

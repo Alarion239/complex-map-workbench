@@ -353,9 +353,9 @@
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
-    const fill = cuts && P ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
+    const fill = cuts && P ? program(clip ? 'regionKSCclip' : 'regionKSC', st.map) : null;
     let full = null;
-    if (cuts && !fill) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
+    if (cuts && !fill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {

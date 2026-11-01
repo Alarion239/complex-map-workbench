@@ -53,7 +53,7 @@ async function hold(x) {
 async function compare(at, W, Z) {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const ref = await ev(`__cmwLPx(${JSON.stringify(Z)}).px`);
-  if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else await steps(Object.assign({ surf: 'plane' }, at));
+  if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
   const state = await ev('__cmwSteps()'), got = await ev(`__cmwLPx(${JSON.stringify(W)}).px`);
   if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   let n = 0, wrong = 0, paper = 0, worst = 0;
@@ -109,16 +109,19 @@ await wait();
   const P = await paneOf(), pts = grid(P, 60, 40);
   // the region: outside the circle |z - c| = r; the points at w: z = w ± sqrt(w^2 - 1)
   const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
+  // (the trailing edge's mark and its label in w, which the page draws over the colour: 1.1, 77 px at this view's 70 px
+  // per unit, around them)
+  const labelAt = (w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1;
   const both = (w) => {
     const ax = w[0] * w[0] - w[1] * w[1] - 1, ay = 2 * w[0] * w[1], m = Math.hypot(ax, ay);
     const sx = Math.sqrt(Math.max(0, (m + ax) / 2)), sy = (ay < 0 ? -1 : 1) * Math.sqrt(Math.max(0, (m - ax) / 2));
     // (near the circle's image (the outlines), the cut [-1, 1] (the unit circle), the trailing edge's mark and label)
-    const lab = Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1;
+    const lab = labelAt(w);
     return [[w[0] + sx, w[1] + sy], [w[0] - sx, w[1] - sy]].map((z) => ({ z, out: lab || Math.abs(outside(z)) < 0.12 || Math.abs(Math.hypot(z[0], z[1]) - 1) < 0.08 }));
   };
   await check('Joukowski in rest', { scope: 'in', go: 1, now: true }, 1, P, pts, (w) => both(w).filter((e) => outside(e.z) > 0), 400);
   // (Inside regions: every region point coloured, past the reference's window too)
-  const A = pts.filter((w) => both(w).some((e) => outside(e.z) > 0.12) && Math.hypot(w[0] - 1.6, w[1] - 0.1) >= 1.1);
+  const A = pts.filter((w) => both(w).some((e) => outside(e.z) > 0.12) && !labelAt(w));
   const all = await ev(`__cmwLPx(${JSON.stringify(A)}).px`);
   const paper = all.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) < 6).length;
   info['Joukowski in rest'].regionPoints = { n: all.length, paper };
@@ -126,8 +129,9 @@ await wait();
   await check('Joukowski all rest', { scope: 'all', go: 1, now: true }, 1, P, pts, both, 400);
   // held mid-glide at x = 0.25: the path H_t (t = 0.25), tanh((1 + t) artanh z - i pi t / 2) on the disc and
   // coth((1 + t) arcoth z) outside it; its points at w from each branch's inverse over k, kept where the forward
-  // formula gives w back; near the circle's outline, plane z's axes and the label left out (along the path's cut, the lower semicircle, the image is checked up to
-  // the seam: the sheet program continues each triangle on its centre's branch and clips it at the circle)
+  // formula gives w back; near the circle's outline, plane z's axes and the label left out (along the path's cut, the
+  // lower semicircle, the image is checked up to the seam: the sheet program continues each triangle on its centre's
+  // branch and clips it at the circle)
   {
     const t = 0.25, mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
     const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
@@ -137,10 +141,11 @@ await wait();
     const inv = (z) => div([1, 0], z);
     const H = (z) => (z[0] * z[0] + z[1] * z[1] < 1 ? tanh([(1 + t) * atanh(z)[0], (1 + t) * atanh(z)[1] - Math.PI / 2 * t]) : inv(tanh(mul([1 + t, 0], atanh(inv(z))))));
     // (a candidate is a point at w when the forward formula gives w back within HIT, the float error of the inverse and
-    // forward formulas; two within SAME are one point; left out: within OUTLINE of the circle's outline in z, as the
-    // rest cases, within AXIS of plane z's axes, whose lines the reference draws over the colour, and within LABEL of
-    // the trailing edge's label in w)
-    const HIT = 1e-7, SAME = 1e-9, OUTLINE = 0.12, AXIS = 0.04, LABEL = 1.1;
+    // forward formulas; two within SAME are one point; left out: within OUTLINE of the circle's outline in z, the rest
+    // cases' margin, 8.4 px at this view's 70 px per unit (the outline's 1.5 px stroke and 3.5 px halo, and the 1.5 px
+    // the seam test moves w), and within AXIS of plane z's axes, 2.8 px, the 1 px lines the reference draws over the
+    // colour and their antialiased edge; and labelAt(w))
+    const HIT = 1e-7, SAME = 1e-9, OUTLINE = 0.12, AXIS = 0.04;
     const heldCand = (w) => {
       const out = [], aw = atanh(w), ac = atanh(inv(w));
       for (let k = -3; k <= 3; k++) {
@@ -149,7 +154,7 @@ await wait();
           const h = H(z);
           if (Math.hypot(h[0] - w[0], h[1] - w[1]) > HIT || out.some((e) => Math.hypot(e.z[0] - z[0], e.z[1] - z[1]) < SAME)) continue;
           const near = Math.abs(outside(z)) < OUTLINE || Math.min(Math.abs(z[0]), Math.abs(z[1])) < AXIS;
-          out.push({ z, out: near || Math.hypot(w[0] - 1.6, w[1] - 0.1) < LABEL });
+          out.push({ z, out: near || labelAt(w) });
         }
       }
       return out;

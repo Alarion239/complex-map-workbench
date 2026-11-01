@@ -369,7 +369,8 @@ float len2(vec2 v) { float m = amax(v); return m > 1e18 ? m * length(v / m) : le
   // small whose middle strays, a fold of the map where two sheets meet, kept: uKPx; none longer than uKLim, 0.35 of
   // the pane: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
   // each triangle continued from its centre's sheet (chainSheetHom, the landscape's evalAt), so a triangle across a cut
-  // of the deformation's path is continued, not torn and left out; clip (with sheet), a cut a path's dom marks
+  // of the deformation's path is continued, not torn and left out; clip (only with sheet, whose side values it reads),
+  // a cut a path's dom marks
   // (cutKinds' clip): each vertex's side of it (vSide) for CARRY_FS's clip, and the pass uKPass 1 for the part of a
   // triangle past it (only the programs of a chain with such a cut: CARRY_FS's discard costs every fragment its early
   // depth test)
@@ -405,7 +406,8 @@ ${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a tria
   vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
   vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
   vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.clip ? `
-  // (uKPass 1: only a triangle across a clipped cut, again on the branch of a vertex past it, for its part there)
+  // (uKPass 1: only a triangle with a vertex past a clipped cut, on that vertex's branch, which colours the triangle's
+  // part past the cut, the part the pass 0 draw clipped)
   if (uKPass == 1) {
     if (!(d0 < 0.0 || d1 < 0.0 || d2 < 0.0)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
     zc = srcOf(d0 < 0.0 ? s0 : (d1 < 0.0 ? s1 : s2));

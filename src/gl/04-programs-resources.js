@@ -101,9 +101,9 @@
     regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
     // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
     regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS() },
-    // (both again for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
-    regionKSX: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
-    regionKSCX: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
+    // (regionKS and regionKSC for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
+    regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
+    regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
