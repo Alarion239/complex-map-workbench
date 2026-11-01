@@ -6,7 +6,6 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "focus-ring button.ph-tile": 3,
     "target-size input#meshRange × #meshPresets button": 12
    }
   },
