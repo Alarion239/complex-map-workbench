@@ -148,7 +148,7 @@
       ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
-    pane.labelsPlaced = placed;   // (what the last pass put down: the suites compare it at rest and after a glide)
+    if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
   // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
   // as they are)

@@ -8,7 +8,8 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (waits for the page to be quiet: no glide or play under way, the panes' frames drawn; `extra` is one more condition)
+const quiet = (extra) => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play${extra ? ' && (' + extra + ')' : ''}; })()` });
 const ns = 'svl' + Date.now();
 // zeta, a circle and a point: the circle's 600 samples go through zeta's map, the point has a label
 const st = { v3: true, v4: true, v5: true, v6: true,
@@ -16,10 +17,10 @@ const st = { v3: true, v4: true, v5: true, v6: true,
   steps: [{ type: 'zeta', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 const open = async () => {
   await view(1280, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && typeof __cmwLabelStats === 'object'` }); await settle(800);
+  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && typeof __cmwLabelStats === 'object'` }); await quiet();
 };
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const stats = () => ev(`(() => { const s = __cmwLabelStats; return { n: s.n, ms: s.ms, list: s.list || [] }; })()`);
@@ -28,18 +29,18 @@ const placed = () => ev(`__cmwLabelsPlaced()`);
 const same = (a, b) => a.length === b.length && a.every((q, i) => q.text === b[i].text && Math.abs(q.x - b[i].x) < 0.6 && Math.abs(q.y - b[i].y) < 0.6);
 // a glide from plane 0 to plane 1 and back, the label passes counted while it is under way
 const glideCost = async () => {
-  await ctl({ go: 0, now: true }); await settle(700);
+  await ctl({ go: 0, now: true }); await quiet();
   await zero();
   await ctl({ go: 1 });
-  for (let i = 0; i < 120 && (await ctl({})).moving; i++) await sleep(50);
+  await quiet();
   const s = await stats();
   return { n: s.n, per: s.n ? s.ms / s.n : 0, list: s.list };
 };
 for (const scope of ['all', 'in']) {
   // (the plane drawn again at rest: the other scope and back; a plain requestRender is not taken as a change)
-  const redraw = async () => { await ctl({ scope: scope === 'all' ? 'in' : 'all' }); await settle(500); await zero(); await ctl({ scope }); await settle(600); };
+  const redraw = async () => { await ctl({ scope: scope === 'all' ? 'in' : 'all' }); await quiet(); await zero(); await ctl({ scope }); await quiet('__cmwLabelStats.n >= 1'); };
   await open();
-  await ctl({ scope, go: 1, now: true }); await settle(900);
+  await ctl({ scope, go: 1, now: true }); await quiet();
   // a pass at rest: the plane drawn again once
   await redraw();
   const r0 = await stats();
@@ -50,7 +51,7 @@ for (const scope of ['all', 'in']) {
   const A = await placed();
   ok(`${scope}: the labels at rest are placed (the point's)`, A.length >= 1, A);
   // a glide to plane 0 and back to 1: moving passes are cheap, the landing's are the rest's
-  await ctl({ go: 0, now: true }); await settle(700);
+  await ctl({ go: 0, now: true }); await quiet();
   const g = await glideCost();
   info[`${scope} glide`] = { n: g.n, per: +g.per.toFixed(3), list: g.list };
   // (the passes of a glide: the frames on the move, then the one it lands in, which is a pass at rest. The time of each is
@@ -59,13 +60,13 @@ for (const scope of ['all', 'in']) {
   ok(`${scope}: label passes ran while the view moved`, mv.length >= 2, g);
   ok(`${scope}: a pass while the view moves samples no curve`, mv.every((p) => p.curves === 0), g.list);
   ok(`${scope}: the frame the glide lands in is a pass at rest: it samples the curve`, land.curves >= 1, g.list);
-  await settle(900);
+  await quiet();
   const landed = await placed();
   await redraw();
   const fresh = await placed();
   ok(`${scope}: the labels where the glide landed are the ones a fresh render gives`, same(landed, fresh) && same(fresh, A), { landed, fresh, A });
   // parked between two planes: at rest, so exact: the same as a new render of that view
-  await ctl({ park: 0.5 }); await settle(900);
+  await ctl({ park: 0.5 }); await quiet();
   const pk = await placed();
   await redraw();
   const pk2 = await placed();
