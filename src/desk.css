@@ -661,11 +661,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-step { position: relative; flex: 1 1 0; min-width: 52px; height: 100%; display: flex; align-items: center; justify-content: center; padding-bottom: 18px; }
 .sv-fchip, .sv-wholemap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
 .sv-fchip:hover, .sv-wholemap:hover { border-color: var(--accent); }
-.sv-wholemap { flex: 0 0 auto; align-self: center; margin: 0 4px; }
+.sv-wholemap { flex: 0 0 auto; align-self: center; margin: 0 10px 0 6px; }
 .sv-wholemap[hidden] { display: none; }
-/* (the chip is the F alone when its words would make the thread scroll in its rail: svWholeFit) */
-.sv-strip.sv-fold .sv-wholemap .sv-fn { display: none; }
-.sv-strip.sv-fold .sv-wholemap { padding: 0 11px; }
 .sv-wholemap[aria-pressed="true"] { border-color: var(--accent); background: var(--seg-on, var(--surface)); }
 .sv-fchip:focus-visible, .sv-wholemap:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-fchip .sv-fk, .sv-wholemap .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }

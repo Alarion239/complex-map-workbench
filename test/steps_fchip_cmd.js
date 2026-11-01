@@ -1,10 +1,11 @@
 // The thread's F chip, the whole map (behind ?view=steps):
-// - on a laptop one chip sits after the thread, before "+ Add function": the italic F and "Whole map", no ⋯, not a step of the
-//   chain (the step chips are as many as the steps), a Tab stop, in the strip's own row;
+// - on a laptop one chip ends the thread, in the rail's track after the last plane and before "+ Add function": the italic F and
+//   "Whole map", no ⋯, not a step of the chain (the step chips are as many as the steps), a Tab stop;
 // - a click, and Enter on it from the keyboard, select F: the Inspector shows the composition, the natural domain and the
 //   guarantees, and the chip says it is pressed (aria-pressed), and not pressed again once a step is selected;
 // - its name is translated (ru, it);
 // - on a phone it is not on the strip: the chain sheet has the whole-map row;
+// - it keeps its words at every width and takes none of the rail's: at 1440 the rail keeps its width and a focused chip is in view;
 // - at 1024 px in English, Russian and Italian the strip's controls sit on one row inside it, overlapping nothing.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -21,15 +22,15 @@ const open = async (w, h, touch, lang) => {
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 };
 const S = () => ev('__cmwSteps()');
-const whole = () => ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); if (!f) return null; const rail = document.querySelector('#svStrip .sv-rail'), add = document.querySelector('#svStrip .sv-add');
+const whole = () => ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); if (!f) return null; const rail = document.querySelector('#svStrip .sv-rail'), add = document.querySelector('#svStrip .sv-add'), planes = [...document.querySelectorAll('#svStrip .sv-plane')], last = planes[planes.length - 1];
   return { text: f.textContent, label: f.getAttribute('aria-label'), pressed: f.getAttribute('aria-pressed'), tab: f.tabIndex, tag: f.tagName, hidden: f.hidden, shown: getComputedStyle(f).display !== 'none',
-    more: !!f.querySelector('.sv-more'), afterRail: !!(rail.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING), beforeAdd: !!(f.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING),
+    more: !!f.querySelector('.sv-more'), inRail: rail.contains(f), afterRail: !!(last && (last.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING)), beforeAdd: !!(f.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING),
     chips: document.querySelectorAll('#svStrip .sv-fchip').length, h: f.getBoundingClientRect().height }; })()`);
 const insp = () => ev(`(document.getElementById('propsPanel') || document.body).textContent`);
 
 await open(1280, 800, false, 'en');
 const f0 = await whole();
-ok('the F chip is after the thread and before + Add function, a button named Whole map', f0 && f0.afterRail && f0.beforeAdd && f0.tag === 'BUTTON' && /F/.test(f0.text) && /Whole map/.test(f0.text) && f0.label === 'Whole map', f0);
+ok('the F chip ends the thread (in the thread track, after the last plane) and sits before + Add function, a button named Whole map', f0 && f0.inRail && f0.afterRail && f0.beforeAdd && f0.tag === 'BUTTON' && /F/.test(f0.text) && /Whole map/.test(f0.text) && f0.label === 'Whole map', f0);
 ok('it has no ⋯, it is a Tab stop, and it is not one of the step chips (as many as the steps)', f0 && !f0.more && f0.tab === 0 && f0.chips === 3, f0);
 ok('it is not pressed while a step, not F, is selected', f0 && f0.pressed === 'false', f0);
 await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`);
@@ -52,24 +53,16 @@ ok('F is not a step: the chain and the place on the thread are as they were', (a
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
 await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 ok('a page saved with F selected opens with the chip pressed', (await S()).sel === 'F' && (await whole()).pressed === 'true', { sel: (await S()).sel, f: await whole() });
-// the words show while the thread fits in its rail with them, and the chip is the F alone when it would not: at 1440 the
-// default chain (what a new page opens with) and the 3-step chain fit in their rail in en, ru and it, whichever form the chip has
-const railFits = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), f = document.querySelector('#svStrip .sv-wholemap'), n = document.querySelector('#svStrip .sv-wholemap .sv-fn');
-  return { fits: r.scrollWidth <= r.clientWidth + 1, rail: Math.round(r.clientWidth), scroll: r.scrollWidth, folded: getComputedStyle(n).display === 'none', chip: f ? Math.round(f.getBoundingClientRect().width) : 0, steps: document.querySelectorAll('#svStrip .sv-step').length }; })()`);
+// room: the chip is in the thread's track, so it takes none of the rail's width, and it keeps its words at every width: at 1440
+// the rail is as wide as without it (more than 360 px in en, ru and it), and a Tab to it brings it into view
+const roomAt = (w) => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), f = document.querySelector('#svStrip .sv-wholemap'), n = f.querySelector('.sv-fn');
+  f.focus({ preventScroll: false }); const fb = f.getBoundingClientRect(), rb = r.getBoundingClientRect();
+  return { rail: Math.round(r.clientWidth), words: getComputedStyle(n).display !== 'none', seen: fb.left >= rb.left - 1 && fb.right <= rb.right + 1, chip: Math.round(fb.width) }; })()`);
 for (const lang of ['en', 'ru', 'it']) {
   await open(1440, 900, false, lang);
-  const w = await railFits();
+  const w = await roomAt();
   info[`1440 ${lang}`] = w;
-  // (the words fold into the F when the rail would scroll with them; a chain longer than the rail holds scrolls whichever form the chip has)
-  ok(`1440 ${lang}: the rail keeps room for the thread (at least 160 px), the chip folds when the words would make it scroll`, w.rail >= 160 && (w.fits || w.folded), w);
-  // (a new page: no saved state, the chain it opens with)
-  await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}d${lang}&lang=${lang}&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
-  const d = await railFits();
-  info[`1440 ${lang} default`] = d;
-  // (English: the default chain fits with the chip; Russian and Italian have less room in the strip than the chain needs, with the F alone or with no chip at all)
-  ok(`1440 ${lang}: the default chain ${lang === 'en' ? 'fits in its rail' : 'has the chip folded to the F'}`, lang === 'en' ? d.fits : d.folded, d);
+  ok(`1440 ${lang}: the chip keeps its words, the rail keeps its width (at least 360 px), and the focused chip is in view in the rail`, w.words && w.rail >= 360 && w.seen, w);
 }
 
 // translated
@@ -89,7 +82,7 @@ for (const lang of ['en', 'ru', 'it']) {
   await open(1024, 768, false, lang);
   const box = await ev(`(() => {
     const strip = document.getElementById('svStrip'), sb = strip.getBoundingClientRect();
-    const items = ['.sv-play', '.sv-prev', '.sv-rail', '.sv-wholemap', '.sv-add', '.sv-next', '.sv-speed', '.sv-loop'].map((q) => { const e = strip.querySelector(q), r = e.getBoundingClientRect(); return { q, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width }; });
+    const items = ['.sv-play', '.sv-prev', '.sv-rail', '.sv-add', '.sv-next', '.sv-speed', '.sv-loop'].map((q) => { const e = strip.querySelector(q), r = e.getBoundingClientRect(); return { q, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width }; });
     return { strip: [sb.left, sb.right, sb.top, sb.bottom], items, scroll: strip.scrollWidth - strip.clientWidth };
   })()`);
   const inside = box.items.every((i) => i.l >= box.strip[0] - 0.5 && i.r <= box.strip[1] + 0.5);
@@ -97,9 +90,9 @@ for (const lang of ['en', 'ru', 'it']) {
   const sorted = box.items.slice().sort((p, q) => p.l - q.l);
   const clear = sorted.every((i, k) => !k || i.l >= sorted[k - 1].r - 0.5);
   const rail = box.items.find((i) => i.q === '.sv-rail');
-  info[`1024 ${lang}`] = { rail: Math.round(rail.w), chip: Math.round(box.items.find((i) => i.q === '.sv-wholemap').w) };
+  info[`1024 ${lang}`] = { rail: Math.round(rail.w) };
   const fn = await ev(`({ words: getComputedStyle(document.querySelector('#svStrip .sv-wholemap .sv-fn')).display, label: document.querySelector('#svStrip .sv-wholemap').getAttribute('aria-label') })`);
-  ok(`1024 ${lang}: the chip is the F alone, its name its label`, fn.words === 'none' && !!fn.label, fn);
+  ok(`1024 ${lang}: the chip keeps its words, its name its label`, fn.words !== 'none' && !!fn.label, fn);
   ok(`1024 ${lang}: the strip's controls sit inside it, on one row, overlapping nothing`, inside && oneRow && clear && box.scroll <= 0, box);
   ok(`1024 ${lang}: the rail keeps room for the thread (at least 160 px)`, rail.w >= 160, rail);
 }
