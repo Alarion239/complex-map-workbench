@@ -9,7 +9,9 @@
 //   plane at rest, at three colour planes each;
 // - the Joukowski airfoil example, Inside regions (its region: outside the circle through 1) and Everywhere, plane w1 at
 //   rest coloured from z, and Everywhere parked at 0.25, 0.3, 0.5 and 0.6 (the deformation's poles and its disc branch's
-//   tanh pole in the window; the two sheets overlapping) and held mid-glide at 0.25 and 0.5;
+//   tanh pole in the window; the two sheets overlapping) and held mid-glide at 0.25 and 0.5; and with the example's own
+//   colour plane w1, parked and held mid-glide at 0.25 and 0.5, and parked at 0.25 and 0.5 straight from rest on a fresh
+//   page;
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong, every sample's points listed, and none left on the bare paper;
@@ -137,16 +139,40 @@ if (EX >= 0) {
     const key = `Joukowski, Everywhere, parked at ${park}`;
     if (await reach(key, { park, T: 0, scope: 'all' })) await judge(key, { nx: 32, ny: 20, skip, skipW, nex: 60 });
   }
+  // (the example's own colour plane, w1: a frame between z and w1 is before the colour plane, each point coloured by
+  // the phase of its image in w1, as the classic deformation shows it)
+  for (const park of [0.25, 0.5]) {
+    const key = `Joukowski, Everywhere, colour plane w1, parked at ${park}`;
+    if (await reach(key, { park, T: 1, scope: 'all' })) await judge(key, { nx: 32, ny: 20, skip, skipW, nex: 60 });
+  }
   // (a frame of a glide: the thread held mid-scrub at x, the path a glide draws (no fix-up, the poles' coarse search),
   // on a frame that holds still)
-  for (const x of [0.25, 0.5]) {
-    const key = `Joukowski, Everywhere, mid-glide at ${x}`;
-    if (await reach(key, { go: 0, T: 0, scope: 'all' }) && await scrub(x)) {
+  for (const [T, x] of [[0, 0.25], [0, 0.5], [1, 0.25], [1, 0.5]]) {
+    const key = `Joukowski, Everywhere, ${T ? 'colour plane w1, ' : ''}mid-glide at ${x}`;
+    if (await reach(key, { go: 0, T, scope: 'all' }) && await scrub(x)) {
       ok(`${key}: the view is held there, gliding`, await ev(`Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving`), await ev('__cmwSteps()'));
       await judge(key, { nx: 32, ny: 20, skip, skipW, nex: 60 });
     }
     await ev('window.__svScrubUp && window.__svScrubUp(); 1');
   }
+}
+
+// the Joukowski example opened on a new page (no saved state), parked straight from rest on plane z (its own colour
+// plane w1): the first park's frame, once it holds still
+for (const park of [0.25, 0.5]) {
+  if (EX < 0) break;
+  const key = `Joukowski, Everywhere, colour plane w1, parked at ${park} on a fresh page`;
+  await view(1280, 800, false, false);
+  await go(`http://localhost:${PORT}/test.html?view=steps&lang=en&ns=scf${Date.now()}`);
+  await settled({ until: 'typeof __cmwSvFrame === "function" && typeof __cmwExample === "function"', max: 30000 });
+  await ev(`__cmwExample(${EX}); 1`);
+  await settled({ until: '__cmwSteps().planes.length === 2', max: 20000 });
+  await ev(`__cmwSet('dc', 'phase'); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); 1`);
+  await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().anim', max: 20000 });
+  await ev(`__cmwSteps({ park: ${park} }); 1`);
+  ok(`${key}: the view is there`, (await settled({ until: `Math.abs(__cmwSteps().x - ${park}) < 1e-9 && __cmwSteps().T === 1`, max: 8000 })).ok, await ev('__cmwSteps()'));
+  ok(`${key}: the frame is drawn and holds still`, await steady(), null);
+  await judge(key, { nx: 32, ny: 20, skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 });
 }
 
 // (multiple coverings) w = z^n on the annulus 0.6 < |z| < 1.6, its image covering n times
@@ -171,9 +197,9 @@ await ev('window.__sclc.restoreContext(); 1');
 await settled({ until: '!GLR.lost && GLR.ok', max: 10000, panes: false });
 ok('after a lost and restored GL context: the frame is drawn and holds still', await steady(), null);
 await judge('after a lost and restored GL context', { nx: 32, ny: 20, skip: { circles: [[0, 0, 0.6], [0, 0, 1.6]], eps: 0.08 } });
-// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 8 of
+// (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 14 of
 // Joukowski, 8 of the powers and the restored context)
-const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 8 + 8 + 1;
+const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 14 + 8 + 1;
 ok('every case was judged', Object.keys(info.cases).length === want, { judged: Object.keys(info.cases).length, want });
 const all = Object.values(info.cases).filter(Boolean);
 info.summary = `${all.filter((r) => r.considered >= MIN_N && r.rate <= MAX_BAD && r.blank === 0).length} of ${all.length} cases pass`;
