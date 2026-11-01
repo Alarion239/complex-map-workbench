@@ -57,7 +57,7 @@ for (const en of strings) {
     if (typeof v !== 'string') continue;
     ok(`${lang}: "${en.slice(0, 40)}" keeps its maths`, maths(en) === maths(v), [maths(en), maths(v)]);
     ok(`${lang}: "${en.slice(0, 40)}" keeps its keys`, keys(en) === keys(v), [keys(en), keys(v)]);
-    ok(`${lang}: "${en.slice(0, 40)}" is not the English`, lang === 'it' && /^[A-Z]{1,2}[a-z]*$/.test(en) ? true : v !== en, v);
+    ok(`${lang}: "${en.slice(0, 40)}" is not the English`, v !== en, v);
   }
 }
 ok('the time has its translation', !!RU['2 min'] && !!IT['2 min']);

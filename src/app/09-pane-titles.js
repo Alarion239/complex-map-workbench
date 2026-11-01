@@ -1243,15 +1243,19 @@
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
     if (SV.on && svCarriedFrom() && !lPhase()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
-      const maxW = LEG.W - 8 - 78, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
+      const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
+      const KEY_PAD = 8;     // room kept at the legend's right edge
+      const KEY_TOP = 22;    // baseline of the first line
+      const KEY_STEP = 13;   // line step (10.5 px text)
+      const maxW = LEG.W - KEY_PAD - KEY_X, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
-        let x = 78;
-        for (const p of ln.split(/((?<![A-Za-z])w(?![A-Za-z]))/).filter(Boolean)) { ctx.font = p === 'w' ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, 22 + i * 13, maxW); x += Math.min(maxW, ctx.measureText(p).width); }
+        let x = KEY_X;
+        for (const p of ln.split(/((?<![A-Za-z])w(?![A-Za-z]))/).filter(Boolean)) { ctx.font = p === 'w' ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP, maxW); x += Math.min(maxW, ctx.measureText(p).width); }
       });
       return;
     }
