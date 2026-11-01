@@ -362,7 +362,7 @@ float len2(vec2 v) { float m = amax(v); return m > 1e18 ? m * length(v / m) : le
   // fetch: 'tex' | 'chain' | 'local' (see FETCH); 'local' places the mesh by uRel = O - view centre
   // o (flat only, the steps view's carried colour): carry, the absolute source point vP for the fragment stage, the
   // sheet key as the depth (preKeyDepth, uKeyOn), and the triangle test of a colour mesh (also a triangle a few pixels
-  // small whose middle strays, a fold of the map where two sheets meet, kept: uKPx; none longer than uKLim, a third of
+  // small whose middle strays, a fold of the map where two sheets meet, kept: uKPx; none longer than uKLim, 0.35 of
   // the pane: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
   // each triangle continued from its centre's sheet (chainSheetHom, the landscape's evalAt), so a triangle across a cut
   // of the deformation's path is continued, not torn and left out
@@ -383,11 +383,11 @@ ${FETCH(fetch)}
 ${LIFT}
 ${BARY}
 ${VALID}
-${o.sheet ? 'vec2 kW(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\n' : ''}void main() {
+${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\n' : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
 ${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
-  vec2 w0 = kW(zc, s0), w1 = kW(zc, s1), w2 = kW(zc, s2);
-  vec2 wm = kW(zc, (s0 + s1 + s2) / 3.0);` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
+  vec2 w0 = onCentreSheet(zc, s0), w1 = onCentreSheet(zc, s1), w2 = onCentreSheet(zc, s2);
+  vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0);` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
   vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}
   int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)

@@ -377,7 +377,7 @@
     if (k) {
       // (st.depth: 'only' (default) one draw with a depth of its own; 'first', 'mid', 'last' draws sharing one depth, so
       // the sheet key orders the points of all of them: the first clears it, the last clears it after)
-      const dm = st.depth || 'only', first = dm === 'only' || dm === 'first', last = dm === 'only' || dm === 'last';
+      const depthMode = st.depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
       if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);

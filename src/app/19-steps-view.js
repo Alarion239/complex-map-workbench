@@ -441,7 +441,7 @@
     }
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
-    // clears it, the last clears it after; lim, a third of the pane's larger side: a longer mapped triangle is a point
+    // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
     // the map sends far, which would cover the pane many times over, so it is left out)
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';

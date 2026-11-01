@@ -456,14 +456,14 @@
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
   }
-  // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
-  // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
-  // fills (the fills alone, no strokes: a mask of the regions, #440)}
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
   // them (the steps view's whole-plane region)
   function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
   // the visible area shapes, in list order
   const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
+  // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
+  // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
+  // fills (the fills alone, no strokes: a mask of the regions, #440)}
   function drawScene(pane, map, role, opt = {}) {
     const list = S.shapes.filter((s) => s.visible !== false);
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
