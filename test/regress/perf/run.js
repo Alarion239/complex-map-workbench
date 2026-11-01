@@ -2,7 +2,7 @@
 'use strict';
 // Performance regression suite for the Complex Map Workbench.
 //
-//   node test/regress/perf/run.js [--out FILE] [--reps N] [--only REGEX] [--skip REGEX] [--base URL] [--quick] [--swiftshader] [--list]
+//   node test/regress/perf/run.js [--out FILE] [--reps N] [--only REGEX] [--skip REGEX] [--base URL] [--quick] [--swiftshader] [--raf-max MS] [--list]
 //     [--settle-timeout MS] [--phone-cpu N] [--load-max L] [--load-wait S] [--unit-timeout S]
 //
 // Drives its own headless Chrome (real WebGL2 through ANGLE Metal) over CDP, opens dist/test.html with saved
@@ -46,6 +46,11 @@ const LOAD_MAX = Number(opt('load-max', String(Math.max(4, os.cpus().length * 0.
 const LOAD_WAIT_S = Number(opt('load-wait', '90'));
 const REQUIRE_QUIET = flag('require-quiet');
 const UNIT_TIMEOUT_S = Number(opt('unit-timeout', '180'));
+// a throttled machine (mac-gpu with its display asleep: runs 41264000039 and 41268369131, where every frame waited on a
+// ~45-50 ms cadence and every timing came out 2-3x on both sides) measures nothing worth comparing: before each unit, and
+// after the last, the median rAF interval of an idle page; over RAF_MAX ms the run fails, naming the cause (run.js exit 5),
+// instead of reporting numbers. --raf-max 0: no check
+const RAF_MAX = Number(opt('raf-max', '20'));
 // --ab DIR: a PAIRED run. DIR is the dist/ of the reference app (run.sh --paired builds it from a source snapshot);
 // every unit runs on the reference and on the current app back to back in the same browser, alternating which goes
 // first, so both see the same machine state (a busy machine slows both alike instead of failing the comparison).
@@ -1880,6 +1885,13 @@ function serveDist(dir = DIST) {
   return new Promise((res) => srv.listen(0, '127.0.0.1', () => res(srv)));
 }
 
+// the median interval between animation frames on an idle page in browser br (ms), or -1 when none came in 5 s
+async function rafMedian(br) {
+  await br.nav('about:blank');
+  const r = await br.send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `new Promise((res) => { const t = []; let last = 0, n = 0; const f = (ts) => { if (last) t.push(ts - last); last = ts; if (++n < 62) requestAnimationFrame(f); else { t.sort((x, y) => x - y); res(t[t.length >> 1]); } }; requestAnimationFrame(f); setTimeout(() => res(-1), 5000); })` });
+  const v = r && r.result ? r.result.value : -1;
+  return typeof v === 'number' ? v : -1;
+}
 async function main() {
   if (flag('list')) { for (const u of UNITS) console.log(u.id.padEnd(22), u.desc); return; }
   const t0 = Date.now();
@@ -1947,6 +1959,23 @@ async function main() {
     fs.writeFileSync(OUT, JSON.stringify(RES_B, null, 1));
     if (RES_A) fs.writeFileSync(abOut(), JSON.stringify(RES_A, null, 1));
   };
+  // (the throttle check: once per unit, before its first side, and once after the last unit; the throttle is the
+  // machine's, so one browser tells)
+  const rafCheck = async (where) => {
+    if (!(RAF_MAX > 0)) return;
+    const med = await rafMedian(B_B);
+    (RES_B.meta.raf || (RES_B.meta.raf = {}))[where] = med < 0 ? null : +med.toFixed(2);
+    if (med >= 0 && med <= RAF_MAX) return;
+    const msg = `machine throttled (rAF median ${med < 0 ? 'none in 5 s' : med.toFixed(1) + ' ms'} > ${RAF_MAX} ms on an idle page) ${where}: the display asleep or the GPU throttled; no numbers reported`;
+    RES_B.errors.push({ where: 'raf-check', error: msg });
+    RES_B.meta.aborted = msg;
+    writeAll();
+    log(msg);
+    for (const b of [B_A, B_B]) { try { if (b) await b.close(); } catch (e2) { /* ignore */ } }
+    if (server) server.close();
+    if (serverA) serverA.close();
+    process.exit(5);
+  };
   for (const u of UNITS) {
     if (ONLY && !ONLY.test(u.id)) continue;
     if (SKIP && SKIP.test(u.id)) continue;
@@ -1966,6 +1995,7 @@ async function main() {
       log(`WARNING: machine busy (1-min load ${load} > ${LOAD_MAX}) before ${u.id}: its timings are not trustworthy`);
       RES.meta.busyUnits.push({ unit: u.id, load });
     }
+    await rafCheck(`before ${u.id}`);
     const scenes = new Map(), failed = new Map();
     const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
     for (const [res, base, tag, br] of sides) {
@@ -2010,6 +2040,8 @@ async function main() {
       }
     }
   }
+  // (a throttle that began during the last unit)
+  if (!ONLY || UNITS.some((u) => ONLY.test(u.id))) await rafCheck('after the last unit');
   CURRENT_UNIT = null;
   for (const [b, res] of [[B_B, RES_B], [B_A, RES_A]]) {
     if (!b) continue;
