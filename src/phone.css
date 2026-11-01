@@ -466,13 +466,15 @@ html:not(.ph) .ph-only { display: none !important; }
 
 /* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
 /* (design-3's lamp-only F tile went with the tile, #246: the chain sheet's whole-map row names its guarantees) */
-/* design-10: the Editor has one head, the Inspector's: the grabber is a thin bar above it, × floats at its right end */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 18px; height: 18px; padding: 0; border-bottom: 0; }
-/* (its tap area is 18 px tall, above the head's title, clear of the head's buttons) */
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 18px; z-index: 2; }
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
-.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
-.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
+/* The Edit sheet has one head, the Inspector's. A strip above the scroller holds the grabber's bar, centred, and Undo and × at its
+   right end, so the buttons never sit over the step's fields, whatever the scroll. The strip is 44 px: the two 44 px buttons,
+   4 px apart, 4 px (and the safe area) from the edge */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 44px; height: 44px; padding: 0 calc(4px + env(safe-area-inset-right, 0px)) 0 0; gap: 4px; justify-content: flex-end; border-bottom: 0; }
+/* (the grabber's tap area is the strip's middle, clear of the buttons: 28 % to 72 % of the sheet, the bar centred in it) */
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 28%; right: 28%; height: 44px; z-index: 2; }
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab::before { top: 20px; }
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > :is(.ph-hundo, .ph-x) { position: relative; z-index: 3; background: none; }
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { min-height: 44px; margin-top: 0; }
 /* (#483) its empty part drags the sheet, as the head does (phone.js), so a finger there does not scroll */
 .ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { touch-action: none; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
