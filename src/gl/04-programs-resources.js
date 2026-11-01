@@ -83,16 +83,9 @@
   const REGION_K_FS = () => {
     const t = REGION_FS(false), end = '  o = vec4(col * a, a);\n}';
     if (t.split('void main() {').length !== 2 || t.split(end).length !== 2) throw new Error('REGION_FS changed: regionK');
-    // (where the map folds, several points on one pixel: the inverse pass's carried-colour key of the point as its
-    // depth, the point nearest the window's centre in front, away from the map's poles)
-    const key = `  if (uKeyOn > 0) {
-    float D = log2(1.0 + length(zk - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
-    for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(zk - uKSing[i]), 1e-30))); }
-    gl_FragDepth = min(D, 1e6) / (min(D, 1e6) + 4.0);
-  } else gl_FragDepth = gl_FragCoord.z;
-`;
+    // (where the map folds, several points on one pixel: the sheet key of the point as its depth, PRE_KEY)
     return t.replace('void main() {', DCOLOR.replace('uniform float uDpr;', '') + PRE_KEY_UNI + 'uniform int uGs; uniform int uGt;\nvoid main() {')
-      .replace(end, '  vec2 zk = vSrc + uQ;\n  col = dcolor(uGs >= uGt ? zk : chainRange(zk, uGs, uGt));\n' + key + end);
+      .replace(end, '  vec2 zk = vSrc + uQ;\n  col = dcolor(uGs >= uGt ? zk : chainRange(zk, uGs, uGt));\n' + PRE_KEY.replace(/\bsa\b/g, 'zk') + end);
   };
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {

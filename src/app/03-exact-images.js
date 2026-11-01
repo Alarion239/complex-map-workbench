@@ -92,36 +92,20 @@
     const k = plan._ck + '|' + winKey();
     let v = invSings.get(k);
     if (!v) {
-      try { v = Inverse.accumulation(plan, clipWin); } catch (e) { v = []; }
+      try { v = Inverse.keySing(plan, clipWin); } catch (e) { v = []; }
       if (invSings.size >= 32) invSings.clear();
       invSings.set(k, v);
     }
     return v;
   }
-  // (#584) the sheet key's points for the steps view's carried colour: the accumulation set, then the map's poles
-  // pulled back (Inverse.singular): the colour of the point nearest the window's centre is shown, so a point beside a
-  // pole (whose colour is that of the far-away values it takes) must not win for that alone; 4 at most (uSing)
-  const carrySings = new Map();
-  function carrySing(plan) {
-    const k = plan._ck + '|' + winKey();
-    let v = carrySings.get(k);
-    if (!v) {
-      let poles = [];
-      try { poles = Inverse.singular(plan, clipWin, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
-      v = invSing(plan).concat(poles).slice(0, 4);
-      if (carrySings.size >= 32) carrySings.clear();
-      carrySings.set(k, v);
-    }
-    return v;
-  }
-  function invPrep(plan, s, budget, carry) {
-    const key = `${plan._ck}|${winKey()}|${shapeKey(s)}${carry ? '|carry' : ''}`;
+  function invPrep(plan, s, budget) {
+    const key = `${plan._ck}|${winKey()}|${shapeKey(s)}`;
     let e = invPreps.get(key);
     if (e) { invPreps.delete(key); invPreps.set(key, e); return e; }
     if (budget && prepMs > 4 && shapeBounded(s)) { prepDeferred = true; return null; }
     const t0 = performance.now();
     let prep;
-    try { prep = Inverse.prepare(plan, { win: clipWin, shape: s, sing: carry ? carrySing(plan) : invSing(plan) }); } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
+    try { prep = Inverse.prepare(plan, { win: clipWin, shape: s, sing: invSing(plan) }); } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
     prepMs += performance.now() - t0;
     e = { key, prep, box: undefined };
     invPreps.set(key, e);
@@ -369,7 +353,7 @@
     if (forceFwd.has(s.id)) return F('forced forward');
     const recs = o.recs || lastRecs, rec = recs && recs.get(s.id);
     if (rec && !rec.ok) return rec.pending ? { path: 'pending', reason: rec.reason } : F(rec.reason || 'shape record');
-    const e = invPrep(plan, s, !!o.budget, !!o.carry);
+    const e = invPrep(plan, s, !!o.budget);
     if (!e) return F('preparation deferred a frame');
     if (!e.prep.ok) return F(e.prep.reason || 'shape not eligible');
     if (!offRender && viewKind === 'flat' && guardDemotes(role, s, plan, e)) return F('cost guard');

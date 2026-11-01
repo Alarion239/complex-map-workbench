@@ -123,13 +123,13 @@ function makeColorErr(colors, kind) {
   };
 }
 
-// SPEC 5.1 sheet order. win: the meshing window clipWin {x0, x1, y0, y1}; P: the accumulation set (points {re, im}).
-// D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|)), R = half-diagonal of W, rs = R / 8.
+// SPEC 5.1 sheet order (#584: as Inverse.sheetKey). win: the meshing window clipWin {x0, x1, y0, y1}; P: the key's
+// points (points {re, im}). D(z) = log2(1 + |z - c| / R) + sum over p in P of max(0, log2(rs / |z - p|)), c the centre
+// of W, R = half-diagonal of W, rs = R / 8.
 function sheetKey(win, P = []) {
-  const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2, rs = R / 8;
+  const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2, rs = R / 8, cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
   return (z) => {
-    const dx = Math.max(win.x0 - z.re, 0, z.re - win.x1), dy = Math.max(win.y0 - z.im, 0, z.im - win.y1);
-    let D = Math.log2(1 + Math.hypot(dx, dy) / R);
+    let D = Math.log2(1 + Math.hypot(z.re - cx, z.im - cy) / R);
     for (const p of P) { const d = Math.hypot(z.re - p.re, z.im - p.im); if (d < rs) D += d > 0 ? Math.log2(rs / d) : Infinity; }
     return D;
   };

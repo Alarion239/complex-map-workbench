@@ -379,13 +379,15 @@ const Inverse = (() => {
     const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     return { R, rs: R / 8 };
   }
-  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + dist(z, W)/R) + sum over P of max(0, log2(rs/|z - p|))
+  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|)), c the centre
+  // of W (#584: the point nearest the window's centre in front, continuous across W's edges, where the distance to W
+  // tied every point inside it and the tie rule flipped sheets along its sides; |z - c| >= dist(z, W), so every lower
+  // bound the walk takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
   function sheetKey(prep, z, lam) {
     const { win, R, rs, sing } = prep;
     if (lam && lam.re > LAM_CUT) return (lam.re - Math.log(R)) / LN2;
     if (!isFin(z)) return Infinity;
-    const dx = Math.max(win.x0 - z.re, 0, z.re - win.x1), dy = Math.max(win.y0 - z.im, 0, z.im - win.y1);
-    let D = Math.log2(1 + Math.hypot(dx, dy) / R);
+    let D = Math.log2(1 + Math.hypot(z.re - (win.x0 + win.x1) / 2, z.im - (win.y0 + win.y1) / 2) / R);
     if (sing) for (const p of sing) {
       if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += Math.max(0, Math.log2(rs) - lam.re / LN2);
       else D += Math.max(0, Math.log2(rs / Math.hypot(z.re - p.re, z.im - p.im)));
@@ -595,6 +597,14 @@ const Inverse = (() => {
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
   // enumerated only inside expandBox(win, 3).
+  // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
+  // back (#584: a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
+  function keySing(plan, win) {
+    let acc = [], poles = [];
+    try { acc = accumulation(plan, win); } catch (e) { acc = []; }
+    try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
+    return acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))).slice(0, 4);
+  }
   function singular(plan, win, kinds = ['undef', 'branch', 'pole'], cap = 16) {
     if (!plan || !plan.ok || !plan.ops.length) return [];
     const ops = plan.ops, { refs } = refsOf(plan, win), zb = expandBox(win, 3);
@@ -968,7 +978,7 @@ const Inverse = (() => {
     const ops = plan.ops, N = ops.length;
     const rf = refsOf(plan, win, o.ref);
     prep.refs = rf.refs; prep.cRef = rf.cRef;
-    prep.sing = o.sing ? o.sing.slice(0, 4) : accumulation(plan, win);
+    prep.sing = o.sing ? o.sing.slice(0, 4) : keySing(plan, win);
     prep.fam = ops.map((x) => x.fam);
     if (!shape) { prep.reason = 'no shape'; return prep; }
     prep.ev = shapePx(shape);
@@ -1560,7 +1570,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

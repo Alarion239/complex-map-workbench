@@ -233,19 +233,13 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + dist(z, W) / R) + sum over P of max(0, log2(rs / |z - p|)) ----
+// ---- sheet order (SPEC 5, #584): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
-#ifdef IX_CARRY
-  // (#584, the carried colour: the point nearest the window's centre in front, so that one colour is shown where
-  // several points land, continuous where the tie class was not; |z - c| >= the box distance, so every bound the walk
-  // takes from the box stays a lower bound)
+  // (#584: the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
   float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
-#else
-  float D = log2(1.0 + ixBoxDist(z) / uWinR);
-#endif
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
     vec2 p = uSing[i];
@@ -270,11 +264,7 @@ vec2 ixMobT(vec2 u) {
 }
 // 2^D of a finite point without the logs (the same order as ixSheetKey)
 float ixKeyExp(vec2 z) {
-#ifdef IX_CARRY
   float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
-#else
-  float K = 1.0 + ixBoxDist(z) / uWinR;
-#endif
   for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(z - uSing[i])); }
   return K;
 }
