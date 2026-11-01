@@ -242,8 +242,8 @@ const ph = await ev(`(() => { const s = document.getElementById('svStrip'), v = 
 ok('phone: ▶ ‹ thread › at 44 px, the speed and Loop not on the strip, no sideways scroll', ph.play.show && ph.play.w >= 44 && ph.play.h >= 44 && ph.play.l < ph.prev.l && !ph.speed.show && !ph.loop.show && ph.sw <= ph.cw + 1, ph);
 await ev(`(() => { const b = document.querySelector('.sv-play'); const o = { pointerType: 'touch', pointerId: 7, bubbles: true, isPrimary: true }; b.dispatchEvent(new PointerEvent('pointerdown', o)); })(); 1`);
 await sleep(800);
-const sh = await ev(`(() => { const s = document.querySelector('.sv-sheet'); return s && !s.hidden ? { name: s.getAttribute('aria-label'), rows: s.querySelectorAll('.sv-speed, .sv-loop').length } : null; })()`);
-ok('a long press on ▶ opens the Playback sheet, with Speed and Loop', sh && sh.name === 'Playback' && sh.rows === 2, sh);
+const sh = await ev(`(() => { const s = document.querySelector('.sv-sheet'); return s && !s.hidden ? { name: s.getAttribute('aria-label'), rows: s.querySelectorAll('.sv-speed, .sv-order, .sv-loop').length, orderH: s.querySelector('.sv-order').getBoundingClientRect().height, stripOrder: getComputedStyle(document.querySelector('#svStrip .sv-order')).display } : null; })()`);
+ok('a long press on ▶ opens the Playback sheet, with Speed, Order and Loop (the order not on the phone\'s strip, 44 px in the sheet)', sh && sh.name === 'Playback' && sh.rows === 3 && sh.stripOrder === 'none' && sh.orderH >= 44, sh);
 await ev(`document.querySelector('.sv-play').dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', pointerId: 7, bubbles: true })); document.querySelector('.sv-play').click(); document.body.focus(); 1`);
 await sleep(250);
 ok('the release does not take the focus out of the sheet, which is modal', await ev(`!!document.activeElement.closest('.sv-sheet') && document.querySelector('.sv-sheet').getAttribute('aria-modal') === 'true'`), await ev(`document.activeElement.tagName`));

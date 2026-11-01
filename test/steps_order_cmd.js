@@ -20,7 +20,7 @@ const open = async (state, nsx) => {
 };
 const reopen = async (nsx) => {
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${nsx}&lang=en&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
+  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
 };
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
@@ -99,7 +99,7 @@ ok('a d/dz in the chain: the select is off and says why', dz.disabled && /d\/dz 
 for (const lang of ['en', 'ru', 'it']) {
   await view(1024, 768, false, false);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
+  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
   await ctl({ order: 'all' });
   await settled({});
   const box = await ev(`(() => {

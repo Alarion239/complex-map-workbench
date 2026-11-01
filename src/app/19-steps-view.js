@@ -653,7 +653,11 @@
   }
   // the order select says why it is off: a chain of fewer than two steps has nothing to take together, a d/dz is no map to deform
   function svOrderSync() {
-    const E = SV.els, P = svPlanes(), ks = P.slice(1), deriv = ks.some((k) => isDeriv(k)), ok = ks.length > 1 && !deriv;
+    const E = SV.els, P = svPlanes(), deriv = P.some((k, i) => i > 0 && isDeriv(k)), ok = P.length > 2 && !deriv;
+    // (read and written only when what it says changes: the play calls it every frame)
+    const key = `${ok ? 1 : 0}|${deriv ? 1 : 0}|${S.homAll ? 1 : 0}|${I18N.lang}|${E.sheetOrder ? 1 : 0}`;
+    if (key === E.orderKey) return;
+    E.orderKey = key;
     const tip = deriv ? $t('d/dz is not a map: its step deforms on its own, so the steps run one after another') : !ok ? $t('All at once needs two steps or more') : $t('Glide order');
     for (const sel of [E.order, E.sheetOrder]) {
       if (!sel) continue;
