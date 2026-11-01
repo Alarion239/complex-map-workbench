@@ -265,8 +265,14 @@
       const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
       const plan = a > s ? invPlan(s, a) : null;
       const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+      // (#551) the points further out, a coarse grid over twelve times the camera's window: behind the window's own in
+      // the sheet key, they colour what the window's points do not reach (a contracting step, a far branch)
+      const OX = 12, onx = 48, ony = Math.max(8, Math.round(onx * pane.h / Math.max(1, pane.w))), ohw = OX * hw / ext, ohy = OX * hy / ext;
+      const outer = { x0: v.cx - ohw, y0: v.cy - ohy, dx: 2 * ohw / onx, dy: 2 * ohy / ony, nx: onx, ny: ony };
+      // (#551: a triangle may span the view, uLim, since the fragment stage solves for the point of each one that bends;
+      // only one torn across a cut or a pole, longer, is left out)
       if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
-      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, outer, lim: Math.max(pane.w, pane.h) / v.s, key,
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
         if (frame) frame.open = true; else GLR.blit(cc);
         return true;

@@ -244,6 +244,38 @@
   // (#366 prototype) the steps view: where it is, what it shows; d moves it (±1, or a plane index with to)
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() } }; };
+  // (#551) the preimages in the colour plane of the shown plane's points [[re, im], ...], through the plan T → shown
+  // plane: every branch of each op, as Inverse.pointPre, and of a periodic family (exp, the trig functions) the members
+  // m = -K … K of each base, those within |z| < 1e6 (null: the plan has no inverse there, or a lattice)
+  /** @type {any} */ (window).__cmwSvPre = (pts, K = 6) => {
+    const T = svT(), k = svStage();
+    if (k <= T) return null;
+    const plan = invPlan(T, k);
+    if (!plan.ok || plan.ops.some((o) => o.lattice || (o.fam && o.fam.type !== 'fin' && o.fam.type !== 'add'))) return pts.map(() => null);
+    const fin = (u) => CX.isFin(u) && Math.hypot(u.re, u.im) < 1e6;
+    return pts.map(([re, im]) => {
+      let cur = [C(re, im)];
+      for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
+        const o = plan.ops[i], next = [];
+        const keep = (u) => { if (fin(u) && !next.some((q) => Math.hypot(q.re - u.re, q.im - u.im) <= 1e-7 * (1 + Math.hypot(u.re, u.im)))) next.push(u); };
+        for (const w of cur) {
+          if (o.fam && o.fam.type === 'add') {
+            for (const b of o.fam.bases(w)) if (b) for (let m = -K; m <= K; m++) keep(CX.add(b, CX.scale(o.fam.p, m)));
+          } else for (const mem of o.pre(w)) if (mem.lvl >= 0) keep(mem.u);
+        }
+        if (next.length > 512) return null;
+        cur = next;
+      }
+      return cur.map((z) => [z.re, z.im]);
+    });
+  };
+  // (#551) the sheet key svCarry gives the carried colour at rest past the colour plane: the camera's window of plane T,
+  // its half diagonal R, rs = R / 8 and the plan's accumulation points (the shader reads the first four)
+  /** @type {any} */ (window).__cmwSvKey = () => {
+    const T = svT(), k = svStage(), v = S.srcView, hw = paneL.w / 2 / v.s, hy = paneL.h / 2 / v.s, R = Math.hypot(hw, hy);
+    const plan = k > T ? invPlan(T, k) : null;
+    return { win: [v.cx - hw, v.cy - hy, v.cx + hw, v.cy + hy], R, rs: R / 8, sing: (plan && plan.ok ? invSing(plan) : []).slice(0, 4).map((p) => [p.re, p.im]) };
+  };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
