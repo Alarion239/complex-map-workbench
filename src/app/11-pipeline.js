@@ -95,13 +95,16 @@
   const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
   // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
   // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
+  // (the Inspector draws its row a frame or two after the step is selected; on a slow machine a first draw takes longer: the
+  // field is looked for this long, then given up)
+  const REPEAT_FIELD_WAIT_MS = 1500;
   function focusRepeatField(k) {
     const field = () => repFields.map((f) => f.inp).find((el, i) => repFields[i].getK() === k && el.isConnected && el.getClientRects().length) || null;
     if (!SV.on) return field();
     svInspect(k);
     const t0 = performance.now(), look = () => {
       const f = field();
-      if (f) { f.focus(); f.select(); } else if (performance.now() - t0 < 1500) requestAnimationFrame(look);
+      if (f) { f.focus(); f.select(); } else if (performance.now() - t0 < REPEAT_FIELD_WAIT_MS) requestAnimationFrame(look);
     };
     requestAnimationFrame(look);
     return null;
