@@ -287,7 +287,9 @@ jobs:
       - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (--table: every metric's reference -> this change in the job log, which agents can read; the artifact they cannot)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --table ${{ env.FORCE }}
+      # (the Mac's display asleep slows every frame to its own cadence, ~45-50 ms (runs 41264000039, 41268369131): caffeinate
+      # keeps the display, the system and the disks awake while the shard runs; run.js fails a throttled run, --raf-max)
+      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --table ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

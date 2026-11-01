@@ -440,6 +440,8 @@ test/regress/perf/run.sh --update-baseline
 ```
 
 runs the full suite 3 times, the opt-in SwiftShader runner included (~33 min; `PERF_BASELINE_RUNS=N` to change) with `--require-quiet` (a run aborts when the 1-minute load average is above `--load-max`, default max(4, 0.45 x cores): never record a baseline while agents, builds or another browser are busy), merges the runs per metric with the median
+
+**A throttled machine fails the run.** Before each unit and after the last, `run.js` measures the median `requestAnimationFrame` interval of an idle page. Over `--raf-max` ms (default 20; 0 turns the check off) the run stops with exit 5 and `machine throttled (rAF median … ms > 20 ms …)`, and `ci/perf_shard.js` fails the shard with that cause instead of reporting numbers. The medians are kept in `meta.raf`. The hosted Windows advisory job (gate.yml) passes `--raf-max 0`. This catches mac-gpu with its display asleep: runs 41264000039 and 41268369131 saw every frame wait on a ~45–50 ms cadence, with every timing 2–3× on both sides. The GPU gate's Mac perf step also runs under `caffeinate -dimsu`.
 (`make_baseline.py`, which also keeps each run's value for the noise envelope), prints the merged result against
 the OLD baseline for review, and replaces `perf/baseline.json` (the runs and the merged file stay in
 `perf/results/`). Never update the baseline to make a failure go away without understanding it; never record it
