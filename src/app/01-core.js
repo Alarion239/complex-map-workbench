@@ -193,7 +193,7 @@
     TH.axisRGB = GLR.hexRGB(TH.axis);
     inkCache.clear();
     // a system theme change (Auto) restyles the chrome before we hear of it: settle its color transitions at once
-    try { if (document.getAnimations) for (const a of document.getAnimations()) if (/color/.test(a.transitionProperty || '')) a.finish(); } catch (e) { /* ignore */ }
+    try { if (document.getAnimations) for (const a of document.getAnimations()) if (/color/.test(/** @type {any} */ (a).transitionProperty || '')) a.finish(); } catch (e) { /* ignore */ }
   }
   // ---- colors of a shape: preset index (tokens) or a custom hex with OKLCH-derived shades ----
   const inkCache = new Map();
