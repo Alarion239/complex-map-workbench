@@ -203,10 +203,11 @@ for (const name of ['expH', 'zi_H', 'e1z_disc']) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// (h) golden emulation: the forward draw (emulated: the region meshes as the GPU places and orders them) vs the inverse render of the bounded controls. Where a region
-// covers a pixel more than once, both show the front point of the one sheet key the region tiling, the pre-mapped
-// meshes and the steps view's colours share (Inverse.sheetKey: the point nearest the window's centre, the poles
-// penalised, keys within TIE_D tied and ordered by the tie rule), which is also the forward draw's depth
+// (h) golden emulation: the forward draw (emulated: the region meshes as the GPU places and orders them) vs the
+// inverse render of the bounded controls. Where a region covers a pixel more than once, both show the front point of
+// the one sheet key the region tiling, the pre-mapped meshes and the steps view's colours share (Inverse.sheetKey:
+// the point nearest the window's centre, the poles penalised, keys within TIE_D tied and ordered by the tie rule),
+// which is also the forward draw's depth
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (h) golden emulation');
 {
