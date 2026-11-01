@@ -466,9 +466,9 @@ html:not(.ph) .ph-only { display: none !important; }
 
 /* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
 /* (design-3's lamp-only F tile went with the tile, #246: the chain sheet's whole-map row names its guarantees) */
-/* design-10: the Editor has one head, the Inspector's: a strip above the scroller holds the grabber's bar, centred, and Undo
-   and × at its right end (#606: they used to float over the scroller at top: 34 px, and sat on the step's fields as soon as the
-   Inspector was scrolled). The strip is 44 px: the two 44 px buttons, 4 px apart, 4 px (and the safe area) from the edge */
+/* The Edit sheet has one head, the Inspector's. A strip above the scroller holds the grabber's bar, centred, and Undo and × at its
+   right end, so the buttons never sit over the step's fields, whatever the scroll. The strip is 44 px: the two 44 px buttons,
+   4 px apart, 4 px (and the safe area) from the edge */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh { min-height: 44px; height: 44px; padding: 0 calc(4px + env(safe-area-inset-right, 0px)) 0 0; gap: 4px; justify-content: flex-end; border-bottom: 0; }
 /* (the grabber's tap area is the strip's middle, clear of the buttons: 28 % to 72 % of the sheet, the bar centred in it) */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 28%; right: 28%; height: 44px; z-index: 2; }

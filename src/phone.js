@@ -552,10 +552,9 @@ const Phone = (() => {
   function geometry() {
     // (v16.4: less the guided tour's strip under the header, --ph-tour, while it shows)
     const H = window.innerHeight - (parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-tour')) || 0);
-    // (#606: the Edit sheet's head is a 44 px strip, 26 px taller than the 18 px grabber it replaced; the planes give those 26 px,
-    // so the Inspector's scroller keeps the height it had and no tour step's anchor loses room)
-    // (on a short phone the 26 px would leave the planes under 200 px, where they are too small to watch respond: the Inspector
-    // scrolls instead, ux on #609)
+    // (the Edit sheet's head is a 44 px strip, and the planes give 26 px of it, so the Inspector's scroller keeps the room a tour
+    // step's anchor needs. On a short phone that would leave the planes under 200 px, too small to watch respond, so there the
+    // Inspector scrolls instead)
     const base = Math.round(Math.max(180, Math.min(340, H * 0.36)));
     const hp = kind === 'edit' && !nums && base - 26 >= 200 ? base - 26 : base;
     rootEl.style.setProperty('--ph-hp', hp + 'px');
@@ -621,7 +620,7 @@ const Phone = (() => {
   function setNums(v) {
     nums = !!v;
     els.sheet.classList.toggle('nums', nums);
-    if (on && kind) geometry();   // (the planes' height follows: the Edit sheet's head is taller than the Numbers')
+    if (on && kind) geometry();   // (the planes' height follows: the Edit sheet gives them less room than its Numbers mode)
     if (kind === 'edit') {
       els.title.textContent = nums ? $t('Numbers') : '';
       els.sheet.setAttribute('aria-label', nums ? $t('Numbers') : TITLES().edit);

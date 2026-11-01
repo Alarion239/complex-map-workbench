@@ -1,4 +1,4 @@
-// The phone's Edit sheet head (#606): Undo and × sit in a 44 px strip above the Inspector's scroller, not floating over it, so
+// The phone's Edit sheet head: Undo and × sit in a 44 px strip above the Inspector's scroller, not floating over it, so
 // with the Inspector scrolled (top, 169 px, the end) nothing of the step's fields meets them. English, Russian and Italian
 // at 360 and 390 px (and 740 × 360, the landscape side panel), the classic view and the steps view: the buttons are 44 × 44, 4 px apart, 4 px from the sheet's right
 // edge; the strip ends where the scroller starts; the grabber's bar is centred; no visible control or field of the
@@ -64,9 +64,9 @@ for (const [lang, w, vw] of [['en', 360, 'classic'], ['ru', 360, 'classic'], ['i
     ok(`${tag}: a drag that starts on × does not move the sheet`, after != null && Math.abs(after - top0) <= 1, [top0, after]);
   }
 }
-// the planes' share (ux on #609): the planes give the strip's 26 px while the Edit sheet is open, but never go below 200 px on
-// a short phone (the 26 px is given back there and the Inspector scrolls), and they change in one step with the sheet, on open
-// and on close, not in a run of frames of their own
+// the planes' share: the planes give the strip's 26 px while the Edit sheet is open, but never go below 200 px on a short phone
+// (the 26 px stays with the planes there and the Inspector scrolls), and they change in one step with the sheet, on open and on
+// close, not in a run of frames of their own
 const planeH = `Math.round(document.getElementById('paneL').getBoundingClientRect().height)`;
 for (const [w, h] of [[390, 844], [360, 780], [360, 640], [360, 568]]) {
   const tag = `${w} x ${h}`;
