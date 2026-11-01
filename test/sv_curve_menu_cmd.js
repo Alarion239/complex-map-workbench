@@ -45,7 +45,7 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   const [x1, y1] = await at(0, 1.1);
   const hit = await under(x1, y1);
   // (the events the plane gets from the right-click, in order, with the app's drag at each: what a failure reports)
-  await ev(`(() => { const t = document.getElementById('overlayL'), log = window.__rcLog = []; for (const ty of ['pointerdown', 'mousedown', 'pointermove', 'pointerup', 'mouseup', 'pointercancel', 'lostpointercapture', 'contextmenu']) t.addEventListener(ty, (e) => log.push([ty, e.button, e.buttons, Math.round(e.timeStamp), __cmwPlaneMenu().drag()]), true); return 1; })()`);
+  await ev(`(() => { const t = document.getElementById('overlayL'), log = window.__rcLog = []; for (const ty of ['pointerdown', 'mousedown', 'pointermove', 'pointerup', 'mouseup', 'pointercancel', 'lostpointercapture', 'contextmenu']) t.addEventListener(ty, (e) => log.push([ty, e.button, e.buttons, Math.round(e.timeStamp), __cmwPlaneMenu().drag()]), true); new MutationObserver((ms) => { for (const m of ms) { for (const n of m.addedNodes) log.push(['pop+', String(n.className), Math.round(performance.now())]); for (const n of m.removedNodes) log.push(['pop-', String(n.className), Math.round(performance.now())]); } }).observe(document.getElementById('popHost'), { childList: true }); return 1; })()`);
   await rclick(x1, y1);
   const on = await menu();
   // (when no menu opened: the page's state at the click, and whether a contextmenu event sent to the plane itself opens it)
