@@ -268,9 +268,9 @@ const PlaneMenu = (() => {
 .pop.menu.pm { min-width: 236px; max-width: min(340px, calc(100vw - 24px)); }
 .pm-head { display: flex; flex-direction: column; gap: 3px; padding: 7px 8px 7px; margin-bottom: 2px; border-bottom: 1px solid var(--line);
   font: italic 500 13px/16px var(--f-math); color: var(--ink); white-space: nowrap; }
-.pm-head .pm-h2 { color: var(--ink-2); font-size: 12.5px; }
+.pm-head .pm-h2 { color: var(--ink-2); font-size: 12px; }
 .pm-head .pm-n { font-style: normal; font-feature-settings: "tnum" 1; }
-.pm-head sup { font-size: 9px; line-height: 0; }
+.pm-head sup { font-size: 10px; line-height: 0; }
 .pop.menu.pm .mi { height: auto; min-height: 30px; padding: 4px 8px; }
 @media (pointer: coarse) { .pop.menu.pm .mi { min-height: 44px; } }
 .pop.menu.pm.pm-touch .mi { min-height: 44px; }
@@ -278,7 +278,7 @@ const PlaneMenu = (() => {
 .pop.menu.pm .mi-label i { font: var(--t-math-s); }
 .pop.menu.pm .mi-sub { display: block; margin-top: 1px; font: 400 11px/14px var(--f-ui); color: var(--muted); }
 .pop.menu.pm .mi-sub i { font: italic 500 12px/14px var(--f-math); }
-.pop.menu.pm .mi-sub sup, .pop.menu.pm .mi-label sup { font-size: 8.5px; line-height: 0; }
+.pop.menu.pm .mi-sub sup, .pop.menu.pm .mi-label sup { font-size: 10px; line-height: 0; }
 .pm-mk { position: relative; display: block; width: 9px; height: 9px; }
 .pm-mk.zeros { border-radius: 50%; background: var(--zero); box-shadow: 0 0 0 1.5px var(--surface); }
 .pm-mk.zeros::after { content: ""; position: absolute; left: 3px; top: 3px; width: 3px; height: 3px; border-radius: 50%; background: var(--surface); }

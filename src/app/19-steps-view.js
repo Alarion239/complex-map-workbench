@@ -437,18 +437,8 @@
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
-    drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
+    drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     if (rest) drawRulers(pane, 'L');
-  }
-  // the regions drawn as a mask (#591): fn with the regions' look set to solid, opaque and without lines, then put back
-  function withSolidRegions(fn) {
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
-    try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      return fn();
-    } finally {
-      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-    }
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -505,7 +495,7 @@
       if (s.visible === false || kindType(s) === 'point') continue;
       const map = shapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
-      GLR.drawLines(r.lineRes, { map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } });
+      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() })));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
@@ -531,39 +521,6 @@
       pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
     }
     leftSphereInfo = info;
-  }
-  // Inside regions on the globe: the globe with its regions, then over it the colour globe only where a region is. On
-  // the GPU (#440): the colour globe's frame keeps its colour where the regions wrote its alpha (sphereView's
-  // maskRegions, GLR.drawSphere); else the regions drawn white on a black globe make a mask, read back
-  let svSphCv = null, svSphMask = null;
-  function svSphereIn(pane) {
-    const k = svStage(), o = { stage: k, plane: !!xView().eq, role: 'L' };
-    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: true }, o));
-    if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-      try {
-        withSolidRegions(() => sphereView(pane, camL, CAML, Object.assign({ imageMode: false, maskRegions: true }, o)));
-      } catch (e) { console.error('steps view globe mask', e); }
-      return info;
-    }
-    svSphCv = svCanvas(svSphCv, pane);
-    sphereView(svProxy(pane, svSphCv), camL, CAML, Object.assign({ imageMode: false }, o));
-    svSphMask = svCanvas(svSphMask, pane);
-    const keepTH = TH, keepInk = printInk;
-    try {
-      TH = Object.assign({}, TH, { plane: '#000000', planeRGB: [0, 0, 0], gridMajor: '#000000', axisRGB: [0, 0, 0], inkRGB: [0, 0, 0], faint: '#000000', landTop: '#000000', landBottom: '#000000', landShadow: '#000000', halo: '#000000', muted: '#000000' });
-      printInk = () => ({ c0: '#ffffff', alt: '#ffffff', edge: '#ffffff' });
-      withSolidRegions(() => sphereView(svProxy(pane, svSphMask), camL, CAML, Object.assign({ imageMode: true }, o)));
-    } catch (e) { console.error('steps view globe mask', e); }
-    TH = keepTH; printInk = keepInk;
-    const mc = svSphMask.getContext('2d'), img = mc.getImageData(0, 0, svSphMask.width, svSphMask.height), d = img.data;
-    // (a lit white region stays light; the black globe, its sheen and the ground stay dark)
-    for (let q = 0; q < d.length; q += 4) { const l = (d[q] + d[q + 1] + d[q + 2]) / 3; d[q + 3] = l > 110 ? 255 : l > 70 ? Math.round((l - 70) * 255 / 40) : 0; }
-    mc.putImageData(img, 0, 0);
-    const c = svSphCv.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = 'destination-in'; c.drawImage(svSphMask, 0, 0); c.globalCompositeOperation = 'source-over';
-    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svSphCv, 0, 0); pane.ctx.restore();
-    return info;
   }
   // Inside regions: the region mask of plane k, drawn opaque into a canvas the size of the pane's
   let svMaskCv = null, svColCv = null;

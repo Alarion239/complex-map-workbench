@@ -5,9 +5,7 @@
    "matrix": "{\"langs\":[\"en\"],\"views\":[\"classic\",\"steps\"],\"devices\":[\"phone\",\"desktop\"],\"themes\":[\"light\",\"dark\"],\"sizes\":null,\"states\":[\"start\",\"phase\",\"landscape\",\"deformation\",\"inspector F\",\"tour strip\",\"tour longest basics\",\"tour longest views\",\"tour longest edit\",\"tour longest construct\",\"tour longest deform\",\"tour longest analysis\",\"tour longest branches\",\"tour longest sound\",\"tour longest export\",\"tour longest keys\",\"tour longest planes\",\"menu examples\",\"menu export\",\"menu share\",\"menu settings\",\"menu help\",\"menu sound\",\"palette\",\"export dialog\",\"menu more\",\"sheet edit\",\"sheet tools\",\"sheet display\",\"sheet more\",\"sheet chain\",\"sheet numbers\",\"sphere\",\"chain of 4\"]}",
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
-   "rows": {
-    "focus-ring button.ph-tile": 3
-   }
+   "rows": {}
   },
   "ru": {
    "matrix": "{\"langs\":[\"ru\"],\"views\":[\"classic\",\"steps\"],\"devices\":[\"phone\",\"desktop\"],\"themes\":[\"light\",\"dark\"],\"sizes\":[\"360\",\"740x360\",\"1024\"],\"states\":[\"start\",\"phase\",\"landscape\",\"deformation\",\"inspector F\",\"tour strip\",\"tour longest basics\",\"tour longest views\",\"tour longest edit\",\"tour longest construct\",\"tour longest deform\",\"tour longest analysis\",\"tour longest branches\",\"tour longest sound\",\"tour longest export\",\"tour longest keys\",\"tour longest planes\",\"menu examples\",\"menu export\",\"menu share\",\"menu settings\",\"menu help\",\"menu sound\",\"palette\",\"export dialog\",\"menu more\",\"sheet edit\",\"sheet tools\",\"sheet display\",\"sheet more\",\"sheet chain\",\"sheet numbers\",\"sphere\",\"chain of 4\"]}",
@@ -23,13 +21,7 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "clipped #popHost span.ex-blurb": 4,
-    "covered input#i2_b.inp × button.ph-hundo": 4,
-    "covered #propsPanel button.icon-btn.argand × button.ph-hundo": 4,
-    "overlap button.ph-hundo × input#i2_b.inp": 4,
-    "overlap button.ph-hundo × #propsPanel button.icon-btn.argand": 4,
-    "overlap button.ph-x × input#i2_b.inp": 4,
-    "overlap button.ph-x × #propsPanel button.icon-btn.argand": 4
+    "clipped #popHost span.ex-blurb": 4
    }
   }
  }
