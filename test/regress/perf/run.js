@@ -1115,6 +1115,41 @@ async function morphViewsUnit() {
   }
 }
 
+// Issue #48 (walls verify-5): the Max mesh (1920) Landscape with All sheets while the deformation plays, the user's
+// case (sqrt then sin of the square |Re z|, |Im z| < 3, height Im). `first`: the first play after a load (the sheets'
+// and the walls' first draws land in it), 2.5 s from T = 0; `steady`: the same play again from T = 0. Both are held to
+// the 60 fps budget (fps >= 55, frame p95 <= 14 ms) on the machines with real GPUs.
+async function morphLandMaxUnit() {
+  const pre = 'morph.play.land.max';
+  const st = sceneState('default', { shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 }, rightMode: '3d', view: { main: 'land' }, sheets: true, height: 'im', meshN: 1920 });
+  const m = { first: { frame: [], fps: [], jank: [] }, steady: { frame: [], fps: [], jank: [] } };
+  let view = '';
+  for (let i = 0; i < REPS; i++) {
+    await openApp(st);
+    await B.ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 } })');
+    await settle(await pageNow());
+    view = await B.ev('typeof __cmwLayout === "function" ? (() => { const l = __cmwLayout(); return l.main + (l.deform ? "+deformation" : "") + ":" + l.shown.join("") + (__cmwState().sheets ? ", All sheets" : ""); })() : ""');
+    for (const k of ['first', 'steady']) {
+      await B.ev('__cmwMorph({ T: 0 }); __cmwMorph({ playing: true }); 1');
+      const a = await pageNow();
+      await sleep(2500);
+      const b = await pageNow();
+      await B.ev('__cmwMorph({ playing: false }); 1');
+      const w = await windowStats(a, b);
+      m[k].frame.push(quant(w.frame, 0.95));
+      m[k].fps.push(w.drawn.length * 1000 / w.dur);
+      m[k].jank.push(await jankIn(a, b));
+      await settle(await pageNow());
+    }
+  }
+  for (const k of ['first', 'steady']) {
+    put(`${pre}.${k}.frame_p95_ms`, 'frame_ms', 'ms', m[k].frame);
+    put(`${pre}.${k}.fps`, 'throughput', 'frames/s', m[k].fps);
+    put(`${pre}.${k}.jank_ms`, 'jank_ms', 'ms', m[k].jank);
+  }
+  detail(`${pre}.view`, view);
+}
+
 // Hovering the right plane in Image mode: preimages of w are tracked in the left plane on every pointermove.
 async function hoverUnit(scene) {
   const pre = `hover.${scene}`;
@@ -1819,6 +1854,7 @@ unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default p
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
+unit('morph.play.land.max', 'issue #48: the Max mesh (1920) Landscape with All sheets while the deformation plays, sqrt then sin: the first play after a load and a second one (60 fps budget)', morphLandMaxUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
 // SPEC 12.5 (P0): exact images through infinity (the new units are NEW in the comparison until the baseline is
