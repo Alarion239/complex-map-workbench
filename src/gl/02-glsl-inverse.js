@@ -233,12 +233,13 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + dist(z, W) / R) + sum over P of max(0, log2(rs / |z - p|)) ----
+// ---- sheet order (SPEC 5, #584): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
-  float D = log2(1.0 + ixBoxDist(z) / uWinR);
+  // (#584: the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
+  float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
     vec2 p = uSing[i];
@@ -263,7 +264,7 @@ vec2 ixMobT(vec2 u) {
 }
 // 2^D of a finite point without the logs (the same order as ixSheetKey)
 float ixKeyExp(vec2 z) {
-  float K = 1.0 + ixBoxDist(z) / uWinR;
+  float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
   for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(z - uSing[i])); }
   return K;
 }
@@ -405,11 +406,14 @@ float ixDKTail() {
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
 bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  if (D1 != D2) return D1 < D2;
+  // (keys in the same step of 2^-8 octave are ties: Inverse.front's TIE_D)
+  float q1 = floor(D1 * 256.0 + 0.5), q2 = floor(D2 * 256.0 + 0.5);
+  if (q1 != q2) return q1 < q2;
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
 }
-// ---- early stop (3.6) ----
+// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the tie band
+// (TIE_D, 2^-8: a member within it may still come in front by the tie rule) ----
 float ixRayBoxDist(vec2 a, vec2 v, float smax) {
   float lo = 0.0, hi = smax;
   if (!(abs(v.x) > 1e-30)) { if (a.x < uWin.x || a.x > uWin.z) lo = IX_INF; }
@@ -439,14 +443,14 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
     float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
-    return LB > dk;
+    return LB > dk + 0.00390625;
   }
 #endif
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
   float lb = ixLastD;
   // (the members still to come start at the next one, z_m + q: a member past the front need not be walked to stop)
   if (ixLastFin) { vec2 q = cdiv(p, uIxAB[j].xy), qd = goUp ? q : -q; lb = log2(1.0 + ixRayBoxDist(ixLastZ + qd, qd, IX_INF) / uWinR); }
-  return lb > dk + 1e-12;
+  return lb > dk + 0.00390625;
 }
 bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
@@ -465,7 +469,7 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       }
     }
   }
-  return lb > dk + 1e-12;
+  return lb > dk + 0.00390625;
 }
 // ---- patterns with analytic footprints (6.1, 6.2) ----
 vec2 ixDivL(vec2 a, vec2 b) { return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-37); }
@@ -526,6 +530,10 @@ float ixLog2Det(vec4 J) {
 // ---- one candidate (SPEC 4.2 Leaf): coverage with the facing rule, then admission (twin merge, shading on admission)
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
+#ifdef IX_CARRY
+  // (#584) the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
+  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
+#endif
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average

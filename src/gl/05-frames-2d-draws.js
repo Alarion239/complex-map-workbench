@@ -242,7 +242,7 @@
   }
 
   // ---------------- regions and lines ----------------
-  const PATTERNS = { solid: 0, checker: 1, polar: 2, tiles: 3, grid: 4, polargrid: 5, phase: 6, stretch: 7, sphere: 8 };
+  const PATTERNS = { solid: 0, checker: 1, polar: 2, tiles: 3, grid: 4, polargrid: 5, phase: 6, stretch: 7, sphere: 8, carry: 9 };
   function fadeUniforms(P, f) {
     if (f && f.R != null) {
       u1i(P, 'uFadeMode', 2); u4f(P, 'uFade', f.cx || 0, f.cy || 0, f.R, 0); u1f(P, 'uFadeW', 0.08 * f.R);
@@ -335,8 +335,42 @@
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
+  // (#584) st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's colour
+  // (regionK, flat, uncached: the chain evaluates its places and its colours); -> true when drawn, false while its
+  // program compiles
+  function drawRegionCarry(res, st) {
+    if (!ok || !res || !res.n) return false;
+    const P = program('regionK', st.map);
+    if (!P) return false;
+    use(P, st.map);
+    view2D(P, st.view, st.dpr || 1, res.org);
+    regionUniforms(P, st, res.org);
+    u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T);
+    dcUniforms(P, st.carry, st.dpr || 1);
+    u1f(P, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
+    // (the sheet key, st.key {win, R, rs, sing}, as drawCarried's: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    u1i(P, 'uKeyOn', k ? 1 : 0);
+    gl.bindVertexArray(meshVAO(res, st.L || 4, st.skip));
+    const n = regionTemplate(st.L || 4).count;
+    if (k) {
+      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
+      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
+      u1i(P, 'uKSingN', sing.length);
+      const dt = gl.isEnabled(gl.DEPTH_TEST);
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS);
+      if (!dt) gl.disable(gl.DEPTH_TEST);
+    } else gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    gl.bindVertexArray(null);
+    return true;
+  }
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
+    if (st.carry) return drawRegionCarry(res, st);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
     try {

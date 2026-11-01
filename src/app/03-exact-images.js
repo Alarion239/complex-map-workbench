@@ -92,7 +92,7 @@
     const k = plan._ck + '|' + winKey();
     let v = invSings.get(k);
     if (!v) {
-      try { v = Inverse.accumulation(plan, clipWin); } catch (e) { v = []; }
+      try { v = Inverse.keySing(plan, clipWin); } catch (e) { v = []; }
       if (invSings.size >= 32) invSings.clear();
       invSings.set(k, v);
     }
@@ -459,6 +459,11 @@
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
   // fills (the fills alone, no strokes: a mask of the regions, #440)}
+  // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
+  // them (the steps view's whole-plane region, #584)
+  function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
+  // the visible area shapes, in list order
+  const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   function drawScene(pane, map, role, opt = {}) {
     const list = S.shapes.filter((s) => s.visible !== false);
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
@@ -471,7 +476,7 @@
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
-      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
+      recs = packRecs();
       if (!sideDraw) lastRecs = recs;
       if (live && guard) {
         const info = GLR.inverseInfo;

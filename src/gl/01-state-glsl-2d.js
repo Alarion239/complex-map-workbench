@@ -186,18 +186,31 @@ vec3 pwheel(float th, float L, float ref, vec3 pb) {
   if (uPal == 0) return wheel(th, L);
   return L <= ref ? pb * (L / ref) : mix(pb, vec3(1.0), (L - ref) / (1.0 - ref));
 }
+vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g, vec2 gw, vec2 fw0);
 vec3 dcolor(vec2 w) {
   // every derivative first, in uniform control flow
   float r = wabs(w);
   float th = wang(w);
-  float q = TAU / max(uSectors, 1.0);
   float lr = log(clamp(r, 1e-37, 3e38));
-  float flr = fwidth(lr);
-  float xm = lr / q, fm = flr / q;
-  float xp = th / q, fp = argWidth(w) / q;
   vec2 g = w / max(uGrid, 1e-30);
-  vec2 gw = fwidth(g);
-  vec2 fw0 = fwidth(w);
+  return dcolorAt(w, r, th, lr, fwidth(lr), argWidth(w), g, fwidth(g), fwidth(w));
+}
+// (#584) the same colour with the footprints given: wx, wy, the change of w over one device pixel across and down
+// (a colour taken where the screen's derivatives mean nothing, as for each sheet inside the inverse pass's walk);
+// d ln w = dw / w gives the widths of ln |w| and arg w
+vec3 dcolorD(vec2 w, vec2 wx, vec2 wy) {
+  float r = wabs(w);
+  float th = wang(w);
+  float lr = log(clamp(r, 1e-37, 3e38));
+  float rr = max(r * r, 1e-37);
+  vec2 lx = vec2(dot(wx, w), wx.y * w.x - wx.x * w.y) / rr, ly = vec2(dot(wy, w), wy.y * w.x - wy.x * w.y) / rr;
+  vec2 fw0 = abs(wx) + abs(wy);
+  return dcolorAt(w, r, th, lr, abs(lx.x) + abs(ly.x), abs(lx.y) + abs(ly.y), w / max(uGrid, 1e-30), fw0 / max(uGrid, 1e-30), fw0);
+}
+vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g, vec2 gw, vec2 fw0) {
+  float q = TAU / max(uSectors, 1.0);
+  float xm = lr / q, fm = flr / q;
+  float xp = th / q, fp = faw / q;
   vec3 pb = uPal == 0 ? vec3(0.0) : arbc(th, lr);
   if (!(abs(w.x) < 3e38 && abs(w.y) < 3e38)) {
     if (abs(w.x) > 3e38 || abs(w.y) > 3e38) return vec3(0.96078);  // +-infinity: #F5F5F5
@@ -611,13 +624,17 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // sheets meet). Depth: D = 0 (inside W, outside every rs-disc: the tie class) in [0.05, 0.45], larger Im z nearer,
   // then larger Re z; D > 0 in [0.5, 0.95], monotone in D. sa (PAT_PRE.pre) is the fragment's source point.
   const PRE_KEY_UNI = 'uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;\n';
+  // (#584: D from the distance to the window's centre, as Inverse.sheetKey, blended with the tie rule (larger Im z,
+  // then larger Re z, in front) within about 2^-8 octave, Inverse.front's TIE_D: a map symmetric about the centre
+  // gives its sheets equal keys, which the mesh's placement (1e-3 of |z|) would order fragment by fragment; no steps
+  // in D, whose edges would draw contours where near-equal keys straddle them)
   const PRE_KEY = `  if (uKeyOn > 0) {
-    vec2 q = max(max(uKWin.xy - sa, sa - uKWin.zw), 0.0);
-    float D = log2(1.0 + length(q) / uKR);
+    float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
     for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
-    D = min(D, 1e6);
-    vec2 tk = clamp((sa - uKWin.xy) / max(uKWin.zw - uKWin.xy, vec2(1e-30)), 0.0, 1.0);
-    gl_FragDepth = D > 0.0 ? 0.5 + 0.45 * D / (D + 4.0) : 0.45 - 0.4 * (tk.y + 1e-3 * tk.x) / 1.001;
+    // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
+    vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
+    float x = min(D, 1e4) * 256.0 + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
+    gl_FragDepth = x / (x + 1024.0);
   } else gl_FragDepth = gl_FragCoord.z;
 `;
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
