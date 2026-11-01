@@ -50,13 +50,13 @@ const open = async (st) => {
   await settled({ until: 'typeof __cmwSvFrame === "function" && typeof __cmwSteps === "function"', max: 30000 });
   await ev(`__cmwSet('dc', 'phase'); 1`);
 };
-// (the left pane drawn and unchanged over a quiet page: the parked frame's fix-up lands a few idle slices after it is
-// first drawn)
+// (the left pane drawn and unchanged over a quiet page, with no pre-mapped mesh job running: the parked frame's fix-up
+// and the whole plane's SphereMesh at rest land some idle slices after the frame is first drawn)
 const steady = async () => {
   const sig = '(() => { const c = document.getElementById("canvasL"); return Array.from(c.getContext("2d").getImageData(0, 0, c.width, c.height).data.filter((v, i) => i % 4093 === 0)).join(","); })()';
   let prev = null;
   for (let i = 0; i < 20; i++) {
-    await settled({ until: 'GLR.pendingLinks === 0 && !__cmwSteps().play && !__cmwSteps().anim', max: 20000 });
+    await settled({ until: 'GLR.pendingLinks === 0 && !__cmwSteps().play && !__cmwSteps().anim && !__cmwSphere().running && !__cmwSphere().jobs.length', max: 20000 });
     const now = await ev(sig);
     if (now === prev) return true;
     prev = now;
