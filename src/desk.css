@@ -663,8 +663,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-fchip:hover, .sv-wholemap:hover { border-color: var(--accent); }
 .sv-wholemap { flex: 0 0 auto; align-self: center; margin: 0 4px; }
 .sv-wholemap[hidden] { display: none; }
-#svStrip { container-type: inline-size; }
-@container (max-width: 800px) { .sv-wholemap .sv-fn { display: none; } .sv-wholemap { padding: 0 11px; } }
+/* (the chip is the F alone when its words would make the thread scroll in its rail: svWholeFit) */
+.sv-strip.sv-fold .sv-wholemap .sv-fn { display: none; }
+.sv-strip.sv-fold .sv-wholemap { padding: 0 11px; }
 .sv-wholemap[aria-pressed="true"] { border-color: var(--accent); background: var(--seg-on, var(--surface)); }
 .sv-fchip:focus-visible, .sv-wholemap:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-fchip .sv-fk, .sv-wholemap .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }

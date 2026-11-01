@@ -615,7 +615,7 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    if (typeof ResizeObserver === 'function') { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }); ro.observe(rail); ro.observe(track); }
+    if (typeof ResizeObserver === 'function') { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svWholeFit(); svSync(); } }); ro.observe(rail); ro.observe(track); }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
@@ -673,6 +673,7 @@
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
     E.wholeMap.hidden = !!al || !S.steps.length;
+    svWholeFit();
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
   }
@@ -1542,6 +1543,14 @@
     if (el) el.focus({ preventScroll: true });
   }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
+  // the whole-map chip shows its words while the thread fits in its rail with them, and is the F alone when it would scroll
+  // (measured with the words on: the strip is given them again first, then folded if the rail then scrolls)
+  function svWholeFit() {
+    const E = SV.els;
+    if (!E || !E.wholeMap || E.wholeMap.hidden) return;
+    E.strip.classList.remove('sv-fold');
+    if (E.rail.scrollWidth > E.rail.clientWidth + 1) E.strip.classList.add('sv-fold');
+  }
   function svFSync() {
     const f = SV.on && SV.els && SV.els.wholeMap;
     if (!f) return;

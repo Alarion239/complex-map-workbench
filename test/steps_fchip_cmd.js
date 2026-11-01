@@ -52,10 +52,25 @@ ok('F is not a step: the chain and the place on the thread are as they were', (a
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
 await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 ok('a page saved with F selected opens with the chip pressed', (await S()).sel === 'F' && (await whole()).pressed === 'true', { sel: (await S()).sel, f: await whole() });
-// the words show when the strip has room (1440), and fold to the F alone, the name its label, when it has not (1024)
-await open(1440, 900, false, 'en');
-const wide = await ev(`({ words: getComputedStyle(document.querySelector('#svStrip .sv-wholemap .sv-fn')).display, rail: document.querySelector('#svStrip .sv-rail').getBoundingClientRect().width })`);
-ok('1440: the chip shows its words, and the rail keeps room (at least 160 px)', wide.words !== 'none' && wide.rail >= 160, wide);
+// the words show while the thread fits in its rail with them, and the chip is the F alone when it would not: at 1440 the
+// default chain (what a new page opens with) and the 3-step chain fit in their rail in en, ru and it, whichever form the chip has
+const railFits = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), f = document.querySelector('#svStrip .sv-wholemap'), n = document.querySelector('#svStrip .sv-wholemap .sv-fn');
+  return { fits: r.scrollWidth <= r.clientWidth + 1, rail: Math.round(r.clientWidth), scroll: r.scrollWidth, folded: getComputedStyle(n).display === 'none', chip: f ? Math.round(f.getBoundingClientRect().width) : 0, steps: document.querySelectorAll('#svStrip .sv-step').length }; })()`);
+for (const lang of ['en', 'ru', 'it']) {
+  await open(1440, 900, false, lang);
+  const w = await railFits();
+  info[`1440 ${lang}`] = w;
+  // (the words fold into the F when the rail would scroll with them; a chain longer than the rail holds scrolls whichever form the chip has)
+  ok(`1440 ${lang}: the rail keeps room for the thread (at least 160 px), the chip folds when the words would make it scroll`, w.rail >= 160 && (w.fits || w.folded), w);
+  // (a new page: no saved state, the chain it opens with)
+  await view(1440, 900, false, false);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}d${lang}&lang=${lang}&view=steps` });
+  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+  const d = await railFits();
+  info[`1440 ${lang} default`] = d;
+  // (English: the default chain fits with the chip; Russian and Italian have less room in the strip than the chain needs, with the F alone or with no chip at all)
+  ok(`1440 ${lang}: the default chain ${lang === 'en' ? 'fits in its rail' : 'has the chip folded to the F'}`, lang === 'en' ? d.fits : d.folded, d);
+}
 
 // translated
 for (const lang of ['ru', 'it']) {
