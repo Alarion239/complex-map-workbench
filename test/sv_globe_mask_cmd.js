@@ -8,13 +8,14 @@
 // covers it; neither moves the edge); 1 to 3 px from the boundary is a mask that has drifted; further out is the
 // globe's own drawing (the equator, the graticule, its silhouette), which crosses no rim. Fails when the drifted pixels
 // pass 5 % of the rim's length (+ 10), when the inside more than 10 px from the rim is not coloured, or when a scene
-// reads too little. Needs WebGL. A command file for a CDP daemon.
+// reads too little; and, the frame drawn while the mask's program links, when it colours outside the regions.
+// Needs WebGL. A command file for a CDP daemon.
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const SCENES = [
-  ['disc across the equator', { id: 's1', kind: 'disc', c: [0.6, 0.3], r: 0.7, ci: 0, visible: true }, [['sphere', 0], ['sphere', 1], ['plane', 0]]],
+  ['disc across the equator', { id: 's1', kind: 'disc', c: [0.6, 0.3], r: 0.7, ci: 0, visible: true }, [['sphere', 0], ['sphere', 1], ['plane', 0], ['sphere', 0, 'linking']]],
   ['half-plane', { id: 's1', kind: 'halfplane', a: [0.3, -2], b: [0.3, 2], ci: 0, visible: true }, [['sphere', 0], ['plane', 0]]],
   ['around the pole (|z| > 2)', { id: 's1', kind: 'disc', c: [0, 0], r: 2, complement: true, ci: 0, visible: true }, [['sphere', 0]]],
   ['annulus (a hole)', { id: 's1', kind: 'annulus', c: [-0.2, 0.1], r1: 0.35, r2: 0.9, ci: 0, visible: true }, [['sphere', 0], ['sphere', 1]]],
@@ -67,8 +68,8 @@ async function measure(a64, b64, W, H, k, shape) {
 // region meshes built; a slow runner waits longer instead of capturing a frame before the mask's program links)
 const quiet = () => settled({ floor: 300, max: 15000, until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)" });
 await view(1200, 800, false, false);
-for (const [name, shape, runs] of SCENES) for (const [surf, k] of runs) {
-  const at = `${name}, ${surf}, plane ${k}`;
+for (const [name, shape, runs] of SCENES) for (const [surf, k, linking] of runs) {
+  const at = `${name}, ${surf}, plane ${k}${linking ? ', the mask\'s program linking' : ''}`;
   const ns = 'svgm' + Date.now();
   await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [shape], steps: [{ type: 'pown', params: { n: 2 }, on: true }] };
@@ -80,7 +81,9 @@ for (const [name, shape, runs] of SCENES) for (const [surf, k] of runs) {
   const rect = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; })()`);
   const clip = { x: rect[0], y: rect[1], width: rect[2], height: rect[3], scale: 1 };
   const shotB = (await send('Page.captureScreenshot', { format: 'png', clip })).data;
-  await ev(`__cmwSteps({ scope: 'in' }), 1`); await quiet();
+  // (linking: the frame drawn while the mask's program links, GLR.keepInAlpha not ready: the regions' globe
+  // alone, never the colour over the whole globe)
+  await ev(`${linking ? 'GLR.keepInAlpha = () => false; ' : ''}__cmwSteps({ scope: 'in' }), 1`); await quiet();
   const st = await ev(`(() => { const s = __cmwSteps(); return { stage: s.stage, surf: s.surf, scope: s.scope }; })()`);
   ok(`${at}: the view is the scene's`, st.stage === k && st.surf === surf && st.scope === 'in', st);
   const shotA = (await send('Page.captureScreenshot', { format: 'png', clip })).data;
@@ -88,6 +91,8 @@ for (const [name, shape, runs] of SCENES) for (const [surf, k] of runs) {
   const m = r && r.result && r.result.value;
   info[at] = m || (r && r.exceptionDetails && r.exceptionDetails.exception && r.exceptionDetails.exception.description);
   if (!m) { fails.push(`${at}: not measured: ${String(info[at]).slice(0, 200)}`); continue; }
+  // (the globe's own drawing, far from the rim, reads as a few hundred; a globe coloured all over, as every pixel outside)
+  if (linking) { const out = m.spill[1] + m.spill[2] + m.spill[3] + m.spill[4], outside = m.valid - m.inT; ok(`${at}: no colour outside the regions (more than 1 px off them: at most 2 % of the pixels outside)`, out <= 0.02 * outside + 10, { spill: m.spill, outside }); continue; }
   ok(`${at}: read enough (10 000 pixels with colour, a rim of 100 or more)`, m.valid >= 10000 && m.edge >= 100, { valid: m.valid, edge: m.edge });
   const drift = m.spill[1] + m.spill[2] + m.short[1] + m.short[2];
   ok(`${at}: the mask's edge is the region's (pixels 1 to 3 px off it: at most 5 % of the rim + 10)`, drift <= 0.05 * m.edge + 10, { drift, edge: m.edge, spill: m.spill, short: m.short });
