@@ -375,6 +375,10 @@
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
+    // (unblended: the carried colour is opaque (alpha 1, which the premultiplied blend only copies), and an opaque draw
+    // lets a tiling GPU shade only the front sheet's fragments, where a blended one shades every sheet's, each the
+    // colour's whole chain)
+    gl.disable(gl.BLEND);
     if (k) {
       // (st.depth: 'only' (default) one draw with a depth of its own; 'first', 'mid', 'last' draws sharing one depth, so
       // the sheet key orders the points of all of them: the first clears it, the last clears it after)
@@ -388,6 +392,7 @@
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
       if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
     }
+    gl.enable(gl.BLEND);
     gl.bindVertexArray(null);
     return true;
   }
