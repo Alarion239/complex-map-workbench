@@ -1054,6 +1054,9 @@ const Tour = (() => {
 /* (r3 review user-3, user-10: a chapter whose line needs three lines here gets a taller row) */
 .tour-strip[data-mode="port"][data-lines="3"] .ts-row { height: 75px; }
 .tour-strip[data-mode="row"][data-lines="3"] .ts-row { height: 55px; }
+/* (#553) four lines of lead, where a long language at 360 px needs them: a line (17 px, 16 in the landscape row) more */
+.tour-strip[data-mode="port"][data-lines="4"] .ts-row { height: 92px; }
+.tour-strip[data-mode="row"][data-lines="4"] .ts-row { height: 71px; }
 /* the buttons: 32 px with a mouse, 44 px on a touch screen or a phone, 8 px apart */
 .tour-strip .ts-btn { flex: 0 0 auto; width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
 .tour-strip .ts-btn[hidden], .tour-strip .ts-act[hidden] { display: none !important; }
@@ -1738,9 +1741,10 @@ const Tour = (() => {
   }
   // a phone's row: 68 px in portrait (76 for three lines), 48 under a landscape header (56), none in the header
   function setPhTour(r) {
-    const ui = r.ui, k = ui.lines === 3;
-    ui.strip.dataset.lines = String(ui.lines || 2);
-    const v = ui.mode === 'port' ? (k ? 76 : 68) : ui.mode === 'row' ? (k ? 56 : 48) : 0;
+    const ui = r.ui, n = ui.lines || 2;
+    ui.strip.dataset.lines = String(n);
+    // (#553: Italian at 360 px needs four lines for "Tieni premuto dentro il disco…": the row grows by a line, 17 px, again)
+    const v = ui.mode === 'port' ? (n >= 4 ? 93 : n === 3 ? 76 : 68) : ui.mode === 'row' ? (n >= 4 ? 72 : n === 3 ? 56 : 48) : 0;
     const st = document.documentElement.style;
     if (st.getPropertyValue('--ph-tour') !== v + 'px') { st.setProperty('--ph-tour', v + 'px'); return true; }
     return false;
@@ -1759,7 +1763,7 @@ const Tour = (() => {
     // and the strip keeps the header, so X keeps its size)
     if (ui.mode === 'head' && n > 2 && ui.strip.classList.contains('ts-xok')) { ui.strip.classList.remove('ts-xok'); n = needLines(r); }
     if (ui.mode === 'head' && n > 2) { r.forceRow = true; mountStrip(r); n = needLines(r); }
-    ui.lines = n > 2 ? 3 : 2;
+    ui.lines = n > 3 ? 4 : n > 2 ? 3 : 2;
     if (setPhTour(r)) call('slot', ui.mode === 'head' ? 'head' : 'stage');
   }
   // what a step's line can show: [text, with the task's ring]

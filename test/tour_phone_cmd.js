@@ -12,6 +12,8 @@
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const R = [];
+// (the strip's height by its lines: portrait 68, 76 for three, 93 for four (#553); the landscape row 48, 56, 72)
+const rowH = (mode, lines) => (mode === 'port' ? (lines >= 4 ? 93 : lines === 3 ? 76 : 68) : (lines >= 4 ? 72 : lines === 3 ? 56 : 48));
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
   // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
@@ -66,8 +68,8 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
     if (g.mode === 'port') check(`${nm}: portrait: × End (44 px), a chevron after the count, Next a 44 px arrow named by its label`, g.x && g.chev && g.nextW === 44 && g.nextName.length > 3, g);
     // (r3 verify-2: in landscape × End is in the row under the header, and in the header when it has 52 px to spare)
     if (g.mode !== 'port') check(`${nm}: landscape: × End (44 px) in the row under the header, in the header with room`, g.mode === 'row' ? g.x : g.x === g.xok, g);
-    if (g.mode === 'port') check(`${nm}: portrait row ${g.lines === 3 ? 76 : 68} px under the header`, g.strip[3] - g.strip[1] === (g.lines === 3 ? 76 : 68) && Math.abs(g.strip[1] - g.head) <= 1, g.strip);
-    else check(`${nm}: landscape, the header (X keeps its size) or the row under it (${g.lines === 3 ? 56 : 48} px)`, g.mode === 'head' ? g.strip[1] >= g.headTop - 1 && g.strip[3] <= g.head + 1 && g.lines === 2 : g.mode === 'row' && g.strip[3] - g.strip[1] === (g.lines === 3 ? 56 : 48), g);
+    if (g.mode === 'port') check(`${nm}: portrait row ${rowH('port', g.lines)} px under the header`, g.strip[3] - g.strip[1] === rowH('port', g.lines) && Math.abs(g.strip[1] - g.head) <= 1, g.strip);
+    else check(`${nm}: landscape, the header (X keeps its size) or the row under it (${rowH('row', g.lines)} px)`, g.mode === 'head' ? g.strip[1] >= g.headTop - 1 && g.strip[3] <= g.head + 1 && g.lines === 2 : g.mode === 'row' && g.strip[3] - g.strip[1] === rowH('row', g.lines), g);
     check(`${nm}: the tool row and the view switch not covered by the strip`, g.covered.length === 0, g.covered);
     const before = JSON.stringify(await ev('Tour.current()'));
     await ev('Tour.next()'); await settle(1000);
@@ -77,7 +79,7 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
   if (first) {
     // (#246: the chain bar is 56 px, 8 less than before, and X has them: 608, 600 with a three-line row)
     if (h > w) check(`${tag}: portrait, the strip is the row under the header${w === 390 ? '; X is 608 px (600 with a three-line row)' : ''}`, first.mode === 'port' && Math.abs(first.strip[1] - first.head) <= 1 && (w !== 390 || first.paneH === (first.lines === 3 ? 600 : 608)), first);
-    else check(`${tag}: landscape, the strip in the header (X keeps its size) or a 48 or 56 px row`, (first.mode === 'head' && first.strip[1] >= first.headTop - 1 && first.strip[3] <= first.head + 1 && Math.abs(first.paneH - x0) <= 1) || (first.mode === 'row' && first.strip[3] - first.strip[1] === (first.lines === 3 ? 56 : 48)), [first, x0]);
+    else check(`${tag}: landscape, the strip in the header (X keeps its size) or a 48 or 56 px row`, (first.mode === 'head' && first.strip[1] >= first.headTop - 1 && first.strip[3] <= first.head + 1 && Math.abs(first.paneH - x0) <= 1) || (first.mode === 'row' && first.strip[3] - first.strip[1] === rowH('row', first.lines)), [first, x0]);
   }
   // Why: a panel at most half the screen, scrolling inside, folded by a touch in X, which reaches the app
   if (lang === 'en') {
