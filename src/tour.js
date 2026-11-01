@@ -1735,10 +1735,9 @@ const Tour = (() => {
     }
     const gap = parseFloat(cs.columnGap || cs.gap) || 4;
     const free = top.clientWidth - used - gap * k;
-    stripMode.free = free;
+    /** @type {any} */ (stripMode).free = free;
     return free >= 260 ? 'head' : 'row';
   }
-  stripMode.free = undefined;
   // Mounts the strip in its slot (the app's api.slot, else the first child of .stage) and reserves its room: --tour-h
   // (the stage's first row) or --ph-tour (a phone's row under the header). Again on every resize. (r3 review user-10:
   // a landscape phone's header strip becomes the row under the header for a chapter whose line needs three lines
@@ -1764,7 +1763,7 @@ const Tour = (() => {
     ui.slot = slot; ui.mode = mode; ui.strip.dataset.mode = mode;
     ui.chap.hidden = mode !== 'desk' || !ui.chap.firstChild.textContent;
     // (r3 verify-2: × End in the landscape header only with 44 + 8 px to spare beyond the strip's 260)
-    ui.strip.classList.toggle('ts-xok', mode === 'head' && stripMode.free >= 312);
+    ui.strip.classList.toggle('ts-xok', mode === 'head' && /** @type {any} */ (stripMode).free >= 312);
     // the sheet: a panel in the tour's top layer on a phone (the narrow row has no room for Back, × End the tour and
     // Move on by itself); a laptop's strip has them in its row, and no sheet
     const panel = mode !== 'desk';
