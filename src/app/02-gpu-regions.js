@@ -549,6 +549,19 @@
     }
     return { flags, extra: new Float32Array(extra), trouble };
   }
+  // a finished fix-up res of r's current mesh under the map keyed key, installed as r.fix[role]: the role's skip flags
+  // (reused for the same mesh) and its extra mesh of refined pieces -> the fix-up
+  function installFix(r, role, key, res) {
+    const old = r.fix[role];
+    let fx = old && old.meshKey === r.meshKey && old.skip ? old : null;
+    if (!fx) fx = { meshKey: r.meshKey, skip: GLR.createSkip(r.meshRes, res.flags) };
+    else GLR.setSkip(fx.skip, res.flags);
+    if (fx.extraRes) GLR.destroy(fx.extraRes);
+    fx.extraRes = res.extra.length ? GLR.createMesh(res.extra) : null;
+    fx.mapKey = key; fx.res = res;
+    r.fix[role] = fx;
+    return fx;
+  }
   // #584: the fix-up of shape s's mesh under the steps view's map at rest or parked (F its CPU map): the same job
   // (fixGen in idle slices, computeFix) as the tiling's, in r.fix.SV by the map's key, so a carried colour whose
   // cells the map bends too much (near a pole of a branch's continuation, the Joukowski path's disc at t = 0.3) is
@@ -565,13 +578,7 @@
     computeFix(r.mesh, F, fixJob.token, () => fixBusy() || (SV.on && svGliding())).then((res) => {
       if (r.svJob === job) r.svJob = null;
       if (res && r.meshKey === meshKey && r.meshRes === meshRes) {
-        const old = r.fix.SV && r.fix.SV.meshKey === meshKey && r.fix.SV.skip ? r.fix.SV : null;
-        const fx = old || { meshKey, skip: GLR.createSkip(meshRes, res.flags) };
-        if (old) GLR.setSkip(fx.skip, res.flags);
-        if (fx.extraRes) GLR.destroy(fx.extraRes);
-        fx.extraRes = res.extra.length ? GLR.createMesh(res.extra) : null;
-        fx.mapKey = mk; fx.res = res;
-        r.fix.SV = fx;
+        installFix(r, 'SV', mk, res);
       }
       // (a job a newer fix-up cancelled is asked again by this redraw)
       requestRender('L');
@@ -602,13 +609,7 @@
         const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey);
         const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token);
         if (!res || token !== fixJob.token || r.meshKey === undefined || !r.meshRes) return;
-        let fx = old && old.meshKey === r.meshKey ? old : null;
-        if (!fx) fx = { meshKey: r.meshKey, skip: GLR.createSkip(r.meshRes, res.flags) };
-        else GLR.setSkip(fx.skip, res.flags);
-        if (fx.extraRes) GLR.destroy(fx.extraRes);
-        fx.extraRes = res.extra.length ? GLR.createMesh(res.extra) : null;
-        fx.mapKey = tg.key; fx.res = res;
-        r.fix[tg.role] = fx;
+        installFix(r, tg.role, tg.key, res);
         if (r.hold && Object.keys(r.hold.fix).every((k) => r.fix[k] && r.fix[k].meshKey === r.meshKey)) dropHold(r);
         requestRender(tg.role);
       }
