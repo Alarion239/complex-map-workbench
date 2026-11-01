@@ -36,10 +36,11 @@ const AREAS = {
   views: ['views', 'formulas'],
   desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
-  // the layout gate (#470): English at every size with the shell and the phone's CSS; Russian and Italian (the longest
-  // words) with the languages' tables
-  layout: ['layout-1'],
+  // the layout gate (#470): a change that can move layout runs every language (#611: Russian and Italian have the longest
+  // words, where text spills first); the languages' tables alone run Russian and Italian
+  layout: ['layout-1', 'layout-2'],
   'layout-i18n': ['layout-2'],
+  'layout-en': ['layout-1'],
 };
 
 // What a path selects. The first row whose pattern matches wins (* is any name, ** any path, {a,b} either); a path no
@@ -48,7 +49,8 @@ const AREAS = {
 // suite (the shards of test/<suite>_cmd.js), uses (a test helper: whatever uses it), hooks (the test hooks: the shards
 // of the suites that call a hook the diff changes; T3 when the diff's hooks cannot be named, no suite calls them, or a
 // hook is called outside the browser suites and unit tests), lines (the areas of the changed lines that match a pattern:
-// [[RegExp, ...areas]]; without a diff, every one of them), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
+// [[RegExp, ...areas]]; without a diff, every one of them), runs (a JSON file of runs, ci/layout_baseline.json: the
+// areas of the runs whose entry changed, { run: [...areas] }; every one without a diff or when it cannot be read), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
 const full = (why) => ({ full: true, why });
 const ui = (...areas) => ({ areas });
 const T0 = { t0: true };
@@ -108,7 +110,7 @@ const MAP = [
   ['src/integrals.js', { core: true, areas: ['desktop'] }],                   // the integrals (from part 07; the palette's ∫ too)
   ['src/examples.js', ui('desktop', 'phone', 'tour')],                        // the examples and the guide (from part 15)
   // the page's markup and its CSS: both layouts; the export dialog's rules (.xf-…, .modal.xf, #xf…) its shards too
-  ['src/page.html', Object.assign(ui('desktop', 'phone'), { lines: [[EXPORT_DIALOG, 'export']] })],
+  ['src/page.html', Object.assign(ui('desktop', 'phone', 'layout'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
   ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
@@ -135,6 +137,8 @@ const MAP = [
   ['test/cdp_kit/**', HARNESS],                                               // the daemon every browser suite runs in
   ['test/**', { uses: true }],                                                // a helper or fixture: what uses it
   // CI itself
+  // (#611) the layout ratchet's baseline: the shard of each run whose rows changed (en: layout-1; ru, it: layout-2)
+  ['ci/layout_baseline.json', { runs: { en: ['layout-en'], ru: ['layout-i18n'], it: ['layout-i18n'] } }],
   ['ci/impact.js', HARNESS],                                                  // (test/t_impact.js covers it)
   ['ci/reference.js', { glsl: 'all', quality: true, perf: true }],            // the paired gates' reference build
   ['ci/quality.js', { quality: true }],
@@ -246,9 +250,18 @@ function hooksOfDiff(from, head, f) {
 function linesOfDiff(from, head, f) {
   try { return git('diff', '-U0', '--no-renames', from, head, '--', f).split('\n').filter((l) => /^[-+](?![-+]{2} )/.test(l)).map((l) => l.slice(1)); } catch (e) { return null; }
 }
+// [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits (an added or removed
+// run included); null when either side cannot be read or parsed
+function runsOfDiff(from, head, f) {
+  const runs = (rev) => { try { return JSON.parse(git('show', `${rev}:${f}`)).runs || {}; } catch (e) { return null; } };
+  const a = runs(from), b = runs(head);
+  if (!a || !b) return null;
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+}
 // files: the changed paths; opts: { full: reason, glslDeep: reason (every GLSL chain on Windows too), sameBuild: true |
 // false | null (not checked), hooksOf: (path) -> the test hooks its diff changes, or null (the CLI's, from the diff),
-// linesOf: (path) -> its changed lines, or null (the CLI's, from the diff) }
+// linesOf: (path) -> its changed lines, or null (the CLI's, from the diff), runsOf: (path) -> the runs whose entry
+// changed, or null (the CLI's, from the diff) }
 // -> the plan
 function select(files, opts = {}) {
   const reasons = [];   // { path, rule, effect: text }
@@ -282,6 +295,12 @@ function select(files, opts = {}) {
         for (const a of areas) for (const id of AREAS[a]) browser.add(id);
         wantSmoke = true; got.push(`${areas.join(', ')} shards (${lines ? 'its changed lines' : 'no diff'}: ${re})`);
       }
+    }
+    if (e.runs) {
+      // (the runs whose entry differs between the two commits; every run without a diff or when the file cannot be read)
+      const changed = opts.runsOf ? opts.runsOf(f) : null, keys = Object.keys(e.runs).filter((k) => !changed || changed.includes(k));
+      for (const k of keys) for (const a of e.runs[k]) for (const id of AREAS[a]) browser.add(id);
+      wantSmoke = true; got.push(`the shards of runs ${keys.join(', ') || 'none'} (${changed ? 'its changed runs' : 'no diff'})`);
     }
     if (e.harness) { wantSmoke = true; got.push('the smoke shard'); }
     if (e.suite) {
@@ -395,7 +414,7 @@ if (require.main === module) {
     if (r.status === 0 || r.status === 10) same = r.status === 0;
     else { console.error('the same-build check failed: the build counts as changed'); same = false; }
   }
-  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null, linesOf: from ? (f) => linesOfDiff(from, head, f) : null });
+  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null, linesOf: from ? (f) => linesOfDiff(from, head, f) : null, runsOf: from ? (f) => runsOfDiff(from, head, f) : null });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
   else if (argv.includes('--github')) {
     // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)
@@ -416,4 +435,4 @@ if (require.main === module) {
     process.exit(rc);
   }
 }
-module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe, hookCallers, hooksOfDiff };
+module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe, hookCallers, hooksOfDiff, runsOfDiff };

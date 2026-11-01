@@ -43,6 +43,17 @@ ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select([
 ok('T1: constr.js\'s modules (issue #20) -> the same as constr.js', ['src/constrpoc.js', 'src/constrortho.js'].every((f) => same(select([f]).browser, select(['src/constr.js']).browser) && same(select([f]).glsl, select(['src/constr.js']).glsl)));
 ok('T1: src/construct/ (construct.js in parts) -> the constructions shards', same(select(['src/construct/04-chip-overlay.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 for (const f of ['tools/it_table.json', 'tools/ru_extra.json']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
+// (#611) a change that can move layout runs every layout shard: Russian and Italian have the longest words (#609's
+// phone.css change ran layout-1 alone)
+for (const f of ['src/phone.css', 'src/desk.css', 'src/page.html', 'src/app/19-shell.js', 'src/app/19-steps-view.js']) ok(`T1: ${f} -> layout-1 and layout-2`, ['layout-1', 'layout-2'].every((id) => select([f]).browser.includes(id)), select([f]).browser);
+// (#611) ci/layout_baseline.json: the shard of each run whose rows changed; both without a diff
+{
+  const lb = (runs) => select(['ci/layout_baseline.json'], runs === undefined ? {} : { runsOf: () => runs }).browser;
+  ok('T1: layout_baseline.json, only it rows changed -> layout-2 alone', same(lb(['it']), ['layout-2', 'smoke']), lb(['it']));
+  ok('T1: layout_baseline.json, only en rows changed -> layout-1 alone', same(lb(['en']), ['layout-1', 'smoke']), lb(['en']));
+  ok('T1: layout_baseline.json, en and ru changed -> both', same(lb(['en', 'ru']), ['layout-1', 'layout-2', 'smoke']), lb(['en', 'ru']));
+  ok('T1: layout_baseline.json without a diff (or unreadable) -> both', same(lb(undefined), ['layout-1', 'layout-2', 'smoke']) && same(lb(null), ['layout-1', 'layout-2', 'smoke']), [lb(undefined), lb(null)]);
+}
 // (the languages' tables also run the layout gate's Russian and Italian shard, #470)
 for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layout-2`, same(select([f]).browser, [...AREAS.i18n, ...AREAS['layout-i18n'], 'smoke']), select([f]).browser);
 // (notes/ is read by unit tests at most: a notes-only diff, #516's deletions included, runs no browser shard)
@@ -50,12 +61,12 @@ for (const f of ['notes/i18n/DESIGN.md', 'notes/i18n/ru/phase2b-fixes.json', 'no
 ok('T0: a notes-only diff (#516) selects no browser shard', (() => { const p = select(['notes/i18n/inventory_tools/extract.js', 'notes/i18n/latex/pdf.out', 'notes/proto/incremental/x.js', 'notes/v16-user5/review-regress-evidence/cmds/a_cmd.js']); return p.tier === 'T0' && !p.browser.length && !p.glsl.length; })());
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
 // ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
-ok('T1: desk.css -> the desktop, phone and layout-1 shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
-ok('T1: page.html -> desktop and phone', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone]), 'smoke']));
+ok('T1: desk.css -> the desktop, phone and every layout shard', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
+ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
 // (the export dialog's CSS in page.html: its lines select the export shards too (#498: .xf-body changed and no export
 // shard ran); without a diff, so do they)
 {
-  const DP = [...new Set([...AREAS.desktop, ...AREAS.phone])];
+  const DP = [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout])];
   for (const l of ['.xf-body { display: grid; }', '.modal.xf { width: 1120px; }', ':root[data-lang="ru"] #xfSize .xf-dim { display: none; }', 'select.xf-select { appearance: auto; }', '.btn.xf-dest { height: 34px; }']) ok(`T1: page.html's export dialog line "${l}" -> desktop, phone and export`, same(select(['src/page.html'], { linesOf: () => ['.top { }', l] }).browser, [...new Set([...DP, ...AREAS.export]), 'smoke']), select(['src/page.html'], { linesOf: () => [l] }).browser);
   ok('T1: page.html without its diff -> the export shards too (fail safe)', AREAS.export.every((id) => select(['src/page.html']).browser.includes(id)));
   ok('T1: page.html, a line that only names xf in a word (.prefix-box) -> no export shard', !select(['src/page.html'], { linesOf: () => ['.boxf-x { }', '.xfoo { }'] }).browser.some((id) => AREAS.export.includes(id)));
@@ -124,9 +135,9 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/app/19-constructions.js -> T2, the constructions and the core shards', cm.tier === 'T2' && same(cm.browser, [...new Set([...AREAS.constructions, ...AREAS.core]), 'smoke']), cm.browser);
   // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
   const sv = select(['src/app/19-steps-view.js']);
-  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop, phone and layout-1 shards', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), sv);
+  ok('a part: src/app/19-steps-view.js -> T1, the views, desktop, phone and every layout shard', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), sv);
   // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
-  ok('a part: src/app/19-shell.js -> the desktop, phone and layout-1 shards', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
+  ok('a part: src/app/19-shell.js -> the desktop, phone and every layout shard', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
   ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));
   const H = 'src/app/21-test-hooks.js';
   ok('the test hooks without their diff (--files): T3', select([H]).tier === 'T3' && select([H], { hooksOf: () => null }).tier === 'T3');
