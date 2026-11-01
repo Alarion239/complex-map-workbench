@@ -963,6 +963,19 @@
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
   function sphereView(pane, c, base, o) {
+    // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
+    // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
+    // (a frame or two) the regions' globe alone; the frame is asked again when it has)
+    if (o.inRegions) {
+      const look = Object.assign({}, o, { inRegions: false });
+      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));
+      if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
+        try {
+          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+        } catch (e) { console.error('globe region mask', e); }
+      }
+      return info;
+    }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
     // backdrop, shadow or marks of its own, #440)
     const over = !!o.maskRegions;
@@ -1182,7 +1195,7 @@
   }
   function renderSphereLeft(pane) {
     // ((#366 prototype) the steps view's Inside regions on the globe, 19)
-    if (svMaskOn() && lPhase()) return svSphereIn(pane);
+    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L' });
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
     // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
