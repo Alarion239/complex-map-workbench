@@ -6,7 +6,7 @@
 const Tour = (() => {
   // the interface language (src/i18n.js, notes/i18n/DESIGN.md): $t(english, params). Run alone (the node tests), the
   // tour keeps its English: the same placeholder rule, %{name} always and {name} only in a template without TeX
-  const I18 = typeof globalThis !== 'undefined' && globalThis.I18N ? globalThis.I18N : null;
+  const I18 = typeof globalThis !== 'undefined' && /** @type {any} */ (globalThis).I18N ? /** @type {any} */ (globalThis).I18N : null;
   const $t = I18 ? I18.t : (s, p) => (p ? s.replace(/%\{(\w+)\}|\{(\w+)\}/g, (m, a, b) => { const k = a || (!/[$\\]/.test(s) && b); return k && k in p ? String(p[k]) : m; }) : s);
   // Russian notation (tg, sh, ln) where the tour sets TeX; English unchanged
   const notation = (tex) => (I18 ? I18.notation(tex) : tex);
@@ -470,7 +470,7 @@ const Tour = (() => {
     svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
-    constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
+    constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
     // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
     ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
@@ -513,7 +513,7 @@ const Tour = (() => {
     // (v15.1) the selected step's Show alone button (v16.5 UX85: no longer a lens) in the Inspector's head: in a phone's sheet
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
+    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ph-col .ph-sph'))].find((e) => e.offsetParent) || null,
     // v16.1 (notes/v16-user5/AS-BUILT-tour.md): the control a step's task needs, exactly. A tool is its own button where
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name
@@ -789,6 +789,7 @@ const Tour = (() => {
       return matchMedia('(prefers-reduced-motion: reduce)').matches;
     } catch (e) { return false; }
   };
+  /** @type {(n?: number) => Promise<void>} */
   const frames = (n = 2) => new Promise((res) => { const f = () => (--n <= 0 ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const narrow = () => (typeof innerWidth === 'number' ? innerWidth < 640 : false);
@@ -1383,7 +1384,7 @@ const Tour = (() => {
     const added = now.some((e) => !ui.topSet.includes(e));
     ui.topSet = now;
     if (now.length ? isOpen && !added : !isOpen) return;
-    const a = document.activeElement;
+    const a = /** @type {HTMLElement | null} */ (document.activeElement);
     try {
       if (now.length) {
         if (!top.hasAttribute('popover')) top.setAttribute('popover', 'manual');
@@ -1530,7 +1531,7 @@ const Tour = (() => {
     ui.shade.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); });
     const onKey = (e) => {
       if (run !== r || e === fwdKey) return;
-      const a = document.activeElement, inS = inStrip(a);
+      const a = /** @type {HTMLInputElement | null} */ (document.activeElement), inS = inStrip(a);
       const idle = a === document.body || a == null || inS;
       if (e.key === 'Escape') {
         // The app's own layer comes first, wherever the focus is: a menu, the palette or a dialog closes and the tour
@@ -1593,7 +1594,7 @@ const Tour = (() => {
       if (ui.touching) clearTimeout(ui.backT);
       if (!ui.touching && ui.backH) { const H = ui.backH; clearTimeout(ui.backT); ui.backT = setTimeout(() => { if (run === r) bringBack(r, H); }, BACK_MS); }
     };
-    for (const t of ['touchstart', 'touchend', 'touchcancel']) { document.addEventListener(t, onTouch, { capture: true, passive: true }); r.offs.push(() => document.removeEventListener(t, onTouch, { capture: true, passive: true })); }
+    for (const t of ['touchstart', 'touchend', 'touchcancel']) { document.addEventListener(t, onTouch, { capture: true, passive: true }); r.offs.push(() => document.removeEventListener(t, onTouch, /** @type {EventListenerOptions} */ ({ capture: true, passive: true }))); }
     const onHide = () => { if (run === r && r.lend && r.lend.stashed) unbeat(); };
     const onShow = (e) => { if (e.persisted && run === r && r.lend && r.lend.stashed) beat(); };
     addEventListener('pagehide', onHide);
@@ -1668,7 +1669,7 @@ const Tour = (() => {
     r.timer = setInterval(() => { syncTop(ui); syncLayers(r); syncAct(r); onFocus(); track(); if (r.lend && r.lend.stashed && ++n % Math.round(BEAT_MS / 250) === 0) beat(); }, 250);
     r.offs.push(() => clearInterval(r.timer));
     // the app's hover tooltip sits above the strip: hidden while it would cover it
-    const tip = document.querySelector(TIP_SEL);
+    const tip = /** @type {HTMLElement | null} */ (document.querySelector(TIP_SEL));
     if (tip && typeof MutationObserver === 'function') {
       const mo = new MutationObserver(() => guardTip(r));
       mo.observe(tip, { attributes: true, attributeFilter: ['hidden', 'style', 'class'], childList: true });
@@ -1676,7 +1677,7 @@ const Tour = (() => {
     }
   }
   function guardTip(r) {
-    const tip = document.querySelector(TIP_SEL);
+    const tip = /** @type {HTMLElement | null} */ (document.querySelector(TIP_SEL));
     if (!tip || run !== r) return;
     const t = tip.getBoundingClientRect(), c = r.ui.strip.getBoundingClientRect();
     const shown = !tip.hidden && t.width > 0 && t.height > 0;
@@ -1726,7 +1727,7 @@ const Tour = (() => {
     if (!top) return 'row';
     const cs = getComputedStyle(top);
     let used = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0), k = 0;
-    for (const c of top.children) {
+    for (const c of /** @type {HTMLElement[]} */ ([...top.children])) {
       if (c.id === 'tourHeadSlot' || c.matches(':popover-open, [popover]') || getComputedStyle(c).display === 'none') continue;
       // (the view switch keeps at most 420 px, as when the header holds nothing else)
       used += c.id === 'viewSwitch' ? Math.min(420, c.scrollWidth > c.offsetWidth ? c.scrollWidth : Math.max(c.offsetWidth, 0)) : c.offsetWidth;
@@ -1737,6 +1738,7 @@ const Tour = (() => {
     stripMode.free = free;
     return free >= 260 ? 'head' : 'row';
   }
+  stripMode.free = undefined;
   // Mounts the strip in its slot (the app's api.slot, else the first child of .stage) and reserves its room: --tour-h
   // (the stage's first row) or --ph-tour (a phone's row under the header). Again on every resize. (r3 review user-10:
   // a landscape phone's header strip becomes the row under the header for a chapter whose line needs three lines
@@ -2051,7 +2053,7 @@ const Tour = (() => {
       if (cdLeft(s, performance.now()) > 1) { cdSync(r, s); return; }
       r.cd = countdown(s, { type: 'fire' }, performance.now());
       // (a focused text field is left first, so a phone's keyboard closes)
-      const a = document.activeElement;
+      const a = /** @type {HTMLElement | null} */ (document.activeElement);
       if (a && a !== document.body && !r.ui.strip.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) { try { a.blur(); } catch (x) { /* */ } }
       go(1);
     }, wait);
@@ -2294,6 +2296,7 @@ const Tour = (() => {
     if (narrow()) bot = Math.min(bot, H * 0.58);
     return { top, bot: Math.max(top + 80, bot) };
   }
+  /** @returns {Promise<void>} */
   function scrollWin(y) {
     return new Promise((res) => {
       if (Math.abs(y - scrollY) < 1) { res(); return; }
@@ -2365,7 +2368,7 @@ const Tour = (() => {
     for (let pass = 0; pass < 2; pass++) {
       // cut by a scrolling panel (a section low in a side panel, the add card at the end of a long chain): that panel
       // scrolls first, so the whole target shows when it fits
-      if (panelsReveal(target) | ctlsReveal()) await frames(1);
+      if (/** @type {any} */ (panelsReveal(target)) | /** @type {any} */ (ctlsReveal())) await frames(1);
       // the lit area: the anchor, and its second lit element when both can be brought in
       const b = target.getBoundingClientRect();
       const box = { top: b.top, bottom: b.bottom };
@@ -2493,12 +2496,12 @@ const Tour = (() => {
   // when a step asks), with its corner radii; an anchor inside a lit panel is the mark.
   // the lit parts: the anchor's, then its `also` areas and (v15.1) the areas its Try it names (try.work), each once
   function litParts(step, tgt) {
-    const parts = tgt.parts.slice();
+    const parts = /** @type {{ el: any, rect?: any }[]} */ (tgt.parts.slice());
     // (try.work names parts of the touch task: review-phone phone-2, the lens in the sheet the first tap opens)
     const ctl = new Set(ctlOf(step));
     for (const a of [].concat(step.also || [], ctlOf(step), workOf(step))) {
       const t = anchorOf(a);
-      if (t) for (const q of t.parts) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el) && !(ctl.has(a) && underLayer(q.el))) parts.push(q);
+      if (t) for (const q of /** @type {{ el: any, rect?: any }[]} */ (t.parts)) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el) && !(ctl.has(a) && underLayer(q.el))) parts.push(q);
     }
     return parts;
   }
