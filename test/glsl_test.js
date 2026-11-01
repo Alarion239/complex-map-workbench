@@ -337,16 +337,18 @@
   // shapes): its ops in uniforms and one loop (GLChain's ratLogList), in the map, the deformation and the sheets.
   // (After the example's disk map the sheet rows near z = 0 put a log's argument at the centre on its local cut: the
   // CPU's own value changes sheet when the centre moves by 1e-6, and float32 takes the other one; the A/B below has
-  // that chain at five terms)
+  // that chain at three terms)
   {
     const LP = '0.83333*log(z*(0.99439+0.10579i))+2.15/12*(log((1+0i)*(z-(-0.9798-0.192i))/(z))-log((1+0i)*(1-z/(-0.9829-0.1926i))))+1/12*(log((1+0i)*(z-(-0.9227-0.3813i))*(z-(0.9227+0.3813i))/(z^2))-log((1+0i)*(1-z/(-0.9256-0.3825i))*(1-z/(0.9256+0.3825i))))+2/12*(log((1+0i)*(z-(-0.8316-0.5526i))*(z-(0.8316+0.5526i))/(z^2))-log((1+0i)*(1-z/(-0.8342-0.5543i))*(1-z/(0.8342+0.5543i))))+2/12*(log((1+0i)*(z-(-0.7078-0.7042i))*(z-(0.7078+0.7042i))/(z^2))-log((1+0i)*(1-z/(-0.71-0.7064i))*(1-z/(0.71+0.7064i))))+4.7/12*(log((0.88263+0.47007i)*(z-(0.376-0.9249i))*(z-(-0.5492+0.8338i))/((z-(-0.5602-0.8265i))*(z-(0.5602+0.8265i))))-log((0.88263-0.47007i)*(1-z/(0.3772-0.9278i))*(1-z/(-0.5509+0.8364i))/((1-z/(-0.5619-0.8291i))*(1-z/(0.5619+0.8291i)))))+4.7/12*(log((1+0i)*(z-(-0.3882-0.9199i))*(z-(0.9199-0.3882i))*(z-(0.3882+0.9199i))/(z^3))-log((1+0i)*(1-z/(-0.3894-0.9228i))*(1-z/(0.9228-0.3894i))*(1-z/(0.3894+0.9228i))))+1.7/12*(log(z*(1+0i)*1/((z-(-0.0021-0.9984i))))-log((1+0i)*1/((1-z/(-0.0021-1.0016i)))))+1.7/12*(log(z*(1+0i)*1/((z-(0.7045-0.7075i))))-log((1+0i)*1/((1-z/(0.7067-0.7097i)))))+4/12*(log(z^3*(0.99519-0.09794i)*1/((z-(0.1893-0.9803i))*(z-(0.8271-0.5593i))*(z-(-0.3769+0.9245i))))-log((0.99519+0.09794i)*1/((1-z/(0.1899-0.9834i))*(1-z/(0.8297-0.5611i))*(1-z/(-0.3781+0.9275i)))))+5.7/12*(log(z*(1+0i)*1/((z-(0.9984-0.008i))))-log((1+0i)*1/((1-z/(1.0015-0.0081i)))))+2.7/12*(log((0.63587-0.77179i)*(z-(0.9799+0.1912i))/((z-(0.0036+0.9984i))))-log((0.63587+0.77179i)*(1-z/(0.983+0.1918i))/((1-z/(0.0036+1.0016i)))))+5/12*(log((1+0i)*(z-(0.2017+0.9779i))/(z))-log((1+0i)*(1-z/(0.2023+0.9809i))))+3/12*(log(z*(1+0i)*1/((z-(-0.1908+0.98i))))-log((1+0i)*1/((1-z/(-0.1914+0.9831i)))))+2.85/12*(log((1+0i)*(z-(-0.701+0.7109i))/(z))-log((1+0i)*(1-z/(-0.7032+0.7132i))))';
     add('log pairs: the Mountain King exponent', [S('custom', { expr: LP, cut: 180 })]);
-    // (the A/B: its first five terms, 84 ops, the fewest above the threshold (64; four are 62); built both ways, the op loop and the code written out,
-    // the GPU's values must be the same bit for bit, every row: the same ops in the same order)
-    const LP5 = '0.83333*log(z*(0.99439+0.10579i))+2.15/12*(log((1+0i)*(z-(-0.9798-0.192i))/(z))-log((1+0i)*(1-z/(-0.9829-0.1926i))))+1/12*(log((1+0i)*(z-(-0.9227-0.3813i))*(z-(0.9227+0.3813i))/(z^2))-log((1+0i)*(1-z/(-0.9256-0.3825i))*(1-z/(0.9256+0.3825i))))+2/12*(log((1+0i)*(z-(-0.8316-0.5526i))*(z-(0.8316+0.5526i))/(z^2))-log((1+0i)*(1-z/(-0.8342-0.5543i))*(1-z/(0.8342+0.5543i))))+2/12*(log((1+0i)*(z-(-0.7078-0.7042i))*(z-(0.7078+0.7042i))/(z^2))-log((1+0i)*(1-z/(-0.71-0.7064i))*(1-z/(0.71+0.7064i))))';
+    // (the A/B: its first three terms, 40 ops, every kind of op (z, constants, k op x and x op k, a power, logs); built
+    // both ways, the op loop (the threshold lowered for it) and the code written out, the GPU's values must be the same
+    // bit for bit, every row: the same ops in the same order. Written out, five terms already take SwiftShader half an
+    // hour to compile: the cost #395 removes)
+    const LP3 = '0.83333*log(z*(0.99439+0.10579i))+2.15/12*(log((1+0i)*(z-(-0.9798-0.192i))/(z))-log((1+0i)*(1-z/(-0.9829-0.1926i))))+1/12*(log((1+0i)*(z-(-0.9227-0.3813i))*(z-(0.9227+0.3813i))/(z^2))-log((1+0i)*(1-z/(-0.9256-0.3825i))*(1-z/(0.9256+0.3825i))))';
     const AB = (name, steps) => chains.push({ name, steps, ab: true });
-    AB('log pairs A/B five terms', [S('custom', { expr: LP5, cut: 180 })]);
-    AB('log pairs A/B five terms after the disk map', [S('custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }), S('custom', { expr: LP5, cut: 180 })]);
+    AB('log pairs A/B three terms', [S('custom', { expr: LP3, cut: 180 })]);
+    AB('log pairs A/B three terms after the disk map', [S('custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }), S('custom', { expr: LP3, cut: 180 })]);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -830,7 +832,10 @@ void main() {
   function testChain(ch) {
     // ([issue #6] a repeat's last step runs its block n times, as in the app)
     const built = Funcs.applyRepeats(ch.steps, ch.steps.map((s) => Funcs.build(s)));
-    const gc = GLChain.build(ch.steps, built);
+    // ([issue #395] an A/B chain: its main build through the op loop whatever its size)
+    const o0 = ch.ab ? GLChain.ratLogMin(1) : null;
+    let gc;
+    try { gc = GLChain.build(ch.steps, built); } finally { if (ch.ab) GLChain.ratLogMin(o0); }
     if (srcByKey.has(gc.key) && srcByKey.get(gc.key) !== gc.source) R.errors.push(`key collision: ${ch.name}`);
     srcByKey.set(gc.key, gc.source);
     const n = ch.steps.length;
@@ -900,10 +905,18 @@ void main() {
       const o = GLChain.ratLogMin(Infinity);
       let out2;
       try { out2 = runGPU(GLChain.build(ch.steps, built), rows); } finally { GLChain.ratLogMin(o); }
+      // (the same value bit for bit, but +0 and -0 alike: the code written out multiplies by a literal vec2(1.0, 0.0),
+      // which a compiler may fold, and 0 * y folded loses a zero's sign; both draw the same. NaN alike NaN)
       const u1 = new Uint32Array(out.buffer), u2 = new Uint32Array(out2.buffer);
-      let diff = 0, first = null;
-      for (let k = 0; k < u1.length; k++) if ((k & 3) < 2 && u1[k] !== u2[k]) { diff++; if (!first) first = { row: rowName(rows[Math.floor((k >> 2) / P)]), point: (k >> 2) % P, loop: out[k], written: out2[k] }; }
+      let diff = 0, zeros = 0, first = null;
+      for (let k = 0; k < u1.length; k++) {
+        if ((k & 3) > 1 || u1[k] === u2[k] || (Number.isNaN(out[k]) && Number.isNaN(out2[k]))) continue;
+        if (out[k] === 0 && out2[k] === 0) { zeros++; continue; }
+        diff++;
+        if (!first) first = { row: rowName(rows[Math.floor((k >> 2) / P)]), point: (k >> 2) % P, loop: out[k], written: out2[k] };
+      }
       R.abCompared = (R.abCompared || 0) + u1.length / 2;
+      R.abSignedZeros = (R.abSignedZeros || 0) + zeros;
       if (diff) R.errors.push(`${ch.name}: ${diff} values differ between the op loop and the code written out (first: ${JSON.stringify(first)})`);
     }
     rows.forEach((row, ri) => {
