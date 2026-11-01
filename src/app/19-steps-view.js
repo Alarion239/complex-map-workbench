@@ -432,14 +432,28 @@
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
     const key = svSheetKey(b);
     const carry = svCarryStyle(T);
+    const res = [];
     for (const x of list) {
       const r = x === SV_ALL ? svAllMesh() : shapeGPU(x);
       if (!r || !r.meshRes) return false;
-      if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) return false;
+      res.push(r.meshRes);
+    }
+    if (list.includes(SV_ALL)) res.push(...svCarryExtras());
+    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
+    // clears it, the last clears it after)
+    for (let i = 0; i < res.length; i++) {
+      const depth = res.length === 1 ? 'only' : i === 0 ? 'first' : i === res.length - 1 ? 'last' : 'mid';
+      if (!GLR.drawRegion(res[i], { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) {
+        if (i > 0) GLR.carryDepthEnd();
+        return false;
+      }
     }
     return true;
   }
+  // more meshes for the whole plane while gliding (Everywhere): none yet (render: the meshes about the poles of the
+  // frame's map), drawn with SV_ALL's under the same sheet key and depth
+  function svCarryExtras() { return []; }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.

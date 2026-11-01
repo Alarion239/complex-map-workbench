@@ -88,11 +88,19 @@
   // sheets' seam is the fold's own curve, not the drop of whole triangles beside it); one torn across a cut is large
   // and still left out, and so is one longer than uKLim (a third of the pane, as drawCarried's lim: a point the map
   // sends far, whose triangle would cover the pane many times over and place nothing well)
-  const REGION_K_VS = (fetch) => {
+  // (sheet: each triangle's places continued from its centre's sheet, chainSheetHom as the landscape's evalAt, so a
+  // triangle across a cut of the deformation's path (the power path's ray, the Joukowski path's lower unit semicircle)
+  // is continued, not torn and left out; the sheet key orders it against the other branch. The chain's map, no cache)
+  const REGION_K_VS = (fetch, sheet) => {
     const vs = '  vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;\n';
     const pos = fetch === 'local' ? null : '  gl_Position = vec4(((w - uCenter) - uCenterLo) * uScale, 0.0, 1.0);';
-    const t = REGION_VS(false, fetch);
-    if (t.split(vs).length !== 2 || !pos || t.split(pos).length !== 2) throw new Error('REGION_VS changed: regionK');
+    const at = '  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);\n  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);\n';
+    let t = REGION_VS(false, fetch);
+    if (t.split(vs).length !== 2 || !pos || t.split(pos).length !== 2 || t.split(at).length !== 2) throw new Error('REGION_VS changed: regionK');
+    if (sheet) {
+      t = t.replace('void main() {', 'vec2 kW(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\nvoid main() {')
+        .replace(at, '  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);\n  vec2 w0 = kW(zc, s0), w1 = kW(zc, s1), w2 = kW(zc, s2);\n  vec2 wm = kW(zc, (s0 + s1 + s2) / 3.0);\n');
+    }
     // (the sheet key per vertex, as its depth: PRE_KEY's formula on the vertex's source point)
     const key = PRE_KEY_UNI + 'float kDepth(vec2 sa) {\n' + PRE_KEY.replace('  if (uKeyOn > 0) {', '  float gd = 0.0;\n  if (uKeyOn > 0) {')
       .replace(/gl_FragDepth = x \/ \(x \+ 1024\.0\);/, 'gd = x / (x + 1024.0);').replace('  } else gl_FragDepth = gl_FragCoord.z;', '  }') + '  return gd;\n}\n';
@@ -116,6 +124,7 @@
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
