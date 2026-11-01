@@ -28,6 +28,7 @@
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
+  SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1}, indices into svPlanes(); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -189,6 +190,7 @@
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
     svKeepView();
+    SV.span = null;
     // (the landscape has no frames between two planes: it changes plane at once)
     if (now || svReduced() || SV.surf === 'land') { SV.anim = null; SV.g.set(i); svArrive(); return; }
     SV.g.max = P.length - 1;
@@ -197,12 +199,14 @@
     // (a press while it glides starts the next glide from where the picture is: no jump; 420 ms a plane, at most 900)
     // (the speed setting's time a plane, for at most two planes' worth when it crosses several)
     const per = SV_SPEEDS[SV.speed] || 900;
+    SV.span = svSpanOf(from, i);
     SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
     requestRender('L');
   }
   function svArrive() {
     const i = Math.round(SV.g.x), was = SV.at;
+    SV.span = null;
     SV.g.set(i);
     SV.i = i;
     svApply();
@@ -249,14 +253,35 @@
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
+  // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
+  // of it at the same time t (the map spec of mode 3 and its CPU twin), the planes between left out; not across a d/dz, whose
+  // step is no map
+  function svAllOk(x0, x1) {
+    const ks = svPlanes().slice(x0 + 1, x1 + 1);
+    return !!S.homAll && ks.length > 1 && !ks.some((k) => isDeriv(k));
+  }
+  // the span of a glide from plane index `from` to `to` (a plane's index, an integer) when it goes all at once, else none
+  function svSpanOf(from, to) {
+    if (Math.abs(from - Math.round(from)) > 1e-6) return null;
+    const x0 = Math.min(Math.round(from), to), x1 = Math.max(Math.round(from), to);
+    return x1 - x0 > 1 && svAllOk(x0, x1) ? { x0, x1 } : null;
+  }
   function svBetween() {
-    const P = svPlanes(), x = SV.g.x, j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
+    const P = svPlanes(), x = SV.g.x, sp = SV.span;
+    if (sp && sp.x1 < P.length && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6 && svAllOk(sp.x0, sp.x1)) {
+      const a = P[sp.x0], b = P[sp.x1], u = (x - sp.x0) / (sp.x1 - sp.x0), Fa = stageF(a);
+      const Hs = P.slice(sp.x0 + 1, sp.x1 + 1).map((k) => homF(k, u));
+      const H = (z) => { let w = z; for (const f of Hs) w = f(w); return w; };
+      return { a, b, u, map: { mode: 3, a, b, t: u }, F: (z) => H(Fa(z)), H, near: u < 0.5 ? a : b, all: true };
+    }
+    const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
     const still = u <= 1e-6 || b === a, jump = !still && isDeriv(b);
     const map = still ? stageMap(a) : jump ? stageMap(u < 0.5 ? a : b) : { mode: 1, hi: b, t: u };
     // (its CPU twin, for the points: H_u after the steps before b, as transState)
-    const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((Ht, Fp) => (z) => Ht(Fp(z)))(homF(b, u), stageF(b - 1));
-    return { a, b, u, map, F, near: u < 0.5 ? a : b };
+    const Ht = still || jump ? null : homF(b, u);
+    const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, Fp) => (z) => H(Fp(z)))(Ht, stageF(b - 1));
+    return { a, b, u, map, F, H: Ht, near: u < 0.5 ? a : b, all: false };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
   // The colour carried by the points: a grid over plane s's window (the camera's, half again as wide), each vertex
@@ -277,7 +302,7 @@
     // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
     if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
-      const map = H ? { mode: 1, base: s, hi: g.b, t: g.u } : { mode: 0, a: s, b: a };
+      const map = H ? (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u }) : { mode: 0, a: s, b: a };
       // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
       // to plane a, as smKeyOf for the forward meshes)
       const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
@@ -372,7 +397,7 @@
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const { a, b, u, map, F } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const { a, b, u, map, F, H: Hb } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
@@ -399,7 +424,7 @@
       let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       if (still ? !svColoured(a) : !isDeriv(b)) {
-        carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
+        carried = svCarry(pane, cc, src, a, still ? null : Hb, frame);
       }
       // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
       // first and the last 15 % of a glide)
@@ -615,6 +640,28 @@
   function svLoopBtn(cls, tip) {
     return h('button', { type: 'button', class: cls, 'aria-pressed': String(SV.loop), 'data-tip': tip || null, onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
   }
+  // the order of a glide across several planes (S.homAll): plane by plane, or all at once as one homotopy of the whole range
+  function svOrderSel(title) {
+    return selectEl(null, S.homAll ? 'all' : 'steps', [['steps', $t('Step by step')], ['all', $t('All at once')]], svSetOrder, title, 'sv-order');
+  }
+  function svSetOrder(v) {
+    const all = v === 'all';
+    if (!!S.homAll === all) return;
+    setOpt('homAll', all);
+    svSync(); requestRender('L'); save();
+    tourEmit('order-changed', { all });
+  }
+  // the order select says why it is off: a chain of fewer than two steps has nothing to take together, a d/dz is no map to deform
+  function svOrderSync() {
+    const E = SV.els, P = svPlanes(), ks = P.slice(1), deriv = ks.some((k) => isDeriv(k)), ok = ks.length > 1 && !deriv;
+    const tip = deriv ? $t('d/dz is not a map: its step deforms on its own, so the steps run one after another') : !ok ? $t('All at once needs two steps or more') : $t('Glide order');
+    for (const sel of [E.order, E.sheetOrder]) {
+      if (!sel) continue;
+      sel.disabled = !ok;
+      sel.value = S.homAll && ok ? 'all' : 'steps';
+      sel.dataset.tip = tip;
+    }
+  }
   function svBuild() {
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
@@ -634,13 +681,14 @@
     const track = h('div', { class: 'sv-track' });
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
     const speed = svSpeedSel($t('Glide speed'));
+    const order = svOrderSel($t('Glide order'));
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
     const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
     // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it (#501), and inside the band it lay under the plane buttons)
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), add, next, speed, loop, bandx);
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), add, next, speed, order, loop, bandx);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -663,7 +711,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, empty, rail, play, loop, band, bandx, speed, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, empty, rail, play, loop, band, bandx, speed, order, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svPlayHold();
     // (the other way to the sheet, for a screen reader's user who cannot hold: the header's ⋯ menu, which a phone shows)
@@ -722,7 +770,7 @@
     svBuildTrack();
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
-    const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, SV.play ? 1 : 0, SV.loop ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
+    const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, SV.play ? 1 : 0, SV.loop ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
@@ -747,7 +795,9 @@
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
-      for (const b of E.track.querySelectorAll('.sv-plane')) { const on = +b.dataset.i === at && !parked; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); }
+      // (All at once: ▶ and a click on a plane that is not the next skip the planes between the range's ends: they show dimmed, and stay planes to click)
+      const R = svRange(), lo = R ? R.lo : 0, hi = R ? R.hi : svPlanes().length - 1, skip = hi - lo > 1 && svAllOk(lo, hi);
+      for (const b of E.track.querySelectorAll('.sv-plane')) { const i = +b.dataset.i, on = i === at && !parked; b.classList.toggle('on', on); b.classList.toggle('sv-skip', skip && i > lo && i < hi); b.setAttribute('aria-current', on ? 'true' : 'false'); }
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
       E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
@@ -937,7 +987,7 @@
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
       if (e.target.closest('.sv-fwrap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
       svOutsideBand(posX(e));
-      SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
+      SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
     rail.addEventListener('pointermove', (e) => {
       const d = SV.drag;
@@ -946,7 +996,7 @@
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
       if (!d.moved) { svPause(false); svKeepView(); SV.anim = null; }
       d.moved = true;
-      SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
+      SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
       requestRender('L');
     });
     const up = (e) => {
@@ -974,6 +1024,7 @@
       svPause(false);
       svKeepView();
       SV.anim = null;
+      SV.span = null;
       SV.drag = { id: e.pointerId, px: e.clientX, w: r.width, x0: SV.g.x, moved: true, edge, t0: e.timeStamp };
       try { plot.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
     }, true);
@@ -1027,6 +1078,7 @@
     svPause(false);
     SV.anim = null;
     svKeepView();
+    SV.span = null;
     SV.g.set(Math.max(0, Math.min(P.length - 1, Math.round((from + d) * 4) / 4)));
     SV.g.max = P.length - 1;
     svLetGo();
@@ -1215,6 +1267,7 @@
     E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
+    svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
   function svTogglePlay() { if (SV.play) svPause(true); else svPlay(); }
@@ -1234,6 +1287,7 @@
       svSlide(true);
     } else {
       SV.g.set(from);
+      SV.span = svSpanOf(from, end);
       SV.play = { from, to: end, start, t0: performance.now(), ms: svPerPlane() * (end - from), steps: S.steps };
     }
     svSync();
@@ -1269,7 +1323,7 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -1298,10 +1352,11 @@
     if (!E.sheet) {
       const scrim = h('div', { class: 'sv-scrim', onclick: () => svSheetClose() });
       const sel = svSpeedSel($t('Speed'));
+      const ord = svOrderSel($t('Glide order'));
       const lp = svLoopBtn('btn sv-loop');
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
-        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('div', { class: 'sv-sheet-r' }, lp));
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), h('div', { class: 'sv-sheet-r' }, lp));
       sh.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); return; }
         // (modal: Tab stays in the sheet)
@@ -1311,7 +1366,7 @@
       });
       scrim.hidden = true;
       document.body.append(scrim, sh);
-      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetLoop: lp });
+      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp });
     }
     E.sheetSpeed.value = SV.speed;
     E.sheet.hidden = false; E.scrim.hidden = false;
