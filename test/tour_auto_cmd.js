@@ -85,7 +85,7 @@ await goStep('basics', 4);
 await click(disc[0], disc[1]); await settle(200);
 await mdrag(a.l + 220, a.b - 140, a.l + 260, a.b - 110);
 await sleep(150);
-let liveT = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`);
+let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
 // a door: Choose Phase moves on 0.7 s after it
@@ -121,12 +121,13 @@ check('palette: the palette opens and the task ticks', (await until(`document.qu
 check('palette: no advance while it stays open (6 s)', await stays('keys/palette', 6000));
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
-// (r3 review regress-5: no "Next step in 1.5 s" while held; said when the hold ends)
-const liveH = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`);
+// (r3 review regress-5: no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
+// #tourSay, which a chapter's end creates: #363 made Phase key the end of Views)
+const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
 await sleep(200);
-const liveR = await ev(`document.querySelector('.tour-sr[aria-live]').textContent`);
+const liveR = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: once it closes the live region says "Next step in 1.5 s."', liveR === 'Next step in 1.5 s.', liveR);
 // (keys/palette is not the chapter's last step: it moves on CD_MS after the palette closes)
 at = await advancedAt('keys/palette', t0);
@@ -208,21 +209,25 @@ check('Move on by itself off: a door (Three views) ticks and stays 2 × CD_MS', 
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// (r3 review user-5) a chapter's end with a task (Patterns): tick and result, then 3 s into the next chapter
-await goStep('views', 5);
-const st = await center('#patternSeg .pat[data-pat="stretch"]');
+// (r3 review user-5) a chapter's end with a task (#363: Phase key, since the Patterns step is gone): tick and result,
+// then 3 s into the next chapter
+await goStep('views', 4);
+// (the check in Y's head, or behind its ⋯ / Regions button: that pop-up opened first)
+const rectOf = (js) => ev(`(() => { const e = ${js}; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+if (!(await rectOf(`(document.querySelector('#wKeyChkR') || {}).closest?.('label')`))) { const ob = await rectOf(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')`); await click(ob[0], ob[1]); await settle(400); }
+const st = await rectOf(`(document.querySelector('#wKeyChkR') || {}).closest?.('label')`);
 await click(st[0], st[1]); t0 = Date.now();
 const dP = await doneAt(t0);
 await sleep(200);
-check('Patterns (a chapter\'s end): tick and result', /Blue shrinks/.test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', await lit());
-const aP = await advanceFrom('views/patterns', dP, 250);
-check('Patterns: moves on CD_MS after, into Editing the chain (late only as far as the page was blocked)', aP.ok && (await cur()) === 'edit/cards', [aP, dP, await cur()]);
+check('Phase key (a chapter\'s end): tick and result', /reads as a value/.test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', await lit());
+const aP = await advanceFrom('views/key', dP, 250);
+check('Phase key: moves on CD_MS after, into Editing the chain (late only as far as the page was blocked)', aP.ok && (await cur()) === 'edit/cards', [aP, dP, await cur()]);
 // (r3 review user-1) once a task is done the spotlight steps aside: the shade fades and lets presses through
 await goStep('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(400);
 const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('.tour-root .tour-dim'); const e = document.elementFromPoint(innerWidth - 40, innerHeight - 40); return { quiet: L.quiet, op: getComputedStyle(s).opacity, hit: e && !e.closest('[data-tour]') }; })()`);
 check('done: the spotlight steps aside (quiet, faded, presses reach the app)', qq.quiet && +qq.op < 0.05 && qq.hit, qq);
-} catch (e) { check("a chapter's end with a task (Patterns)" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
+} catch (e) { check("a chapter's end with a task (Phase key)" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // reduced motion: Next counts down "Next · 2", "· 1" (the seconds left of 1.5)
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });

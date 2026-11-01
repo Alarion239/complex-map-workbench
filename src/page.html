@@ -1287,21 +1287,6 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
    sets --at on a stop today. A stop placed by --at needs its row as a block: give that row a class. */
 
 /* ---------- Display section ---------- */
-.patterns { display: grid; grid-template-columns: repeat(4, 52px); justify-content: space-between; row-gap: 8px; margin-top: 2px; }
-/* (#339) each name has its column's width, not the swatch's: the four columns share the row, so a Russian name wraps
-   between its words ("Квадратная / сетка") and is not hyphenated inside one ("Растяже-ние") */
-.patterns { grid-template-columns: repeat(4, minmax(52px, 1fr)); column-gap: 4px; }
-.pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
-.pat > canvas { display: block; width: 52px; height: 40px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; }
-.pat > span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; }
-/* [v16.5 UX95, UX86] a pattern's name wraps to two lines rather than being cut ("Sphere checker", "Square grid") */
-.pat { white-space: normal; }
-.pat > span { max-width: 100%; text-align: center; line-height: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.pat:hover { color: var(--ink); }
-.pat:hover > canvas { outline-color: var(--line-strong); }
-.pat.on, .pat[aria-checked="true"] { color: var(--ink); }
-.pat.on > canvas, .pat[aria-checked="true"] > canvas { outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
-.pat:focus-visible { outline-offset: 2px; border-radius: var(--r-2); }
 #meshNote { font: var(--t-label); color: var(--muted); }
 
 /* ---------- 5.7 Shape rows ---------- */
@@ -1502,6 +1487,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pop.pad { width: min-content; min-width: 208px; padding: 8px; }
 .pad > canvas { display: block; width: 192px; height: 192px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; cursor: crosshair; touch-action: none; }
 .pad > .lbl { margin-top: 2px; text-wrap: pretty; }
+/* (#363) the Regions pop-up's description wraps: on one line it widened the pop-up past its box and cut the values */
+#regionsBox > .lbl { white-space: normal; text-wrap: pretty; }
 .pad-read { margin: 6px 0 4px; font: var(--t-readout); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pad .row, .pad-rows { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 8px; margin-top: 4px; }
 .pad .scrub { display: flex; }
@@ -2038,8 +2025,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* until init() has translated the static text (the head script above): no English frame in Russian (review eng-1) */
 :root.i18n-wait #app { visibility: hidden; }
 /* Russian overflow fixes (DESIGN.md 8): tool names wrap at their soft hyphens (8.1, 8.2); card and lamp names use
-   the semi-condensed width the tool labels already use (8.6, 8.7); pattern captions (8.10) and palette rows (8.11)
-   take two lines */
+   the semi-condensed width the tool labels already use (8.6, 8.7); palette rows (8.11) take two lines */
 :root[data-lang="ru"] .tools > .tool:not(.rail-tool) { height: 56px; }
 :root[data-lang="ru"] .tool > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
 :root[data-lang="ru"] .card .nm, :root[data-lang="ru"] .lampname { font-stretch: 87.5%; }
@@ -2048,12 +2034,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
    a phone) */
 :root[data-lang="ru"] .lampname { white-space: normal; text-overflow: clip; }
 :root[data-lang="ru"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
-/* «полярные» is 1.4 px wider than a 52 px swatch caption and was hyphenated to «поляр-…» */
-:root[data-lang="ru"] .pat > span { letter-spacing: -0.02em; }
 /* CSS-generated text: the empty formula preview's word */
 :root[data-lang="ru"] .texprev:empty::before { content: "Предпросмотр"; }
-:root[data-lang="ru"] .pat { white-space: normal; }
-:root[data-lang="ru"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* (v15) the five mesh stops («Черновая» … «Максимум») are 242 px of labels in one row; the left panel has 214-226 px
    at 1024-1440 px. The row widened the Display column, so the pattern swatches and «Максимум» ran 3-15 px past the
    panel. In Russian the stops stand at their slider positions (0, 1/4, 1/2, 3/4, 1, thumb-centre corrected as --at
@@ -2121,10 +2103,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="it"] .tools > .tool:not(.rail-tool) { height: 56px; }
 :root[data-lang="it"] .tool > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
 :root[data-lang="it"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
-/* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
-   button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
-:root[data-lang="it"] .pat { white-space: normal; }
-:root[data-lang="it"] .pat > span { max-width: 100%; text-align: center; line-height: 12px; font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* the export size button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
@@ -2206,15 +2185,15 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="shapes" id="shapeList"></div>
         </div>
       </details>
-      <!-- [v17 D5, #82] the regions' display: the pattern and its cell, grid lines, chevrons and opacity belong to the
-           X → Y view and live in its Display ▾ (the phone's Display sheet); the unit circle in every view's. Lent from here -->
+      <!-- [v17 D5, #82; #363] the regions' display: their fill (the phase of z), grid lines and their step, chevrons and
+           opacity belong to the X → Y view and live in its Regions ▾ (the phone's Display sheet); the unit circle in every
+           view's. Lent from here -->
       <div id="regionsHome" hidden>
         <div id="unitBox" class="field-col"><label class="check"><input type="checkbox" id="unitChk" checked><span>Unit circle</span></label></div>
         <div id="regionsBox" class="field-col">
-          <div class="lbl">Pattern carried by the map</div>
-          <div class="patterns" id="patternSeg" role="radiogroup" aria-label="Region pattern"></div>
-          <label class="fader-row"><span class="fl">Cell</span><input type="range" id="patScale" min="-2" max="2" step="1" aria-label="Pattern cell size"><span class="fval mono" id="patScaleVal"></span></label>
+          <div class="lbl">Regions are coloured by the phase of z, carried by the map</div>
           <label class="check"><input type="checkbox" id="linesChk"><span>Grid lines on regions</span></label>
+          <label class="fader-row"><span class="fl">Grid step</span><input type="range" id="patScale" min="-2" max="2" step="1" aria-label="Grid step"><span class="fval mono" id="patScaleVal"></span></label>
           <label class="check"><input type="checkbox" id="chevChk"><span>Orientation chevrons</span></label>
           <label class="fader-row"><span class="fl">Opacity</span><input type="range" id="alphaRange" min="0.2" max="1" step="0.01" aria-label="Fill opacity"><span class="fval mono" id="alphaVal"></span></label>
         </div>
