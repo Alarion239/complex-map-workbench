@@ -21,7 +21,7 @@
 // paper; filled, the samples with a point, judged or not; paper, those of them on the bare paper; ex, up to opts.nex
 // wrong samples, each with w, its points [x, y, D] and the front's colour.
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
-// nex = 3, style = 'phase', sectors = 12 }
+// nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
 (function carryCompare(o) {
   o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null, nex: 3, style: 'phase', sectors: 12 }, o || {});
   const C = CX.C;
@@ -34,8 +34,11 @@
   const c = document.getElementById('canvasL'), x2d = c.getContext('2d'), W = c.width, H = c.height, d = x2d.getImageData(0, 0, W, H).data;
   const b = c.getBoundingClientRect(), sx = b.width / W, sy = b.height / H, M = __cmwPlaneMenu();
   const pts = [], at = [];
-  for (let j = 0; j < o.ny; j++) for (let i = 0; i < o.nx; i++) {
-    const px = Math.round(o.margin + (W - 2 * o.margin) * (i + 0.5) / o.nx), py = Math.round(o.margin + (H - 2 * o.margin) * (j + 0.5) / o.ny);
+  // (the samples: the grid, or opts.at's points of the shown plane where they fall on the pane within the margin)
+  const cells = [];
+  if (o.at) for (const [x, y] of o.at) { const q = M.w2s('L', x, y); if (!q) continue; const px = Math.round((q[0] - b.left) / sx), py = Math.round((q[1] - b.top) / sy); if (px >= o.margin && py >= o.margin && px < W - o.margin && py < H - o.margin) cells.push([px, py]); }
+  else for (let j = 0; j < o.ny; j++) for (let i = 0; i < o.nx; i++) cells.push([Math.round(o.margin + (W - 2 * o.margin) * (i + 0.5) / o.nx), Math.round(o.margin + (H - 2 * o.margin) * (j + 0.5) / o.ny)]);
+  for (const [px, py] of cells) {
     for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) pts.push(M.s2w('L', b.left + (px + ox) * sx, b.top + (py + oy) * sy));
     at.push([px, py]);
   }

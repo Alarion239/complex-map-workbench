@@ -12,7 +12,8 @@
 //   tanh pole in the window; the two sheets overlapping) and held mid-glide at 0.25 and 0.5; and with the example's own
 //   colour plane w1, parked and held mid-glide at 0.25 and 0.5, and parked at 0.25 and 0.5 straight from rest on a fresh
 //   page, read 3 s after the park and again once the frame holds still;
-// - the enhanced style: the Joukowski example in it, parked at 0.5 (colour plane w1), and z^2 parked at 0.5;
+// - the enhanced style: the Joukowski example in it, parked at 0.5 (colour plane w1), over the plane and densely along
+//   the image of the deformation's cut, and held mid-glide at 0.25 along it; and z^2 parked at 0.5;
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong, every sample's points listed, and none left on the bare paper;
@@ -88,6 +89,20 @@ const scrub = async (x) => {
   }
   return false;
 };
+// (the points of the shown frame about the image of a cut in plane b - 1: the curve z = c + r e^(iθ), θ from a0 to a1,
+// on both of its sides (r (1 ∓ 1e-4)), taken by the frame's H_u, and the points along each image's normal within k
+// device px of it; [[x, y], ...])
+const seamPts = async (c, r, a0, a1, n = 240, k = 6) => ev(`(() => {
+  const f = __cmwSvFrame(), M = __cmwPlaneMenu(), p0 = M.s2w('L', 0, 0), p1 = M.s2w('L', 1, 0), px = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / devicePixelRatio, out = [];
+  const at = (th, rr) => { const v = f.H(CX.C(${c[0]} + rr * Math.cos(th), ${c[1]} + rr * Math.sin(th))); return CX.isFin(v) ? [v.re, v.im] : null; };
+  for (const rr of [${r} * (1 - 1e-4), ${r} * (1 + 1e-4)]) for (let i = 1; i < ${n}; i++) {
+    const th = ${a0} + (${a1} - ${a0}) * i / ${n}, w = at(th, rr), w2 = at(th + 1e-4, rr);
+    if (!w || !w2) continue;
+    const tx = w2[0] - w[0], ty = w2[1] - w[1], tl = Math.hypot(tx, ty) || 1, nx = -ty / tl, ny = tx / tl;
+    for (let j = -${k}; j <= ${k}; j += 2) out.push([w[0] + nx * j * px, w[1] + ny * j * px]);
+  }
+  return out;
+})()`);
 const reach = async (name, o) => {
   const want = `__cmwSteps().T === ${o.T} && __cmwSteps().scope === ${JSON.stringify(o.scope)} && !__cmwSteps().play && !__cmwSteps().anim && ${o.park != null ? `Math.abs(__cmwSteps().x - ${o.park}) < 1e-9` : `__cmwSteps().i === ${o.go} && Math.abs(__cmwSteps().x - ${o.go}) < 1e-9`}`;
   let there = false;
@@ -191,7 +206,19 @@ if (EX >= 0) {
   await settled({ until: '__cmwSteps().planes.length === 2', max: 20000 });
   await ev(`__cmwSet('dc', 'enhanced'); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); 1`);
   await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().anim', max: 20000 });
-  if (await reach(key, { park: 0.5, T: 1, scope: 'all' })) await judge(key, { nx: 32, ny: 20, style: 'enhanced', skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 });
+  const jsk = { style: 'enhanced', skip: { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW: { discs: [[1.6, 0.1, 1.1]] }, nex: 60 };
+  if (await reach(key, { park: 0.5, T: 1, scope: 'all' })) {
+    await judge(key, Object.assign({ nx: 32, ny: 20 }, jsk));
+    // (along the deformation's tear, the image of the lower unit semicircle (joukHom's cut) from both sides, its ends at
+    // ±1 (the region's outline meets it at 1) left out: the band
+    // edges there are the exact image's, a seam, not the cells' interpolation across it)
+    await judge(`${key}, along the cut's image`, Object.assign({ at: await seamPts([0, 0], 1, -Math.PI + 0.15, -0.15), min: 200 }, jsk));
+  }
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  if (await reach(`${key.replace('parked at 0.5', 'mid-glide at 0.25')}`, { go: 0, T: 1, scope: 'all' }) && await scrub(0.25)) {
+    await judge(`Joukowski, enhanced, colour plane w1, mid-glide at 0.25, along the cut's image`, Object.assign({ at: await seamPts([0, 0], 1, -Math.PI + 0.15, -0.15), min: 200 }, jsk));
+  }
+  await ev('window.__svScrubUp && window.__svScrubUp(); 1');
 }
 {
   const key = 'z^2, enhanced, Everywhere parked at 0.5';
@@ -223,8 +250,8 @@ await settled({ until: '!GLR.lost && GLR.ok', max: 10000, panes: false });
 ok('after a lost and restored GL context: the frame is drawn and holds still', await steady(), null);
 await judge('after a lost and restored GL context', { nx: 32, ny: 20, skip: { circles: [[0, 0, 0.6], [0, 0, 1.6]], eps: 0.08 } });
 // (every case judged: a page that stopped answering must not pass by judging none; 8 chains' 2-3 colour planes, 16 of
-// Joukowski, 2 in the enhanced style, 8 of the powers and the restored context)
-const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 16 + 2 + 8 + 1;
+// Joukowski, 4 in the enhanced style, 8 of the powers and the restored context)
+const want = Object.values(CHAINS).reduce((n, st) => n + new Set([0, Math.floor(st.length / 2), st.length - 1]).size, 0) + 16 + 4 + 8 + 1;
 ok('every case was judged', Object.keys(info.cases).length === want, { judged: Object.keys(info.cases).length, want });
 const all = Object.values(info.cases).filter(Boolean);
 info.summary = `${all.filter((r) => r.considered >= MIN_N && r.rate <= MAX_BAD && r.blank === 0).length} of ${all.length} cases pass`;

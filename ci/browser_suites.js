@@ -170,6 +170,10 @@ const KNOWN = {
   'steps_carry_exact_cmd.js': [
     s(/^Joukowski, Everywhere, colour plane w1, mid-glide at 0\.25: the carried colour is the exact one /, 'gliding (no fix-up), the whole plane\'s mesh steps along the image of the lower unit semicircle under the deformation\'s disc branch, where the classic deformation is smooth; open on #587 (shaders\' finer whole-plane template while gliding)',
       (d) => d && d.blank === 0 && d.paper === 0 && d.rate > 0.01 && d.rate < 0.05),
+    s(/^Joukowski, enhanced, colour plane w1, parked at 0\.5, along the cut's image: no sample on the bare paper$/, 'the deformation\'s tear (joukHom\'s cut, the lower unit semicircle) is drawn as one mesh across it: a few pixels along its image show the paper; open on #584 (shaders\' branch-clip PR, which makes the cut a seam and gates this check)',
+      (d) => d && d.rate <= 0.01 && d.paper > 0 && d.paper < 20),
+    s(/^Joukowski, enhanced, colour plane w1, mid-glide at 0\.25, along the cut's image: /, 'gliding, the mesh interpolates across the deformation\'s tear (joukHom\'s cut): its band edges bend where the exact image has a seam; open on #584 (shaders\' branch-clip PR, which gates this check)',
+      (d) => d && d.rate < 0.2 && d.paper < 40),
   ],
 };
 
