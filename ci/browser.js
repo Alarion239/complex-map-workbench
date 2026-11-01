@@ -18,6 +18,7 @@ const { spawn } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { SUITES, EXCLUDED, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS } = require('./browser_suites');
 const { suitesOf } = require('./browser_shards');
+const { VIEWS } = require('./suite_views');
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
@@ -93,6 +94,8 @@ async function runOne(file, run, port) {
   const env = Object.assign({}, process.env, {
     // the suites that take the server from the environment (sound_*: CMW_PORT; export, mv_views: CMW_BASE)
     CMW_PORT: String(port), CMW_BASE: `http://localhost:${port}/`,
+    // (#620) a ported suite opens every page in the steps view (ci/suite_views.js steps({ pin: true }), pin_view.js)
+    CMW_VIEW: VIEWS[file] && VIEWS[file].pin ? 'steps' : '',
   }, run.env || {});
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });

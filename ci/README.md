@@ -324,7 +324,7 @@ node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and mai
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
-node ci/browser_shards.js check                    # every browser suite in exactly one shard
+node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```

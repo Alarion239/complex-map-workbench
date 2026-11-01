@@ -2,8 +2,11 @@
 // (#620, K1 item 1) Which view each browser suite tests, for the switch-over to the steps view (#443: K1 suites and
 // exports, K2 the default flip, K3 the classic views deleted). Every runnable suite (ci/browser_shards.js) has exactly
 // one entry; `node ci/browser_shards.js check` fails without one. The kit pins every page to the classic view unless
-// its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so today every suite tagged port or classic runs classic.
-//   steps()               already opens the steps view (its URL has ?view=steps; some check the classic view too)
+// its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
+//   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
+//   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
+//                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
+//                         Porting a suite is this tag, plus its assertions retargeted to what the steps view shows
 //   port(area, note)      tests behaviour the steps view has (or K1 adds: the note says which item): it must run
 //                         against the steps view; area is the worker group that ports it (#620's breakdown)
 //   classic(why)          tests a part of the classic views that the steps view replaces: it stays pinned to the classic
@@ -12,7 +15,7 @@
 // languages), export, geometry (constructions, sheets), render (the GPU pictures, regions, globes), sound, engine (no
 // view of its own: dropping the pin is the port).
 //   node ci/suite_views.js            the port list grouped by area, and the classic-only list with reasons
-const steps = () => ({ view: 'steps' });
+const steps = (o = {}) => ({ view: 'steps', pin: !!o.pin });
 const port = (area, note) => ({ view: 'port', area, note: note || '' });
 const classic = (why) => ({ view: 'classic', why });
 const AREAS = ['interact', 'phone', 'words', 'export', 'geometry', 'render', 'sound', 'engine'];
@@ -179,11 +182,11 @@ const VIEWS = {
 function checkViews(runnable) {
   const bad = [];
   for (const f of runnable) if (!VIEWS[f]) bad.push(`${f}: no view in ci/suite_views.js (steps, port or classic)`);
-  for (const [f, v] of Object.entries(VIEWS)) {
+  for (const [f, tag] of Object.entries(VIEWS)) {
     if (!runnable.includes(f)) bad.push(`${f}: in ci/suite_views.js but not a runnable suite`);
-    if (v.view === 'port' && !AREAS.includes(v.area)) bad.push(`${f}: port to an unknown area ${v.area} (${AREAS.join(', ')})`);
-    if (v.view === 'classic' && !v.why) bad.push(`${f}: classic-only without a reason`);
-    if (!['steps', 'port', 'classic'].includes(v.view)) bad.push(`${f}: unknown view ${v.view}`);
+    if (tag.view === 'port' && !AREAS.includes(tag.area)) bad.push(`${f}: port to an unknown area ${tag.area} (${AREAS.join(', ')})`);
+    if (tag.view === 'classic' && !tag.why) bad.push(`${f}: classic-only without a reason`);
+    if (!['steps', 'port', 'classic'].includes(tag.view)) bad.push(`${f}: unknown view ${tag.view}`);
   }
   return bad;
 }
@@ -192,9 +195,9 @@ if (require.main === module) {
   const by = (view) => Object.entries(VIEWS).filter(([, v]) => v.view === view);
   console.log(`steps (${by('steps').length}): ${by('steps').map(([f]) => f).join(', ')}`);
   for (const a of AREAS) {
-    const l = by('port').filter(([, v]) => v.area === a);
-    if (l.length) console.log(`port, ${a} (${l.length}):\n${l.map(([f, v]) => `  ${f}${v.note ? ` (${v.note})` : ''}`).join('\n')}`);
+    const inArea = by('port').filter(([, tag]) => tag.area === a);
+    if (inArea.length) console.log(`port, ${a} (${inArea.length}):\n${inArea.map(([f, tag]) => `  ${f}${tag.note ? ` (${tag.note})` : ''}`).join('\n')}`);
   }
-  console.log(`classic until K3 (${by('classic').length}):\n${by('classic').map(([f, v]) => `  ${f}: ${v.why}`).join('\n')}`);
+  console.log(`classic until K3 (${by('classic').length}):\n${by('classic').map(([f, tag]) => `  ${f}: ${tag.why}`).join('\n')}`);
 }
-module.exports = { VIEWS, AREAS, checkViews };
+module.exports = { VIEWS, checkViews };
