@@ -146,7 +146,7 @@ await ev(`__cmwSteps({ scope: 'all' }); 1`); await settle(300);
 await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
 const rg = await S();
 ok('→ on a focused scope radio picks the next one, not the next plane', rg.x === before && rg.scope === 'in', rg);
-// (the scope switch is the shared seg() with its arrows looping: from the last radio → goes to the first, from the first ↑ to the last)
+// (#595: the scope switch is the shared seg() with its arrows looping, as before: from the last radio → goes to the first, from the first ↑ to the last)
 await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(500);
 const wr = await S();
 ok('→ on the last scope radio wraps to the first', wr.x === before && wr.scope === 'all', wr);

@@ -148,7 +148,7 @@ ok('Delete on f₂: removed, the keyboard on f₁\'s ⋯', (await types()).join(
 await quiet('Remove', /Removed f₂/);
 await zcycle('Remove');
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`);
-await kb('Delete', { metaKey: true }); await settle(400);   // (⌘⌫ as the chain's cards take it: one reading in stepEditKey)
+await kb('Delete', { metaKey: true }); await settle(400);   // (⌘⌫ as the chain's cards take it, one reading in stepEditKey, #595)
 const em = await ev(`({ n: __cmwP().steps.length, add: !!document.querySelector('#svStrip .sv-add'), msg: !document.querySelector('.sv-empty').hidden, text: document.querySelector('.sv-empty').textContent, prev: document.querySelector('.sv-prev').disabled, next: document.querySelector('.sv-next').disabled, speed: document.querySelector('.sv-speed').disabled, ring: document.querySelector('.sv-thumb').getAttribute('aria-disabled'), planes: __cmwSteps().planes.join() })`);
 ok('the empty chain: the z dot and + Add function, ‹ › ring and speed off, the plane says what to do', em.n === 0 && em.add && em.msg && /Add a function to send z/.test(em.text) && em.prev && em.next && em.speed && em.ring === 'true' && em.planes === '0', em);
 ok('the hint has a ground of its own (opaque), not bare text over the plot', await ev(`(() => { const b = getComputedStyle(document.querySelector('.sv-empty')); return b.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(b.borderTopWidth) >= 1; })()`), null);

@@ -26,7 +26,10 @@ const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const stats = () => ev(`(() => { const s = __cmwLabelStats; return { n: s.n, ms: s.ms, list: s.list || [] }; })()`);
 const zero = () => ev(`(__cmwLabelStats.n = 0, __cmwLabelStats.ms = 0, __cmwLabelStats.list = [], 1)`);
 const placed = () => ev(`__cmwLabelsPlaced()`);
-const same = (a, b) => a.length === b.length && a.every((q, i) => q.text === b[i].text && Math.abs(q.x - b[i].x) < 0.6 && Math.abs(q.y - b[i].y) < 0.6);
+// two renders of one view place a label at the same spot: the hook rounds a place to 0.1 px, and the measured text width of a
+// second render can differ in its last digit, which moves a place by a few tenths of a pixel at most
+const PLACE_TOLERANCE_PX = 0.6;
+const same = (a, b) => a.length === b.length && a.every((q, i) => q.text === b[i].text && Math.abs(q.x - b[i].x) < PLACE_TOLERANCE_PX && Math.abs(q.y - b[i].y) < PLACE_TOLERANCE_PX);
 // a glide from plane 0 to plane 1 and back, the label passes counted while it is under way
 const glideCost = async () => {
   await ctl({ go: 0, now: true }); await quiet();
