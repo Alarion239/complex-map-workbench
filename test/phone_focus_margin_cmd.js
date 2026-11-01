@@ -1,4 +1,4 @@
-// Keyboard focus leaves a control room for its focus ring (#601): on a phone at 360 × 780 with the tour's Constructions step
+// Keyboard focus leaves a control room for its focus ring: on a phone at 360 × 780 with the tour's Constructions step
 // open (the Tools sheet's tiles end exactly at the scroller's foot), Tab to the Formula tile, the last row, scrolls it into the
 // scroller far enough that its 3 px ring (2 px outline, 1 px offset) is not cut at the foot, light and dark. This is the page's own
 // rule (`:focus-visible { scroll-margin: 8px }`, src/page.html) at work, and what the layout suite's focus-ring check assumes:

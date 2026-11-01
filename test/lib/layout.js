@@ -393,10 +393,10 @@
       // there is in view (a control scrolled partly away shows its ring once it is scrolled to)
       // (the viewport's edge too counts only where the control's edge is in view)
       const qa = inter(clipOf(el), viewport()), qn = clipOf(el, { scroll: false });
-      // (a control with a scroll-margin of at least the ring's reach is scrolled that far clear of a scroller's edge when the
-      // keyboard focus brings it into view, so a scroller's edge does not cut its ring: the page's `:focus-visible { scroll-margin:
-      // 8px }` (src/page.html) does that for every control. This check focuses with preventScroll, so it reads the margin instead
-      // of the scroll, #601; test/phone_focus_margin_cmd.js shows the browser scrolls it)
+      // (a control whose scroll-margin is at least its ring's reach is scrolled that far clear of a scroller's edge when the
+      // keyboard focus brings it into view, so that edge does not cut its ring: the page's `:focus-visible { scroll-margin: 8px }`
+      // in src/page.html gives every control that. This check focuses with preventScroll, so it reads the margin instead of the
+      // scroll; test/phone_focus_margin_cmd.js shows the browser scrolls)
       const sm = { l: parseFloat(cs.scrollMarginLeft) || 0, t: parseFloat(cs.scrollMarginTop) || 0, r: parseFloat(cs.scrollMarginRight) || 0, b: parseFloat(cs.scrollMarginBottom) || 0 };
       const side = (k, sg) => Math.max(sg * (qn[k] - ring[k]), sg * (b[k] - qa[k]) >= -0.5 && sm[k] < grow - 0.5 ? sg * (qa[k] - ring[k]) : 0);
       const cut = Math.max(side('l', 1), side('t', 1), side('r', -1), side('b', -1));
