@@ -1,12 +1,12 @@
-// No example's Try line is cut in the phone's lane (#586): ?view=steps, a phone (360 × 780 and 390 × 844, touch), in en, ru and
-// it, every example that has a lane. The lane under the plane shows the example's name and its Try line; the line took two
-// lines at most and the third was cut (19 of 30 examples in Italian at 360). Now the lane takes the lines the text needs: the
-// text box holds all its text (no scroll height or width past its box), the lane is as tall as the layout gave it
-// (--ph-tour), and at least 25 examples had a lane (the count itself is the check that the walk read them). A command file
-// for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// No example's Try line is cut in the phone's lane: ?view=steps, a phone (360 × 780 and 390 × 844, touch), in en, ru and it,
+// every example that has a lane. The lane under the plane shows the example's name and its Try line and takes the lines the
+// text needs, up to four: the text box holds all its text (no scroll height or width past its box), the lane is as tall as
+// the layout gave it (--ph-tour) and at most 82 px, and at least 25 examples had a lane (the count is the check that the
+// walk read them). A line that needs a fifth is cut, so it fails, except the known Italian one below. A command file for a
+// CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
-// (#576: Pietro's Italian wording, five lines at 360; any other line over four fails)
+// (Italian wording that is Pietro's, five lines at 360 (issue #576); any other line over four fails)
 const KNOWN_FIFTH = new Set(['it La mappa di Douady–Hubbard']);
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -34,8 +34,6 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 8
     if (!p) continue;
     n++; if (p.grow) grown++;
     maxLines = Math.max(maxLines, p.lines || 2);
-    // (the lane takes at most four lines, 82 px: a line that needs a fifth is cut, so it fails. One is known: the Italian
-    // wording is Pietro's, listed on #576)
     if (p.lines > 4) { tooLong.push(`${p.name} (${p.lines} lines)`); ok(`${tag}: "${p.name}": needs at most four lines`, KNOWN_FIFTH.has(`${lang} ${p.name}`), p.lines); }
     else ok(`${tag}: "${p.name}": the Try line is not cut`, p.cutH <= 1 && p.cutW <= 1 && p.inLane, p);
     ok(`${tag}: "${p.name}": the lane is at most 82 px`, p.lane <= 82 || p.mode === 'head', p);

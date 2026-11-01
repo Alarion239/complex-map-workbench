@@ -1784,7 +1784,7 @@ const Tour = (() => {
     if (changed && mode !== 'desk') call('slot', where);   // (the app's phone layout shares out its height again)
     paintNext(ui);
   }
-  // the phone's row under the header: the one place that writes its height (--ph-tour), for the strip and for the lane (#586),
+  // the phone's row under the header: the one place that writes its height (--ph-tour), for the strip and for the lane,
   // true when it changed; PH_LINE: a line of the strip's or the lane's text, 17 px
   const PH_LINE = 17;
   const phTourGet = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
@@ -3110,7 +3110,7 @@ const Tour = (() => {
     lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
     const st = document.documentElement.style;
     if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
-    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = phTourGet(); }   // (baseH: the row's own height, which laneFit grows from (#586))
+    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = phTourGet(); }   // (baseH: the row's own height, which laneFit grows from)
     call('slot', where);
     laneFit();
   }
@@ -3124,15 +3124,14 @@ const Tour = (() => {
     box.classList.remove('two');
     if (opt) opt.hidden = false;
     const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
-    // (#586: a phone's lane, back to its own height first, then grown below if the line needs more)
+    // (a phone's lane: back to its own height first, then grown below if the line needs more)
     box.classList.remove('grow'); delete tx.dataset.lines;
     if (!desk && lane.baseH && phTourGet() !== lane.baseH) laneSetH(lane.baseH);
     if (!over()) return;
     if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
     if (desk) { box.classList.add('two'); return; }
-    // (a phone's line that still needs a third line: the lane takes the lines it needs, as the tour's strip does (#559), and
-    // the Italian Try lines are not cut; the lines are 17 px, the text has 7 px above and below)
-    // (ux on #614: at most four lines, 82 px: a line that would need a fifth is cut there, and the check lists it for the wording's owner)
+    // (a phone's line that still needs a third line: the lane takes the lines it needs, as the tour's strip does; the lines are 17 px, the text has 7 px above and below)
+    // (at most four lines, 82 px: a line that would need a fifth is cut there; example_lane_cut_cmd.js lists such lines)
     box.classList.add('grow');
     tx.style.webkitLineClamp = 'unset'; tx.style.lineClamp = 'unset';
     const full = Math.max(2, Math.ceil((tx.scrollHeight - 1) / PH_LINE));
