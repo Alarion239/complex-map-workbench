@@ -190,7 +190,9 @@
   // a usable meshing window: finite, positive size (a degenerate one, e.g. restored from old saved state, would
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
-  function shapeGPU(s) {
+  // (o.base: the mesh's base resolution instead of the drawing's (#584: the steps view's whole-plane carry mesh, which
+  // has no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it)
+  function shapeGPU(s, o) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
     const win = winOf(s);
     let r = gpu.get(s.id);
@@ -198,7 +200,7 @@
     const t = kindType(s);
     const sk = shapeKey(s);
     if (t === 'area') {
-      const base = baseRes(s, r);
+      const base = (o && o.base) || baseRes(s, r);
       let bb = null;
       try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
       const ww = win.x1 - win.x0, wh = win.y1 - win.y0;

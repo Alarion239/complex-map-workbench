@@ -81,45 +81,19 @@
   // dcolor(f_T ∘ … ∘ f_{s+1}(z)) (uGs, uGt; the same z the region's patterns read, made absolute: vSrc + uQ), so the
   // colour travels with the region's points as its patterns do
   // (#584) the steps view's carried colour on a region's tessellated mesh: the region tiling's vertex stage (its places,
-  // from the chain or the map cache), handing the fragment stage each point's absolute source point vP; the fragment
-  // stage is the carried colour's own, CARRY_FS: dcolor(chainRange(vP, uGs, uGt)) with the shared sheet key (PRE_KEY),
-  // nothing of the region's patterns (their whole chain per fragment was most of a glide frame: perf on #587). Its
-  // triangles: also those a few pixels small whose middle strays (a fold of the map where two sheets meet, so the
-  // sheets' seam is the fold's own curve, not the drop of whole triangles beside it); one torn across a cut is large
-  // and still left out, and so is one longer than uKLim (a third of the pane, as drawCarried's lim: a point the map
-  // sends far, whose triangle would cover the pane many times over and place nothing well)
-  // (sheet: each triangle's places continued from its centre's sheet, chainSheetHom as the landscape's evalAt, so a
-  // triangle across a cut of the deformation's path (the power path's ray, the Joukowski path's lower unit semicircle)
-  // is continued, not torn and left out; the sheet key orders it against the other branch. The chain's map, no cache)
-  const REGION_K_VS = (fetch, sheet) => {
-    const vs = '  vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;\n';
-    const pos = fetch === 'local' ? null : '  gl_Position = vec4(((w - uCenter) - uCenterLo) * uScale, 0.0, 1.0);';
-    const at = '  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);\n  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);\n';
-    let t = REGION_VS(false, fetch);
-    if (t.split(vs).length !== 2 || !pos || t.split(pos).length !== 2 || t.split(at).length !== 2) throw new Error('REGION_VS changed: regionK');
-    if (sheet) {
-      t = t.replace('void main() {', 'vec2 kW(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\nvoid main() {')
-        .replace(at, '  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);\n  vec2 w0 = kW(zc, s0), w1 = kW(zc, s1), w2 = kW(zc, s2);\n  vec2 wm = kW(zc, (s0 + s1 + s2) / 3.0);\n');
-    }
-    // (the sheet key per vertex, as its depth: PRE_KEY's formula on the vertex's source point)
-    const key = PRE_KEY_UNI + 'float kDepth(vec2 sa) {\n' + PRE_KEY.replace('  if (uKeyOn > 0) {', '  float gd = 0.0;\n  if (uKeyOn > 0) {')
-      .replace(/gl_FragDepth = x \/ \(x \+ 1024\.0\);/, 'gd = x / (x + 1024.0);').replace('  } else gl_FragDepth = gl_FragCoord.z;', '  }') + '  return gd;\n}\n';
-    return t.replace('uniform mat4 uMVP;', 'uniform mat4 uMVP; uniform float uKPx; uniform float uKLim;\nout vec2 vP;\n' + key)
-      .replace(vs, vs + '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n')
-      .replace('good = good && midOk(w0, w1, w2, wm);', 'float ke = max(max(len2(w1 - w0), len2(w2 - w1)), len2(w0 - w2));\n  good = good && (midOk(w0, w1, w2, wm) || ke < uKPx) && ke < uKLim;')
-      .replace(pos, '  gl_Position = vec4(((w - uCenter) - uCenterLo) * uScale, uKeyOn > 0 ? 2.0 * kDepth(vP) - 1.0 : 0.0, 1.0);');
-  };
-  // (its fragment stage: CARRY_FS without the per-fragment key, the vertex stage's depth orders the sheets, so a
-  // fragment behind the front sheet drawn already is dropped before its colour is computed)
-  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false).replace(PRE_KEY, '');
+  // from the chain, the map cache or each triangle's own sheet) with its carry option (REGION_VS), and the carried
+  // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
+  // region's patterns (their whole chain per fragment was most of a glide frame: perf on #587); the vertex stage's
+  // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
+  const REGION_K_VS = (fetch, sheet) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet });
+  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false, false);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
-    // (its triangles: also those a few pixels small whose middle strays, a fold of the map where two sheets meet, so
-    // the sheets' seam is the fold's own curve and not the drop of whole triangles beside it; a triangle torn across a
-    // cut is large and still left out)
+    // (#584: the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
+    // triangle's own sheet)
     regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)

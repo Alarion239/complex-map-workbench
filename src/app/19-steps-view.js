@@ -380,20 +380,6 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: [] };
   }
-  // SV_ALL's tessellated mesh over the tiling's window (its far sides stretched to infinity, as any unbounded region's):
-  // coarser than a region's (80 base cells a side, not fullRes's 140): it has no edge to draw, each fragment's colour
-  // is its own point's exactly, and the map at its lattice points was most of a glide frame (perf, #587's first Mac
-  // run). Kept while the window stays
-  let svAllRes = null;
-  function svAllMesh() {
-    const key = JSON.stringify(clipWin);
-    if (svAllRes && svAllRes.key === key) return svAllRes;
-    if (svAllRes && svAllRes.meshRes) GLR.destroy(svAllRes.meshRes);
-    let mesh = null;
-    try { mesh = Region.buildMesh(SV_ALL, clipWin, 80); } catch (e) { mesh = null; }
-    svAllRes = { key, meshRes: mesh && mesh.tri.length && GLR.ok ? GLR.createMesh(Region.meshInstances(mesh)) : null };
-    return svAllRes;
-  }
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
@@ -434,11 +420,14 @@
     const carry = svCarryStyle(T);
     const res = [];
     for (const x of list) {
-      const r = x === SV_ALL ? svAllMesh() : shapeGPU(x);
+      // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
+      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
       if (!r || !r.meshRes) return false;
       res.push(r.meshRes);
     }
-    if (list.includes(SV_ALL)) res.push(...svCarryExtras(map));
+    // (#590: the whole plane's points about the frame's map's poles, on log-polar meshes there, under the same depth;
+    // a fine search at rest or parked)
+    if (list.includes(SV_ALL)) res.push(...poleMeshes(map, !svGliding()));
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after)
@@ -451,9 +440,6 @@
     }
     return true;
   }
-  // more meshes for the whole plane while gliding (Everywhere), drawn with SV_ALL's under the same sheet key and depth:
-  // the log-polar meshes about the poles of the frame's map (#590, poleMeshes; a fine search at rest or parked)
-  function svCarryExtras(map) { return poleMeshes(map, !svGliding()); }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
