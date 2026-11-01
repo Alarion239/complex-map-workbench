@@ -25,7 +25,7 @@ const SHARDS = [
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
   { id: 'tour', suites: ['tour_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_tasks_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'tour_skip_hover_cmd.js', 'phone_fwell_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js', 'tour_it360_cmd.js'] },                   // 552 + 16 + 44
-  { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 557
+  { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone', 'example_lane_cut_cmd.js'] },               // 557
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
   // ([#465] raw TeX on screen, a language a run)
   { id: 'raw-tex', suites: ['raw_tex_cmd.js#en', 'raw_tex_cmd.js#ru', 'raw_tex_cmd.js#it'] },
