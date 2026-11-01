@@ -17,7 +17,19 @@ const rclick = async (x, y) => {
   await settled({ floor: 150, max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
 };
 // the client point of w in the left plane
-const at = (re, im) => ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
+// the client point of w in the left plane, once the pane's view holds still (two reads 200 ms apart agree)
+const at = async (re, im) => {
+  let p = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
+  for (let i = 0; i < 20; i++) {
+    await settled({ floor: 200, max: 3000 });
+    const q = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
+    if (Math.abs(q[0] - p[0]) < 0.5 && Math.abs(q[1] - p[1]) < 0.5) return q;
+    p = q;
+  }
+  return p;
+};
+// what is under client point (x, y): the element's id or class (a popover or overlay there takes the click)
+const under = (x, y) => ev(`(() => { const e = document.elementFromPoint(${x}, ${y}); return e ? e.id || String(e.className) : null; })()`);
 const CIRCLE = { id: 'c1', kind: 'circle', c: [0, 0.8], r: 0.3, ci: 0, visible: true, stage: 1 };
 await view(1440, 900, false, false);
 for (const [where, url, go] of [['steps view, plane w₁', 'view=steps', `__cmwSteps({ go: 1, now: true })`], ['classic view, step 2 focused', '', '']]) {
@@ -29,17 +41,20 @@ for (const [where, url, go] of [['steps view, plane w₁', 'view=steps', `__cmwS
   await settled({ floor: 300, max: 15000, until: `typeof __cmwPlaneMenu === 'function'${url ? " && typeof __cmwSteps === 'function'" : ''}` });
   if (go) { await ev(`${go}, 1`); await settled({ floor: 300, max: 15000, until: `!__cmwSteps().moving` }); }
   ok(`${where}: the left plane is w₁`, (await ev(`__cmwPlaneMenu().leftStage()`)) === 1, await ev(`__cmwPlaneMenu().leftStage()`));
+  await closeAll();
   const [x1, y1] = await at(0, 1.1);
+  const hit = await under(x1, y1);
   await rclick(x1, y1);
   const on = await menu();
-  ok(`${where}: a right-click on the circle offers its line integral`, !!on && on.includes('integral'), on);
+  ok(`${where}: a right-click on the circle offers its line integral`, !!on && on.includes('integral'), { menu: on, at: [x1, y1], under: hit });
   if (on && on.includes('integral')) {
     const pick = await ev(`(() => { const b = document.querySelector('#popHost .pop.menu.pm .mi[data-pm="integral"]'); const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`);
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pick[0], y: pick[1], button: 'left', buttons: 1, clickCount: 1 });
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pick[0], y: pick[1], button: 'left', buttons: 0, clickCount: 1 });
     await settled({ floor: 200, max: 5000, until: `!!document.querySelector('#popHost .int-pop')` });
     const box = await ev(`__cmwPlaneMenu().curveBox('c1')`);
-    // (the curve the integral runs along: the circle in plane w₁, its box 0.6 by 0.6 about 0.8i)
+    // (the curve the integral runs along: the circle in plane w₁, its box 0.6 by 0.6 about 0.8i; 0.02 is room for the
+    // sampled polygon's sag inside the circle, where the curve of a wrong plane is off by more than 0.5)
     ok(`${where}: the integral runs along the circle in plane w₁`, !!box && Math.abs(box.x0 + 0.3) < 0.02 && Math.abs(box.x1 - 0.3) < 0.02 && Math.abs(box.y0 - 0.5) < 0.02 && Math.abs(box.y1 - 1.1) < 0.02, box);
   }
   await closeAll();
