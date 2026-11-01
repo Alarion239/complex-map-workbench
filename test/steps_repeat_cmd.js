@@ -83,6 +83,22 @@ ok('End the repeat: no repeat on the step, no badge, no row', (await rep(2)) ===
 await undo();
 ok('undo restores the repeat, N = 3, with its badge and row', (await rep(2)).n === 3 && (await badges())[1][1] === '×3' && (await row()).n === '3', [await rep(2), await badges()]);
 
+// ---- a menu with one choice has no submenu: the item acts at once (step 1 can only repeat itself) ----
+await press('.insp-repeat .rep-end'); await settled({});
+await press('#svStrip .sv-step[data-k="1"] .sv-more');
+await settled({ panes: false, until: `!!document.querySelector('#popHost .menu')` });
+const labels1 = await ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((x) => [x.querySelector('.mi-label').textContent, !!x.querySelector('.mi-sub, .mi-chev, .mi-arrow')])`);
+await pickItem('Repeat…');
+await settled({ until: `!!document.querySelector('.insp-repeat .rep-n') && document.activeElement === document.querySelector('.insp-repeat .rep-n')` });
+ok('step 1\'s ⋯ offers Repeat… as one item (no submenu of one), and it sets N = 2 on step 1 with the keyboard in the N field', labels1.some((l) => l[0] === 'Repeat…') && !labels1.some((l) => l[0] === 'Repeat') && JSON.stringify(await rep(1)) === JSON.stringify({ n: 2, len: 1 }) && (await row()).focus, { labels1, r: await rep(1) });
+await settled({ floor: 600 });   // (a menu is not raised again within 500 ms of the last)
+await press('#svStrip .sv-step[data-k="1"] .sv-more');
+await settled({ panes: false, until: `[...document.querySelectorAll('#popHost .menu .mi')].some((x) => x.querySelector('.mi-label').textContent === 'End the repeat')` });
+const own = await ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((x) => x.querySelector('.mi-label').textContent).filter((t) => /^(Repeat…?|End the repeat)$/.test(t))`);
+ok('a step in a repeated block: Repeat… and End the repeat are two items of the menu', JSON.stringify(own) === JSON.stringify(['Repeat…', 'End the repeat']), own);
+await pickItem('End the repeat'); await settled({});
+ok('End the repeat from the menu ends it', (await rep(1)) === null, await rep(1));
+
 // ---- a block of two steps ----
 await press('.insp-repeat .rep-end'); await settled({});
 await press('#svStrip .sv-step[data-k="3"] .sv-more');

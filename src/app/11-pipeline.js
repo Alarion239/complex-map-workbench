@@ -430,7 +430,13 @@
     // (v16: which steps the deformation deforms, SPEC 6.5)
     if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk }); }
+    if (!isDerivStep(st, built[k - 1])) {
+      const rk = repeatItems(k);
+      // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
+      if (opt && opt.thread && rk.length === 1) items.push({ id: 'repeat', label: $t('Repeat…'), run: rk[0].run });
+      else if (opt && opt.thread && repeatOf(k)) items.push({ id: 'repeat', label: rk[0].label, run: rk[0].run }, { id: 'repeatEnd', label: rk[1].label, run: rk[1].run });
+      else if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk });
+    }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
