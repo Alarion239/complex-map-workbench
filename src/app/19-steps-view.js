@@ -365,6 +365,9 @@
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const { a, b, u, map, F } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
+    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
+    if (rest) svKeepView();
     pane.setView(S.srcView);
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
