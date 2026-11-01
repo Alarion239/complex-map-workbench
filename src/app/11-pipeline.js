@@ -708,6 +708,8 @@
         if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
         input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
         commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; #442 Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
       // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
@@ -1082,7 +1084,12 @@
     // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
     const pipeHead = document.querySelector('.pipe-head');
     if (pipeHead && typeof ResizeObserver === 'function') {
-      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const fitPipeHead = () => {
+        // (#566: the heading shrinks first, as CSS has it; one that is cut, or a row that still does not fit, hides it)
+        const title = pipeHead.querySelector(':scope > h2');
+        pipeHead.classList.remove('notitle');
+        if (pipeHead.scrollWidth > pipeHead.clientWidth + 1 || (title && title.scrollWidth > title.clientWidth + 1)) pipeHead.classList.add('notitle');
+      };
       const ro = new ResizeObserver(fitPipeHead);
       ro.observe(pipeHead);
       for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }

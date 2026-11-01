@@ -123,13 +123,14 @@ const TIMING = {
 
 const s = (re, why, measured) => ({ re, why, measured });
 const SOFTWARE = {
-  // (the tour masks its rings off an open layer frame by frame; the audit looks once, 450 ms and 2 frames after the
-  // layer opens, during its 4-px pop-in, which here is 1-3 frames: the mask is an earlier frame's. Only when the layer is
+  // (the tour masks its rings off an open layer frame by frame; the audit looks once, two frames after the layer shows
+  // and its animations end (#504: no fixed 450 ms), which can still fall in its 4-px pop-in, 1-3 frames here: the mask
+  // is an earlier frame's. Only when the layer is
   // on top at all its points, the tour stays and the layer closes)
   'tour_audit_cmd.js': [
     s(/ layer (palette|export|toast)\*?: the tour covers none of it, its rings masked off it, the tour stays$/, 'one look during the layer\'s pop-in, which takes 1-3 frames here: the rings\' mask is from an earlier frame',
       (d) => d && JSON.stringify(d.kinds) === '["ringOverLayer"]' && d.g && Array.isArray(d.g.lay) && d.g.lay.every((x) => x === 'ok') && d.g.strip === true && d.after && d.after.active === true && d.after.layer === false),
-    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s, before the audit\'s look (450 ms and 2 frames of seconds each)',
+    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s (a timer), before the audit\'s look (its frames take seconds each here)',
       (d) => d && JSON.stringify(d.kinds) === '["noLayer"]'),
   ],
   'tour_cmd.js': [s(/^Sphere: one lit panel \(and the strip's window\) and a ring on its surface control$/, 'the ring comes once the shade\'s morph ends, seconds later here (the CI screenshot right after shows it)',

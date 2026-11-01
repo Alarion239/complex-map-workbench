@@ -989,7 +989,8 @@
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
-    if (!lPhase()) return null;
+    // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
+    if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
     return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
@@ -1124,7 +1125,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1239,6 +1240,25 @@
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, 62 + dy); x += ctx.measureText(p).width; }
     };
+    // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
+    if (SV.on && svCarriedFrom() && !lPhase()) {
+      // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
+      const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
+      const KEY_PAD = 8;     // room kept at the legend's right edge
+      const KEY_TOP = 22;    // baseline of the first line
+      const KEY_STEP = 13;   // line step (10.5 px text)
+      const maxW = LEG.W - KEY_PAD - KEY_X, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
+      const ui = `600 10.5px ${TH.ui}`;
+      let cur = '';
+      for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
+      if (cur) lines.push(cur);
+      ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
+      lines.forEach((ln, i) => {
+        let x = KEY_X;
+        for (const p of ln.split(/((?<![A-Za-z])w(?![A-Za-z]))/).filter(Boolean)) { ctx.font = p === 'w' ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP, maxW); x += Math.min(maxW, ctx.measureText(p).width); }
+      });
+      return;
+    }
     // the deformation paints H_t (merged-views review)
     const homL = morphOn() && lPaintsF();
     // the Phase style has no modulus bands: no strip

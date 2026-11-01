@@ -179,7 +179,7 @@ const Tour = (() => {
         { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.', deskTouch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.', phoneFine: 'Open the chain with the steps button under the planes and click Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
-          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', deskTouch: 'Tap the add card.', phoneFine: 'Open the chain, then click Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
+          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', deskTouch: 'Tap Add function.', phoneFine: 'Open the chain, then click Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
         { id: 'examples', anchor: ['examples', 'moreBtn'], title: 'Examples',
           lead: 'Worked examples, from Joukowski to a residue.',
           body: 'Worked examples, from the Joukowski airfoil to a residue found by integration. Open one whenever you want a starting point.',
@@ -397,6 +397,46 @@ const Tour = (() => {
       ],
     },
   ];
+  // (#442, ux's spec) the steps view's chapter, "Planes". Only under ?view=steps (a property of the page, fixed at its load): there
+  // it takes the place of Basics' X and Y steps (x, y, preimages, chain) and of the whole Deformation chapter. Each step puts the
+  // view where its task needs it (svPlace) and is done by one of the events the steps view sends
+  const SV_ON = (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })();
+  const PLANES = {
+    id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
+    steps: [
+      { id: 'plane', anchor: 'paneL', title: 'One plane at a time', before: [['svPlace', { i: 0, T: -1, scope: 'all', surf: 'plane' }]],
+        body: 'The view shows one plane of the chain, here $z$. Its colours come from the colour plane, the dot with the wheel on the thread.',
+        try: { text: 'Drag empty space, or scroll to zoom.', touch: 'Drag empty space, or pinch.', on: 'view-moved', test: (e) => !e || e.how !== 'orbit' } },
+      { id: 'thread', anchor: 'svStrip', also: ['paneL'], title: 'The thread', before: [['svPlace', { i: 0 }]],
+        body: 'Each dot is a plane, $z$, $w_1$, $w_2$; each chip between two dots is a step. ‹ › or ← → glide to the next plane, and the picture deforms along the step.',
+        try: { text: 'Press ›, or →.', touch: 'Tap ›, or swipe in from the right edge.', on: 'plane-changed' } },
+      { id: 'park', anchor: 'svRing', also: ['svStrip'], title: 'Between two planes', before: [['svPlace', { i: 0 }]],
+        body: 'Drag the ring and let go between two dots: the view stays there and shows the step part way. Shift+← → moves a quarter step.',
+        try: { text: 'Drag the ring halfway to the next dot.', touch: 'Drag the ring halfway to the next dot.', on: 'thread-parked' } },
+      { id: 'colour', anchor: 'svCp', also: ['svStrip'], title: 'The colour plane', before: [['svPlace', { i: 1, T: -1 }]],
+        body: 'The colour plane holds the colour wheel. Every plane before it shows the wheel pulled back through the steps. Colour from here, or {C}, makes the shown plane the colour plane.',
+        try: { text: 'Press {C}, or Colour from here.', touch: 'Tap the wheel button.', on: 'colour-plane-set' } },
+      { id: 'carried', anchor: 'paneL', also: ['svStrip'], title: 'Past the colour plane', before: [['svPlace', { i: 1, T: 1 }]],
+        body: 'Planes after it keep its colours: each point carries the colour it had there. The readout names where a point came from.',
+        try: { text: 'Press ›, then hover a point.', touch: 'Tap ›, then hold a point and slide.', on: 'probe', test: (e) => !e || !!e.past } },
+      { id: 'inside', anchor: 'svScope', title: 'Inside regions', before: [['svPlace', { i: 0, T: -1, scope: 'all' }]],
+        body: 'Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.',
+        try: { text: 'Choose Inside regions.', touch: 'Choose Inside regions.', on: 'scope-changed', test: (e) => !e || e.s === 'in' } },
+      { id: 'surface', anchor: 'svSurf', title: 'Sphere and Landscape', before: [['svPlace', { i: 0, scope: 'all', surf: 'plane' }]],
+        body: 'The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.',
+        try: { text: 'Choose Sphere.', touch: 'Tap the surface button, then Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere' } },
+      { id: 'step', anchor: 'svChip', title: 'Edit a step', before: [['svPlace', { i: 0, surf: 'plane' }]],
+        body: 'A chip opens its step in the Inspector: change the function, its parameters or its formula, and every plane after it follows.',
+        try: { text: 'Click the chip $f_1$.', touch: 'Tap the chip $f_1$.', on: 'step-selected', test: (e) => !e || e.k === 1 } },
+    ],
+  };
+  if (SV_ON) {
+    const chs = /** @type {any[]} */ (CHAPTERS);
+    const bi = CHAPTERS.findIndex((c) => c.id === 'basics'), di = CHAPTERS.findIndex((c) => c.id === 'deform');
+    if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
+    if (di >= 0) chs.splice(di, 1);
+    chs.splice(bi + 1, 0, PLANES);
+  }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
   // point gave which
   function harpUpDown(e, m) {
@@ -424,6 +464,10 @@ const Tour = (() => {
   // function returning the element.
   const ANCHORS = {
     examples: '#examplesBtn', palette: '#cmdBtn', exportBtn: '#exportBtn', helpBtn: '#helpBtn', moreBtn: '#hdrMoreBtn',
+    // (#442: the steps view's thread, its ring, its Colour from here button, its two choices (a segmented control, or on a phone one
+    // button that steps through them) and the first function chip)
+    svStrip: '#svStrip', svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
+    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
@@ -2053,7 +2097,7 @@ const Tour = (() => {
     return k.find((x) => !(SCENES[x] && [].concat(SCENES[x].needs || []).some(featureOff))) || k[k.length - 1];
   }
   // the actions that change the scene or the view: only when the tour can put the user's work back (borrow)
-  const CHANGES = new Set(['scene', 'range', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look', 'select', 'plane']);
+  const CHANGES = new Set(['scene', 'range', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look', 'select', 'plane', 'svPlace']);
   function absent(ci, si, scenes) {
     const ch = CHAPTERS[ci], st = ch.steps[si], k = sceneAt(ch, si), sc = k != null ? SCENES[k] : null;
     if (scenes === false && (k != null || (st.before || []).some((a) => CHANGES.has(a[0])))) return true;
@@ -3260,7 +3304,7 @@ const Tour = (() => {
     // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
     skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { cutShort: () => cutShort, CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
+    _t: { cutShort: () => cutShort, CHAPTERS, PLANES, SV_ON, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
       // (r3 review: the lines the running chapter's strip line needs here, for the browser checks)
       needLines: (dbg) => (run ? needLines(run, dbg) : null) },
   };
