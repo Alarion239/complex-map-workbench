@@ -1,4 +1,4 @@
-// The steps view's Repeat control (#645, behind ?view=steps): the classic bracket lives in the pipeline row, which the steps view
+// The steps view's Repeat control (behind ?view=steps): the classic bracket lives in the pipeline row, which the steps view
 // hides, so N is set where the steps view edits a step:
 // - a chip's ⋯ → Repeat → "This step, twice" (or "f₂–f₃, twice") sets a repeat, N = 2, and puts the keyboard in the N field of the
 //   Inspector's Repeat row;
