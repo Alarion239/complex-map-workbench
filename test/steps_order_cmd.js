@@ -25,8 +25,8 @@ const reopen = async (nsx) => {
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
-// a glide part-way (from a plane at x = 0): read until the thread's place is past `from`, for at most ~4 s (a condition wait)
-const underway = async (from = 0.25) => { await settled({ panes: false, max: 4000, until: `(() => { const s = __cmwSteps(); return (s.anim || s.play) && s.x >= ${from}; })()` }); return await S(); };
+// a glide part-way (from a plane at x = 0): read until the thread's place is past `from`, for at most ~4 s (a poll on the page's own clock inside one read, not a sleep between reads)
+const underway = (from = 0.25) => ev(`await new Promise((done) => { const t0 = performance.now(), look = () => { const s = __cmwSteps(); if (((s.anim || s.play) && s.x >= ${from}) || performance.now() - t0 > 4000) done(s); else setTimeout(look, 10); }; look(); })`, 9000);
 const pick = (v) => ev(`(() => { const e = document.querySelector('#svStrip .sv-order'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('change', { bubbles: true })); return e.value; })()`);
 
 await open(base([step('exp'), step('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), step('pown', { n: 3 })]), ns);
@@ -40,6 +40,8 @@ const sel = await ev(`(() => { const e = document.querySelector('#svStrip .sv-or
 ok('the strip has the order select, after the speed and before Loop', sel && sel.order.join() === 'sv-speed,sv-order,sv-loop', sel);
 ok('it names the two orders and starts at Step by step', sel && JSON.stringify(sel.opts) === JSON.stringify([['steps', 'Step by step'], ['all', 'All at once']]) && sel.value === 'steps' && !sel.disabled && sel.name === 'Glide order', sel);
 // plane by plane: a click on a plane two on glides through the planes between
+// (a first glide compiles its shader and stalls frames: one warm-up glide, then back)
+await ctl({ go: 3 }); await arrived(); await ctl({ go: 0, now: true }); await arrived();
 await ev(`document.querySelector('#svStrip .sv-plane[data-i="3"]').click(); 1`);
 const m1 = await underway();
 ok('Step by step: a glide to a plane three on is plane by plane (no span)', m1.anim && !m1.all && m1.span === null, m1);
