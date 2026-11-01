@@ -191,7 +191,7 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread (#634)
-    const svPicRow = A.svOn && A.svOn() ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]], (v) => { set.svPic = v; changed(); }, $t('Picture'))) : null;
+    const svPicRow = A.svOn() ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]], (v) => { set.svPic = v; changed(); }, $t('Picture'))) : null;
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();

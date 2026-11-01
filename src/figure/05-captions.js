@@ -338,7 +338,7 @@
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
   const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
-  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
+  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // (export review r3, editor-2) the default file name and \label: the scene, the view and the kind of figure, so two
   // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
   // name stays the same for the same figure, so a new export replaces only its own file
@@ -404,7 +404,7 @@
     if (o.axes) P.axes = o.axes;
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
-    const view = o.view || (o.svPic === 'film' && A.svOn && A.svOn() ? 'svFilm' : A.viewKind());
+    const view = o.view || (o.svPic === 'film' && A.svOn() ? 'svFilm' : A.viewKind());
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
