@@ -1272,7 +1272,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-row > .fl { grid-area: fl; font: var(--t-label); color: var(--ink-2); white-space: nowrap; }
 .fader-row > input[type="range"] { grid-area: rng; }
 /* a slider with stops under it is a 24 px target (WCAG 2.5.8), so the stops are not within reach of it */
-.fader-row:has(+ .fader-stops) > input[type="range"] { height: 24px; }
+.fader-row:has(+ .fader-stops) > input[type="range"] { height: var(--h-sm); }
 .fader-row > .fval { grid-area: fv; font: var(--t-readout); color: var(--ink); text-align: right; white-space: nowrap; overflow: hidden; }
 .fader-row:not(:has(> .fval)) { grid-template-areas: "fl fl" "rng rng"; }
 .fader-stops { position: relative; display: flex; justify-content: space-between; margin-top: 0; min-height: 24px; }
