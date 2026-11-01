@@ -207,6 +207,10 @@ vec3 dcolorD(vec2 w, vec2 wx, vec2 wy) {
   vec2 fw0 = abs(wx) + abs(wy);
   return dcolorAt(w, r, th, lr, abs(lx.x) + abs(ly.x), abs(lx.y) + abs(ly.y), w / max(uGrid, 1e-30), fw0 / max(uGrid, 1e-30), fw0);
 }
+// the colour itself, from w and its footprints (the change of a value over one device pixel, an f before its name):
+// r = |w|, th = arg w, lr = ln |w| and flr its footprint, faw arg w's footprint, g = w / uGrid and gw its footprint,
+// fw0 w's own; xm = lr / q and xp = th / q are the modulus and phase in sectors of q = tau / uSectors, fm and fp their
+// footprints
 vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g, vec2 gw, vec2 fw0) {
   float q = TAU / max(uSectors, 1.0);
   float xm = lr / q, fm = flr / q;
@@ -385,7 +389,15 @@ ${BARY}
 ${VALID}
 ${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\n' : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
-${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
+${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a triangle the cached places draw, or a fix-up skips, is culled here, so
+  // only a triangle torn across a cut is evaluated on its centre's sheet)
+  {
+    vec2 c0 = W(aIdx.x, s0), c1 = W(aIdx.y, s1), c2 = W(aIdx.z, s2), cm = W(aIdx.w, (s0 + s1 + s2) / 3.0);
+    float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
+    bool drawn = cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
+    if (aSkip > 0.5 || drawn) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  }
+` : ''}${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   vec2 w0 = onCentreSheet(zc, s0), w1 = onCentreSheet(zc, s1), w2 = onCentreSheet(zc, s2);
   vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0);` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
   vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}
