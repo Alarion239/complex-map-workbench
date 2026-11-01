@@ -12,9 +12,9 @@
   // the caption language (DESIGN.md 12, i18n-22): the dialog offers it only when the interface is not English, so an
   // English interface keeps its dialog and its captions as they were
   const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
-  // the build options from the remembered settings
   // the steps view keeps its own crop, As on screen until changed there: its figure is the stage's picture
   const cropOf = (s) => (A.svOn() ? s.svCrop || 'screen' : s.crop);
+  // the build options from the remembered settings
   function optsOf(s, extra) {
     const sk = sizeKey(s);
     return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: cropOf(s), axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
