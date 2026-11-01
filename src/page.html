@@ -803,6 +803,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pipe-head { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 12px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
 .pipe-head > * { flex: 0 0 auto; }
 .pipe-head h2 { font: var(--t-heading); color: var(--ink); margin: 0; }
+/* (#566) the heading is the one thing in the head that gives way: it shrinks to what is left, so no control is ever pushed out of the head, whatever the moment (the Inspector floating in narrows the head before the observer below has run); the observer then hides a heading that is cut */
+.pipe-head > h2 { flex: 0 1 auto; min-width: 0; overflow: hidden; }
 .pipe-head .compose { flex: 0 1 auto; min-width: 0; overflow: hidden; margin-left: 8px; font-size: 14px; color: var(--ink); }
 .pipe-head .grow { flex: 1 1 auto; }
 .pipe-head .seg { margin-right: 4px; }
