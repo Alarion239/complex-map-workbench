@@ -6,7 +6,7 @@
 // wrong when its pixel differs by more than 14 in a channel from all 9 pixels around the preimage's (a phase edge or a
 // contour between two pixels is not an error). Points near the circle's image (the outlines), near the trailing edge's
 // mark and label, and near the rulers are left out.
-// A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/steps_carry_exact_cmd.js
+// A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/steps_carry_inregion_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };

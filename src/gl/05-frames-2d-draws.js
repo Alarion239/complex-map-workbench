@@ -335,8 +335,26 @@
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
+  // (#584) st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's colour
+  // (regionK, flat, uncached: the chain evaluates its places and its colours); -> true when drawn, false while its
+  // program compiles
+  function drawRegionCarry(res, st) {
+    if (!ok || !res || !res.n) return false;
+    const P = program('regionK', st.map);
+    if (!P) return false;
+    use(P, st.map);
+    view2D(P, st.view, st.dpr || 1, res.org);
+    regionUniforms(P, st, res.org);
+    u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T);
+    dcUniforms(P, st.carry, st.dpr || 1);
+    gl.bindVertexArray(meshVAO(res, st.L || 4, st.skip));
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(st.L || 4).count, res.n);
+    gl.bindVertexArray(null);
+    return true;
+  }
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
+    if (st.carry) return drawRegionCarry(res, st);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
     try {

@@ -76,11 +76,22 @@
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
+  // (#584) the region program's carried colour (drawRegion with st.carry): each fragment of a region's tessellated
+  // mesh, wherever the map takes it, is coloured with the colour plane's colour of its source point z,
+  // dcolor(f_T ∘ … ∘ f_{s+1}(z)) (uGs, uGt; the same z the region's patterns read, made absolute: vSrc + uQ), so the
+  // colour travels with the region's points as its patterns do
+  const REGION_K_FS = () => {
+    const t = REGION_FS(false), end = '  o = vec4(col * a, a);\n}';
+    if (t.split('void main() {').length !== 2 || t.split(end).length !== 2) throw new Error('REGION_FS changed: regionK');
+    return t.replace('void main() {', DCOLOR.replace('uniform float uDpr;', '') + 'uniform int uGs; uniform int uGt;\nvoid main() {')
+      .replace(end, '  vec2 zk = vSrc + uQ;\n  col = dcolor(uGs >= uGt ? zk : chainRange(zk, uGs, uGt));\n' + end);
+  };
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
+    regionK: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_K_FS() },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },

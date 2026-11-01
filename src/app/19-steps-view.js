@@ -385,6 +385,22 @@
     }
     return true;
   }
+  // (#584) Inside regions while gliding (map: the glide's, h_{b,u} after the steps before b) or at rest on a plane past
+  // the colour plane: each region's tessellated mesh (the one its patterns travel on) moved by map, each fragment the
+  // colour plane's colour of its point z, dcolor(f_T ∘ … ∘ f_1(z)) (GLR.drawRegion with carry). Into the open GL
+  // frame (the mask frame's, its colour alone). False (nothing drawn) unless every visible region draws so
+  function svCarryRegions(pane, map, T) {
+    if (!GLR.drawRegion || derivIn(0, T)) return false;
+    const areas = S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
+    if (!areas.length || areas.some((x) => shapeStage(x))) return false;
+    const carry = { s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark };
+    for (const x of areas) {
+      const r = shapeGPU(x);
+      if (!r || !r.meshRes) return false;
+      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: MESH_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry })) return false;
+    }
+    return true;
+  }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
@@ -419,6 +435,9 @@
       // (#584: at rest past the colour plane, Inside regions on the GPU, each region's points take their colour exactly,
       // as the region tiling places them: svCarryExact; the carried grid where it cannot)
       if (still && !svColoured(a) && frame.keep && svCarryExact(pane, a, T)) carried = true;
+      // (and while gliding, or at rest while the exact pass compiles: the regions' own tessellated meshes, as their
+      // patterns travel, each fragment its point's colour)
+      else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && frame.keep && svCarryRegions(pane, map, T)) carried = true;
       else if (still ? !svColoured(a) : !isDeriv(b)) {
         carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
       }
