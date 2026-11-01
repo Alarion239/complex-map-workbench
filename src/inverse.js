@@ -396,15 +396,19 @@ const Inverse = (() => {
   }
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
-  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z)
+  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
+  // TIE_D octave are ties (#584, PRE_KEY's blend): a map symmetric about the window's centre (z^2 about 0) gives its points equal keys,
+  // which rounding (float32, and a forward mesh's placement of its points, 1e-3 of |z|) would order pixel by pixel
+  const TIE_D = 2 ** -8;
+  const dTie = (a, b) => a === b || !(Math.abs(a - b) > TIE_D);
   function front(a, b) {
-    if (a.D !== b.D) return a.D < b.D;
+    if (!dTie(a.D, b.D)) return a.D < b.D;
     const za = tieZ(a), zb = tieZ(b);
     if (za.im !== zb.im) return za.im > zb.im;
     return za.re > zb.re;
   }
   function frontRev(a, b) {                                            // the tie rule reversed (sensitivity tests only)
-    if (a.D !== b.D) return a.D < b.D;
+    if (!dTie(a.D, b.D)) return a.D < b.D;
     const za = tieZ(a), zb = tieZ(b);
     if (za.im !== zb.im) return za.im < zb.im;
     return za.re < zb.re;

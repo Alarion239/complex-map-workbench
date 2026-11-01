@@ -406,7 +406,8 @@ float ixDKTail() {
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
 bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  if (D1 != D2) return D1 < D2;
+  // (keys within 2^-8 octave are ties: Inverse.front's TIE_D)
+  if (abs(D1 - D2) > 0.00390625) return D1 < D2;
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
 }

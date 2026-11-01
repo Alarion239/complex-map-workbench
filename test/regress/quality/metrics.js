@@ -136,7 +136,9 @@ function sheetKey(win, P = []) {
 }
 // members in front-to-back order: key D ascending; ties (equal D): larger Im z, then larger Re z in front (SPEC 5.2)
 function frontOrder(cands, key) {
-  return cands.map((z) => ({ z, D: key(z) })).sort((a, b) => (a.D - b.D) || (b.z.im - a.z.im) || (b.z.re - a.z.re));
+  // (keys within 2^-8 octave tie: Inverse.front's TIE_D)
+  const dk = (a, b) => (Math.abs(a.D - b.D) > 2 ** -8 ? a.D - b.D : 0);
+  return cands.map((z) => ({ z, D: key(z) })).sort((a, b) => dk(a, b) || (b.z.im - a.z.im) || (b.z.re - a.z.re));
 }
 // the displayed parity at a pixel from the front member, given tok(z) -> {par (0 | 1), cellPx, edgePx}. A member
 // behind the front whose key is within TIE_OCT may be in front on the GPU: when it would show another parity (or one

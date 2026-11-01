@@ -1,4 +1,4 @@
-// #584: the steps view's carried colour at rest, against the exact colour pulled back pixel by pixel. The Joukowski
+// #584: the steps view's carried colour, against the exact colour pulled back pixel by pixel. The Joukowski
 // airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1, Inside regions, on the plane: plane
 // w1 at rest coloured from z ("colour of z, carried") must show at each point w the colour plane z shows at the
 // region's own preimage of w (the one outside the circle: J is one to one there), the same exact mapping the region
@@ -79,4 +79,76 @@ for (let k = 0; k < W.length; k++) {
 }
 info.compared = n; info.wrong = bad; info.worst = worst; info.wrongAt = badAt;
 ok('at rest on w1: each region point has the colour of its exact preimage (at most 1 % wrong)', n > 400 && bad <= 0.01 * n, { n, bad, worst });
+
+// (#584, multiple coverings) w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): plane
+// w1 coloured from z, at rest and parked halfway (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions
+// and Everywhere. At each point w the front point of those landing there (in the annulus, or any) is the shared sheet
+// key's: the least D = log2(1 + |z - c| / R) (c, R: __cmwSvKey), keys within 2^-8 octave tied, then the larger Im z,
+// then the larger Re z (Inverse.front); its colour is plane z's at that point. Points near a seam of that choice (two
+// points with nearly equal keys or Im z), near the annulus's circles and near the principal power's cut are left out.
+const TIE = 2 ** -8;
+for (const n of [2, 3]) {
+  const ns = `cexz${n}${Date.now()}`;
+  const st = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 90 }, shapes: [{ id: 1, kind: 'annulus', c: [0, 0], r1: 0.6, r2: 1.6 }], steps: [{ type: 'pown', params: { n } }] };
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&view=steps` }); await sleep(2300);
+  for (let i = 0; i < 120 && !(await ev('typeof __cmwSvKey === "function" && typeof __cmwLPx === "function"').catch(() => false)); i++) await sleep(250);
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ T: 0 }); 1`);
+  await wait();
+  const vz = await ev('__cmwLPx([]).view'), pz = await ev('({ w: __cmwLPx([]).pw / __cmwLPx([]).dpr, h: __cmwLPx([]).ph / __cmwLPx([]).dpr })');
+  const key = await ev('__cmwSvKey(1)'), cx = (key.win.x0 + key.win.x1) / 2, cy = (key.win.y0 + key.win.y1) / 2;
+  const D = (z) => Math.log2(1 + Math.hypot(z[0] - cx, z[1] - cy) / key.R);
+  for (const [scope, park] of [['in', null], ['all', null], ['in', 0.5], ['all', 0.5]]) {
+    const p = 1 + (n - 1) * (park == null ? 1 : park);
+    // the points landing at w: |w|^(1/p) e^(i (arg w + 2 pi k) / p) with |arg| <= pi (the principal power)
+    const pre = (w) => {
+      const r = Math.hypot(w[0], w[1]), a = Math.atan2(w[1], w[0]), out = [];
+      for (let k = -n; k <= n; k++) { const t = (a + 2 * Math.PI * k) / p; if (Math.abs(t) <= Math.PI) out.push({ z: [r ** (1 / p) * Math.cos(t), r ** (1 / p) * Math.sin(t)], t }); }
+      return out;
+    };
+    const inA = (z) => { const m = Math.hypot(z[0], z[1]); return m > 0.6 && m < 1.6; };
+    const W = [], Z = [];
+    let seams = 0;
+    for (let j = 0; j < 30; j++) for (let i = 0; i < 44; i++) {
+      const w = [vz.cx + (i / 43 - 0.5) * 0.8 * pz.w / vz.s, vz.cy + (j / 29 - 0.5) * 0.8 * pz.h / vz.s];
+      let c = pre(w);
+      if (scope === 'in') c = c.filter((q) => inA(q.z));
+      if (!c.length) continue;
+      c.forEach((q) => { q.D = D(q.z); });
+      c.sort((a, b) => (Math.abs(a.D - b.D) > TIE ? a.D - b.D : 0) || (b.z[1] - a.z[1]) || (b.z[0] - a.z[0]));
+      const f = c[0], m = Math.hypot(f.z[0], f.z[1]);
+      // (near a circle of the annulus, the cut of the power, or a seam of the front's choice)
+      const near = Math.abs(m - 0.6) < 0.08 || Math.abs(m - 1.6) < 0.08 || Math.PI - Math.abs(f.t) < 0.06
+        || c.slice(1).some((q) => Math.abs(Math.abs(q.D - f.D) - TIE) < 0.0015 || (Math.abs(q.D - f.D) <= TIE && Math.abs(q.z[1] - f.z[1]) < 0.06));
+      if (near) { seams++; continue; }
+      if (Math.abs(f.z[0] - vz.cx) > 0.45 * pz.w / vz.s || Math.abs(f.z[1] - vz.cy) > 0.45 * pz.h / vz.s) continue;
+      W.push(w); Z.push(f.z);
+    }
+    // (the reference: plane z itself, Everywhere, coloured from z, read again for each case)
+    await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ T: 0 }); 1`);
+    await wait();
+    const ref = await ev(`__cmwLPx(${JSON.stringify(Z)}).px`);
+    await ev(`__cmwSteps(${JSON.stringify(park == null ? { scope, surf: 'plane', go: 1, now: true } : { scope, surf: 'plane', park })}); __cmwSteps({ T: 0 }); 1`);
+    await wait();
+    const stx = await ev('__cmwSteps()');
+    const got = await ev(`__cmwLPx(${JSON.stringify(W)}).px`);
+    let bad = 0, cnt = 0, worst = 0, paper = 0;
+    for (let k = 0; k < W.length; k++) {
+      if (!got[k] || !ref[k]) continue;
+      cnt++;
+      const q = got[k][4];
+      if (Math.max(q[0], q[1], q[2]) - Math.min(q[0], q[1], q[2]) < 6) paper++;
+      let best = 1e9;
+      for (const r of ref[k]) best = Math.max(0, Math.min(best, Math.max(Math.abs(q[0] - r[0]), Math.abs(q[1] - r[1]), Math.abs(q[2] - r[2]))));
+      worst = Math.max(worst, best);
+      if (best > 14) { bad++; if (!info.wrongSamples || info.wrongSamples.length < 8) (info.wrongSamples = info.wrongSamples || []).push({ n, scope, park, w: W[k].map((t) => +t.toFixed(2)), z: Z[k].map((t) => +t.toFixed(2)), got: q.slice(0, 3), want: ref[k][4].slice(0, 3) }); }
+    }
+    const tag = `z^${n} ${scope} ${park == null ? 'rest' : 'parked ' + park}`;
+    info[tag] = { n: cnt, wrong: bad, paper, worst, seamsLeftOut: seams, x: stx.x, T: stx.T };
+    ok(`${tag}: at x = ${park == null ? 1 : park}, coloured from z`, Math.abs(stx.x - (park == null ? 1 : park)) < 1e-9 && stx.T === 0, stx);
+    ok(`${tag}: the front point's colour (the shared sheet key), at most 1 % wrong`, cnt > 200 && bad <= 0.01 * cnt, info[tag]);
+    ok(`${tag}: no point on the bare paper (no tears)`, paper === 0, info[tag]);
+  }
+}
 return { pass: fails.length === 0, fails, info };

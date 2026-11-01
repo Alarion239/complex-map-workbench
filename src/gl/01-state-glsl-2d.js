@@ -624,12 +624,17 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // sheets meet). Depth: D = 0 (inside W, outside every rs-disc: the tie class) in [0.05, 0.45], larger Im z nearer,
   // then larger Re z; D > 0 in [0.5, 0.95], monotone in D. sa (PAT_PRE.pre) is the fragment's source point.
   const PRE_KEY_UNI = 'uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;\n';
-  // (#584: D from the distance to the window's centre, as Inverse.sheetKey, continuous: no tie class to order)
+  // (#584: D from the distance to the window's centre, as Inverse.sheetKey, blended with the tie rule (larger Im z,
+  // then larger Re z, in front) within about 2^-8 octave, Inverse.front's TIE_D: a map symmetric about the centre
+  // gives its sheets equal keys, which the mesh's placement (1e-3 of |z|) would order fragment by fragment; no steps
+  // in D, whose edges would draw contours where near-equal keys straddle them)
   const PRE_KEY = `  if (uKeyOn > 0) {
     float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
     for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
-    D = min(D, 1e6);
-    gl_FragDepth = D / (D + 4.0);
+    // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
+    vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
+    float x = min(D, 1e4) * 256.0 + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
+    gl_FragDepth = x / (x + 1024.0);
   } else gl_FragDepth = gl_FragCoord.z;
 `;
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
