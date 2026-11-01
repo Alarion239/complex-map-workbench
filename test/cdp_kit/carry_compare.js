@@ -12,7 +12,8 @@
 // (an image of a branch cut of the deformation, a label placed in that plane).
 // Parked between two planes it is the frame (H_u after the steps before b) whose points __cmwSvPre lists, by the key of b.
 // Returns { considered, wrong, blank, none, unlisted, rate, ex } (blank: a wrong sample left the plane's paper).
-// opts: { b, nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW }
+// opts: { b, nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
+// nex = 3 (wrong samples kept in ex, each with w, its points [x, y, D] and the front's colour) }
 (function carryCompare(o) {
   o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null }, o || {});
   const own = o.own ? (0, eval)('(' + o.own + ')') : null, skip = o.skip ? (0, eval)('(' + o.skip + ')') : null, skipW = o.skipW ? (0, eval)('(' + o.skipW + ')') : null;
@@ -55,7 +56,7 @@
     if (cand.some((z) => dist(got, col(z)) <= o.tol)) continue;
     wrong++;
     if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < 12) blank++;
-    if (ex.length < 3) ex.push({ px, py, got, want: cand.slice(0, 3).map((z) => col(z).map(Math.round)), z: cand[0].slice(0, 2) });
+    if (ex.length < (o.nex || 3)) ex.push({ px, py, w: pts[5 * s], got, want: cand.slice(0, 3).map((z) => col(z).map(Math.round)), z: cand[0].slice(0, 2), all: P0.map((z) => [z[0], z[1], Inverse.sheetKey(prep, CX.C(z[0], z[1]), null)]) });
   }
   return { considered, wrong, blank, none, unlisted, rate: considered ? +(wrong / considered).toFixed(4) : null, ex };
 })
