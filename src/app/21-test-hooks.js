@@ -242,40 +242,58 @@
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
   // (#366 prototype) the steps view: where it is, what it shows; d moves it (±1, or a plane index with to)
-  // (#584) the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
-  // a] each, row by row), or null off the pane; and the view they were read in
-  /** @type {any} */ (window).__cmwLPx = (pts) => {
-    const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, c = paneL.canvas.getContext('2d'), img = c.getImageData(0, 0, W, H).data;
-    const px = pts.map(([x, y]) => {
-      const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
-      if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
-      const out = [];
-      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
-      return out;
-    });
-    return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
-  };
   // (#584) the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
   // {win, R, rs, sing}, as svSheetKey
   /** @type {any} */ (window).__cmwSvKey = (b) => { const k = svSheetKey(b == null ? svStage() : b); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }; };
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() } }; };
-  // (#551) the preimages in the colour plane of the shown plane's points [[re, im], ...], through the plan T → shown
-  // plane (Inverse.pointPre: every branch of each op, and of a periodic family, exp's and the trig functions', the members
-  // m = -K … K of each base; null where the plan has no inverse or the preimages pass the cap)
-  /** @type {any} */ (window).__cmwSvPre = (pts, K = 6) => {
-    const T = svT(), k = svStage();
-    if (k <= T) return null;
-    const plan = invPlan(T, k);
-    return pts.map(([re, im]) => { const r = Inverse.pointPre(plan, C(re, im), 512, { fam: K }); return r.exact ? r.zs.filter((z) => CX.abs(z) < 1e6).map((z) => [z.re, z.im]) : null; });
+  // (#551, #584, #590) the points of plane z that the shown frame's points [[re, im], ...] come from, each with its image in
+  // the colour plane T: [[x, y, gx, gy], ...] per point (the region tiling's own points and the colour they carry); null
+  // where the plan has no inverse or the preimages pass the cap. At rest on plane b (default the one shown) through the
+  // plan z → b (Inverse.pointPre: every branch of each op, and of a periodic family, exp's and the trig functions', the
+  // members m = -K … K of each base). Parked between planes (svBetween: H_u after the steps before b) the points v of
+  // plane b - 1 with H_u(v) = w first, by the probe's search over the key's window widened by one window each side (zerosPolesTimed, as
+  // svSource), then that plan back to z. The array's .b is the plane whose sheet key the frame is drawn with
+  /** @type {any} */ (window).__cmwSvPre = (pts, K = 6, b) => {
+    const fr = svBetween(), park = b == null && !(fr.u <= 1e-6 || fr.b === fr.a) && !isDeriv(fr.b);
+    const k = b == null ? (park ? fr.b : svStage()) : b, T = svT(), G = T === 0 ? (z) => z : stageF(T);
+    const plan = invPlan(0, park ? k - 1 : k), H = park ? homF(fr.b, fr.u) : null;
+    const kw = svSheetKey(k).win, mx = kw.x1 - kw.x0, my = kw.y1 - kw.y0;
+    const box = { x0: kw.x0 - mx, x1: kw.x1 + mx, y0: kw.y0 - my, y1: kw.y1 + my };
+    // (each pole p of H_u, polesOf, with its residue a, from H at a small distance e: a ≈ H(p + e) e)
+    const poles = (H ? polesOf(H, box, 16, 128, 80) : []).map((p) => {
+      const e = 1e-6 * (1 + CX.abs(p));
+      return { p, a: CX.scale(/** @type {any} */ (H)(CX.add(p, C(e, 0))), e), r: 0.25 * mx };
+    });
+    const out = pts.map(([re, im]) => {
+      let vs = [C(re, im)];
+      if (H) {
+        /** @type {any} */
+        let sols = [];
+        try { sols = zerosPolesTimed(H, box, { target: { re, im }, max: 16 }, 20); } catch (e) { return null; }
+        if (sols.stopped) return null;
+        vs = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z)).map((r) => r.z);
+        // (near a simple pole p of H_u, H(v) ≈ a / (v - p): the points there, p + a / w, which a search of the box
+        // misses, polished by Newton)
+        const w = C(re, im);
+        for (const q of poles) {
+          const v = newtonTo(H, w, CX.add(q.p, CX.div(q.a, w)), 1, 1e-10 * (1 + CX.abs(w)), q.r);
+          if (v && !vs.some((x) => CX.abs(CX.sub(x, v)) < 1e-7 * (1 + CX.abs(v)))) vs.push(v);
+        }
+      }
+      const zs = [];
+      for (const v of vs) {
+        const r = plan.ops && plan.ops.length ? Inverse.pointPre(plan, v, 512, { fam: K }) : { exact: true, zs: [v] };
+        if (!r.exact) return null;
+        zs.push(...r.zs);
+      }
+      return zs.filter((z) => CX.abs(z) < 1e6).map((z) => { let g = null; try { g = G(z); } catch (e) { g = null; } return g && CX.isFin(g) ? [z.re, z.im, g.re, g.im] : null; }).filter(Boolean);
+    });
+    /** @type {any} */ (out).b = k;
+    return out;
   };
-  // (#551) the sheet key svCarry gives the carried colour at rest past the colour plane: the camera's window of plane T,
-  // its half diagonal R, rs = R / 8 and the plan's accumulation points (the shader reads the first four)
-  /** @type {any} */ (window).__cmwSvKey = () => {
-    const T = svT(), k = svStage(), v = S.srcView, hw = paneL.w / 2 / v.s, hy = paneL.h / 2 / v.s, R = Math.hypot(hw, hy);
-    const plan = k > T ? invPlan(T, k) : null;
-    return { win: [v.cx - hw, v.cy - hy, v.cx + hw, v.cy + hy], R, rs: R / 8, sing: (plan && plan.ok ? invSing(plan) : []).slice(0, 4).map((p) => [p.re, p.im]) };
-  };
+  // (#590) the poles the steps view's carried colour draws its log-polar meshes about (poleMeshes), [[re, im], ...]
+  /** @type {any} */ (window).__cmwSvPoles = () => poleM.at.map((p) => [p.re, p.im]);
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK

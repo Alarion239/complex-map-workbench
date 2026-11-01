@@ -424,6 +424,8 @@
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
       if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key })) return false;
     }
+    // (#590: the whole plane's points near the map's poles, on log-polar meshes about them: poleMeshes)
+    if (list.includes(SV_ALL)) for (const pr of poleMeshes(map, !svGliding())) GLR.drawRegion(pr, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key });
     return true;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the

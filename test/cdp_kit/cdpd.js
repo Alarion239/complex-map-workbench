@@ -158,6 +158,10 @@ H.load = async (ns, st, extra) => {
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
 H.fs = fs; H.path = path; H.DIR = DIR;
+// (#590) the steps view's carried colour against the exact one, the shared check (carry_compare.js, page-side): opts
+// { b, nx, ny, margin, tol, steep, fam, own (a predicate's source), timeout }; { considered, wrong, blank, none,
+// unlisted, rate, ex }
+H.carryCompare = (o = {}) => H.ev('(' + fs.readFileSync(path.join(DIR, 'carry_compare.js'), 'utf8').trim() + ')(' + JSON.stringify(o) + ')', o.timeout || 180000);
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });

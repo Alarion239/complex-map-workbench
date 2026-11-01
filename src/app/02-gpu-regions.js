@@ -719,6 +719,79 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: invSing(plan) };
   }
+  // (#551, #590) Log-polar meshes about the poles in plane z of a map of the steps view's carried colour: a glide's
+  // h_{b,u} after the steps before b (the deformation's poles at that u: Joukowski's -i cot(pi k / (1 + u)), and F's as
+  // u nears 1), or a plane's own map. Near a pole the points land far out, and the whole plane's mesh (the steps view's
+  // SV_ALL), cut in cells of the window, places them in long thin triangles whose edges show as steps; rings in a
+  // geometric ratio about the pole (NR rings from R/6 down to about 5e-4 of it, NA sectors: near squares in log-polar
+  // terms) map to well-shaped triangles. One mesh of those rings, about 0 (rebuilt when the window's R changes), drawn
+  // once per pole: a view of it ([res] with its own origin, the pole) per pole. The poles: polesOf over the
+  // window widened by half (polesOf), kept per map and window; while the map moves (full false) the search runs on a
+  // coarser grid at most every POLE_EVERY ms and the last poles are followed by Newton on 1/F between. At most POLE_MAX
+  // poles
+  // The poles of F in box (at most max, [C]): F on an nx × ny grid, each node where |F| is a local maximum and steep
+  // (above twice its least neighbour, as near a pole |F| grows as 1 / distance) a start for Newton on 1/F, kept where it converges inside the box to a point
+  // where 1/F is 0 (a pole is a zero of 1/F). Unlike the argument principle of zerosPolesTimed it holds beside a branch
+  // cut of F (a deformation's power, Joukowski's along a glide). About nx·ny calls of F
+  function polesOf(F, box, max = 8, nx = 64, ny = 40) {
+    const hx = (box.x1 - box.x0) / nx, hy = (box.y1 - box.y0) / ny, m = new Float64Array((nx + 1) * (ny + 1));
+    for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) { let a; try { a = CX.abs(F(C(box.x0 + i * hx, box.y0 + j * hy))); } catch (e) { a = Infinity; } m[j * (nx + 1) + i] = Number.isNaN(a) ? Infinity : a; }
+    const G = (z) => CX.div(C(1, 0), F(z)), out = [], lim = 2 * Math.hypot(hx, hy);
+    for (let j = 1; j < ny; j++) for (let i = 1; i < nx; i++) {
+      const v = m[j * (nx + 1) + i];
+      let top = true, lo = Infinity;
+      for (let b = -1; b <= 1 && top; b++) for (let a = -1; a <= 1; a++) { if (!(a || b)) continue; const q = m[(j + b) * (nx + 1) + i + a]; if (q > v) { top = false; break; } lo = Math.min(lo, q); }
+      if (!top || !(v > 2 * lo)) continue;
+      const p = newtonTo(G, C(0, 0), C(box.x0 + i * hx, box.y0 + j * hy), 1, 1e-12, lim);
+      if (!p || p.re < box.x0 || p.re > box.x1 || p.im < box.y0 || p.im > box.y1 || out.some((q) => CX.abs(CX.sub(q, p)) < 1e-6 * (1 + CX.abs(p)))) continue;
+      out.push(p);
+      if (out.length >= max) return out;
+    }
+    return out;
+  }
+  const POLE_NA = 48, POLE_NR = 60, POLE_Q = 0.88, POLE_MAX = 8, POLE_EVERY = 120;
+  const poleM = { R: 0, res: null, key: '', mk: '', at: [], t: 0, full: false };
+  function poleMeshes(map, full) {
+    if (!GLR.ok || !goodWin(clipWin)) return [];
+    const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2, r0 = R / 6;
+    if (!poleM.res || poleM.R !== R || !poleM.res.n) {
+      if (poleM.res) GLR.destroy(poleM.res);
+      const tri = new Float32Array(POLE_NA * POLE_NR * 12);
+      let n = 0;
+      const pt = (k, j) => { const r = r0 * POLE_Q ** k, a = 2 * Math.PI * j / POLE_NA; return [r * Math.cos(a), r * Math.sin(a)]; };
+      for (let k = 0; k < POLE_NR; k++) for (let j = 0; j < POLE_NA; j++) {
+        const a = pt(k, j), b = pt(k, j + 1), c = pt(k + 1, j + 1), d = pt(k + 1, j);
+        for (const v of [a, b, c, a, c, d]) { tri[n++] = v[0]; tri[n++] = v[1]; }
+      }
+      poleM.res = GLR.createMesh(tri, [0, 0]);
+      poleM.R = R;
+      poleM.key = '';
+    }
+    const F = cpuMap(map), m = normalizeMap(map), t = m.t != null ? m.t : 1;
+    const mk = JSON.stringify([chainSig[nSteps()], clipWin, Object.assign({}, m, { t: 0 })]), key = mk + '|' + t;
+    // (a frame at rest after a moving one at the same t searches again, on the fine grid)
+    if (poleM.key !== key || (full && !poleM.full)) {
+      const now = performance.now(), same = poleM.mk === mk;
+      let at = null;
+      if (full || !same || now - poleM.t >= POLE_EVERY) {
+        const mx = (clipWin.x1 - clipWin.x0) / 2, my = (clipWin.y1 - clipWin.y0) / 2;
+        const box = { x0: clipWin.x0 - mx, x1: clipWin.x1 + mx, y0: clipWin.y0 - my, y1: clipWin.y1 + my };
+        at = polesOf(F, box, POLE_MAX, full ? 96 : 48, full ? 60 : 30);
+        poleM.t = now;
+      }
+      if (!at || (!at.length && same)) {
+        // (followed: a pole of F is a zero of 1/F)
+        const G = (z) => CX.div(C(1, 0), F(z));
+        at = (same ? poleM.at : []).map((p) => newtonTo(G, C(0, 0), p, 1, 1e-9, r0 / 4)).filter((p) => p && CX.isFin(p));
+      }
+      poleM.at = at.slice(0, POLE_MAX);
+      poleM.mk = mk;
+      poleM.key = key;
+      poleM.full = full;
+    }
+    const base = poleM.res;
+    return poleM.at.map((p) => Object.assign(Object.create(base), { org: [p.re, p.im] }));
+  }
   // SPEC 8.8: what to draw for forward shape s in a view -> null (today's GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the
   // GPU image around it). allowJob: a job may be requested for this view (live panes; not a pending compile).
