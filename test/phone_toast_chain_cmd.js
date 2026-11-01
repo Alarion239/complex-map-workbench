@@ -60,4 +60,28 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   ok(`${tag}: the toast's words are not cut`, m.cut <= 1, { cut: m.cut, text: m.text });
   ok(`${tag}: its buttons can be pressed`, m.btns.length >= 2 && m.btns.every((b) => b.hit), m.btns);
 }
+// ---- the More sheet (eyes on #575): it hangs from its bottom edge up to a cap, with no top of its own; with its bottom lifted for the message it
+// has to shrink, not slide up off the screen (its header, ✕ and search field gone), and no control of it is under the message
+const measureMore = () => ev(`(() => {
+  const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
+  const sheet = document.querySelector('.ph-sheet[data-k="more"]'); if (!sheet) return null;
+  const sb = sheet.getBoundingClientRect(), tb = t.getBoundingClientRect(), head = sheet.querySelector('.ph-sh'), hb = head && head.getBoundingClientRect();
+  const vis = (e) => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+  const inter = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+  const clip = (r) => ({ left: Math.max(r.left, sb.left), right: Math.min(r.right, sb.right), top: Math.max(r.top, sb.top), bottom: Math.min(r.bottom, sb.bottom) });
+  const under = [...sheet.querySelectorAll('button, input, select, [role="button"]')].filter(vis).filter((e) => { const c = clip(e.getBoundingClientRect()); return c.bottom > c.top + 1 && c.right > c.left + 1 && inter(c, tb); }).map((e) => e.id || e.className.split(' ')[0] || e.tagName);
+  return { sheet: [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), head: hb && [hb.top, hb.bottom].map(Math.round), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), under, open: sheet.classList.contains('open') };
+})()`);
+for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
+  const tag = `${lang} ${w}×${h} More sheet`;
+  await fresh(w, h, lang);
+  await ev(`document.getElementById('hdrMoreBtn').click(); 1`); await settle(900);
+  let m = null;
+  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await settle(1000); m = await measureMore(); } }
+  info[tag] = m;
+  ok(`${tag}: it is open and a toast shows`, !!m && m.open, m);
+  if (!m) continue;
+  ok(`${tag}: the sheet stays on the screen, its header too`, m.sheet[1] >= -0.5 && m.head && m.head[0] >= -0.5, { sheet: m.sheet, head: m.head });
+  ok(`${tag}: the toast covers none of its controls`, m.under.length === 0, { under: m.under, sheet: m.sheet, toast: m.toast });
+}
 return { pass: fails.length === 0, fails, info };

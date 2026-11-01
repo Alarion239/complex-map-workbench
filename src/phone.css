@@ -576,6 +576,10 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (#464) a sheet gives up the message's row as the planes do: it ends above the message, so a message covers no row of it (Alexander's
    screenshot on #58: "Added f₃ …  Show alone  Undo" across the chain sheet's list, hiding f₂); the safe area is under the message then */
 :root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + 56px); padding-bottom: 0; }
+/* the More sheet hangs from its bottom edge, up to a cap, and has no top of its own: with its bottom lifted it would slide up off the screen
+   (eyes on #575: top −64, header and ✕ gone); its cap gives the same room up, so it shrinks from the bottom like the others (portrait: in landscape
+   it is a side panel with a top of its own) */
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { max-height: calc(100dvh - 48px - var(--ph-row) - var(--ph-safe-b) - 56px); }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
 .ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
