@@ -27,10 +27,6 @@
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
-  // (#551) where the carried colour is exact (svCarry): 'rest', when nothing moves (at rest on a plane or parked, the input
-  // settled), the glides, drags, pans and zooms keeping the cheaper carry; or 'all', every frame (a setting kept on this
-  // device, for measuring both)
-  SV.exact = (() => { try { return localStorage.getItem('cmw-sv-exact') === 'all' ? 'all' : 'rest'; } catch (e) { return 'rest'; } })();
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -262,13 +258,7 @@
   // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
   // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
   // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
-  let svCarryMemo = null, svCarryRes = null, svCarryBuf = null, svPoles = null;
-  // (#551) a frame drawn once the input that moved the view has stopped (interacting(): 150 ms), the exact carry's
-  let svSettleT = 0;
-  function svSettleSoon() {
-    clearTimeout(svSettleT);
-    svSettleT = setTimeout(() => { svSettleT = 0; if (interacting()) svSettleSoon(); else if (SV.on) requestRender('L'); }, 170);
-  }
+  let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
   // (#439 I) frame: the GL frame the caller composes the colour layer in ({open}); the GPU path draws into it (opening
   // it if need be) and leaves the copy to the caller; the CPU path first copies what it holds into cc
   function svCarry(pane, cc, s, a, H, frame) {
@@ -285,35 +275,8 @@
       const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
       const plan = a > s ? invPlan(s, a) : null;
       const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
-      // (#551) exact (SV.exact: when nothing moves, no glide, Play, drag or input; or always): the fragment stage solves for the point of each triangle
-      // that bends, so a triangle may span the view (uLim; only one torn across a cut or a pole, longer, is left out), and
-      // the points further out, a coarse grid over twelve times the camera's window, behind the window's own in the
-      // sheet key, colour what the window's points do not reach (a contracting step, a far branch). Else the carry of
-      // #439: interpolated points, triangles up to 0.35 of the view, the window alone
-      const still = !SV.anim && !SV.play && !(SV.drag && SV.drag.moved), settled = still && !interacting();
-      const exact = SV.exact === 'all' || settled;
-      // (perf on #574: 'rest' is settled, so a pan or a zoom of a parked plane keeps the plain carry while it moves, and
-      // the frame after it stops is exact)
-      if (!exact && still) svSettleSoon();
-      const OX = 12, onx = 48, ony = Math.max(8, Math.round(onx * pane.h / Math.max(1, pane.w))), ohw = OX * hw / ext, ohy = OX * hy / ext;
-      const outer = exact ? { x0: v.cx - ohw, y0: v.cy - ohy, dx: 2 * ohw / onx, dy: 2 * ohy / ony, nx: onx, ny: ony } : null;
-      // (the poles of the map from plane s, pulled back near the window: about each, a log-polar grid from two of the
-      // fine grid's cells in to 1e-4 of that, whose cells the pole's map keeps square where the fine grid's stretch past
-      // uLim)
-      const polars = [];
-      if (exact && plan && plan.ok) {
-        const pk = `${plan._ck}|${v.cx},${v.cy},${hw},${hy}`;
-        if (!svPoles || svPoles.key !== pk) {
-          let pl = [];
-          try { pl = Inverse.singular(plan, { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hy, y1: v.cy + hy }, ['pole', 'undef'], 4); } catch (e) { pl = []; }
-          svPoles = { key: pk, poles: pl };
-        }
-        const poles = svPoles.poles;
-        const r1 = 2 * Math.hypot(2 * hw / nx, 2 * hy / ny), r0 = 1e-4 * r1, NT = 64, NR = 40;
-        for (const e of poles.slice(0, 6)) polars.push({ x: e.z.re, y: e.z.im, rho0: Math.log(r0), drho: Math.log(r1 / r0) / NR, dth: 2 * Math.PI / NT, nx: NT, ny: NR });
-      }
       if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
-      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, outer, polars, exact, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, limX: Math.max(pane.w, pane.h) / v.s, key,
+      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
         if (frame) frame.open = true; else GLR.blit(cc);
         return true;
@@ -1125,9 +1088,6 @@
       // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
       // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
       if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);
-      // (#551) the exact carry's after it, as the view rests or parks (carryXId on a plane past the colour plane, carryX
-      // parked before it), so their link is done before a Play or a glide is under way
-      if (GLR.prestartNames) { GLR.prestartNames(['carryX'], [1]); GLR.prestartNames(['carryXId'], [0]); }
     } catch (e) { /* (the first glide starts them) */ }
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----

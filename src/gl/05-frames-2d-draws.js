@@ -571,19 +571,17 @@
 
   // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
   // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
-  // (st.s, st.T); triangles longer than st.lim on the plane are left out (st.limX for the exact programs). False when
-  // the program is not ready
+  // (st.s, st.T); triangles longer than st.lim on the plane are left out. False when the program is not ready
   function drawCarried(st) {
     if (!ok) return false;
-    // (#551) st.exact: the exact programs, carryX and carryXId; while they link, the plain ones draw it (the frame is
-    // marked pending, so it is drawn again once they are ready)
-    const name = st.s === st.T ? 'carryId' : 'carry', X = st.exact ? program(name === 'carry' ? 'carryX' : 'carryXId', st.map) : null;
-    const P = X || program(name, st.map);
+    const P = program(st.s === st.T ? 'carryId' : 'carry', st.map);
     if (!P) return false;
     use(P, st.map);
-    const dpr = st.dpr || 1;
+    const dpr = st.dpr || 1, g = st.mesh;
     view2D(P, st.view, dpr, null);
-    u1f(P, 'uLim', X && st.limX ? st.limX : st.lim);
+    u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy);
+    u2i(P, 'uN', g.nx, g.ny);
+    u1f(P, 'uLim', st.lim);
     u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
     dcUniforms(P, st, dpr);
     // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
@@ -591,19 +589,6 @@
     u1i(P, 'uKeyOn', k ? 1 : 0);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
-    // (#551) st.outer, a coarse grid over a wider window: drawn first, so the fine grid wins where both reach a pixel (a
-    // tie of the sheet key, LEQUAL; or over it without the key) and the outer one fills only what lies beyond it
-    // (#551) st.polars, log-polar grids about the poles ({x, y, rho0, drho, dth, nx, ny}: radius exp(rho0 + j drho),
-    // angle i dth), drawn after the outer grid and before the fine one, for the exact programs
-    const grids = () => {
-      const m = st.mesh, list = X ? [...(st.outer ? [st.outer] : []), ...(st.polars || []), m] : [m];
-      for (const g of list) {
-        if (g.drho) { u4f(P, 'uCGrid', 0, 0, g.dth, 0); u4f(P, 'uPolar', g.x, g.y, g.rho0, g.drho); } else { u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy); u4f(P, 'uPolar', 0, 0, 0, 0); }
-        if (g === m || g.drho) u4f(P, 'uHole', 0, 0, 0, 0); else u4f(P, 'uHole', m.x0, m.y0, m.x0 + m.nx * m.dx, m.y0 + m.ny * m.dy);
-        u2i(P, 'uN', g.nx, g.ny);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
-      }
-    };
     if (k) {
       const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
       sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
@@ -612,10 +597,10 @@
       u1i(P, 'uKSingN', sing.length);
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
-      grids();
+      gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
       gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS);
       if (!dt) gl.disable(gl.DEPTH_TEST);
-    } else grids();
+    } else gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
     return true;

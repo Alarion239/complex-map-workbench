@@ -985,7 +985,7 @@ async function svInteractUnit(scene) {
 // copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
 const SV_GLIDE_JANK_MS = 25;
-// (#551, perf on #574) the landing of a glide: its frame, the first exact one, at most this (as A2's first glide)
+// (#551, perf on #574) the landing of a glide: its frame, the first at rest, at most this (as A2's first glide)
 const SV_LANDING_LIMIT = 50;
 async function svGlideUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -999,24 +999,22 @@ async function svGlideUnit(scene) {
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
     const w = await windowStats(a, b);
-    // (#551) the landing: the longest frame within 400 ms of it (the first exact frame at rest, or the plain one drawn
-    // while the exact program links and the exact one after it)
+    // (#551) the landing: the longest frame within 400 ms of it (the first frame at rest, and any drawn as its programs
+    // link)
     await sleep(400);
     const land = await B.ev(`__perf.framesSince(${b - 50}, ${b + 400})`);
     const landing = Math.max(0, ...land.filter((f) => f[4] > 0).map((f) => f[1] + f[2]));
     return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, jank: await jankIn(a, b), a, b, landing });
   };
-  // (#551) the steps view's carried colour exact at rest only (SV.exact 'rest', the default: a glide keeps the cheaper
-  // carry) at dpr 1 and 2, and exact in every frame ('all', .all) at dpr 1: one run measures both
-  for (const [dpr, exact] of [[1, 'rest'], [2, 'rest'], [1, 'all']]) {
-    const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}${exact === 'all' ? '.all' : ''}`;
+  for (const dpr of [1, 2]) {
+    const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
     const R = [], copies = [], links = [], longInt = [], dprOk = [], landing = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
       for (let i = 0; i < REPS; i++) {
-        // (the reps stop early, said in the details, when the next would pass this pass's third of 75% of the unit's
-        // time limit: fewer reps, not a timeout, which aborts the whole run)
-        if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 3) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
+        // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
+        // limit: fewer reps, not a timeout, which aborts the whole run)
+        if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
         await B.nav(`${BASE}test.html?ns=perfsvg${process.pid}_${++nsCounter}&view=steps`);
         await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
         await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
@@ -1024,7 +1022,7 @@ async function svGlideUnit(scene) {
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
-        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, exact: '${exact}' }), 1`);
+        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
@@ -1054,9 +1052,10 @@ async function svGlideUnit(scene) {
     put(`${pre}.landing_ms`, 'limit', 'ms', [Math.max(0, ...landing)], { limit: SV_LANDING_LIMIT, samples: landing.map(r3) });
   }
 }
-// (#551, perf on #574) the worst case of the exact carry: a plane parked half-way, settled, at dpr 2, on the zeros of
-// zeta and the Mountain King (their long chains): frames drawn one after another with nothing moving (each one the exact
-// carry's, as a parked pan's frame after it stops). Measures frame_p95_ms and longest_ms (kind limit, the watchdog's side)
+// (#551, perf on #574) the worst case of the colour at rest past the colour plane (the carry's, or the exact pass that
+// takes its place at rest, #584): a plane parked half-way, settled, at dpr 2, on the zeros of
+// zeta and the Mountain King (their long chains): frames drawn one after another with nothing moving (each one the rest
+// frame's, as a parked pan's frame after it stops). Measures frame_p95_ms and longest_ms (kind limit, the watchdog's side)
 const SV_PARKED_LONGEST = 250;
 async function svParkedUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -1070,9 +1069,9 @@ async function svParkedUnit(scene) {
       await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
       await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
       await settle(await pageNow());
-      await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', exact: 'rest', park: 0.5 }), 1`);
+      await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', park: 0.5 }), 1`);
       await settle(await pageNow());
-      // (the exact programs linked: one frame drawn and settled again)
+      // (the rest frame's programs linked: one frame drawn and settled again)
       await B.ev(`__cmwSteps({ surf: 'plane' }), 1`);
       await settle(await pageNow());
       const a = await pageNow();
@@ -1859,8 +1858,8 @@ unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, 
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
 unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
-unit('sv.parked.zeta', 'the steps view (#551, on a GPU), the zeros of zeta parked half-way at dpr 2, settled: the exact carried colour, frame p95 and the longest frame', () => svParkedUnit('zeta'));
-unit('sv.parked.king', 'the steps view (#551, on a GPU), the Mountain King parked half-way at dpr 2, settled: the exact carried colour, frame p95 and the longest frame', () => svParkedUnit('king'), { timeoutS: 600 });
+unit('sv.parked.zeta', 'the steps view (#551, on a GPU), the zeros of zeta parked half-way at dpr 2, settled: the colour past the colour plane at rest, frame p95 and the longest frame', () => svParkedUnit('zeta'));
+unit('sv.parked.king', 'the steps view (#551, on a GPU), the Mountain King parked half-way at dpr 2, settled: the colour past the colour plane at rest, frame p95 and the longest frame', () => svParkedUnit('king'), { timeoutS: 600 });
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));

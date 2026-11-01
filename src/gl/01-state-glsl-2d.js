@@ -611,10 +611,6 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // sheets meet). Depth: D = 0 (inside W, outside every rs-disc: the tie class) in [0.05, 0.45], larger Im z nearer,
   // then larger Re z; D > 0 in [0.5, 0.95], monotone in D. sa (PAT_PRE.pre) is the fragment's source point.
   const PRE_KEY_UNI = 'uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;\n';
-  // (#551) the carried colour's sheet key: PRE_KEY's D, and of the points it ties (D = 0, in the window) the one nearest
-  // the window's centre in front (PRE_KEY: the larger Im z), so a plane past the colour plane shows the colour plane's
-  // points around the view (exp: the principal log, not a copy of the window 2 pi i above)
-  const carryKey = () => PRE_KEY.replace('0.45 - 0.4 * (tk.y + 1e-3 * tk.x) / 1.001', '0.05 + 0.4 * clamp(length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR, 0.0, 1.0)');
   const PRE_KEY = `  if (uKeyOn > 0) {
     vec2 q = max(max(uKWin.xy - sa, sa - uKWin.zw), 0.0);
     float D = log2(1.0 + length(q) / uKR);
@@ -1042,102 +1038,15 @@ void main() {
 `;
   // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
   // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
-  // Where the map from plane s folds (several points on one pixel past the colour plane), the sheet key of the point
-  // (carryKey, its depth: the inverse path's D, and of the points in the window the one nearest its centre, #551) picks
-  // one, not the grid's order
+  // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
+  // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
   const CARRY_FS = (id) => `
 uniform int uGs; uniform int uGt;
 ${PRE_KEY_UNI}in vec2 vP;
 out vec4 o;
 void main() {
   vec2 sa = vP;
-${carryKey()}  o = vec4(dcolor(${id ? 'vP' : 'chainRange(vP, uGs, uGt)'}), 1.0);
-}
-`;
-  // (#551) The carried colour exact (the steps view at rest, SV.exact): CARRY_VS and CARRY_FS's grid, and the
-  // fragment's own point of plane s solved for. Its vertex stage: as CARRY_VS's, and a fourth map at the triangle's
-  // centroid (vBend), a hole for the outer grid (uHole), log-polar grids about the poles (uPolar), the fragment's point of
-  // the shown plane (vQ) and the cell's size (vCell).
-  const CARRYX_VS = `
-uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uPx;
-uniform vec4 uCGrid; uniform ivec2 uN; uniform float uLim; uniform vec4 uHole; uniform vec4 uPolar;
-out vec2 vP; out vec2 vQ; flat out float vBend; flat out float vCell;
-// (a corner (i, j) of the grid: affine, uCGrid; or, uPolar.w > 0, log-polar about the point uPolar.xy, radius
-// exp(uPolar.z + j uPolar.w) and angle i uCGrid.z, whose cells a pole's map keeps square)
-vec2 gridAt(ivec2 ij) {
-  if (uPolar.w > 0.0) { float r = exp(uPolar.z + float(ij.y) * uPolar.w), a = float(ij.x) * uCGrid.z; return uPolar.xy + r * vec2(cos(a), sin(a)); }
-  return uCGrid.xy + vec2(ij) * uCGrid.zw;
-}
-void main() {
-  int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
-  ivec2 c = ivec2(cell % uN.x, cell / uN.x);
-  vec2 q0 = vec2(0.0), q1 = q0, q2 = q0, qm = q0, p = q0, ps = q0;
-  bool ok = true;
-  for (int k = 0; k < max(4, uNoUnroll); k++) {
-    if (k >= 4) break;
-    ivec2 o = k == 0 ? ivec2(0) : k == 1 ? (hf == 0 ? ivec2(1, 0) : ivec2(1, 1)) : (hf == 0 ? ivec2(1, 1) : ivec2(0, 1));
-    vec2 pk = k == 3 ? ps / 3.0 : gridAt(c + o), qk = mapPoint(pk);
-    if (!cfin(qk)) ok = false;
-    if (k == 0) q0 = qk; else if (k == 1) q1 = qk; else if (k == 2) q2 = qk; else qm = qk;
-    if (k == cn) p = pk;
-    ps += pk;
-  }
-  ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
-  // (#551) a cell of the outer grid inside the hole uHole (the fine grid's window, x0 y0 x1 y1) is the fine grid's
-  vec2 c0 = uCGrid.xy + vec2(c) * uCGrid.zw, c1 = c0 + uCGrid.zw;
-  if (uHole.z > uHole.x && uPolar.w <= 0.0 && all(greaterThanEqual(c0, uHole.xy)) && all(lessThanEqual(c1, uHole.zw))) ok = false;
-  // (#551) the cell's image is curved where the triangle is flat: vBend, how far (in pixels) the image of its centroid
-  // lies from the triangle's (the loop's fourth map). From half a pixel to 32 the triangle grows by three times that and
-  // a pixel (at most four times its own size), each corner away from the centroid and its source point with it, so the
-  // fragments the curved image covers are in it, and the fragment stage solves for each point (it keeps only those it
-  // solves). Below, vP is the point; past 32 pixels too (the plain carry's, its error that bend at most): the work a
-  // frame can take stays bounded (perf on #574: the GPU's watchdog)
-  vec2 pc = 0.25 * ps, qc = (q0 + q1 + q2) / 3.0, q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
-  // (the cell's size in plane s, for the fragment stage's difference and its guard)
-  vCell = length(gridAt(c + ivec2(1, 1)) - gridAt(c));
-  float px = 2.0 / (uScale.x * uPx.x), ext = max(length(q0 - q1), max(length(q1 - q2), length(q2 - q0))) / px;
-  vBend = length(qm - qc) / px;
-  if (vBend > 32.0) vBend = 0.0;
-  float m = vBend < 0.5 ? 0.0 : min(min(3.0 * vBend + 1.0, 4.0 * ext), 256.0) * px, L = length(q - qc);
-  float t = L > 0.0 ? m / L : 0.0;
-  q += (q - qc) * t;
-  vP = p + (p - pc) * t;
-  vQ = (q - uCenter) - uCenterLo;
-  gl_Position = ok ? vec4(vQ * uScale, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
-}
-`;
-  // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
-  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
-  // (#551) The point is the fragment's own: the triangle's interpolated vP only starts Newton's method on mapPoint(z) = w,
-  // w the fragment's point of the shown plane (vQ, relative to the view's centre), each step's slope a difference
-  // over a sixteenth of the cell; one call site of the map (FXC inlines each), the loop alternating z and z + h. A fragment with no solution
-  // within a cell and a half of its triangle's (a triangle that is not the image of its cell: one stretched over a pole
-  // or folded) is left out, so it shows no other point's colour. Where the map from plane s folds (several points on
-  // one pixel past the colour plane), the sheet key of the point (carryKey, its depth) picks the one nearest the view,
-  // not the grid's order
-  const CARRYX_FS = (id) => `
-uniform int uGs; uniform int uGt;
-uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uPx;
-${PRE_KEY_UNI}in vec2 vP; in vec2 vQ; flat in float vBend; flat in float vCell;
-out vec4 o;
-void main() {
-  float px = 2.0 / (uScale.x * uPx.x), hs = 0.0625 * vCell, guard = 1.5 * vCell, last = 1e30;
-  vec2 z = vP, f0 = vec2(0.0), r = vec2(0.0);
-  for (int i = 0; i < max(8, uNoUnroll); i++) {
-    if (i >= 8 || vBend < 0.5) break;
-    bool even = i - 2 * (i / 2) == 0;
-    vec2 f = (mapPoint(even ? z : z + vec2(hs, 0.0)) - uCenter) - uCenterLo;
-    if (!cfin(f)) { r = vec2(1e30); break; }
-    // (a step that left the cell's neighbourhood, or one that did not bring the point closer: no solution here)
-    if (even) { f0 = f; r = f - vQ; float e = length(r); if (e < 0.05 * px || e >= last || length(z - vP) > guard) break; last = e; continue; }
-    vec2 d = (f - f0) / hs;
-    float dd = dot(d, d);
-    if (!(dd > 0.0)) break;
-    z -= vec2(dot(r, d), r.y * d.x - r.x * d.y) / dd;
-  }
-  if (vBend >= 0.5 && (!(length(r) < 1.5 * px) || length(z - vP) > guard)) discard;
-  vec2 sa = z;
-${carryKey()}  o = vec4(dcolor(${id ? 'z' : 'chainRange(z, uGs, uGt)'}), 1.0);
+${PRE_KEY}  o = vec4(dcolor(${id ? 'vP' : 'chainRange(vP, uGs, uGt)'}), 1.0);
 }
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the
