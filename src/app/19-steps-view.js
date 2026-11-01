@@ -359,45 +359,59 @@
     GLR.blit(cc);
     return true;
   }
-  // (#584) Inside regions at rest on plane a past the colour plane T: the colour each region's points carry, drawn
-  // exactly, by the region tiling's own inverse pass (GLR.drawInverse): at each pixel w of plane a, the region's points
-  // z (on plane 0) with F_a(z) = w, each coloured with the colour plane's colour of it, dcolor(f_T ∘ … ∘ f_1(z)), so
-  // the colour is the region's points' own wherever the region reaches, with no grid, no window and no other sheet.
-  // Into the open GL frame (the mask frame's, its colour alone). False (nothing drawn) unless every visible region
-  // takes that path: a region of a later plane, a map with no inverse, a program still compiling
-  function svCarryExact(pane, a, T) {
-    if (!GLR.drawInverse || !GLR.packShapes || a <= T || derivIn(0, a)) return false;
+  // (#584) The colour the points carry, by the region tiling's own machinery (Alexander on #584: "use the machinery
+  // we have for carrying region patterns, just apply it to colors"): Inside regions, each visible region; Everywhere,
+  // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
+  // unbounded regions are). Each point z (on plane 0) is coloured with the colour plane's colour of it,
+  // dcolor(f_T ∘ … ∘ f_1(z)), wherever the map takes it. Where several points land on one pixel, the one in front is
+  // the tiling's own: its sheet key (inside the camera's window first, away from the map's poles)
+  const SV_ALL = { id: '__svAll', kind: 'disc', c: [1e9, 0], r: 1e-6, complement: true, visible: true };
+  function svCarryShapes() {
+    if (SV.scope !== 'in' || !svMaskOn()) return [SV_ALL];
     const areas = S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
-    if (!areas.length || areas.some((x) => shapeStage(x))) return false;
-    const map = stageMap(a), recs = GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x))).recs;
-    const paths = areas.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
+    return areas.some((x) => shapeStage(x)) ? null : areas;
+  }
+  const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
+  // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
+  // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
+  // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
+  // (opened if need be). False (nothing more drawn) unless every shape takes that path: a region of a later plane, a
+  // map with no inverse, a program still compiling
+  function svCarryExact(pane, a, T, frame) {
+    const list = svCarryShapes();
+    if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || a <= T || derivIn(0, a)) return false;
+    const map = stageMap(a), recs = GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(list.includes(SV_ALL) ? [SV_ALL] : [])).recs;
+    const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
     if (paths.some((p) => p.path !== 'inverse')) return false;
-    const carry = { s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark };
-    for (let i = 0; i < areas.length; i++) {
+    const carry = svCarryStyle(T);
+    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    for (let i = 0; i < list.length; i++) {
       const p = paths[i];
       let res = 'error';
       try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: areas[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
           look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
       } catch (e) { console.error('steps view exact colour', e); }
-      // (a region drawn already stays: the carried grid goes under the rest, the frame's colour kept as it is)
+      // (a shape drawn already stays: the next path draws over it)
       if (res !== 'drawn') return false;
     }
     return true;
   }
-  // (#584) Inside regions while gliding (map: the glide's, h_{b,u} after the steps before b) or at rest on a plane past
-  // the colour plane: each region's tessellated mesh (the one its patterns travel on) moved by map, each fragment the
-  // colour plane's colour of its point z, dcolor(f_T ∘ … ∘ f_1(z)) (GLR.drawRegion with carry). Into the open GL
-  // frame (the mask frame's, its colour alone). False (nothing drawn) unless every visible region draws so
-  function svCarryRegions(pane, map, T) {
-    if (!GLR.drawRegion || derivIn(0, T)) return false;
-    const areas = S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
-    if (!areas.length || areas.some((x) => shapeStage(x))) return false;
-    const carry = { s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark };
-    for (const x of areas) {
+  // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
+  // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
+  // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
+  // (opened if need be). False (nothing more drawn) unless every shape draws so
+  function svCarryRegions(pane, map, T, b, frame) {
+    const list = svCarryShapes();
+    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
+    // (the tiling's key of plane b's image, smKeyOf; with no inverse plan to b, its window alone)
+    const key = smKeyOf(stageMap(b)) || (() => { const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2; return { win: clipWin, R, rs: R / 8, sing: [] }; })();
+    const carry = svCarryStyle(T);
+    for (const x of list) {
       const r = shapeGPU(x);
       if (!r || !r.meshRes) return false;
-      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: MESH_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry })) return false;
+      if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: MESH_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key })) return false;
     }
     return true;
   }
@@ -432,12 +446,12 @@
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
       let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
-      // (#584: at rest past the colour plane, Inside regions on the GPU, each region's points take their colour exactly,
-      // as the region tiling places them: svCarryExact; the carried grid where it cannot)
-      if (still && !svColoured(a) && frame.keep && svCarryExact(pane, a, T)) carried = true;
-      // (and while gliding, or at rest while the exact pass compiles: the regions' own tessellated meshes, as their
-      // patterns travel, each fragment its point's colour)
-      else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && frame.keep && svCarryRegions(pane, map, T)) carried = true;
+      // (#584: at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
+      // svCarryExact; the carried grid only where neither path can draw)
+      if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
+      // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
+      // travel on, each fragment its point's colour)
+      else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && svCarryRegions(pane, map, T, still ? a : b, frame)) carried = true;
       else if (still ? !svColoured(a) : !isDeriv(b)) {
         carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
       }
