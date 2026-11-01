@@ -22,6 +22,7 @@ const AREAS = ['interact', 'phone', 'words', 'export', 'geometry', 'render', 'so
 
 const VIEWS = {
   // already in the steps view
+  'example_lane_cut_cmd.js': steps(),
   'example_try_sv_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
