@@ -1441,7 +1441,7 @@
     });
   }
   // a message for an edit made on the thread (#515 would take the rail for it and hide the thread, with the focus on it): none on a
-  // desktop. It is said in the live region; Undo stays in the top bar's ↶ and Ctrl+Z; the focus stays on its chip (ux's choice A)
+  // desktop. It is said in the live region; Undo stays in the top bar's Undo button and Ctrl+Z; the focus stays on its chip (ux's choice A)
   function svQuietToast(msg) {
     if (!SV.on || !SV.els || document.documentElement.classList.contains('ph')) return false;
     const a = document.activeElement, inRail = !!(a && a.closest && a.closest('#svStrip .sv-rail, #svStrip .sv-add'));
