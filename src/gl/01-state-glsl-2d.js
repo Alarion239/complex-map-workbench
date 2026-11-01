@@ -525,9 +525,9 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   PAT_PRE.pre = `  vec2 g = vG;
   vec2 gw = fwidth(g);
   vec2 gp = vP, gpw = fwidth(vP);
-  float rr = exp(clamp(gp.x * (TAU / 16.0), -80.0, 80.0));
-  float th = gp.y * (TAU / 16.0);
-  vec2 sa = uPattern == 4 ? vP : rr * vec2(cos(th), sin(th));
+  vec2 rt = preRT(gp);
+  float rr = rt.x, th = rt.y;
+  vec2 sa = uPattern == 4 ? vP : preSrc(gp);
   vec2 fs = uPattern == 4 ? fwidth(vP) : gw * uCell;
   float gr = rr / uCell, fgr = fwidth(gr);
   float ra = th * (12.0 / PI), fra = gpw.y * 1.5;
@@ -535,6 +535,11 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   float m = moire(gw);
   vec3 c0 = uC0, c1 = uC1, k = uK;
   vec3 col = c0;
+`;
+  // a pre-mapped mesh's polar pattern coordinates gp = (ln |z|, arg z) * 16 / tau back to (|z|, arg z) (preRT) and to the
+  // source point z (preSrc): PAT_PRE.pre's and CARRY_FS's pre option's one conversion
+  const PRE_SRC = `vec2 preRT(vec2 gp) { return vec2(exp(clamp(gp.x * (TAU / 16.0), -80.0, 80.0)), gp.y * (TAU / 16.0)); }
+vec2 preSrc(vec2 gp) { vec2 rt = preRT(gp); return rt.x * vec2(cos(rt.y), sin(rt.y)); }
 `;
   const PAT_CHAIN = `  if (uPattern == 1) {              // Checker
     col = mix(mix(c0, c1, checker(g, gw)), 0.5 * (c0 + c1), m);
@@ -671,7 +676,7 @@ float preKeyDepth(vec2 sa, bool stepped) {
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
     const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_UNI], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
-    for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP;\n'], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
+    for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP;\n' + PRE_SRC], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
       if (!t.includes(a)) throw new Error('REGION_PRE_FS: ' + a.slice(0, 40));
       t = t.split(a).join(b);
     }
@@ -1094,9 +1099,9 @@ void main() {
   const CARRY_FS = (id, key = true, pre = false, clip = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_UNI : ''}in vec2 vP;
-${pre ? 'uniform int uPreZ;\n' : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : exp(clamp(vP.x * (TAU / 16.0), -80.0, 80.0)) * vec2(cos(vP.y * (TAU / 16.0)), sin(vP.y * (TAU / 16.0)))' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;

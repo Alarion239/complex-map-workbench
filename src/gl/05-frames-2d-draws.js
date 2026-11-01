@@ -399,28 +399,6 @@
     draw();
     if (last) carryDepthEnd();
   }
-  // the steps view's carried colour on a pre-mapped mesh (the tiling's SphereMesh: places mapped on the CPU, vP each
-  // vertex's source point): each fragment the colour plane's colour of its point, its depth the sheet key (regionPK);
-  // st as drawRegionCarry's {map, view, dpr, carry, key, depth}, and preZ: the mesh's vP is the source point itself
-  // (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
-  function drawPreCarry(res, st) {
-    if (!ok || !res || !res.n) return false;
-    const P = program('regionPK', st.map);
-    if (!P) return false;
-    preAll.delete(res); preAll.set(res, true);
-    use(P, st.map);
-    const v = st.view, dpr = st.dpr || 1;
-    u2f(P, 'uRel', v.cx - res.org[0], v.cy - res.org[1]);
-    u2f(P, 'uScale', 2 * v.s * dpr / fw, 2 * v.s * dpr / fh);
-    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    keyUniforms(P, k);
-    u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); dcUniforms(P, st.carry, dpr);
-    u1i(P, 'uPreZ', st.preZ ? 1 : 0);
-    gl.bindVertexArray(res.vao);
-    carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
-    gl.bindVertexArray(null);
-    return true;
-  }
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
     if (st.carry) return drawRegionCarry(res, st);

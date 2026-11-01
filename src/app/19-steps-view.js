@@ -425,7 +425,7 @@
   // refined, drawn as an extra mesh of their own, their base cells skipped)
   // At rest on a still map, a shape the tiling draws from a SphereMesh (smFor: an unbounded shape, or a fix-up with
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
-  // that pre-mapped mesh once it is built (GLR.drawPreCarry), in the same depth; its tessellated mesh stands in while
+  // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands in while
   // the mesher's job runs
   const SV_CARRY_L = 2;
   function svCarryRegions(pane, map, T, b, frame, F) {
@@ -453,7 +453,7 @@
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
       const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === 4 };
-      if (!(d.pre ? GLR.drawPreCarry(d.res, st) : GLR.drawRegion(d.res, st))) {
+      if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
       }
