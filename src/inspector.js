@@ -227,41 +227,18 @@ const Inspector = (() => {
       return E;
     }
     // the steps view's Repeat row (the classic view has the bracket under the cards): "Repeat − N +" and End the repeat, for the
-    // block this step is in. N is changed through A.setRepeat, the one place a repeat changes, so each change is one undo
+    // block this step is in. N changes through the same field and step the bracket uses (11-pipeline.js), each change one undo
     function buildRepeat(k) {
       if (!A.repeatOf) return { root: null };
-      const field = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-      const less = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time fewer'), 'data-tip': $t('One time fewer') }, '−');
-      const more = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time more'), 'data-tip': $t('One time more') }, '+');
+      const block = () => { const r = A.repeatOf(k); return r && A.S().steps[r.b - 1] && A.S().steps[r.b - 1].repeat ? r : null; };
+      // (the bracket's own field: its typing, arrow keys and shared-number case are one builder, in 11-pipeline.js)
+      const field = A.repeatField(() => { const r = block(); return r ? r.b : 0; });
+      const less = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time fewer'), 'data-tip': $t('One time fewer'), onclick: () => { const r = block(); if (r) A.repeatStep(r.b, -1); } }, '−');
+      const more = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time more'), 'data-tip': $t('One time more'), onclick: () => { const r = block(); if (r) A.repeatStep(r.b, 1); } }, '+');
       const off = h('button', { type: 'button', class: 'btn small rep-end', onclick: () => { const r = A.repeatOf(k); if (r) A.setRepeat(r.b, null); } }, $t('End the repeat'));
       const range = h('span', { class: 'rep-range' });
       const root = h('div', { class: 'insp-repeat', role: 'group', 'aria-label': $t('Repeat'), hidden: true },
         h('span', { class: 'rep-name' }, $t('Repeat'), range), h('span', { class: 'rep-ctl' }, less, field, more), off);
-      const block = () => { const r = A.repeatOf(k); return r && A.S().steps[r.b - 1] && A.S().steps[r.b - 1].repeat ? r : null; };
-      const step = (d) => {
-        const r = block();
-        if (!r || r.by) return;
-        const n = Math.min(A.Funcs.REPEAT_MAX, Math.max(1, r.n + d));
-        if (n !== r.n) A.setRepeat(r.b, { n, len: A.S().steps[r.b - 1].repeat.len });
-      };
-      less.addEventListener('click', () => step(-1));
-      more.addEventListener('click', () => step(1));
-      const apply = () => {
-        const r = block();
-        if (!r) return;
-        const rp = A.repeatFromText(A.S().steps[r.b - 1], field.value.trim());
-        if (rp) A.setRepeat(r.b, rp); else field.value = r.by ? A.Params.display(r.by) : String(r.n);
-      };
-      // (while text is being typed the field is the viewer's; a step by − + or the arrow keys writes it)
-      field.addEventListener('input', () => { field.dataset.typing = '1'; });
-      field.addEventListener('change', () => { delete field.dataset.typing; apply(); });
-      field.addEventListener('blur', () => { delete field.dataset.typing; });
-      field.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { delete field.dataset.typing; apply(); return; }
-        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-        e.preventDefault();
-        step(e.key === 'ArrowUp' ? 1 : -1);
-      });
       return { root, field, less, more, range };
     }
     // what the row says: shown for a step in a block, in the steps view only; the field is left alone while it has the focus

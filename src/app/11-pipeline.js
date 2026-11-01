@@ -96,14 +96,67 @@
   // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
   // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
   function focusRepeatField(k) {
-    if (!SV.on) return document.querySelector(`#pipeline .rep-bracket[data-k="${k}"] .rep-n`);
+    const field = () => repFields.map((f) => f.inp).find((el, i) => repFields[i].getK() === k && el.isConnected && el.getClientRects().length) || null;
+    if (!SV.on) return field();
     svInspect(k);
     const t0 = performance.now(), look = () => {
-      const f = /** @type {HTMLInputElement | null} */ (document.querySelector('.insp-repeat .rep-n'));
-      if (f && f.getClientRects().length) { f.focus(); f.select(); } else if (performance.now() - t0 < 1500) requestAnimationFrame(look);
+      const f = field();
+      if (f) { f.focus(); f.select(); } else if (performance.now() - t0 < 1500) requestAnimationFrame(look);
     };
     requestAnimationFrame(look);
     return null;
+  }
+  // N's field, one for every place that sets it (the bracket under the cards, the steps view's Inspector row): typed, or by the
+  // arrow keys, for the block ending at step getK(). N applies once typing settles, so 12 builds the chain once, not for
+  // N = 1 then N = 12; at once on change
+  const repFields = [];
+  function repeatShowAll() {
+    for (let i = repFields.length - 1; i >= 0; i--) {
+      const f = repFields[i];
+      if (!f.inp.isConnected) { repFields.splice(i, 1); continue; }
+      const st = S.steps[f.getK() - 1];
+      if (!f.inp.dataset.typing && st && st.repeat) f.inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n);
+    }
+  }
+  // one step of N for the block ending at step k (the arrow keys, the Inspector's − and +); not for a shared number's
+  function repeatStep(k, d) {
+    const st = S.steps[k - 1];
+    if (!st || !st.repeat || st.repeat.by) return;
+    const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + d));
+    if (v === st.repeat.n) return;
+    st.repeat = { n: v, len: st.repeat.len };
+    chainChanged(false); commit();
+    repeatMoved(k, st.repeat);
+    repeatShowAll();
+  }
+  function repeatField(getK) {
+    const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
+    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+    let settle = 0, typedFor = null;
+    const apply = () => {
+      clearTimeout(settle);
+      const t = inp.value.trim(), st = typedFor || S.steps[getK() - 1];
+      typedFor = null;
+      if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
+      const rp = repeatFromText(st, t);
+      if (!rp) return;
+      st.repeat = rp;
+      chainChanged(false);
+      repeatMoved(S.steps.indexOf(st) + 1, rp);
+    };
+    // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
+    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, 400); });
+    inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
+    inp.addEventListener('blur', () => { delete inp.dataset.typing; });
+    // (the arrow keys step a typed N, as a number field does)
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      delete inp.dataset.typing; clearTimeout(settle);
+      repeatStep(getK(), e.key === 'ArrowUp' ? 1 : -1);
+    });
+    repFields.push({ inp, getK });
+    return inp;
   }
   let repRO = null;
   function updateRepeats() {
@@ -115,36 +168,7 @@
     blocks.forEach((r, i) => {
       let L = els[i];
       if (!L) {
-        const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-        // (N applies once typing settles, so 12 builds the chain once, not for N = 1 then N = 12; at once on change)
-        // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
-        let settle = 0, typedFor = null;
-        const show = (st) => { inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n); };
-        const apply = () => {
-          clearTimeout(settle);
-          const t = inp.value.trim(), st = typedFor || S.steps[+L.dataset.k - 1];
-          typedFor = null;
-          if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
-          const rp = repeatFromText(st, t);
-          if (!rp) return;
-          st.repeat = rp;
-          chainChanged(false);
-          repeatMoved(S.steps.indexOf(st) + 1, rp);
-        };
-        inp.addEventListener('input', () => { clearTimeout(settle); typedFor = S.steps[+L.dataset.k - 1] || null; settle = setTimeout(apply, 400); });
-        inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
-        // (the arrow keys step a typed N, as a number field does)
-        inp.addEventListener('keydown', (e) => {
-          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-          const k = +L.dataset.k, st = S.steps[k - 1];
-          if (!st || !st.repeat || st.repeat.by) return;
-          e.preventDefault();
-          const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + (e.key === 'ArrowUp' ? 1 : -1)));
-          if (v === st.repeat.n) return;
-          st.repeat = { n: v, len: st.repeat.len };
-          show(st); chainChanged(false); commit();
-          repeatMoved(k, st.repeat);
-        });
+        const inp = repeatField(() => +L.dataset.k);
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
           h('div', { class: 'rep-chip' }, h('span', { class: 'rep-x', 'aria-hidden': 'true' }, '×'), inp, off));
