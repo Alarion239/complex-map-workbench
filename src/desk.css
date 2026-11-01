@@ -19,7 +19,7 @@
 .card .nm {
   flex: 1 1 auto; min-width: 0; margin-left: 0; white-space: normal; overflow: hidden; text-overflow: clip;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  font: 600 12px/13px var(--f-ui); font-stretch: 87.5%; hyphens: manual; overflow-wrap: normal; word-break: normal;
+  font: 600 12px/13px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); hyphens: manual; overflow-wrap: normal; word-break: normal;
 }
 .card .ty { display: inline-grid; place-items: center; flex: 0 0 14px; width: 14px; height: 14px; color: var(--ink-2); }
 .card .ty svg { width: 14px; height: 14px; display: block; }
@@ -66,12 +66,12 @@
 .ftile .fF { font: italic 500 26px/1 var(--f-math); }
 .ftile > .fwm { display: none; }   /* (#246: the phone's chain sheet names the row; the laptop's tile is F and its lamps) */
 .ftile .fl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 76px; }
-.ftile .lamp { display: flex; align-items: flex-start; gap: 5px; font: 500 11.5px/13px var(--f-ui); font-stretch: 87.5%; color: var(--ink-2); text-align: left; hyphens: manual; }
+.ftile .lamp { display: flex; align-items: flex-start; gap: 5px; font: 500 11.5px/13px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--ink-2); text-align: left; hyphens: manual; }
 .ftile .lamp::before { content: ""; flex: 0 0 8px; width: 8px; height: 8px; margin-top: 2.5px; border-radius: var(--r-1); background: var(--good); }
 .ftile .lamp[hidden] { display: none; }
 .ftile .lampq { color: var(--muted); }
 .ftile .lampq:empty { display: none; }
-.ftile .fnone { font: 500 11.5px/13px var(--f-ui); font-stretch: 87.5%; color: var(--muted); text-align: center; }
+.ftile .fnone { font: 500 11.5px/13px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); text-align: center; }
 .ftile .fnone[hidden] { display: none; }
 /* names only (the Names switch): heads alone */
 .pipeline.compact .card { height: 36px; flex-basis: 0; width: auto; contain-intrinsic-size: auto 36px; }
@@ -116,6 +116,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .iform .ftex.long { white-space: normal; font: var(--t-label); color: var(--muted); }
 .iform .wl { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13.5px; }
 .iform .wl > div { white-space: nowrap; }
+/* ([#465] the formula read as text is as tall as the typeset line it stands for, so the sheet does not move when MathJax
+   arrives: a step line is a line of text; F's line keeps the height of a typeset one with scripts) */
+.iform .tex-fallback { min-height: 0; line-height: 1.15; vertical-align: top; }
+.iform .ftex:not(.long) { min-height: 22px; }
 .inote { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
 .inote:empty { display: none; }
 .ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
@@ -331,6 +335,14 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #toastHost[data-placed] { translate: -50% 0; }
 #toastHost[data-placed] .toast { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
 #toastHost[data-placed] .toast > span { text-wrap: pretty; line-height: 18px; }
+/* (#515, steps view) a message over the thread's rail: one line, the rail's height at most; the rail's planes and steps are hidden
+   while it shows (it covers no control), and < > and the speed beside it stay live */
+#toastHost[data-placed="rail"] .toast { height: auto; min-height: 36px; white-space: normal; box-shadow: none; }
+.sv-strip.sv-toast .sv-rail > * { visibility: hidden; }
+/* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
+   once wrapped to four lines and cut its longest word (ru, 1024) */
+#toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
+#toastHost[data-placed]:not([data-placed="head"]) .toast > span { flex: 1 1 auto; }
 #toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
 /* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
 #toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
@@ -515,7 +527,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .trange .tr-from sub { font-size: 0.72em; line-height: 0; }
 /* ---- v16.5 wave 1, the chain (notes/ux-build/w1-chain-AS-BUILT.md) ---- */
 /* UX22: the + card says Add function while the chain has three steps or fewer: a vertical label in the same 44 px */
-.add-card.labelled > span:nth-child(2) { display: block; writing-mode: vertical-rl; transform: rotate(180deg); font: 500 12px/14px var(--f-ui); font-stretch: 87.5%; white-space: nowrap; max-height: 104px; overflow: hidden; text-overflow: ellipsis; }
+.add-card.labelled > span:nth-child(2) { display: block; writing-mode: vertical-rl; transform: rotate(180deg); font: 500 12px/14px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: nowrap; max-height: 104px; overflow: hidden; text-overflow: ellipsis; }
 .add-card.labelled { gap: 8px; }
 .pipeline.compact .add-card.labelled > span:nth-child(2) { display: none; }
 /* UX81: the insert ⊕ between cards is 24 px, and shows after a card that has the keyboard too */
@@ -546,7 +558,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pal-item.sel .pal-pw { display: inline; }
 :root.ph .pal-pw { display: none !important; }
 /* UX23: a formula error in grey, the place it stopped marked; Enter greyed while there is nothing to run. The typed
-   text in the palette input's face (B612 Mono draws "(" like "[": "sin[z") */
+   text in the palette input's face (the mono face draws "(" like "(", not "[") */
 .pal-err { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; color: var(--muted); }
 .pal-err .pe-q { font: 500 15px/20px var(--f-ui); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .pal-err .pe-bad { text-decoration: underline wavy var(--warn); text-underline-offset: 4px; background: var(--warn-soft); border-radius: 2px; }
@@ -610,7 +622,14 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
 :root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
 :root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
-:root.sv:not(.ph) .sv-surf1 { display: none; }
+/* (#441) the plane's head on one row: the bar as wide as its controls (the style row keeps the rest), its surface one
+   button with a menu; short of room the colour-plane button is its wheel alone (sv-c1), then the title loses its role (sv-c2) */
+:root.sv:not(.ph) .sv-head { flex: 0 1 auto; flex-wrap: nowrap; }
+.sv-surf1 { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sv-surf1 svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.sv-head.sv-c1 .sv-cp .sv-cp-t { display: none; }
+.sv-head.sv-c1 .sv-cp { min-width: 32px; justify-content: center; }
+.sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
 :root.sv:not(.ph) #paneL .pane-head { gap: 8px; flex-wrap: wrap; min-height: 40px; padding: 4px 6px 4px 10px; }
 .sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 18px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
@@ -621,7 +640,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-title .sv-role { font: 400 14px/1 var(--f-ui); color: var(--muted); }
 .sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.sv-strip { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; min-width: 0; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
+.sv-strip { position: relative; display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; min-width: 0; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
 .sv-nav:disabled { opacity: .4; cursor: default; }
 /* (a thread longer than its rail scrolls in it, with no bar: the view keeps the shown plane in sight, #497) */
@@ -649,6 +668,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
 .sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* (inside the rail, which scrolls and so clips what overhangs it (#501), the planes' and the chips' focus rings are drawn
+   inside their buttons: the layout gate's focus-ring rule, #470) */
+.sv-rail .sv-plane:focus-visible, .sv-rail .sv-fchip:focus-visible { outline-offset: -2px; }
+.sv-rail .sv-thumb:focus-visible { outline-offset: 0; }
 .sv-thumb { position: absolute; z-index: 2; top: var(--sv-node-y, calc(50% - 9px)); left: -13px; width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; }
 /* (between planes: a playhead across the thread, under the chips, whose words it would otherwise cover; ux's wave 12
    sweep) */
@@ -685,3 +708,29 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-empty[hidden] { display: none; }
 .sv-speed:disabled, .sv-thumb[aria-disabled="true"] { opacity: .4; }
 @media (pointer: coarse) { .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }
+/* play along the thread (#438): the band of the range, its clear button, the loop toggle, a touch's hold */
+.sv-band { position: absolute; z-index: 0; top: calc(50% - 7px - 13px); height: 26px; box-sizing: border-box; border: 1.5px solid var(--accent); border-radius: 13px; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
+.sv-band[hidden] { display: none; }
+/* (24 px, above the chip row: the strip's chips fill its height, so no spot inside the rail is clear of them (eyes on #460)) */
+.sv-bandx { position: absolute; z-index: 3; left: clamp(var(--rl, 0px), calc(var(--bx, 0px) - 6px), calc(var(--rr, 100%) - 24px)); top: -20px; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.sv-bandx[hidden] { display: none; }
+.sv-bandx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-play { font-size: 18px; }
+.sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
+.sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
+.sv-strip .sv-loop { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
+:root:not(.ph) .sv-playback { display: none; }
+.sv-loop.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sv-rail.hold .sv-thumb { background: color-mix(in srgb, var(--accent) 25%, transparent); transition: background .45s linear; }
+.sv-rail.arm .sv-thumb { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+@media (prefers-reduced-motion: reduce) { .sv-rail.hold .sv-thumb { transition: none; } }
+.sv-scrim { position: fixed; inset: 0; z-index: 56; background: rgba(0, 0, 0, .35); }
+.sv-scrim[hidden], .sv-sheet[hidden] { display: none; }
+.sv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 57; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line-strong); border-radius: var(--r-4) var(--r-4) 0 0; display: grid; gap: 12px; }
+.sv-sheet-h { display: flex; align-items: center; justify-content: space-between; font: 600 16px/1.2 var(--f-ui); color: var(--ink); }
+.sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
+.sv-sheet .sv-speed { display: block; height: 44px; min-width: 140px; font-size: 15px; }
+.sv-sheet .sv-loop { height: 44px; min-width: 96px; }
+.sv-sheet .btn { min-height: 44px; min-width: 44px; }
+/* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
+.pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }

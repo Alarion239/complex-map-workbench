@@ -14,6 +14,7 @@
   const TOL = 2e-3;
   const TS = [0, 0.01, 0.37, 0.5, 0.73, 0.999, 1];
   const RANGE_TS = [0, 0.25, 0.5, 0.999, 1];
+  const CARRY_TS = [0, 0.37, 1];
   const SHEET_TS = [0, 0.37, 0.73, 1];
 
   // ---------- deterministic random ----------
@@ -321,6 +322,16 @@
     add('dh near M 0.6z-0.5 N 12', [S('affine', { a: '0.6', b: '-0.5' }), S('dh', { N: 12 })]);
     add('default bottcher', [S('bottcher')]);
     add('bottcher c = 0.3+0.6i outside M', [S('bottcher', { c: '0.3+0.6i' })]);
+    // [issue #439] the steps view's carried colour (GLR.drawCarried): its vertex shader walks plane s's points to plane
+    // hi's path at t through chainAt (src/gl MAP_PLAIN[1], base = s), and its fragment shader colours them by
+    // chainRange(p, s, T). carry: true adds those rows (CARRY_TS, every base, focus and s < T), in a program of its own
+    const Cy = (name, steps) => chains.push({ name, steps, carry: true });
+    Cy('carry exp mobius', [S('mul', { c: '0.5' }), S('exp'), S('mobius', { a: '1', b: '0.5', c: '0.2', d: '1' })]);
+    Cy('carry mobius pown 3', [S('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), S('pown', { n: 3 })]);
+    Cy('carry blaschke pown -2 add', [S('blaschke', { a: '0.4+0.2i', phi: 30 }), S('pown', { n: -2 }), S('add', { c: '0.3-0.2i' })]);
+    Cy('carry mul affine recip', [S('mul', { c: '0.8+0.6i' }), S('affine', { a: '1.2-0.4i', b: '0.5' }), S('recip')]);
+    Cy('carry custom disk map squared, cubic', [S('custom', { expr: '((z-0.3)/(1-0.3*z))^2', cut: 180 }), S('custom', { expr: 'z^3-0.5z', cut: 180 })]);
+    Cy('carry sin pown 2 mobius', [S('mul', { c: '0.5' }), S('sin'), S('pown', { n: 2 }), S('mobius', { a: '1', b: '0.3', c: '0.1', d: '1' })]);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -359,13 +370,13 @@
     const stageF = (k) => G[Math.max(0, Math.min(n, k))];
     const rangeF = (a, b) => { if (!a) return stageF(b); const fs = []; for (let i = a + 1; i <= b; i++) { const f = stepFn(i); if (f) fs.push(f); } return (z) => { for (const f of fs) z = f(z); return z; }; };
     const HR = HomRange.make({ n, stepFn, isDeriv: () => false, stepActive: (k) => !!stepFn(k), stageF, rangeF, built, C });
-    return HR.cpuMap(row.mode === 7 ? { mode: 1, hi: row.k, t: row.t, b: row.b, post: row.post } : { mode: 3, a: row.k, b: row.b, t: row.t, post: row.post });
+    return HR.cpuMap(row.mode === 7 ? Object.assign({ mode: 1, hi: row.k, t: row.t, b: row.b, post: row.post }, row.base ? { base: row.base } : {}) : { mode: 3, a: row.k, b: row.b, t: row.t, post: row.post });
   }
   // the range row's composition with every stage value rounded to float32 (the GPU's precision between steps)
   function rangeTwin32(steps, built, row, z) {
     const r32 = (w) => C(Math.fround(w.re), Math.fround(w.im)), lo = row.mode === 7 ? row.k - 1 : row.k;
     let w = r32(z);
-    for (let k = 1; k <= lo; k++) if (live(steps, built, k)) w = r32(built[k - 1].f(w));
+    for (let k = (row.base || 0) + 1; k <= lo; k++) if (live(steps, built, k)) w = r32(built[k - 1].f(w));
     if (row.t > 0) for (let k = lo + 1; k <= (row.mode === 7 ? row.k : row.b); k++) if (live(steps, built, k)) { const b = built[k - 1]; w = r32(row.t >= 1 ? b.f(w) : b.hom ? b.hom(row.t)(w) : ((x) => { const v = b.f(x); return C((1 - row.t) * x.re + row.t * v.re, (1 - row.t) * x.im + row.t * v.im); })(w)); }
     for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) w = r32(built[k - 1].f(w));
     return w;
@@ -376,7 +387,7 @@
   // the point is not compared (counted in skippedRangeF32, as the mode-0 rows' discontinuity check would)
   function rangeOnCut(steps, built, row, z) {
     const lo = row.mode === 7 ? row.k - 1 : row.k, hi = row.mode === 7 ? row.k : row.b, fs = [];
-    for (let k = 1; k <= lo; k++) if (live(steps, built, k)) fs.push(built[k - 1].f);
+    for (let k = (row.base || 0) + 1; k <= lo; k++) if (live(steps, built, k)) fs.push(built[k - 1].f);
     if (row.t > 0) for (let k = lo + 1; k <= hi; k++) if (live(steps, built, k)) { const b = built[k - 1]; fs.push(row.t >= 1 ? b.f : b.hom ? b.hom(row.t) : (x) => { const v = b.f(x); return C((1 - row.t) * x.re + row.t * v.re, (1 - row.t) * x.im + row.t * v.im); }); }
     for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) fs.push(built[k - 1].f);
     let w = z;
@@ -596,7 +607,7 @@
       const lo = row.mode === 7 ? row.k - 1 : row.k, his = [];
       for (let k = lo + 1; k <= (row.mode === 7 ? row.k : row.b); k++) if (live(steps, built, k) && row.t > 0) his.push(built[k - 1]);
       const pre = [], post = [];
-      for (let k = 1; k <= lo; k++) if (live(steps, built, k)) pre.push(built[k - 1]);
+      for (let k = (row.base || 0) + 1; k <= lo; k++) if (live(steps, built, k)) pre.push(built[k - 1]);
       for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) post.push(built[k - 1]);
       return (z) => {
         let mag = 0, cancel = 0;
@@ -702,6 +713,7 @@ void main() {
   else if (m.x < 3.5) w = chainStage(int(m.y), z);
   else if (m.x < 4.5) w = chainSheet(zz.zw, z, int(m.y), int(m.z));
   else if (m.x < 5.5) w = chainSheetRange(zz.zw, z, int(m.y), int(m.z), int(m.w));
+  /*CARRY*/
   else if (m.x > 6.5) {
     int xi = int(m.x + 0.5), md = xi - 16 * (xi / 16), kk = xi / 16, b = int(m.y + 0.5), post = int(m.z + 0.5);
     vec2 u = chainRange(z, 0, md == 7 ? kk - 1 : kk);
@@ -712,6 +724,17 @@ void main() {
   else w = chainHomAll(z, int(m.y), int(m.z), m.w);
   o = vec4(w, cfin(w) ? 1.0 : 0.0, 1.0);
 }`;
+  // [issue #439] the carry chains' program: mode 10 is the carried colour's placement, the walk of src/gl's mapPoint
+  // (MAP_PLAIN[1]) from plane base: m = (10, hi, t), the second texel (base)
+  const MAIN_CARRY = MAIN.replace('/*CARRY*/', `else if (m.x > 9.75 && m.x < 10.25) {
+    int base = int(texelFetch(uModes, ivec2(1, c.y), 0).x + 0.5), hi = int(m.y + 0.5);
+    w = z;
+    for (int k = 1; k < max(17, uNoUnroll); k++) {
+      int how = k <= base ? 0 : k < hi ? 1 : k == hi ? (m.z <= 0.0 ? 0 : 2) : 0;
+      w = chainAt(k, w, m.z, how);
+    }
+  }
+  `);
   function compile(src) {
     const mk = (type, s) => {
       const sh = gl.createShader(type);
@@ -748,10 +771,11 @@ void main() {
   const vao = gl.createVertexArray();
 
   function runGPU(gc, rows) {
-    let pr = progs.get(gc.key);
+    const carry = rows.some((r) => r.carry), pkey = gc.key + (carry ? '|carry' : '');
+    let pr = progs.get(pkey);
     if (!pr) {
-      pr = compile('#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\n' + gc.source + (gc.sheetHom || '') + '\n' + MAIN);
-      progs.set(gc.key, pr);
+      pr = compile('#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\n' + gc.source + (gc.sheetHom || '') + '\n' + (carry ? MAIN_CARRY : MAIN));
+      progs.set(pkey, pr);
       R.programs++;
     }
     gl.useProgram(pr.p);
@@ -763,7 +787,8 @@ void main() {
     rows.forEach((r, i) => {
       const v = r.mode === 0 ? [r.a, r.b] : r.mode === 3 ? [r.k, 0] : r.mode === 4 ? [r.b, r.combo] : r.mode === 5 ? [r.a, r.b, r.combo] : r.mode === 6 ? [r.a, r.b, r.t] : [r.i, r.t || 0];
       // (modes 7 and 8 pack their step into x: mode + 16 k, then b, post and t)
-      if (r.mode === 7 || r.mode === 8) md.set([r.mode + 16 * r.k, r.b, r.post, r.t], 8 * i);
+      if (r.carry) md.set([10, r.k, r.t, 0, r.base, 0, 0, 0], 8 * i);
+      else if (r.mode === 7 || r.mode === 8) md.set([r.mode + 16 * r.k, r.b, r.post, r.t], 8 * i);
       else if (r.mode === 9) { const m = r.map; md.set([9, m.mode + 4 * (m.post || 0) + 256 * (r.end || 0), m.t || 0, r.combo, m.base || 0, m.a || 0, m.hi || 0, m.b || 0], 8 * i); }
       else md.set([r.mode, v[0], v[1], v[2] || 0], 8 * i);
     });
@@ -786,7 +811,7 @@ void main() {
   }
 
   const rowName = (r) => (r.mode === 0 ? `range(${r.a},${r.b})` : r.mode === 1 ? `step(${r.i})` : r.mode === 2 ? `hom(${r.i},t=${r.t})`
-    : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 9 ? `sheetHom(${JSON.stringify(r.map)},combo=${r.combo}${r.end ? `,end=${r.end}` : ''})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
+    : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.carry ? `carry(base=${r.base},hi=${r.k},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 9 ? `sheetHom(${JSON.stringify(r.map)},combo=${r.combo}${r.end ? `,end=${r.end}` : ''})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
   function testChain(ch) {
     // ([issue #6] a repeat's last step runs its block n times, as in the app)
     const built = Funcs.applyRepeats(ch.steps, ch.steps.map((s) => Funcs.build(s)));
@@ -826,6 +851,13 @@ void main() {
         }
       }
       R.rangeRows = (R.rangeRows || 0) + rows.filter((r) => r.mode === 7 || r.mode === 8).length;
+    }
+    // [issue #439] the carry chains: the placement of plane base's points on hi's path at t (a mode 7 row from base,
+    // no post: rangeTwin's CPU twin), and the colour chainRange(z, s, T) for every s < T
+    if (ch.carry) {
+      for (let a = 1; a < n; a++) for (let b = a + 1; b <= n; b++) if (!rows.some((r) => r.mode === 0 && r.a === a && r.b === b)) rows.push({ mode: 0, a, b });
+      for (let hi = 1; hi <= n; hi++) for (let base = 0; base < hi; base++) for (const t of CARRY_TS) if (rows.length < HMAX) rows.push({ mode: 7, carry: true, base, k: hi, b: hi, post: hi, t });
+      R.carryRows = (R.carryRows || 0) + rows.filter((r) => r.carry).length;
     }
     // (v16.1 user-5) mode 9: chainSheetHom, H_t on the sheets that become F's (Funcs.sheetMapEval): every step at t
     // after the steps before it (and with the post after it), all at once, at t in SHEET_TS, the first combos

@@ -42,9 +42,12 @@ ok('T1: src/sound/ (sound.js in parts) -> sound', same(select(['src/sound/03-lif
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 ok('T1: constr.js\'s modules (issue #20) -> the same as constr.js', ['src/constrpoc.js', 'src/constrortho.js'].every((f) => same(select([f]).browser, select(['src/constr.js']).browser) && same(select([f]).glsl, select(['src/constr.js']).glsl)));
 ok('T1: src/construct/ (construct.js in parts) -> the constructions shards', same(select(['src/construct/04-chip-overlay.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
-for (const f of ['tools/it_table.json', 'tools/ru_extra.json', 'notes/i18n/DESIGN.md']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
+for (const f of ['tools/it_table.json', 'tools/ru_extra.json']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
 // (the languages' tables also run the layout gate's Russian and Italian shard, #470)
 for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layout-2`, same(select([f]).browser, [...AREAS.i18n, ...AREAS['layout-i18n'], 'smoke']), select([f]).browser);
+// (notes/ is read by unit tests at most: a notes-only diff, #516's deletions included, runs no browser shard)
+for (const f of ['notes/i18n/DESIGN.md', 'notes/i18n/ru/phase2b-fixes.json', 'notes/i18n/inventory_tools/build.js', 'notes/i18n/latex/xe.out', 'notes/sound/review-deformation/a.md']) ok(`T0: ${f} -> the unit tests only`, select([f]).tier === 'T0' && !select([f]).browser.length, select([f]));
+ok('T0: a notes-only diff (#516) selects no browser shard', (() => { const p = select(['notes/i18n/inventory_tools/extract.js', 'notes/i18n/latex/pdf.out', 'notes/proto/incremental/x.js', 'notes/v16-user5/review-regress-evidence/cmds/a_cmd.js']); return p.tier === 'T0' && !p.browser.length && !p.glsl.length; })());
 ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views', 'formulas', 'smoke']));
 // ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
 ok('T1: desk.css -> the desktop, phone and layout-1 shards', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
@@ -82,6 +85,8 @@ ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map
 for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
 // (issue #20: region.js's line refinement, out of it, selects what region.js selects)
 ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
+// (issue #20: parse.js's symbolic calculus, out of it, selects what parse.js selects)
+ok('T2: src/symbolic.js -> the same as src/parse.js', (() => { const a = select(['src/symbolic.js']), b = select(['src/parse.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
 ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
