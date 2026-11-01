@@ -56,7 +56,7 @@ const steady = async () => {
   const sig = '(() => { const c = document.getElementById("canvasL"); return Array.from(c.getContext("2d").getImageData(0, 0, c.width, c.height).data.filter((v, i) => i % 4093 === 0)).join(","); })()';
   let prev = null;
   for (let i = 0; i < 20; i++) {
-    await settled({ until: 'GLR.pendingLinks === 0 && !__cmwSteps().play && !__cmwSteps().anim && !__cmwSphere().running && !__cmwSphere().jobs.length', max: 20000 });
+    await settled({ until: 'GLR.pendingLinks === 0 && !__cmwSteps().play && !__cmwSteps().anim && !__cmwSphere().running && !__cmwSphere().jobs.length && (typeof __cmwSvFixed !== "function" || __cmwSvFixed())', max: 20000 });
     const now = await ev(sig);
     if (now === prev) return true;
     prev = now;
