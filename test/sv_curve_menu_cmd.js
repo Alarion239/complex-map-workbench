@@ -44,6 +44,7 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   await closeAll();
   const [x1, y1] = await at(0, 1.1);
   const hit = await under(x1, y1);
+  logs(true);
   // (the events the plane gets from the right-click, in order, with the app's drag at each: what a failure reports)
   await ev(`(() => { const t = document.getElementById('overlayL'), log = window.__rcLog = []; for (const ty of ['pointerdown', 'mousedown', 'pointermove', 'pointerup', 'mouseup', 'pointercancel', 'lostpointercapture', 'contextmenu']) t.addEventListener(ty, (e) => log.push([ty, e.button, e.buttons, Math.round(e.timeStamp), __cmwPlaneMenu().drag()]), true); new MutationObserver((ms) => { for (const m of ms) { for (const n of m.addedNodes) log.push(['pop+', String(n.className), Math.round(performance.now())]); for (const n of m.removedNodes) log.push(['pop-', String(n.className), Math.round(performance.now())]); } }).observe(document.getElementById('popHost'), { childList: true }); return 1; })()`);
   await rclick(x1, y1);
@@ -54,6 +55,7 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
     why = await ev(`(() => { const st = __cmwState(); return { events: window.__rcLog, now: Math.round(performance.now()), z: __cmwPlaneMenu().s2w('L', ${x1}, ${y1}), view: st.view, focus: st.focus, morph: st.morph, layout: __cmwLayout(), drag: __cmwPlaneMenu().drag() }; })()`);
     await ev(`document.getElementById('overlayL').dispatchEvent(new MouseEvent('contextmenu', { clientX: ${x1}, clientY: ${y1}, button: 2, bubbles: true, cancelable: true })), 1`);
     await settled({ max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
+    why.console = logs(true).filter((l) => !/Failed to load resource/.test(l.m || '')).slice(0, 12);
     why.viaEvent = await menu();
     await closeAll();
   }
