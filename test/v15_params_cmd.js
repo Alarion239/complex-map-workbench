@@ -20,7 +20,7 @@ const NS = 'v15prm' + (Date.now() % 1000000);   // fresh namespaces every run (a
 const STATE = {
   shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6, ci: 0, visible: true }],
   steps: [{ type: 'mobius', params: { a: '1', b: '0', c: '0', d: '1' }, on: true }, { type: 'zp', params: { a: '1', zeros: '1', poles: '' }, on: true }],
-  srcView: { cx: 0, cy: 0, s: 80 }, pattern: 'checker', v5: true, v6: true,
+  srcView: { cx: 0, cy: 0, s: 80 }, v5: true, v6: true,
 };
 // a text field: focus, type, Enter (change), blur: as a person does
 const typeIn = async (sel, text) => {
