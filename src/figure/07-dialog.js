@@ -17,7 +17,7 @@
   // the build options from the remembered settings
   function optsOf(s, extra) {
     const sk = sizeKey(s);
-    return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: cropOf(s), axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
+    return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: cropOf(s), svPic: s.svPic, axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
   }
   const ICON = {
     article: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>',
@@ -190,6 +190,9 @@
     const deformOf = () => (dOpts.some((q) => q[0] === set.deform) ? set.deform : 'film');
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
+    // the steps view's picture: the shown plane, or the filmstrip of the whole thread
+    const svPicRow = A.svOn() ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]], (v) => { set.svPic = v; changed(); }, $t('Picture'))) : null;
+    if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
@@ -257,7 +260,7 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
@@ -422,7 +425,7 @@
       const f = fmtOf(), vid = f === 'video';
       for (const b of fmtSeg.children) b.setAttribute('aria-checked', String(b.dataset.v === f));
       dpiSel.hidden = f !== 'png';
-      for (const r of [forRow, sizeRow, inkRow, capLangRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
+      for (const r of [forRow, sizeRow, inkRow, capLangRow, svPicRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
       greyBtn.hidden = vid; loupeBtn.hidden = vid; facts.hidden = vid;

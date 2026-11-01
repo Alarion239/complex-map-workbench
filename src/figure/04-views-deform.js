@@ -305,6 +305,30 @@
     }
     return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), tracked, pts, marks, hidden: ptShapes.map((z, q) => ({ z, lab: ptLab[q] })).filter((x, q) => !ptSeen[q]), open: openS.length > 0, outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
   }
+  // the steps view's filmstrip: one frame per plane of the thread, each that plane's picture as its stage shows
+  // it (its window, surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1})
+  async function figSvFilm(o, P, W, T) {
+    const [, lp] = T;
+    const frames = A.svFrames(), n = frames.length, cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols), gap = 8;
+    const pw = (W - gap * (cols - 1)) / cols, ink = printInkFor(o, A.state().alpha), raws = [];
+    for (let i = 0; i < n; i++) {
+      const r = await A.svArt(i, { wpt: pw * 1.5, dpi: 300, ink, alive: o.alive });
+      if (!r) return null;
+      raws.push(r);
+    }
+    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (lp * 1.6 + 6)) / rows);
+    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp)), tH = Math.max(...titles.map((it) => it.a + it.d + 4));
+    const items = [], lines = [];
+    for (let i = 0; i < n; i++) {
+      const x = (i % cols) * (pw + gap), y = Math.floor(i / cols) * (tH + ph + 6) + tH, r = raws[i];
+      const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
+      items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
+      items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+      lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' });
+      items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
+    }
+    return { items, defs: '', lines, H: rows * (tH + ph + 6) - 2, info: { svFilm: true, frames } };
+  }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {
     const [tp, lp] = T;

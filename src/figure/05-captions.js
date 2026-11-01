@@ -156,9 +156,12 @@
   // the deformed pieces' paths on a sheet (v16.1 review math-2), if any
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
+  // the thread of a steps-view filmstrip, z → w₁ → w₂ with each step's name over its arrow, in TeX
+  const svChain = (frames) => `$${frames.map((f) => (f.f ? `\\xrightarrow{${f.f}} ${f.name}` : f.name)).join(' ')}$`;
   function captionFor(o, view, body) {
     const ru = capRu();
     const fi = body.info || {};
+    if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) });
     // (export review r3, verify2-new-1: a globe figure's points on the far side are not in its list of what it shows)
     const c = A.capParts({ letters: !!PRESET[o.for].named, skip: (fi.globePaths || fi.film === 'globe') && fi.hidden && fi.hidden.length ? fi.hidden.map((x) => x.z) : null });
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
@@ -335,7 +338,7 @@
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
   const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
-  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
+  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // (export review r3, editor-2) the default file name and \label: the scene, the view and the kind of figure, so two
   // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
   // name stays the same for the same figure, so a new export replaces only its own file
@@ -346,6 +349,7 @@
     const defo = defoOf(view), tag = { plane: 'deformation', deriv: 'deformation', globe: 'globe', phase: 'phase', phaseGlobe: 'phase-sphere', land: 'landscape' }[defo];
     if (fmt === 'video') return defo ? `${base}-${tag}-video` : base;
     if (defo) return `${base}-${tag}-${deform === 'paths' && PATHS_OK.has(defo) ? 'paths' : deform === 'frame' && defo !== 'plane' ? 'frame' : 'film'}`;
+    if (view === 'svFilm') return `${base}-filmstrip`;
     if (view === 'phase') return `${base}-phase`;
     if (view === 'land') return `${base}-landscape`;
     if (view === 'xyL' && A.state().main === 'phase') return `${base}-phase-sphere`;
@@ -355,6 +359,7 @@
   // about 100 characters; null: the text before the display (shortCaption). Called inside using(lang)
   function shortFor(view, body) {
     const fi = body.info || {}, c = A.capParts(), ts = fi.labs ? `$t=${fi.labs.join(',\\,')}$` : '';
+    if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) });
     const at = c.hom ? `$t=${tnum(c.hom.T.toFixed(2))}$` : '';
     if (fi.globePaths) return $t('Paths of the deformation $H_t$ on the Riemann sphere.');
     if (fi.film === 'globe') return $t('The deformation $H_t$ on the Riemann sphere at %{ts}.', { ts });
@@ -399,7 +404,7 @@
     if (o.axes) P.axes = o.axes;
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
-    const view = o.view || A.viewKind();
+    const view = o.view || (o.svPic === 'film' && A.svOn() ? 'svFilm' : A.viewKind());
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
@@ -410,6 +415,7 @@
     // or the frame at the current t (o.deform 'frame', the earlier one-panel figure)
     const defo = defoOf(view);
     if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
+    else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
     else if (view === 'phase') body = await figPhase(o, P, W, T);
     else if (view === 'land') body = await figLand(o, P, W, T);
     if (body) { /* made */ }

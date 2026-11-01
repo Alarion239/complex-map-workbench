@@ -295,6 +295,14 @@
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
     viewKind: svFigView,
     svOn: () => SV.on,
+    // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it (the stage is moved
+    // to it for the one render and back)
+    svFrames: () => svPlanes().map((k, i, P) => ({ name: k === 0 ? 'z' : `w_{${k}}`, prev: i ? (P[i - 1] === 0 ? 'z' : `w_{${P[i - 1]}}`) : null, f: i ? `f_{${k}}` : null })),
+    svArt: async (i, o) => {
+      const keep = SV.i;
+      svGo(i, true);
+      try { return await artRender('L', Object.assign({}, o, SV.surf === 'plane' ? { box: paneBox(paneL, leftView()) } : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) })); } finally { svGo(keep, true); }
+    },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
