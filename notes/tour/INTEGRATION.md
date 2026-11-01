@@ -656,6 +656,7 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `svScope` | the Everywhere / Inside regions choice, `#svHead .sv-scope` |
 | `svSurf` | the surface choice: the segmented control, or on a phone the one button that steps through the three |
 | `svChip` | the first function chip on the thread, `#svStrip .sv-fchip` |
+| `svF` | the F chip, the whole map, `#svStrip .sv-fall` |
 
 ### Events added for the steps view (#442)
 
