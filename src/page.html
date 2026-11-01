@@ -1271,7 +1271,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px; grid-template-areas: "fl fv" "rng rng"; align-items: center; column-gap: 8px; row-gap: 2px; min-width: 0; }
 .fader-row > .fl { grid-area: fl; font: var(--t-label); color: var(--ink-2); white-space: nowrap; }
 .fader-row > input[type="range"] { grid-area: rng; }
-/* (#483) a slider with stops under it is a 24 px target (WCAG 2.5.8): the stops are within reach of a 20 px one */
+/* a slider with stops under it is a 24 px target (WCAG 2.5.8), so the stops are not within reach of it */
 .fader-row:has(+ .fader-stops) > input[type="range"] { height: 24px; }
 .fader-row > .fval { grid-area: fv; font: var(--t-readout); color: var(--ink); text-align: right; white-space: nowrap; overflow: hidden; }
 .fader-row:not(:has(> .fval)) { grid-template-areas: "fl fl" "rng rng"; }
