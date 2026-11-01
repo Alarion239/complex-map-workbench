@@ -386,7 +386,7 @@
   // the last clears it after
   function carryDraw(k, depth, draw) {
     if (!k) { draw(); return; }
-    const dm = depth || 'only', first = dm === 'only' || dm === 'first', last = dm === 'only' || dm === 'last';
+    const depthMode = depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
     if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
     draw();
