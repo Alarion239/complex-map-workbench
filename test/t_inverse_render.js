@@ -290,7 +290,6 @@ console.log('--- (h) golden emulation');
   {
     const sc = Q.SCENES.find((x) => x.name === 'disc_cube'), kd = kept['disc_cube.pattern'];
     const gdr = composite(sc, sc.rightView, 'pattern', kd ? kd.r : render(sc, sc.rightView, 'checker'), true);
-    console.log(`disc_cube.pattern with the sheet order reversed: golden_diff ${(100 * gdr.frac).toFixed(3)} %`);
     check('the sheet order matters: reversed disc_cube.pattern > 0.1 %', gdr.frac > 0.001, `${(100 * gdr.frac).toFixed(3)} %`);
   }
   // the key is continuous across the window's sides, so two sheets whose keys are near trade places along a smooth
@@ -307,7 +306,6 @@ console.log('--- (h) golden emulation');
       if (!(d1 > d0)) grows = false;
       maxRate = Math.max(maxRate, (d1 - d0) / h);
     }
-    console.log(`sheet key across the window's side: grows ${grows}, max rate ${maxRate.toFixed(5)} (bound ${(1 / (R * Math.LN2)).toFixed(5)})`);
     check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= KEY_RATE_SLACK / (R * Math.LN2), `${grows} ${maxRate}`);
   }
 }
