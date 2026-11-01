@@ -46,7 +46,16 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   const hit = await under(x1, y1);
   await rclick(x1, y1);
   const on = await menu();
-  ok(`${where}: a right-click on the circle offers its line integral`, !!on && on.includes('integral'), { menu: on, at: [x1, y1], under: hit });
+  // (when no menu opened: the page's state at the click, and whether a contextmenu event sent to the plane itself opens it)
+  let why = null;
+  if (!on) {
+    why = await ev(`(() => { const st = __cmwState(); return { now: Math.round(performance.now()), z: __cmwPlaneMenu().s2w('L', ${x1}, ${y1}), view: st.view, focus: st.focus, morph: st.morph, layout: __cmwLayout(), drag: __cmwPlaneMenu().drag() }; })()`);
+    await ev(`document.getElementById('overlayL').dispatchEvent(new MouseEvent('contextmenu', { clientX: ${x1}, clientY: ${y1}, button: 2, bubbles: true, cancelable: true })), 1`);
+    await settled({ max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
+    why.viaEvent = await menu();
+    await closeAll();
+  }
+  ok(`${where}: a right-click on the circle offers its line integral`, !!on && on.includes('integral'), { menu: on, at: [x1, y1], under: hit, why });
   if (on && on.includes('integral')) {
     const pick = await ev(`(() => { const b = document.querySelector('#popHost .pop.menu.pm .mi[data-pm="integral"]'); const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`);
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pick[0], y: pick[1], button: 'left', buttons: 1, clickCount: 1 });
