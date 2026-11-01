@@ -146,6 +146,13 @@ await ev(`__cmwSteps({ scope: 'all' }); 1`); await settle(300);
 await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
 const rg = await S();
 ok('→ on a focused scope radio picks the next one, not the next plane', rg.x === before && rg.scope === 'in', rg);
+// (#595: the scope switch is the shared seg() with its arrows looping, as before: from the last radio → goes to the first, from the first ↑ to the last)
+await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(500);
+const wr = await S();
+ok('→ on the last scope radio wraps to the first', wr.x === before && wr.scope === 'all', wr);
+await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true })); return 1; })()`); await settle(500);
+const wu = await S();
+ok('↑ on the first scope radio wraps to the last, and the checked one is the one Tab stop', wu.x === before && wu.scope === 'in' && await ev(`[...document.querySelectorAll('#svHead .sv-scope [role=radio]')].map((b) => b.tabIndex + ':' + b.getAttribute('aria-checked')).join()`) === '-1:false,0:true', wu);
 // (#441) the surface is one button with a menu: its keys are the menu's, and a pick changes the surface, not the plane
 await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
 await ev(`(() => { const m = document.querySelector('.pop.menu'); const t = document.activeElement; t.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })); return !!m; })()`); await settle(300);

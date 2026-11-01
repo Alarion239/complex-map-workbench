@@ -1119,7 +1119,7 @@ const Tour = (() => {
    button as the label does, growing from left to right over the countdown (CD_MS); restarted with the countdown, frozen while held */
 .tour-strip .ts-next::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: -1; background: var(--accent-ink); transform-origin: 0 50%; transform: scaleX(0); }
 .tour-strip .ts-next svg { width: 18px; height: 18px; display: block; }
-.tour-strip .ts-ncount { font: 600 16px/1 var(--f-ui); }
+.tour-strip .ts-ncount { font: 600 15px/1 var(--f-ui); }
 .tour-strip .ts-next.counting::before { animation: tour-fill var(--tour-cd, 1500ms) linear forwards; }
 .tour-strip .ts-next.counting.held::before { animation-play-state: paused; }
 @keyframes tour-fill { to { transform: scaleX(1); } }
@@ -1146,17 +1146,17 @@ const Tour = (() => {
 .ts-why { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 0 16px 10px 58px; font: 400 13px/19px var(--f-ui); color: var(--ink-2); }
 .ts-why[hidden] { display: none; }
 .ts-why .ts-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
-.ts-why .ts-auto { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font: 400 12.5px/16px var(--f-ui); color: var(--ink-2); cursor: pointer; }
+.ts-why .ts-auto { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font: 400 12px/16px var(--f-ui); color: var(--ink-2); cursor: pointer; }
 .ts-why .ts-auto input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
 .ts-why .ts-wend { display: none; }
 .tour-top .ts-why.ts-panel {
   position: fixed; left: 0; right: 0; top: 0; max-height: 50vh; max-height: 50dvh; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: var(--surface); border-bottom: 1px solid var(--line-strong); box-shadow: var(--shadow-3); pointer-events: auto;
-  font-size: 14px; line-height: 20px;
+  font-size: 13px; line-height: 20px;
 }
 .tour-top .ts-why.ts-panel .ts-wend { display: flex; gap: 8px; }
 .tour-top .ts-why.ts-panel .ts-wend .btn { min-height: 44px; padding: 0 14px; }
-.tour-top .ts-why.ts-panel .ts-auto { min-height: 44px; font-size: 14px; }
+.tour-top .ts-why.ts-panel .ts-auto { min-height: 44px; font-size: 13px; }
 .tour-top .ts-why.ts-panel .ts-auto input { width: 20px; height: 20px; }
 .tour-top .ts-why.ts-panel .ts-wtitle { display: block; margin: 0 0 4px; font: 600 15px/20px var(--f-ui); color: var(--ink); }
 .ts-wtitle { display: none; }
@@ -1177,6 +1177,7 @@ const Tour = (() => {
 .tl-mark svg { width: 24px; height: 24px; display: block; }
 .tour-lane:not([data-mode="desk"]) .tl-mark { display: none; }
 .tl-text { flex: 1 1 auto; min-width: 0; margin: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.tour-lane.grow .tl-text { -webkit-line-clamp: 4; line-clamp: 4; }
 .tour-lane[data-mode="desk"]:not(.two) .tl-text { -webkit-line-clamp: 1; line-clamp: 1; display: block; white-space: nowrap; text-overflow: ellipsis; }
 .tl-title { font-weight: 600; color: var(--ink); }
 .tl-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
@@ -1198,7 +1199,7 @@ const Tour = (() => {
 .tour-menu .tour-done svg { width: 14px; height: 14px; display: block; }
 .tour-menu .tour-new { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--accent); }
 .tour-menu .mi.tour-continue { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
-.tour-menu .tour-sub { display: block; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
+.tour-menu .tour-sub { display: block; font: 400 11px/16px var(--f-ui); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .ts-ring svg, .ts-chev svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
 `;
   // a polite announcement outside the tour (the suggestion): one shared live region
@@ -1783,15 +1784,22 @@ const Tour = (() => {
     if (changed && mode !== 'desk') call('slot', where);   // (the app's phone layout shares out its height again)
     paintNext(ui);
   }
+  // the phone's row under the header: the one place that writes its height (--ph-tour), for the strip and for the lane,
+  // true when it changed; PH_LINE: a line of the strip's or the lane's text, 17 px
+  const PH_LINE = 17;
+  const phTourGet = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
+  function phTourSet(px) {
+    if (phTourGet() === px) return false;
+    document.documentElement.style.setProperty('--ph-tour', px + 'px');
+    return true;
+  }
   // a phone's row: 68 px in portrait (76 for three lines), 48 under a landscape header (56), none in the header
   function setPhTour(r) {
     const ui = r.ui, n = ui.lines || 2;
     ui.strip.dataset.lines = String(n);
     // (#553: Italian at 360 px needs four lines for "Tieni premuto dentro il disco…": the row grows by a line, 17 px, again)
     const v = ui.mode === 'port' ? (n >= 4 ? 93 : n === 3 ? 76 : 68) : ui.mode === 'row' ? (n >= 4 ? 72 : n === 3 ? 56 : 48) : 0;
-    const st = document.documentElement.style;
-    if (st.getPropertyValue('--ph-tour') !== v + 'px') { st.setProperty('--ph-tour', v + 'px'); return true; }
-    return false;
+    return phTourSet(v);
   }
   // a resize or a layout change: the strip's place, then its lines, measured again
   function remount(r) { r.forceRow = false; mountStrip(r); fitLines(r); }
@@ -3102,7 +3110,7 @@ const Tour = (() => {
     lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
     const st = document.documentElement.style;
     if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
-    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); }
+    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = phTourGet(); }   // (baseH: the row's own height, which laneFit grows from)
     call('slot', where);
     laneFit();
   }
@@ -3116,9 +3124,23 @@ const Tour = (() => {
     box.classList.remove('two');
     if (opt) opt.hidden = false;
     const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
+    // (a phone's lane: back to its own height first, then grown below if the line needs more)
+    box.classList.remove('grow'); delete tx.dataset.lines;
+    if (!desk && lane.baseH && phTourGet() !== lane.baseH) laneSetH(lane.baseH);
     if (!over()) return;
     if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
-    if (desk) box.classList.add('two');
+    if (desk) { box.classList.add('two'); return; }
+    // (a phone's line that still needs a third line: the lane takes the lines it needs, as the tour's strip does; the lines are 17 px, the text has 7 px above and below)
+    // (at most four lines, 82 px: a line that would need a fifth is cut there; example_lane_cut_cmd.js lists such lines)
+    box.classList.add('grow');
+    tx.style.webkitLineClamp = 'unset'; tx.style.lineClamp = 'unset';
+    const full = Math.max(2, Math.ceil((tx.scrollHeight - 1) / PH_LINE));
+    tx.style.webkitLineClamp = ''; tx.style.lineClamp = '';
+    laneSetH(Math.max(lane.baseH || 56, Math.min(4, full) * PH_LINE + 14));
+    tx.dataset.lines = String(full);
+  }
+  function laneSetH(px) {
+    if (phTourSet(px)) call('slot', lane.mode === 'head' ? 'head' : 'stage');
   }
   function laneHide(id, anim) {
     if (!lane || (id && lane.id !== id)) return false;

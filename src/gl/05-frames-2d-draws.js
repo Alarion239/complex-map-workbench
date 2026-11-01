@@ -332,10 +332,8 @@
     const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
-  // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
-  //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
-  // Identity maps draw without the chain, in coordinates relative to the mesh origin.
-  // st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's colour
+  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
+  // colour
   // (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice point,
   // not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
   // program compiles
@@ -377,7 +375,7 @@
     gl.bindVertexArray(null);
     return true;
   }
-  // the sheet key's uniforms (PRE_KEY_UNI) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
+  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     if (!k) return;
@@ -398,6 +396,10 @@
     draw();
     if (last) carryDepthEnd();
   }
+  // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
+  //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
+  // Identity maps draw without the chain, in coordinates relative to the mesh origin.
+  // (st.carry: drawRegionCarry)
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
     if (st.carry) return drawRegionCarry(res, st);

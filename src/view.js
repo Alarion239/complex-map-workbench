@@ -129,7 +129,7 @@ const Axes = (() => {
     }
     if (!doLabels) return { major };
     // labels, with a halo in the plane color so they stay legible over fills
-    c.font = `10.5px ${th.mono}`;
+    c.font = `10px ${th.mono}`;
     c.fillStyle = th.label;
     c.strokeStyle = th.plane;
     c.lineWidth = 3;
