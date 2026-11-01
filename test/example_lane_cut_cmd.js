@@ -6,6 +6,8 @@
 // for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
+// (#576: Pietro's Italian wording, five lines at 360; any other line over four fails)
+const KNOWN_FIFTH = new Set(['it La mappa di Douady–Hubbard']);
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const PROBE = `(() => {
@@ -32,9 +34,9 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 8
     if (!p) continue;
     n++; if (p.grow) grown++;
     maxLines = Math.max(maxLines, p.lines || 2);
-    // (the lane takes at most four lines, 82 px; a line that needs a fifth is cut there, and listed in the info for the
-    // wording's owner (#576), not shortened here)
-    if (p.lines > 4) { tooLong.push(`${p.name} (${p.lines} lines)`); }
+    // (the lane takes at most four lines, 82 px: a line that needs a fifth is cut, so it fails. One is known: the Italian
+    // wording is Pietro's, listed on #576)
+    if (p.lines > 4) { tooLong.push(`${p.name} (${p.lines} lines)`); ok(`${tag}: "${p.name}": needs at most four lines`, KNOWN_FIFTH.has(`${lang} ${p.name}`), p.lines); }
     else ok(`${tag}: "${p.name}": the Try line is not cut`, p.cutH <= 1 && p.cutW <= 1 && p.inLane, p);
     ok(`${tag}: "${p.name}": the lane is at most 82 px`, p.lane <= 82 || p.mode === 'head', p);
     ok(`${tag}: "${p.name}": the lane is as tall as the layout gave it`, p.slot == null || Math.abs(p.lane - p.slot) <= 1, p);
