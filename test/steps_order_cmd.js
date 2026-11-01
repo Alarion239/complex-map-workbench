@@ -50,6 +50,14 @@ ok('… and it arrives on that plane', (await S()).x === 3, await S());
 // All at once
 await ctl({ go: 0, now: true }); await arrived();
 ok('choosing All at once sets the order', (await pick('all')) === 'all' && (await S()).homAll === true, await S());
+// the order is the classic Deformation's: choosing it here goes through the same setter, so the Deformation's moment is
+// rescaled to the new range of t (a bypass would leave it at the old one)
+const lenAll = await ev(`__cmwGlide().max`), tAll = await ev(`__cmwMorph().T`);
+ok('All at once takes the classic setter: the Deformation\'s moment is at the new range (not the old one)', tAll === lenAll && lenAll === 1, { tAll, lenAll });
+await pick('steps');
+const lenSteps = await ev(`__cmwGlide().max`), tSteps = await ev(`__cmwMorph().T`);
+ok('… and Step by step puts it back to the chain\'s range', tSteps === lenSteps && lenSteps === 3, { tSteps, lenSteps });
+await pick('all');
 const dim = await ev(`[...document.querySelectorAll('#svStrip .sv-plane')].map((b) => [b.dataset.i, b.classList.contains('sv-skip'), b.disabled])`);
 ok('the planes between z and the last are dimmed and still planes to click', JSON.stringify(dim) === JSON.stringify([['0', false, false], ['1', true, false], ['2', true, false], ['3', false, false]]), dim);
 await ev(`document.querySelector('#svStrip .sv-plane[data-i="3"]').click(); 1`);

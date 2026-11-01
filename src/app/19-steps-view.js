@@ -269,10 +269,11 @@
   function svBetween() {
     const P = svPlanes(), x = SV.g.x, span = SV.span;
     if (span && span.x1 < P.length && x > span.x0 + 1e-6 && x < span.x1 - 1e-6 && svAllOk(span.x0, span.x1)) {
-      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), fromA = stageF(a);
+      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), map = { mode: 3, a, b, t: u };
+      // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed)
       const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, u));
       const H = (z) => { let w = z; for (const f of homs) w = f(w); return w; };
-      return { a, b, u, map: { mode: 3, a, b, t: u }, F: (z) => H(fromA(z)), H, near: u < 0.5 ? a : b, all: true };
+      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true };
     }
     const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
@@ -604,9 +605,9 @@
   function svSetOrder(v) {
     const all = v === 'all';
     if (!!S.homAll === all) return;
-    setOpt('homAll', all);
-    svSync(); requestRender('L'); save();
-    tourEmit('order-changed', { all });
+    // (the classic Deformation's setter: the order is shared, so its moment, dock and fix-ups follow too)
+    setHomAll(all);
+    svSync(); requestRender('L');
   }
   // the order select says why it is off: a chain of fewer than two steps has nothing to take together, a d/dz is no map to deform
   function svOrderSync() {
