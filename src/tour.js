@@ -1177,6 +1177,7 @@ const Tour = (() => {
 .tl-mark svg { width: 24px; height: 24px; display: block; }
 .tour-lane:not([data-mode="desk"]) .tl-mark { display: none; }
 .tl-text { flex: 1 1 auto; min-width: 0; margin: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.tour-lane.grow .tl-text { -webkit-line-clamp: unset; line-clamp: unset; display: block; overflow: visible; }
 .tour-lane[data-mode="desk"]:not(.two) .tl-text { -webkit-line-clamp: 1; line-clamp: 1; display: block; white-space: nowrap; text-overflow: ellipsis; }
 .tl-title { font-weight: 600; color: var(--ink); }
 .tl-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
@@ -3102,7 +3103,7 @@ const Tour = (() => {
     lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
     const st = document.documentElement.style;
     if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
-    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); }
+    else { st.removeProperty('--tour-h'); lane.baseH = mode === 'port' ? 56 : mode === 'row' ? 48 : 0; st.setProperty('--ph-tour', lane.baseH + 'px'); }
     call('slot', where);
     laneFit();
   }
@@ -3116,9 +3117,24 @@ const Tour = (() => {
     box.classList.remove('two');
     if (opt) opt.hidden = false;
     const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
+    // (#586: a phone's lane, back to its own height first, then grown below if the line needs more)
+    box.classList.remove('grow');
+    if (!desk && lane.baseH && lanePhH() !== lane.baseH) laneSetH(lane.baseH);
     if (!over()) return;
     if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
-    if (desk) box.classList.add('two');
+    if (desk) { box.classList.add('two'); return; }
+    // (a phone's line that still needs a third line: the lane takes the lines it needs, as the tour's strip does (#559), and
+    // the Italian Try lines are not cut; the lines are 17 px, the text has 7 px above and below)
+    box.classList.add('grow');
+    const lines = Math.max(2, Math.ceil((tx.scrollHeight - 1) / 17));
+    laneSetH(Math.max(lane.baseH || 56, lines * 17 + 14));
+  }
+  const lanePhH = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
+  function laneSetH(px) {
+    const st = document.documentElement.style;
+    if (lanePhH() === px) return;
+    st.setProperty('--ph-tour', px + 'px');
+    call('slot', lane.mode === 'head' ? 'head' : 'stage');
   }
   function laneHide(id, anim) {
     if (!lane || (id && lane.id !== id)) return false;
