@@ -348,8 +348,12 @@
     // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
-    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    const probe0 = globalThis.__svCarryProbe || {};
+    if (probe0.noCarry) return true;
+    let e = probe0.noTF && res.__probeE ? res.__probeE : rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
+    if (e && !probe0.noTF) res.__probeE = e;
+    if (e && probe0.noTF) e.t = performance.now();   // (kept from the sweep of stale scratch textures)
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
