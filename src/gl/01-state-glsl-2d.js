@@ -379,7 +379,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_UNI}` : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -643,22 +643,24 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
   // preKeyDepth(sa), sa the source point (PAT_PRE.pre in a fragment stage, PRE_KEY; REGION_VS's carry option in a
-  // vertex stage): x = 256 D + 0.999 (tie order), depth x / (x + 1024).
-  // - 256 = 1 / Inverse.front's TIE_D: keys a tie step apart are one unit of x apart, and the tie order, in [0, 1) and
-  //   scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric about the centre
+  // vertex stage): x = KEY_STEPS D + 0.999 (tie order), depth x / (x + 1024).
+  // - KEY_STEPS = 256 = 1 / Inverse.front's TIE_D: keys a tie step apart are one unit of x apart, and the tie order,
+  //   in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric about the centre
   //   gives its sheets equal D, which the mesh's placement (1e-3 of |z|) would otherwise order fragment by fragment.
   //   x is blended, not stepped: a step's edge would draw a contour where near-equal keys straddle it.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
   // - x / (x + 1024) maps x >= 0 into [0, 1), monotone, finest for small D (depth 0.5 at D = 4). D is capped at 1e4
   //   (a point that far behind is behind every point that matters) so x stays finite.
-  const PRE_KEY_UNI = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
+  const PRE_KEY_DECL = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
+// (the key's steps per octave: 1 / Inverse.front's TIE_D)
+const float KEY_STEPS = 256.0;
 float preKeyDepth(vec2 sa) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
-  float x = min(D, 1e4) * 256.0 + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
+  float x = min(D, 1e4) * KEY_STEPS + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
   return x / (x + 1024.0);
 }
 `;
@@ -666,7 +668,7 @@ float preKeyDepth(vec2 sa) {
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
-    const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_UNI], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
+    const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_DECL], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
     for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP;\n'], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
       if (!t.includes(a)) throw new Error('REGION_PRE_FS: ' + a.slice(0, 40));
       t = t.split(a).join(b);
@@ -1086,7 +1088,7 @@ void main() {
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   const CARRY_FS = (id, key = true) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_UNI : ''}in vec2 vP;
+${key ? PRE_KEY_DECL : ''}in vec2 vP;
 out vec4 o;
 void main() {
   vec2 sa = vP;

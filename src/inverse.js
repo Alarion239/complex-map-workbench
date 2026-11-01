@@ -594,9 +594,6 @@ const Inverse = (() => {
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
-  // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
-  // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
-  // enumerated only inside expandBox(win, 3).
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
   function keySing(plan, win) {
@@ -605,6 +602,9 @@ const Inverse = (() => {
     try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
     return acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))).slice(0, 4);
   }
+  // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
+  // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
+  // enumerated only inside expandBox(win, 3).
   function singular(plan, win, kinds = ['undef', 'branch', 'pole'], cap = 16) {
     if (!plan || !plan.ok || !plan.ops.length) return [];
     const ops = plan.ops, { refs } = refsOf(plan, win), zb = expandBox(win, 3);
@@ -1169,7 +1169,7 @@ const Inverse = (() => {
     const noStop = !!opts.all && Kt > B, alphaR = opts.alpha ?? 1;
     const ramp = opts.ramp ?? RAMP;
     const dwX = opts.dwdX || C(pix, 0), dwY = opts.dwdY || C(0, pix);
-    const frontFn = front, paths = !!opts.paths;
+    const paths = !!opts.paths;
     const ev = prep.ev || (prep.ev = shapePx(prep.shape));
     const leaves = [], ent = [], loops = [];
     let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1;
@@ -1180,7 +1180,7 @@ const Inverse = (() => {
       && isFin(a.z) && isFin(b.z) && Math.hypot(a.z.re - b.z.re, a.z.im - b.z.im) <= a.fp;
     const admit = (e) => {
       let pos = ent.length;
-      for (let i = 0; i < ent.length; i++) if (frontFn(e, ent[i])) { pos = i; break; }
+      for (let i = 0; i < ent.length; i++) if (front(e, ent[i])) { pos = i; break; }
       for (const k of [pos - 1, pos]) {
         const t = ent[k];
         if (t && twin(e, t)) { t.cv = Math.min(1, t.cv + e.cv); if (t.cv > U) U = t.cv; t.merged = (t.merged || 0) + 1; return; }
