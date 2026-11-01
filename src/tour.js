@@ -1119,7 +1119,7 @@ const Tour = (() => {
    button as the label does, growing from left to right over the countdown (CD_MS); restarted with the countdown, frozen while held */
 .tour-strip .ts-next::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: -1; background: var(--accent-ink); transform-origin: 0 50%; transform: scaleX(0); }
 .tour-strip .ts-next svg { width: 18px; height: 18px; display: block; }
-.tour-strip .ts-ncount { font: 600 16px/1 var(--f-ui); }
+.tour-strip .ts-ncount { font: 600 15px/1 var(--f-ui); }
 .tour-strip .ts-next.counting::before { animation: tour-fill var(--tour-cd, 1500ms) linear forwards; }
 .tour-strip .ts-next.counting.held::before { animation-play-state: paused; }
 @keyframes tour-fill { to { transform: scaleX(1); } }
@@ -1146,17 +1146,17 @@ const Tour = (() => {
 .ts-why { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 0 16px 10px 58px; font: 400 13px/19px var(--f-ui); color: var(--ink-2); }
 .ts-why[hidden] { display: none; }
 .ts-why .ts-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
-.ts-why .ts-auto { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font: 400 12.5px/16px var(--f-ui); color: var(--ink-2); cursor: pointer; }
+.ts-why .ts-auto { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font: 400 12px/16px var(--f-ui); color: var(--ink-2); cursor: pointer; }
 .ts-why .ts-auto input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
 .ts-why .ts-wend { display: none; }
 .tour-top .ts-why.ts-panel {
   position: fixed; left: 0; right: 0; top: 0; max-height: 50vh; max-height: 50dvh; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: var(--surface); border-bottom: 1px solid var(--line-strong); box-shadow: var(--shadow-3); pointer-events: auto;
-  font-size: 14px; line-height: 20px;
+  font-size: 13px; line-height: 20px;
 }
 .tour-top .ts-why.ts-panel .ts-wend { display: flex; gap: 8px; }
 .tour-top .ts-why.ts-panel .ts-wend .btn { min-height: 44px; padding: 0 14px; }
-.tour-top .ts-why.ts-panel .ts-auto { min-height: 44px; font-size: 14px; }
+.tour-top .ts-why.ts-panel .ts-auto { min-height: 44px; font-size: 13px; }
 .tour-top .ts-why.ts-panel .ts-auto input { width: 20px; height: 20px; }
 .tour-top .ts-why.ts-panel .ts-wtitle { display: block; margin: 0 0 4px; font: 600 15px/20px var(--f-ui); color: var(--ink); }
 .ts-wtitle { display: none; }
@@ -1198,7 +1198,7 @@ const Tour = (() => {
 .tour-menu .tour-done svg { width: 14px; height: 14px; display: block; }
 .tour-menu .tour-new { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--accent); }
 .tour-menu .mi.tour-continue { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
-.tour-menu .tour-sub { display: block; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
+.tour-menu .tour-sub { display: block; font: 400 11px/16px var(--f-ui); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .ts-ring svg, .ts-chev svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
 `;
   // a polite announcement outside the tour (the suggestion): one shared live region
