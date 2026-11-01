@@ -93,16 +93,6 @@
   "ru": "степень ≤ {n}",
   "note": "app.js: the qualifier when the degree is an upper bound."
  },
- "lo.pattern.logpolar": {
-  "en": "Log-polar",
-  "ru": "Лог-полярные",
-  "note": "app.js PATTERNS: the swatch caption. GLOSSARY 1.7 has «Лог-полярные клетки»; the 62 px two-line caption cannot hold it («Лог-по-лярные…»), so the swatch says «Лог-полярные» (breaks after «Лог-») and its tooltip says the rest."
- },
- "lo.pattern.arg": {
-  "en": "Arg z",
-  "ru": "arg z",
-  "note": "app.js PATTERNS: lower case in Russian, «Arg z» is the multivalued argument (GLOSSARY 1.7)."
- },
  "lo.audio.running": {
   "en": "running",
   "ctx": "audio",

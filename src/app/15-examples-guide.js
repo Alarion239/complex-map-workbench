@@ -2,7 +2,7 @@
   const EX = [
     { name: $t('Empty canvas'), tex: '', blurb: $t('No shapes and no functions: start from scratch.'), view: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [] },
     {
-      name: $t('Strip to disk'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }]], try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
+      name: $t('Strip to disk'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }]], try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), trySv: $t('Try: drag a corner of the strip, then press › twice to follow it to w₂.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed', test: (e) => !!e.last }]], tourSv: 'planes', tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
       shapes: [
         { kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' },
         { kind: 'line', a: [0, 0.8], b: [1, 0.8] },
@@ -11,12 +11,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), trySv: $t('Try: press › and watch the quadrant open onto the half-plane.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), trySv: $t('Try: drag the circle through 1, then press ›.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed' }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -30,22 +30,22 @@
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), trySv: $t('Try: press ›: the disk turns into itself.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
       steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
     },
     {
-      name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
+      name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), trySv: $t('Try: on z, find the points where every colour meets: the zeros of sin z.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.stage === 0 && e.mod < 0.05 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
       shapes: [{ kind: 'formula', expr: '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0' }, { kind: 'cgrid', a: [-1.5, 0], b: [1.5, 2.4], n: 6 }],
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: $t('Square root and its sheets'), tryDone: [[{ on: 'sheet-changed' }]], try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), tryDone: [[{ on: 'sheet-changed' }]], try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), trySv: $t('Try: click the chip f₁ and flip the sheet in the Inspector.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), trySv: $t('Try: press › twice: the half-plane becomes the disk, then wraps.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 2 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
@@ -55,7 +55,7 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the target 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
@@ -87,7 +87,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: choose Landscape and follow the cut of the logarithm.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -105,7 +105,7 @@
     },
     // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
-      name: $t('Zeros of the zeta function'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'land' }]], try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
+      name: $t('Zeros of the zeta function'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'land' }]], try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), trySv: $t('Try: choose Landscape and look for the zeros on the line Re z = 1/2.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
       shapes: [
         { kind: 'formula', expr: '0<\\Re z<1' },
         { kind: 'line', a: [0.5, 0], b: [0.5, 1] },
@@ -114,7 +114,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), trySv: $t('Try: hover near a pole: |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -178,7 +178,7 @@
     // [issue #260] the Douady–Hubbard map with external rays and equipotentials of M, and the Böttcher coordinate of a
     // Julia set whose c is a slider (at the end of the list: the examples before keep their places)
     {
-      name: $t('The Douady–Hubbard map'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }, { on: 'dh-added' }]], try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
+      name: $t('The Douady–Hubbard map'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }, { on: 'dh-added' }]], try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), trySv: $t('Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
       shapes: [...['0', '1/3', '2/3', '1/7', '2/7', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: null, ci: i })),
         ...[1.02, 1.1, 1.5].map((r, i) => ({ kind: 'dheq', r, c: null, ci: 6 + (i % 2) }))],
       steps: [{ type: 'dh', params: { N: 64 } }], rightMode: 'color',
@@ -309,114 +309,26 @@
   }
 
   // ---------------- left-panel display controls ----------------
-  const PATTERNS = [
-    ['checker', $t('Checker'), $t('Checkerboard in z-coordinates: shows how squares are bent and scaled')],
-    ['polar', $t('Log-polar'), $t('Checkerboard in log|z| and arg z: conformal maps keep these cells square')],
-    ['tiles', $t('Tiles'), $t('Tiles with an F glyph: shows rotation, scaling and reflection')],
-    ['grid', $t('Square grid'), $t('Cartesian grid lines of z carried by the map')],
-    ['polargrid', $t('Polar grid'), $t('Circles |z| = const and rays arg z = const carried by the map')],
-    ['phase', $t('Arg z'), $t('Colored by the argument of the source point z')],
-    ['stretch', $t('Stretch'), $t('Local scale factor |F′(z)|: blue shrinks, amber grows')],
-    // (the count follows the pattern size: sphN() longitude cells by sphN() / 2 latitude cells, 128 at size ×1)
-    ['sphere', $t('Sphere checker'), () => $tn('Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞', 'Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞', sphN() * sphN() / 2)],
-    ['solid', $t('Solid'), $t('Flat fill')],
-  ];
-  // live swatches (spec 6.4) in the first shape color's tokens (c0, alt, edge): the accent stays for the selection
-  // ring, Stretch uses the stretch tokens (no red) and Phase the OKLCH wheel of the Phase tab
-  function drawPatternSwatch(cv, id) {
+  // (#363) regions are filled by the phase of z carried by F (the renderer's pattern 'phase'), with the grid lines of
+  // z on them: the head's Regions button shows that fill as its swatch. The renderer's other patterns (solid, ...) stay
+  // for the app's own draws (the steps view's masks), not offered to the user.
+  // the swatch: wheel(arg s, L) with L = 0.62 + 0.14·saw(ln|s| / (π/6)), as the shader does
+  function drawPhaseSwatch(cv) {
     const x = cv.getContext('2d');
-    const W = 52, H = 40, sc = cv.width / W; // 104×80 device px for a 52×40 swatch
-    x.setTransform(sc, 0, 0, sc, 0, 0);
-    const ink = TH.c[0], c0 = ink.c0, c1 = ink.alt, k = ink.edge;
-    const mix = (p, q, t) => { const a = GLR.hexRGB(p), b = GLR.hexRGB(q); return `rgb(${a.map((v, i) => Math.round(255 * (v + (b[i] - v) * t))).join(',')})`; };
-    x.fillStyle = c1; x.fillRect(0, 0, W, H);
-    if (id === 'checker') {
-      const c = 8;
-      x.fillStyle = c0;
-      for (let i = 0; i < W / c; i++) for (let j = 0; j < H / c; j++) if ((i + j) % 2 === 0) x.fillRect(i * c, j * c, c, c);
-    } else if (id === 'tiles') {
-      // a 4×3 checker of c1 and mix(c1, c0, 0.35), large enough for the F (stem, top bar, middle bar; y up)
-      const c = 13;
-      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
-        const ox = i * c, oy = j * c;
-        if ((i + j) % 2 === 0) { x.fillStyle = mix(c1, c0, 0.35); x.fillRect(ox, oy, c, c); }
-        x.fillStyle = k;
-        const box = (u0, u1, v0, v1) => x.fillRect(ox + u0 * c, oy + (1 - v1) * c, (u1 - u0) * c, (v1 - v0) * c);
-        box(0.30, 0.42, 0.18, 0.82); box(0.30, 0.72, 0.70, 0.82); box(0.30, 0.62, 0.46, 0.56);
-      }
-    } else if (id === 'polar' || id === 'polargrid') {
-      const cx = W * 0.25, cy = H * 0.9;
-      x.lineWidth = 1;
-      for (let r = 2, n = 0; r < 70; r *= 1.48, n++) {
-        for (let q = 0; q < 16; q++) {
-          if (id === 'polar' && (n + q) % 2) continue;
-          x.beginPath();
-          x.arc(cx, cy, r * 1.48, -q * Math.PI / 8, -(q + 1) * Math.PI / 8, true);
-          x.arc(cx, cy, r, -(q + 1) * Math.PI / 8, -q * Math.PI / 8, false);
-          x.closePath();
-          if (id === 'polar') { x.fillStyle = c0; x.fill(); }
-        }
-        if (id === 'polargrid') { x.strokeStyle = c0; x.beginPath(); x.arc(cx, cy, r, 0, TAU); x.stroke(); }
-      }
-      if (id === 'polargrid') {
-        x.strokeStyle = k;
-        for (let q = 0; q < 24; q++) {
-          const a = q * 15 * DEG, axis = q % 6 === 0;
-          x.globalAlpha = axis ? 1 : 0.7; x.lineWidth = axis ? 1.75 : 1;
-          x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + 80 * Math.cos(a), cy - 80 * Math.sin(a)); x.stroke();
-        }
-        x.globalAlpha = 1;
-      }
-    } else if (id === 'grid') {
-      // Re lines 1.25px k, Im lines 1px c0, every 5th +0.5px
-      for (let i = 0, n = 0; i <= W; i += 8, n++) { x.strokeStyle = k; x.lineWidth = n % 5 ? 1.25 : 1.75; x.beginPath(); x.moveTo(i + 2, 0); x.lineTo(i + 2, H); x.stroke(); }
-      for (let j = 0, n = 0; j <= H; j += 8, n++) { x.strokeStyle = c0; x.lineWidth = n % 5 ? 1 : 1.5; x.beginPath(); x.moveTo(0, j + 4); x.lineTo(W, j + 4); x.stroke(); }
-    } else if (id === 'phase') {
-      // wheel(arg s, L) with L = 0.62 + 0.14·saw(ln|s| / (π/6)), as the shader does
-      x.setTransform(1, 0, 0, 1, 0, 0);
-      const PW = cv.width, PH = cv.height, img = x.createImageData(PW, PH), u = 14 * sc; // 14 CSS px per unit
-      for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
-        const re = (i + 0.5 - PW / 2) / u, im = (PH / 2 - j - 0.5) / u;
-        const lr = Math.log(Math.hypot(re, im) || 1e-9) / (Math.PI / 6);
-        const rgb = GLR.phaseRGB(Math.atan2(im, re), 0.62 + 0.14 * (lr - Math.floor(lr)));
-        const o = 4 * (j * PW + i); img.data[o] = rgb[0] * 255; img.data[o + 1] = rgb[1] * 255; img.data[o + 2] = rgb[2] * 255; img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0);
-    } else if (id === 'sphere') {
-      // the spherical checker about 0 (SPEC 6.3): 16 longitude sectors, latitude rings at |z| = tan(j pi / 16)
-      x.setTransform(1, 0, 0, 1, 0, 0);
-      const PW = cv.width, PH = cv.height, img = x.createImageData(PW, PH), u = 15 * sc, a = GLR.hexRGB(c0), b = GLR.hexRGB(c1);
-      for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
-        const re = (i + 0.5 - PW / 2) / u, im = (PH / 2 - j - 0.5) / u;
-        const th = Math.atan2(im, re), lat = 2 * Math.atan(Math.hypot(re, im));
-        const par = (Math.floor(th * 16 / TAU) + Math.floor(lat * 8 / Math.PI)) & 1, c = par ? b : a;
-        const o = 4 * (j * PW + i); img.data[o] = c[0] * 255; img.data[o + 1] = c[1] * 255; img.data[o + 2] = c[2] * 255; img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0);
-    } else if (id === 'stretch') {
-      const g = x.createLinearGradient(0, 0, W, 0);
-      g.addColorStop(0, TH.stretchShrink); g.addColorStop(0.5, TH.stretchMid); g.addColorStop(1, TH.stretchGrow);
-      x.fillStyle = g; x.fillRect(0, 0, W, H);
-    } else {
-      x.fillStyle = c0; x.fillRect(0, 0, W, H);
+    const sc = cv.width / 52; // 104×80 device px for a 52×40 swatch
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    const PW = cv.width, PH = cv.height, img = x.createImageData(PW, PH), u = 14 * sc; // 14 CSS px per unit
+    for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
+      const re = (i + 0.5 - PW / 2) / u, im = (PH / 2 - j - 0.5) / u;
+      const lr = Math.log(Math.hypot(re, im) || 1e-9) / (Math.PI / 6);
+      const rgb = GLR.phaseRGB(Math.atan2(im, re), 0.62 + 0.14 * (lr - Math.floor(lr)));
+      const o = 4 * (j * PW + i); img.data[o] = rgb[0] * 255; img.data[o + 1] = rgb[1] * 255; img.data[o + 2] = rgb[2] * 255; img.data[o + 3] = 255;
     }
+    x.putImageData(img, 0, 0);
   }
   function buildDisplay() {
-    const pat = $('patternSeg');
-    pat.innerHTML = '';
-    for (const [v, l, tip] of PATTERNS) {
-      const cv = h('canvas', { width: 104, height: 80, 'aria-hidden': 'true' });
-      const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-pat': v, 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
-        onclick: () => { setOpt('pattern', v); buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
-      pat.append(b);
-      drawPatternSwatch(cv, v);
-    }
-    // ([v17 D5; #247] the pane heads' pattern buttons: their swatch and name)
-    for (const pb of document.querySelectorAll('.pat-btn')) {
-      const sw = pb.querySelector('.disp-sw'), p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
-      if (sw) drawPatternSwatch(sw, S.pattern);
-      pb.setAttribute('aria-label', name); pb.setAttribute('data-tip', name);
-    }
+    // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)
+    for (const sw of document.querySelectorAll('.pat-btn .disp-sw')) drawPhaseSwatch(sw);
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
@@ -781,8 +693,8 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
-    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+    // (#247: also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
+    const LP_SEL = '.tool[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
@@ -960,7 +872,7 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'pipeline', 'patternSeg', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
+    for (const id of ['shapeList', 'pipeline', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }
@@ -1081,6 +993,7 @@
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
   // o.ms: how long an ordinary one stays)
   function toast(msg, actionLabel, action, isUndo, o) {
+    if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
     if (!host) return;
     host.innerHTML = '';
@@ -1104,6 +1017,7 @@
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
       tourOn: (ev, f) => tourApi.on(ev, f),
+      svOn: () => SV.on,
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },

@@ -292,7 +292,7 @@ html:not(.ph) .ph-only { display: none !important; }
   position: fixed; z-index: 25; left: 0; right: 0; bottom: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + var(--ph-hp, 300px) + var(--ph-chain));
   display: flex; flex-direction: column; min-height: 0; padding-bottom: var(--ph-safe-b);
   background: var(--surface); color: var(--ink); border-top: 1px solid var(--line-strong); box-shadow: var(--shadow-3);
-  transform: translateY(100%); transition: transform 220ms var(--ease-out); will-change: transform;
+  transform: translateY(100%); transition: transform 220ms var(--ease-out), bottom 220ms var(--ease-out); will-change: transform;
 }
 .ph-sheet.open { transform: none; }
 .ph-sheet.opening { transition: none; transform: translateY(100%); }
@@ -573,6 +573,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
 :root.ph.sv { --ph-cbelow: 60px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
+/* (#464) a sheet gives up the message's row as the planes do: it ends above the message, so a message covers no row of it (Alexander's
+   screenshot on #58: "Added f₃ …  Show alone  Undo" across the chain sheet's list, hiding f₂); the safe area is under the message then */
+:root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + 56px); padding-bottom: 0; }
+/* the More sheet hangs from its bottom edge, up to a cap, and has no top of its own: with its bottom lifted it would slide up off the screen
+   (eyes on #575: top −64, header and close button gone); its cap gives the same room up, so it shrinks from the bottom like the others (portrait: in landscape
+   it is a side panel with a top of its own) */
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { max-height: calc(100dvh - 48px - var(--ph-row) - var(--ph-safe-b) - 56px); }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
 .ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
@@ -610,19 +617,38 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
-:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 40px; }
+:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 44px; }
 :root.ph.sv .sv-title { font-size: 19px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 60px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-surf { display: none; }
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 12px; border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
+:root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
+:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
+:root.ph.sv .sv-more { display: none; }
+:root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
+:root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 4px; border-radius: 22px; }
+:root.ph.sv .sv-add-t { display: none; }
+:root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
-:root.ph.sv .sv-speed { display: none; }
+:root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-loop { display: none; }
+/* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge cleared the range (eyes on #460)) */
+:root.ph.sv .sv-bandx { clip-path: inset(0 0 8px 0); width: 44px; height: 44px; top: -30px; left: clamp(var(--rl, 0px), calc(var(--bx, 0px) - 10px), calc(var(--rr, 100%) - 44px)); background: transparent; border: 0; font-size: 0; }
+:root.ph.sv .sv-bandx::before { content: "×"; display: grid; place-items: center; width: 24px; height: 24px; margin: auto; font: 400 15px/1 var(--f-ui); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; }
 :root.ph.sv .sv-cp .sv-cp-t { display: none; }
 :root.ph.sv .sv-cp { min-width: 44px; justify-content: center; }
 :root.ph.sv .sv-title .sv-sep, :root.ph.sv .sv-title .sv-role { display: none; }
+/* (#441) the surface button on a phone short of room: its icon and ▾ alone (its name in its label), so it never runs under ⋯ */
+.sv-surf1 .sv-surf-i { display: none; }
+.sv-surf1 .sv-surf-i svg { width: 16px; height: 16px; display: block; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
+/* (#441) still short (w₁'s name is wider than z's at 360 px): tighter gaps and scope buttons, the targets still 40 px tall */
+:root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
+:root.ph.sv .sv-head.sv-c4 .seg > button { padding: 0 5px; }
+:root.ph.sv .sv-head.sv-c4 .sv-title { margin: 0; }

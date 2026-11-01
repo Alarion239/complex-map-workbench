@@ -31,8 +31,8 @@ function namesIn(section) {
   return out;
 }
 // (v15: the names the new layout adds are in their own tables, so the v14 gate's copy of this test still passes)
-const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
-const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
+const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added for the steps view (#442)'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
+const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added for the steps view (#442)'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
 // (v16.4: the events the tour reads outside a Try it, its own table: not required to be used by one)
 const DOC_EVENTS_OUT = namesIn('### Events the tour reads outside a Try it');
 ok('INTEGRATION.md lists the events read outside a Try it', DOC_EVENTS_OUT.has('listen-started'), [...DOC_EVENTS_OUT]);
@@ -64,7 +64,7 @@ ok('20 to 48 steps', steps.length >= 20 && steps.length <= 48, steps.length);   
 check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (v16: Constructions; v16.4: Sound)
 ok('basics: 8 to 10 steps (about two minutes)', CH[0].steps.length >= 8 && CH[0].steps.length <= 10, CH[0].steps.length);
 // (v16.4: with the auto-advance a task step takes seconds: at most 7)
-ok('basics: at most 7 Try its (two minutes, as the suggestion promises)', CH[0].steps.filter((s) => s.try).length <= 7, CH[0].steps.filter((s) => s.try).map((s) => s.id));
+ok('basics: at most 8 Try its (two minutes, as the suggestion promises; #34 added the Y step\'s, a scroll or a drag)', CH[0].steps.filter((s) => s.try).length <= 8, CH[0].steps.filter((s) => s.try).map((s) => s.id));
 ok('no chapter over 6 steps but Basics', CH.slice(1).every((c) => c.steps.length <= 6), CH.map((c) => c.steps.length));
 ok('chapter ids unique', new Set(CH.map((c) => c.id)).size === CH.length);
 for (const c of CH) {
@@ -75,11 +75,12 @@ for (const c of CH) {
 // what the tour covers (the lead's list): each topic has a step
 const ids = new Set(steps.map((s) => `${s.ch}/${s.id}`));
 for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x', 'basics/y', 'basics/preimages',
-  'views/phase', 'views/land', 'views/sphere', 'views/patterns', 'deform/toggle', 'deform/paths', 'deform/order',
+  'views/phase', 'views/land', 'views/sphere', 'deform/toggle', 'deform/paths', 'deform/order',
   'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
   'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
+const stepOf0 = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
@@ -158,10 +159,12 @@ for (const s of steps) {
   }
   if (s.needs) ok(`${id}: needs is a feature name`, typeof s.needs === 'string' || Array.isArray(s.needs));
 }
+// (#442: the steps view's chapter, which only a page with ?view=steps has among its chapters)
+for (const s of T.PLANES.steps) for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`planes/${s.id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
 for (const e of DOC_EVENTS) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
 // (v16.4: a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
-for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw')) {
+for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.id !== 'targets')) {   // (draw and targets choose the Disc tool first, which they light)
   ok(`${s.ch}/${s.id}: a drag lights the Select tool`, [].concat(s.try.ctl || []).includes('tool:select'), s.try.ctl);
   ok(`${s.ch}/${s.id}: a drag switches to Select first`, (s.before || []).some((a) => a[0] === 'tool' && a[1] === 'select'), s.before);
 }
@@ -172,9 +175,13 @@ ok('scenes: examples format', Object.values(T.SCENES).every((sc) => Array.isArra
 // (v16.4: a scene the app holds, app: placeholders; the app's sceneSpec gives the example)
 ok('scenes with app: needs the app feature and no shapes or steps of their own', Object.values(T.SCENES).filter((sc) => sc.app).every((sc) => sc.needs === sc.app && !sc.shapes.length && !sc.steps.length));
 check('the harp scenes: (z - 1)/(z + 1), Tiles with 12 sectors; the loop a circle once round the zero 1', [T.SCENES.harp.steps[0].params, T.SCENES.harp.look.phaseStyle, T.SCENES.harp.look.sectors, T.SCENES.harpLoop.shapes], [{ a: '1', zeros: '1', poles: '-1' }, 'enhanced', 12, [{ kind: 'circle', c: [1, 0], r: 0.6 }]]);
-// every scene sets the whole look the copy assumes (a user's Stretch pattern or Re F height never leaks in)
+// every scene sets the whole look the copy assumes (a user's opacity or Re F height never leaks in)
 for (const [k, sc] of Object.entries(T.SCENES)) ok(`scene ${k}: a full look`, sc.look && Object.keys(T.LOOK).every((x) => x in sc.look) && Object.keys(sc.look).every((x) => x in T.LOOK), sc.look);
-ok('scenes: Checker by default', Object.values(T.SCENES).every((sc) => sc.look.pattern === 'checker'));
+// (#363) regions are filled by the phase alone: the tour has no Patterns step, nothing waits for a pattern picked, and
+// its look sets no pattern
+ok('no Patterns step, and no step waits for a pattern', !CH.some((c) => c.steps.some((s) => s.id === 'patterns' || (s.try && s.try.on === 'pattern-changed'))));
+ok('the look sets no pattern', !('pattern' in T.LOOK) && Object.values(T.SCENES).every((sc) => !('pattern' in sc.look)) && !CH.some((c) => c.steps.some((s) => (s.before || []).some((a) => a[0] === 'look' && 'pattern' in a[1]))));
+ok("X's step says the regions are coloured by the phase", /coloured by the phase of \$z\$/.test(stepOf0('basics', 'x').body) && !/checkerboard/.test(stepOf0('basics', 'x').body + stepOf0('basics', 'x').touch));
 check('the Landscape sheets scene: Im height and all sheets', [T.SCENES.logSheets.look.height, T.SCENES.logSheets.look.sheets], ['im', true]);
 const stepOf = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 ok('Draw a shape lights the Disc tool itself', [].concat(stepOf('basics', 'draw').anchor)[0] === 'tool:disc' && stepOf('basics', 'draw').live === true);
@@ -182,7 +189,6 @@ ok('Circle through three points lights its tool, and opens a phone\'s More tools
 ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
 // (v15: and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
 ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools:shapes']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
-ok('Patterns sets Checker first, so Choose Stretch can always tick', stepOf('views', 'patterns').before.some((a) => a[0] === 'look' && a[1].pattern === 'checker'));
 ok('Phase key starts it off, so Turn on Phase key can always tick', stepOf('views', 'key').before.some((a) => a[0] === 'look' && a[1].phaseKey === false));
 ok('All steps at once starts it off', stepOf('deform', 'order').before.some((a) => a[0] === 'look' && a[1].allAtOnce === false));
 check('Paths: toggled twice, so it ends on', stepOf('deform', 'paths').try.count, 2);
@@ -283,7 +289,7 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
 // the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
 // adds no zeros)
-check('46 steps: 35 tasks (2 doors), 11 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [46, 35, 2, 11]);
+check('45 steps: 39 tasks (2 doors), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [45, 39, 2, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);
@@ -486,6 +492,34 @@ ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
       if (typeof tab[t] === 'string') ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}" keeps the maths and the key tokens`, tokens(tab[t]) === tokens(t), [tokens(t), tokens(tab[t])]);
     }
   }
+}
+
+// ---- (#480 follow-up, ux's review of #510) the tour's words match the UI's labels where they name one: each control the
+// tour quotes by name is a real UI string, and every Russian and Italian copy that names it says what the interface says
+{
+  // the names of controls the tour quotes (not the panels or words that happen to read alike: Phase, Display, Snap)
+  const NAMED = ['Add function', 'Show alone', 'Circle through 3 points', 'Replace with the inverse'];
+  const APP = ['app.js', 'construct.js', 'figure.js'].map((f) => require('./src_text').source(f)).join('\n');   // (where the interface's strings are written)
+  const plain = (t) => String(t).replace(/­/g, '').toLowerCase();
+  const fieldsOf = (s) => [s.body, s.narrow, s.touch, s.deskTouch, s.phoneFine, s.lead, s.leadTouch, s.leadDeskTouch, s.leadPhoneFine, ...Object.values(s.byScene || {}), ...Object.values(s.touchByScene || {}), ...Object.values(s.deskTouchByScene || {}), ...Object.values(s.phoneFineByScene || {}), ...(s.try ? [s.try.text, s.try.touch, s.try.deskTouch, s.try.phoneFine] : [])].filter(Boolean);
+  for (const label of NAMED) {
+    ok(`UI label "${label}": a string the interface has`, APP.includes(`'${label}'`) || APP.includes(`"${label}"`), label);
+    ok(`UI label "${label}": translated in Russian and Italian`, typeof RU[label] === 'string' && typeof IT[label] === 'string', [RU[label], IT[label]]);
+  }
+  let named = 0;
+  for (const c of CH) for (const s of c.steps) for (const t of fieldsOf(s)) for (const label of NAMED) {
+    if (!t.includes(label)) continue;
+    named++;
+    for (const [lang, tab] of [['Russian', RU], ['Italian', IT]]) {
+      const tr = tab[t], ui = tab[label];
+      if (typeof tr !== 'string' || typeof ui !== 'string') continue;
+      ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}" names "${label}" as the interface does ("${ui}")`, plain(tr).includes(plain(ui)), tr);
+    }
+  }
+  ok('some tour copies name a control the check knows', named >= 6, named);
+  // a touch screen's add step task names the control as the card is labelled ("Add function"), not "the add card"
+  const add = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'add');
+  ok('basics/add: the desk-layout touch task names Add function', /Add function/.test(add.try.deskTouch) && !/add card/i.test(add.try.deskTouch), add.try.deskTouch);
 }
 
 console.log(`${n - fails}/${n} passed`);

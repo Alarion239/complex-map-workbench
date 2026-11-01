@@ -184,12 +184,12 @@
     const L = $('chainBracket'), host = $('pipeline');
     if (!L || L.hidden || !host) return;
     const n = nSteps(), r = homRangeOk() || { a: 1, b: n };
-    const ca = host.querySelector(`.conn[data-conn="${r.a}"]`), cb = host.querySelector(`.conn[data-conn="${r.b + 1}"]`);
+    const ca = /** @type {HTMLElement | null} */ (host.querySelector(`.conn[data-conn="${r.a}"]`)), cb = /** @type {HTMLElement | null} */ (host.querySelector(`.conn[data-conn="${r.b + 1}"]`));
     if (!ca || !cb) return;
     const ph = brPhone(), drop = ph ? 14 : host.classList.contains('compact') ? 10 : 20;
     const x0 = Math.round(ca.offsetLeft + ca.offsetWidth / 2), x1 = Math.round(cb.offsetLeft + cb.offsetWidth / 2);
     const top = ph ? Math.max(0, Math.round(ca.offsetTop) - 5) : 3;
-    const line = L.querySelector('.br-line');
+    const line = /** @type {HTMLElement} */ (L.querySelector('.br-line'));
     Object.assign(line.style, { left: x0 + 'px', width: Math.max(2, x1 - x0) + 'px', top: top + 'px', height: drop + 'px' });
     const st = HR.stops(S);
     for (const [el, c, v, ok] of [[L.querySelector('.br-end.l'), ca, r.a, st.okA], [L.querySelector('.br-end.r'), cb, r.b, st.okB]]) {
@@ -263,7 +263,7 @@
     const c = brCand(side, to);
     brTip(el, side, c.stop);
     brSet(c, false);
-    const again = $('chainBracket') && $('chainBracket').querySelector('.br-end.' + side);
+    const again = /** @type {HTMLElement | null} */ ($('chainBracket') && $('chainBracket').querySelector('.br-end.' + side));
     if (again && document.activeElement !== again) again.focus({ preventScroll: true });
   }
   function brDown(e, side, el) {
@@ -277,7 +277,7 @@
       if (!brDrag) return;
       const host = $('pipeline'), hb = host.getBoundingClientRect(), x = ev.clientX - hb.left + host.scrollLeft;
       let j = 1;
-      for (let k = 1; k <= nSteps(); k++) { const c = host.querySelector(`.card[data-k="${k}"]`); if (c && c.offsetLeft + c.offsetWidth / 2 < x) j = k + 1; }
+      for (let k = 1; k <= nSteps(); k++) { const c = /** @type {HTMLElement | null} */ (host.querySelector(`.card[data-k="${k}"]`)); if (c && c.offsetLeft + c.offsetWidth / 2 < x) j = k + 1; }
       const c = brCand(side, side === 'l' ? j : j - 1);
       brTip(el, side, c.stop);
       if (brSet(c, true) && sndP.ui !== false) soundCue('snap');
@@ -366,7 +366,7 @@
       thumbs.set(k, new Pane(card.canvas));
     });
     host.append(connector(S.steps.length + 1));
-    host.lastChild.classList.add('conn-last');
+    /** @type {HTMLElement} */ (host.lastChild).classList.add('conn-last');
     updateBracket();   // (v16: the deformation's bracket, a tab stop after the cards and before the Add tile)
     host.append(h('button', { class: 'add-card' + (S.steps.length <= 3 ? ' labelled' : ''), id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
       h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (v16.5 UX22: the label the short chain shows, desk.css)
@@ -375,7 +375,7 @@
     // (v15 review design-14: the listbox owns the options only, the region card, the step cards and F, through
     // aria-owns; the connectors are aria-hidden and the Add tile is its own tab stop after the listbox, not an item in it)
     host.removeAttribute('role'); host.removeAttribute('aria-label');
-    const opts = [...host.querySelectorAll(':scope > [role="option"]')];
+    const opts = /** @type {HTMLElement[]} */ ([...host.querySelectorAll(':scope > [role="option"]')]);
     for (const o of opts) o.id = 'chainOpt' + (o.classList.contains('ftile') ? 'F' : o.dataset.k);
     host.prepend(h('div', { class: 'chain-lb', id: 'chainListbox', role: 'listbox', 'aria-label': $t('Function chain'), 'aria-orientation': 'horizontal', 'aria-owns': opts.map((o) => o.id).join(' ') }));
     if ($('chainBracket') && $('addStepBtn')) host.insertBefore($('chainBracket'), $('addStepBtn'));
@@ -388,29 +388,30 @@
   // a step of a type this build does not know still gets a card (its error comes from Funcs.build)
   const defOf = (st) => Funcs.DEFS[st.type] || { label: String(st.type), params: [] };
   const cardButton = (k) => document.querySelector(`#pipeline .card[data-k="${k}"] .nm`);
-  function stepMenu(anchor, k, opt) {
+  // (#437: stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
+  function stepMenuItems(anchor, k, opt) {
     const st = S.steps[k - 1], d = defOf(st);
     // (D1, issue #23: Replace… first: the palette, ready to replace this step)
-    const items = /** @type {any[]} */ ([{ label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
+    const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
     // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
     if (opt && opt.full) {
       const b0 = built[k - 1];
-      if (!isDerivStep(st, b0)) items.push({ label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
-      items.push({ label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
+      if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
+      items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
       // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
       // none on a touch screen)
-      { label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
-      { label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
-      { label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
-      { label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
+      { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
+      { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
+      { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     // (v16: which steps the deformation deforms, SPEC 6.5)
-    if (activeSteps().length >= 2) items.push({ label: $t('Deformation'), kids: deformItems(k) });
+    if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ label: $t('Repeat'), kids: rk }); }
+    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk }); }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
@@ -421,27 +422,36 @@
     // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
     if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
     if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
-    items.push('sep', { label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
-    openMenu(anchor, items);
+    items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
+    return items;
   }
+  function stepMenu(anchor, k, opt) { return openMenu(anchor, stepMenuItems(anchor, k, opt)); }
   // v15 (DESIGN.md 2.4): a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
   // the lens in the Inspector's head)
   function cardClick(k) { selectStep(k); }
   // (v16.5 UX81) move step k one place and keep the keyboard on its card (the chain is drawn again)
   function moveCard(k, d) {
     if (!moveStep(k, d)) return;
-    const c = document.querySelector(`#pipeline .card[data-k="${k + d}"]`);
+    const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k + d}"]`));
     if (c) c.focus({ preventScroll: true });
+  }
+  // the keys that edit a step, read once for the chain's cards and the steps view's chips: Alt+← / Alt+→ move it (move: -1, 1),
+  // Delete or Backspace remove it (remove: true)
+  function stepEditKey(e) {
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return { move: e.key === 'ArrowLeft' ? -1 : 1 };
+    if (e.key === 'Delete' || e.key === 'Backspace') return { remove: true };   // (any modifier: ⌘⌫ on a Mac, as the chain's cards took it)
+    return null;
   }
   function chainKey(e, k) {
     if (e.target !== e.currentTarget) return;
     const n = S.steps.length, cur = k === 'F' ? n + 1 : k;
-    const go = (j) => { e.preventDefault(); const el = j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
+    const go = (j) => { e.preventDefault(); const el = /** @type {HTMLElement | null} */ (j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`)); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
     // (v16.5 UX81 / UX97: Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
     // keeps the keyboard; the chain and learn pieces built the same key, merged as one)
-    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const ed = stepEditKey(e);
+    if (ed && ed.move) {
       e.preventDefault(); e.stopPropagation();
-      if (k > 0 && k !== 'F') moveCard(k, e.key === 'ArrowLeft' ? -1 : 1);
+      if (k > 0 && k !== 'F') moveCard(k, ed.move);
       return;
     }
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(Math.min(n + 1, cur + 1));
@@ -451,7 +461,7 @@
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStep(k); }
     // (the physical L key on any layout: «д» on ЙЦУКЕН; review russian-5)
     else if (String((I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
+    else if (ed && ed.remove && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
   }
   function makeCard(st, k) {
     const d = defOf(st);
@@ -528,7 +538,7 @@
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
     const lit = Inspector.STRONG.filter((key) => words[key]);
     const show = new Set(lit.slice(0, 2));
-    for (const el of t.querySelectorAll('.lamp')) {
+    for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp'))) {
       const key = el.dataset.lamp, on = !!words[key];
       el.classList.toggle('on', on);
       el.hidden = !show.has(key);
@@ -539,12 +549,12 @@
     // (the strongest first in the list's order)
     const fl = t.querySelector('.fl');
     for (const key of lit.slice(0, 2).reverse()) { const el = fl.querySelector(`.lamp[data-lamp="${key}"]`); if (el) fl.prepend(el); }
-    t.querySelector('.fnone').hidden = lit.length > 0;
+    /** @type {HTMLElement} */ (t.querySelector('.fnone')).hidden = lit.length > 0;
     const names = BADGES.filter(([key]) => words[key]).map(([, n]) => n);
     // (v16.5 UX84: an empty chain is the identity: the tile says F = z, not its guarantees)
     const id = !act.length;
     t.classList.toggle('ident', id);
-    if (id) for (const el of t.querySelectorAll('.lamp, .fnone')) el.hidden = true;
+    if (id) for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp, .fnone'))) el.hidden = true;
     t.setAttribute('aria-label', id ? $t('F = z: no steps yet') : names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
   }
   // dragging horizontally on a label changes a numeric field
@@ -706,6 +716,8 @@
         if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
         input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
         commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; #442 Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
       // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
@@ -775,7 +787,7 @@
   // keep the card's field and the compact popover's field in step
   function syncParam(k, key, from) {
     const v = S.steps[k - 1] && S.steps[k - 1].params[key];
-    for (const el of document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`)) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`))) {
       if (el.id === `${from}${k}_${key}` || document.activeElement === el) continue;
       const t = el.dataset.num ? numShow(v) : String(v);
       if (String(el.value) !== t) el.value = t;
@@ -1064,7 +1076,7 @@
   // (#385) the chain head: compact or full, View all, Clear chain, its fit
   function setupChainHead() {
     for (const b of $('chainMode').children) b.addEventListener('click', () => {
-      setOpt('compact', b.dataset.mode === 'compact');
+      setOpt('compact', /** @type {HTMLElement} */ (b).dataset.mode === 'compact');
       const hgt = S.compact ? 96 : 188;
       document.documentElement.style.setProperty('--chain-h', hgt + 'px');
       try { localStorage.setItem(lsk('cmw-chain-h2'), String(hgt)); } catch (e) { /* ignore */ }
@@ -1080,7 +1092,12 @@
     // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
     const pipeHead = document.querySelector('.pipe-head');
     if (pipeHead && typeof ResizeObserver === 'function') {
-      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const fitPipeHead = () => {
+        // (#566: the heading shrinks first, as CSS has it; one that is cut, or a row that still does not fit, hides it)
+        const title = pipeHead.querySelector(':scope > h2');
+        pipeHead.classList.remove('notitle');
+        if (pipeHead.scrollWidth > pipeHead.clientWidth + 1 || (title && title.scrollWidth > title.clientWidth + 1)) pipeHead.classList.add('notitle');
+      };
       const ro = new ResizeObserver(fitPipeHead);
       ro.observe(pipeHead);
       for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }

@@ -312,6 +312,8 @@ for (const sc of SC) {
   await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
   await nav(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
   await settle(2500);
+  // (#363: the reload opens the saved pattern as the phase; the scoring reads the solid fill, the renderer's own)
+  await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle(800);
   const I = await inkOf(sc.side || 'R', id, !!sc.target);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
   await shot('curves-' + sc.name, sc.side === 'L' ? { x: 268, y: 44, width: 432, height: 570 } : { x: 706, y: 44, width: 432, height: 570 });

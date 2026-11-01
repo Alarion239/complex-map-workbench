@@ -25,6 +25,12 @@
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // yet loaded throws with e.retry, a promise. The composer typesets synchronously, so it notes the promise, sets
+  // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again.
+  // MathJax throws only for the first formula that asks for a range still loading: another one with a letter of it
+  // comes back with that letter as <text> in a system font, so while the pass waits such a result is not kept either
+  XD.waits = [];
   // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
   XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
     const t0 = Date.now();
@@ -35,18 +41,10 @@
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
   const texCache = new Map();
-  // a Russian figure: Russian notation (tg, sh, ln), and words with Cyrillic set from the CMU outlines of src/cyr.js
-  // (MathJax's fonts have none: it would write <text> in a system font); the math stays MathJax's. Words with an
-  // accented Latin letter (Italian: è, perché, più) are set from the same outlines (cyr.js composes the letters)
-  XD.tex = (tex, pt, color = '#000') => {
-    if (XD.lang === 'ru' && I18) tex = I18.notation(tex, 'ru');
-    if (typeof CYR === 'undefined' || !(CYR.needs ? CYR.needs(tex) : CYR.hasCyr(tex))) return mjTex(tex, pt, color);
-    const key = `cyr|${pt}|${color}|${tex}`;
-    if (texCache.has(key)) return texCache.get(key);
-    const out = CYR.typeset(tex, pt, color, mjTex);
-    texCache.set(key, out);
-    return out;
-  };
+  // a Russian figure: Russian notation (tg, sh, ln). (#490) Its words, and the Italian ones with an accented letter
+  // (è, perché, più), are MathJax's too: the STIX2 font has Cyrillic and the accented Latin letters in its upright,
+  // bold, italic and bold italic text, so words and maths are one face
+  XD.tex = (tex, pt, color = '#000') => mjTex(XD.lang === 'ru' && I18 ? I18.notation(tex, 'ru') : tex, pt, color);
   const mjTex = (tex, pt, color = '#000') => {
     const key = `${pt}|${color}|${tex}`;
     if (texCache.has(key)) return texCache.get(key);
@@ -54,6 +52,7 @@
     try {
       const node = window.MathJax.tex2svg(tex, { display: false });
       const svg = node.querySelector('svg');
+      if (XD.waits.length && svg.querySelector('text')) return { inner: '', glyphs: [], w: 0, a: 0, d: 0, vb0: 0, k: pt / 1000, tex, pt, color };
       const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
       const glyphs = [];
       svg.querySelectorAll('defs path[id]').forEach((p) => glyphs.push([p.id.replace(/^MJX-\d+-/, ''), p.getAttribute('d')]));
@@ -70,6 +69,7 @@
       out = { inner, glyphs, w: vb[2] * k, a: -vb[1] * k, d: (vb[3] + vb[1]) * k, vb0: vb[0], k, tex, pt, color };
     } catch (e) {
       out = { inner: '', glyphs: [], w: 0, a: 0, d: 0, vb0: 0, k: pt / 1000, tex, pt, color };
+      if (e && e.retry) { XD.waits.push(e.retry); return out; }
     }
     if (texCache.size > 4000) texCache.clear();
     texCache.set(key, out);

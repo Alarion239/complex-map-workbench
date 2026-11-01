@@ -4,9 +4,9 @@
 // error MathJax drew (merror), a command it does not know (drawn in red), or a command, a script or a $ inside text
 // (\text{\frac{1}{2}}, \text{u_k}). Each text the figure placed (its boxes, the caption set in the image) is typeset
 // again as MathML and read for those. Where: shapes (a curve, a polygon, a disc, a point) and gallery examples with
-// formulas, keys, sheets and long captions, in en, ru and it (Russian is set from the CMU outlines, with its own
+// formulas, keys, sheets and long captions, in en, ru and it (Russian set by MathJax in STIX2 as the rest, with its own
 // notation). The video draws no TeX: its text is numbers, t and the globe's labels, written by the code (06-video.js).
-// Needs MathJax: test-mj.html (vendor/js/tex-svg.js, ci/browser_suites.js PAGES). A command file for a CDP daemon.
+// Needs MathJax: test-mj.html (MathJax 4 and its STIX2 font from vendor/, ci/browser_suites.js PAGES). A command file for a CDP daemon.
 const fails = [], info = { figures: 0, texts: 0 };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;

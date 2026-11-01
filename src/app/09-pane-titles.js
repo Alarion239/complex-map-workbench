@@ -5,10 +5,10 @@
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
   function fitTitle(side, noNote, noDisp, noEmpty) {
-    const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
+    const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && /** @type {HTMLElement | null} */ (t.nextElementSibling);
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
-    // ([v17 D4; #247] the head's pattern button shows its caret unless the title needs that room: then its swatch alone,
+    // ([v17 D4; #247; #363] the head's Regions button shows its caret unless the title needs that room: then its swatch alone,
     // e.g. Y's head at 1366 px with the chain empty and Add function there)
     const disp = pane.querySelector('.pane-head .pat-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
@@ -149,10 +149,10 @@
     $('rightFit').hidden = !rImage();
     $('leftFit').hidden = false;
     buildRightFoot();
-    for (const c of document.querySelectorAll('.card')) c.classList.toggle('focus', +c.dataset.k === S.focus);
+    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.card'))) c.classList.toggle('focus', +c.dataset.k === S.focus);
     syncSel();
     $('viewAllBtn').setAttribute('aria-pressed', String(S.focus === 0));
-    if (setupFormula.refresh) setupFormula.refresh();
+    if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
     updateToolHint();
     updateLeds();
@@ -180,6 +180,7 @@
       const sel = (b.dataset.mode ?? b.dataset.v) === String(value);
       b.classList.toggle('on', sel);
       b.setAttribute('aria-checked', String(sel));
+      b.tabIndex = sel ? 0 : -1;   // (one Tab stop: the checked one, as roveRadios keeps every radio group)
       if (sel) on = b;
     }
     if (on) {
@@ -187,23 +188,28 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  function seg(id, value, options, onchange, label) {
-    const el = h('div', { class: 'seg small', id, role: 'radiogroup', 'aria-label': label });
+  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
+  // view's scope switch does; without it ← → stop at the ends)
+  function seg(id, value, options, onchange, label, opt) {
+    const o = opt || {};
+    const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title] of options) {
-      el.append(h('button', { 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
+      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
     requestAnimationFrame(() => setSeg(el, value));
     setSeg(el, value);
     el.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const bs = [...el.children], i = bs.findIndex((b) => b.classList.contains('on'));
-      const j = Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+      const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
+      if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
+      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      if (i < 0) return;
+      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
       bs[j].click(); bs[j].focus(); e.preventDefault();
     });
     return el;
   }
-  function selectEl(id, value, options, onchange, title) {
-    const sel = h('select', { class: 'sel', id, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
+  function selectEl(id, value, options, onchange, title, cls) {
+    const sel = h('select', { class: 'sel' + (cls ? ' ' + cls : ''), id: id || null, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
     sel.value = value;
     return sel;
   }
@@ -430,7 +436,8 @@
       for (n = 0; n < kids.length; n++) {
         if (inHead && isNote(kids[n])) break;
         const next = used + (n ? gap : 0) + ft.widths[n];
-        const more = n + 1 < kids.length ? btn : 0;
+        // (#364: a head that starts with the style row always keeps the ⋯'s room, filled or not)
+        const more = n + 1 < kids.length || (inHead && kids[0].id === 'dcSeg') ? btn : 0;
         if (next + more > avail) break;
         used = next;
       }
@@ -443,33 +450,42 @@
     ft.n = n;
     const rest = kids.slice(n);
     let b = null;
-    // (in a head with the pattern button and nothing else inline, Y's in the X → Y view, the controls that do not fit go
-    // into the pattern's pop-up above the patterns: one button, as narrow as the Display button was)
+    // (in a head with the Regions button and nothing else inline, Y's in the X → Y view, the controls that do not fit go
+    // into the Regions pop-up above the regions' options: one button, as narrow as the Display button was)
     const merged = !!pat && n === 0 && rest.length > 0;
     ft.merged = merged;
     if (rest.length && !merged) {
       // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
+    } else if (inHead && kids.length && kids[0].id === 'dcSeg') {
+      // (#364) the Phase head keeps the ⋯'s room whatever the style: a style with nothing behind ⋯ (Plain, Modulus)
+      // leaves the slot empty, so the style row, at the head's right, never shifts as the style changes
+      b = h('span', { class: 'opts-slot', 'aria-hidden': 'true' });
     }
     const open = ft.pop && ft.pop.isConnected && (ft.pop.dataset.of !== 'pattern' || ft.pop.dataset.merged === '1');
     if (unit && rest.includes(unit)) unitHome(f);
-    f.replaceChildren(...(pat ? [pat] : []), ...kids.slice(0, n), ...(b ? [b] : []));
+    // (#364, the issue's second option: in a head that starts with the style row, the toggles that fit go to its left and
+    // the row stays last, beside ⋯; it sits at the head's right, so a style that changes the title, and with it how many
+    // toggles fit, moves only the toggles)
+    const inl = kids.slice(0, n), styl = inHead && inl.length && inl[0].id === 'dcSeg';
+    f.replaceChildren(...(pat ? [pat] : []), ...(styl ? [...inl.slice(1), inl[0]] : inl), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
     if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
-      // (the open pop-up follows its controls: the pattern's while they are merged into it, else the ⋯'s)
+      // (the open pop-up follows its controls: the Regions pop-up while they are merged into it, else the ⋯'s)
       if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
       else if (b) openFootPop(b, true, side); else closePalette();
     }
   }
-  // ([v17 D5, #82; #247] in the X → Y view the shapes' pattern, a swatch in the pane head: its pop-up holds the regions'
-  // display, page.html's #regionsBox (pattern, cell, grid lines, chevrons, opacity), lent while it is open)
+  // ([v17 D5, #82; #247; #363] in the X → Y view the Regions button in the pane head, a swatch of the regions' fill (the
+  // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
+  // opacity), lent while it is open)
   function patternBtn(side) {
-    const p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+    const name = $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
-    drawPatternSwatch(b.firstChild, S.pattern);
+    drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
     return b;
   }
@@ -477,7 +493,7 @@
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
-    // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the pattern button's, the regions'
+    // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
@@ -500,7 +516,7 @@
     }
     // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
     const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the pattern
+    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the Regions
     // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
     const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
     const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
@@ -803,7 +819,7 @@
       watchFader(rng);
       // ([v16.5 fix regress-1] a row too tight for the readout in words: the short form, measured once here, where the
       // dock is laid out anyway)
-      { const lab = f.querySelector('#morphLabel'), tc = f.querySelector('.tclose');
+      { const lab = /** @type {HTMLElement | null} */ (f.querySelector('#morphLabel')), tc = f.querySelector('.tclose');
         if (lab && tc && play.getClientRects().length && tc.getBoundingClientRect().top > play.getBoundingClientRect().bottom - 4) { lab.dataset.short = '1'; setText(lab, morphReadout(true)); } }
       // (v16: a phone's transport labels, measured once the dock is laid out: here, then on the next frames and renders)
       if (scrub.dataset.fit) { const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } }
@@ -979,7 +995,8 @@
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
-    if (!lPhase()) return null;
+    // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
+    if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
     return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
@@ -1027,9 +1044,10 @@
     if (foot.L.kids.length || foot.R.kids.length) layoutFoot(true);
     if (moved) drawLegend();   // (the chip's words, written when it is in the head)
   }
-  // the key chip's words in the pane head: the pattern's cell (Y), or what X's colours show
+  // the key chip's words in the pane head: the grid's cell while the regions' grid lines are drawn, else their fill, the
+  // phase of z (Y, #363), or what X's colours show
   function legendSum(kind) {
-    if (kind === 'image') return S.pattern === 'stretch' ? $t('Scale |F′|') : S.pattern === 'sphere' ? $t('Sphere cells') : $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) });
+    if (kind === 'image') return S.lines ? $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) }) : $t('Phase of z');
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() {
@@ -1073,15 +1091,15 @@
     const want = !!kind;
     if (box.hidden === want) box.hidden = !want;
     // (the folded chip on a phone shows a glyph of its key: the hue wheel, arg increasing counterclockwise from red at
-    // 1, or a checker for the Pattern key)
-    if (kind && box.parentNode && box.parentNode.classList && box.parentNode.classList.contains('pane-head')) {
+    // 1, or a checker for the Regions key)
+    if (kind && box.parentNode && /** @type {HTMLElement} */ (box.parentNode).classList && /** @type {HTMLElement} */ (box.parentNode).classList.contains('pane-head')) {
       let sm = box.querySelector(':scope > .lg-sum');
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
       // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
       // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
+      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
@@ -1113,7 +1131,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1150,38 +1168,23 @@
     ctx.textBaseline = 'middle';
     st.strip = false;
     if (kind === 'image') {
-      // pattern key: the cell size in z, plus markers present in the plane
+      // the regions' key (#363): their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
+      // markers present in the plane
       ctx.font = `600 11px ${TH.ui}`; ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      if (S.pattern === 'stretch') {
-        // the local scale ramp: blue shrinks, amber grows
-        ctx.fillText($t('Scale |F′|'), 8, 13);
-        const g = ctx.createLinearGradient(8, 0, 128, 0);
-        g.addColorStop(0, TH.stretchShrink); g.addColorStop(0.5, TH.stretchMid); g.addColorStop(1, TH.stretchGrow);
-        ctx.fillStyle = g; ctx.fillRect(8, 22, 120, 8);
-        ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1; ctx.strokeRect(8.5, 22.5, 119, 7);
-        ctx.font = `10px ${TH.mono}`; ctx.fillStyle = TH.muted;
-        ctx.textAlign = 'left'; ctx.fillText('×⅛', 8, 40); ctx.textAlign = 'center'; ctx.fillText('1', 68, 40); ctx.textAlign = 'right'; ctx.fillText('×8', 128, 40);
-        ctx.textAlign = 'left';
-      } else {
-        ctx.fillText($t('Pattern'), 8, 13);
-        // "cell 0.5 in z" as one run: words in the UI face, the number in the mono face, z in STIX italic
-        let x = 8;
-        const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
-        if (S.pattern === 'sphere') {
-          // the spherical checker has no cell size in z: its longitude x latitude cells of the Riemann sphere (SPEC 6.3)
-          run(`${sphN()} × ${sphN() / 2}`, `11px ${TH.mono}`, TH.ink);
-          run($t(' cells of the sphere'), `11px ${TH.ui}`, TH.muted);
-        } else {
-          // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
-          // the plane's name is never cut (review ui-3). English draws as before
-          const parts = [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
-          let k = 1;
-          if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
-          if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
-          for (const [t, f, c] of parts) run(t, f, c);
-          if (k < 1) ctx.restore();
-        }
-      }
+      ctx.fillText($t('Regions'), 8, 13);
+      // "cell 0.5 in z" as one run: words in the interface face, the number in the mono face, z in STIX italic
+      let x = 8;
+      const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
+      // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
+      // the plane's name is never cut (review ui-3). English draws as before
+      const parts = S.lines
+        ? [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]]
+        : [[$t('phase of '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
+      let k = 1;
+      if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
+      if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
+      for (const [t, f, c] of parts) run(t, f, c);
+      if (k < 1) ctx.restore();
       // only marks that this plane actually draws
       let y = 52;
       ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
@@ -1243,6 +1246,25 @@
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, 62 + dy); x += ctx.measureText(p).width; }
     };
+    // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
+    if (SV.on && svCarriedFrom() && !lPhase()) {
+      // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
+      const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
+      const KEY_PAD = 8;     // room kept at the legend's right edge
+      const KEY_TOP = 22;    // baseline of the first line
+      const KEY_STEP = 13;   // line step (10.5 px text)
+      const maxW = LEG.W - KEY_PAD - KEY_X, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
+      const ui = `600 10.5px ${TH.ui}`;
+      let cur = '';
+      for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
+      if (cur) lines.push(cur);
+      ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
+      lines.forEach((ln, i) => {
+        let x = KEY_X;
+        for (const p of ln.split(/((?<![A-Za-z])w(?![A-Za-z]))/).filter(Boolean)) { ctx.font = p === 'w' ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP, maxW); x += Math.min(maxW, ctx.measureText(p).width); }
+      });
+      return;
+    }
     // the deformation paints H_t (merged-views review)
     const homL = morphOn() && lPaintsF();
     // the Phase style has no modulus bands: no strip

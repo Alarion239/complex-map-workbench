@@ -201,8 +201,9 @@ await shot('p3_g_left');
 // ---- (i) the spherical checker on the GPU: log(H) columns at Re w = ln tan(j pi / 16) +- 0.5 px
 await load('p3i' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base, { pattern: 'sphere' }));
 await settle();
-R.menu = await ev(`[...document.querySelectorAll('#patternSeg .pat')].map((b) => b.getAttribute('aria-label'))`);
-ok('(i) the menu offers Sphere checker', R.menu.includes('Sphere checker'), R.menu);
+// (#363: the renderer's spherical checker stays, drawn here through the test hook; the user has no pattern menu)
+R.menu = await ev(`document.querySelectorAll('#patternSeg, [data-pat]').length`);
+ok('(i) no pattern menu: the regions are filled by the phase', R.menu === 0, R.menu);
 R.i = await ev(`(() => {
   const lk = __cmwLook('s1', 'R'), s = lk.view.s * lk.dpr, W = lk.W, Hh = lk.H;
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -268,6 +269,8 @@ ok('(h) the export is exact (fill = annulus away from the strokes)', R.h.n > 100
 ok('(h) the export equals the screen scaled, IoU >= 0.999', R.h.iou >= 0.999, R.h);
 // cancellation: a new chain (its inverse program compiles: prepareExport waits), cancelled after 40 ms
 await load('p3hc' + Date.now(), Object.assign({ shapes: [H, { id: 's2', kind: 'disc', c: [0.4, 0.8], r: 0.3 }], steps: [ZI, { type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+// (MathJax started: its own start, after the first paint, is not the export's main-thread time, #288)
+for (let i = 0; i < 80 && !(await ev('!!(window.MathJax && MathJax.startup && MathJax.startup.document)')); i++) await sleep(250);
 await sleep(30);
 R.hc = await ev(`await (async () => {
   const long = [];
