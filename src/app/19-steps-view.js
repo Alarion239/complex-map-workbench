@@ -409,7 +409,12 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    if (svMaskOn() && svMaskFrame(pane, map, still ? a : undefined, frame, colour, grid)) {
+    if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
+      // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
+      // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
+      paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
+      after: () => { grid(true); svOutlines(pane, map, frame); frame.open = false; frame.keep = false; },
+    })) {
       // (drawn: the frame is on the page)
     } else {
       colour();
@@ -424,7 +429,7 @@
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
-        if (svMaskOn()) svMaskWith(pane, cc, map, still ? a : undefined);
+        if (svMaskOn()) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
         svOutlines(pane, map);
@@ -435,63 +440,62 @@
     drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
     if (rest) drawRulers(pane, 'L');
   }
-  // Inside regions on the GPU while gliding or parked (#440), in one frame: the regions under map (and, at rest on plane
-  // k, the later planes' pulled back) write the frame's alpha; the colour layer (colour(), which draws into the open
-  // frame) writes over it its colour alone, on the plane's grid (grid(false)); then the colour is kept where the alpha is
-  // (keepInAlpha). (#545) The frame is the page's: the grid under the kept colour (grid(true), as #503's Everywhere
-  // frame), the outlines over it, and drawScene's one blit goes to the pane. True when it is on the page; false (nothing
-  // on the page) without the GL calls, while keepInAlpha's program links, or when the frame failed before its outlines
-  // went in
-  function svMaskFrame(pane, map, k, frame, colour, grid) {
+  // the regions drawn as a mask (#591): fn with the regions' look set to solid, opaque and without lines, then put back
+  function withSolidRegions(fn) {
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    try {
+      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
+      return fn();
+    } finally {
+      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+    }
+  }
+  // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
+  // regions pulled back, stagePullbacks), by what the renderer can do:
+  // - on the GPU, in one frame and one copy to the page (#545): the regions' fills (drawScene's fills, #561) write the
+  //   frame's alpha alone; o.paint() draws the colour over it, its colour alone (into the open frame); the colour is
+  //   kept where the alpha is (keepInAlpha); then o.after() (the grid, the outlines) and drawScene's one blit to the
+  //   pane. True when it is on the page; false (nothing on the page) without the GL calls, while keepInAlpha's program
+  //   links, or when the frame failed before o.after;
+  // - o.cc (the 2D path): the picture already in the 2D context o.cc is cut to the regions (drawn opaque into a canvas
+  //   the pane's size, destination-in). True
+  function svMask(pane, map, k, o) {
+    const opt = k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k };
+    if (o.cc) {
+      svMaskCv = svCanvas(svMaskCv, pane);
+      const mp = svProxy(pane, svMaskCv);
+      mp.begin = () => {};
+      try {
+        // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
+        withSolidRegions(() => { drawScene(mp, map, null, opt); if (k != null) stagePullbacks(mp, k); });
+      } catch (e) { console.error('steps view mask', e); }
+      o.cc.save();
+      o.cc.setTransform(1, 0, 0, 1, 0, 0);
+      o.cc.globalCompositeOperation = 'destination-in';
+      o.cc.drawImage(svMaskCv, 0, 0);
+      o.cc.restore();
+      return true;
+    }
     if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
     let onPage = false;
     const mp = Object.create(pane);
     mp.begin = () => {};
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
     try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      drawScene(mp, map, null, Object.assign(k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k }, {
+      withSolidRegions(() => drawScene(mp, map, null, Object.assign(opt, {
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
           GLR.writeMask(true, false);
-          // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands)
-          grid(false);
-          // (the colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
-          frame.open = true; frame.keep = true;
-          colour();
+          o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
-          grid(true);
-          svOutlines(pane, map, frame);
+          if (o.after) o.after();
           onPage = true;
-          frame.open = false; frame.keep = false;
         },
-      }));
+      })));
     } catch (e) { console.error('steps view mask', e); }
     GLR.writeMask(true, true);
-    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
     return onPage;
-  }
-  // keep only what is inside the regions under map (and, at rest on plane k, the later planes' regions pulled back) of
-  // the picture in the 2D context cc
-  function svMaskWith(pane, cc, map, k) {
-    svMaskCv = svCanvas(svMaskCv, pane);
-    const mp = svProxy(pane, svMaskCv);
-    mp.begin = () => {};
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
-    try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
-      drawScene(mp, map, null, k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k });
-      if (k != null) stagePullbacks(mp, k);
-    } catch (e) { console.error('steps view mask', e); }
-    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
-    cc.save();
-    cc.setTransform(1, 0, 0, 1, 0, 0);
-    cc.globalCompositeOperation = 'destination-in';
-    cc.drawImage(svMaskCv, 0, 0);
-    cc.restore();
   }
   // the shapes' outlines under map, as the colour plot draws them (renderColor); into the open GL frame frame, if given
   // (the caller copies it), else a frame of their own
@@ -535,13 +539,10 @@
   function svSphereIn(pane) {
     const k = svStage(), o = { stage: k, plane: !!xView().eq, role: 'L' };
     const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: true }, o));
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
     if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
       try {
-        setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-        sphereView(pane, camL, CAML, Object.assign({ imageMode: false, maskRegions: true }, o));
+        withSolidRegions(() => sphereView(pane, camL, CAML, Object.assign({ imageMode: false, maskRegions: true }, o)));
       } catch (e) { console.error('steps view globe mask', e); }
-      for (const key of Object.keys(keep)) setOpt(key, keep[key]);
       return info;
     }
     svSphCv = svCanvas(svSphCv, pane);
@@ -551,11 +552,9 @@
     try {
       TH = Object.assign({}, TH, { plane: '#000000', planeRGB: [0, 0, 0], gridMajor: '#000000', axisRGB: [0, 0, 0], inkRGB: [0, 0, 0], faint: '#000000', landTop: '#000000', landBottom: '#000000', landShadow: '#000000', halo: '#000000', muted: '#000000' });
       printInk = () => ({ c0: '#ffffff', alt: '#ffffff', edge: '#ffffff' });
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      sphereView(svProxy(pane, svSphMask), camL, CAML, Object.assign({ imageMode: true }, o));
+      withSolidRegions(() => sphereView(svProxy(pane, svSphMask), camL, CAML, Object.assign({ imageMode: true }, o)));
     } catch (e) { console.error('steps view globe mask', e); }
     TH = keepTH; printInk = keepInk;
-    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
     const mc = svSphMask.getContext('2d'), img = mc.getImageData(0, 0, svSphMask.width, svSphMask.height), d = img.data;
     // (a lit white region stays light; the black globe, its sheen and the ground stay dark)
     for (let q = 0; q < d.length; q += 4) { const l = (d[q] + d[q + 1] + d[q + 2]) / 3; d[q + 3] = l > 110 ? 255 : l > 70 ? Math.round((l - 70) * 255 / 40) : 0; }
@@ -578,38 +577,23 @@
   }
   // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
   function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
-  // Inside regions on the GPU (#440), in GL's frame and in one copy to the page: the plane's regions (its own, the
-  // earlier planes' images and the later planes' pulled back) write the frame's alpha alone (GLR.alphaOnly), then the
-  // colour plot cst is drawn only where that alpha is (dstAlpha); the rest is the plane's paper. False when GL has no
-  // alphaOnly: renderColor then draws the plot and svMaskColour masks it in 2D
-  function svMaskGPU(pane, cst) {
-    if (!GLR.alphaOnly) return false;
-    const k = svStage(), keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
-    const mp = Object.assign(Object.create(pane), { begin: () => {} });
-    try {
-      setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
-      // (the plane's cached maps, as its own frame draws them; the exact images' inverse passes keep their alpha)
-      // (#560: the fills alone, as the moving frame's mask, so the rim does not shift at a glide's landing)
-      drawScene(mp, stageMap(k), null, { noGrid: true, fills: true, domain: k === 0, plane: k, under: () => GLR.alphaOnly(true),
-        over: () => { stagePullbacks(mp, k, true); GLR.alphaOnly(false); GLR.drawColorPlot(Object.assign({}, cst, { dstAlpha: true })); } });
-    } catch (e) { console.error('steps view mask', e); }
-    GLR.alphaOnly(false);
-    for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+  // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
+  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
+  // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
+  function svColourIn(pane, cst) {
+    const k = svStage(), map = stageMap(k);
+    if (!svMask(pane, map, k, { paint: () => GLR.drawColorPlot(cst) })) {
+      GLR.drawColorPlot(cst);
+      svColCv = svCanvas(svColCv, pane);
+      const cc = svColCv.getContext('2d');
+      GLR.blit(cc);
+      svMask(pane, map, k, { cc });
+      pane.ctx.save();
+      pane.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      pane.ctx.drawImage(svColCv, 0, 0);
+      pane.ctx.restore();
+    }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    GLR.begin(pane.pw, pane.ph);
-    return true;
-  }
-  // the 2D path, without alphaOnly: the colour plot just drawn into GL's frame, kept inside the regions' mask drawn apart
-  function svMaskColour(pane, cst) {
-    const k = svStage();
-    svColCv = svCanvas(svColCv, pane);
-    const cc = svColCv.getContext('2d');
-    GLR.blit(cc);
-    svMaskWith(pane, cc, stageMap(k), k);
-    pane.ctx.save();
-    pane.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    pane.ctx.drawImage(svColCv, 0, 0);
-    pane.ctx.restore();
     GLR.begin(pane.pw, pane.ph);
   }
 
@@ -679,7 +663,9 @@
     thumb.removeAttribute('aria-hidden');
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
-    if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }).observe(rail);
+    // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
+    // plane's node a few pixels under the rail's edge)
+    if (typeof ResizeObserver === 'function') { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svSync(); } }); ro.observe(rail); ro.observe(track); }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
@@ -802,7 +788,11 @@
     const between = Math.abs(x - Math.round(x)) > 0.02;
     if (between !== E.between) { E.between = between; E.thumb.classList.toggle('between', between); }
     // a thread longer than its rail scrolls in it, the ring kept in view a plane's width from either end (a write, no read)
-    if (E.trackW > E.railW + 1) {
+    // (#549: not while the keyboard's focus is on a plane or chip in the rail and nothing moves: Tab scrolled that control in, and
+    // the ring's follow would carry the rail back to the ring, leaving the focus out of sight)
+    const kf = document.activeElement, keepFocus = !!kf && kf !== E.thumb && E.rail.contains(kf) && kf.matches(':focus-visible') && !SV.anim && !SV.g.moving();
+    if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
+    else if (E.trackW > E.railW + 1) {
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
       const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
@@ -924,6 +914,9 @@
     const dismissToast = svDismissToast;
     strip.addEventListener('click', (e) => { if (e.target.closest('.sv-nav')) dismissToast(); }, true);
     rail.addEventListener('pointerdown', dismissToast, true);
+    // (#549: Tab to a plane or chip that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
+    // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
+    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
     // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
     // press must not act on a plane the user cannot see; its own buttons keep their action)
     const th = document.getElementById('toastHost');
