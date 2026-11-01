@@ -127,8 +127,9 @@ const closure = {
 
 module.exports = [
   // not linted: built pages, notes, generated tables, and the test/ files other than the unit tests (most of those are
-  // *_cmd.js snippets that the browser harness runs inside the page, with a top-level return)
-  { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'vendor/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js'] },
+  // *_cmd.js snippets that the browser harness runs inside the page, with a top-level return; tools/sweeps/ holds the same
+  // kind of command files)
+  { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'vendor/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js', 'tools/sweeps/**'] },
   js.configs.recommended,
   { rules },
   ...Object.entries(SIZE_BUDGET).map(([f, max]) => ({ files: [f], rules: { 'max-lines': ['warn', { max, skipBlankLines: true, skipComments: true }] } })),
