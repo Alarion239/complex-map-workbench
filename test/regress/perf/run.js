@@ -47,8 +47,8 @@ const LOAD_WAIT_S = Number(opt('load-wait', '90'));
 const REQUIRE_QUIET = flag('require-quiet');
 const UNIT_TIMEOUT_S = Number(opt('unit-timeout', '180'));
 // a throttled machine (mac-gpu with its display asleep: runs 41264000039 and 41268369131, where every frame waited on a
-// ~45-50 ms cadence and every timing came out 2-3x on both sides) measures nothing worth comparing: before each unit's
-// side, the median rAF interval of an idle page; over RAF_MAX ms the run fails, naming the cause (run.js exit 5),
+// ~45-50 ms cadence and every timing came out 2-3x on both sides) measures nothing worth comparing: before each unit, and
+// after the last, the median rAF interval of an idle page; over RAF_MAX ms the run fails, naming the cause (run.js exit 5),
 // instead of reporting numbers. --raf-max 0: no check
 const RAF_MAX = Number(opt('raf-max', '20'));
 // --ab DIR: a PAIRED run. DIR is the dist/ of the reference app (run.sh --paired builds it from a source snapshot);
@@ -1959,6 +1959,23 @@ async function main() {
     fs.writeFileSync(OUT, JSON.stringify(RES_B, null, 1));
     if (RES_A) fs.writeFileSync(abOut(), JSON.stringify(RES_A, null, 1));
   };
+  // (the throttle check: once per unit, before its first side, and once after the last unit; the throttle is the
+  // machine's, so one browser tells)
+  const rafCheck = async (where) => {
+    if (!(RAF_MAX > 0)) return;
+    const med = await rafMedian(B_B);
+    (RES_B.meta.raf || (RES_B.meta.raf = {}))[where] = med < 0 ? null : +med.toFixed(2);
+    if (med >= 0 && med <= RAF_MAX) return;
+    const msg = `machine throttled (rAF median ${med < 0 ? 'none in 5 s' : med.toFixed(1) + ' ms'} > ${RAF_MAX} ms on an idle page) ${where}: the display asleep or the GPU throttled; no numbers reported`;
+    RES_B.errors.push({ where: 'raf-check', error: msg });
+    RES_B.meta.aborted = msg;
+    writeAll();
+    log(msg);
+    for (const b of [B_A, B_B]) { try { if (b) await b.close(); } catch (e2) { /* ignore */ } }
+    if (server) server.close();
+    if (serverA) serverA.close();
+    process.exit(5);
+  };
   for (const u of UNITS) {
     if (ONLY && !ONLY.test(u.id)) continue;
     if (SKIP && SKIP.test(u.id)) continue;
@@ -1978,25 +1995,11 @@ async function main() {
       log(`WARNING: machine busy (1-min load ${load} > ${LOAD_MAX}) before ${u.id}: its timings are not trustworthy`);
       RES.meta.busyUnits.push({ unit: u.id, load });
     }
+    await rafCheck(`before ${u.id}`);
     const scenes = new Map(), failed = new Map();
     const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
     for (const [res, base, tag, br] of sides) {
       RES = res; BASE = base; B = br;
-      if (RAF_MAX > 0) {
-        const med = await rafMedian(br);
-        (RES.meta.raf || (RES.meta.raf = {}))[u.id] = med < 0 ? null : +med.toFixed(2);
-        if (med < 0 || med > RAF_MAX) {
-          const msg = `machine throttled (rAF median ${med < 0 ? 'none in 5 s' : med.toFixed(1) + ' ms'} > ${RAF_MAX} ms on an idle page) before ${u.id}${tag}: the display asleep or the GPU throttled; no numbers reported`;
-          RES.errors.push({ where: 'raf-check', error: msg });
-          RES_B.meta.aborted = msg;
-          writeAll();
-          log(msg);
-          for (const b of [B_A, B_B]) { try { if (b) await b.close(); } catch (e2) { /* ignore */ } }
-          if (server) server.close();
-          if (serverA) serverA.close();
-          process.exit(5);
-        }
-      }
       const tu = Date.now();
       log(u.id + tag);
       CURRENT_UNIT = u.id;
@@ -2037,6 +2040,8 @@ async function main() {
       }
     }
   }
+  // (a throttle that began during the last unit)
+  if (!ONLY || UNITS.some((u) => ONLY.test(u.id))) await rafCheck('after the last unit');
   CURRENT_UNIT = null;
   for (const [b, res] of [[B_B, RES_B], [B_A, RES_A]]) {
     if (!b) continue;
