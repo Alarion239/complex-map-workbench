@@ -33,6 +33,8 @@
   window.__cmwSetPhase = (on) => setPhase(on);
   // merged views (merged-views.md): the top bar's view ('xy' | 'phase' | 'land') and the layout the panes are in
   window.__cmwSetMain = (m) => setMain(m);
+  // a shape's own colour as its curve is drawn (its ink's edge), as a hex string
+  /** @type {any} */ (window).__cmwInk = (id) => { const s = S.shapes.find((x) => x.id === id); return s ? shapeInk(s).edge : null; };
   // (walls tests, #168 review) a step's parameter set as its field sets it (live, chainChanged(false)): a log's cut
   // (#464) a step added as the palette adds it: its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are
   /** @type {any} */ (window).__cmwAddStep = (type, params) => { addStep(type, params); return S.steps.length; };

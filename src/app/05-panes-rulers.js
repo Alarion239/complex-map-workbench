@@ -492,7 +492,7 @@
         if (!r.lineRes) continue;
         // open sets dashed (spec 6.8)
         const dash = r.open ? { dash: [5, 3.5], arc: arcOf(r, cpuMap(map), mapKeyOf(map)) } : null;
-        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr }, cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
+        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
       }
     }
     GLR.blit(pane.ctx);
