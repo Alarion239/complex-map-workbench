@@ -27,12 +27,12 @@ for (const w of [1024, 1440]) {
   ok(`${w}: the tabs' buttons lie inside their strip and are 28 px tall`, t.length === 4 && t.every((b) => b.cutBottom <= 0.5 && b.cutTop <= 0.5 && b.h >= 28), t);
   info[`tabs ${w}`] = t[0];
 }
-// 5. Settings > Mesh quality: the presets are 24 x 24 at least and start where the slider ends (en and ru)
+// 5. Settings > Mesh quality: the slider and the presets are 24 px at least (the slider's 20 px put the stops within its reach) and the presets start where the slider ends (en and ru)
 for (const lang of ['en', 'ru']) {
   await open(1024, 800, lang);
   await ev(`(document.getElementById('settingsBtn') || [...document.querySelectorAll('button')].find((x) => /Settings|Настройки/i.test(x.getAttribute('aria-label') || x.textContent))).click(); 1`); await settle(600);
-  const m = await ev(`(() => { const rg = document.getElementById('meshRange'); if (!rg || !rg.getClientRects().length) return null; const R = rg.getBoundingClientRect(); const bs = [...document.querySelectorAll('#meshPresets button')].map((b) => { const r = b.getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), top: +r.top.toFixed(1) }; }); return { rangeBottom: +R.bottom.toFixed(1), bs }; })()`);
-  ok(`${lang}: the mesh presets are 24 px targets below the slider`, !!m && m.bs.length === 5 && m.bs.every((b) => b.w >= 23.9 && b.h >= 23.9 && b.top >= m.rangeBottom - 0.5), m);
+  const m = await ev(`(() => { const rg = document.getElementById('meshRange'); if (!rg || !rg.getClientRects().length) return null; const R = rg.getBoundingClientRect(); const bs = [...document.querySelectorAll('#meshPresets button')].map((b) => { const r = b.getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), top: +r.top.toFixed(1) }; }); return { rangeH: +R.height.toFixed(1), rangeBottom: +R.bottom.toFixed(1), bs }; })()`);
+  ok(`${lang}: the mesh slider and its presets are 24 px targets, the presets below the slider`, !!m && m.bs.length === 5 && m.rangeH >= 23.9 && m.bs.every((b) => b.w >= 23.9 && b.h >= 23.9 && b.top >= m.rangeBottom - 0.5), m);
 }
 // 6 and 4. the chain at 1440 and 1024: the connector's label clears the +; with the deformation open, the bracket's ends are
 // 24 px wide at least and above the labels (not over them)
