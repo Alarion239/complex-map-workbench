@@ -1177,7 +1177,7 @@ const Tour = (() => {
 .tl-mark svg { width: 24px; height: 24px; display: block; }
 .tour-lane:not([data-mode="desk"]) .tl-mark { display: none; }
 .tl-text { flex: 1 1 auto; min-width: 0; margin: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
-.tour-lane.grow .tl-text { -webkit-line-clamp: unset; line-clamp: unset; display: block; overflow: visible; }
+.tour-lane.grow .tl-text { -webkit-line-clamp: 4; line-clamp: 4; }
 .tour-lane[data-mode="desk"]:not(.two) .tl-text { -webkit-line-clamp: 1; line-clamp: 1; display: block; white-space: nowrap; text-overflow: ellipsis; }
 .tl-title { font-weight: 600; color: var(--ink); }
 .tl-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
@@ -3118,16 +3118,20 @@ const Tour = (() => {
     if (opt) opt.hidden = false;
     const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
     // (#586: a phone's lane, back to its own height first, then grown below if the line needs more)
-    box.classList.remove('grow');
+    box.classList.remove('grow'); delete tx.dataset.lines;
     if (!desk && lane.baseH && lanePhH() !== lane.baseH) laneSetH(lane.baseH);
     if (!over()) return;
     if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
     if (desk) { box.classList.add('two'); return; }
     // (a phone's line that still needs a third line: the lane takes the lines it needs, as the tour's strip does (#559), and
     // the Italian Try lines are not cut; the lines are 17 px, the text has 7 px above and below)
+    // (ux on #614: at most four lines, 82 px: a line that would need a fifth is cut there, and the check lists it for the wording's owner)
     box.classList.add('grow');
-    const lines = Math.max(2, Math.ceil((tx.scrollHeight - 1) / 17));
-    laneSetH(Math.max(lane.baseH || 56, lines * 17 + 14));
+    tx.style.webkitLineClamp = 'unset'; tx.style.lineClamp = 'unset';
+    const full = Math.max(2, Math.ceil((tx.scrollHeight - 1) / 17));
+    tx.style.webkitLineClamp = ''; tx.style.lineClamp = '';
+    laneSetH(Math.max(lane.baseH || 56, Math.min(4, full) * 17 + 14));
+    tx.dataset.lines = String(full);
   }
   const lanePhH = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
   function laneSetH(px) {
