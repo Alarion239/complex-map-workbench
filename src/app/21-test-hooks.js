@@ -289,40 +289,52 @@
     let tri = null, pb = null;
     const BX = 64, BY = 40;
     if (H) {
-      for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { let v = null; try { v = H(C(box.x0 + i * hx, box.y0 + j * hy)); } catch (e) { v = null; } const n = 2 * (j * (NX + 1) + i); img[n] = v && CX.isFin(v) ? v.re : NaN; img[n + 1] = v && CX.isFin(v) ? v.im : NaN; }
-      pb = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+      const Hv = (x, y) => { let v = null; try { v = H(C(x, y)); } catch (e) { v = null; } return v && CX.isFin(v) ? [v.re, v.im, x, y] : null; };
+      for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { const v = Hv(box.x0 + i * hx, box.y0 + j * hy), n = 2 * (j * (NX + 1) + i); img[n] = v ? v[0] : NaN; img[n + 1] = v ? v[1] : NaN; }
+      pb = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, bw: 1, bh: 1 };
       for (const [x, y] of pts) { pb.x0 = Math.min(pb.x0, x); pb.x1 = Math.max(pb.x1, x); pb.y0 = Math.min(pb.y0, y); pb.y1 = Math.max(pb.y1, y); }
-      const bw = (pb.x1 - pb.x0) / BX || 1, bh = (pb.y1 - pb.y0) / BY || 1;
+      pb.bw = (pb.x1 - pb.x0) / BX || 1; pb.bh = (pb.y1 - pb.y0) / BY || 1;
       tri = Array.from({ length: BX * BY }, () => /** @type {number[][]} */ ([]));
-      const V = (i, j) => { const n = 2 * (j * (NX + 1) + i); return [img[n], img[n + 1], i, j]; };
-      for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) for (const t of [[V(i, j), V(i + 1, j), V(i + 1, j + 1)], [V(i, j), V(i + 1, j + 1), V(i, j + 1)]]) {
-        if (t.some((q) => Number.isNaN(q[0]) || Number.isNaN(q[1]))) continue;
+      // (a triangle [[wx, wy, zx, zy] × 3]: the buckets its image's box covers; filed when that is at most 64 of them
+      // (a wider one straddles a cut or a pole); its span in buckets, Infinity with a point undefined)
+      const span = (t) => {
+        if (t.some((q) => !q)) return { n: Infinity };
         const x0 = Math.min(t[0][0], t[1][0], t[2][0]), x1 = Math.max(t[0][0], t[1][0], t[2][0]), y0 = Math.min(t[0][1], t[1][1], t[2][1]), y1 = Math.max(t[0][1], t[1][1], t[2][1]);
-        if (x1 < pb.x0 || x0 > pb.x1 || y1 < pb.y0 || y0 > pb.y1) continue;
-        const a0 = Math.max(0, Math.floor((x0 - pb.x0) / bw)), a1 = Math.min(BX - 1, Math.floor((x1 - pb.x0) / bw)), b0 = Math.max(0, Math.floor((y0 - pb.y0) / bh)), b1 = Math.min(BY - 1, Math.floor((y1 - pb.y0) / bh));
-        // (a triangle whose image spans much of the samples' box straddles a cut or a pole: its points, if any, come
-        // from its neighbours or the poles' seeds)
-        if ((a1 - a0 + 1) * (b1 - b0 + 1) > 64) continue;
-        const flat = t.flat();
-        for (let bj = b0; bj <= b1; bj++) for (let bi = a0; bi <= a1; bi++) tri[bj * BX + bi].push(flat);
+        if (x1 < pb.x0 || x0 > pb.x1 || y1 < pb.y0 || y0 > pb.y1) return { n: 0, out: true };
+        const a0 = Math.max(0, Math.floor((x0 - pb.x0) / pb.bw)), a1 = Math.min(BX - 1, Math.floor((x1 - pb.x0) / pb.bw)), b0 = Math.max(0, Math.floor((y0 - pb.y0) / pb.bh)), b1 = Math.min(BY - 1, Math.floor((y1 - pb.y0) / pb.bh));
+        return { n: (a1 - a0 + 1) * (b1 - b0 + 1), a0, a1, b0, b1 };
+      };
+      const file = (t, sp) => { if (sp.out || !(sp.n <= 64)) return; const flat = t.flat(); for (let bj = sp.b0; bj <= sp.b1; bj++) for (let bi = sp.a0; bi <= sp.a1; bi++) tri[bj * BX + bi].push(flat); };
+      const V = (i, j) => { const n = 2 * (j * (NX + 1) + i); return Number.isNaN(img[n]) ? null : [img[n], img[n + 1], box.x0 + i * hx, box.y0 + j * hy]; };
+      // (a cell whose image is wide (beyond 4 buckets) or undefined somewhere: beside a pole of H_u, or across a cut, as
+      // Joukowski's disc beside the tanh pole at |z| → 1, which covers much of the plane at u = 0.3: on a 16 × 16 grid
+      // of its own, where H_u is near enough linear again)
+      const SUB = 16;
+      for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+        const A = V(i, j), B = V(i + 1, j), Cc = V(i + 1, j + 1), D = V(i, j + 1), t1 = [A, B, Cc], t2 = [A, Cc, D], s1 = span(t1), s2 = span(t2);
+        if (s1.n <= 4 && s2.n <= 4) { file(t1, s1); file(t2, s2); continue; }
+        const x0 = box.x0 + i * hx, y0 = box.y0 + j * hy, g = [];
+        for (let q = 0; q <= SUB; q++) for (let r = 0; r <= SUB; r++) g.push(Hv(x0 + r * hx / SUB, y0 + q * hy / SUB));
+        const G = (r, q) => g[q * (SUB + 1) + r];
+        for (let q = 0; q < SUB; q++) for (let r = 0; r < SUB; r++) for (const t of [[G(r, q), G(r + 1, q), G(r + 1, q + 1)], [G(r, q), G(r + 1, q + 1), G(r, q + 1)]]) file(t, span(t));
       }
-      pb.bw = bw; pb.bh = bh;
     }
     const out = pts.map(([re, im]) => {
       let vs = [C(re, im)];
       if (H) {
         vs = [];
-        const w = C(re, im), tol = 1e-10 * (1 + CX.abs(w)), lim = 2 * Math.hypot(hx, hy);
+        const w = C(re, im), tol = 1e-10 * (1 + CX.abs(w));
         const add = (v) => { if (v && CX.isFin(v) && !vs.some((x) => CX.abs(CX.sub(x, v)) < 1e-7 * (1 + CX.abs(v)))) vs.push(v); };
         const bi = Math.min(BX - 1, Math.max(0, Math.floor((re - pb.x0) / pb.bw))), bj = Math.min(BY - 1, Math.max(0, Math.floor((im - pb.y0) / pb.bh)));
         for (const f of tri[bj * BX + bi]) {
-          // (barycentric coordinates of w in the image triangle, with a little slack)
-          const [ax, ay, ai, aj, bx, by, bi2, bj2, cx, cy, ci, cj] = f, d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+          // (barycentric coordinates of w in the image triangle, with a little slack; the start, the same mix of its
+          // points)
+          const [ax, ay, azx, azy, bx, by, bzx, bzy, cx, cy, czx, czy] = f, d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
           if (!d) continue;
           const l1 = ((by - cy) * (re - cx) + (cx - bx) * (im - cy)) / d, l2 = ((cy - ay) * (re - cx) + (ax - cx) * (im - cy)) / d, l3 = 1 - l1 - l2;
           if (l1 < -0.05 || l2 < -0.05 || l3 < -0.05) continue;
-          const zi = l1 * ai + l2 * bi2 + l3 * ci, zj = l1 * aj + l2 * bj2 + l3 * cj;
-          add(newtonTo(H, w, C(box.x0 + zi * hx, box.y0 + zj * hy), 1, tol, lim));
+          const sz = Math.max(Math.hypot(bzx - azx, bzy - azy), Math.hypot(czx - azx, czy - azy));
+          add(newtonTo(H, w, C(l1 * azx + l2 * bzx + l3 * czx, l1 * azy + l2 * bzy + l3 * czy), 1, tol, 2 * sz));
         }
         // (near a simple pole p of H_u, H(v) ≈ a / (v - p): the points there, p + a / w, polished by Newton)
         for (const q of poles) add(newtonTo(H, w, CX.add(q.p, CX.div(q.a, w)), 1, tol, q.r));
