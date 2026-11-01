@@ -3,7 +3,7 @@
 // points of plane z, each with its image in the colour plane T, are listed from the frame's own maps (__cmwSvFrame);
 // they are ranked by the frame's sheet key (Inverse.sheetKey and Inverse.front, the region tiling's), and the pixel must
 // have the front point's colour: the style's colouring of its image in T (opts.style 'phase' or 'enhanced', with
-// opts.sectors; Inverse.dcolorRGB, the GPU's dcolorAt).
+// opts.sectors; Inverse.dcolorRGB, the GPU's dcolorAt, with the footprints the neighbours give).
 // A sample where the colour changes fast (a neighbour 1.5 px away has another number of points, or the front point's
 // colour moves more than opts.steep) is not counted; a seam (another point within a hair of the front in the key) may
 // show either.
@@ -18,7 +18,8 @@
 // opts.skipW, samples near which the same holds in the shown plane, { discs: [[x, y, r], ...] } or { rays: [angle, ...],
 // eps } (about 0).
 // Returns { considered, wrong, blank, none, unlisted, filled, paper, rate, ex }: blank, a wrong sample on the plane's
-// paper; filled, the samples with a point, judged or not; paper, those of them on the bare paper; ex, up to opts.nex
+// paper; filled, the samples with a point, judged or not; paper, those of them on the bare paper where their own colour
+// is not near grey; ex, up to opts.nex
 // wrong samples, each with w, its points [x, y, D] and the front's colour; paperAt, up to 8 of the samples on the paper.
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
 // nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
@@ -53,6 +54,21 @@
   // (a point [x, y, gx, gy]: its colour, the style's colouring of its image in T (Inverse.dcolorRGB, the GPU's
   // dcolorAt as a point sample), kept on it)
   const col = (z) => z[4] || (z[4] = Inverse.dcolorRGB(o.style, Math.atan2(z[3], z[2]), Math.log(Math.max(Math.hypot(z[2], z[3]), 1e-300)), 0, 0, o.sectors).map((t) => t * 255));
+  // (its colour with the GPU's footprints: ln|g| and arg g across one device pixel, from its nearest points at the
+  // sample's neighbours 1.5 px right, left, down and up (nbs), as fwidth gives them: the style's anti-aliasing, its
+  // |g| = 1 stroke, a zero's fade to grey)
+  const colFp = (z, nbs) => {
+    const lg = (q) => Math.log(Math.max(Math.hypot(q[2], q[3]), 1e-300)), ag = (q) => Math.atan2(q[3], q[2]);
+    const m = nbs.map((q) => near(q, z));
+    let flr = 0, faw = 0;
+    if (m.every(Boolean)) {
+      const da = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+      flr = (Math.abs(lg(m[0]) - lg(m[1])) + Math.abs(lg(m[2]) - lg(m[3]))) / 3;
+      faw = (Math.abs(da(ag(m[0]), ag(m[1]))) + Math.abs(da(ag(m[2]), ag(m[3])))) / 3;
+    }
+    return Inverse.dcolorRGB(o.style, ag(z), lg(z), flr, faw, o.sectors).map((t) => t * 255);
+  };
+  const spread = (c) => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
   const dist = (p, q) => Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2]));
   const near = (zs, z) => { let best = null, bd = Infinity; for (const q of zs) { const e = Math.hypot(q[0] - z[0], q[1] - z[1]); if (e < bd) { bd = e; best = q; } } return best; };
   const keyOf = (z) => Math.min(Inverse.sheetKey(prep, C(z[0], z[1]), null), 1e6);
@@ -71,18 +87,19 @@
     if (skip && P0.some((z) => skip(z))) continue;
     if (own) P0 = P0.filter((z) => own(z));
     if (!P0.length) { none++; continue; }
-    // (every sample with a point is coloured, judged or not: none on the paper)
-    { const [qx, qy] = at[s], m = 4 * (qy * W + qx); filled++; if (Math.max(d[m], d[m + 1], d[m + 2]) - Math.min(d[m], d[m + 1], d[m + 2]) < 6) { paper++; if (paperAt.length < 8) paperAt.push({ px: qx, py: qy, w: pts[5 * s], got: [d[m], d[m + 1], d[m + 2]] }); } }
     const nb = [1, 2, 3, 4].map((k) => (pre[5 * s + k] || []).filter((z) => !own || own(z)));
+    // (every sample with a point is coloured, judged or not: none on the paper, unless its own colour is near grey
+    // there, as at a zero of the map into the colour plane)
+    { const [qx, qy] = at[s], m = 4 * (qy * W + qx), g = [d[m], d[m + 1], d[m + 2]]; filled++; if (spread(g) < 6 && spread(colFp(fronts(P0)[0], nb)) >= 24) { paper++; if (paperAt.length < 8) paperAt.push({ px: qx, py: qy, w: pts[5 * s], got: g }); } }
     if (nb.some((q) => q.length !== P0.length)) continue;
     const cand = fronts(P0);
     if (cand.length > 64 || cand.some((z) => nb.some((q) => dist(col(z), col(near(q, z))) > o.steep))) continue;
     considered++;
     const [px, py] = at[s], n = 4 * (py * W + px), got = [d[n], d[n + 1], d[n + 2]];
-    if (cand.some((z) => dist(got, col(z)) <= o.tol)) continue;
+    if (cand.some((z) => dist(got, colFp(z, nb)) <= o.tol)) continue;
     wrong++;
     if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < 12) blank++;
-    if (ex.length < o.nex) ex.push({ px, py, w: pts[5 * s], got, want: cand.slice(0, 3).map((z) => col(z).map(Math.round)), z: cand[0].slice(0, 2), all: P0.map((z) => [z[0], z[1], keyOf(z)]) });
+    if (ex.length < o.nex) ex.push({ px, py, w: pts[5 * s], got, want: cand.slice(0, 3).map((z) => colFp(z, nb).map(Math.round)), z: cand[0].slice(0, 2), all: P0.map((z) => [z[0], z[1], keyOf(z)]) });
   }
   return { considered, wrong, blank, none, unlisted, filled, paper, rate: considered ? +(wrong / considered).toFixed(4) : null, ex, paperAt };
 
