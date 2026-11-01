@@ -427,7 +427,9 @@
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
   // that pre-mapped mesh once it is built (GLR.drawPreCarry), in the same depth; its tessellated mesh stands in while
   // the mesher's job runs
-  const SV_CARRY_L = 2;
+  // (gliding, no fix-up runs: the whole plane's mesh in SV_CARRY_L_GLIDE^2, so the cells its tear test drops along a
+  // cut's image or a stretched sheet are smaller)
+  const SV_CARRY_L = 2, SV_CARRY_L_GLIDE = 3;
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
@@ -442,7 +444,7 @@
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
+      draws.push({ res: r.meshRes, L: !F && x === SV_ALL ? SV_CARRY_L_GLIDE : SV_CARRY_L, skip: fx ? fx.skip : null });
       if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
     if (F && fixed.length) svWantFix(F, map, fixed);
