@@ -659,11 +659,16 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
    function's chip on it */
 .sv-track::before { content: ""; position: absolute; left: 22px; right: 22px; top: calc(50% - 9px); height: 2px; margin-top: -1px; background: var(--line-strong); pointer-events: none; }
 .sv-step { position: relative; flex: 1 1 0; min-width: 52px; height: 100%; display: flex; align-items: center; justify-content: center; padding-bottom: 18px; }
-.sv-fchip { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
-.sv-fchip:hover { border-color: var(--accent); }
-.sv-fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.sv-fchip .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }
-.sv-fchip .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-fchip, .sv-fall { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
+.sv-fchip:hover, .sv-fall:hover { border-color: var(--accent); }
+.sv-fall { flex: 0 0 auto; align-self: center; margin: 0 4px; }
+.sv-fall[hidden] { display: none; }
+#svStrip { container-type: inline-size; }
+@container (max-width: 800px) { .sv-fall .sv-fn { display: none; } .sv-fall { padding: 0 11px; } }
+.sv-fall[aria-pressed="true"] { border-color: var(--accent); background: var(--seg-on, var(--surface)); }
+.sv-fchip:focus-visible, .sv-fall:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sv-fchip .sv-fk, .sv-fall .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }
+.sv-fchip .sv-fn, .sv-fall .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 select.sel.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
@@ -707,7 +712,7 @@ select.sel.sv-speed { flex: 0 0 auto; align-self: center; height: 36px; }
 .sv-empty { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(90%, 340px); padding: 10px 16px; pointer-events: none; text-align: center; font: 500 15px/1.4 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 2px 10px rgb(0 0 0 / .18); z-index: 3; }
 .sv-empty[hidden] { display: none; }
 .sv-speed:disabled, .sv-thumb[aria-disabled="true"] { opacity: .4; }
-@media (pointer: coarse) { .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }
+@media (pointer: coarse) { .sv-fall { height: 44px; border-radius: 22px; } .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }
 /* play along the thread (#438): the band of the range, its clear button, the loop toggle, a touch's hold */
 .sv-band { position: absolute; z-index: 0; top: calc(50% - 7px - 13px); height: 26px; box-sizing: border-box; border: 1.5px solid var(--accent); border-radius: 13px; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
 .sv-band[hidden] { display: none; }
