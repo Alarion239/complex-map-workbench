@@ -1,9 +1,9 @@
 'use strict';
 // (#620, K1 item 1) Which view each browser suite tests, for the switch-over to the steps view. The plan is #443 and its
 // sub-issues: K1 (#620) ports the suites and the exports, K2 makes the steps view the default, K3 deletes the classic
-// views. Every runnable suite (ci/browser_shards.js) has exactly
-// one entry; `node ci/browser_shards.js check` fails without one. The kit pins every page to the classic view unless
-// its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
+// views. Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails
+// without one. The kit pins every page to the classic view unless its URL asks for ?view=steps
+// (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
 //   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
 //   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
 //                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
@@ -33,6 +33,7 @@ const VIEWS = {
   'phone_palette_cmd.js': steps(),
   'steps_carry_cmd.js': steps(),
   'steps_chain_cmd.js': steps(),
+  'steps_curves_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
@@ -97,6 +98,7 @@ const VIEWS = {
 
   // to port: phone
   'phone_ctx_tex_cmd.js': port('phone'),
+  'phone_focus_margin_cmd.js': port('phone'),
   'phone_fwell_cmd.js': port('phone', 'F\'s well: after K1 item 9'),
   'phone_sheet_target_cmd.js': port('phone'),
   'phone_sheets_cmd.js': port('phone'),

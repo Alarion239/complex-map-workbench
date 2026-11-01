@@ -18,5 +18,4 @@ await go(`http://localhost:${PORT}/test.html?ns=pinview${Date.now()}&view=classi
 await ready();
 info.classic = await ev('__cmwSteps().on');
 ok('a page that asks ?view=classic opens in the classic view', info.classic === false, info.classic);
-info.checks = 'the kit\'s steps pin: a plain URL, a reload and ?view=classic';
 return { pass: fails.length === 0, fails, info };
