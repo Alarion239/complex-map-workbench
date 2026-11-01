@@ -10,15 +10,16 @@
 //   (and every region point coloured, past the window too) and Everywhere.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
 //   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere.
+// - F = sin(((e^z - 1) / (e^z + 1))^2), Everywhere at rest on its last plane: the whole plane near a family of poles.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-// (quiet: no GL frame pending, and the tiling's fix-up landed under a parked map)
-const wait = async () => { await settled({ max: 20000, until: '__cmwSvFixed()' }); };
-const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function"' }); };
+// (quiet: no GL frame pending, the tiling's fix-up landed under a parked map, and no SphereMesh job left)
+const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length' }); };
+const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the points of a grid over the inner 80 % of the pane, and whether z is where plane z's picture shows it
 const paneOf = async () => ev('(() => { const q = __cmwLPx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; })()');
@@ -41,6 +42,7 @@ async function compare(at, W, Z) {
   await steps(Object.assign({ surf: 'plane' }, at));
   const state = await ev('__cmwSteps()'), got = await ev(`__cmwLPx(${JSON.stringify(W)}).px`);
   let n = 0, wrong = 0, paper = 0, worst = 0;
+  const ex = [];
   for (let k = 0; k < W.length; k++) {
     if (!got[k] || !ref[k]) continue;
     n++;
@@ -49,9 +51,9 @@ async function compare(at, W, Z) {
     let best = 1e9;
     for (const q of ref[k]) best = Math.min(best, Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2])));
     worst = Math.max(worst, best);
-    if (best > 14) wrong++;
+    if (best > 14) { wrong++; if (ex.length < 6) ex.push({ w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3), want: ref[k][4].slice(0, 3) }); }
   }
-  return { n, wrong, paper, worst, state: { x: state.x, T: state.T, scope: state.scope } };
+  return { n, wrong, paper, worst, ex, state: { x: state.x, T: state.T, scope: state.scope } };
 }
 // one case: cand(w) -> the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out). A point w
 // is also left out where the front point jumps (a seam of the key's choice): its front differs by more than 0.06 from
@@ -136,5 +138,48 @@ for (const n of [2, 3]) {
     };
     await check(`z^${n} ${scope} ${park == null ? 'rest' : 'parked ' + park}`, park == null ? { scope, go: 1, now: true } : { scope, park }, 1, P, pts, cand, 200);
   }
+}
+
+// ---- a chain with a family of poles: F = sin(((e^z - 1) / (e^z + 1))^2) Everywhere at rest, on its last plane ----
+// (the whole plane's cells near the Möbius pole preimages i pi (2m + 1) are stretched past what a tessellated mesh
+// draws: the tiling's SphereMesh draws it)
+{
+  const ns = `cexms${Date.now()}`;
+  const st = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }, { type: 'pown', params: { n: 2 } }, { type: 'sin', params: {} }] };
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await ready();
+  await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
+  const P = await paneOf(), pts = grid(P, 36, 24);
+  const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]], add = (a, b) => [a[0] + b[0], a[1] + b[1]], sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+  const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+  const log = (a) => [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])];
+  const sqrt = (a) => { const r = Math.hypot(a[0], a[1]), x = Math.sqrt(Math.max(0, (r + a[0]) / 2)), y = Math.sqrt(Math.max(0, (r - a[0]) / 2)); return [x, a[1] < 0 ? -y : y]; };
+  const asin = (w) => { const l = log(add(mul([0, 1], w), sqrt(sub([1, 0], mul(w, w))))); return [l[1], -l[0]]; };
+  const atanh = (u) => { const l = log(div(add([1, 0], u), sub([1, 0], u))); return [l[0] / 2, l[1] / 2]; };
+  // the points landing at w: sin v = w (v = asin w + 2 pi k, or pi - asin w + 2 pi k), u = ±sqrt v, z = 2 artanh u +
+  // 2 pi i m, inside |Re z| < 9, |Im z| < 7; near the poles i pi (2m + 1) left out
+  const cand = (w) => {
+    const a = asin(w), out = [], seen = new Set();
+    for (let k = -30; k <= 30; k++) for (const v of [[a[0] + 2 * Math.PI * k, a[1]], [Math.PI - a[0] + 2 * Math.PI * k, -a[1]]]) {
+      const r = sqrt(v);
+      for (const u of [r, [-r[0], -r[1]]]) {
+        const z0 = atanh(u);
+        for (let m = -2; m <= 2; m++) {
+          const z = [2 * z0[0], 2 * z0[1] + 2 * Math.PI * m];
+          const id = `${z[0].toFixed(7)},${z[1].toFixed(7)}`;
+          if (!(Math.abs(z[0]) < 9 && Math.abs(z[1]) < 7) || seen.has(id)) continue;
+          seen.add(id);
+          let pole = Infinity;
+          for (let j = -3; j <= 2; j++) pole = Math.min(pole, Math.hypot(z[0], z[1] - Math.PI * (2 * j + 1)));
+          out.push({ z, out: pole < 0.15 });
+        }
+      }
+    }
+    return out;
+  };
+  await check('exp, Möbius, square, sin all rest', { scope: 'all', go: 4, now: true }, 4, P, pts, cand, 150);
+  info['exp, Möbius, square, sin all rest'].mesh = await ev('__cmwSphere().entries.filter((e) => /\\|SV\\|/.test(e.slot)).map((e) => ({ n: e.n, partial: e.partial, budgetWhy: e.budgetWhy, work: e.work, ms: e.ms }))');
 }
 return { pass: fails.length === 0, fails, info };

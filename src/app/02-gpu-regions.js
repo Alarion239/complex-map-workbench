@@ -672,9 +672,10 @@
   // not carry the chain; not before, so a fast link never shows it
   // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
   const SM_LINKING_MS = 250, SM_LINK_WORK = 20000;
-  // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null
+  // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null (role SV: the
+  // steps view's carried colour in the left pane, its fix-ups r.fix.SV)
   function smNeed(s, r, role, m) {
-    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L')) return null;
+    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L' && role !== 'SV')) return null;
     if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
@@ -688,7 +689,7 @@
     if (isIdentMap(m)) return null;
     if (smStretched(s)) return 'unbounded';
     const f = r && r.fix && r.fix[role];
-    const fk = (m.mode || 0) === 0 && !(m.a || 0) ? 'S' + chainSig[m.b || 0] : null;
+    const fk = role === 'SV' ? (svFixWant && svFixWant.key) : (m.mode || 0) === 0 && !(m.a || 0) ? 'S' + chainSig[m.b || 0] : null;
     if (f && f.res && f.meshKey === r.meshKey && (!fk || f.mapKey === fk) && f.res.trouble) return 'trouble';
     return null;
   }
@@ -797,10 +798,13 @@
     sm.want.set(slot, key);
     if (!sm.jobs.has(key)) {
       const F = cpuMap(m), steps = smSteps(m);
+      // (the steps view's carried colour is opaque and orders its fragments by the sheet key: the mesher keeps the two
+      // layers that key puts in front)
+      const kp = role === 'SV' ? smKeyOf(m) : null;
       const cfg = {
         steps, F, injective: smInjective(m), shape: JSON.parse(JSON.stringify(s)),
         left: smLeft(),
-        view: v, Kmax: SphereMesh.kOf(S.alpha),
+        view: v, Kmax: kp ? 2 : SphereMesh.kOf(S.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
         pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
         maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
@@ -865,7 +869,7 @@
     sm.stats.built++; if (data.partial) sm.stats.partial++;
     // memory: the least recently drawn published meshes go first
     if (sm.cpuBytes > SM_CPU_BYTES) for (const x of [...sm.entries.values()].sort((a, b) => a.t - b.t)) { if (sm.cpuBytes <= SM_CPU_BYTES) break; if (x !== e) smDrop(x); }
-    requestRender(job.role === 'L' ? 'L' : 'R');
+    requestRender(job.role === 'R' ? 'R' : 'L');
   }
   // the export meshes, once the figure is drawn (or abandoned)
   function smDropExport(gen = null) { for (const e of [...sm.entries.values()]) if (e.exp && (gen == null || e.expGen === gen)) smDrop(e); }

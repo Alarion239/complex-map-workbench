@@ -423,29 +423,37 @@
   // F (at rest or parked: the map's CPU function): the tiling's fix-up job is asked for the shapes under map
   // (svWantFix), and each mesh is drawn with its fix-up once it lands (carryFix: the cells the map bends too much
   // refined, drawn as an extra mesh of their own, their base cells skipped)
+  // At rest on a still map, a shape the tiling draws from a SphereMesh (smFor: an unbounded shape, or a fix-up with
+  // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
+  // that pre-mapped mesh once it is built (GLR.drawPreCarry), in the same depth; its tessellated mesh stands in while
+  // the mesher's job runs
   const SV_CARRY_L = 2;
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
     const key = svSheetKey(b);
     const carry = svCarryStyle(T);
-    if (F) svWantFix(F, map, list);
-    const draws = [];
+    const draws = [], fixed = [], still = F && !(map.mode || 0);
     for (const x of list) {
       // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
       const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
       if (!r || !r.meshRes) return false;
+      const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
+      if (pre) { draws.push({ res: pre, pre: true }); continue; }
+      fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
       draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
       if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
+    if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, a third of the pane's larger side: a longer mapped triangle is a point
     // the map sends far, which would cover the pane many times over, so it is left out)
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
-      if (!GLR.drawRegion(d.res, { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s })) {
+      const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === 4 };
+      if (!(d.pre ? GLR.drawPreCarry(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
       }

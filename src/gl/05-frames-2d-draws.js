@@ -361,28 +361,56 @@
       regionUniforms(Q, st, res.org);
       u1f(Q, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
       u1f(Q, 'uKLim', st.lim || 1e30);
-      u1i(Q, 'uKeyOn', k ? 1 : 0);
-      if (k) {
-        const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-        sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-        u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
-        if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
-        u1i(Q, 'uKSingN', sing.length);
-      }
+      keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
-    if (k) {
-      // (st.depth: 'only' (default) one draw with a depth of its own; 'first', 'mid', 'last' draws sharing one depth, so
-      // the sheet key orders the points of all of them: the first clears it, the last clears it after)
-      const dm = st.depth || 'only', first = dm === 'only' || dm === 'first', last = dm === 'only' || dm === 'last';
-      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
-      if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
-      if (last) carryDepthEnd();
-    } else gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    carryDraw(k, st.depth, () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n));
+    gl.bindVertexArray(null);
+    return true;
+  }
+  // the sheet key's uniforms (PRE_KEY_UNI) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
+  function keyUniforms(Q, k) {
+    u1i(Q, 'uKeyOn', k ? 1 : 0);
+    if (!k) return;
+    const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+    sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+    u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
+    if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
+    u1i(Q, 'uKSingN', sing.length);
+  }
+  // a carried-colour draw under the sheet key k (none: the draw order). depth: 'only' (default) a depth of its own;
+  // 'first', 'mid', 'last' draws sharing one depth, so the key orders the points of all of them: the first clears it,
+  // the last clears it after
+  function carryDraw(k, depth, draw) {
+    if (!k) { draw(); return; }
+    const dm = depth || 'only', first = dm === 'only' || dm === 'first', last = dm === 'only' || dm === 'last';
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
+    if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
+    draw();
+    if (last) carryDepthEnd();
+  }
+  // the steps view's carried colour on a pre-mapped mesh (the tiling's SphereMesh: places mapped on the CPU, vP each
+  // vertex's source point): each fragment the colour plane's colour of its point, its depth the sheet key (regionPK);
+  // st as drawRegionCarry's {map, view, dpr, carry, key, depth}, and preZ: the mesh's vP is the source point itself
+  // (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
+  function drawPreCarry(res, st) {
+    if (!ok || !res || !res.n) return false;
+    const P = program('regionPK', st.map);
+    if (!P) return false;
+    preAll.delete(res); preAll.set(res, true);
+    use(P, st.map);
+    const v = st.view, dpr = st.dpr || 1;
+    u2f(P, 'uRel', v.cx - res.org[0], v.cy - res.org[1]);
+    u2f(P, 'uScale', 2 * v.s * dpr / fw, 2 * v.s * dpr / fh);
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    keyUniforms(P, k);
+    u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); dcUniforms(P, st.carry, dpr);
+    u1i(P, 'uPreZ', st.preZ ? 1 : 0);
+    gl.bindVertexArray(res.vao);
+    carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
     gl.bindVertexArray(null);
     return true;
   }

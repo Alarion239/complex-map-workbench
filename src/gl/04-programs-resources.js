@@ -99,6 +99,9 @@
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
     regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
+    // (and on a pre-mapped mesh, drawPreCarry: places mapped on the CPU, the carried colour per fragment, its depth
+    // the sheet key)
+    regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -990,14 +993,9 @@ float wabs(vec2 w) {
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
     const k = !sph && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    u1i(P, 'uKeyOn', k ? 1 : 0);
+    keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
     if (k) {
-      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
-      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
-      u1i(P, 'uKSingN', sing.length);
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
       gl.drawArrays(gl.TRIANGLES, 0, res.count);

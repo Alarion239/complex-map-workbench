@@ -408,7 +408,7 @@ ${o.carry ? `  float ke = max(max(len2(w1 - w0), len2(w2 - w1)), len2(w0 - w2));
   good = good && (midOk(w0, w1, w2, wm) || ke < uKPx) && ke < uKLim;` : '  good = good && midOk(w0, w1, w2, wm);'}
   vec2 w = c == 0 ? w0 : (c == 1 ? w1 : w2);
   if (!good) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  gl_Position = vec4(${fetch === 'local' ? '(w + uRel) * uScale' : '((w - uCenter) - uCenterLo) * uScale'}, ${o.carry ? 'uKeyOn > 0 ? 2.0 * preKeyDepth(vP) - 1.0 : 0.0' : '0.0'}, 1.0);`}
+  gl_Position = vec4(${fetch === 'local' ? '(w + uRel) * uScale' : '((w - uCenter) - uCenterLo) * uScale'}, ${o.carry ? 'uKeyOn > 0 ? 2.0 * preKeyDepth(vP, false) - 1.0 : 0.0' : '0.0'}, 1.0);`}
 }
 `;
   // ---- region patterns (SPEC 6.1): one template, two footprint modes ----
@@ -630,27 +630,30 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the sheet key of the inverse path (SPEC 5.1, 5.2) per fragment, as its depth (flat pre-mapped meshes, uKeyOn 1):
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
-  // preKeyDepth(sa), sa the source point (PAT_PRE.pre in a fragment stage, PRE_KEY; REGION_VS's carry option in a
-  // vertex stage): x = 256 D + 0.999 (tie order), depth x / (x + 1024).
+  // preKeyDepth(sa, stepped), sa the source point: x = 256 D + 0.999 (tie order), depth x / (x + 1024).
   // - 256 = 1 / Inverse.front's TIE_D: keys a tie step apart are one unit of x apart, and the tie order, in [0, 1) and
   //   scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric about the centre
   //   gives its sheets equal D, which the mesh's placement (1e-3 of |z|) would otherwise order fragment by fragment.
-  //   x is blended, not stepped: a step's edge would draw a contour where near-equal keys straddle it.
+  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): 256 D rounded to its step, as Inverse.front
+  //   and the inverse pass compare keys, so two sheets in one step are ordered by the tie order alone. Not stepped (a
+  //   vertex stage: REGION_VS's carry option): 256 D itself, since a depth interpolated across a triangle whose
+  //   vertices straddle a step would order the sheets wrongly over the whole triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
   // - x / (x + 1024) maps x >= 0 into [0, 1), monotone, finest for small D (depth 0.5 at D = 4). D is capped at 1e4
   //   (a point that far behind is behind every point that matters) so x stays finite.
   const PRE_KEY_UNI = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
-float preKeyDepth(vec2 sa) {
+float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
-  float x = min(D, 1e4) * 256.0 + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
+  float d = min(D, 1e4) * 256.0;
+  float x = (stepped ? floor(d + 0.5) : d) + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
   return x / (x + 1024.0);
 }
 `;
-  const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa) : gl_FragCoord.z;\n';
+  const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
@@ -1072,13 +1075,15 @@ void main() {
   // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
   // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
-  const CARRY_FS = (id, key = true) => `
+  // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
+  // mesh), turned back into the source point)
+  const CARRY_FS = (id, key = true, pre = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_UNI : ''}in vec2 vP;
-out vec4 o;
+${pre ? 'uniform int uPreZ;\n' : ''}out vec4 o;
 void main() {
-  vec2 sa = vP;
-${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'vP' : 'chainRange(vP, uGs, uGt)'}), 1.0);
+  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : exp(clamp(vP.x * (TAU / 16.0), -80.0, 80.0)) * vec2(cos(vP.y * (TAU / 16.0)), sin(vP.y * (TAU / 16.0)))' : 'vP'};
+${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the
