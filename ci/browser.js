@@ -95,7 +95,7 @@ async function runOne(file, run, port) {
     // the suites that take the server from the environment (sound_*: CMW_PORT; export, mv_views: CMW_BASE)
     CMW_PORT: String(port), CMW_BASE: `http://localhost:${port}/`,
     // (#620) a ported suite opens every page in the steps view (ci/suite_views.js steps({ pin: true }), pin_view.js)
-    CMW_VIEW: VIEWS[file] && VIEWS[file].pin ? 'steps' : '',
+    CMW_VIEW: VIEWS[file] && VIEWS[file].pin ? 'steps' : (process.env.CMW_VIEW || ''),
   }, run.env || {});
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });

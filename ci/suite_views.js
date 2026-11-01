@@ -178,21 +178,28 @@ const VIEWS = {
   'warm_bar_cmd.js': port('engine'),
 };
 
-// the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry
+// the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
+// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps),
+// so a steps() entry without it, or a port or classic one with it, is wrong (a ported suite, pin: true, needs no URL)
 function checkViews(runnable) {
-  const bad = [];
+  const fs = require('fs'), path = require('path'), bad = [];
+  const asksSteps = (f) => { try { return /view=steps/.test(fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8')); } catch (e) { return false; } };
   for (const f of runnable) if (!VIEWS[f]) bad.push(`${f}: no view in ci/suite_views.js (steps, port or classic)`);
   for (const [f, tag] of Object.entries(VIEWS)) {
     if (!runnable.includes(f)) bad.push(`${f}: in ci/suite_views.js but not a runnable suite`);
     if (tag.view === 'port' && !AREAS.includes(tag.area)) bad.push(`${f}: port to an unknown area ${tag.area} (${AREAS.join(', ')})`);
     if (tag.view === 'classic' && !tag.why) bad.push(`${f}: classic-only without a reason`);
     if (!['steps', 'port', 'classic'].includes(tag.view)) bad.push(`${f}: unknown view ${tag.view}`);
+    if (!runnable.includes(f)) continue;
+    if (tag.view === 'steps' && !tag.pin && !asksSteps(f)) bad.push(`${f}: steps() but its source never asks ?view=steps (a port is steps({ pin: true }))`);
+    if (tag.view !== 'steps' && asksSteps(f)) bad.push(`${f}: ${tag.view}, but its source asks ?view=steps: it is steps()`);
   }
   return bad;
 }
 
 if (require.main === module) {
-  const by = (view) => Object.entries(VIEWS).filter(([, v]) => v.view === view);
+  const by = (view) => Object.entries(VIEWS).filter(([, tag]) => tag.view === view);
+  console.log(`areas: ${AREAS.join(', ')}`);
   console.log(`steps (${by('steps').length}): ${by('steps').map(([f]) => f).join(', ')}`);
   for (const a of AREAS) {
     const inArea = by('port').filter(([, tag]) => tag.area === a);
