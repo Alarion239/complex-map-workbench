@@ -247,6 +247,9 @@
   /** @type {any} */ (window).__cmwSvKey = (b) => { const k = svSheetKey(b == null ? svStage() : b); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }; };
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() } }; };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing): the steps view's carried colour against the exact one (#590)
   // (#551, #584, #590) the points of plane z that the shown frame's points [[re, im], ...] come from, each with its image in
   // the colour plane T: [[x, y, gx, gy], ...] per point (the region tiling's own points and the colour they carry); null
   // where the plan has no inverse or the preimages pass the cap. At rest on plane b (default the one shown) through the

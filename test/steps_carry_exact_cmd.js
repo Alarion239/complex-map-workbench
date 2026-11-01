@@ -7,8 +7,8 @@
 // Phase style. The cases:
 // - 8 long chains (Möbius maps, powers, roots, log, Joukowski, translations; of exp's and sin's families the members
 //   m = -6 … 6), Everywhere, on the last plane at rest, at three colour planes each;
-// - the Joukowski airfoil example, Inside regions (its region: outside the circle through 1), plane w1 at rest coloured
-//   from z, and Everywhere parked at 0.3 and 0.6 (the deformation's poles in the window: the staircases of #551);
+// - the Joukowski airfoil example, Inside regions (its region: outside the circle through 1) and Everywhere, plane w1 at
+//   rest coloured from z, and Everywhere parked at 0.3 and 0.6 (the deformation's poles in the window: the staircases of #551);
 // - w = z^2, z^3 on the annulus 0.6 < |z| < 1.6 (the image covers n times), Inside regions and Everywhere, at rest and
 //   parked halfway.
 // Each passes with at most MAX_BAD of its samples wrong and none left on the bare paper; then a lost and restored GL
@@ -98,6 +98,8 @@ if (EX >= 0) {
   // (the circle, outlined over the colour, and the trailing edge's mark and label, as shaders' case left them out)
   const skip = '(z) => Math.abs(Math.hypot(z[0] + 0.12, z[1] - 0.1) - 1.1244998888) < 0.08';
   if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true });
+  // (shaders' #587 review: Everywhere at rest, each point against its front preimage under the shared key)
+  if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW: '(w) => Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1', must: true });
   // (#551 the staircases: H_u's poles in the window while parked, Everywhere)
   for (const park of [0.3, 0.6]) {
     const key = `Joukowski, Everywhere, parked at ${park}`;
