@@ -25,7 +25,9 @@ const reopen = async (nsx) => {
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
-// a glide part-way (from a plane at x = 0): read until the thread's place is past `from`, for at most ~4 s (a poll on the page's own clock inside one read, not a sleep between reads)
+// a glide part-way (from a plane at x = 0): the thread's place is read every 10 ms inside the page until it is past `from`, for at most ~4 s.
+// (H.settled does not fit: it answers when the page is quiet or its condition holds, checked every 50 ms and two frames apart, and a glide
+// crosses that part of its way between two of its checks, so the check would see it landed)
 const underway = (from = 0.25) => ev(`await new Promise((done) => { const t0 = performance.now(), look = () => { const s = __cmwSteps(); if (((s.anim || s.play) && s.x >= ${from}) || performance.now() - t0 > 4000) done(s); else setTimeout(look, 10); }; look(); })`, 9000);
 const pick = (v) => ev(`(() => { const e = document.querySelector('#svStrip .sv-order'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('change', { bubbles: true })); return e.value; })()`);
 
