@@ -432,7 +432,7 @@
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
-    drawPoints(pane, F, still ? { primes: a, k: a, editK: a } : {});
+    drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     if (rest) drawRulers(pane, 'L');
   }
   // Inside regions on the GPU while gliding or parked (#440), in one frame: the regions under map (and, at rest on plane

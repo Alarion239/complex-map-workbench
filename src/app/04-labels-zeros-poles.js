@@ -33,8 +33,13 @@
     pane.labels = null;
     if (!r.items.length) return;
     const v0 = pane.view; pane.view = r.view;
-    try { flushLabelsIn(pane, r); } finally { pane.view = v0; }
+    const t0 = labelProbe ? performance.now() : 0;
+    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (labelProbe) labelProbe(performance.now() - t0, r.curves.length); }
   }
+  // (a probe for the time of a pass and the curves it keeps the labels off, set by the test page and the perf run: none in the
+  // published page, #608)
+  let labelProbe = null;
+  function setLabelProbe(f) { labelProbe = f; }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
     // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
@@ -138,11 +143,12 @@
       }
       if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
       const [x, y] = best;
-      placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2 });
+      placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
       ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
+    pane.labelsPlaced = placed;   // (what the last pass put down: the suites compare it at rest and after a glide)
   }
   // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
   // as they are)
@@ -154,7 +160,10 @@
     const labels = [];
     // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
-    if (!opt.thin) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
+    // (opt.lite: a view on the move, a glide or a scrub, places its labels with no curve to keep off: sampling every curve
+    // through the plane's map is up to 600 evaluations a curve, 5 to 8 ms a frame on the zeta example (#608); the view at rest,
+    // and so the frame a glide lands in, keeps the labels off the curves)
+    if (!opt.thin && !opt.lite) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
     for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
       const mk = Construct.pointMark(s);   // ('helper' | 'ring' | null)
