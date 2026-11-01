@@ -64,4 +64,26 @@ for (const [lang, w, vw] of [['en', 360, 'classic'], ['ru', 360, 'classic'], ['i
     ok(`${tag}: a drag that starts on × does not move the sheet`, after != null && Math.abs(after - top0) <= 1, [top0, after]);
   }
 }
+// the planes' share (ux on #609): the planes give the strip's 26 px while the Edit sheet is open, but never go below 200 px on
+// a short phone (the 26 px is given back there and the Inspector scrolls), and they change in one step with the sheet, on open
+// and on close, not in a run of frames of their own
+const planeH = `Math.round(document.getElementById('paneL').getBoundingClientRect().height)`;
+for (const [w, h] of [[390, 844], [360, 780], [360, 640], [360, 568]]) {
+  const tag = `${w} x ${h}`;
+  await view(w, h, false, true);
+  await nav(`http://localhost:${PORT}/test.html?ns=pehp${w}${h}${Date.now() % 100000}`);
+  await sleep(4500);
+  await ev(`(window.__s = [], window.__sample = (ms) => new Promise((res) => { const t0 = performance.now(); const tick = () => { window.__s.push(${planeH}); if (performance.now() - t0 < ms) requestAnimationFrame(tick); else res(1); }; requestAnimationFrame(tick); }), 1)`);
+  await ev(`(Phone.open('tools'), 1)`); await sleep(1500);
+  const tools = await ev(planeH);
+  await ev(`(window.__s = [], Phone.open('edit'), window.__sample(900), 1)`); await sleep(1300);
+  const opened = await ev(`({ h: ${planeH}, seq: [...new Set(window.__s)], hp: parseFloat(document.documentElement.style.getPropertyValue('--ph-hp')) })`);
+  ok(`${tag}: the planes are at least 200 px with the Edit sheet open`, opened.h >= 200, opened);
+  ok(`${tag}: they give the strip's 26 px only where that leaves them 200 px or more`, opened.h === (tools - 26 >= 200 ? tools - 26 : tools), { tools, opened });
+  ok(`${tag}: from the Tools sheet to the Edit sheet the planes change in one step`, opened.seq.length <= 2, opened.seq);
+  await ev(`(window.__s = [], Phone.close(), window.__sample(900), 1)`); await sleep(1300);
+  const closed = await ev(`({ h: ${planeH}, seq: [...new Set(window.__s)] })`);
+  ok(`${tag}: closing the sheet gives the planes back in one step`, closed.seq.length <= 2, closed.seq);
+  info[`planes ${tag}`] = { tools, edit: opened.h, seq: opened.seq, closed: closed.h };
+}
 return { pass: fails.length === 0, fails, info };
