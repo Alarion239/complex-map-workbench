@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Windows laptop and Mac ([RUNNERS.md](RUNNERS.md)) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -130,7 +130,8 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate (`gpu-gate.yml`, our machines). Its Windows laptop compiles on one core (FXC): the glsl page alone took
+The GPU gate (`gpu-gate.yml`, our machines; the Windows laptop's runner was removed on 2026-11-01, #169, so its column
+below applies once a Windows runner is back). Its Windows laptop compiles on one core (FXC): the glsl page alone took
 over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
 runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
 
@@ -246,7 +247,8 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets.
+  sheets; and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
 boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
@@ -415,4 +417,4 @@ Settings (environment variables):
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
-| `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |
+| `ci/RUNNERS.md` | setting up our Mac (and, again, a Windows laptop: #169) as runners |

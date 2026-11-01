@@ -26,9 +26,17 @@ const inject = () => ev(`window.__aud = ${SPOT}; 1`);
 const U = `http://localhost:${PORT}/test.html`;
 const R = [], ROWS = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
-  for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
+// (#504: readiness waits, not fixed sleeps; the kit's settled(): two frames, no finite animation running, and its until)
+// a step has settled: the strip no longer busy (show() sets aria-busy at once, before its first await), the spotlight's
+// morph over; a floor of 350 ms for the step's own 300 ms re-sync of its buttons (syncAct, a sound step); and the web
+// fonts in (display=swap: a face the strip uses first can swap in after the load, changing cut, titleOk and the sizes;
+// ux's review)
+const STEADY = `document.fonts.status === 'loaded' && (!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
+const settle = () => settled({ floor: 350, panes: false, until: STEADY });
+// a layer the step opened is shown (a layer that never opens still fails: after the cap, as noLayer)
+const shown = (sel) => settled({ panes: false, max: 3000, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
+// after a close, a stop or a key: only what still animates (no condition of its own, so no check is let off)
+const calm = () => settled({ panes: false });
 logs();
 const PROBE = `(() => {
   const strip = document.querySelector('.tour-strip');
@@ -85,12 +93,12 @@ for (const cfg of runs) {
   const tag = `${w}-${theme}-${lang}-${input}`;
   const touch = input === 'touch';
   await view(w, h, theme === 'dark', touch);
-  await nav(U + `?ns=aud${w}x${h}${theme[0]}${lang}${input[0]}` + (lang === 'ru' ? '&lang=ru' : '')); await settle(1500);
+  await go(U + `?ns=aud${w}x${h}${theme[0]}${lang}${input[0]}` + (lang === 'ru' ? '&lang=ru' : '')); await settled({ max: 15000, until: `typeof Tour !== 'undefined'` });
   await inject();
   await ev('Tour.dismissSuggestion()');
   await ev('Tour.auto(false)');
   if (CFG.steps) {
-  await ev(`Tour.start({ chapter: 'basics' })`); await settle(1500);
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle();
   const byCh = {};
   const shoot = CFG.shots && (w === 390 || w === 1440) && ((w === 390) === touch);
   for (let k = 0; k < 60 && (await ev('Tour.isActive()')); k++) {
@@ -122,7 +130,7 @@ for (const cfg of runs) {
       await shot('../../../../../notes/tour-r3/shots/' + name);
     }
     const before = JSON.stringify(await ev('Tour.current()'));
-    await ev('Tour.next()'); await settle(1100);
+    await ev('Tour.next()'); await settle();
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${n}: Next moves on`, false, before); break; }
   }
   // every step this build has was visited
@@ -130,15 +138,15 @@ for (const cfg of runs) {
   // (46 steps since issue #13 took out edit/zpHere, the planes' menu's "Add zero of f₁ here"; 45 since #363 took out
   // Views' Patterns step. A phone's layout leaves two out)
   check(`${tag}: every step visited (45, less what the layout leaves out)`, n >= 43, n);
-  await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
+  await ev('Tour.isActive() && Tour.stop()'); await calm();
   }
   // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app
   if (CFG.layers && theme === 'light') {
     const runLayer = async (stepAt, name, open, close, sel) => {
-      await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle(1300);
+      await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle();
       const id = stepAt.chapter + '/' + stepAt.step;
       const opened = await open();
-      await sleep(450); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
+      if (opened !== 'na') await shown(sel);
       const g = await ev(`(() => {
         const L = [...document.querySelectorAll(${JSON.stringify(sel)})].filter(__aud.vis)[0];
         if (!Tour.isActive()) return { tour: false };
@@ -157,13 +165,13 @@ for (const cfg of runs) {
         if (!g.ringsOff) kinds.push('ringOverLayer');
         if (!g.strip) kinds.push('noStrip');
       }
-      await close(); await sleep(350);
+      await close(); await calm();
       const after = await ev(`({ active: Tour.isActive(), layer: [...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis) })`);
       if (opened !== 'na' && !after.active) kinds.push('tourEndedOnClose');
       if (opened !== 'na' && after.layer) kinds.push('layerStays');
       LAYERS.push({ tag, id, layer: name, g, after, kinds, na: opened === 'na' });
       check(`${tag} ${id} layer ${name}: the tour covers none of it, its rings masked off it, the tour stays`, !kinds.length, { g, after, kinds });
-      await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
+      await ev('Tour.isActive() && Tour.stop()'); await calm();
     };
     const esc = async () => { await key('Escape'); return true; };
     const X = { chapter: 'basics', step: 1 };
@@ -192,7 +200,7 @@ for (const cfg of runs) {
   }
   // ---- focus: each strip control shows a focus ring; the palette from the strip, Esc: the focus back in the strip
   if (CFG.focus && theme === 'light') {
-    await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle(1300);
+    await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle();
     await ev(`document.querySelector('.tour-strip .ts-next').focus()`);
     const seenF = [];
     for (let i = 0; i < 4; i++) {
@@ -200,25 +208,25 @@ for (const cfg of runs) {
       seenF.push(await ev(`(() => { const a = document.activeElement; if (!a) return null; const cs = getComputedStyle(a); const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2) || /(\\d+(\\.\\d+)?px\\s*){3}[1-9]/.test(cs.boxShadow); return { label: (a.getAttribute('aria-label') || a.textContent || a.tagName).trim().slice(0, 30), inStrip: !!a.closest('.tour-strip'), ring }; })()`));
     }
     await ev(`document.querySelector('.tour-strip .ts-next').focus()`);
-    await key('k', 4); await sleep(250);
+    await key('k', 4); await shown('#popHost > .pop.palette');
     for (const c of 'sin') await key(c);
-    await sleep(150); await key('Escape'); await sleep(300);
+    await calm(); await key('Escape'); await calm();
     const back = await ev(`({ inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), tour: Tour.isActive() })`);
     FOCUS.push({ tag, seenF, back });
     check(`${tag} focus: every strip control the focus reaches shows a ring`, seenF.every((x) => !x || !x.inStrip || x.ring), seenF);
     check(`${tag} focus: the palette from the strip, Esc: the tour stays and the focus is back in the strip`, back.tour && back.inStrip, back);
-    await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
+    await ev('Tour.isActive() && Tour.stop()'); await calm();
   }
   // ---- follow: the spotlight keeps up with a scroll, a resize and a layout change, in the next frame
   if (CFG.follow && theme === 'light') {
     const worst = `(() => { const s = __aud.spot() || []; return s.length ? Math.max(...s.map((x) => x.d)) : null; })()`;
     const one = async (stepAt, name, act) => {
-      await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle(1300);
+      await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle();
       const r = await act();
-      if (r && r.skip) { FOLLOW.push({ tag, name, skipped: r.skip }); await ev('Tour.isActive() && Tour.stop()'); await sleep(200); return; }
+      if (r && r.skip) { FOLLOW.push({ tag, name, skipped: r.skip }); await ev('Tour.isActive() && Tour.stop()'); await calm(); return; }
       FOLLOW.push({ tag, name, r });
       check(`${tag} follow ${name}: the spotlight right in the next frame and after it`, r && r.d1 != null && r.d1 <= 1 && r.d6 != null && r.d6 <= 1, r);
-      await ev('Tour.isActive() && Tour.stop()'); await sleep(200);
+      await ev('Tour.isActive() && Tour.stop()'); await calm();
     };
     await one({ chapter: 'analysis', step: 4 }, 'scroll', async () => ev(`await (async () => {
       const tg = Tour.lit() && Tour.lit().anchor; if (!tg) return { skip: 'no anchor' };

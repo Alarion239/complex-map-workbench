@@ -1292,6 +1292,12 @@
     const zt = Math.max(zTol, 1e-12 * Math.max(Math.abs(z.re), Math.abs(z.im)));
     const zr = { re: Math.abs(z.re) < zt ? 0 : z.re, im: Math.abs(z.im) < zt ? 0 : z.im };
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
+    // (the steps view's own probe, for the tour and an example's Try line: the shown plane, the value of the map into the colour
+    // plane at the point (undefined past it, where the plane carries shapes and no colour of its own), #442)
+    if (SV.on && tourL.probe) {
+      const wp = lPhase() ? focusF()(z) : null;
+      tourEmit('probe', { pane: 'L', stage: leftStage(), past: svStage() > svT(), z: [z.re, z.im], w: wp && CX.isFin(wp) ? [wp.re, wp.im] : null, mod: wp ? (CX.isFin(wp) ? CX.abs(wp) : Infinity) : undefined });
+    }
     // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
     // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
     let wOnce;   // ([v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)

@@ -352,7 +352,7 @@ jobs:
       # (shared virtual machines: a timing swings both ways by more than any tolerance between two runs of the same app, so
       # timings and memory are reported with 3-fold allowances and not gated; the checks gate. Software rendering
       # settles slower than a GPU.)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE || needs.plan.outputs.perf_force }}
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 --raf-max 0 ${{ env.FORCE || needs.plan.outputs.perf_force }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
