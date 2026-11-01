@@ -16,7 +16,8 @@
 // Regions as data: opts.own, the region's own points (Inside regions), { outside: [cx, cy, r] } or { annulus: [r1, r2] }
 // about 0; opts.skip, points of plane z near which the plane draws over the colour, { circles: [[cx, cy, r], ...], eps };
 // opts.skipW, samples near which the same holds in the shown plane, { discs: [[x, y, r], ...] } or { rays: [angle, ...],
-// eps } (about 0).
+// eps } (about 0); opts.cut, a cut of the map in plane z, { circle: [cx, cy, r] }: a sample whose point and its
+// neighbours' lie on two sides of it is not judged.
 // Returns { considered, wrong, blank, none, unlisted, filled, paper, rate, ex }: blank, a wrong sample on the plane's
 // paper; filled, the samples with a point, judged or not; paper, the judged ones on the bare paper where their own
 // colour is not near grey; ex, up to opts.nex
@@ -24,12 +25,13 @@
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
 // nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
 (function carryCompare(o) {
-  o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null, nex: 3, style: 'phase', sectors: 12 }, o || {});
+  o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null, cut: null, nex: 3, style: 'phase', sectors: 12 }, o || {});
   const C = CX.C;
   const angle = (a, b) => { const d = a - b; return Math.abs(Math.atan2(Math.sin(d), Math.cos(d))); };
   const own = !o.own ? null : o.own.outside ? (([x, y]) => Math.hypot(x - o.own.outside[0], y - o.own.outside[1]) > o.own.outside[2])
     : (([x, y]) => { const m = Math.hypot(x, y); return m > o.own.annulus[0] && m < o.own.annulus[1]; });
   const skip = !o.skip ? null : ([x, y]) => o.skip.circles.some(([cx, cy, r]) => Math.abs(Math.hypot(x - cx, y - cy) - r) < o.skip.eps);
+  const cutSide = !o.cut ? null : ([x, y]) => Math.hypot(x - o.cut.circle[0], y - o.cut.circle[1]) < o.cut.circle[2];
   const skipW = !o.skipW ? null : o.skipW.discs ? (([x, y]) => o.skipW.discs.some(([cx, cy, r]) => Math.hypot(x - cx, y - cy) < r))
     : (([x, y]) => o.skipW.rays.some((a) => angle(Math.atan2(y, x), a) < o.skipW.eps));
   const c = document.getElementById('canvasL'), x2d = c.getContext('2d'), W = c.width, H = c.height, d = x2d.getImageData(0, 0, W, H).data;
@@ -92,6 +94,8 @@
     if (nb.some((q) => q.length !== P0.length)) continue;
     const cand = fronts(P0);
     if (cand.length > 64 || cand.some((z) => nb.some((q) => dist(col(z), col(near(q, z))) > o.steep))) continue;
+    // (on a cut of the map (opts.cut): a sample whose point and its neighbours' are on two sides of it shows either)
+    if (cutSide && cand.some((z) => nb.some((q) => cutSide(near(q, z)) !== cutSide(z)))) continue;
     considered++;
     const [px, py] = at[s], n = 4 * (py * W + px), got = [d[n], d[n + 1], d[n + 2]];
     // (a judged sample on the paper where its own colour is not near grey: where the colour changes slowly, so not a
