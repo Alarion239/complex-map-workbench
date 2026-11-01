@@ -7,7 +7,10 @@
  " (bar); lines are the preimages of the coordinate lines of the image plane.": " (barra); le linee sono le controimmagini delle linee coordinate del piano immagine.",
  " (dashed outline)": " (contorno tratteggiato)",
  " (dots)": " (punti)",
- " (first {n})\u0004 (first {n})": {"one": " (solo {n})", "other": " (le prime {n})"},
+ " (first {n})\u0004 (first {n})": {
+  "one": " (solo {n})",
+  "other": " (le prime {n})"
+ },
  " (flat view)": " (vista piana)",
  " (gray outline)": " (contorno grigio)",
  " (order {mult})": " (ordine {mult})",
@@ -47,16 +50,11 @@
  " Here %{w}.": " Qui %{w}.",
  " Here the chain is built step by step from ": " Qui la catena si costruisce passo per passo a partire da ",
  " Here the chain is built step by step from %{w0}: %{defs}.": " Qui la catena si costruisce passo per passo a partire da %{w0}: %{defs}.",
- " Lines are circles about 0 and rays from 0 in the %{z}-plane.": " Le linee sono circonferenze di centro 0 e semirette uscenti da 0 nel piano %{z}.",
  " Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.": " Le linee sono le linee coordinate del piano %{z}, distanziate di %{cell}.",
  " On its natural domain %{D} (with %{wk} the value after step %{k}), ": " Sul suo dominio naturale %{D} (dove %{wk} è il valore dopo il passo %{k}), ",
  " On its natural domain %{D}, ": " Sul suo dominio naturale %{D}, ",
  " Poles (open circles) at %{list}.": " Poli (cerchietti) in %{list}.",
  " Regions are coloured by the argument of the source point.": " Le regioni sono colorate secondo l'argomento del punto di partenza.",
- " Regions are shaded by a checkerboard of %{n} longitude sectors and %{n2} latitude bands of the Riemann sphere of the %{z}-plane, carried by the map.": " Le regioni sono colorate con una scacchiera di %{n} settori di longitudine e %{n2} fasce di latitudine della sfera di Riemann del piano %{z}, trasportata dalla funzione.",
- " Regions are shaded by a checkerboard of squares of side %{cell} in the %{z}-plane, carried by the map.": " Le regioni sono colorate con una scacchiera di quadrati di lato %{cell} nel piano %{z}, trasportata dalla funzione.",
- " Regions are shaded by a log-polar checkerboard in the %{z}-plane, whose cells stay square under conformal maps.": " Le regioni sono colorate con una scacchiera log-polare nel piano %{z}, le cui celle restano quadrate per trasformazioni conformi.",
- " Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.": " Le regioni sono ricoperte da tasselli con la lettera F, che mostrano rotazione, cambio di scala e riflessione.",
  " Shown at $t=%{t}$.": " Istante mostrato: $t=%{t}$.",
  " Shown at %{t}, where %{H} deforms %{QP} (%{t0}) into %{map} (%{tm}); it is %{hom}.": " Istante mostrato: %{t}. Qui %{H} deforma %{QP} (%{t0}) in %{map} (%{tm}) ed è %{hom}.",
  " Shown at %{t}, where %{H} deforms the identity (%{t0}) into %{map} (%{tm}) along %{hom}.": " Istante mostrato: %{t}. Qui %{H} deforma l'identità (%{t0}) in %{map} (%{tm}) lungo %{hom}.",
@@ -67,7 +65,6 @@
  " The %{mark} is the image of the point %{p} under $%{F}$.": " Il %{mark} è l'immagine del punto %{p} tramite $%{F}$.",
  " The %{mark} is the image of the point %{p}.": " Il %{mark} è l'immagine del punto %{p}.",
  " The %{mark} is the image of the point %{p}; in %{frames} it is on the far side of the sphere.": " Il %{mark} è l'immagine del punto %{p}; in %{frames} si trova sul lato nascosto della sfera.",
- " The colour shows the local scale factor %{F} (bar).": " Il colore indica il fattore di scala locale %{F} (barra).",
  " The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).": " La curva è la traiettoria $t\\mapsto H_t(z)$ del punto %{p}, da $%{z0}$ (cerchietto) a $%{F}(z)$ (punto).",
  " The deformation %{H}: ": " La deformazione %{H}: ",
  " The point $A$ goes to $A'$.": " Il punto $A$ va in $A'$.",
@@ -89,7 +86,6 @@
  " at most ": " al più ",
  " at the north pole.": " al polo nord.",
  " by factors of ": " si moltiplica per ",
- " cells of the sphere": " celle della sfera",
  " in ": " in ",
  " inside and ": " all'interno e ",
  " is ": " è ",
@@ -119,8 +115,14 @@
  " to run": " per eseguire",
  " under ": " tramite ",
  " with ": " con ",
- " {n} poles (open circles).\u0004 {n} poles (open circles).": {"one": " {n} polo (cerchietto).", "other": " {n} poli (cerchietti)."},
- " {n} zeros (dots).\u0004 {n} zeros (dots).": {"one": " {n} zero (punto).", "other": " {n} zeri (punti)."},
+ " {n} poles (open circles).\u0004 {n} poles (open circles).": {
+  "one": " {n} polo (cerchietto).",
+  "other": " {n} poli (cerchietti)."
+ },
+ " {n} zeros (dots).\u0004 {n} zeros (dots).": {
+  "one": " {n} zero (punto).",
+  "other": " {n} zeri (punti)."
+ },
  " · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}": " · etichette {x}/{x2} pt, come in un testo a {tsz} pt · {choice} · {choice2}",
  " · settings not saved here": " · impostazioni non salvate qui",
  " · {ms} ms": " · {ms} ms",
@@ -163,7 +165,10 @@
  "(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}": "(a) %{head} nel piano $%{lvar}$. (b) Le loro immagini tramite %{map}.%{pat}",
  "(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}": "(a) Il piano %{lvar}. (b) L'immagine tramite %{map}.%{pat}",
  ", a zero of $%{f}$": ", uno zero di $%{f}$",
- ", all {n} sheets\u0004, all {n} sheets": {"one": ", tutti i fogli ({n})", "other": ", tutti e {n} i fogli"},
+ ", all {n} sheets\u0004, all {n} sheets": {
+  "one": ", tutti i fogli ({n})",
+  "other": ", tutti e {n} i fogli"
+ },
  ", and ": ", e ",
  ", and more": ", e altri",
  ", both sheets": ", entrambi i fogli",
@@ -174,13 +179,19 @@
  ", error: {msg}": ", errore: {msg}",
  ", of degree at most {deg}": ", di grado al più {deg}",
  ", of degree {deg}": ", di grado {deg}",
- ", on all {n} sheets of {F}\u0004, on all {n} sheets of {F}": {"one": ", su tutti i fogli ({n}) di {F}", "other": ", su tutti e {n} i fogli di {F}"},
+ ", on all {n} sheets of {F}\u0004, on all {n} sheets of {F}": {
+  "one": ", su tutti i fogli ({n}) di {F}",
+  "other": ", su tutti e {n} i fogli di {F}"
+ },
  ", on both sheets of {F}": ", su entrambi i fogli di {F}",
  ", on the Riemann sphere.": ", sulla sfera di Riemann.",
  ", on the sheets {k} of {F}": ", sui fogli {k} di {F}",
  ", on {K} of the {total} sheet combinations of {F}": ", su {K} delle {total} combinazioni di fogli di {F}",
  ", on {K} of the {total} sheet combinations of {F}, {k}": ", su {K} delle {total} combinazioni di fogli di {F}, {k}",
- ", on {n} sheets of {F}, {k}\u0004, on {n} sheets of {F}, {k}": {"one": ", su {n} foglio di {F}, {k}", "other": ", su {n} fogli di {F}, {k}"},
+ ", on {n} sheets of {F}, {k}\u0004, on {n} sheets of {F}, {k}": {
+  "one": ", su {n} foglio di {F}, {k}",
+  "other": ", su {n} fogli di {F}, {k}"
+ },
  ", outlined,": ", con contorno continuo,",
  ", over the set itself in grey.": ", sovrapposta all'insieme stesso (in grigio).",
  ", sheet {kk}": ", foglio {kk}",
@@ -198,7 +209,10 @@
  ", {K} of {total} sheet combinations": ", {K} su {total} combinazioni di fogli",
  ", {K} of {total} sheet combinations, {k}": ", {K} su {total} combinazioni di fogli, {k}",
  ", {hid} hidden": ", nascoste: {hid}",
- ", {n} sheets, {k}\u0004, {n} sheets, {k}": {"one": ", {n} foglio, {k}", "other": ", {n} fogli, {k}"},
+ ", {n} sheets, {k}\u0004, {n} sheets, {k}": {
+  "one": ", {n} foglio, {k}",
+  "other": ", {n} fogli, {k}"
+ },
  "0 = start, 1 = end": "0 = inizio, 1 = fine",
  "0 and 1 at its ends on {c}": "0 e 1 agli estremi su {c}",
  "0 at {p}, ¼ at {q}, ½ at {r}": "0 in {p}, ¼ in {q}, ½ in {r}",
@@ -232,9 +246,15 @@
  "; %{K} of the %{total} sheet combinations in the window %{k} are shown.": "; combinazioni di fogli mostrate nella finestra %{k}: %{K} su %{total}.",
  "; %{n} of the %{N} sheets are shown (the window %{k}).": "; fogli mostrati: %{n} su %{N} (finestra %{k}).",
  "; %{n} of the infinitely many sheets are shown (the window %{k}).": "; fogli mostrati: %{n} su infiniti (finestra %{k}).",
- "; all {n} sheets are shown.\u0004; all {n} sheets are shown.": {"one": "; sono mostrati tutti i fogli ({n}).", "other": "; sono mostrati tutti e {n} i fogli."},
+ "; all {n} sheets are shown.\u0004; all {n} sheets are shown.": {
+  "one": "; sono mostrati tutti i fogli ({n}).",
+  "other": "; sono mostrati tutti e {n} i fogli."
+ },
  "; both sheets are shown.": "; sono mostrati entrambi i fogli.",
- "; branch cuts from {n} step, drawn in red\u0004; branch cuts from {n} steps, drawn in red": {"one": "; tagli generati da {n} passo, disegnati in rosso", "other": "; tagli generati da {n} passi, disegnati in rosso"},
+ "; branch cuts from {n} step, drawn in red\u0004; branch cuts from {n} steps, drawn in red": {
+  "one": "; tagli generati da {n} passo, disegnati in rosso",
+  "other": "; tagli generati da {n} passi, disegnati in rosso"
+ },
  "; each is a segment": "; ognuna è un segmento",
  "; each is an arc of a circle": "; ognuna è un arco di circonferenza",
  "; each is an arc of a circle or a segment": "; ognuna è un arco di circonferenza o un segmento",
@@ -259,10 +279,19 @@
  "<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; shown alone, its <i>X</i> is the <i>z</i>-plane.": "Anche <b>d/dz</b> è un passo: deriva la catena fin lì, quindi [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] manda <i>z</i> in <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), e due di fila danno la derivata seconda. Ogni vista lo mostra come qualsiasi altro passo; se è mostrato da solo, il suo <i>X</i> è il piano <i>z</i>.",
  "<div class=\"ch\">No roots of {x} = {val} found {where}</div>": "<div class=\"ch\">Nessuna radice di {x} = {val} trovata {where}</div>",
  "<div class=\"ch\">Solving {x} = <i>p</i> in view…</div>": "<div class=\"ch\">Risoluzione di {x} = <i>p</i> nella vista…</div>",
- "<div class=\"ch\">at least {n} root of {fxHtml} = {val} {where}{choice}</div>\u0004<div class=\"ch\">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>": {"one": "<div class=\"ch\">Almeno {n} radice di {fxHtml} = {val} {where}{choice}</div>", "other": "<div class=\"ch\">Almeno {n} radici di {fxHtml} = {val} {where}{choice}</div>"},
- "<div class=\"ch\">{n} root of {fxHtml} = {val} {where}{choice}</div>\u0004<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>": {"one": "<div class=\"ch\">{n} radice di {fxHtml} = {val} {where}{choice}</div>", "other": "<div class=\"ch\">{n} radici di {fxHtml} = {val} {where}{choice}</div>"},
+ "<div class=\"ch\">at least {n} root of {fxHtml} = {val} {where}{choice}</div>\u0004<div class=\"ch\">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>": {
+  "one": "<div class=\"ch\">Almeno {n} radice di {fxHtml} = {val} {where}{choice}</div>",
+  "other": "<div class=\"ch\">Almeno {n} radici di {fxHtml} = {val} {where}{choice}</div>"
+ },
+ "<div class=\"ch\">{n} root of {fxHtml} = {val} {where}{choice}</div>\u0004<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>": {
+  "one": "<div class=\"ch\">{n} radice di {fxHtml} = {val} {where}{choice}</div>",
+  "other": "<div class=\"ch\">{n} radici di {fxHtml} = {val} {where}{choice}</div>"
+ },
  "<div class=\"cl\"><span><span class=\"sw pole\" style=\"color:{poleColor}\"></span>pole{choice}</span><span class=\"cv\">{z}</span></div>": "<div class=\"cl\"><span><span class=\"sw pole\" style=\"color:{poleColor}\"></span>polo{choice}</span><span class=\"cv\">{z}</span></div>",
- "<div class=\"cm\">and {n} more</div>\u0004<div class=\"cm\">and {n} more</div>": {"one": "<div class=\"cm\">e {n} in più</div>", "other": "<div class=\"cm\">e altre {n}</div>"},
+ "<div class=\"cm\">and {n} more</div>\u0004<div class=\"cm\">and {n} more</div>": {
+  "one": "<div class=\"cm\">e {n} in più</div>",
+  "other": "<div class=\"cm\">e altre {n}</div>"
+ },
  "<div class=\"cn\">Root finding is not available in this build.</div>": "<div class=\"cn\">La ricerca delle radici non è disponibile in questa versione.</div>",
  "<div class=\"cn\">The search stopped early; there may be more.</div>": "<div class=\"cn\">La ricerca si è interrotta prima del termine; potrebbero essercene altre.</div>",
  "<div class=\"cn\">{choice}{d} more outside {choice2}.</div>": "<div class=\"cn\">{choice}{d} in più oltre {choice2}.</div>",
@@ -337,7 +366,10 @@
  "Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a number of the Numbers section. Double-click a card, or press <b>Show alone</b> in the Inspector, to show that step alone. Drag a card's header onto a connector, or press Alt+← or Alt+→, to reorder.": "Aggiungi un passo con {x}, con la scheda di aggiunta o con il pulsante di inserimento di un connettore; digita una formula come <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> nella ricerca comandi per aggiungerla direttamente. Fai clic su una scheda per selezionarla: l'<b>Ispettore</b> a destra ne permette la modifica, con la formula completa, un campo per ogni coefficiente e un menu ⋯ che sostituisce il passo con la sua inversa, lo esclude, lo sposta, lo duplica o lo rimuove. I coefficienti propri di un passo sono contrassegnati dal suo indice (<i>a</i><sub>2</sub>); una lettera semplice è un numero della sezione «Numeri». Fai doppio clic su una scheda, o premi <b>Mostra da solo</b> nell'Ispettore, per mostrare solo quel passo. Per riordinare, trascina l'intestazione di una scheda su un connettore oppure premi Alt+← o Alt+→.",
  "Add a zero (or Shift-click in the input plane)": "Aggiungi uno zero (o Shift-clic nel piano di partenza)",
  "Add a zero to f{k} ({x} now)": "Aggiungi uno zero a f{k} (ora {x})",
- "Add as {n} step\u0004Add as {n} steps": {"one": "Aggiungi come {n} passo", "other": "Aggiungi come {n} passi"},
+ "Add as {n} step\u0004Add as {n} steps": {
+  "one": "Aggiungi come {n} passo",
+  "other": "Aggiungi come {n} passi"
+ },
  "Add function": "Aggiungi funzione",
  "Add the first function": "Aggiungi la prima funzione",
  "Add the set (an equation adds a curve): in z as a shape, in w as a target": "Aggiungi l'insieme (un'equazione aggiunge una curva): in z come figura, in w come bersaglio",
@@ -378,13 +410,21 @@
  "Arccosine": "Arcocoseno",
  "Arcsine": "Arcoseno",
  "Arctangent": "Arcotangente",
- "Arg z": "Arg z",
  "Argand diagram": "Piano di Argand-Gauss",
  "Article": "Articolo",
  "As on screen": "Come sullo schermo",
- "At most {n} poles\u0004At most {n} poles": {"one": "Al massimo {n} polo", "other": "Al massimo {n} poli"},
- "At most {n} zeros\u0004At most {n} zeros": {"one": "Al massimo {n} zero", "other": "Al massimo {n} zeri"},
- "At most {n} zeros and {n} poles\u0004At most {n} zeros and {n} poles": {"one": "Al massimo {n} zero e {n} polo", "other": "Al massimo {n} zeri e {n} poli"},
+ "At most {n} poles\u0004At most {n} poles": {
+  "one": "Al massimo {n} polo",
+  "other": "Al massimo {n} poli"
+ },
+ "At most {n} zeros\u0004At most {n} zeros": {
+  "one": "Al massimo {n} zero",
+  "other": "Al massimo {n} zeri"
+ },
+ "At most {n} zeros and {n} poles\u0004At most {n} zeros and {n} poles": {
+  "one": "Al massimo {n} zero e {n} polo",
+  "other": "Al massimo {n} zeri e {n} poli"
+ },
  "At most {zpMax} poles (degree {zpMax}, as Write by zeros and poles allows).": "Al massimo {zpMax} poli (grado {zpMax}, come consente «Scrivi con zeri e poli»).",
  "At most {zpMax} zeros (degree {zpMax}, as Write by zeros and poles allows).": "Al massimo {zpMax} zeri (grado {zpMax}, come consente «Scrivi con zeri e poli»).",
  "Audio engine: Web Audio is not available here": "Motore audio: Web Audio non è disponibile qui",
@@ -399,7 +439,6 @@
  "Back": "Indietro",
  "Basics": "Nozioni di base",
  "Bisector": "Asse",
- "Blue shrinks, amber grows: $|F'|$ at each point.": "Blu dove contrae, ambra dove dilata: $|F'|$ in ogni punto.",
  "Both": "Entrambi",
  "Both sides of an equation must be real numbers: here they are complex, and no curve was found where both their real and imaginary parts agree (a complex equation usually holds only at isolated points). Take Re, Im, |·| or arg of each side, e.g. Re z = 0, |z − 1| = 2 or arg z = π/4. For the isolated points where the sides agree, write |A − B| = 0 (for z³ = 1: |z^3 − 1| = 0).": "Entrambi i membri di un'equazione devono essere numeri reali: qui sono complessi, e non è stata trovata alcuna curva su cui coincidano sia le parti reali sia le parti immaginarie (di solito un'equazione complessa vale solo in punti isolati). Prendi Re, Im, |·| o arg di ciascun membro, ad es. Re z = 0, |z − 1| = 2 o arg z = π/4. Per i punti isolati in cui i membri coincidono, scrivi |A − B| = 0 (per z³ = 1: |z^3 − 1| = 0).",
  "Both steps now deform at the same $t$.": "Ora entrambi i passi si deformano con lo stesso $t$.",
@@ -416,8 +455,14 @@
  "Bring forward": "Porta avanti",
  "Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. <i>X</i> is always the domain (or the input of a step shown alone) and <i>Y</i> its output: <i>X</i> shows the shapes, <i>Y</i> their images. One of them fills the screen and the other is the small picture in its corner: tap that picture to swap them. With a panel open, or with the phone turned, they stand side by side.": "Costruisci una regione nel piano <i>z</i>, falla passare attraverso una catena di funzioni <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, … e osserva ogni immagine intermedia. <i>X</i> è sempre il dominio (o l'ingresso di un passo mostrato da solo) e <i>Y</i> la sua uscita: <i>X</i> mostra le figure, <i>Y</i> le loro immagini. Uno dei due occupa lo schermo e l'altro è la miniatura nel suo angolo: tocca la miniatura per scambiarli. Con un pannello aperto, o con il telefono ruotato, stanno uno accanto all'altro.",
  "Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the domain (or the input of a step shown alone), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.": "Costruisci una regione nel piano <i>z</i>, falla passare attraverso una catena di funzioni <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, … e osserva ogni immagine intermedia. Il riquadro sinistro è sempre <i>X</i>, il dominio (o l'ingresso di un passo mostrato da solo), e il riquadro destro è sempre <i>Y</i>, la sua uscita: il riquadro sinistro mostra le figure, quello destro le loro immagini.",
- "Built from {n} step\u0004Built from {n} steps": {"one": "Composta da {n} passo", "other": "Composta da {n} passi"},
- "Built from {n} step: {chain}\u0004Built from {n} steps: {chain}": {"one": "Composta da {n} passo: {chain}", "other": "Composta da {n} passi: {chain}"},
+ "Built from {n} step\u0004Built from {n} steps": {
+  "one": "Composta da {n} passo",
+  "other": "Composta da {n} passi"
+ },
+ "Built from {n} step: {chain}\u0004Built from {n} steps: {chain}": {
+  "one": "Composta da {n} passo: {chain}",
+  "other": "Composta da {n} passi: {chain}"
+ },
  "Built on {x}: drag those, or Make free": "Dipende da {x}: trascina quelli oppure scegli «Svincola»",
  "Bypass this step": "Escludi questo passo",
  "Calculus": "Calcolo",
@@ -432,7 +477,6 @@
  "Cards follow the view": "Le schede seguono la vista",
  "Cards show": "Le schede mostrano",
  "Cartesian grid": "Griglia cartesiana",
- "Cartesian grid lines of z carried by the map": "Linee della griglia cartesiana in z trasportate dalla funzione",
  "Cauchy": "Cauchy",
  "Cauchy integral": "integrale di Cauchy",
  "Cauchy integral over {name}": "integrale di Cauchy lungo {name}",
@@ -444,15 +488,12 @@
  "Chain cleared.": "Catena svuotata.",
  "Changes are not being saved: this browser blocks site storage.": "Le modifiche non vengono salvate: questo browser blocca l'archiviazione del sito.",
  "Checker": "Scacchiera",
- "Checkerboard in log|z| and arg z: conformal maps keep these cells square": "Scacchiera in log|z| e arg z: le trasformazioni conformi mantengono quadrate queste celle",
- "Checkerboard in z-coordinates: shows how squares are bent and scaled": "Scacchiera nelle coordinate z: mostra come i quadrati vengono piegati e ridimensionati",
  "Choose All at once.": "Scegli «Tutti insieme».",
  "Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.": "Scegli «Circonferenza per 3 punti» e fai clic su $z_0$, $z_1$, $z_2$.",
  "Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.": "Scegli «Circonferenza per 3 punti» in «Altro», poi tocca $z_0$, $z_1$, $z_2$.",
  "Choose Disc, then drag in X.": "Scegli «Disco», poi trascina in X.",
  "Choose Landscape.": "Scegli «Paesaggio».",
  "Choose Phase.": "Scegli «Fase».",
- "Choose Stretch.": "Scegli «Dilatazione».",
  "Circle": "Circonferenza",
  "Circle the zero $1$, then the pole $-1$.": "Gira attorno allo zero $1$, poi al polo $-1$.",
  "Circle through 3 points": "Circonferenza per 3 punti",
@@ -460,7 +501,6 @@
  "Circle, arc, freehand": "Circonferenza, arco, a mano libera",
  "Circles through ±1 to airfoils": "Circonferenze per ±1 in profili alari",
  "Circles to circles; ad − bc ≠ 0": "Circonferenze in circonferenze; ad − bc ≠ 0",
- "Circles |z| = const and rays arg z = const carried by the map": "Circonferenze |z| = const e semirette arg z = const trasportate dalla funzione",
  "Clear": "Cancella",
  "Clear all shapes and targets": "Cancella tutte le figure e i bersagli",
  "Clear chain": "Svuota catena",
@@ -491,7 +531,6 @@
  "Coefficients aₙ, …, a₀, highest degree first": "Coefficienti aₙ, …, a₀, dal grado più alto",
  "Coefficients from the highest degree down": "Coefficienti dal grado più alto al più basso",
  "Color": "Colore",
- "Colored by the argument of the source point z": "Colorato secondo l'argomento del punto di partenza z",
  "Colour": "Colore",
  "Colour is $\\arg F$; all colours meet at zeros and poles.": "Il colore è $\\arg F$; tutti i colori si incontrano negli zeri e nei poli.",
  "Colour key": "Legenda dei colori",
@@ -564,13 +603,22 @@
  "Deformation: the steps one after another": "Deformazione: i passi uno dopo l'altro",
  "Deformation: the steps one after another or all at once": "Deformazione: i passi uno dopo l'altro o tutti insieme",
  "Deformed steps": "Passi deformati",
- "Deforming step {list}.\u0004Deforming steps {list}.": {"one": "Deformazione del passo {list}.", "other": "Deformazione dei passi {list}."},
+ "Deforming step {list}.\u0004Deforming steps {list}.": {
+  "one": "Deformazione del passo {list}.",
+  "other": "Deformazione dei passi {list}."
+ },
  "Degree above {max}: too many zeros and poles to drag": "Grado maggiore di {max}: troppi zeri e poli da trascinare",
  "Delete": "Elimina",
- "Delete (and {n} built on it)\u0004Delete (and {n} built on it)": {"one": "Elimina (con {n} figura dipendente)", "other": "Elimina (con {n} figure dipendenti)"},
+ "Delete (and {n} built on it)\u0004Delete (and {n} built on it)": {
+  "one": "Elimina (con {n} figura dipendente)",
+  "other": "Elimina (con {n} figure dipendenti)"
+ },
  "Delete {name}": "Elimina {name}",
  "Delete {x}": "Elimina {x}",
- "Deleted {x} and {n} shape built on it.\u0004Deleted {x} and {n} shapes built on it.": {"one": "Hai eliminato {x} e {n} figura che ne dipende.", "other": "Hai eliminato {x} e {n} figure che ne dipendono."},
+ "Deleted {x} and {n} shape built on it.\u0004Deleted {x} and {n} shapes built on it.": {
+  "one": "Hai eliminato {x} e {n} figura che ne dipende.",
+  "other": "Hai eliminato {x} e {n} figure che ne dipendono."
+ },
  "Deleted {x}.": "Numero {x} eliminato.",
  "Deleted {x}; its value is in the formulas.": "Numero {x} eliminato; il suo valore è stato sostituito nelle formule.",
  "Denominator coefficients, highest degree first": "Coefficienti del denominatore, dal grado più alto",
@@ -644,8 +692,6 @@
  "Draw in X to use {x}": "Disegna in X per usare {x}",
  "Draw in X → Y (1)": "Disegna in X → Y (1)",
  "Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.": "Disegna le figure in X con gli strumenti della fila in basso; l'elenco «Figure», in «Altri strumenti», permette di modificarle. Tocca un passo nella catena per modificarlo qui.",
- "Draw with the tools of the bottom row (its More key holds the others and a formula box), or type a set in that box, such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears in <i>Y</i>; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.": "Disegna con gli strumenti della fila in basso (il suo tasto «Altro» contiene gli altri e un campo per le formule), oppure digita in quel campo un insieme come <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> o <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Le formule accettano <i>and</i>, <i>or</i>, <i>not</i>, virgole, disuguaglianze concatenate e <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Un'equazione è una curva: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> è una retta, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> un arco; rette, semirette, segmenti, circonferenze e archi diventano figure con maniglie, mentre altre curve come <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> vengono tracciate esattamente. Un insieme o una curva in <i>w</i> è un bersaglio del piano <i>w</i>. Le regioni illimitate vengono triangolate ben oltre la finestra visibile, quindi in <i>Y</i> compare la loro immagine intera; il riempimento sfuma dove finisce la triangolazione. Il motivo è disegnato nelle coordinate <i>z</i> e trasportato dalla funzione, così si può seguire ogni tassello.",
- "Draw with the tools on the left, or type a set such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.": "Disegna con gli strumenti a sinistra, oppure digita un insieme come <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> o <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Le formule accettano <i>and</i>, <i>or</i>, <i>not</i>, virgole, disuguaglianze concatenate e <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Un'equazione è una curva: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> è una retta, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> un arco; rette, semirette, segmenti, circonferenze e archi diventano figure con maniglie, mentre altre curve come <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> vengono tracciate esattamente. Un insieme o una curva in <i>w</i> è un bersaglio del piano <i>w</i>. Le regioni illimitate vengono triangolate ben oltre la finestra visibile, quindi a destra compare la loro immagine intera; il riempimento sfuma dove finisce la triangolazione. Il motivo è disegnato nelle coordinate <i>z</i> e trasportato dalla funzione, così si può seguire ogni tassello.",
  "Drawing is off in the deformation (M).": "Durante la deformazione non si può disegnare (M).",
  "Drawing is off on {where}; choose X → Y (1) to draw.": "Qui non si può disegnare ({where}); scegli X → Y (1) per disegnare.",
  "Drawing tools": "Strumenti di disegno",
@@ -742,7 +788,6 @@
  "Fit view": "Adatta la vista",
  "Fit view  Z": "Adatta la vista  Z",
  "Fix the formula": "Correggi la formula",
- "Flat fill": "Riempimento uniforme",
  "For": "Per",
  "For Docs": "Per Docs",
  "For Overleaf": "Per Overleaf",
@@ -927,15 +972,15 @@
  "Listen along it": "Ascolta lungo la curva",
  "Listen along {name}": "Ascolta lungo {name}",
  "Listening along the curve. Esc stops.": "Ascolto lungo la curva. Esc per interrompere.",
- "Listening along the loop: {n} turn of arg F. Esc stops.\u0004Listening along the loop: {n} turns of arg F. Esc stops.": {"one": "Ascolto lungo il laccio: {n} giro di arg F. Esc per interrompere.", "other": "Ascolto lungo il laccio: {n} giri di arg F. Esc per interrompere."},
+ "Listening along the loop: {n} turn of arg F. Esc stops.\u0004Listening along the loop: {n} turns of arg F. Esc stops.": {
+  "one": "Ascolto lungo il laccio: {n} giro di arg F. Esc per interrompere.",
+  "other": "Ascolto lungo il laccio: {n} giri di arg F. Esc per interrompere."
+ },
  "Listening along {name}": "Ascolto lungo {name}",
- "Local scale factor |F′(z)|: blue shrinks, amber grows": "Fattore di scala locale |F′(z)|: blu dove contrae, ambra dove dilata",
- "Log-polar": "Log-polare",
  "Logarithm": "Logaritmo",
  "Logarithm of an annulus": "Logaritmo di una corona circolare",
  "Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone). The hatched side is the side the cut belongs to. The sheet number, in the step's editor, picks the branch.": "Logaritmi, radici e potenze complesse hanno un taglio lungo una semiretta uscente da 0. Trascina la maniglia del taglio nel piano di partenza del passo (<i>X</i> per il primo passo, altrimenti mostra il passo da solo). Il lato con il tratteggio è quello a cui appartiene il taglio. Il numero del foglio, nell'editor del passo, sceglie il ramo.",
  "Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone); it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number, in the Inspector, picks the branch.": "Logaritmi, radici e potenze complesse hanno un taglio lungo una semiretta uscente da 0. Trascina la maniglia del taglio nel piano di partenza del passo (<i>X</i> per il primo passo, altrimenti mostra il passo da solo); con Shift si aggancia a multipli di 15°. Il lato con il tratteggio è quello a cui appartiene il taglio. Il numero del foglio, nell'Ispettore, sceglie il ramo.",
- "Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞\u0004Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞": {"one": "Celle di longitudine e latitudine della sfera di Riemann: {n} cella copre il piano e ∞", "other": "Celle di longitudine e latitudine della sfera di Riemann: {n} celle coprono il piano e ∞"},
  "Look": "Aspetto",
  "Loop": "Ciclo",
  "Loop cancelled.": "Laccio annullato.",
@@ -1083,9 +1128,7 @@
  "Paths of the deformation $H_t$.": "Traiettorie della deformazione $H_t$.",
  "Paths: X is on the far side; drag to turn": "Traiettorie: X è sul lato nascosto; trascina per ruotare",
  "Pattern": "Motivo",
- "Pattern carried by the map": "Motivo trasportato dalla funzione",
  "Pattern cell size": "Dimensione delle celle del motivo",
- "Pattern key: point at it to unfold, click to keep it open": "Legenda del motivo: passa il puntatore per aprirla, fai clic per tenerla aperta",
  "Patterns": "Motivi",
  "Pause": "Pausa",
  "Pause {x}": "Metti in pausa {x}",
@@ -1238,10 +1281,12 @@
  "Region formula": "Formula della regione",
  "Region formulas": "Formule di regioni",
  "Region from a formula": "Regione da una formula",
- "Region pattern": "Motivo della regione",
  "Region tools": "Strumenti per le regioni",
  "Regions": "Regioni",
- "Release to remove {mark}; {n} shape will be undefined\u0004Release to remove {mark}; {n} shapes will be undefined": {"one": "Rilascia per rimuovere {mark}; {n} figura non sarà più definita", "other": "Rilascia per rimuovere {mark}; {n} figure non saranno più definite"},
+ "Release to remove {mark}; {n} shape will be undefined\u0004Release to remove {mark}; {n} shapes will be undefined": {
+  "one": "Rilascia per rimuovere {mark}; {n} figura non sarà più definita",
+  "other": "Rilascia per rimuovere {mark}; {n} figure non saranno più definite"
+ },
  "Release to remove {t}": "Rilascia per rimuovere {t}",
  "Remove": "Rimuovi",
  "Remove a step": "Rimozione di un passo",
@@ -1302,7 +1347,6 @@
  "Saving files is not available in this view.": "Il salvataggio dei file non è disponibile in questa vista.",
  "Saving…": "Salvataggio…",
  "Scale": "Scala",
- "Scale |F′|": "Dilatazione |F′|",
  "Scaling": "Omotetia",
  "Search": "Cerca",
  "Search functions, or type a formula in z": "Cerca funzioni o digita una formula in z",
@@ -1387,13 +1431,15 @@
  "Special": "Speciali",
  "Speed": "Velocità",
  "Sphere": "Sfera",
- "Sphere cells": "Celle della sfera",
  "Sphere checker": "Scacchiera sferica",
  "Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.": "«Sfera» avvolge il piano sulla sfera di Riemann, con $\\infty$ al polo nord; qui $F(\\infty)=1$, che non è né uno zero né un polo. Puoi disegnare anche sulla sfera.",
  "Spiral": "Spirale",
  "Split f{k} into f{k}–f{k2}: {chain}.": "Passo f{k} scomposto in f{k}–f{k2}: {chain}.",
  "Split into steps": "Scomponi in passi",
- "Split into {n} step\u0004Split into {n} steps": {"one": "Scomponi in {n} passo", "other": "Scomponi in {n} passi"},
+ "Split into {n} step\u0004Split into {n} steps": {
+  "one": "Scomponi in {n} passo",
+  "other": "Scomponi in {n} passi"
+ },
  "Square grid": "Griglia quadrata",
  "Square root": "Radice quadrata",
  "Square root and its sheets": "Radice quadrata e i suoi fogli",
@@ -1535,8 +1581,6 @@
  "The map $%{mapTex}$": "La funzione $%{mapTex}$",
  "The map %{map}.": "La funzione %{map}.",
  "The map %{wmap}.": "La funzione %{wmap}.",
- "The pattern cell is now {x}, fitted to the shapes; Display → Cell changes it.": "La cella del motivo ora è {x}, adattata alle figure; «Visualizzazione → Cella» la cambia.",
- "The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F'(z)|$: blue shrinks, amber grows.": "Il motivo è dipinto su X e portato su Y da $F$. «Scacchiera» mostra come i quadrati vengono piegati e ridimensionati, le celle di «Log-polare» restano quadrate se la trasformazione è conforme e «Dilatazione» colora secondo $|F'(z)|$: blu dove contrae, ambra dove dilata.",
  "The phase colours of the {x}-plane under the images": "I colori di fase del piano {x} sotto le immagini",
  "The phase portrait of ": "Il ritratto di fase di ",
  "The phase portrait of %{map}": "Il ritratto di fase di %{map}",
@@ -1643,7 +1687,6 @@
  "This view needs WebGL2, which this browser does not provide.": "Questa vista richiede WebGL2, che questo browser non supporta.",
  "Three views": "Tre viste",
  "Tiles": "Tasselli",
- "Tiles with an F glyph: shows rotation, scaling and reflection": "Tasselli con il glifo F: mostrano rotazione, cambio di scala e riflessione",
  "Time": "Tempo",
  "To place a point next to another, turn Snap off in the tools sheet.": "Per mettere un punto accanto a un altro, disattiva «Aggancio» nel pannello degli strumenti.",
  "Toggle off": "Disattivazione",
@@ -1773,8 +1816,6 @@
  "Write by zeros and poles": "Scrivi con zeri e poli",
  "X and Y are now $f_1$'s input and output.": "Ora X e Y sono l'ingresso e l'uscita di $f_1$.",
  "X only": "Solo X",
- "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.": "X mostra le tue figure, qui la striscia $|\\operatorname{Im} z|<\\pi/2$, con una scacchiera disegnata nelle coordinate $z$. Pizzica per lo zoom e trascina un'area vuota per spostare la vista.",
- "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.": "X mostra le tue figure, qui la striscia $|\\operatorname{Im} z|<\\pi/2$, con una scacchiera disegnata nelle coordinate $z$. Scorri per lo zoom, trascina un'area vuota per spostare la vista e {Z} adatta la vista a entrambi i piani.",
  "X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.": "X → Y mostra i due piani affiancati. «Fase» e «Paesaggio» sono rappresentazioni di $F$ su X, ciascuna in un unico pannello largo. Tasti {1} {2} {3}.",
  "X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.": "X → Y mostra i due piani. «Fase» e «Paesaggio» sono rappresentazioni di $F$ su X, ciascuna a tutto schermo.",
  "X → Y: the shapes and their images  1": "X → Y: le figure e le loro immagini  1",
@@ -1815,13 +1856,19 @@
  "\\text{, sheet }%{kk}": "\\text{, foglio }%{kk}",
  "\\text{: cut }": "\\text{: taglio }",
  "\\text{arc } %{a} \\to %{m} \\to %{b}": "\\text{arco } %{a} \\to %{m} \\to %{b}",
- "\\text{curve, %{n} points}\u0004\\text{curve, %{n} points}": {"one": "\\text{curva, %{n} punto}", "other": "\\text{curva, %{n} punti}"},
+ "\\text{curve, %{n} points}\u0004\\text{curve, %{n} points}": {
+  "one": "\\text{curva, %{n} punto}",
+  "other": "\\text{curva, %{n} punti}"
+ },
  "\\text{grid } %{x}\\times%{y}": "\\text{griglia } %{x}\\times%{y}",
  "\\text{invalid}": "\\text{non valida}",
  "\\text{line through } %{a},\\ %{b}": "\\text{retta per } %{a},\\ %{b}",
  "\\text{not }%{tex}": "\\text{non }%{tex}",
  "\\text{polar grid}, |%{c}|\\le %{r}": "\\text{griglia polare}, |%{c}|\\le %{r}",
- "\\text{polygon, %{n} vertices}\u0004\\text{polygon, %{n} vertices}": {"one": "\\text{poligono, %{n} vertice}", "other": "\\text{poligono, %{n} vertici}"},
+ "\\text{polygon, %{n} vertices}\u0004\\text{polygon, %{n} vertices}": {
+  "one": "\\text{poligono, %{n} vertice}",
+  "other": "\\text{poligono, %{n} vertici}"
+ },
  "\\text{ray from } %{a} \\text{ through } %{b}": "\\text{semiretta di origine } %{a} \\text{ passante per } %{b}",
  "\\text{the formula is defined at } %{v}": "\\text{la formula è definita in } %{v}",
  "a %{kind}": "una figura di tipo %{kind}",
@@ -1839,7 +1886,10 @@
  "a point": "un punto",
  "a point on {c}": "un punto su {c}",
  "a polar grid in %{m}": "una griglia polare in %{m}",
- "a polygon with {n} vertices\u0004a polygon with {n} vertices": {"one": "un poligono con {n} vertice", "other": "un poligono con {n} vertici"},
+ "a polygon with {n} vertices\u0004a polygon with {n} vertices": {
+  "one": "un poligono con {n} vertice",
+  "other": "un poligono con {n} vertici"
+ },
  "a polynomial{deg}": "un polinomio{deg}",
  "a radius must be positive": "il raggio deve essere positivo",
  "a ray": "una semiretta",
@@ -1865,7 +1915,10 @@
  "add the number {x}": "aggiunta del numero {x}",
  "add zero ζ{i} of f{x}": "aggiunta dello zero ζ{i} di f{x}",
  "add {name}": "aggiunta: {name}",
- "add {n} shape\u0004add {n} shapes": {"one": "aggiunta di {n} figura", "other": "aggiunta di {n} figure"},
+ "add {n} shape\u0004add {n} shapes": {
+  "one": "aggiunta di {n} figura",
+  "other": "aggiunta di {n} figure"
+ },
  "addcard\u0004Add function": "Aggiungi funzione",
  "after f{x}": "dopo f{x}",
  "agrees on $D$ with $P(z)/Q(z)$ for polynomials $P$ and $Q$": "coincide su $D$ con $P(z)/Q(z)$ per opportuni polinomi $P$ e $Q$",
@@ -1875,7 +1928,10 @@
  "an arc": "un arco",
  "analytic": "analitica",
  "and": "e",
- "and {n} more\u0004and {n} more": {"one": "e {n} in più", "other": "e altri {n}"},
+ "and {n} more\u0004and {n} more": {
+  "one": "e {n} in più",
+  "other": "e altri {n}"
+ },
  "angle\u0004the sector %{m}": "l'angolo %{m}",
  "annulus, ring, donut": "annulus, ring, donut, corona circolare, anello",
  "arc\u0004end": "fine",
@@ -1896,7 +1952,10 @@
  "asin inverse sine": "asin inverse sine arcoseno seno inverso",
  "at": "in",
  "at least ": "almeno ",
- "at least {n} preimage{where} of\u0004at least {n} preimages{where} of": {"one": "almeno {n} controimmagine{where} di", "other": "almeno {n} controimmagini{where} di"},
+ "at least {n} preimage{where} of\u0004at least {n} preimages{where} of": {
+  "one": "almeno {n} controimmagine{where} di",
+  "other": "almeno {n} controimmagini{where} di"
+ },
  "at the start": "all'inizio",
  "atan inverse tangent": "atan inverse tangent arcotangente tangente inversa",
  "audio\u0004closed": "chiuso",
@@ -1944,7 +2003,6 @@
  "change the chain": "modifica della catena",
  "change the shapes": "modifica delle figure",
  "change {x}": "modifica di {x}",
- "checkerboard": "scacchiera",
  "circle, round curve": "circle, round curve, circonferenza, cerchio",
  "circles": "circonferenze",
  "coefficients aₙ, …, a₀": "coefficienti aₙ, …, a₀",
@@ -1988,7 +2046,10 @@
  "deg ≤ {n}": "grado ≤ {n}",
  "delete the number {x}": "eliminazione del numero {x}",
  "delete {name}": "eliminazione: {name}",
- "delete {n} shape\u0004delete {n} shapes": {"one": "eliminazione di {n} figura", "other": "eliminazione di {n} figure"},
+ "delete {n} shape\u0004delete {n} shapes": {
+  "one": "eliminazione di {n} figura",
+  "other": "eliminazione di {n} figure"
+ },
  "denominator q: coefficients": "denominatore q: coefficienti",
  "derivative differentiate prime d/dz dz derivative of the chain": "derivative differentiate prime d/dz dz derivative of the chain derivata derivare apice derivata della catena",
  "derivative prime differentiate d/dz": "derivative prime differentiate d/dz derivata apice derivare",
@@ -2133,7 +2194,10 @@
  "image in the unit disk": "immagine nel disco unitario",
  "image of a cut": "immagine di un taglio",
  "image outside the unit disk": "immagine fuori dal disco unitario",
- "image, after {n} step\u0004image, after {n} steps": {"one": "immagine, dopo {n} passo", "other": "immagine, dopo {n} passi"},
+ "image, after {n} step\u0004image, after {n} steps": {
+  "one": "immagine, dopo {n} passo",
+  "other": "immagine, dopo {n} passi"
+ },
  "in the flat view": "nella vista piana",
  "in view": "nella vista",
  "injective and continuous on the open set $D$, hence a homeomorphism $D \\to F(D)$ by invariance of domain": "iniettiva e continua sull'aperto $D$, quindi un omeomorfismo $D \\to F(D)$ per il teorema di invarianza del dominio",
@@ -2246,7 +2310,6 @@
  "outside the circle through {a}, {b}, {c}": "esterno della circonferenza per {a}, {b}, {c}",
  "outside the circle through {b}, touching {c} at {a}": "esterno della circonferenza per {b}, tangente a {c} in {a}",
  "part range bracket pullback pull-back precompose push-forward inside under outer inner": "part range bracket pullback pull-back precompose push-forward inside under outer inner parte intervallo parentesi controimmagine precomponi immagine dentro sotto esterna interna",
- "pat\u0004checkerboard": "scacchiera",
  "pat\u0004coloured": "a colori",
  "pat\u0004lines": "linee della griglia",
  "pat\u0004tiles": "tasselli",
@@ -2300,7 +2363,10 @@
  "remove a pole of f{x}": "rimozione di un polo di f{x}",
  "remove a zero of f{x}": "rimozione di uno zero di f{x}",
  "remove f{x} {name}": "rimozione di f{x} ({name})",
- "remove {n} step\u0004remove {n} steps": {"one": "rimozione di {n} passo", "other": "rimozione di {n} passi"},
+ "remove {n} step\u0004remove {n} steps": {
+  "one": "rimozione di {n} passo",
+  "other": "rimozione di {n} passi"
+ },
  "reorder the steps": "riordino dei passi",
  "replace": "sostituisci",
  "replace f{x} with {name}": "sostituzione di f{x} con {name}",
@@ -2313,7 +2379,10 @@
  "role\u0004landscape": "paesaggio",
  "Previous step": "Passo precedente",
  "Next step": "Passo successivo",
- "{n} step\u0004{n} steps": {"one": "{n} passo", "other": "{n} passi"},
+ "{n} step\u0004{n} steps": {
+  "one": "{n} passo",
+  "other": "{n} passi"
+ },
  "style\u0004Cauchy": "Cauchy",
  "The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.": "I passi si applicano in ordine: $F=f_2\\circ f_1$ con $f_1(z)=e^z$. Apri la catena con il pulsante dei passi sotto i piani e tocca un passo: se ne apre l'editor, e lì «Mostra da solo» mostra solo quel passo, con X e Y come suo ingresso e sua uscita.",
  "Open the chain, tap $f_1$, then Show alone.": "Apri la catena, tocca $f_1$, poi «Mostra da solo».",
@@ -2564,9 +2633,15 @@
  "x to y, x -> y, split, both planes, domain and image, shapes and images, planes": "x to y, x -> y, split, both planes, domain and image, shapes and images, planes, x verso y, diviso, entrambi i piani, dominio e immagine, figure e immagini, piani",
  "yes": "sì",
  "z is the variable of the map": "z è la variabile della funzione",
- "z occurs {n} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w\u0004z occurs {n} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w": {"one": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w", "other": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w"},
+ "z occurs {n} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w\u0004z occurs {n} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w": {
+  "one": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w",
+  "other": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w"
+ },
  "z {z}. F is infinite here.": "z {z}. Qui F è infinita.",
- "z {z}. Modulus {modulus}, argument {n} degrees.\u0004z {z}. Modulus {modulus}, argument {n} degrees.": {"one": "z {z}. Modulo {modulus}, argomento {n} grado.", "other": "z {z}. Modulo {modulus}, argomento {n} gradi."},
+ "z {z}. Modulus {modulus}, argument {n} degrees.\u0004z {z}. Modulus {modulus}, argument {n} degrees.": {
+  "one": "z {z}. Modulo {modulus}, argomento {n} grado.",
+  "other": "z {z}. Modulo {modulus}, argomento {n} gradi."
+ },
  "z-plane": "piano z",
  "z^α on a chosen branch": "z^α su un ramo scelto",
  "zeros": "zeri",
@@ -2603,40 +2678,118 @@
  "{label} must be a number": "{label} deve essere un numero",
  "{label} must be an integer": "{label} deve essere un intero",
  "{label}, {pt} pt text · Fit column": "{label}, testo a {pt} pt · Adatta alla colonna",
- "{list} is applied first, in full\u0004{list} are applied first, in full": {"one": "{list} viene applicato per intero all'inizio", "other": "{list} vengono applicati per intero all'inizio"},
- "{list} is applied last, in full\u0004{list} are applied last, in full": {"one": "{list} viene applicato per intero alla fine", "other": "{list} vengono applicati per intero alla fine"},
+ "{list} is applied first, in full\u0004{list} are applied first, in full": {
+  "one": "{list} viene applicato per intero all'inizio",
+  "other": "{list} vengono applicati per intero all'inizio"
+ },
+ "{list} is applied last, in full\u0004{list} are applied last, in full": {
+  "one": "{list} viene applicato per intero alla fine",
+  "other": "{list} vengono applicati per intero alla fine"
+ },
  "{mark} and ": "{mark} e ",
  "{mark} is a pole of {f} now: only the zeros and poles of f₁ lie in the z-plane": "{mark} ora è un polo di {f}: solo gli zeri e i poli di f₁ stanno nel piano z",
  "{mark} is a zero of {f} now: only the zeros and poles of f₁ lie in the z-plane": "{mark} ora è uno zero di {f}: solo gli zeri e i poli di f₁ stanno nel piano z",
  "{mark} is now a pole of {f}.": "{mark} ora è un polo di {f}.",
  "{mark} is now a zero of {f}.": "{mark} ora è uno zero di {f}.",
  "{mark} was removed": "{mark} è stato rimosso",
- "{n} arc\u0004{n} arcs": {"one": "{n} arco", "other": "{n} archi"},
- "{n} boundary point\u0004{n} boundary points": {"one": "{n} punto di frontiera", "other": "{n} punti di frontiera"},
- "{n} circle\u0004{n} circles": {"one": "{n} circonferenza", "other": "{n} circonferenze"},
+ "{n} arc\u0004{n} arcs": {
+  "one": "{n} arco",
+  "other": "{n} archi"
+ },
+ "{n} boundary point\u0004{n} boundary points": {
+  "one": "{n} punto di frontiera",
+  "other": "{n} punti di frontiera"
+ },
+ "{n} circle\u0004{n} circles": {
+  "one": "{n} circonferenza",
+  "other": "{n} circonferenze"
+ },
  "{n} fps": "{n} fps",
- "{n} interior point\u0004{n} interior points": {"one": "{n} punto interno", "other": "{n} punti interni"},
- "{n} line\u0004{n} lines": {"one": "{n} retta", "other": "{n} rette"},
- "{n} marked point\u0004{n} marked points": {"one": "{n} punto marcato", "other": "{n} punti marcati"},
+ "{n} interior point\u0004{n} interior points": {
+  "one": "{n} punto interno",
+  "other": "{n} punti interni"
+ },
+ "{n} line\u0004{n} lines": {
+  "one": "{n} retta",
+  "other": "{n} rette"
+ },
+ "{n} marked point\u0004{n} marked points": {
+  "one": "{n} punto marcato",
+  "other": "{n} punti marcati"
+ },
  "{n} of {m}": "{n} di {m}",
- "{n} or more pole: {items}{andMore}\u0004{n} or more poles: {items}{andMore}": {"one": "{n} o più poli: {items}{andMore}", "other": "{n} o più poli: {items}{andMore}"},
- "{n} or more zero: {items}{andMore}\u0004{n} or more zeros: {items}{andMore}": {"one": "{n} o più zeri: {items}{andMore}", "other": "{n} o più zeri: {items}{andMore}"},
- "{n} point\u0004{n} points": {"one": "{n} punto", "other": "{n} punti"},
- "{n} pole\u0004{n} poles": {"one": "{n} polo", "other": "{n} poli"},
- "{n} pole: {items}{andMore}\u0004{n} poles: {items}{andMore}": {"one": "{n} polo: {items}{andMore}", "other": "{n} poli: {items}{andMore}"},
- "{n} preimage{where} of\u0004{n} preimages{where} of": {"one": "{n} controimmagine{where} di", "other": "{n} controimmagini{where} di"},
- "{n} ray\u0004{n} rays": {"one": "{n} semiretta", "other": "{n} semirette"},
- "{n} saved item could not be restored by this version and was left out.\u0004{n} saved items could not be restored by this version and were left out.": {"one": "{n} elemento salvato non è ripristinabile in questa versione ed è stato omesso.", "other": "{n} elementi salvati non sono ripristinabili in questa versione e sono stati omessi."},
- "{n} segment\u0004{n} segments": {"one": "{n} segmento", "other": "{n} segmenti"},
- "{n} shape\u0004{n} shapes": {"one": "{n} figura", "other": "{n} figure"},
- "{n} shape is now undefined.\u0004{n} shapes are now undefined.": {"one": "{n} figura non è più definita.", "other": "{n} figure non sono più definite."},
- "{n} shape no longer follows it.\u0004{n} shapes no longer follow it.": {"one": "{n} figura non ne dipende più.", "other": "{n} figure non ne dipendono più."},
- "{n} times\u0004{n} times": {"one": "{n} volta", "other": "{n} volte"},
- "{n} traced curve\u0004{n} traced curves": {"one": "{n} curva tracciata", "other": "{n} curve tracciate"},
- "{n} zero\u0004{n} zeros": {"one": "{n} zero", "other": "{n} zeri"},
- "{n} zero: {items}{andMore}\u0004{n} zeros: {items}{andMore}": {"one": "{n} zero: {items}{andMore}", "other": "{n} zeri: {items}{andMore}"},
- "{n} zero–pole pairs cancel\u0004{n} zero–pole pairs cancel": {"one": "{n} coppia zero–polo si semplifica", "other": "{n} coppie zero–polo si semplificano"},
- "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {"one": "{n} coppia zero–polo si semplifica in {at}", "other": "{n} coppie zero–polo si semplificano in {at}"},
+ "{n} or more pole: {items}{andMore}\u0004{n} or more poles: {items}{andMore}": {
+  "one": "{n} o più poli: {items}{andMore}",
+  "other": "{n} o più poli: {items}{andMore}"
+ },
+ "{n} or more zero: {items}{andMore}\u0004{n} or more zeros: {items}{andMore}": {
+  "one": "{n} o più zeri: {items}{andMore}",
+  "other": "{n} o più zeri: {items}{andMore}"
+ },
+ "{n} point\u0004{n} points": {
+  "one": "{n} punto",
+  "other": "{n} punti"
+ },
+ "{n} pole\u0004{n} poles": {
+  "one": "{n} polo",
+  "other": "{n} poli"
+ },
+ "{n} pole: {items}{andMore}\u0004{n} poles: {items}{andMore}": {
+  "one": "{n} polo: {items}{andMore}",
+  "other": "{n} poli: {items}{andMore}"
+ },
+ "{n} preimage{where} of\u0004{n} preimages{where} of": {
+  "one": "{n} controimmagine{where} di",
+  "other": "{n} controimmagini{where} di"
+ },
+ "{n} ray\u0004{n} rays": {
+  "one": "{n} semiretta",
+  "other": "{n} semirette"
+ },
+ "{n} saved item could not be restored by this version and was left out.\u0004{n} saved items could not be restored by this version and were left out.": {
+  "one": "{n} elemento salvato non è ripristinabile in questa versione ed è stato omesso.",
+  "other": "{n} elementi salvati non sono ripristinabili in questa versione e sono stati omessi."
+ },
+ "{n} segment\u0004{n} segments": {
+  "one": "{n} segmento",
+  "other": "{n} segmenti"
+ },
+ "{n} shape\u0004{n} shapes": {
+  "one": "{n} figura",
+  "other": "{n} figure"
+ },
+ "{n} shape is now undefined.\u0004{n} shapes are now undefined.": {
+  "one": "{n} figura non è più definita.",
+  "other": "{n} figure non sono più definite."
+ },
+ "{n} shape no longer follows it.\u0004{n} shapes no longer follow it.": {
+  "one": "{n} figura non ne dipende più.",
+  "other": "{n} figure non ne dipendono più."
+ },
+ "{n} times\u0004{n} times": {
+  "one": "{n} volta",
+  "other": "{n} volte"
+ },
+ "{n} traced curve\u0004{n} traced curves": {
+  "one": "{n} curva tracciata",
+  "other": "{n} curve tracciate"
+ },
+ "{n} zero\u0004{n} zeros": {
+  "one": "{n} zero",
+  "other": "{n} zeri"
+ },
+ "{n} zero: {items}{andMore}\u0004{n} zeros: {items}{andMore}": {
+  "one": "{n} zero: {items}{andMore}",
+  "other": "{n} zeri: {items}{andMore}"
+ },
+ "{n} zero–pole pairs cancel\u0004{n} zero–pole pairs cancel": {
+  "one": "{n} coppia zero–polo si semplifica",
+  "other": "{n} coppie zero–polo si semplificano"
+ },
+ "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {
+  "one": "{n} coppia zero–polo si semplifica in {at}",
+  "other": "{n} coppie zero–polo si semplificano in {at}"
+ },
  "{p} % done": "{p} % completato",
  "{sym} along {name}{part}": "{sym} lungo {name}{part}",
  "{sym} around {name}{part}": "{sym} attorno a {name}{part}",
@@ -2986,7 +3139,6 @@
  "Times: a whole number, or a number’s name to run its slider": "Volte: un numero intero, o il nome di un numero per guidarle con il suo cursore",
  "n is the index of a series: pick another letter": "n è l’indice di una serie: scegli un’altra lettera",
  "{x} is the variable of a recurrence in the chain: pick another letter": "{x} è la variabile di una ricorrenza nella catena: scegli un’altra lettera",
- "Pattern: {name}": "Motivo: {name}",
  "Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.": "Stile Cauchy: F non è finita sulla curva (vi giace un polo), quindi il suo integrale di Cauchy non è definito.",
  "Both parts: f₊ inside the curve, f₋ outside it": "Entrambe le parti: f₊ dentro la curva, f₋ fuori",
  "Inside": "Dentro",
@@ -3109,6 +3261,13 @@
  "in {w}": "in {w}",
  "Place on the chain": "Posizione nella catena",
  "colour from {p}": "colore da {p}",
+ "Add a function to send z through it.": "Aggiungi una funzione per farci passare z.",
+ "Showing f{k} alone, from {a} to {b}": "Mostro solo f{k}, da {a} a {b}",
+ "Open in the Inspector": "Apri nell'Ispettore",
+ "Bypassed f{x} ({name}).": "Passo f{x} escluso ({name}).",
+ "Turned f{x} back on.": "Passo f{x} riattivato.",
+ "More for f{x} {name}": "Altro per f{x} {name}",
+ "The step shown alone is coloured from its own plane": "Il passo mostrato da solo è colorato dal proprio piano",
  "Scroll to zoom in Y, or drag to pan.": "Scorri per lo zoom in Y, o trascina per spostare.",
  "Pinch in Y, or drag.": "Pizzica in Y, o trascina.",
  "Y moved on its own: X keeps its view.": "Y si è mosso da solo: X conserva la sua vista.",
@@ -3149,5 +3308,15 @@
  "A clicked card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step's own coefficients carry its index, as $a_2$ here.": "Facendo clic su una scheda se ne apre l'editor nel pannello, con X e Y affiancati sopra, così l'immagine cambia mentre scrivi. I coefficienti propri di un passo sono contrassegnati dal suo indice, come qui $a_2$.",
  "The editor edits the clicked step, here $f_2$.": "L'editor modifica il passo selezionato, qui $f_2$.",
  "Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.": "Tocca la tessera F alla fine della catena e l'Ispettore mostra dove è definito ogni passo: qui ogni $z$ tranne i poli $\\pm i$, cioè $z\\notin\\{i,-i\\}$.",
- "Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.": "Fai clic sulla tessera F alla fine della catena e il suo editor mostra dove è definito ogni passo: qui ogni $z$ tranne i poli $\\pm i$, cioè $z\\notin\\{i,-i\\}$."
+ "Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.": "Fai clic sulla tessera F alla fine della catena e il suo editor mostra dove è definito ogni passo: qui ogni $z$ tranne i poli $\\pm i$, cioè $z\\notin\\{i,-i\\}$.",
+ "The grid step is now {x}, fitted to the shapes; Regions → Grid step changes it.": "Il passo della griglia ora è {x}, adattato alle figure; «Regioni → Passo della griglia» lo cambia.",
+ "Phase of z": "Fase di z",
+ "phase of ": "fase di ",
+ "Regions key: point at it to unfold, click to keep it open": "Legenda delle regioni: passa il puntatore per aprirla, fai clic per tenerla aperta",
+ "coloured by the phase of %{z}": "a colori secondo la fase di %{z}",
+ "Regions are coloured by the phase of z, carried by the map": "Le regioni sono colorate secondo la fase di z, trasportata dalla funzione",
+ "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.": "X mostra le tue figure, qui la striscia $|\\operatorname{Im} z|<\\pi/2$, colorata secondo la fase di $z$, con una griglia nelle coordinate $z$. Pizzica per lo zoom e trascina un'area vuota per spostare la vista.",
+ "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.": "X mostra le tue figure, qui la striscia $|\\operatorname{Im} z|<\\pi/2$, colorata secondo la fase di $z$, con una griglia nelle coordinate $z$. Scorri per lo zoom, trascina un'area vuota per spostare la vista e {Z} adatta la vista a entrambi i piani.",
+ "Draw with the tools of the bottom row (its More key holds the others and a formula box), or type a set in that box, such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears in <i>Y</i>; the fill fades out where the mesh ends. Regions are coloured by the phase of <i>z</i>, with grid lines in <i>z</i>-coordinates, both carried along by the map, so every point can be followed.": "Disegna con gli strumenti della fila in basso (il suo tasto «Altro» contiene gli altri e un campo per le formule), oppure digita in quel campo un insieme come <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> o <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Le formule accettano <i>and</i>, <i>or</i>, <i>not</i>, virgole, disuguaglianze concatenate e <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Un'equazione è una curva: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> è una retta, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> un arco; rette, semirette, segmenti, circonferenze e archi diventano figure con maniglie, mentre altre curve come <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> vengono tracciate esattamente. Un insieme o una curva in <i>w</i> è un bersaglio del piano <i>w</i>. Le regioni illimitate vengono triangolate ben oltre la finestra visibile, quindi in <i>Y</i> compare la loro immagine intera; il riempimento sfuma dove finisce la triangolazione. Le regioni sono colorate secondo la fase di <i>z</i>, con le linee della griglia nelle coordinate <i>z</i>, entrambe trasportate dalla funzione, così si può seguire ogni punto.",
+ "Draw with the tools on the left, or type a set such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. Regions are coloured by the phase of <i>z</i>, with grid lines in <i>z</i>-coordinates, both carried along by the map, so every point can be followed.": "Disegna con gli strumenti a sinistra, oppure digita un insieme come <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> o <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Le formule accettano <i>and</i>, <i>or</i>, <i>not</i>, virgole, disuguaglianze concatenate e <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Un'equazione è una curva: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> è una retta, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> un arco; rette, semirette, segmenti, circonferenze e archi diventano figure con maniglie, mentre altre curve come <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> vengono tracciate esattamente. Un insieme o una curva in <i>w</i> è un bersaglio del piano <i>w</i>. Le regioni illimitate vengono triangolate ben oltre la finestra visibile, quindi a destra compare la loro immagine intera; il riempimento sfuma dove finisce la triangolazione. Le regioni sono colorate secondo la fase di <i>z</i>, con le linee della griglia nelle coordinate <i>z</i>, entrambe trasportate dalla funzione, così si può seguire ogni punto."
 }

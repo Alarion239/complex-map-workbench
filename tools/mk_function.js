@@ -34,7 +34,7 @@ vm.createContext(ctx);
 // (the modules are ES modules since #20's phase 4: test/src_text.js gives their text as a script, without the import lines and
 // export { } lines that a vm cannot run; the same files in the same order as test/t_seasong.js)
 const { source } = require('../test/src_text');
-for (const [f, nm] of [['cx', 'CX'], ['symbolic', 'Symbolic'], ['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['funcs', 'Funcs']]) vm.runInContext(source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
+for (const [f, nm] of [['cx', 'CX'], ['symbolic', 'Symbolic'], ['parse', 'Expr'], ['derivs', 'Derivs'], ['natpaths', 'NatPaths'], ['sheets', 'Sheets'], ['formulasteps', 'FormulaSteps'], ['funcs', 'Funcs']]) vm.runInContext(source(f + '.js', { esm: 'strip' }) + `\n;globalThis.${nm} = ${nm};`, ctx, { filename: f + '.js' });
 const Expr = ctx.Expr;
 const C = (re, im) => ({ re, im });
 const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);

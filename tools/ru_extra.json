@@ -38,10 +38,20 @@
  "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной или кнопка «Касательная» даёт касательную, щелчок по кольцу — касательную из точки. Кривая остаётся выбранной для следующей.",
  "Tangent line": "Касательная",
  "The tangent at {a} (Enter)": "Касательная в точке {a} (Enter)",
- "{n} times\u0004{n} times": {"one": "%{n} раз", "few": "%{n} раза", "many": "%{n} раз", "other": "%{n} раза"},
+ "{n} times\u0004{n} times": {
+  "one": "%{n} раз",
+  "few": "%{n} раза",
+  "many": "%{n} раз",
+  "other": "%{n} раза"
+ },
  "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (главная ветвь), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
  "A zero and a pole cancel at {at}": "Нуль и полюс сокращаются в точке %{at}",
- "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {"one": "%{n} пара «нуль — полюс» сокращается (%{at})", "few": "%{n} пары «нуль — полюс» сокращаются (%{at})", "many": "%{n} пар «нуль — полюс» сокращаются (%{at})", "other": "%{n} пары «нуль — полюс» сокращаются (%{at})"},
+ "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {
+  "one": "%{n} пара «нуль — полюс» сокращается (%{at})",
+  "few": "%{n} пары «нуль — полюс» сокращаются (%{at})",
+  "many": "%{n} пар «нуль — полюс» сокращаются (%{at})",
+  "other": "%{n} пары «нуль — полюс» сокращаются (%{at})"
+ },
  "the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})": "прямолинейная гомотопия $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})",
  "The GPU could not compile this chain ({err}).": "Видеокарта не смогла скомпилировать эту цепочку (%{err}).",
  "arcctg (arccot) is not available: write arctg(1/z)": "Функции arcctg (arccot) здесь нет: пишите arctg(1/z)",
@@ -52,7 +62,12 @@
  "\\text{grid } %{x}\\times%{y}": "\\text{сетка } %{x}\\times%{y}",
  "Previous step": "Предыдущий шаг",
  "Next step": "Следующий шаг",
- "{n} step\u0004{n} steps": {"one": "%{n} шаг", "few": "%{n} шага", "many": "%{n} шагов", "other": "%{n} шага"},
+ "{n} step\u0004{n} steps": {
+  "one": "%{n} шаг",
+  "few": "%{n} шага",
+  "many": "%{n} шагов",
+  "other": "%{n} шага"
+ },
  "style\u0004Cauchy": "Коши",
  "The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.": "Шаги применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Откройте цепочку кнопкой шагов под плоскостями и коснитесь шага: откроется его редактор, а «Показать отдельно» там покажет только этот шаг, X и Y станут его входом и выходом.",
  "Open the chain, tap $f_1$, then Show alone.": "Откройте цепочку, затем $f_1$ и «Показать отдельно».",
@@ -65,8 +80,18 @@
  "tool\u0004Polygon": "Много­угольник",
  "tool\u0004Half-plane": "Полу­плоскость",
  "log, √ and powers use arg ∈ {iv}": "ln, √ и степени используют arg ∈ %{iv}",
- "{n} zero\u0004{n} zeros": {"one": "%{n} нуль", "few": "%{n} нуля", "many": "%{n} нулей", "other": "%{n} нуля"},
- "{n} pole\u0004{n} poles": {"one": "%{n} полюс", "few": "%{n} полюса", "many": "%{n} полюсов", "other": "%{n} полюса"},
+ "{n} zero\u0004{n} zeros": {
+  "one": "%{n} нуль",
+  "few": "%{n} нуля",
+  "many": "%{n} нулей",
+  "other": "%{n} нуля"
+ },
+ "{n} pole\u0004{n} poles": {
+  "one": "%{n} полюс",
+  "few": "%{n} полюса",
+  "many": "%{n} полюсов",
+  "other": "%{n} полюса"
+ },
  " Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}%{clause}.": " Кривые — пути %{p} для %{parts}: от %{z} (кружок) до %{end} (точка), с маленькими точками при %{q1} и %{q3} и стрелкой при %{q2}%{clause}.",
  " The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (circle) to $%{F}(z)$ (dot).": " Кривая — путь $t\\mapsto H_t(z)$ точки %{p}: от $z$ (кружок) до $%{F}(z)$ (точка).",
  " Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (circle) to $%{F}(z)$ (dot).": " Кривые — пути $t\\mapsto H_t(z)$ точек %{list}: от $z$ (кружок) до $%{F}(z)$ (точка).",
@@ -491,6 +516,13 @@
  "d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw": "d/dz — не отображение, поэтому путей t ↦ Hₜ(z) нет",
  "Deformation: hide the paths t ↦ Hₜ(z)": "Деформация: скрыть пути t ↦ Hₜ(z)",
  "Deformation: show the paths t ↦ Hₜ(z)": "Деформация: показать пути t ↦ Hₜ(z)",
+ "Add a function to send z through it.": "Добавьте функцию, чтобы провести z через неё.",
+ "Showing f{k} alone, from {a} to {b}": "Показан только f%{k}: из %{a} в %{b}",
+ "Open in the Inspector": "Открыть в Инспекторе",
+ "Bypassed f{x} ({name}).": "Шаг f%{x} отключён (%{name}).",
+ "Turned f{x} back on.": "Шаг f%{x} снова включён.",
+ "More for f{x} {name}": "Ещё для f%{x} %{name}",
+ "The step shown alone is coloured from its own plane": "Отдельно показанный шаг окрашен от своей плоскости",
  "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to select it, and the Inspector edits it. Show alone there shows that step alone: X and Y become its input and output.": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Коснитесь карточки, чтобы выбрать шаг, и инспектор покажет его параметры. «Показать отдельно» там покажет только этот шаг: X и Y станут его входом и выходом.",
  "The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and click a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.": "Шаги применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Откройте цепочку кнопкой шагов под плоскостями и щёлкните шаг: откроется его редактор, а «Показать отдельно» там покажет только этот шаг, X и Y станут его входом и выходом.",
  "Tap the card $f_1$, then Show alone.": "Коснитесь карточки $f_1$, затем «Показать отдельно».",
@@ -515,5 +547,14 @@
  "A clicked card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step's own coefficients carry its index, as $a_2$ here.": "Карточка, по которой вы щёлкнули, открывает свой редактор на панели снизу, а X и Y встают рядом над ней, так что образ меняется прямо во время ввода. Собственные коэффициенты шага помечены его номером, как здесь $a_2$.",
  "The editor edits the clicked step, here $f_2$.": "Редактор правит выбранный шаг, здесь $f_2$.",
  "Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.": "Коснитесь плитки F в конце цепочки, и инспектор покажет, где определены все шаги: здесь это все $z$, кроме полюсов $\\pm i$, что записано как $z\\notin\\{i,-i\\}$.",
- "Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.": "Щёлкните плитку F в конце цепочки, и её редактор покажет, где определены все шаги: здесь это все $z$, кроме полюсов $\\pm i$, что записано как $z\\notin\\{i,-i\\}$."
+ "Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.": "Щёлкните плитку F в конце цепочки, и её редактор покажет, где определены все шаги: здесь это все $z$, кроме полюсов $\\pm i$, что записано как $z\\notin\\{i,-i\\}$.",
+ "The grid step is now {x}, fitted to the shapes; Regions → Grid step changes it.": "Шаг сетки теперь %{x}: он подобран по фигурам; изменить его можно в «Области → Шаг сетки».",
+ "Phase of z": "Фаза z",
+ "phase of ": "фаза ",
+ "coloured by the phase of %{z}": "цвет по фазе %{z}",
+ "Regions are coloured by the phase of z, carried by the map": "Области окрашены по фазе z, переносимой отображением",
+ "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.": "X показывает ваши фигуры — здесь это полоса $|\\operatorname{Im} z|<\\pi/2$, окрашенная по фазе $z$, с сеткой в координатах $z$. Сводите и разводите пальцы, чтобы менять масштаб, и перетаскивайте пустое место, чтобы сдвигать вид.",
+ "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.": "X показывает ваши фигуры — здесь это полоса $|\\operatorname{Im} z|<\\pi/2$, окрашенная по фазе $z$, с сеткой в координатах $z$. Прокрутка меняет масштаб, перетаскивание пустого места сдвигает вид, а клавиша {Z} вписывает обе плоскости в окно.",
+ "Draw with the tools of the bottom row (its More key holds the others and a formula box), or type a set in that box, such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears in <i>Y</i>; the fill fades out where the mesh ends. Regions are coloured by the phase of <i>z</i>, with grid lines in <i>z</i>-coordinates, both carried along by the map, so every point can be followed.": "Рисуйте инструментами нижнего ряда (его кнопка «Ещё» открывает остальные и поле формулы) или введите в этом поле множество, например <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> или <span class=\"chip ftag\" data-tex=\"0<\\operatorname{Im} z<\\pi\"></span>. В формулах можно использовать <i>and</i>, <i>or</i>, <i>not</i>, запятые, двойные неравенства и переменные <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Уравнение задаёт кривую: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> — прямая, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> — дуга; прямые, лучи, отрезки, окружности и дуги становятся фигурами с маркерами, а остальные кривые, например <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span>, строятся точно. Множество или кривая, заданные через <i>w</i>, — это цель в плоскости <i>w</i>. Неограниченные области триангулируются далеко за пределами видимой части, поэтому в <i>Y</i> виден весь их образ; заливка бледнеет там, где кончается триангуляция. Области окрашены по фазе <i>z</i>, с линиями сетки в координатах <i>z</i>; то и другое переносится отображением, так что за каждой точкой можно проследить.",
+ "Draw with the tools on the left, or type a set such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. Regions are coloured by the phase of <i>z</i>, with grid lines in <i>z</i>-coordinates, both carried along by the map, so every point can be followed.": "Рисуйте инструментами слева или введите множество, например <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> или <span class=\"chip ftag\" data-tex=\"0<\\operatorname{Im} z<\\pi\"></span>. В формулах можно использовать <i>and</i>, <i>or</i>, <i>not</i>, запятые, двойные неравенства и переменные <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Уравнение задаёт кривую: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> — прямая, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> — дуга; прямые, лучи, отрезки, окружности и дуги становятся фигурами с маркерами, а остальные кривые, например <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span>, строятся точно. Множество или кривая, заданные через <i>w</i>, — это цель в плоскости <i>w</i>. Неограниченные области триангулируются далеко за пределами видимой части, поэтому справа виден весь их образ; заливка бледнеет там, где кончается триангуляция. Области окрашены по фазе <i>z</i>, с линиями сетки в координатах <i>z</i>; то и другое переносится отображением, так что за каждой точкой можно проследить."
 }

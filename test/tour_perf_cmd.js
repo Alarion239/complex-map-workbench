@@ -15,7 +15,8 @@ for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await ev(`window.__rs = 0; window.__rsLog = []; new ResizeObserver((es) => { window.__rs++; const t = document.querySelector('.tour-strip #tourTitle'); window.__rsLog.push({ h: Math.round(es[0].contentRect.height), step: t ? t.textContent.slice(0, 40) : null, sheet: !!document.querySelector('.ph-sheet:not([hidden])'), fonts: document.fonts.status, ms: Math.round(performance.now()) }); }).observe(document.querySelector('#panes')); 1`);
   await ev(`Tour.start({ chapter: 'views', step: 1 })`); await settle(1800);
   const r0 = await ev('window.__rs');
-  for (let i = 0; i < 4; i++) { await ev('Tour.next()'); await settle(1400); }
+  // (through the chapter's own steps only: Views ends on Phase key, 'key', since its Patterns step went, #363)
+  for (let i = 0; i < 4; i++) { const c = await ev('Tour.current()'); if (!c || c.chapter !== 'views' || c.id === 'key') break; await ev('Tour.next()'); await settle(1400); }
   const r1 = await ev('window.__rs');
   R['resizes_' + w] = { start: r0, inChapter: r1 - r0, log: await ev('window.__rsLog') };
   // (a step that opens a phone's sheet gives the planes the room above it, once; every other change is a fault)
