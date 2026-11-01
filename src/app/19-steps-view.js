@@ -364,12 +364,20 @@
   // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
   // unbounded regions are). Each point z (on plane 0) is coloured with the colour plane's colour of it,
   // dcolor(f_T ∘ … ∘ f_1(z)), wherever the map takes it. Where several points land on one pixel, the one in front is
-  // the tiling's own: its sheet key (inside the camera's window first, away from the map's poles)
+  // the one nearest the window's centre, away from the map's poles (svSheetKey; the inverse pass's IX_CARRY key)
   const SV_ALL = { id: '__svAll', kind: 'disc', c: [1e9, 0], r: 1e-6, complement: true, visible: true };
   function svCarryShapes() {
     if (SV.scope !== 'in' || !svMaskOn()) return [SV_ALL];
-    const areas = S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
+    const areas = visibleAreas();
     return areas.some((x) => shapeStage(x)) ? null : areas;
+  }
+  // the sheet key's parameters for the image on plane b ({win, R, rs, sing}: the tiling's window clipWin, half its
+  // diagonal, R / 8, and carrySing: the accumulation set and the poles of the map to b; with no inverse plan to b, the
+  // window alone): the front point is the one with the least log2(1 + |z - c| / R) + sum log2(rs / |z - p|) over the
+  // points p nearer than rs (c: win's centre), as the inverse pass draws it at rest (its IX_CARRY key, the same sing)
+  function svSheetKey(b) {
+    const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2, plan = b > 0 ? invPlan(0, b) : null;
+    return { win: clipWin, R, rs: R / 8, sing: plan && plan.ok ? carrySing(plan) : [] };
   }
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
@@ -380,8 +388,8 @@
   function svCarryExact(pane, a, T, frame) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || a <= T || derivIn(0, a)) return false;
-    const map = stageMap(a), recs = GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(list.includes(SV_ALL) ? [SV_ALL] : [])).recs;
-    const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
+    const map = stageMap(a), recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
+    const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false, carry: true }));
     if (paths.some((p) => p.path !== 'inverse')) return false;
     const carry = svCarryStyle(T);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
@@ -401,17 +409,19 @@
   // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
   // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape draws so
+  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
+  // the subdivision only places it, and the map at every vertex was most of a glide frame's cost: perf on #587)
+  const SV_CARRY_L = 2;
   function svCarryRegions(pane, map, T, b, frame) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
-    // (the tiling's key of plane b's image, smKeyOf; with no inverse plan to b, its window alone)
-    const key = smKeyOf(stageMap(b)) || (() => { const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2; return { win: clipWin, R, rs: R / 8, sing: [] }; })();
+    const key = svSheetKey(b);
     const carry = svCarryStyle(T);
     for (const x of list) {
       const r = shapeGPU(x);
       if (!r || !r.meshRes) return false;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: MESH_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key })) return false;
+      if (!GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key })) return false;
     }
     return true;
   }
