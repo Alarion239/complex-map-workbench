@@ -552,7 +552,9 @@ const Phone = (() => {
   function geometry() {
     // (v16.4: less the guided tour's strip under the header, --ph-tour, while it shows)
     const H = window.innerHeight - (parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-tour')) || 0);
-    const hp = Math.round(Math.max(180, Math.min(340, H * 0.36)));
+    // (#606: the Edit sheet's head is a 44 px strip, 26 px taller than the 18 px grabber it replaced; the planes give those 26 px,
+    // so the Inspector's scroller keeps the height it had and no tour step's anchor loses room)
+    const hp = Math.round(Math.max(180, Math.min(340, H * 0.36))) - (kind === 'edit' && !nums ? 26 : 0);
     rootEl.style.setProperty('--ph-hp', hp + 'px');
     // the sheet's height less the tool row's: how far the chain bar rides up with it
     const row = ($('secDraw') && $('secDraw').getBoundingClientRect().height) || 56;
@@ -616,6 +618,7 @@ const Phone = (() => {
   function setNums(v) {
     nums = !!v;
     els.sheet.classList.toggle('nums', nums);
+    if (on && kind) geometry();   // (the planes' height follows: the Edit sheet's head is taller than the Numbers')
     if (kind === 'edit') {
       els.title.textContent = nums ? $t('Numbers') : '';
       els.sheet.setAttribute('aria-label', nums ? $t('Numbers') : TITLES().edit);
