@@ -42,13 +42,23 @@
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
   // the map from plane k into the colour plane T, by name (#435): F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
-  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html' or 'text'
+  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html', 'text' or 'tex'
   function svMapName(fmt, k = svStage(), T = svT()) {
-    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html';
+    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html', tex = fmt === 'tex';
     if (!ss.length) return null;
     if (k === 0 && T === P[P.length - 1]) return h5 ? '<i>F</i>' : 'F';
-    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : `f${sub(s)}`), q = ss.slice().reverse();
-    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}∘${f(q[1])}` : `${f(q[0])}∘⋯∘${f(q[q.length - 1])}`;
+    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : tex ? `f_{${s}}` : `f${sub(s)}`), q = ss.slice().reverse();
+    const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
+    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
+  }
+  // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
+  // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is one step
+  function svFigParts() {
+    const k = svStage(), T = svT(), coloured = svColoured(k), [a, b] = coloured ? [k, T] : [0, k];
+    const ss = svPlanes().filter((s) => s > a && s <= b), st = ss.length === 1 ? built[ss[0] - 1] : null;
+    const lvar = k === 0 ? 'z' : `w_{${k}}`, arg = a === 0 ? 'z' : `w_{${a}}`;
+    const raw = st && !st.error ? st.tex({ s: arg, p: 4 }).s : null;
+    return { k, coloured, lvar, arg, name: svMapName('tex', a, b), raw: raw && raw.length < 240 ? raw : null };
   }
   // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
   const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? (fmt === 'html' ? `${m}<span class="rm">(</span>${v}<span class="rm">)</span>` : `${m}(${v})`) : v; };

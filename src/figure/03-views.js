@@ -647,6 +647,8 @@
       else curves.push({ pts: L[k], w: 0.35, color: '#1a1a1a', cap: 'butt', noObst: true });
     }
     const points = zp.map((r) => (r.kind === 'pole' ? { z: [r.z.re, r.z.im], kind: 'ring', r: 1.7, sw: 0.7 } : { z: [r.z.re, r.z.im], r: 1.6, fill: '#000000', stroke: '#ffffff', sw: 0.5 }));
+    // the steps view's stage draws the shapes on its plane, so its figure does too
+    if (A.svOn()) { const lay = planeLayers(o, P, 'L', A.F('L'), box, w, A.shapes(), expandBox(A.screenBox('L0'), 3), null); curves.push(...lay.curves); points.push(...lay.points); }
     const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points, axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('L')}`, `\\operatorname{Im} ${A.panelVar('L')}`] });
     const items = [p.markup, head(x, x + w, top - 3, '', A.panelVar('L'), lp)];
     if (keyW) {
