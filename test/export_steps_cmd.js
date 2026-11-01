@@ -140,7 +140,7 @@ for (const [plane, T] of [[1, null], [2, 1]]) for (const lang of ['ru', 'it']) {
   ok(`${tag}: the caption's formulas parse (no raw TeX)`, r && !r.err && r.bad.length === 0, r);
   ok(`${tag}: the caption names the plane's map`, r && /f_\{2\}|\$F\$|F\(z\)/.test(r.cap), r && r.cap);
 }
-// the filmstrip (#634): one frame per plane of the thread, each the stage's picture of that plane over its window
+// the filmstrip: one frame per plane of the thread, each the stage's picture of that plane over its window
 for (const ex of [1, 18]) {
   await go(`${base}/test.html?view=steps&ns=xsvf${ex}${Date.now() % 1e7}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });

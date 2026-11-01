@@ -295,7 +295,7 @@
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
     viewKind: svFigView,
     svOn: () => SV.on,
-    // the filmstrip (#634): the thread's planes by name, and plane i's picture as the stage shows it (the stage is moved
+    // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it (the stage is moved
     // to it for the one render and back)
     svFrames: () => svPlanes().map((k, i, P) => ({ name: k === 0 ? 'z' : `w_{${k}}`, prev: i ? (P[i - 1] === 0 ? 'z' : `w_{${P[i - 1]}}`) : null, f: i ? `f_{${k}}` : null })),
     svArt: async (i, o) => {

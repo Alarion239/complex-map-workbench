@@ -305,7 +305,7 @@
     }
     return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), tracked, pts, marks, hidden: ptShapes.map((z, q) => ({ z, lab: ptLab[q] })).filter((x, q) => !ptSeen[q]), open: openS.length > 0, outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
   }
-  // the steps view's filmstrip (#634): one frame per plane of the thread, each that plane's picture as its stage shows
+  // the steps view's filmstrip: one frame per plane of the thread, each that plane's picture as its stage shows
   // it (its window, surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1})
   async function figSvFilm(o, P, W, T) {
     const [, lp] = T;

@@ -190,7 +190,7 @@
     const deformOf = () => (dOpts.some((q) => q[0] === set.deform) ? set.deform : 'film');
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
-    // the steps view's picture: the shown plane, or the filmstrip of the whole thread (#634)
+    // the steps view's picture: the shown plane, or the filmstrip of the whole thread
     const svPicRow = A.svOn() ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]], (v) => { set.svPic = v; changed(); }, $t('Picture'))) : null;
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
