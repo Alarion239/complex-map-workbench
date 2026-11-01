@@ -38,6 +38,11 @@ const pick = async (label) => { const r = await ev(`(() => { const b = [...docum
 const undo = async () => { await ev(`document.getElementById('undoBtn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.getElementById('undoBtn').click(); 1`); await settle(400); await ev(`document.querySelectorAll('#toastHost .toast').forEach((x) => x.remove()); 1`); await settle(250); };   // (the Undid message takes the rail while it shows: the next step starts after it)
 const say = () => ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`);
 const quiet = async (what, re) => { await sleep(150); const s = await say(), n = await ev(`!!document.querySelector('.sv-toast') || !!document.querySelector('#toastHost .toast')`), a = await where(); ok(`${what}: no message over the thread, said in the live region, the focus not on <body>`, !n && re.test(s) && a !== 'body', { n, s, a }); };
+// Ctrl+Z, then redo, with the focus on the thread: the same three things as after the edit (nothing over the thread, said, the focus kept)
+const zcycle = async (what) => {
+  await kb('z', { ctrlKey: true }); await quiet(what + ', Ctrl+Z', /^Undid/);
+  await kb('z', { ctrlKey: true, shiftKey: true }); await quiet(what + ', redo', /^Redid/);
+};
 const toast = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent).join(' | ')`);
 
 
@@ -65,6 +70,7 @@ ok('Bypass: the step is off, its chip dashed and struck through, named "bypassed
 ok('… the plane after it is gone from the thread and the view is on w₁', s1.planes.join() === '0,1' && s1.i === 1, s1);
 ok('… the focus stays on the ⋯', (await where()) === 'more2', await where());
 await quiet('Bypass', /Bypassed f₂ \(.*\)/);
+await zcycle('Bypass');
 await undo();
 t = await types(); s1 = await sv();
 ok('Undo turns it back on and puts the view back on w₂', t.join() === 'mobius,pown' && s1.i === 2 && s1.planes.join() === '0,1,2', [t, s1]);
@@ -74,18 +80,21 @@ ok('a bypassed step\'s menu offers Turn this step back on', (await menu()).inclu
 await pick('Turn this step back on');
 ok('… which turns it on', (await types()).join() === 'mobius,pown', await types());
 await quiet('Turn on', /Turned f₂ back on/);
+await zcycle('Turn on');
 await undo(); await undo();
 // move: Alt →, focus follows the step
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`);
 await kb('ArrowRight', { altKey: true }); await settle(400);
 ok('Alt → on f₁ moves it, and its chip keeps the keyboard', (await types()).join() === 'pown,mobius' && (await where()) === 'chip2', [await types(), await where()]);
 await quiet('Move', /Moved .* to f₂/);
+await zcycle('Move');
 await undo();
 ok('Undo moves it back', (await types()).join() === 'mobius,pown', await types());
 // duplicate
 await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Duplicate');
 ok('Duplicate adds a copy after it; the new chip has the keyboard', (await types()).join() === 'mobius,mobius,pown' && (await where()) === 'chip2', [await types(), await where()]);
 await quiet('Duplicate', /Duplicated f₁ as f₂/);
+await zcycle('Duplicate');
 await undo();
 ok('Undo removes the copy', (await types()).length === 2, await types());
 // insert after: the palette, then focus on the new chip
@@ -94,6 +103,7 @@ await ev(`(() => { const i = document.getElementById('palInput'); i.value = 'exp
 await kb('Enter'); await settle(700);
 ok('Insert after f₁ (palette): a step at f₂, the new chip has the keyboard', (await types()).length === 3 && (await where()) === 'chip2', [await types(), await where()]);
 await quiet('Insert', /Added f₂ /);
+await zcycle('Insert');
 await undo();
 // a slow pick keeps the shown plane: the palette stays open for a second, then a function is picked
 await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(400);
@@ -128,6 +138,7 @@ await ev(`document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip').focu
 await kb('Delete'); await settle(400);
 ok('Delete on f₂: removed, the keyboard on f₁\'s ⋯', (await types()).join() === 'mobius' && (await where()) === 'more1' && /Removed f₂/.test(await say()), [await types(), await where(), await say()]);
 await quiet('Remove', /Removed f₂/);
+await zcycle('Remove');
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`);
 await kb('Delete'); await settle(400);
 const em = await ev(`({ n: __cmwP().steps.length, add: !!document.querySelector('#svStrip .sv-add'), msg: !document.querySelector('.sv-empty').hidden, text: document.querySelector('.sv-empty').textContent, prev: document.querySelector('.sv-prev').disabled, next: document.querySelector('.sv-next').disabled, speed: document.querySelector('.sv-speed').disabled, ring: document.querySelector('.sv-thumb').getAttribute('aria-disabled'), planes: __cmwSteps().planes.join() })`);
@@ -148,6 +159,7 @@ await ev(`(() => { const i = document.getElementById('palInput'); i.value = 'sin
 await kb('Enter'); await settle(700);
 ok('a function added from the empty chain: one chip, the keyboard on it, the empty message gone', (await types()).length === 1 && (await where()) === 'chip1' && await ev(`document.querySelector('.sv-empty').hidden`), [await types(), await where()]);
 await quiet('Add', /Added f₁ /);
+await zcycle('Add');
 await axeRun('the thread with chips');
 await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300);
 await axeRun('with a step\'s menu open');

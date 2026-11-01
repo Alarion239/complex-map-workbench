@@ -687,6 +687,14 @@
     const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + document.documentElement.lang;
     if (sig === E.sig) return;
     E.sig = sig;
+    // (the thread is drawn again from the chain: a control with the focus on it, a chip, its ⋯, a plane's node or Whole chain, is
+    // given the focus again, which an undo or a redo by the keyboard needs; one whose step has gone, the + button)
+    const fa = /** @type {HTMLElement | null} */ (document.activeElement);
+    let keep = null;
+    if (fa && E.track.contains(fa)) {
+      const sk = /** @type {HTMLElement | null} */ (fa.closest('.sv-step'));
+      keep = fa.classList.contains('sv-plane') ? { p: fa.dataset.i } : fa.classList.contains('sv-whole') ? { w: 1 } : sk ? { k: +sk.dataset.k, part: fa.classList.contains('sv-more') ? 'more' : 'chip' } : null;
+    }
     E.track.textContent = '';
     E.track.style.setProperty('--n', String(P.length));
     if (al) E.track.append(h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')));
@@ -703,9 +711,16 @@
     if (!al) {
       for (let j = P[P.length - 1] + 1; j <= S.steps.length; j++) E.track.append(svStepEl(j));
     }
+    if (keep) {
+      const el = /** @type {HTMLElement | null} */ (keep.p != null ? E.track.querySelector(`.sv-plane[data-i="${keep.p}"]`) : keep.w ? svEl('whole') : svEl(keep.k, keep.part));
+      const back = el && el.getClientRects().length ? el : null;
+      if (back) back.focus({ preventScroll: true });
+      else SV.refocus = true;   // (the + button, once it is drawn below)
+    }
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
+    if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
