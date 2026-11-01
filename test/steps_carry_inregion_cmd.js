@@ -17,7 +17,8 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-// (quiet: no GL frame pending, the tiling's fix-up landed under a parked map, and no SphereMesh job left)
+// (quiet: no GL frame pending, the tiling's fix-up landed under a parked map, and no SphereMesh job left; up to 60 s,
+// as SwiftShader meshes the SV role's SphereMesh of an exp or sin chain in tens of seconds on the CPU renderer)
 const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length' }); };
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
