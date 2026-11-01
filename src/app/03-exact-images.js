@@ -457,7 +457,8 @@
     ctx.restore();
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
-  // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes)}
+  // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
+  // fills (the fills alone, no strokes: a mask of the regions, #440)}
   function drawScene(pane, map, role, opt = {}) {
     const list = S.shapes.filter((s) => s.visible !== false);
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
@@ -671,7 +672,7 @@
     // a bounded shape whose preparation waited (frame budget) is drawn inverse on the next frame
     if (live && prepDeferred) { prepDeferred = false; requestRender(role); }
     const halo = GLR.hexRGB(TH.halo);
-    for (const s of hideStrokes || artMode ? [] : list) {
+    for (const s of hideStrokes || artMode || opt.fills ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
       const sm = shapeMap(s, map);
