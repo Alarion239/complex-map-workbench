@@ -5,9 +5,8 @@
 //   CMW_VIEW=steps: a suite tagged steps({ pin: true }) in ci/suite_views.js, #620).
 // - A URL that names a view keeps it: ?view=steps (the app reads it itself) or ?view=classic. A page that set
 //   window.cmwView itself keeps that.
-// The app opens the classic view by default and the steps view for cmwView === 'steps' or ?view=steps; when K2 makes
-// the steps view the default, it must read cmwView === 'classic' as the classic view, so an unported suite keeps
-// testing what it tests now.
+// The app opens the classic view by default, and the steps view for cmwView === 'steps' or ?view=steps.
+// (test/t_pin_view.js runs this in a sandbox; test/pin_view_cmd.js checks the pin in the browser.)
 (() => {
   try {
     const asked = new URLSearchParams(location.search).get('view');

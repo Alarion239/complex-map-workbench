@@ -1,6 +1,7 @@
 'use strict';
-// (#620, K1 item 1) Which view each browser suite tests, for the switch-over to the steps view (#443: K1 suites and
-// exports, K2 the default flip, K3 the classic views deleted). Every runnable suite (ci/browser_shards.js) has exactly
+// (#620, K1 item 1) Which view each browser suite tests, for the switch-over to the steps view. The plan is #443 and its
+// sub-issues: K1 (#620) ports the suites and the exports, K2 makes the steps view the default, K3 deletes the classic
+// views. Every runnable suite (ci/browser_shards.js) has exactly
 // one entry; `node ci/browser_shards.js check` fails without one. The kit pins every page to the classic view unless
 // its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
 //   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
@@ -23,6 +24,7 @@ const AREAS = ['interact', 'phone', 'words', 'export', 'geometry', 'render', 'so
 const VIEWS = {
   // already in the steps view
   'example_lane_cut_cmd.js': steps(),
+  'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
