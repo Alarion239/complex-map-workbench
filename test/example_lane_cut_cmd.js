@@ -22,7 +22,7 @@ const PROBE = `(() => {
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 844]]) {
   const tag = `${lang} ${w}`;
   await view(w, h, false, true);
-  await go(`http://localhost:${PORT}/test.html?ns=exlane-${lang}-${w}-${Date.now() % 1000000}&view=steps${lang === 'en' ? '' : '&lang=' + lang}`); await settled({ until: `typeof __cmwExample === 'function' && typeof Tour !== 'undefined'` });
+  await go(`http://localhost:${PORT}/test.html?ns=exlane-${lang}-${w}-${Date.now() % 1000000}&view=steps${lang === 'en' ? '' : '&lang=' + lang}`); await settled({ until: `typeof Tour !== 'undefined' && (() => { try { return __cmwExample(0); } catch (e) { return false; } })()` });   // (the examples can be opened: the first one did)
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
   let n = 0, grown = 0, maxLines = 2, lastName = null; const tooLong = [];
   for (let i = 0; i < 60; i++) {
