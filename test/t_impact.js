@@ -56,11 +56,17 @@ for (const f of ['src/phone.css', 'src/desk.css', 'src/page.html', 'src/app/19-s
   ok('T1: layout_baseline.json without a diff (or unreadable) -> both', same(lb(undefined), ['layout-1', 'layout-2', 'smoke']) && same(lb(null), ['layout-1', 'layout-2', 'smoke']), [lb(undefined), lb(null)]);
   // (runsOfDiff on real commits, git show at both: 7c06b290 changed every run's matrix and rows (#565); a commit
   // against itself changes none; a revision git does not know cannot be read: null, so every run)
+  // (the Gate's unit job checks out the whole history, fetch-depth 0; a shallow clone without these commits skips them,
+  // saying so, rather than failing for a reason that is not the change's)
   const { runsOfDiff } = require('../ci/impact.js');
-  const real = runsOfDiff('7c06b290~1', '7c06b290', 'ci/layout_baseline.json');
-  ok('runsOfDiff, a real commit that changed every run -> en, ru, it', same(real || [], ['en', 'ru', 'it']), real);
-  ok('runsOfDiff, a commit against itself -> no run', same(runsOfDiff('7c06b290', '7c06b290', 'ci/layout_baseline.json') || ['?'], []));
-  ok('runsOfDiff, an unknown revision -> null (every run)', runsOfDiff('0000000000000000000000000000000000000000', '7c06b290', 'ci/layout_baseline.json') === null);
+  const has = (rev) => { try { require('child_process').execFileSync('git', ['cat-file', '-e', `${rev}^{commit}`], { cwd: require('path').join(__dirname, '..'), stdio: 'ignore' }); return true; } catch (e) { return false; } };
+  if (!has('7c06b290') || !has('7c06b290~1')) console.log('SKIP runsOfDiff on real commits: 7c06b290 or its parent is not in this clone (a shallow checkout); the Gate runs it');
+  else {
+    const real = runsOfDiff('7c06b290~1', '7c06b290', 'ci/layout_baseline.json');
+    ok('runsOfDiff, a real commit that changed every run -> en, ru, it', same(real || [], ['en', 'ru', 'it']), real);
+    ok('runsOfDiff, a commit against itself -> no run', same(runsOfDiff('7c06b290', '7c06b290', 'ci/layout_baseline.json') || ['?'], []));
+  }
+  ok('runsOfDiff, an unknown revision -> null (every run)', runsOfDiff('0000000000000000000000000000000000000000', 'HEAD', 'ci/layout_baseline.json') === null);
 }
 // (the languages' tables also run the layout gate's Russian and Italian shard, #470)
 for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layout-2`, same(select([f]).browser, [...AREAS.i18n, ...AREAS['layout-i18n'], 'smoke']), select([f]).browser);
