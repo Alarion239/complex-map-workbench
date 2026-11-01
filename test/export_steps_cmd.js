@@ -87,13 +87,13 @@ for (const c of CASES) {
   const scrBox = c.surf === 'plane' ? await ev(`__cmwStageBox()`) : null;
   if (scrBox) {
     // the figure's window is the stage's (As on screen; the axes snap it to their ticks, so a little of it may go)
-    const ar = (b) => (b.x1 - b.x0) * (b.y1 - b.y0), ix = fig.box && { x0: Math.max(scrBox.x0, fig.box.x0), x1: Math.min(scrBox.x1, fig.box.x1), y0: Math.max(scrBox.y0, fig.box.y0), y1: Math.min(scrBox.y1, fig.box.y1) };
-    const cover = ix && ix.x1 > ix.x0 && ix.y1 > ix.y0 ? ar(ix) / ar(scrBox) : 0;
+    const area = (b) => (b.x1 - b.x0) * (b.y1 - b.y0), overlap = fig.box && { x0: Math.max(scrBox.x0, fig.box.x0), x1: Math.min(scrBox.x1, fig.box.x1), y0: Math.max(scrBox.y0, fig.box.y0), y1: Math.min(scrBox.y1, fig.box.y1) };
+    const cover = overlap && overlap.x1 > overlap.x0 && overlap.y1 > overlap.y0 ? area(overlap) / area(scrBox) : 0;
     ok(`${tag}: the figure shows the stage's window (80% of it or more)`, cover >= 0.8, { cover: +cover.toFixed(3), stage: scrBox, fig: fig.box });
   }
   const cbox = (im, sel) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (let y = 0; y < im.h; y += 2) for (let x = 0; x < im.w; x += 2) { if (sel && !sel(x, y)) continue; if (chroma(px(im, x, y)) >= 50) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } } return { x0, y0, x1, y1 }; };
   const freeAt = (x, y) => free[Math.min(GRID[1] - 1, Math.floor(y / scr.h * GRID[1])) * GRID[0] + Math.min(GRID[0] - 1, Math.floor(x / scr.w * GRID[0]))] === 1;
-  const bS = c.surf === 'sphere' ? cbox(scr, freeAt) : null, bA = c.surf === 'sphere' ? cbox(art) : null;
+  const stageInk = c.surf === 'sphere' ? cbox(scr, freeAt) : null, figInk = c.surf === 'sphere' ? cbox(art) : null;
   let n = 0, agree = 0;
   const bad = [];
   for (let j = 0; j < GRID[1]; j++) for (let i = 0; i < GRID[0]; i++) {
@@ -105,12 +105,12 @@ for (const c of CASES) {
       const wx = scrBox.x0 + (i + 0.5) / GRID[0] * (scrBox.x1 - scrBox.x0), wy = scrBox.y1 - (j + 0.5) / GRID[1] * (scrBox.y1 - scrBox.y0);
       if (wx < fig.box.x0 || wx > fig.box.x1 || wy < fig.box.y0 || wy > fig.box.y1) continue;
       ax = (wx - fig.box.x0) / (fig.box.x1 - fig.box.x0) * art.w; ay = (fig.box.y1 - wy) / (fig.box.y1 - fig.box.y0) * art.h;
-    } else if (bS) { ax = bA.x0 + (sx - bS.x0) / (bS.x1 - bS.x0) * (bA.x1 - bA.x0); ay = bA.y0 + (sy - bS.y0) / (bS.y1 - bS.y0) * (bA.y1 - bA.y0); }
+    } else if (stageInk) { ax = figInk.x0 + (sx - stageInk.x0) / (stageInk.x1 - stageInk.x0) * (figInk.x1 - figInk.x0); ay = figInk.y0 + (sy - stageInk.y0) / (stageInk.y1 - stageInk.y0) * (figInk.y1 - figInk.y0); }
     else continue;
     const a = med(art, ax, ay, 1);
     n++;
     // (the sphere: the hue, within HUE degrees; the figure's globe is lit and shaded as print, the stage's as the screen)
-    const same = bS ? hueDiff(a, q) <= HUE : a.every((v, k) => Math.abs(v - q[k]) <= TOL);
+    const same = stageInk ? hueDiff(a, q) <= HUE : a.every((v, k) => Math.abs(v - q[k]) <= TOL);
     if (same) agree++; else if (bad.length < 4) bad.push({ cell: [i, j], stage: q, fig: a });
   }
   info[tag] = { cells: n, agree: n ? +(agree / n).toFixed(3) : null };
@@ -122,15 +122,15 @@ await go(`${base}/test.html?view=steps&ns=xsvl${Date.now() % 1e7}`);
 await settled({ until: 'window.MathJax && typeof MathJax.tex2mml === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
 await ev(`(__cmwExample(1), 1)`);
 await settled({ until: '__cmwSteps().planes.length > 2', max: 15000, floor: 300 });
-for (const [go1, T] of [[1, null], [2, 1]]) for (const lang of ['ru', 'it']) {
-  await ev(`(${T != null ? `__cmwSteps({ T: ${T} }),` : ''} __cmwSteps({ go: ${go1}, now: true }), 1)`);
+for (const [plane, T] of [[1, null], [2, 1]]) for (const lang of ['ru', 'it']) {
+  await ev(`(${T != null ? `__cmwSteps({ T: ${T} }),` : ''} __cmwSteps({ go: ${plane}, now: true }), 1)`);
   await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 300 });
   await ev(`window.__xsv = null; Figure.build({ lang: '${lang}' }).then((f) => { const cap = String(f && f.captionTex || ''), bad = [];
     for (const m of cap.match(/\$[^$]+\$|\\\[[\s\S]*?\\\]/g) || []) { const t = m.replace(/^\$|\$$|^\\\[|\\\]$/g, ''); try { const d = new DOMParser().parseFromString(MathJax.tex2mml(t, { display: false }), 'application/xml'); if (d.querySelector('merror') || d.querySelector('[mathcolor="red"]')) bad.push(t.slice(0, 60)); } catch (e) { bad.push('throws ' + t.slice(0, 40)); } }
     window.__xsv = { cap: cap.slice(0, 200), bad }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xsv != null', max: 90000, panes: false });
   const r = await ev('window.__xsv');
-  const tag = `${lang}, plane ${go1}${T != null ? ', past the colour plane' : ''}`;
+  const tag = `${lang}, plane ${plane}${T != null ? ', past the colour plane' : ''}`;
   ok(`${tag}: the caption's formulas parse (no raw TeX)`, r && !r.err && r.bad.length === 0, r);
   ok(`${tag}: the caption names the plane's map`, r && /f_\{2\}|\$F\$|F\(z\)/.test(r.cap), r && r.cap);
 }
