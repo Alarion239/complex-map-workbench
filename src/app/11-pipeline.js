@@ -987,6 +987,7 @@
     chainChanged(true);
     keepShown(j + 1, 0, k);   // (v16.5 UX01: a step shown alone stays shown, wherever it moved)
     commit();
+    tourEmit('step-moved', { k: j + 1, from: k });
     undoToast($t('Moved {name} to f{x}.', { name: defOf(st).label, x: sub(j + 1) }));
     return cardButton(j + 1); // the moved card keeps the keyboard focus
   }
