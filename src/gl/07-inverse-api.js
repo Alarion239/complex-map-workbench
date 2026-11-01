@@ -124,7 +124,7 @@
   // compilers cannot fold, so its text is new to the machine (macOS caches compiled Metal libraries system-wide, and
   // ANGLE strips comments): its compile and first draw are cold, as on a user's first visit
   let coldNonce = 0;
-  // (#584) the carried colour's variant of the inverse program (extra = INV_CARRY): each covering sheet's point z on
+  // the carried colour's variant of the inverse program (extra = INV_CARRY): each covering sheet's point z on
   // plane uGs is shaded with the colour plane's colour of it, dcolor(G(z)), G the stages (uGs, uGt] (the forward
   // chain's chainRange, compiled in beside the walker), its footprints from the walk's dz across and down a pixel
   // (dcolorD: the screen's derivatives mean nothing inside the walk)
@@ -199,7 +199,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const info = cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
-    // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws, #584)
+    // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
     const ik = inv.key + (extra && extra.carry ? '|carry' : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
     const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
@@ -435,7 +435,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!rec || !rec.ok) return 'error';
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    // (#584 st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
+    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
     const extra = st.carry && !globe ? INV_CARRY : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a

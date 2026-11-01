@@ -190,8 +190,8 @@
   // a usable meshing window: finite, positive size (a degenerate one, e.g. restored from old saved state, would
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
-  // (o.base: the mesh's base resolution instead of the drawing's (#584: the steps view's whole-plane carry mesh, which
-  // has no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it)
+  // (o.base: the mesh's base resolution, overriding the drawing's: the steps view's whole-plane carry mesh, which has
+  // no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it)
   function shapeGPU(s, o) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
     const win = winOf(s);
@@ -562,7 +562,7 @@
     r.fix[role] = fx;
     return fx;
   }
-  // #584: the fix-up of shape s's mesh under the steps view's map at rest or parked (F its CPU map): the same job
+  // the fix-up of shape s's mesh under the steps view's map at rest or parked (F its CPU map): the same job
   // (fixGen in idle slices, computeFix) as the tiling's, in r.fix.SV by the map's key, so a carried colour whose
   // cells the map bends too much (near a pole of a branch's continuation, the Joukowski path's disc at t = 0.3) is
   // refined there as a region's is. -> the fix-up, or null until it lands (the job then redraws the left pane)

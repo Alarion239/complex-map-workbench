@@ -206,8 +206,7 @@ for (const name of ['expH', 'zi_H', 'e1z_disc']) {
 // (h) golden emulation: today's forward draw (emulated) vs the inverse render of the bounded controls. Where a region
 // covers a pixel more than once, both show the front point of the one sheet key the region tiling, the pre-mapped
 // meshes and the steps view's colours share (Inverse.sheetKey: the point nearest the window's centre, the poles
-// penalised, keys within TIE_D tied and ordered by the tie rule; #584). The golden was the meshes' build order (the
-// last triangle drawn in front) until #584 made that key the forward draw's depth too
+// penalised, keys within TIE_D tied and ordered by the tie rule), which is also the forward draw's depth
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (h) golden emulation');
 {
@@ -285,8 +284,8 @@ console.log('--- (h) golden emulation');
       check(`golden ${name}.${variant} <= 0.05 %`, gd.frac <= 0.0005, `${(100 * gd.frac).toFixed(3)} %`);
     }
   }
-  // the key is continuous (#584): no tie class (the old key's D = 0 over the whole window, ordered by the tie rule
-  // alone, flipped sheets along the window's sides). Along a line from the window's centre out across its side, D
+  // the key is continuous: no tie class (a D of 0 over the whole window, ordered by the tie rule alone, would flip
+  // sheets along the window's sides). Along a line from the window's centre out across its side, D
   // grows strictly and never faster than its Lipschitz bound 1 / (R ln 2) per unit
   {
     const sc = Q.SCENES.find((s) => s.name === 'disc_cube'), win = Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;

@@ -367,8 +367,8 @@
     GLR.blit(cc);
     return true;
   }
-  // (#584) The colour the points carry, by the region tiling's own machinery (Alexander on #584: "use the machinery
-  // we have for carrying region patterns, just apply it to colors"): Inside regions, each visible region; Everywhere,
+  // The colour the points carry, by the region tiling's own machinery (the machinery that carries region patterns,
+  // applied to colours): Inside regions, each visible region; Everywhere,
   // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
   // unbounded regions are). Each point z (on plane 0) is coloured with the colour plane's colour of it,
   // dcolor(f_T ∘ … ∘ f_1(z)), wherever the map takes it. Where several points land on one pixel, the one in front is
@@ -419,7 +419,7 @@
   // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape draws so
   // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
-  // the subdivision only places it, and the map at every vertex was most of a glide frame's cost: perf on #587)
+  // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
   // F (at rest or parked: the map's CPU function): each mesh with the tiling's fix-up under it (carryFix: its cells
   // the map bends too much refined, drawn as an extra mesh of their own, their base cells skipped), once it lands
   const SV_CARRY_L = 2;
@@ -480,15 +480,14 @@
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
       let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
-      // (#584: at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
+      // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
       // svCarryExact; the carried grid only where neither path can draw)
       if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
       // travel on, each fragment its point's colour)
       else if ((still ? !svColoured(a) : !isDeriv(b) && map.mode === 1) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
       // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
-      // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling; its
-      // removal is #589)
+      // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling)
       else if (still ? !svColoured(a) : !isDeriv(b)) {
         carried = svCarry(pane, cc, src, a, still ? null : homF(b, u), frame);
       }

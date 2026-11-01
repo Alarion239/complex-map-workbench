@@ -460,7 +460,7 @@
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
   // fills (the fills alone, no strokes: a mask of the regions, #440)}
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
-  // them (the steps view's whole-plane region, #584)
+  // them (the steps view's whole-plane region)
   function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
   // the visible area shapes, in list order
   const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');

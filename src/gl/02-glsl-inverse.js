@@ -233,12 +233,12 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5, #584): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
-  // (#584: the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
+  // (the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
   float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
@@ -531,7 +531,7 @@ float ixLog2Det(vec4 J) {
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 #ifdef IX_CARRY
-  // (#584) the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
   if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
 #endif
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)

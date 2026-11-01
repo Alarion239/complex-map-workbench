@@ -1,4 +1,4 @@
-// #584: the steps view's carried colour, against the exact colour pulled back pixel by pixel. Each case is a plane w1
+// The steps view's carried colour, against the exact colour pulled back pixel by pixel. Each case is a plane w1
 // coloured from z ("colour of z, carried"), at rest or parked mid-glide, Inside regions or Everywhere: at each point w,
 // of the points z landing there (the region's, or all), the front one under the steps view's sheet key (the region
 // tiling's: Inverse.sheetKey and Inverse.front in the page, with __cmwSvKey's parameters) must be the one whose colour

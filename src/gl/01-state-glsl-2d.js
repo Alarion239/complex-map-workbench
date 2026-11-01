@@ -195,7 +195,7 @@ vec3 dcolor(vec2 w) {
   vec2 g = w / max(uGrid, 1e-30);
   return dcolorAt(w, r, th, lr, fwidth(lr), argWidth(w), g, fwidth(g), fwidth(w));
 }
-// (#584) the same colour with the footprints given: wx, wy, the change of w over one device pixel across and down
+// the same colour with the footprints given: wx, wy, the change of w over one device pixel across and down
 // (a colour taken where the screen's derivatives mean nothing, as for each sheet inside the inverse pass's walk);
 // d ln w = dw / w gives the widths of ln |w| and arg w
 vec3 dcolorD(vec2 w, vec2 wx, vec2 wy) {
@@ -360,7 +360,7 @@ float len2(vec2 v) { float m = amax(v); return m > 1e18 ? m * length(v / m) : le
 
   // ---------- 2D regions: instanced base triangles, each split into L^2 by a template ----------
   // fetch: 'tex' | 'chain' | 'local' (see FETCH); 'local' places the mesh by uRel = O - view centre
-  // o (flat only, #584, the steps view's carried colour): carry, the absolute source point vP for the fragment stage, the
+  // o (flat only, the steps view's carried colour): carry, the absolute source point vP for the fragment stage, the
   // sheet key as the depth (preKeyDepth, uKeyOn), and the triangle test of a colour mesh (also a triangle a few pixels
   // small whose middle strays, a fold of the map where two sheets meet, kept: uKPx; none longer than uKLim, a third of
   // the pane: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
@@ -632,7 +632,7 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // for the whole leaf, and leaves of equal D were ordered by their vertices' Im z: triangle-jagged shard seams where
   // sheets meet). Depth: D = 0 (inside W, outside every rs-disc: the tie class) in [0.05, 0.45], larger Im z nearer,
   // then larger Re z; D > 0 in [0.5, 0.95], monotone in D. sa (PAT_PRE.pre) is the fragment's source point.
-  // (#584: D from the distance to the window's centre, as Inverse.sheetKey, blended with the tie rule (larger Im z,
+  // (D from the distance to the window's centre, as Inverse.sheetKey, blended with the tie rule (larger Im z,
   // then larger Re z, in front) within about 2^-8 octave, Inverse.front's TIE_D: a map symmetric about the centre
   // gives its sheets equal keys, which the mesh's placement (1e-3 of |z|) would order fragment by fragment; no steps
   // in D, whose edges would draw contours where near-equal keys straddle them). preKeyDepth(sa): that depth of source

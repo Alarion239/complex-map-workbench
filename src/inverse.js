@@ -380,9 +380,9 @@ const Inverse = (() => {
     return { R, rs: R / 8 };
   }
   // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|)), c the centre
-  // of W (#584: the point nearest the window's centre in front, continuous across W's edges, where the distance to W
-  // tied every point inside it and the tie rule flipped sheets along its sides; |z - c| >= dist(z, W), so every lower
-  // bound the walk takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
+  // of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself would
+  // tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
+  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
   function sheetKey(prep, z, lam) {
     const { win, R, rs, sing } = prep;
     if (lam && lam.re > LAM_CUT) return (lam.re - Math.log(R)) / LN2;
@@ -397,7 +397,7 @@ const Inverse = (() => {
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
   // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // the same step of TIE_D octave (round(D / TIE_D)) are ties (#584): a map symmetric about the window's centre (z^2
+  // the same step of TIE_D octave (round(D / TIE_D)) are ties: a map symmetric about the window's centre (z^2
   // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
   // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
   const TIE_D = 2 ** -8;
@@ -599,7 +599,7 @@ const Inverse = (() => {
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
   // enumerated only inside expandBox(win, 3).
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
-  // back (#584: a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
+  // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
   function keySing(plan, win) {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }

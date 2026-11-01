@@ -123,7 +123,7 @@ function makeColorErr(colors, kind) {
   };
 }
 
-// SPEC 5.1 sheet order (#584: as Inverse.sheetKey). win: the meshing window clipWin {x0, x1, y0, y1}; P: the key's
+// SPEC 5.1 sheet order (as Inverse.sheetKey). win: the meshing window clipWin {x0, x1, y0, y1}; P: the key's
 // points (points {re, im}). D(z) = log2(1 + |z - c| / R) + sum over p in P of max(0, log2(rs / |z - p|)), c the centre
 // of W, R = half-diagonal of W, rs = R / 8.
 function sheetKey(win, P = []) {

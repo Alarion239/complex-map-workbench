@@ -255,7 +255,7 @@
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
   // (#366 prototype) the steps view: where it is, what it shows; d moves it (±1, or a plane index with to)
-  // (#584) the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
+  // the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
   // a] each, row by row), or null off the pane; and the view they were read in
   /** @type {any} */ (window).__cmwLPx = (pts) => {
     const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, c = paneL.canvas.getContext('2d'), img = c.getImageData(0, 0, W, H).data;
@@ -268,7 +268,7 @@
     });
     return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
   };
-  // (#584) the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
+  // the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
   // {win, R, rs, sing}, as svSheetKey
   /** @type {any} */ (window).__cmwSvKey = (b) => { const k = svSheetKey(b == null ? svStage() : b); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }; };
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
