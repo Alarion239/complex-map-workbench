@@ -40,9 +40,16 @@ for (const [name, steps] of Object.entries(CHAINS)) {
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${id}&lang=en&view=steps` }); await sleep(3000);
   await ev(`__cmwSet('dc', 'phase'); 1`);
   for (const T of Ts) {
-    await ev(`__cmwSteps({ T: ${T} }); __cmwSteps({ go: ${last}, now: true }); 1`);
-    // (on the last plane, past the colour plane)
-    for (let i = 0; i < 50; i++) { const sv = await ev('__cmwSteps()'); if (sv.i === last && sv.T === T && !sv.moving) break; await sleep(100); }
+    // (on the last plane, past the colour plane: asked again until it holds, as a state the page loads late puts the view
+    // back on its first plane)
+    let there = false;
+    for (let i = 0; i < 50 && !there; i++) {
+      const sv = await ev('__cmwSteps()');
+      there = sv.i === last && sv.T === T && !sv.moving;
+      if (!there) { await ev(`__cmwSteps({ T: ${T} }); __cmwSteps({ go: ${last}, now: true }); 1`); await sleep(200); }
+    }
+    ok(`${name} / T = ${T}: the view is on the last plane`, there, await ev('__cmwSteps()'));
+    if (!there) continue;
     // (the carry's program linked, the plane drawn again with it)
     for (let i = 0; i < 100; i++) { if (await ev('GLR.pendingLinks === 0')) break; await sleep(100); }
     await sleep(400);
