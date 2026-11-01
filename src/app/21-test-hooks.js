@@ -89,6 +89,17 @@
   window.__cmwSelect = (id) => { selected = id; if (id) zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); };
   window.__cmwGlobeHandles = (side) => { const gc = globeCam(side); const s = (side === 'R' ? S.targets : S.shapes).find((x) => x.id === selected); return s && gc ? globeHandles(s, gc).map(([k, P]) => [k, gScreen(gc, P)]) : []; };
   window.__cmwSphereWL = (x, y) => { const w = pickSphere(paneL, camOf('L'), x, y); return w ? [w.re, w.im] : null; };
+  // (#440 test/sv_globe_mask_cmd.js) the left pane's points under its pixels, on the globe or the flat plane: pane-local
+  // CSS px, every step px from x0, y0 in a w × h block; a flat [re, im, …] list, NaN where no point (off the globe)
+  window.__cmwLeftZ = (x0, y0, w, h, step = 1) => {
+    const out = [], globe = lGlobe();
+    if (!globe) paneL.setView(leftView());
+    for (let y = y0; y < y0 + h; y += step) for (let x = x0; x < x0 + w; x += step) {
+      const z = globe ? pickSphere(paneL, camOf('L'), x, y) : paneL.s2w(x, y);
+      if (z && CX.isFin(z)) out.push(z.re, z.im); else out.push(NaN, NaN);
+    }
+    return out;
+  };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
   // what the live panes last drew each shape with: {'R|s1': 'inverse' | 'pending' | 'forward', ...}
   window.__cmwDrawn = () => Object.fromEntries(lastPath);
