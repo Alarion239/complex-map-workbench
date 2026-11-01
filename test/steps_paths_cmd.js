@@ -1,4 +1,4 @@
-// The steps view's Paths (#631): the paths t -> H_t(z) of the classic deformation, drawn in the steps view from its own
+// The steps view's Paths: the paths t -> H_t(z) of the classic deformation, drawn in the steps view from its own
 // deformation source (the glide's run of planes), with no classic transport open.
 // - Paths is a toggle beside Loop on the strip, pressed as the saved S.morphPaths; a click and key P switch it;
 // - parked between planes 0 and 1, and between 1 and 2, paths are drawn: T is the place in the run, the run starts at
@@ -57,13 +57,10 @@ await settled({ max: 5000, until: `!__cmwSteps().moving` });
 // (the slowest glide: a software renderer's frames are far apart)
 await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'slower'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
 await ev(`__cmwSteps({ go: 2 }), 1`);
-let glide = null;
-for (let i = 0; i < 200 && !glide; i++) {
-  const s = await S();
-  if (s.anim && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) glide = s.paths;
-  else if (!s.moving && i > 5) break;
-  else await settled({ max: 200 });
-}
+// (the first frame mid-glide with paths drawn, kept where the wait found it: the glide moves on meanwhile; the panes are
+// never quiet during a glide)
+await settled({ panes: false, max: 20000, until: `(() => { const s = __cmwSteps(); if (s.anim && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) window.__svGlide = s.paths; return !!window.__svGlide || !s.moving; })()` });
+const glide = await ev(`window.__svGlide || null`);
 info.glide = glide;
 ok('a glide from z to w₂ is one run of two steps, with paths drawn as it goes', !!glide && glide.src.Tend === 2 && glide.src.seq === true && glide.src.startId === true && glide.err < 1.5, glide);
 await settled({ max: 20000, until: `!__cmwSteps().moving` });
