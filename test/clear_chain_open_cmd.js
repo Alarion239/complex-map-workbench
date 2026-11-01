@@ -1,6 +1,6 @@
 // "Clear chain" never leaves the chain head while the Inspector floats in (#566, from #540). At 1024 × 768 in the classic view,
 // in en, ru and it: opening the Inspector (a step card clicked) makes it float over the stage, first drawn off the right edge
-// and moved in a render later. Every animation frame for 2 s after the click, the head's and the button's rectangles are
+// and moved in a render later. Every animation frame (and a 16 ms timer) for 6 s after the click, the head's and the button's rectangles are
 // sampled: the button is inside the head (within a pixel) and the head holds its content (no scroll width past its box) in
 // every frame, and the page settles to the same at the end. A command file for a CDP daemon (test/cdp_kit README); prints
 // { pass, fails, info }.
