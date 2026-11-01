@@ -85,6 +85,8 @@ ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map
 for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
 // (issue #20: region.js's line refinement, out of it, selects what region.js selects)
 ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
+// (issue #20: funcs.js's sheets, out of it, select what funcs.js selects)
+ok('T2: src/sheets.js -> the same as src/funcs.js', (() => { const a = select(['src/sheets.js']), b = select(['src/funcs.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 // (issue #20: parse.js's symbolic calculus, out of it, selects what parse.js selects)
 ok('T2: src/symbolic.js -> the same as src/parse.js', (() => { const a = select(['src/symbolic.js']), b = select(['src/parse.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
