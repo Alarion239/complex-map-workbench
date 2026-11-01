@@ -406,12 +406,14 @@ float ixDKTail() {
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
 bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  // (keys within 2^-8 octave are ties: Inverse.front's TIE_D)
-  if (abs(D1 - D2) > 0.00390625) return D1 < D2;
+  // (keys in the same step of 2^-8 octave are ties: Inverse.front's TIE_D)
+  float q1 = floor(D1 * 256.0 + 0.5), q2 = floor(D2 * 256.0 + 0.5);
+  if (q1 != q2) return q1 < q2;
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
 }
-// ---- early stop (3.6) ----
+// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the tie band
+// (TIE_D, 2^-8: a member within it may still come in front by the tie rule) ----
 float ixRayBoxDist(vec2 a, vec2 v, float smax) {
   float lo = 0.0, hi = smax;
   if (!(abs(v.x) > 1e-30)) { if (a.x < uWin.x || a.x > uWin.z) lo = IX_INF; }
@@ -441,14 +443,14 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
     float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
-    return LB > dk;
+    return LB > dk + 0.00390625;
   }
 #endif
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
   float lb = ixLastD;
   // (the members still to come start at the next one, z_m + q: a member past the front need not be walked to stop)
   if (ixLastFin) { vec2 q = cdiv(p, uIxAB[j].xy), qd = goUp ? q : -q; lb = log2(1.0 + ixRayBoxDist(ixLastZ + qd, qd, IX_INF) / uWinR); }
-  return lb > dk + 1e-12;
+  return lb > dk + 0.00390625;
 }
 bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
@@ -467,7 +469,7 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       }
     }
   }
-  return lb > dk + 1e-12;
+  return lb > dk + 0.00390625;
 }
 // ---- patterns with analytic footprints (6.1, 6.2) ----
 vec2 ixDivL(vec2 a, vec2 b) { return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-37); }

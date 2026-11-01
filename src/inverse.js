@@ -397,22 +397,19 @@ const Inverse = (() => {
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
   // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // TIE_D octave are ties (#584, PRE_KEY's blend): a map symmetric about the window's centre (z^2 about 0) gives its points equal keys,
-  // which rounding (float32, and a forward mesh's placement of its points, 1e-3 of |z|) would order pixel by pixel
+  // the same step of TIE_D octave (round(D / TIE_D)) are ties (#584): a map symmetric about the window's centre (z^2
+  // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
+  // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
   const TIE_D = 2 ** -8;
-  const dTie = (a, b) => a === b || !(Math.abs(a - b) > TIE_D);
+  const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
+  const dTie = (a, b) => a === b || dStep(a) === dStep(b);
   function front(a, b) {
     if (!dTie(a.D, b.D)) return a.D < b.D;
     const za = tieZ(a), zb = tieZ(b);
     if (za.im !== zb.im) return za.im > zb.im;
     return za.re > zb.re;
   }
-  function frontRev(a, b) {                                            // the tie rule reversed (sensitivity tests only)
-    if (!dTie(a.D, b.D)) return a.D < b.D;
-    const za = tieZ(a), zb = tieZ(b);
-    if (za.im !== zb.im) return za.im < zb.im;
-    return za.re < zb.re;
-  }
+
 
   // =====================================================================================================
   // 6. Singular points and pull-backs (SPEC 3.7)
@@ -1162,7 +1159,7 @@ const Inverse = (() => {
   //  full (truth mode: a window of +-full members around m* in every family, no ranges, budgets or stop),
   //  ramp (range ramp in px, default 1), dwdX / dwdY (dw per image pixel step, default (pix, 0) / (0, pix)),
   //  leaves: false to skip the leaf list, paths: true to record each leaf's path ('j:b:m' per window or finite op,
-  //  outermost first), tieReverse (tests only).
+  //  outermost first).
   //  leaves: every visited leaf in walk order: {z, J (dz/dw, real 2x2 row-major), JL (dΛ/dw) | null, lvl (px),
   //  lg: [x, y] | null, lam, dX, dY (dz per pixel step), s (region distance, px), cv (coverage), cov, D}.
   //  entries: the admitted compositing buffer, front to back ({lf, D, z, cv, ...}); restT: the product of
@@ -1173,7 +1170,7 @@ const Inverse = (() => {
     const noStop = !!opts.all && Kt > B, alphaR = opts.alpha ?? 1;
     const ramp = opts.ramp ?? RAMP;
     const dwX = opts.dwdX || C(pix, 0), dwY = opts.dwdY || C(0, pix);
-    const frontFn = opts.tieReverse ? frontRev : front, paths = !!opts.paths;
+    const frontFn = front, paths = !!opts.paths;
     const ev = prep.ev || (prep.ev = shapePx(prep.shape));
     const leaves = [], ent = [], loops = [];
     let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1;
@@ -1364,19 +1361,19 @@ const Inverse = (() => {
             let stop = false;
             if (!prep.stopMob) {
               const dk = DK();
-              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + 1e-12;
+              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + TIE_D;
               // the tail rule (prepare's tail flag; gl.js ixDKTail): K > B for the own alpha, the buffer full, U final, the
               // side still in range up to infinity without a hole, its last three members covering, and every member to
               // come behind the buffer's last key: the full walk would close the tail there anyway
               if (!stop && noStop && prep.tail && dk === Infinity && !(hlo <= hhi) && (goUp ? lp.cU >= 3 && hi === Infinity : lp.cD >= 3 && lo === -Infinity)
-                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + 1e-12) { stop = true; tailInf = true; }
+                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + TIE_D) { stop = true; tailInf = true; }
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
                 const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
                 const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
                 const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK();
+                stop = LB > DK() + TIE_D;
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1489,7 +1486,7 @@ const Inverse = (() => {
   //  composited in list order (each premultiplied, over the previous); look: one object or one per shape:
   //  {alpha (1), pattern ('solid'), cell (1), color ('#3B6FD4'), color2 ('#8CABE5'), ink ('#093B9B'), lines, origin,
   //  sphN (16), dpr, B (8, 16 when alpha < 0.5), plane ('#FCFDFD')}; preps: Inverse.prepare results per shape.
-  //  opts: {tieReverse, sub: [i0, j0, i1, j1] (render only that pixel box)}.
+  //  opts: {sub: [i0, j0, i1, j1] (render only that pixel box)}.
   //  stats: {ms, px, visited, covering, maxEntries, tailPx, truncPx, skipped (ineligible shapes), alpha: Float32Array
   //  (composite coverage), par: Int8Array (checker parity of the front entry, -1 none / moiré), top: Int16Array (index of
   //  the front shape), disagree: Uint8Array (a deeper composited full-coverage entry of another parity, T > 0.5)}
@@ -1519,7 +1516,7 @@ const Inverse = (() => {
       for (let si = 0; si < list.length; si++) {
         const P = pr[si], L = lk[si];
         if (!P.ok) continue;
-        const r = enumerate(plan, P, w, pix, { K: L.K, B: L.B, all: true, alpha: L.alpha, leaves: false, tieReverse: opts.tieReverse });
+        const r = enumerate(plan, P, w, pix, { K: L.K, B: L.B, all: true, alpha: L.alpha, leaves: false });
         visited += r.visited; covering += r.nCov;
         if (r.tailInf) tailPx++;
         if (r.truncated) truncPx++;

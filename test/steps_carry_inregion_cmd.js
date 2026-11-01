@@ -83,7 +83,7 @@ ok('at rest on w1: each region point has the colour of its exact preimage (at mo
 // (#584, multiple coverings) w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): plane
 // w1 coloured from z, at rest and parked halfway (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions
 // and Everywhere. At each point w the front point of those landing there (in the annulus, or any) is the shared sheet
-// key's: the least D = log2(1 + |z - c| / R) (c, R: __cmwSvKey), keys within 2^-8 octave tied, then the larger Im z,
+// key's: the least D = log2(1 + |z - c| / R) (c, R: __cmwSvKey), keys in one step of 2^-8 octave tied, then the larger Im z,
 // then the larger Re z (Inverse.front); its colour is plane z's at that point. Points near a seam of that choice (two
 // points with nearly equal keys or Im z), near the annulus's circles and near the principal power's cut are left out.
 const TIE = 2 ** -8;
@@ -116,11 +116,12 @@ for (const n of [2, 3]) {
       if (scope === 'in') c = c.filter((q) => inA(q.z));
       if (!c.length) continue;
       c.forEach((q) => { q.D = D(q.z); });
-      c.sort((a, b) => (Math.abs(a.D - b.D) > TIE ? a.D - b.D : 0) || (b.z[1] - a.z[1]) || (b.z[0] - a.z[0]));
+      const q = (d) => Math.round(d / TIE);
+      c.sort((a, b) => (q(a.D) !== q(b.D) ? a.D - b.D : 0) || (b.z[1] - a.z[1]) || (b.z[0] - a.z[0]));
       const f = c[0], m = Math.hypot(f.z[0], f.z[1]);
       // (near a circle of the annulus, the cut of the power, or a seam of the front's choice)
       const near = Math.abs(m - 0.6) < 0.08 || Math.abs(m - 1.6) < 0.08 || Math.PI - Math.abs(f.t) < 0.06
-        || c.slice(1).some((q) => Math.abs(Math.abs(q.D - f.D) - TIE) < 0.0015 || (Math.abs(q.D - f.D) <= TIE && Math.abs(q.z[1] - f.z[1]) < 0.06));
+        || c.slice(1).some((e) => (q(e.D) !== q(f.D) && Math.abs(e.D - f.D) < TIE) || (q(e.D) === q(f.D) && Math.abs(e.z[1] - f.z[1]) < 0.06));
       if (near) { seams++; continue; }
       if (Math.abs(f.z[0] - vz.cx) > 0.45 * pz.w / vz.s || Math.abs(f.z[1] - vz.cy) > 0.45 * pz.h / vz.s) continue;
       W.push(w); Z.push(f.z);
