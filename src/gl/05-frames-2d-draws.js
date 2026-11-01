@@ -344,17 +344,20 @@
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
-    // (a deformation whose path has a cut the sheets continue: each triangle on its centre's sheet, regionKS, uncached;
-    // a cut clipped (cutKinds' clip): each triangle cut at it, and a second pass for the triangles across it, on the
-    // branch past it)
+    // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
+    // triangles they tear across a cut on their centre's sheet (regionKSC, the fill); without the cache, every triangle
+    // on its centre's sheet (regionKS, the chain at every vertex). A cut clipped (cutKinds' clip): the sheet program's
+    // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
-    const S = cuts ? program('regionKS', st.map) : null;
-    let e = !S && rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    let P = S || (e ? program('regionKC', st.map) : null);
+    let P = e ? program('regionKC', st.map) : null;
+    const fill = cuts && P ? program('regionKSC', st.map) : null;
+    let full = null;
+    if (cuts && !fill) { P = full = program('regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
@@ -373,7 +376,9 @@
     set(P);
     carryDraw(k, st.depth, () => {
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
-      if (P === S && clip) { u1i(P, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      const sheet = fill || full;
+      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      if (sheet && clip) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
     });
     gl.bindVertexArray(null);
     return true;
