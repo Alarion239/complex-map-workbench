@@ -295,7 +295,8 @@ console.log('--- (h) golden emulation');
   // the key is continuous across the window's sides, so two sheets whose keys are near trade places along a smooth
   // curve, not along the window's edges: along a line from the window's centre out across its side, D grows strictly
   // and never faster than its Lipschitz bound 1 / (R ln 2) per unit (KEY_RATE_SLACK: the rate is a finite difference
-  // over h, a hair above the derivative's bound)
+  // over h, a hair above the derivative's bound; h a 200th of the window's half-width, and 400 steps from the centre:
+  // the line crosses the side at step 200 and runs as far again outside it)
   {
     const KEY_RATE_SLACK = 1.0001;
     const sc = Q.SCENES.find((s) => s.name === 'disc_cube'), win = Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;

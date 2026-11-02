@@ -134,10 +134,11 @@ function sheetKey(win, P = []) {
     return D;
   };
 }
-// members in front-to-back order: key D ascending; ties (equal D): larger Im z, then larger Re z in front (SPEC 5.2)
+// the tie step of the sheet key, in octaves: keys in one step of it tie (it must equal Inverse.front's TIE_D)
+const TIE_D = 2 ** -8;
+// members in front-to-back order: key D ascending; ties (keys in one TIE_D step): larger Im z, then larger Re z in front
+// (SPEC 5.2)
 function frontOrder(cands, key) {
-  // (keys in the same step of TIE_D = 2^-8 octave tie: Inverse.front's)
-  const TIE_D = 2 ** -8;
   const q = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
   const dk = (a, b) => (q(a.D) !== q(b.D) ? a.D - b.D : 0);
   return cands.map((z) => ({ z, D: key(z) })).sort((a, b) => dk(a, b) || (b.z.im - a.z.im) || (b.z.re - a.z.re));

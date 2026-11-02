@@ -18,6 +18,7 @@ for (const dark of [false, true]) {
     Tour.start({ chapter: 'construct', step: best }); return best; })()`);
   // the step has opened the Tools sheet with its tiles
   await settled({ until: `(() => { const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])'); return !!sb && [...sb.querySelectorAll('.ph-tile')].some((t) => /Formula/.test(t.textContent)); })()` });
+  ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   // the tile before Formula, focused without scrolling; then the keyboard moves on to Formula
   const pre = await ev(`(() => {
     const sb = document.querySelector('.ph-sheet.open .ph-sb:not([hidden])');

@@ -452,7 +452,8 @@
     // the map sends far, which would cover the pane many times over, so it is left out)
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
-      const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === 4 };
+      // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
+      const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid };
       if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
@@ -592,7 +593,7 @@
   // (the caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
-    for (const s of S.shapes) {
+    for (const s of hideStrokes ? [] : S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const map = shapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
