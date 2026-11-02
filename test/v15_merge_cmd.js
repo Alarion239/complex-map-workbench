@@ -44,6 +44,13 @@ const typeIn = async (sel, text) => {
   await settle(400);
   return true;
 };
+// (selecting a step: its card in the classic chain, its chip in the steps view's thread; the Inspector then edits it)
+const selStep = async (k) => {
+  const steps = await ev(`document.documentElement.classList.contains('sv')`);
+  // (a toast covers the thread until it goes)
+  if (steps) await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
+  await clickSel(steps ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`);
+};
 const ns = 'v15m' + Date.now();
 // (the zeros and poles first: their marks show on X with the whole chain)
 const CHAIN = [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on: true }, { type: 'mobius', params: { a: '1', b: '0', c: '0', d: '1' }, on: true }];
@@ -58,7 +65,7 @@ ok('Parameters is in the Inspector slot, once, with one heading and no nested se
 
 // 2. a Shift-click on the plane adds a zero: the Inspector (step 1 selected) shows it at once; the plane menu over empty
 // plane offers no Add zero here (issue #13: it opens nothing there)
-await clickSel('#pipeline .card[data-k="1"]'); await settle(500);
+await selStep(1); await settle(500);
 let f0 = await zpFields(1);
 let h0 = await hist();
 let p = await w2s('L', 0.3, -0.7);
@@ -92,7 +99,7 @@ await undo();
 await grab();
 
 // 3. Edit ζ₁ with the panel hidden: the temporary Inspector opens at step 1 with ζ₁'s field focused
-await clickSel('#pipeline .card[data-k="2"]'); await settle(400);
+await selStep(2); await settle(400);
 await key(']'); await settle(600);
 info.hidden = await ev(`document.querySelector('.layout').classList.contains('hide-right')`);
 hd = await ev(`__cmwZp().handles.find((q) => q.kind === 'zeros' && q.i === 0)`);
@@ -111,7 +118,7 @@ ok('] shows the docked Inspector again', !(await ev(`document.querySelector('.la
 await grab();
 
 // 4. after an undo, the Inspector edits the live step (Möbius b)
-await clickSel('#pipeline .card[data-k="2"]'); await settle(400);
+await selStep(2); await settle(400);
 await typeIn('#propsPanel .insp-step[data-k="2"] input[data-pkey="b"]', '0.5');
 let st = await H('steps()');
 ok('Möbius b = 0.5 from the Inspector', st[1].params.b === '0.5', st[1].params);

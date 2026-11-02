@@ -91,7 +91,7 @@ const VIEWS = {
   'ux165_fix_cmd.js': port('interact'),
   'ux165_merge_cmd.js': port('interact'),
   'ux165_plane_cmd.js': port('interact'),
-  'v15_merge_cmd.js': port('interact'),
+  'v15_merge_cmd.js': steps({ pin: true }),
   'v15_params_cmd.js': port('interact'),
   'v15_planemenu_cmd.js': steps({ pin: true }),
   'zp_cmd.js': steps({ pin: true }),
