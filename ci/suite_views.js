@@ -113,7 +113,7 @@ const VIEWS = {
   'example_try_events_cmd.js': port('words', 'the Try lines left: K1 item 11'),
   'fix152_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': steps({ pin: true }),
-  'i18n_cmd.js': port('words'),
+  'i18n_cmd.js': steps({ pin: true }),
   'i18n_walk_cmd.js': port('words'),
   'raw_tex_cmd.js': steps({ pin: true }),
   'split_cmd.js': port('words'),
