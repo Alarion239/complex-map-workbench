@@ -338,12 +338,6 @@
   // not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
   // program compiles
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
-  // the map cache of a region mesh under map at template size L, evaluated now (the scratch entry drawRegion's cached
-  // path reads): called before a frame begins, so the evaluation's own render target is not switched to in the middle
-  // of the frame, which on a tiling GPU stores and reloads the whole frame. A no-op where the draw would not read it
-  function prepRegion(res, L, map) {
-    if (ok && rtOK && res && res.n && !isIdent(map)) cached(res, true, L, map, null);
-  }
   function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
