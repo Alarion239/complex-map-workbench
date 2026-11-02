@@ -42,6 +42,8 @@ ok('no pattern swatches in the page', (await ev(`document.querySelectorAll('#pat
 await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
 const pop = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'); const b = p && p.querySelector('#regionsBox'); return b && { ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => b.querySelector('#' + id)), swatches: p.querySelectorAll('.pat, [data-pat], #regionsBox canvas').length, text: b.innerText }; })()`);
 ok("the head's ⋯ pop-up: grid lines, their step, chevrons and opacity, no swatch", pop && pop.ids.length === 4 && pop.swatches === 0 && /phase of z/.test(pop.text) && /Grid step/.test(pop.text), pop);
+const grp = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'), kids = [...p.children], i = kids.indexOf(p.querySelector('#regionsBox')); const h = kids[i - 1]; return { before: i, label: h && h.classList.contains('opts-sep') ? h.textContent : null, rule: h ? getComputedStyle(h).borderTopWidth : null }; })()`);
+ok("the regions' group follows the head's other controls under a rule and its name", grp.before > 1 && grp.label === 'Regions' && grp.rule === '1px', grp);
 await ev(`(() => { const c = document.getElementById('linesChk'); if (!c.checked) c.click(); return 1; })()`); await settle(600);
 ok('the grid lines check acts on the regions', (await ev('__cmwRegions().lines')) === true, null);
 await ev(`document.getElementById('linesChk').click(); 1`); await settle(600);
