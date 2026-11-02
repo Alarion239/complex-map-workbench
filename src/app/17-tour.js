@@ -256,6 +256,8 @@
     soundPlaying: () => !!(snd.play || snd.prep),
     soundState: () => ({ on: !!sndP.on, events: !!sndP.events, sonify: !!sndP.sonify, audio: SND ? SND.state().audio : 'none', playing: !!(snd.play || snd.prep) }),
     setView: (main) => setMain(main),
+    // (#442: the steps view's chapter "Planes" puts the view where its step needs it)
+    svPlace: (o) => svTourPlace(o),
     setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
     setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },
     // (v16: a scene's bracket; null: every step)

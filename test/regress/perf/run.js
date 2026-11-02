@@ -2,7 +2,7 @@
 'use strict';
 // Performance regression suite for the Complex Map Workbench.
 //
-//   node test/regress/perf/run.js [--out FILE] [--reps N] [--only REGEX] [--skip REGEX] [--base URL] [--quick] [--swiftshader] [--list]
+//   node test/regress/perf/run.js [--out FILE] [--reps N] [--only REGEX] [--skip REGEX] [--base URL] [--quick] [--swiftshader] [--raf-max MS] [--list]
 //     [--settle-timeout MS] [--phone-cpu N] [--load-max L] [--load-wait S] [--unit-timeout S]
 //
 // Drives its own headless Chrome (real WebGL2 through ANGLE Metal) over CDP, opens dist/test.html with saved
@@ -46,6 +46,11 @@ const LOAD_MAX = Number(opt('load-max', String(Math.max(4, os.cpus().length * 0.
 const LOAD_WAIT_S = Number(opt('load-wait', '90'));
 const REQUIRE_QUIET = flag('require-quiet');
 const UNIT_TIMEOUT_S = Number(opt('unit-timeout', '180'));
+// a throttled machine (mac-gpu with its display asleep: runs 41264000039 and 41268369131, where every frame waited on a
+// ~45-50 ms cadence and every timing came out 2-3x on both sides) measures nothing worth comparing: before each unit, and
+// after the last, the median rAF interval of an idle page; over RAF_MAX ms the run fails, naming the cause (run.js exit 5),
+// instead of reporting numbers. --raf-max 0: no check
+const RAF_MAX = Number(opt('raf-max', '20'));
 // --ab DIR: a PAIRED run. DIR is the dist/ of the reference app (run.sh --paired builds it from a source snapshot);
 // every unit runs on the reference and on the current app back to back in the same browser, alternating which goes
 // first, so both see the same machine state (a busy machine slows both alike instead of failing the comparison).
@@ -905,6 +910,11 @@ async function svFirstGlideUnit() {
 // the outlines in G's masked frame, one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there
 // (refCannot)
 const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
+// The label pass of a frame on the move samples no curve through the map; what it costs is placing and drawing the labels
+// themselves: 0.5 ms a pass on the default scene (no zeta in it) and 1.1 to 1.7 ms on zeta's, measured on the Mac on a loaded
+// machine. The limit sits above that floor and well below the cost of the sampling (5 to 8 ms on zeta), so it fails if the
+// sampling returns
+const SV_LABEL_MS_LIMIT = 2;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -943,9 +953,12 @@ async function svInteractUnit(scene) {
       for (const scope of ['all', 'in']) {
         await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
         await settle(await pageNow());
-        const r = await B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
-        const l1 = await leg(() => B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 }));
-        const l2 = await leg(() => B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }));
+        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
+        const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+        const r1 = await stripAt();
+        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }));
+        const r2 = await stripAt();
+        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
@@ -988,15 +1001,17 @@ async function svGlideUnit(scene) {
   // one glide from where the view rests to plane `to`, its window from the call to the landing
   const glide = async (to) => {
     const c0 = await B.ev('__perf.counters().links'), bl0 = await B.ev('__svBl.n'), a = await pageNow();
+    await B.ev('(__cmwLabelStats.n = 0, __cmwLabelStats.ms = 0, __cmwLabelStats.list = [], 1)');
     await B.ev(`__cmwSteps({ go: ${to} }), 1`);
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    const lbl = (await B.ev('__cmwLabelStats.list')).slice(0, -1);   // (the frames on the move: the last pass is the landing's, at rest)
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
     const w = await windowStats(a, b);
-    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, jank: await jankIn(a, b), a, b });
+    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, labels: lbl.map((p) => p.ms), jank: await jankIn(a, b), a, b });
   };
   for (const dpr of [1, 2]) {
     const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
-    const R = [], copies = [], links = [], longInt = [], dprOk = [], td = Date.now();
+    const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
       for (let i = 0; i < REPS; i++) {
@@ -1024,6 +1039,7 @@ async function svGlideUnit(scene) {
         R.push(legSummary([l1, l2], 'none'));
         copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
         links.push(l1.links + l2.links);
+        { const ms = [...l1.labels, ...l2.labels]; labelMs.push(ms.length ? ms.reduce((x, y) => x + y, 0) / ms.length : 0); }
         longInt.push([...l1.ints, ...l2.ints].filter((d) => d > SV_GLIDE_JANK_MS).length);
       }
     } finally { if (dpr !== 1) await setDpr(1); }
@@ -1036,6 +1052,7 @@ async function svGlideUnit(scene) {
     put(`${pre}.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, longInt);
     put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
+    put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
   }
 }
 async function cardsStartupUnit() {
@@ -1880,6 +1897,13 @@ function serveDist(dir = DIST) {
   return new Promise((res) => srv.listen(0, '127.0.0.1', () => res(srv)));
 }
 
+// the median interval between animation frames on an idle page in browser br (ms), or -1 when none came in 5 s
+async function rafMedian(br) {
+  await br.nav('about:blank');
+  const r = await br.send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `new Promise((res) => { const t = []; let last = 0, n = 0; const f = (ts) => { if (last) t.push(ts - last); last = ts; if (++n < 62) requestAnimationFrame(f); else { t.sort((x, y) => x - y); res(t[t.length >> 1]); } }; requestAnimationFrame(f); setTimeout(() => res(-1), 5000); })` });
+  const v = r && r.result ? r.result.value : -1;
+  return typeof v === 'number' ? v : -1;
+}
 async function main() {
   if (flag('list')) { for (const u of UNITS) console.log(u.id.padEnd(22), u.desc); return; }
   const t0 = Date.now();
@@ -1947,6 +1971,23 @@ async function main() {
     fs.writeFileSync(OUT, JSON.stringify(RES_B, null, 1));
     if (RES_A) fs.writeFileSync(abOut(), JSON.stringify(RES_A, null, 1));
   };
+  // (the throttle check: once per unit, before its first side, and once after the last unit; the throttle is the
+  // machine's, so one browser tells)
+  const rafCheck = async (where) => {
+    if (!(RAF_MAX > 0)) return;
+    const med = await rafMedian(B_B);
+    (RES_B.meta.raf || (RES_B.meta.raf = {}))[where] = med < 0 ? null : +med.toFixed(2);
+    if (med >= 0 && med <= RAF_MAX) return;
+    const msg = `machine throttled (rAF median ${med < 0 ? 'none in 5 s' : med.toFixed(1) + ' ms'} > ${RAF_MAX} ms on an idle page) ${where}: the display asleep or the GPU throttled; no numbers reported`;
+    RES_B.errors.push({ where: 'raf-check', error: msg });
+    RES_B.meta.aborted = msg;
+    writeAll();
+    log(msg);
+    for (const b of [B_A, B_B]) { try { if (b) await b.close(); } catch (e2) { /* ignore */ } }
+    if (server) server.close();
+    if (serverA) serverA.close();
+    process.exit(5);
+  };
   for (const u of UNITS) {
     if (ONLY && !ONLY.test(u.id)) continue;
     if (SKIP && SKIP.test(u.id)) continue;
@@ -1966,6 +2007,7 @@ async function main() {
       log(`WARNING: machine busy (1-min load ${load} > ${LOAD_MAX}) before ${u.id}: its timings are not trustworthy`);
       RES.meta.busyUnits.push({ unit: u.id, load });
     }
+    await rafCheck(`before ${u.id}`);
     const scenes = new Map(), failed = new Map();
     const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
     for (const [res, base, tag, br] of sides) {
@@ -2010,6 +2052,8 @@ async function main() {
       }
     }
   }
+  // (a throttle that began during the last unit)
+  if (!ONLY || UNITS.some((u) => ONLY.test(u.id))) await rafCheck('after the last unit');
   CURRENT_UNIT = null;
   for (const [b, res] of [[B_B, RES_B], [B_A, RES_A]]) {
     if (!b) continue;

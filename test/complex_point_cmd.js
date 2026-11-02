@@ -175,7 +175,8 @@ const gOff = async () => ev(`(() => { const r = document.getElementById('canvasL
 const gAt = async (re, im) => { const o = await gOff(), q = await ev(`__cmwGlobeXY('L', ${re}, ${im})`); return q ? [o[0] + q[0], o[1] + q[1]] : null; };
 await load(NS + 'g', { shapes: [{ id: 's2', kind: 'circle', c: [0, 0], r: 0.5, ci: 0, visible: true }, { id: 'sp', kind: 'point', p: [0.4, 0.3], bind: { p: 'a' }, ci: 1, visible: true }], steps: [], params: [{ name: 'a', value: 0.4, im: 0.3, min: -2, max: 2, step: 0.01 }], srcView: { cx: 0, cy: 0, s: 110 }, v5: true, v6: true });
 await settle(800);
-await ev('__cmwSetView("L", "sphere"); 1');
+// (the steps view's plane has its surface choice)
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`);
 await settle(1500);
 const g0 = await gAt(0.4, 0.3), g1 = await gAt(-0.3, 0.5);
 ok('the globe shows the point', !!g0 && !!g1, [g0, g1]);

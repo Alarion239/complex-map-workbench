@@ -177,7 +177,7 @@
 .cm-seg.cm-touch .cm-sb:first-child { border-radius: 5px 0 0 5px; }
 .cm-seg.cm-touch .cm-sb:last-child { border-radius: 0 5px 5px 0; }
 .cm-seg.cm-touch .cm-sb::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 40px; transform: translateY(-50%); }
-.cm-x { border: 0; background: transparent; color: var(--ink-2); font-size: 18px; line-height: 1; width: 28px; height: 28px; cursor: pointer; }
+.cm-x { border: 0; background: transparent; color: var(--ink-2); font-size: 19px; line-height: 1; width: 28px; height: 28px; cursor: pointer; }
 /* [v16.5 UX48, UX51, UX52, UX100] the chip wraps (text, then its controls; a refusal or the how-to on a line of its own); the
    kept curve's token; the ? */
 .empty-chip > .cm-chip { flex-wrap: wrap; row-gap: 4px; }
@@ -190,7 +190,7 @@
 .cm-chip:not(.cm-tch):not(:has(> .cm-seg, > .cm-tok)) > .cm-t { flex: 1 1 0; }
 .cm-tok { display: inline-flex; align-items: center; gap: 2px; height: 22px; border: 1px solid var(--line); border-radius: 999px; padding: 0 1px 0 8px; font: var(--t-label); color: var(--ink-2); white-space: nowrap; background: var(--surface); }
 .cm-tokx, .cm-q { position: relative; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; font: 600 13px/1 var(--f-ui); width: 20px; height: 20px; border-radius: 999px; padding: 0; }
-.cm-q { border: 1px solid var(--line); font-size: 11.5px; }
+.cm-q { border: 1px solid var(--line); font-size: 11px; }
 .cm-q.on { background: var(--inverse); color: var(--inverse-ink); border-color: var(--inverse); }
 .cm-tokx:hover, .cm-q:not(.on):hover { color: var(--accent); border-color: var(--accent); }
 .cm-chip > .cm-warn, .cm-chip > .cm-how { flex: 1 0 100%; font: var(--t-label); white-space: normal; text-align: left; padding: 0 0 2px; }

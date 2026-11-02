@@ -83,6 +83,93 @@
   }
   // ([#398] the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
   const repeatMoved = (k, rp) => tourEmit('repeat-changed', { k, n: rp ? rp.n : 0, len: rp ? rp.len : 0, by: rp && rp.by ? rp.by : null });
+  // the repeat that text typed into an N field asks for (a whole number, or the name of a shared number), or null when it
+  // is no change: the bracket's field and the Inspector's row read it alike
+  function repeatFromText(st, t) {
+    const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
+    if (ns.length === 1 && Params.get(ns[0]) !== undefined) return st.repeat.by !== ns[0] ? { n: st.repeat.n, len: st.repeat.len, by: ns[0] } : null;
+    if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) return { n: v, len: st.repeat.len };
+    return null;
+  }
+  // the block that step k is in, as repeatBlocks gives it, or null
+  const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
+  // the keyboard goes back to a step's chip on the thread (its card in the classic view) once the chain is drawn again: after a
+  // control that has gone, such as the Inspector's End the repeat, no longer holds it
+  function focusStepChip(k) {
+    requestAnimationFrame(() => {
+      const el = SV.on ? svEl(k, 'chip') : document.querySelector(`#pipeline .card[data-k="${k}"]`);
+      if (el) /** @type {HTMLElement} */ (el).focus({ preventScroll: true });
+    });
+  }
+  // (the Inspector draws its row a frame or two after the step is selected; on a slow machine a first draw takes longer: the
+  // field is looked for this long, then given up)
+  const REPEAT_FIELD_WAIT_MS = 1500;
+  // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
+  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it. Returns the bracket's field,
+  // for the caller to focus, and null in the steps view, where the field is focused here once it is drawn
+  function focusRepeatField(k) {
+    const field = () => repFields.map((f) => f.inp).find((el, i) => repFields[i].getK() === k && el.isConnected && el.getClientRects().length) || null;
+    if (!SV.on) return field();
+    svInspect(k);
+    const t0 = performance.now(), look = () => {
+      const f = field();
+      if (f) { f.focus(); f.select(); } else if (performance.now() - t0 < REPEAT_FIELD_WAIT_MS) requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+    return null;
+  }
+  // N's field, one for every place that sets it (the bracket under the cards, the steps view's Inspector row): typed, or by the
+  // arrow keys, for the block ending at step getK(). N applies once typing settles, so 12 builds the chain once, not for
+  // N = 1 then N = 12; at once on change
+  const repFields = [];
+  function repeatShowAll() {
+    for (let i = repFields.length - 1; i >= 0; i--) {
+      const f = repFields[i];
+      if (!f.inp.isConnected) { repFields.splice(i, 1); continue; }
+      const st = S.steps[f.getK() - 1];
+      if (!f.inp.dataset.typing && st && st.repeat) f.inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n);
+    }
+  }
+  // one step of N for the block ending at step k (the arrow keys, the Inspector's − and +); not for a shared number's
+  function repeatStep(k, d) {
+    const st = S.steps[k - 1];
+    if (!st || !st.repeat || st.repeat.by) return;
+    const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + d));
+    if (v === st.repeat.n) return;
+    st.repeat = { n: v, len: st.repeat.len };
+    chainChanged(false); commit();
+    repeatMoved(k, st.repeat);
+    repeatShowAll();
+  }
+  function repeatField(getK) {
+    const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
+    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+    let settle = 0, typedFor = null;
+    const apply = () => {
+      clearTimeout(settle);
+      const t = inp.value.trim(), st = typedFor || S.steps[getK() - 1];
+      typedFor = null;
+      if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
+      const rp = repeatFromText(st, t);
+      if (!rp) return;
+      st.repeat = rp;
+      chainChanged(false);
+      repeatMoved(S.steps.indexOf(st) + 1, rp);
+    };
+    // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
+    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, 400); });
+    inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
+    inp.addEventListener('blur', () => { delete inp.dataset.typing; });
+    // (the arrow keys step a typed N, as a number field does)
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      delete inp.dataset.typing; clearTimeout(settle);
+      repeatStep(getK(), e.key === 'ArrowUp' ? 1 : -1);
+    });
+    repFields.push({ inp, getK });
+    return inp;
+  }
   let repRO = null;
   function updateRepeats() {
     const host = $('pipeline');
@@ -93,39 +180,7 @@
     blocks.forEach((r, i) => {
       let L = els[i];
       if (!L) {
-        const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-        // (N applies once typing settles, so 12 builds the chain once, not for N = 1 then N = 12; at once on change)
-        // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
-        let settle = 0, typedFor = null;
-        const show = (st) => { inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n); };
-        const apply = () => {
-          clearTimeout(settle);
-          const t = inp.value.trim(), st = typedFor || S.steps[+L.dataset.k - 1];
-          typedFor = null;
-          if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
-          const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
-          let rp = null;
-          if (ns.length === 1 && Params.get(ns[0]) !== undefined) { if (st.repeat.by !== ns[0]) rp = { n: st.repeat.n, len: st.repeat.len, by: ns[0] }; }
-          else if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) rp = { n: v, len: st.repeat.len };
-          if (!rp) return;
-          st.repeat = rp;
-          chainChanged(false);
-          repeatMoved(S.steps.indexOf(st) + 1, rp);
-        };
-        inp.addEventListener('input', () => { clearTimeout(settle); typedFor = S.steps[+L.dataset.k - 1] || null; settle = setTimeout(apply, 400); });
-        inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
-        // (the arrow keys step a typed N, as a number field does)
-        inp.addEventListener('keydown', (e) => {
-          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-          const k = +L.dataset.k, st = S.steps[k - 1];
-          if (!st || !st.repeat || st.repeat.by) return;
-          e.preventDefault();
-          const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + (e.key === 'ArrowUp' ? 1 : -1)));
-          if (v === st.repeat.n) return;
-          st.repeat = { n: v, len: st.repeat.len };
-          show(st); chainChanged(false); commit();
-          repeatMoved(k, st.repeat);
-        });
+        const inp = repeatField(() => +L.dataset.k);
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
           h('div', { class: 'rep-chip' }, h('span', { class: 'rep-x', 'aria-hidden': 'true' }, '×'), inp, off));
@@ -147,11 +202,11 @@
   // the ⋯ menu's Repeat: the blocks that may end at step k (back to a d/dz or another repeat), or N and End for its own
   function repeatItems(k) {
     const own = repeatBlocks().find((r) => r.a <= k && k <= r.b);
-    if (own) return [{ label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
+    if (own) return [{ label: $t('Repeat…'), run: () => focusRepeatField(own.b) }, { label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
     const kids = [], prevEnd = Math.max(0, ...repeatBlocks().filter((r) => r.b < k).map((r) => r.b));
     for (let j = k; j > prevEnd && j >= Math.max(1, k - 5); j--) {
       if (isDerivStep(S.steps[j - 1], built[j - 1])) break;
-      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); const c = document.querySelector(`#pipeline .rep-bracket[data-k="${k}"] .rep-n`); return c || null; } });
+      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); return focusRepeatField(k); } });
     }
     return kids;
   }
@@ -184,12 +239,12 @@
     const L = $('chainBracket'), host = $('pipeline');
     if (!L || L.hidden || !host) return;
     const n = nSteps(), r = homRangeOk() || { a: 1, b: n };
-    const ca = host.querySelector(`.conn[data-conn="${r.a}"]`), cb = host.querySelector(`.conn[data-conn="${r.b + 1}"]`);
+    const ca = /** @type {HTMLElement | null} */ (host.querySelector(`.conn[data-conn="${r.a}"]`)), cb = /** @type {HTMLElement | null} */ (host.querySelector(`.conn[data-conn="${r.b + 1}"]`));
     if (!ca || !cb) return;
     const ph = brPhone(), drop = ph ? 14 : host.classList.contains('compact') ? 10 : 20;
     const x0 = Math.round(ca.offsetLeft + ca.offsetWidth / 2), x1 = Math.round(cb.offsetLeft + cb.offsetWidth / 2);
     const top = ph ? Math.max(0, Math.round(ca.offsetTop) - 5) : 3;
-    const line = L.querySelector('.br-line');
+    const line = /** @type {HTMLElement} */ (L.querySelector('.br-line'));
     Object.assign(line.style, { left: x0 + 'px', width: Math.max(2, x1 - x0) + 'px', top: top + 'px', height: drop + 'px' });
     const st = HR.stops(S);
     for (const [el, c, v, ok] of [[L.querySelector('.br-end.l'), ca, r.a, st.okA], [L.querySelector('.br-end.r'), cb, r.b, st.okB]]) {
@@ -263,7 +318,7 @@
     const c = brCand(side, to);
     brTip(el, side, c.stop);
     brSet(c, false);
-    const again = $('chainBracket') && $('chainBracket').querySelector('.br-end.' + side);
+    const again = /** @type {HTMLElement | null} */ ($('chainBracket') && $('chainBracket').querySelector('.br-end.' + side));
     if (again && document.activeElement !== again) again.focus({ preventScroll: true });
   }
   function brDown(e, side, el) {
@@ -277,7 +332,7 @@
       if (!brDrag) return;
       const host = $('pipeline'), hb = host.getBoundingClientRect(), x = ev.clientX - hb.left + host.scrollLeft;
       let j = 1;
-      for (let k = 1; k <= nSteps(); k++) { const c = host.querySelector(`.card[data-k="${k}"]`); if (c && c.offsetLeft + c.offsetWidth / 2 < x) j = k + 1; }
+      for (let k = 1; k <= nSteps(); k++) { const c = /** @type {HTMLElement | null} */ (host.querySelector(`.card[data-k="${k}"]`)); if (c && c.offsetLeft + c.offsetWidth / 2 < x) j = k + 1; }
       const c = brCand(side, side === 'l' ? j : j - 1);
       brTip(el, side, c.stop);
       if (brSet(c, true) && sndP.ui !== false) soundCue('snap');
@@ -366,7 +421,7 @@
       thumbs.set(k, new Pane(card.canvas));
     });
     host.append(connector(S.steps.length + 1));
-    host.lastChild.classList.add('conn-last');
+    /** @type {HTMLElement} */ (host.lastChild).classList.add('conn-last');
     updateBracket();   // (v16: the deformation's bracket, a tab stop after the cards and before the Add tile)
     host.append(h('button', { class: 'add-card' + (S.steps.length <= 3 ? ' labelled' : ''), id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
       h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (v16.5 UX22: the label the short chain shows, desk.css)
@@ -375,7 +430,7 @@
     // (v15 review design-14: the listbox owns the options only, the region card, the step cards and F, through
     // aria-owns; the connectors are aria-hidden and the Add tile is its own tab stop after the listbox, not an item in it)
     host.removeAttribute('role'); host.removeAttribute('aria-label');
-    const opts = [...host.querySelectorAll(':scope > [role="option"]')];
+    const opts = /** @type {HTMLElement[]} */ ([...host.querySelectorAll(':scope > [role="option"]')]);
     for (const o of opts) o.id = 'chainOpt' + (o.classList.contains('ftile') ? 'F' : o.dataset.k);
     host.prepend(h('div', { class: 'chain-lb', id: 'chainListbox', role: 'listbox', 'aria-label': $t('Function chain'), 'aria-orientation': 'horizontal', 'aria-owns': opts.map((o) => o.id).join(' ') }));
     if ($('chainBracket') && $('addStepBtn')) host.insertBefore($('chainBracket'), $('addStepBtn'));
@@ -411,7 +466,13 @@
     // (v16: which steps the deformation deforms, SPEC 6.5)
     if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk }); }
+    if (!isDerivStep(st, built[k - 1])) {
+      const rk = repeatItems(k);
+      // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
+      if (opt && opt.thread && rk.length === 1) items.push({ id: 'repeat', label: $t('Repeat…'), run: rk[0].run });
+      else if (opt && opt.thread && repeatOf(k)) items.push({ id: 'repeat', label: rk[0].label, run: rk[0].run }, { id: 'repeatEnd', label: rk[1].label, run: rk[1].run });
+      else if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk });
+    }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
@@ -432,18 +493,26 @@
   // (v16.5 UX81) move step k one place and keep the keyboard on its card (the chain is drawn again)
   function moveCard(k, d) {
     if (!moveStep(k, d)) return;
-    const c = document.querySelector(`#pipeline .card[data-k="${k + d}"]`);
+    const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k + d}"]`));
     if (c) c.focus({ preventScroll: true });
+  }
+  // the keys that edit a step, read once for the chain's cards and the steps view's chips: Alt+← / Alt+→ move it (move: -1, 1),
+  // Delete or Backspace remove it (remove: true)
+  function stepEditKey(e) {
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return { move: e.key === 'ArrowLeft' ? -1 : 1 };
+    if (e.key === 'Delete' || e.key === 'Backspace') return { remove: true };   // (any modifier: ⌘⌫ on a Mac, as the chain's cards took it)
+    return null;
   }
   function chainKey(e, k) {
     if (e.target !== e.currentTarget) return;
     const n = S.steps.length, cur = k === 'F' ? n + 1 : k;
-    const go = (j) => { e.preventDefault(); const el = j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
+    const go = (j) => { e.preventDefault(); const el = /** @type {HTMLElement | null} */ (j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`)); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
     // (v16.5 UX81 / UX97: Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
     // keeps the keyboard; the chain and learn pieces built the same key, merged as one)
-    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const ed = stepEditKey(e);
+    if (ed && ed.move) {
       e.preventDefault(); e.stopPropagation();
-      if (k > 0 && k !== 'F') moveCard(k, e.key === 'ArrowLeft' ? -1 : 1);
+      if (k > 0 && k !== 'F') moveCard(k, ed.move);
       return;
     }
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(Math.min(n + 1, cur + 1));
@@ -453,7 +522,7 @@
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStep(k); }
     // (the physical L key on any layout: «д» on ЙЦУКЕН; review russian-5)
     else if (String((I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
+    else if (ed && ed.remove && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
   }
   function makeCard(st, k) {
     const d = defOf(st);
@@ -530,7 +599,7 @@
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
     const lit = Inspector.STRONG.filter((key) => words[key]);
     const show = new Set(lit.slice(0, 2));
-    for (const el of t.querySelectorAll('.lamp')) {
+    for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp'))) {
       const key = el.dataset.lamp, on = !!words[key];
       el.classList.toggle('on', on);
       el.hidden = !show.has(key);
@@ -541,12 +610,12 @@
     // (the strongest first in the list's order)
     const fl = t.querySelector('.fl');
     for (const key of lit.slice(0, 2).reverse()) { const el = fl.querySelector(`.lamp[data-lamp="${key}"]`); if (el) fl.prepend(el); }
-    t.querySelector('.fnone').hidden = lit.length > 0;
+    /** @type {HTMLElement} */ (t.querySelector('.fnone')).hidden = lit.length > 0;
     const names = BADGES.filter(([key]) => words[key]).map(([, n]) => n);
     // (v16.5 UX84: an empty chain is the identity: the tile says F = z, not its guarantees)
     const id = !act.length;
     t.classList.toggle('ident', id);
-    if (id) for (const el of t.querySelectorAll('.lamp, .fnone')) el.hidden = true;
+    if (id) for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp, .fnone'))) el.hidden = true;
     t.setAttribute('aria-label', id ? $t('F = z: no steps yet') : names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
   }
   // dragging horizontally on a label changes a numeric field
@@ -708,6 +777,8 @@
         if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
         input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
         commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; #442 Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
       // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
@@ -777,7 +848,7 @@
   // keep the card's field and the compact popover's field in step
   function syncParam(k, key, from) {
     const v = S.steps[k - 1] && S.steps[k - 1].params[key];
-    for (const el of document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`)) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`))) {
       if (el.id === `${from}${k}_${key}` || document.activeElement === el) continue;
       const t = el.dataset.num ? numShow(v) : String(v);
       if (String(el.value) !== t) el.value = t;
@@ -1066,7 +1137,7 @@
   // (#385) the chain head: compact or full, View all, Clear chain, its fit
   function setupChainHead() {
     for (const b of $('chainMode').children) b.addEventListener('click', () => {
-      setOpt('compact', b.dataset.mode === 'compact');
+      setOpt('compact', /** @type {HTMLElement} */ (b).dataset.mode === 'compact');
       const hgt = S.compact ? 96 : 188;
       document.documentElement.style.setProperty('--chain-h', hgt + 'px');
       try { localStorage.setItem(lsk('cmw-chain-h2'), String(hgt)); } catch (e) { /* ignore */ }
@@ -1082,7 +1153,12 @@
     // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
     const pipeHead = document.querySelector('.pipe-head');
     if (pipeHead && typeof ResizeObserver === 'function') {
-      const fitPipeHead = () => { pipeHead.classList.remove('notitle'); if (pipeHead.scrollWidth > pipeHead.clientWidth + 1) pipeHead.classList.add('notitle'); };
+      const fitPipeHead = () => {
+        // (#566: the heading shrinks first, as CSS has it; one that is cut, or a row that still does not fit, hides it)
+        const title = pipeHead.querySelector(':scope > h2');
+        pipeHead.classList.remove('notitle');
+        if (pipeHead.scrollWidth > pipeHead.clientWidth + 1 || (title && title.scrollWidth > title.clientWidth + 1)) pipeHead.classList.add('notitle');
+      };
       const ro = new ResizeObserver(fitPipeHead);
       ro.observe(pipeHead);
       for (const id of ['chainMode', 'viewAllBtn', 'clearChain']) { const e = $(id); if (e) ro.observe(e); }
