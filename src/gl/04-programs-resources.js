@@ -1200,6 +1200,7 @@ float wabs(vec2 w) {
       res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
     }
     e.key = key;
+    { const pr = globalThis.__svCarryProbe; if (pr) { pr.tf = (pr.tf || 0) + 1; const k = `${slot}:${res.n}:${map && map.t}`; (pr.by = pr.by || {})[k] = (pr.by[k] || 0) + 1; } }
     use(P, map);
     originUniforms(P, res.org);
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);

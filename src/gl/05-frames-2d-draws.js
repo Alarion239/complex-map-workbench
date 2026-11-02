@@ -349,6 +349,7 @@
     const m = st.map || {}, kinds = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
     const probe0 = globalThis.__svCarryProbe || {};
+    if (globalThis.__svCarryProbe) probe0.draws = (probe0.draws || 0) + 1;
     if (probe0.noCarry) return true;
     let e = probe0.noTF && res.__probeE ? res.__probeE : rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
