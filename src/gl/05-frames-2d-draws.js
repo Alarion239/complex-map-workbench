@@ -361,9 +361,10 @@
     const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
     // (the programs of the way it draws are started when they are not ready (program); one that only stands in while
-    // they link is used when it is ready, and not started (linked): a frame after an edit would otherwise start every
-    // stand-in of a heavy chain at once, each a compile the GPU process makes the frames wait behind)
-    const cache = rtOK && !isIdent(st.map), linked = (name) => getProg(name, cur, false, st.map);
+    // they link is used when it, or an earlier chain version's, is linked, and not started (programLinked): a frame
+    // after an edit would otherwise start every stand-in of a heavy chain at once, each a compile the GPU process makes
+    // the frames wait behind)
+    const cache = rtOK && !isIdent(st.map), linked = programLinked;
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
