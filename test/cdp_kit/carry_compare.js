@@ -23,7 +23,9 @@
 // colour is not near grey; ex, up to opts.nex
 // wrong samples, each with w, its points [x, y, D] and the front's colour; paperAt, up to 8 of the samples on the paper.
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
-// nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
+// nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid), surf ('sphere':
+// the pane shows the plane on its globe, and each sample's point is the globe's pick, __cmwSphereWL; samples off the
+// globe are left out) }
 (function carryCompare(o) {
   // (a pixel is grey, the bare paper, below PAPER_SPREAD between its channels; a point's own colour is not near grey
   // from OWN_SPREAD; a wrong pixel is blank (left unpainted) when its channels differ by less than BLANK in all; points
@@ -74,6 +76,7 @@
   let considered = 0, wrong = 0, blank = 0, none = 0, unlisted = 0, filled = 0, paper = 0;
   const ex = [], paperAt = [];
   for (let s = 0; s < at.length; s++) {
+    if (!pts[5 * s]) continue;   // (off the globe)
     let P0 = pre[5 * s];
     if (P0 == null) { unlisted++; continue; }
     if (skipW && skipW(pts[5 * s])) continue;
@@ -106,8 +109,10 @@
     const pts = [], at = [], cells = [];
     if (o.at) for (const [x, y] of o.at) { const q = M.w2s('L', x, y); if (!q) continue; const px = Math.round((q[0] - b.left) / sx), py = Math.round((q[1] - b.top) / sy); if (px >= o.margin && py >= o.margin && px < W - o.margin && py < H - o.margin) cells.push([px, py]); }
     else for (let j = 0; j < o.ny; j++) for (let i = 0; i < o.nx; i++) cells.push([Math.round(o.margin + (W - 2 * o.margin) * (i + 0.5) / o.nx), Math.round(o.margin + (H - 2 * o.margin) * (j + 0.5) / o.ny)]);
+    // (on the Sphere surface a sample's point is the globe's own pick, null off the globe)
+    const pick = o.surf === 'sphere' ? (x, y) => __cmwSphereWL(x * sx, y * sy) : (x, y) => M.s2w('L', b.left + x * sx, b.top + y * sy);
     for (const [px, py] of cells) {
-      for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) pts.push(M.s2w('L', b.left + (px + ox) * sx, b.top + (py + oy) * sy));
+      for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) pts.push(pick(px + ox, py + oy));
       at.push([px, py]);
     }
     return { pts, at };
@@ -115,8 +120,9 @@
   // each sample's points of plane z, each with its image in the colour plane T, [x, y, gx, gy] (null: the frame's maps
   // could not list them all)
   function pointsOf(f, ws) {
-    const roots = f.H ? deformRoots(f, ws) : ws.map(([x, y]) => [C(x, y)]);
-    return roots.map((vs) => {
+    const roots = f.H ? deformRoots(f, ws.map((w) => w || [NaN, NaN])) : ws.map((w) => (w ? [C(w[0], w[1])] : null));
+    return roots.map((vs, i) => {
+      if (!ws[i] || !vs) return null;
       const zs = [];
       for (const v of vs) { const r = f.pre(v); if (!r) return null; zs.push(...r); }
       return zs.filter((z) => CX.abs(z) < 1e6).map((z) => { let g = null; try { g = f.G(z); } catch (e) { g = null; } return g && CX.isFin(g) ? [z.re, z.im, g.re, g.im] : null; }).filter(Boolean);

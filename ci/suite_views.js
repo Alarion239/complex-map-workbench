@@ -157,6 +157,7 @@ const VIEWS = {
   'figure_wait_cmd.js': port('export'),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
   'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
+  'p3_review_export_cmd.js': port('export', 'the two-globe 300 dpi export: the shown plane\'s export at 300 dpi'),
 
   // to port: geometry
   'between_cmd.js': port('geometry'),
@@ -179,7 +180,7 @@ const VIEWS = {
   'link_standin_cmd.js': port('render'),
   'overlay_ghost_cmd.js': port('render'),
   'p3_accept_cmd.js': port('render'),
-  'p3_review_cmd.js': port('render'),
+  'p3_review_cmd.js': steps({ pin: true }),
   'p3b_accept_cmd.js': port('render'),
   'p3bfix_cmd.js': port('render'),
   'p5_accept_cmd.js': port('render'),
