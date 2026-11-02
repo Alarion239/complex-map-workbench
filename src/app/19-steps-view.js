@@ -635,8 +635,9 @@
   }
   // the Paths toggle (the classic deformation's S.morphPaths, setMorphPaths): the paths t -> H_t(z) of a glide and of a
   // parked view (svPathsSource); key P. Off, with its reason, when a d/dz step is in the chain (svPlaySync)
-  function svPathsBtn(cls) {
-    return h('button', { type: 'button', class: cls, 'aria-pressed': String(S.morphPaths !== false), onclick: () => { setMorphPaths(S.morphPaths === false); svSync(); requestRender('L'); } }, $t('Paths'));
+  // (inPop: the button of the Playback popover, whose row is labelled Paths, says On or Off)
+  function svPathsBtn(cls, inPop) {
+    return h('button', { type: 'button', class: cls, 'aria-pressed': String(S.morphPaths !== false), onclick: () => { setMorphPaths(S.morphPaths === false); svSync(); requestRender('L'); } }, inPop ? (S.morphPaths !== false ? $t('On') : $t('Off')) : $t('Paths'));
   }
   // the order of a glide across several planes (S.homAll): plane by plane, or all at once as one homotopy of the whole range
   function svOrderSel(title) {
@@ -709,9 +710,9 @@
     const order = svOrderSel($t('Glide order'));
     // (the order lives in a small dialog at the strip's end, opened by its ⋯: Speed and Loop stay on the strip; a phone has the Playback sheet)
     const orderWhy = h('p', { class: 'sv-playpop-why' });
-    const paths = svPathsBtn('btn small sv-paths');
+    const paths = svPathsBtn('btn small sv-paths', true);
     const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
-      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy, h('div', { class: 'sv-playpop-r' }, paths));
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy, h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths));
     pop.hidden = true;
     const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
@@ -1303,7 +1304,7 @@
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
     const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]);
-    for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); }
+    for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); if (b === E.paths) b.textContent = S.morphPaths !== false && !noPaths ? $t('On') : $t('Off'); }
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }

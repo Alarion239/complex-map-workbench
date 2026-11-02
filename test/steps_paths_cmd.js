@@ -29,11 +29,11 @@ const parked = async (x) => {
   await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.ready && p.heads > 0 && Math.abs(p.T - p.src.T) < 1e-9; })()` });
   return (await S()).paths;
 };
-const btn = () => ev(`(() => { const b = document.querySelector('#svStrip .sv-playpop .sv-paths'); if (!b) return null; return { pressed: b.getAttribute('aria-pressed'), disabled: b.disabled, text: b.textContent, tip: b.dataset.tip || '', inPopover: !!b.closest('.sv-playpop'), onStrip: !!document.querySelector('#svStrip > .sv-paths') }; })()`);
+const btn = () => ev(`(() => { const b = document.querySelector('#svStrip .sv-playpop .sv-paths'); if (!b) return null; return { pressed: b.getAttribute('aria-pressed'), disabled: b.disabled, text: b.textContent, label: ((b.closest('label') || {}).firstElementChild || {}).textContent || '', tip: b.dataset.tip || '', inPopover: !!b.closest('.sv-playpop'), onStrip: !!document.querySelector('#svStrip > .sv-paths') }; })()`);
 await view(1440, 900, false, false);
 await open(chain());
 const b0 = await btn();
-ok('a Paths toggle in the Playback popover (not on the strip), pressed (the saved default)', !!b0 && b0.inPopover && !b0.onStrip && b0.pressed === 'true' && !b0.disabled && b0.text === 'Paths', b0);
+ok('a Paths toggle in the Playback popover (not on the strip), pressed (the saved default)', !!b0 && b0.inPopover && !b0.onStrip && b0.label === 'Paths' && b0.pressed === 'true' && !b0.disabled && b0.text === 'On', b0);
 const p1 = await parked(0.5);
 info.p1 = p1;
 ok('parked between z and w₁: the run is that step, from the identity', !!p1.src && Math.abs(p1.src.T - 0.5) < 1e-9 && p1.src.Tend === 1 && p1.src.startId === true && p1.src.seq === false, p1.src);
@@ -46,11 +46,11 @@ ok('parked between w₁ and w₂: paths drawn, each moving point at H_T(z)', p2.
 await ev(`document.querySelector('#svStrip .sv-playmore').click(), document.querySelector('#svStrip .sv-playpop .sv-paths').click(), document.querySelector('#svStrip .sv-playmore').click(), 1`);
 await settled({ max: 5000, until: `__cmwSteps().paths.heads === 0` });
 const off = await S(), b1 = await btn();
-ok('a click on Paths turns them off: none drawn, the toggle not pressed', !off.paths.on && off.paths.heads === 0 && !off.paths.src && b1.pressed === 'false', { paths: off.paths, btn: b1 });
+ok('a click on Paths turns them off: none drawn, the toggle not pressed and saying Off', !off.paths.on && off.paths.heads === 0 && !off.paths.src && b1.pressed === 'false' && b1.text === 'Off', { paths: off.paths, btn: b1 });
 await ev(`document.querySelector('#svStrip .sv-playmore').focus(); document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', bubbles: true, cancelable: true })), 1`);
 await settled({ max: 20000, until: `__cmwSteps().paths.heads > 0` });
 const on = await S(), b2 = await btn();
-ok('key P turns them on again', on.paths.on && on.paths.heads > 0 && b2.pressed === 'true', { paths: on.paths, btn: b2 });
+ok('key P turns them on again', on.paths.on && on.paths.heads > 0 && b2.pressed === 'true' && b2.text === 'On', { paths: on.paths, btn: b2 });
 // a glide over two planes: one run
 await ev(`__cmwSteps({ go: 0, now: true }), 1`);
 await settled({ max: 5000, until: `!__cmwSteps().moving` });
