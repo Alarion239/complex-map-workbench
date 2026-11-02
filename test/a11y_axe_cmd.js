@@ -40,7 +40,7 @@ for (const lang of ['en', 'ru']) {
 }
 await ev(`I18N.setPref('en'), 1`); await settle(1500);
 
-// what the fixes keep: the card's Bypass and More are for the mouse, and Clear sits in the Shapes header
+// what the fixes keep: Clear sits in the Shapes header
 await ev(`__cmwExample(${idx(/^Strip to disk/)}); 1`); await settle(1500);
 // (the chain cards' inert actions are the classic view's: a11y_axe_cards_cmd.js, a classic-view suite)
 const g = await ev(`(() => { const s = document.querySelector('#secShapes > summary').getBoundingClientRect(), c = document.getElementById('clearShapes').getBoundingClientRect(), d = document.getElementById('secShapes').getBoundingClientRect(); return { sTop: s.top, cTop: c.top, cH: c.height, cRight: c.right, dRight: d.right, inSummary: !!document.querySelector('#secShapes > summary #clearShapes') }; })()`);
