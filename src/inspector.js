@@ -290,15 +290,18 @@ const Inspector = (() => {
       if (btn && btn.disabled !== !!sp.blocked) btn.disabled = !!sp.blocked;
       return true;
     }
-    // after a split, the keyboard goes to the first new card, the chain's option (the button and its Inspector are
-    // rebuilt: the card is looked up again while the chain is drawn; review steps-11)
+    // after a split, the keyboard goes to the first new step: its card in the classic view, its chip on the steps view's
+    // thread (the button and its Inspector are rebuilt: the element is looked up again while the chain is drawn)
     function focusCard(k) {
-      let n = 0;
+      let n = 0, held = 0;
       const go = () => {
-        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k}"]`));
-        if (c && c.isConnected && document.activeElement !== c) c.focus({ preventScroll: true });
-        // (held for 12 frames: the chain and the Inspector are drawn again after the split)
-        if (++n < 12) requestAnimationFrame(go);
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(A.svOn && A.svOn() ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`));
+        if (c && c.isConnected) {
+          if (document.activeElement !== c) { c.focus({ preventScroll: true }); held = 0; } else held++;
+        }
+        // (held until it has stayed for 8 frames, at most 600: the chain and the Inspector are drawn again after the split,
+        // and the steps view's thread keeps drawing its new chips for a while)
+        if (held < 8 && ++n < 600) requestAnimationFrame(go);
       };
       go();
     }
