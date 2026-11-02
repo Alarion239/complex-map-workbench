@@ -143,7 +143,7 @@
         if (!need.length) { if (!dragging) r.liveTail = false; liveMsUsed += performance.now() - t0; return; }
         const tg = need[0];
         const budget = { ms: 0 };
-        r.live = { role: tg.role, mapKey: tg.key, budget, gen: fixGen(r.mesh, tg.F, budget), mesh: r.mesh, meshRes: r.meshRes, meshKey: r.meshKey, skey: r.skey, lref: r.lineKey, owned: false };
+        r.live = { role: tg.role, mapKey: tg.key, budget, gen: fixGen(r.mesh, tg.F, budget, tg.close || 0), mesh: r.mesh, meshRes: r.meshRes, meshKey: r.meshKey, skey: r.skey, lref: r.lineKey, owned: false };
       }
       const now = performance.now();
       const left = Math.max(LIVE_SLICE - liveMsUsed - (now - t0), LIVE_FRAME_MS - (now - frameStartT));
@@ -467,8 +467,8 @@
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
   // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (busy: fixBusy,
   // or the caller's wider test); null when the job went stale (fixJob.token moved on)
-  async function computeFix(mesh, F, token, busy = fixBusy) {
-    const g = fixGen(mesh, F, { ms: FIX_SLICE });
+  async function computeFix(mesh, F, token, busy = fixBusy, close = 0) {
+    const g = fixGen(mesh, F, { ms: FIX_SLICE }, close);
     for (;;) {
       const st = g.next();
       if (st.done) return st.value;
@@ -480,7 +480,9 @@
   // The fix-up computation as a generator: it yields (to its driver) whenever it has run for slice ms since it was
   // last resumed, and returns {flags, extra}. Two drivers: computeFix (the idle job above) and liveFix (the shape
   // being dragged, advanced inside its motion frames, so its fix-up keeps up with the drag).
-  function* fixGen(mesh, F, slice) {
+  // close (a power of 2, or 0: none): the level of the GPU template the base mesh is drawn with; the extra mesh is then
+  // made crack-free against it (fixClose)
+  function* fixGen(mesh, F, slice, close = 0) {
     const SRC = mesh.src, T = mesh.tri, nv = SRC.length / 2, nt = T.length / 3;
     const W = new Float64Array(nv * 2);
     let t0 = performance.now();
@@ -508,7 +510,8 @@
       stack.push([ax0, ay0, bx0, by0, cx0, cy0, wa0, wb0, wc0, 0]);
       while (stack.length) {
         const [ax, ay, bx, by, cx, cy, wa, wb, wc, depth] = stack.pop();
-        if (ok(wa.re, wa.im) && ok(wb.re, wb.im) && ok(wc.re, wc.im)) {
+        const fin = ok(wa.re, wa.im) && ok(wb.re, wb.im) && ok(wc.re, wc.im);
+        if (fin) {
           const e = Math.max(Math.hypot(wa.re - wb.re, wa.im - wb.im), Math.hypot(wb.re - wc.re, wb.im - wc.im), Math.hypot(wc.re - wa.re, wc.im - wa.im));
           const wm = F(C((ax + bx + cx) / 3, (ay + by + cy) / 3));
           budget--;
@@ -517,7 +520,10 @@
             continue;
           }
         }
-        if (depth >= maxDepth || budget <= 0) { trouble = true; continue; }
+        // (a piece still failing at depth 5 with finite images is kept in the extra mesh: the GPU's own midpoint test
+        // leaves it out, unless it lies across a cut the sheets continue, whose fill draws it on its centre's branch
+        // and clips it at the cut, so the image ends exactly at the cut's image, not at the last piece that passed)
+        if (depth >= maxDepth || budget <= 0) { trouble = true; if (fin) extra.push(ax, ay, bx, by, cx, cy); continue; }
         const abx = (ax + bx) / 2, aby = (ay + by) / 2, bcx = (bx + cx) / 2, bcy = (by + cy) / 2, cax = (cx + ax) / 2, cay = (cy + ay) / 2;
         const wab = F(C(abx, aby)), wbc = F(C(bcx, bcy)), wca = F(C(cax, cay));
         budget -= 3;
@@ -548,7 +554,72 @@
       }
       if (due()) { yield; t0 = performance.now(); }
     }
-    return { flags, extra: new Float32Array(extra), trouble };
+    return { flags, extra: new Float32Array(close ? fixClose(mesh, flags, extra, close, maxDepth) : extra), trouble, close };
+  }
+  // The extra mesh of a fix-up without cracks (T-junctions): a refined piece meets a coarser piece, or a base triangle
+  // drawn with the GPU template of level L, along an edge where only one side has a vertex, and the map bends that
+  // edge, so the two sides' images part along it and the sheet behind shows through in a one-pixel streak. Each piece,
+  // and each base triangle beside a skipped one (taken out of the base mesh: its flag set, drawn here), is split at
+  // every vertex on its edges (dyadic midpoints of the edge, up to depth levels; a base triangle's also at the points
+  // its template puts on its edges) into a fan about its centroid, so every edge is shared vertex for vertex.
+  // flags: the base mesh's skip flags (set here for the base triangles taken in); extra: the pieces, 6 coordinates
+  // each -> the extra mesh's coordinates
+  function fixClose(mesh, flags, extra, L, depth) {
+    if (!extra.length) return extra;
+    const SRC = mesh.src, T = mesh.tri, nt = T.length / 3;
+    const key = (x, y) => x + ',' + y;
+    const V = new Set();
+    for (let i = 0; i < extra.length; i += 2) V.add(key(extra[i], extra[i + 1]));
+    // (the points a base triangle's template puts on edge p..q: its dyadic points down to level L)
+    const tpl = (px, py, qx, qy, l, out) => {
+      if (l < 2) return;
+      const mx = (px + qx) / 2, my = (py + qy) / 2;
+      tpl(px, py, mx, my, l / 2, out); out.push(mx, my); tpl(mx, my, qx, qy, l / 2, out);
+    };
+    // the base triangles beside a skipped one, by a shared edge (vertex indices)
+    const ek = (a, b) => (a < b ? a * 4294967296 + b : b * 4294967296 + a);
+    const skipped = new Set();
+    for (let t = 0; t < nt; t++) if (flags[t]) for (let k = 0; k < 3; k++) skipped.add(ek(T[3 * t + k], T[3 * t + (k + 1) % 3]));
+    const take = [];
+    for (let t = 0; t < nt; t++) {
+      if (flags[t]) continue;
+      let by = false;
+      for (let k = 0; k < 3 && !by; k++) by = skipped.has(ek(T[3 * t + k], T[3 * t + (k + 1) % 3]));
+      if (!by) continue;
+      take.push(t);
+      // (its template's points are vertices: of the base triangles beside it, and of its own pieces here)
+      for (let k = 0; k < 3; k++) {
+        const a = T[3 * t + k], b = T[3 * t + (k + 1) % 3], pts = [];
+        tpl(SRC[2 * a], SRC[2 * a + 1], SRC[2 * b], SRC[2 * b + 1], L, pts);
+        for (let i = 0; i < pts.length; i += 2) V.add(key(pts[i], pts[i + 1]));
+      }
+    }
+    const out = [];
+    // edge p..q's vertices strictly inside it, in order from p (a vertex at a midpoint splits the edge in two halves,
+    // each searched in turn)
+    const onEdge = (px, py, qx, qy, d, pts) => {
+      if (d <= 0) return;
+      const mx = (px + qx) / 2, my = (py + qy) / 2;
+      if (!V.has(key(mx, my))) return;
+      onEdge(px, py, mx, my, d - 1, pts); pts.push(mx, my); onEdge(mx, my, qx, qy, d - 1, pts);
+    };
+    const D = depth + Math.round(Math.log2(L)) + 1;
+    const emit = (ax, ay, bx, by, cx, cy) => {
+      const poly = [ax, ay];
+      onEdge(ax, ay, bx, by, D, poly); poly.push(bx, by);
+      onEdge(bx, by, cx, cy, D, poly); poly.push(cx, cy);
+      onEdge(cx, cy, ax, ay, D, poly);
+      if (poly.length === 6) { out.push(ax, ay, bx, by, cx, cy); return; }
+      const gx = (ax + bx + cx) / 3, gy = (ay + by + cy) / 3, n = poly.length / 2;
+      for (let i = 0; i < n; i++) { const j = (i + 1) % n; out.push(gx, gy, poly[2 * i], poly[2 * i + 1], poly[2 * j], poly[2 * j + 1]); }
+    };
+    for (let i = 0; i < extra.length; i += 6) emit(extra[i], extra[i + 1], extra[i + 2], extra[i + 3], extra[i + 4], extra[i + 5]);
+    for (const t of take) {
+      const a = T[3 * t], b = T[3 * t + 1], c = T[3 * t + 2];
+      flags[t] = 1;
+      emit(SRC[2 * a], SRC[2 * a + 1], SRC[2 * b], SRC[2 * b + 1], SRC[2 * c], SRC[2 * c + 1]);
+    }
+    return out;
   }
   // a finished fix-up res of r's current mesh under the map keyed key, installed as r.fix[role]: the role's skip flags
   // (reused for the same mesh) and its extra mesh of refined pieces -> the fix-up
@@ -568,10 +639,11 @@
   // a region's are. The tiling's job runs it (fixTargets, runFixInner) once the view settles, waiting out the steps
   // view's glides; a new map or shape list restarts it (scheduleFix)
   let svFixWant = null;
-  function svWantFix(F, map, shapes) {
+  // (close: the template level the steps view draws the base meshes with, so the extra meshes meet them without cracks)
+  function svWantFix(F, map, shapes, close) {
     const key = mapKeyOf(map), ids = shapes.map((x) => x.id).join(',');
-    if (svFixWant && svFixWant.key === key && svFixWant.ids === ids) return;
-    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes, busy: () => fixBusy() || (SV.on && svGliding()) };
+    if (svFixWant && svFixWant.key === key && svFixWant.ids === ids && svFixWant.close === close) return;
+    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes, close, busy: () => fixBusy() || (SV.on && svGliding()) };
     scheduleFix();
   }
   // shape s's steps-view fix-up under map for its current mesh, or null while it has none
@@ -608,8 +680,8 @@
         if (old && old.mapKey === tg.key && old.meshKey === r.meshKey) continue;
         // the other plane may already have refined this mesh for the same map (after adding a step, the left
         // plane shows the stage the right one just refined)
-        const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey);
-        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token, tg.busy);
+        const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey && (f.res.close || 0) === (tg.close || 0));
+        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token, tg.busy, tg.close || 0);
         if (!res || token !== fixJob.token || r.meshKey === undefined || !r.meshRes) return;
         installFix(r, tg.role, tg.key, res);
         if (r.hold && holdCovered(r)) dropHold(r);

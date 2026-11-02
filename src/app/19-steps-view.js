@@ -679,7 +679,7 @@
       draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
       if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
-    if (F && fixed.length) svWantFix(F, map, fixed);
+    if (F && fixed.length) svWantFix(F, map, fixed, SV_CARRY_L);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
