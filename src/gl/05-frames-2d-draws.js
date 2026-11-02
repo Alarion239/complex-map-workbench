@@ -341,7 +341,7 @@
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   function prestartCarry() {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
-    return prestartNames(clip ? ['regionKC', 'regionKSCX'] : cuts ? ['regionKC', 'regionKSC'] : ['regionKC'], [1]);
+    return prestartNames(clip ? ['regionKC', 'regionKSCclip'] : cuts ? ['regionKC', 'regionKSC'] : ['regionKC'], [1]);
   }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
