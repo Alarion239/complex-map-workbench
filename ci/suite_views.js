@@ -35,6 +35,7 @@ const VIEWS = {
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
+  'steps_listen_cmd.js': steps({ pin: true }),
   'steps_labels_cmd.js': steps(),
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),

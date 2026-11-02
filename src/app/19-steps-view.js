@@ -933,6 +933,25 @@
   // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
   // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
   // or a new title, button or surface), and never while the view moves (#320)
+  // svFitHead's chip fit: the head is one row while it is under SV_HEAD_ROW px tall (40 px minimum, with 4 px for
+  // the border and rounding). Short of room, a chip's name gives up its width in SV_NAME_STEP px steps (a few letters
+  // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
+  // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
+  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  function svChipBare(chip, bare) {
+    const t = chip.querySelector('.mc-t');
+    const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
+    chip.classList.toggle('mc-bare', bare);
+    if (!t || !act) return;
+    if (act.dataset.name === undefined) act.dataset.name = act.getAttribute('aria-label') || '';
+    if (bare) {
+      chip.setAttribute('data-tip', t.textContent);
+      act.setAttribute('aria-label', `${act.dataset.name}: ${t.textContent}`);
+    } else {
+      chip.removeAttribute('data-tip');
+      act.setAttribute('aria-label', act.dataset.name);
+    }
+  }
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
@@ -941,10 +960,22 @@
     // once when the glide settles; rework on #473)
     if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
-    const key = [ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
+    const mc = $('modeChips');
+    const key = [
+      ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
+      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '',
+    ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
     const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
+    if (mc) {
+      for (const c of mc.querySelectorAll('.mode-chip')) {
+        svChipBare(c, false);
+        c.classList.remove('mc-nokey');
+        const t = /** @type {HTMLElement | null} */ (c.querySelector('.mc-t'));
+        if (t) t.style.removeProperty('max-width');
+      }
+    }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
     E.bar.classList.remove('sv-c3', 'sv-c4');
@@ -974,6 +1005,23 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
+    // chip: a chip's name shrinks, then goes, one chip after another)
+    if (mc && !mc.hidden) {
+      const wraps = () => head.getBoundingClientRect().height > SV_HEAD_ROW;
+      const chips = /** @type {NodeListOf<HTMLElement>} */ (mc.querySelectorAll('.mode-chip'));
+      for (const c of chips) {
+        const t = /** @type {HTMLElement | null} */ (c.querySelector('.mc-t'));
+        if (!t || !wraps()) continue;
+        let w = Math.ceil(t.getBoundingClientRect().width);
+        // (the Listening chip's name is its whole label: it goes at once, and Stop stays)
+        if (c.dataset.mode !== 'listen') {
+          while (wraps() && w > SV_NAME_STEP) { w -= SV_NAME_STEP; t.style.maxWidth = w + 'px'; }
+        }
+        if (wraps()) svChipBare(c, true);
+        if (wraps()) c.classList.add('mc-nokey');   // (the Esc hint goes last; the key still works)
+      }
+    }
     // (the strip in the head fits its controls to the room the bar now leaves)
     if (typeof layoutFoot === 'function') layoutFoot(true);
   }
