@@ -18,8 +18,8 @@ const { ROOT, summary, esc } = require('./lib');
 
 // room for the diff of a large change (256 MiB); git's output is read whole
 const GIT_BUFFER = 1 << 28;
-// the part of an offending line a report shows, and the most warning annotations one run writes (GitHub shows about
-// ten per step in the diff and drops the rest above fifty)
+// the part of an offending line a report shows, and the most warning annotations one run writes (GitHub keeps at most
+// 10 warning annotations per step and 50 per job; the job summary lists every finding)
 const SHOWN_CHARS = 100, MAX_ANNOTATIONS = 50;
 const SCOPE = /^(src|ci|test|tools)\//;
 const GENERATED = /^(src\/(i18n_[a-z]+|cyr|seasong)\.js|src\/.*\.min\.js|tools\/vendor\/|test\/fixtures\/)/;
