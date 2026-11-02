@@ -6,7 +6,10 @@
 //                        sets a seeded pattern through the test hook): what a user's own saved work does
 (({ U, ev, send, nav, sleep, settled }) => {
   const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
-  const STATE = (o) => Object.assign({ v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 80 } }, o);
+  const STATE = (o) => Object.assign({
+    v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0,
+    rightMode: 'image', srcView: { cx: 0, cy: 0, s: 80 },
+  }, o);
   const openSaved = async (ns, st) => {
     await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
@@ -22,9 +25,19 @@
     await settled({ only: true, max: 60000, until: `typeof __cmwRegions === 'function'` });
     await settled({ floor: 800 });
     if (o.prep) { await ev(o.prep); await settled({ floor: 800 }); }
-    await ev(`document.querySelector(${JSON.stringify(o.btn)}).click()`); await settled({ floor: 500, until: `!!document.querySelector(${JSON.stringify(o.pop)})` });
-    const fit = await ev(`(() => { const p = document.querySelector(${JSON.stringify(o.pop)}); if (!p || !p.querySelector('#regionsBox')) return null; const out = [p, ...p.querySelectorAll('*')].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible').map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth); return { out, pw: Math.round(p.getBoundingClientRect().width) }; })()`);
-    await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settled({ floor: 300 });
+    await ev(`document.querySelector(${JSON.stringify(o.btn)}).click()`);
+    await settled({ floor: 500, until: `!!document.querySelector(${JSON.stringify(o.pop)})` });
+    const fit = await ev(`(() => {
+      const p = document.querySelector(${JSON.stringify(o.pop)});
+      if (!p || !p.querySelector('#regionsBox')) return null;
+      const out = [p, ...p.querySelectorAll('*')]
+        .filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1
+          && getComputedStyle(e).overflowX !== 'visible')
+        .map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth);
+      return { out, pw: Math.round(p.getBoundingClientRect().width) };
+    })()`);
+    await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+    await settled({ floor: 300 });
     return fit;
   };
   return { DISC, STATE, openSaved, popFit };

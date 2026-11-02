@@ -501,7 +501,8 @@
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
     const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
-    const kids = regions ? [...rest, ...(!regionsOnly && rest.length ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : []), regions] : rest;
+    const regionsHead = regions && !regionsOnly && rest.length ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
+    const kids = regions ? [...rest, ...regionsHead, regions] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
