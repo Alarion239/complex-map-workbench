@@ -1073,6 +1073,71 @@ async function svProbeUnit(scene) {
     log(`${id}: frame p95 ${f.map((x) => x.toFixed(1)).join(' / ')} ms; cpu p95 ${c.map((x) => x.toFixed(1)).join(' / ')} ms; fps ${reps.map((r) => r.fps.toFixed(1)).join(' / ')}`);
   }
 }
+// [#643 probe, measurement only, not for merge] the King's fillGate scrub against what ran before it, on a fresh page
+// each rep: fresh (fillGate after its own unmeasured warm-up only), afterNoCarry, afterBase, afterBasePause (5 s idle
+// after base), afterBaseDrop (after base, GLR.probeDrop: the point pass's textures and VAOs deleted, gl.finish),
+// repeat (fillGate after fillGate). Each case: one scrub there and back per scope of the setting before (unmeasured),
+// then fillGate's (measured). Frame p95 per case and scope, info only.
+async function svProbeOrderUnit() {
+  const leg = async (fn) => { const a = await pageNow(); await fn(); const b = await pageNow(); const w = await windowStats(a, b); await settle(b); return w; };
+  const ends = `(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`;
+  const GATE = { fillTex: true, fillGate: true };
+  const scrubs = async (set, measure) => {
+    await B.ev(`globalThis.__svCarryProbe = ${JSON.stringify(set)}, 1`);
+    const out = {};
+    for (const scope of ['in', 'all']) {
+      await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
+      await settle(await pageNow());
+      const r = await B.ev(ends);
+      const legs = [];
+      for (const [xa, xb] of [[r.x0, r.x1], [r.x1, r.x0]]) legs.push(await leg(() => B.drag(xa, r.y, xb, r.y, { n: 40, dt: 16 })));
+      if (measure) out[scope] = legSummary(legs, 'pointermove');
+    }
+    return out;
+  };
+  const CASES = {
+    fresh: [],
+    afterNoCarry: [{ noCarry: true }],
+    afterBase: [{}],
+    afterBasePause: [{}, 'pause'],
+    afterBaseDrop: [{}, 'drop'],
+    repeat: [GATE],
+  };
+  const R = {};
+  for (const k of Object.keys(CASES)) R[k] = { in: [], all: [] };
+  for (let i = 0; i < REPS; i++) {
+    await B.nav(`${BASE}test.html?ns=perfsvo${process.pid}_${++nsCounter}&view=steps`);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    await B.ev(`__cmwExample(${exampleIndex(process.env.SVP_PX_EX || 'In the Hall of the Mountain King')}), 1`);
+    await settle(await pageNow());
+    await sleep(SV_IDLE_MS);
+    for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+    await settle(await pageNow());
+    // (fillGate's programs linked first, unmeasured; the other settings' programs link in their own unmeasured scrubs)
+    await scrubs(GATE, false);
+    // (fresh first; the others in an order that turns by one each rep)
+    const rest = Object.keys(CASES).filter((k) => k !== 'fresh');
+    const names = ['fresh'].concat(rest.map((_, j) => rest[(j + i) % rest.length]));
+    for (const k of names) {
+      for (const st of CASES[k]) {
+        if (st === 'pause') await sleep(5000);
+        else if (st === 'drop') await B.ev('GLR.probeDrop(), 1');
+        else await scrubs(st, false);
+      }
+      const m = await scrubs(GATE, true);
+      for (const scope of ['in', 'all']) R[k][scope].push(m[scope]);
+    }
+    await B.ev('globalThis.__svCarryProbe = {}, 1');
+  }
+  for (const [k, sc] of Object.entries(R)) for (const [scope, reps] of Object.entries(sc)) {
+    if (!reps.length) continue;
+    const id = `svo.king.${k}.scrub.${scope}`;
+    putPooled(`${id}.frame_p95_ms`, 'info', 'ms', reps, 'frame', 0.95, 'frame_p95');
+    const f = reps.map((r) => r.frame_p95).filter((x) => x != null);
+    log(`${id}: fillGate frame p95 ${f.map((x) => x.toFixed(1)).join(' / ')} ms; fps ${reps.map((r) => r.fps.toFixed(1)).join(' / ')}`);
+  }
+}
 // [#643 probe, measurement only, not for merge] the King's colours with the thread held mid-glide (a scrub on the rail
 // not let go, as steps_carry_far_cmd.js's hold), under base, fillTex and base again: canvasL's pixels once two successive
 // reads agree, fillTex compared with each base and the two bases with each other (the floor), with __svPathStats per
@@ -1972,6 +2037,7 @@ unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide afte
 unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub under globalThis.__svCarryProbe {base, fillGate, gateNoDraw, gateNoClip, noFill, cacheOnly, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('king'), { timeoutS: 900 });
 unit('svp.jouk', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub under globalThis.__svCarryProbe {base, fillGate, gateNoDraw, gateNoClip, noFill, cacheOnly, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('jouk'), { timeoutS: 900 });
 unit('svp.jouk2', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub again (svp.jouk repeated in the same run), info only', () => svProbeUnit('jouk2'), { timeoutS: 900 });
+unit('svo.king', 'probe for #643 (not for merge): the Mountain King fillGate scrub fresh, after noCarry, after base, after base and 5 s, after base and probeDrop, after itself, info only', () => svProbeOrderUnit(), { timeoutS: 900 });
 unit('svp.kingpx', 'probe for #643 (not for merge): the Mountain King held mid-glide, canvasL under fillTex and fillGate against base and base against base, info only', () => svProbeExactUnit(), { timeoutS: 600 });
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));

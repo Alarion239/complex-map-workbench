@@ -1220,7 +1220,20 @@ float wabs(vec2 w) {
   // (probe, scratch) the fill point pass (fillTF) of mesh res at template size L (at most 2) under map: the fill's four
   // centre-sheet values and sides of every sub-triangle of every instance, into res's RGBA32F texture (unit 12,
   // uFT); -> {tex, W, P} for regionKSCft's uFT, uFTW, uFTP, or null while fillTF compiles
+  // (probe, scratch) every mesh the fill point pass has run on, and probeDrop: their point-pass textures and VAOs
+  // deleted (made again at the next pass), then gl.finish
+  const probeRes = new Set();
+  function probeDrop() {
+    for (const res of probeRes) {
+      if (res.probeFill) { gl.deleteTexture(res.probeFill.tex); res.probeFill = null; }
+      if (res.vaos) for (const [k, v] of [...res.vaos]) if (k.startsWith('probeFill')) { gl.deleteVertexArray(v); res.vaos.delete(k); }
+    }
+    probeRes.clear();
+    gl.finish();
+    return true;
+  }
   function fillPass(res, L, map, gate = null) {
+    probeRes.add(res);
     if (L > 2 || !rtOK) return null;
     const P = program('fillTF', map);
     if (!P) return null;
