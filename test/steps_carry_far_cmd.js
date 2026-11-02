@@ -13,10 +13,24 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await view(1200, 800, false, false);
 // (quiet: no GL frame pending, and the tiling's fix-up landed under a parked map)
 const wait = async () => { await settled({ max: 20000, until: '__cmwSvFixed()' }); };
-const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function"' }); };
+const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwCards === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the pane's camera and size, and whether z is where plane z's picture shows it
-const paneOf = async () => ev('(() => { const q = __cmwLPx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; })()');
+// the left pane's pixels at plane points (3 x 3 device pixels about each, null off the canvas) and its camera, read
+// from its 2-D canvas (#canvasL) with the main card's view and dpr: {view, pw, ph, dpr, px}
+const LPX = `((pts) => {
+  const m = __cmwCards().main, v = m.view, d = m.dpr, c = document.getElementById('canvasL'), W = c.width, H = c.height;
+  const img = pts.length ? c.getContext('2d').getImageData(0, 0, W, H).data : null;
+  return { view: v, pw: W, ph: H, dpr: d, px: pts.map(([x, y]) => {
+    const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
+    if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
+    const out = [];
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
+    return out;
+  }) };
+})`;
+const lpx = (pts) => ev(`${LPX}(${JSON.stringify(pts)})`);
+const paneOf = async () => { const q = await lpx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; };
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
 // for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
 // the page; sing: the key's points in place of plane b's), -1 for none
@@ -47,7 +61,7 @@ async function zoom(f) {
   const s0 = (await paneOf()).v.s;
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: b[0], y: b[1] });
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: b[0], y: b[1], deltaX: 0, deltaY: -Math.log(f) / 0.0016 });
-  await settled({ max: 20000, until: `Math.abs(__cmwLPx([]).view.s / ${s0} - ${f}) < 0.02` });
+  await settled({ max: 20000, until: `Math.abs(__cmwCards().main.view.s / ${s0} - ${f}) < 0.02` });
   await wait();
 }
 // The Joukowski path at x = 1/2, Everywhere: H_t, t = 1/2 (tanh((1 + t) artanh z - i pi t / 2) on the disc,
@@ -104,12 +118,12 @@ async function far(P0, c, r, outside) {
   const frames = [];
   for (const at of [{ scope: 'all', park: 0.5 }, { scope: 'all', hold: 0.5 }]) {
     if (at.hold != null) { await steps({ scope: 'all', surf: 'plane', go: 0, now: true }); await hold(at.hold); } else await steps(Object.assign({ surf: 'plane' }, at));
-    frames.push({ at, state: await ev('__cmwSteps()'), got: await ev(`__cmwLPx(${JSON.stringify(W)}).px`), ring: await ev('__cmwSvRing()') });
+    frames.push({ at, state: await ev('__cmwSteps()'), got: (await lpx(W)).px, ring: await ev('__cmwSvRing()') });
     if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   }
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   await zoom(0.4);
-  const P1 = await paneOf(), ref = await ev(`__cmwLPx(${JSON.stringify(Z)}).px`);
+  const P1 = await paneOf(), ref = (await lpx(Z)).px;
   for (const { at, state, got, ring } of frames) {
     const tag = `Joukowski all ${at.hold != null ? 'held' : 'parked'} 0.5, the points from past the camera`;
     let n = 0, wrong = 0, paper = 0, worst = 0, hidden = 0;
@@ -191,7 +205,7 @@ await wait();
   for (let j = 0; j < 30; j++) for (let i = 0; i < 44; i++) pts.push([P.v.cx + (i / 43 - 0.5) * 0.9 * P.w / P.v.s, P.v.cy + (j / 29 - 0.5) * 0.9 * P.h / P.v.s]);
   await steps({ scope: 'all', surf: 'plane', park: 0.5 });
   const k = await ev('(() => { const t0 = performance.now(); const a = __cmwSvKey(1, 0.5); const t1 = performance.now(); __cmwSvKey(1, 0.5); return { sing: a.sing, again: performance.now() - t1, ring: __cmwSvRing() }; })()');
-  const px = await ev(`__cmwLPx(${JSON.stringify(pts)}).px`);
+  const px = (await lpx(pts)).px;
   const paper = px.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) < 6).length;
   info['tan all parked 0.5'] = Object.assign(k, { paper, n: px.filter(Boolean).length });
   ok('tan all parked 0.5: the key has at most 4 points, all finite', Array.isArray(k.sing) && k.sing.length <= 4 && k.sing.every((p) => p.every(Number.isFinite)), k);
