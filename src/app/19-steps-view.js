@@ -597,10 +597,10 @@
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
     // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it (#501), and inside the band it lay under the plane buttons)
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
-    // (F, the whole map, at the thread's end: it opens the Inspector's page of the composition, its domain and its guarantees; no ⋯, no drag,
-    // no step of the chain)
+    // (F, the whole map, after the rail: it opens the Inspector's page of the composition, its domain and its guarantees; no ⋯, no drag,
+    // no step of the chain; outside the rail, so it never lies over a plane or a chip of a long thread)
     const wholeMap = svChipBtn({ class: 'sv-wholemap', 'aria-pressed': 'false', 'aria-label': $t('Whole map'), 'data-tip': $t('Whole map'), onclick: () => svInspect('F') }, '<i>F</i>', $t('Whole map'));
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), add, next, speed, loop, bandx);
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), wholeMap, add, next, speed, loop, bandx);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -646,7 +646,7 @@
     let keep = null;
     if (fa && E.track.contains(fa)) {
       const sk = /** @type {HTMLElement | null} */ (fa.closest('.sv-step'));
-      keep = fa === E.wholeMap ? { f: 1 } : fa.classList.contains('sv-plane') ? { p: fa.dataset.i } : fa.classList.contains('sv-whole') ? { w: 1 } : sk ? { k: +sk.dataset.k, part: fa.classList.contains('sv-more') ? 'more' : 'chip' } : null;
+      keep = fa.classList.contains('sv-plane') ? { p: fa.dataset.i } : fa.classList.contains('sv-whole') ? { w: 1 } : sk ? { k: +sk.dataset.k, part: fa.classList.contains('sv-more') ? 'more' : 'chip' } : null;
     }
     E.track.textContent = '';
     E.track.style.setProperty('--n', String(P.length));
@@ -664,10 +664,8 @@
     if (!al) {
       for (let j = P[P.length - 1] + 1; j <= S.steps.length; j++) E.track.append(svStepEl(j));
     }
-    // (the whole map's chip ends the thread, after the last plane: it is in the track's flow, and sticks to the rail's right end when the thread is longer)
-    E.track.append(E.wholeMap);
     if (keep) {
-      const el = /** @type {HTMLElement | null} */ (keep.f ? E.wholeMap : keep.p != null ? E.track.querySelector(`.sv-plane[data-i="${keep.p}"]`) : keep.w ? svEl('whole') : svEl(keep.k, keep.part));
+      const el = /** @type {HTMLElement | null} */ (keep.p != null ? E.track.querySelector(`.sv-plane[data-i="${keep.p}"]`) : keep.w ? svEl('whole') : svEl(keep.k, keep.part));
       const back = el && el.getClientRects().length ? el : null;
       if (back) back.focus({ preventScroll: true });
       else SV.refocus = true;   // (the + button, once it is drawn below)
@@ -870,7 +868,7 @@
     rail.addEventListener('pointerdown', dismissToast, true);
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
-    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
+    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
     // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
     // press must not act on a plane the user cannot see; its own buttons keep their action)
     const th = document.getElementById('toastHost');
@@ -891,7 +889,7 @@
       return ns.length - 1;
     };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-wholemap, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-add, .sv-whole, .sv-bandx')) return;
       const d = SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
       svRangeDown(d, e, rail, posX);
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
@@ -899,7 +897,7 @@
     // (a press on the thread away from the planes and the chips goes there too)
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
-      if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.target.closest('.sv-fwrap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
       svOutsideBand(posX(e));
       SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });

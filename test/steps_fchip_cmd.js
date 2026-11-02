@@ -1,12 +1,12 @@
 // The thread's F chip, the whole map (behind ?view=steps):
-// - on a laptop one chip ends the thread, in the rail's track after the last plane and before "+ Add function": the italic F and
+// - on a laptop one chip ends the thread, after the rail and before "+ Add function" (not in the rail: it never lies over a plane): the italic F and
 //   "Whole map" as its label and tip, no ⋯, not a step of the chain (the step chips are as many as the steps), a Tab stop;
 // - a click, and Enter on it from the keyboard, select F: the Inspector shows the composition, the natural domain and the
 //   guarantees, and the chip says it is pressed (aria-pressed), and not pressed again once a step is selected;
 // - its name is translated (ru, it);
 // - on a phone it is not on the strip: the chain sheet has the whole-map row;
-// - it is the round F alone and sticks to the rail's right end: at 1440 in en, ru and it, with 3 steps and with 12 that scroll, it is
-//   in view, pressable and clear of the fade at rest;
+// - it is the round F alone, clear of the rail: at 1440 in en, ru and it, with 3 steps and with 12 that scroll, it is
+//   in view, pressable and overlaps nothing at rest;
 // - at 1024 px in English, Russian and Italian the strip's controls sit on one row inside it, overlapping nothing.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -33,7 +33,7 @@ const insp = () => ev(`(document.getElementById('propsPanel') || document.body).
 
 await open(1280, 800, false, 'en');
 const f0 = await whole();
-ok('the F chip ends the thread (in the thread track, after the last plane) and sits before + Add function, a button named Whole map', f0 && f0.inRail && f0.afterRail && f0.beforeAdd && f0.tag === 'BUTTON' && /F/.test(f0.text) && /Whole map/.test(f0.text) && f0.label === 'Whole map', f0);
+ok('the F chip ends the thread (after the rail, over no plane) and sits before + Add function, a button named Whole map', f0 && !f0.inRail && f0.afterRail && f0.beforeAdd && f0.tag === 'BUTTON' && /F/.test(f0.text) && /Whole map/.test(f0.text) && f0.label === 'Whole map', f0);
 ok('it has no ⋯, it is a Tab stop, and it is not one of the step chips (as many as the steps)', f0 && !f0.more && f0.tab === 0 && f0.chips === 3, f0);
 ok('it is not pressed while a step, not F, is selected', f0 && f0.pressed === 'false', f0);
 await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`);
@@ -56,14 +56,13 @@ ok('F is not a step: the chain and the place on the thread are as they were', (a
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
 await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 ok('a page saved with F selected opens with the chip pressed', (await S()).sel === 'F' && (await whole()).pressed === 'true', { sel: (await S()).sel, f: await whole() });
-// room: the chip is the thread's last item and sticks to the rail's right end, the round F alone (its words are its label and tip):
-// at rest (the thread at its start) it is in the rail, on top at its centre (pressable) and clear of the rail's fade, in en, ru and
-// it, with the 3-step chain and with a 12-step one that scrolls, and the rail keeps its width (more than 360 px at 1440)
+// room: the chip is after the rail, the round F alone (its words are its label and tip):
+// at rest (the thread at its start) it is on top at its centre (pressable) and clear of the rail, in en, ru and
+// it, with the 3-step chain and with a 12-step one that scrolls, and the rail keeps its width (at least 320 px at 1440)
 const atRest = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), f = document.querySelector('#svStrip .sv-wholemap'), n = f.querySelector('.sv-fn');
   r.scrollLeft = 0; const fb = f.getBoundingClientRect(), rb = r.getBoundingClientRect(), at = document.elementFromPoint(fb.left + fb.width / 2, fb.top + fb.height / 2);
-  const fadeEdge = rb.right - parseFloat(getComputedStyle(document.getElementById('svStrip')).getPropertyValue('--wm'));
   return { rail: Math.round(r.clientWidth), scrolls: r.scrollWidth > r.clientWidth + 1, onlyF: getComputedStyle(n).display === 'none', label: f.getAttribute('aria-label'), tip: f.dataset.tip,
-    inRail: fb.left >= rb.left - 1 && fb.right <= rb.right + 1, onTop: !!at && (at === f || f.contains(at)), clearOfFade: fb.left >= fadeEdge - 1, w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
+    clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
 const LABEL = { en: 'Whole map', ru: 'Вся карта', it: 'Mappa intera' };
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
@@ -71,10 +70,10 @@ for (const lang of ['en', 'ru', 'it']) {
     await open(1440, 900, false, lang, chain);
     const w = await atRest();
     info[`1440 ${lang} ${what}`] = w;
-    ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, in the rail, on top at its centre, clear of the fade`,
-      w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.inRail && w.onTop && w.clearOfFade, w);
+    ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, on top at its centre, clear of the rail`,
+      w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.clearOfRail && w.onTop, w);
     if (what === '12 steps') ok(`1440 ${lang}, 12 steps: the thread scrolls, and the chip is still pressable at rest`, w.scrolls && w.onTop, w);
-    else ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 360 px)`, w.rail >= 360, w);
+    else ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
   }
 }
 // (a real mouse press on it at rest selects F, and the chip says it is pressed: aria-pressed follows whether F is the selected step)
@@ -108,7 +107,7 @@ for (const lang of ['en', 'ru', 'it']) {
   await open(1024, 768, false, lang);
   const box = await ev(`(() => {
     const strip = document.getElementById('svStrip'), sb = strip.getBoundingClientRect();
-    const items = ['.sv-play', '.sv-prev', '.sv-rail', '.sv-add', '.sv-next', '.sv-speed', '.sv-loop'].map((q) => { const e = strip.querySelector(q), r = e.getBoundingClientRect(); return { q, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width }; });
+    const items = ['.sv-play', '.sv-prev', '.sv-rail', '.sv-wholemap', '.sv-add', '.sv-next', '.sv-speed', '.sv-loop'].map((q) => { const e = strip.querySelector(q), r = e.getBoundingClientRect(); return { q, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width }; });
     return { strip: [sb.left, sb.right, sb.top, sb.bottom], items, scroll: strip.scrollWidth - strip.clientWidth };
   })()`);
   const inside = box.items.every((i) => i.l >= box.strip[0] - 0.5 && i.r <= box.strip[1] + 0.5);
