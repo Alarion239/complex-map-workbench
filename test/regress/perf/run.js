@@ -1122,7 +1122,7 @@ async function svProbeOrderUnit() {
     for (const k of names) {
       for (const st of CASES[k]) {
         if (st === 'pause') await sleep(5000);
-        else if (st === 'drop') await B.ev('GLR.probeDrop(), 1');
+        else if (st === 'drop') await B.ev('(GLR.probeDrop && GLR.probeDrop()), 1');   // (the reference build has no probeDrop)
         else await scrubs(st, false);
       }
       const m = await scrubs(GATE, true);
