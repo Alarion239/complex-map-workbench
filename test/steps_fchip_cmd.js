@@ -64,6 +64,7 @@ const atRest = () => ev(`(() => { const r = document.querySelector('#svStrip .sv
   const fadeEdge = rb.right - parseFloat(getComputedStyle(document.getElementById('svStrip')).getPropertyValue('--wm'));
   return { rail: Math.round(r.clientWidth), scrolls: r.scrollWidth > r.clientWidth + 1, onlyF: getComputedStyle(n).display === 'none', label: f.getAttribute('aria-label'), tip: f.dataset.tip,
     inRail: fb.left >= rb.left - 1 && fb.right <= rb.right + 1, onTop: !!at && (at === f || f.contains(at)), clearOfFade: fb.left >= fadeEdge - 1, w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
+const LABEL = { en: 'Whole map', ru: 'Вся карта', it: 'Mappa intera' };
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
   for (const [what, chain] of [['3 steps', null], ['12 steps', CHAIN12]]) {
@@ -71,7 +72,7 @@ for (const lang of ['en', 'ru', 'it']) {
     const w = await atRest();
     info[`1440 ${lang} ${what}`] = w;
     ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, in the rail, on top at its centre, clear of the fade`,
-      w.onlyF && w.label === (lang === 'en' ? 'Whole map' : w.label) && !!w.tip && w.inRail && w.onTop && w.clearOfFade, w);
+      w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.inRail && w.onTop && w.clearOfFade, w);
     if (what === '12 steps') ok(`1440 ${lang}, 12 steps: the thread scrolls, and the chip is still pressable at rest`, w.scrolls && w.onTop, w);
     else ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 360 px)`, w.rail >= 360, w);
   }
