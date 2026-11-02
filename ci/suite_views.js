@@ -73,7 +73,7 @@ const VIEWS = {
   'complex_params_cmd.js': steps({ pin: true }),
   'custom_show_cmd.js': port('interact', 'F\'s well: after K1 item 9 (the F chip)'),
   'd1_replace_cmd.js': steps({ pin: true }),
-  'display_inline_cmd.js': port('interact'),
+  'display_inline_cmd.js': classic('the classic pane heads\' Display, Regions and title toggles at each width: the steps view\'s head is layout_invariants_cmd\'s and steps_head_cmd\'s'),
   'field_settle_cmd.js': steps({ pin: true }),
   'kbd_nav_cmd.js': port('interact', 'F6\'s areas are X, Y, chain, Inspector today'),
   'key_popup_cmd.js': steps({ pin: true }),
