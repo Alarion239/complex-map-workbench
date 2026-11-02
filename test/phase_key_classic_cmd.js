@@ -8,6 +8,6 @@ for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) 
   await openApp(lang, w);
   await ev(`__cmwSetMain('xy')`); await settle(1500);
   const x = await probe();
-  ok(`${lang || 'en'} ${w}: X → Y: X's key is hidden, as before`, x.hidden, x);
+  ok(`${lang || 'en'} ${w}: X → Y: X's key is hidden`, x.hidden, x);
 }
 return { pass: fails.length === 0, fails };
