@@ -13,6 +13,9 @@ for (const lang of ['en', 'ru', 'it']) {
   await nav(`http://localhost:${PORT}/test.html?ns=clrchain-${lang}-${Date.now()}&lang=${lang}`); await settle(3000);
   const has = await ev(`!!document.querySelector('#pipeline .ftile') && !!document.getElementById('clearChain') && !document.getElementById('clearChain').hidden`);
   ok(`${lang}: the start chain has a step and a Clear chain button`, has, has);
+  // (a word button in the chain head, with no ⋯ beside it: the word is the English one in English, a translation otherwise)
+  const word = await ev(`(() => ({ text: document.getElementById('clearChain').textContent.trim(), more: !!document.getElementById('chainMoreBtn') }))()`);
+  ok(`${lang}: Clear chain is a word button in the chain head, with no ⋯ beside it`, (lang === 'en' ? word.text === 'Clear chain' : word.text.length > 0) && !word.more, word);
   if (!has) continue;
   // (the sampler: from the click, every frame for 2 s)
   await ev(`window.__cc = null; (() => {
