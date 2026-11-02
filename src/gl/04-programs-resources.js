@@ -76,11 +76,33 @@
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
+  // the region program's carried colour (drawRegion with st.carry): each fragment of a region's tessellated
+  // mesh, wherever the map takes it, is coloured with the colour plane's colour of its source point z,
+  // dcolor(f_T ∘ … ∘ f_{s+1}(z)) (uGs, uGt; the same z the region's patterns read, made absolute: vSrc + uQ), so the
+  // colour travels with the region's points as its patterns do
+  // the steps view's carried colour on a region's tessellated mesh: the region tiling's vertex stage (its places,
+  // from the chain, the map cache or each triangle's own sheet) with its carry option (REGION_VS), and the carried
+  // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
+  // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
+  // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
+  const REGION_K_VS = (fetch, sheet, fill) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, fill: !!fill });
+  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false, false);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
+    // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
+    // triangle's own sheet)
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS },
+    // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
+    // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
+    // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
+    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS },
+    // (and the fill after regionK: the same, the places from the chain at every vertex)
+    regionKSF: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },

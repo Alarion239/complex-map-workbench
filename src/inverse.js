@@ -379,13 +379,15 @@ const Inverse = (() => {
     const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     return { R, rs: R / 8 };
   }
-  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + dist(z, W)/R) + sum over P of max(0, log2(rs/|z - p|))
+  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|)), c the centre
+  // of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself would
+  // tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
+  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
   function sheetKey(prep, z, lam) {
     const { win, R, rs, sing } = prep;
     if (lam && lam.re > LAM_CUT) return (lam.re - Math.log(R)) / LN2;
     if (!isFin(z)) return Infinity;
-    const dx = Math.max(win.x0 - z.re, 0, z.re - win.x1), dy = Math.max(win.y0 - z.im, 0, z.im - win.y1);
-    let D = Math.log2(1 + Math.hypot(dx, dy) / R);
+    let D = Math.log2(1 + Math.hypot(z.re - (win.x0 + win.x1) / 2, z.im - (win.y0 + win.y1) / 2) / R);
     if (sing) for (const p of sing) {
       if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += Math.max(0, Math.log2(rs) - lam.re / LN2);
       else D += Math.max(0, Math.log2(rs / Math.hypot(z.re - p.re, z.im - p.im)));
@@ -394,18 +396,18 @@ const Inverse = (() => {
   }
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
-  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z)
+  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
+  // the same step of TIE_D octave (round(D / TIE_D)) are ties: a map symmetric about the window's centre (z^2
+  // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
+  // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
+  const TIE_D = 2 ** -8;
+  const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
+  const dTie = (a, b) => a === b || dStep(a) === dStep(b);
   function front(a, b) {
-    if (a.D !== b.D) return a.D < b.D;
+    if (!dTie(a.D, b.D)) return a.D < b.D;
     const za = tieZ(a), zb = tieZ(b);
     if (za.im !== zb.im) return za.im > zb.im;
     return za.re > zb.re;
-  }
-  function frontRev(a, b) {                                            // the tie rule reversed (sensitivity tests only)
-    if (a.D !== b.D) return a.D < b.D;
-    const za = tieZ(a), zb = tieZ(b);
-    if (za.im !== zb.im) return za.im < zb.im;
-    return za.re < zb.re;
   }
 
   // =====================================================================================================
@@ -591,6 +593,14 @@ const Inverse = (() => {
       cur = next;
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
+  }
+  // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
+  // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
+  function keySing(plan, win) {
+    let acc = [], poles = [];
+    try { acc = accumulation(plan, win); } catch (e) { acc = []; }
+    try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
+    return acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))).slice(0, 4);
   }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
@@ -968,7 +978,7 @@ const Inverse = (() => {
     const ops = plan.ops, N = ops.length;
     const rf = refsOf(plan, win, o.ref);
     prep.refs = rf.refs; prep.cRef = rf.cRef;
-    prep.sing = o.sing ? o.sing.slice(0, 4) : accumulation(plan, win);
+    prep.sing = o.sing ? o.sing.slice(0, 4) : keySing(plan, win);
     prep.fam = ops.map((x) => x.fam);
     if (!shape) { prep.reason = 'no shape'; return prep; }
     prep.ev = shapePx(shape);
@@ -1148,7 +1158,7 @@ const Inverse = (() => {
   //  full (truth mode: a window of +-full members around m* in every family, no ranges, budgets or stop),
   //  ramp (range ramp in px, default 1), dwdX / dwdY (dw per image pixel step, default (pix, 0) / (0, pix)),
   //  leaves: false to skip the leaf list, paths: true to record each leaf's path ('j:b:m' per window or finite op,
-  //  outermost first), tieReverse (tests only).
+  //  outermost first).
   //  leaves: every visited leaf in walk order: {z, J (dz/dw, real 2x2 row-major), JL (dΛ/dw) | null, lvl (px),
   //  lg: [x, y] | null, lam, dX, dY (dz per pixel step), s (region distance, px), cv (coverage), cov, D}.
   //  entries: the admitted compositing buffer, front to back ({lf, D, z, cv, ...}); restT: the product of
@@ -1159,7 +1169,7 @@ const Inverse = (() => {
     const noStop = !!opts.all && Kt > B, alphaR = opts.alpha ?? 1;
     const ramp = opts.ramp ?? RAMP;
     const dwX = opts.dwdX || C(pix, 0), dwY = opts.dwdY || C(0, pix);
-    const frontFn = opts.tieReverse ? frontRev : front, paths = !!opts.paths;
+    const paths = !!opts.paths;
     const ev = prep.ev || (prep.ev = shapePx(prep.shape));
     const leaves = [], ent = [], loops = [];
     let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1;
@@ -1170,7 +1180,7 @@ const Inverse = (() => {
       && isFin(a.z) && isFin(b.z) && Math.hypot(a.z.re - b.z.re, a.z.im - b.z.im) <= a.fp;
     const admit = (e) => {
       let pos = ent.length;
-      for (let i = 0; i < ent.length; i++) if (frontFn(e, ent[i])) { pos = i; break; }
+      for (let i = 0; i < ent.length; i++) if (front(e, ent[i])) { pos = i; break; }
       for (const k of [pos - 1, pos]) {
         const t = ent[k];
         if (t && twin(e, t)) { t.cv = Math.min(1, t.cv + e.cv); if (t.cv > U) U = t.cv; t.merged = (t.merged || 0) + 1; return; }
@@ -1350,19 +1360,19 @@ const Inverse = (() => {
             let stop = false;
             if (!prep.stopMob) {
               const dk = DK();
-              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + 1e-12;
+              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + TIE_D;
               // the tail rule (prepare's tail flag; gl.js ixDKTail): K > B for the own alpha, the buffer full, U final, the
               // side still in range up to infinity without a hole, its last three members covering, and every member to
               // come behind the buffer's last key: the full walk would close the tail there anyway
               if (!stop && noStop && prep.tail && dk === Infinity && !(hlo <= hhi) && (goUp ? lp.cU >= 3 && hi === Infinity : lp.cD >= 3 && lo === -Infinity)
-                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + 1e-12) { stop = true; tailInf = true; }
+                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + TIE_D) { stop = true; tailInf = true; }
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
                 const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
                 const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
                 const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK();
+                stop = LB > DK() + TIE_D;
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1475,7 +1485,7 @@ const Inverse = (() => {
   //  composited in list order (each premultiplied, over the previous); look: one object or one per shape:
   //  {alpha (1), pattern ('solid'), cell (1), color ('#3B6FD4'), color2 ('#8CABE5'), ink ('#093B9B'), lines, origin,
   //  sphN (16), dpr, B (8, 16 when alpha < 0.5), plane ('#FCFDFD')}; preps: Inverse.prepare results per shape.
-  //  opts: {tieReverse, sub: [i0, j0, i1, j1] (render only that pixel box)}.
+  //  opts: {sub: [i0, j0, i1, j1] (render only that pixel box)}.
   //  stats: {ms, px, visited, covering, maxEntries, tailPx, truncPx, skipped (ineligible shapes), alpha: Float32Array
   //  (composite coverage), par: Int8Array (checker parity of the front entry, -1 none / moiré), top: Int16Array (index of
   //  the front shape), disagree: Uint8Array (a deeper composited full-coverage entry of another parity, T > 0.5)}
@@ -1505,7 +1515,7 @@ const Inverse = (() => {
       for (let si = 0; si < list.length; si++) {
         const P = pr[si], L = lk[si];
         if (!P.ok) continue;
-        const r = enumerate(plan, P, w, pix, { K: L.K, B: L.B, all: true, alpha: L.alpha, leaves: false, tieReverse: opts.tieReverse });
+        const r = enumerate(plan, P, w, pix, { K: L.K, B: L.B, all: true, alpha: L.alpha, leaves: false });
         visited += r.visited; covering += r.nCov;
         if (r.tailInf) tailPx++;
         if (r.truncated) truncPx++;
@@ -1560,7 +1570,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
