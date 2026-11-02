@@ -8,7 +8,10 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
-const strip = () => ev(`(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`);
+// (the strip as the page shows it: a step's task may be done at once and the countdown moves the tour on, so a step's strip is
+// read at the moment it first shows, in the wait for it)
+const READ = `(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`;
+const strip = () => ev(READ);
 const WANT = {
   en: { draw: 'Draw a shape', add: 'Add a function', cauchy: 'Cauchy integral', zoom: 'Zoom in on a zero or a pole.' },
   ru: { draw: 'Нарисуйте фигуру', add: 'Добавьте функцию', cauchy: 'Интеграл Коши', zoom: 'Приблизьте нуль или полюс.' },
@@ -21,7 +24,7 @@ for (const lang of ['en', 'ru', 'it']) {
   if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.auto(false); 1');
   const w = WANT[lang];
-  const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`Tour.start(${JSON.stringify({ chapter, step })})`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}'` }); return strip(); };
+  const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`window.__shown = null; Tour.start(${JSON.stringify({ chapter, step })})`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}' && (() => { const g = ${READ}; if (!g.title) return false; window.__shown = window.__shown || g; return true; })()` }); return ev(`window.__shown`); };
   let g = await at('basics', 'draw');
   ok(`${lang}: Draw a shape reads as a task`, g.cur === 'draw' && g.title === w.draw, g);
   g = await at('basics', 'add');
@@ -30,6 +33,7 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang}: Cauchy integral starts in capitals`, g.cur === 'cauchy' && g.title === w.cauchy, g);
   g = await at('views', 'phase');
   ok(`${lang}: the Phase portrait step has its task`, g.cur === 'phase' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
+  await settled();   // (the step's own actions have run and it listens: the wheel then ticks the task)
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 450, deltaX: 0, deltaY: -120 });
   await settled({ until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 3000 });
   g = await strip();
