@@ -30,7 +30,7 @@ check('missing fields take defaults', Views.cleanSv({}, P), { at: 0, T: -1, scop
 // a step shown alone: an active step's index, kept through a save, a link and an undo entry (JSON), dropped when the chain
 // lacks the step or bypasses it, or when it is not a whole number
 check('alone: a step of the chain is kept', Views.cleanSv({ ...ok, alone: 2 }, P).alone, 2);
-for (const via of ['save', 'link', 'undo']) check('round trip ' + via + ' keeps alone', Views.cleanSv(JSON.parse(JSON.stringify({ sv: { ...ok, alone: 3 } })).sv, P).alone, 3);
+check('a JSON round trip (a save, a link and an undo entry are all JSON of the state) keeps alone', Views.cleanSv(JSON.parse(JSON.stringify({ sv: { ...ok, alone: 3 } })).sv, P).alone, 3);
 check('alone: a step the chain lacks is dropped', 'alone' in Views.cleanSv({ ...ok, alone: 7 }, P), false);
 check('alone: a bypassed step is dropped', 'alone' in Views.cleanSv({ ...ok, alone: 2 }, [0, 1, 3]), false);
 check('alone: z (0) is not a step', 'alone' in Views.cleanSv({ ...ok, alone: 0 }, P), false);

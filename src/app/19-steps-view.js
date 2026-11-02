@@ -149,7 +149,7 @@
     if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
     setOpt('sv', o);
   }
-  function svLoad(open) {
+  function svLoad(onPageOpen) {
     // (#437: by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which clamped the place)
     const o = Views.cleanSv(S.sv, svAloneOk() ? svPlanes() : svPlanesOf(S.steps));
     if (!o) return false;
@@ -159,7 +159,7 @@
     SV.at = Math.abs(o.at - SV.i) < 1e-6 ? SV.i : null;
     // (when the page opens on a state that had a step shown alone, it is shown alone again, over the chain's place that
     // leaving it goes back to; an undo leaves it)
-    if (open && o.alone && !SV.alone) {
+    if (onPageOpen && o.alone && !SV.alone) {
       SV.back = { i: SV.i, T: SV.T };
       SV.alone = o.alone; SV.i = 0; SV.at = 0; SV.g.set(0); SV.g.max = 1;
       SV.sig = svSigNow();
