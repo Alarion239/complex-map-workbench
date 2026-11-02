@@ -129,7 +129,7 @@
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
         h('span', { class: 'mc-t' }, label),
-        ...(count ? [h('span', { class: 'mc-n' }, ' · ' + count)] : []),
+        ...(count ? [h('span', { class: 'mc-n' }, h('span', { class: 'mc-sep' }, ' · '), count)] : []),
         ...(m === next || m === 'tool' ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
