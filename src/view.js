@@ -294,8 +294,8 @@ const Views = (() => {
     return o;
   }
   // the steps view's picture of a state that has no S.sv (concept §6): X → Y opens at the z-plane with T = the last
-  // plane, on Inside regions when it has areas; Phase the same, coloured everywhere; Landscape on the relief. A chain with no steps
-  // opens on Inside regions too (the plane is neutral until a region is drawn), but not on the relief
+  // plane, on Inside regions when it has areas; Phase the same, coloured everywhere; Landscape on the relief. A chain
+  // with no steps opens on Inside regions too (the plane is neutral until a region is drawn), but not on the relief
   function svOf(view, hasAreas, empty) {
     const v = clean(view), x = xOf(v);
     const surf = x.surf === 'land' ? 'land' : x.surf === 'sphere' ? 'sphere' : 'plane';
