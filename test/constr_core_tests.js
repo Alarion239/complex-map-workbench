@@ -2,8 +2,8 @@
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limit is in reference operations measured in the same run (test/lib/speed_ref.js), so it holds on any machine
-const { refNs } = require('./lib/speed_ref');
-const DRAG50_UNITS = 8000, DRAG_ROUNDS = 6, DRAG_FRAMES = 100;
+const { cpuUnitsOf } = require('./lib/speed_ref');
+const DRAG50_UNITS = 8000, DRAG_FRAMES = 100;
 module.exports = function ({ K, ok, near, nearP, Inverse }) {
   const C = CX.C;
   let seed = 20261024;
@@ -408,16 +408,9 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     for (let i = 0; i < 50; i++) shapes.push(pt('p' + i, [Math.cos(i), Math.sin(i) + 2]), { id: 'k' + i, kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'p' + i }], fill: 'in' } });
     const S = state(shapes);
     rec(S);
-    // (the least of several short rounds of CPU time, the one the machine disturbed least)
-    const ref = refNs();
-    let ms = Infinity;
-    for (let r = 0; r < DRAG_ROUNDS; r++) {
-      const c0 = process.cpuUsage();
-      for (let f = 0; f < DRAG_FRAMES; f++) { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); }
-      const c = process.cpuUsage(c0);
-      ms = Math.min(ms, (c.user + c.system) / 1000 / DRAG_FRAMES);
-    }
-    const units = ms * 1e6 / Math.min(ref, refNs());
+    // (the least CPU time of several short rounds, each followed by a round of the reference; the limit is the old absolute
+    // 1 ms per recompute expressed in this container's reference operation, so it is as strict here as that was)
+    const units = cpuUnitsOf((f) => { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); }, DRAG_FRAMES);
     ok(units < DRAG50_UNITS, `speed: a drag with 50 dependent discs: ${units.toFixed(0)} reference operations CPU per recompute (limit ${DRAG50_UNITS})`);
   }
 };

@@ -3,12 +3,13 @@
 // the same run as the code a test guards, so that a limit is a ratio ("perpForm takes under N reference operations")
 // that holds on any machine instead of microseconds that hold on one. The operation is BigInt arithmetic on a double's
 // mantissa, the kind the exact forms (perpForm, touchForm, tangentForm) spend their time on.
-//   const { refNs, unitsOf } = require('./lib/speed_ref');
+//   const { unitsOf, cpuUnitsOf } = require('./lib/speed_ref');
 //   unitsOf(fn)           -> the cost of one call of fn(i) in reference operations: ROUNDS rounds of CALLS calls of fn,
 //                            each followed by a round of the reference, the least of each (the least disturbed round,
 //                            taken at the same moments, so a load that comes and goes moves both)
-//   refNs()               -> ns for one reference operation (best of ROUNDS rounds of CALLS), for a measurement that
-//                            is not a call count (a CPU time): take it before and after and use the smaller
+//   cpuUnitsOf(step, frames) -> the CPU time of one call of step(f) in reference operations: ROUNDS rounds of `frames`
+//                            calls, each followed by a round of the reference, the least of each (CPU time, not wall
+//                            time: a drag is judged by what it computes, not by what else the machine runs)
 const ROUNDS = 7, CALLS = 20000;
 // the reference operation's input: a double that changes by REF_STEP per call from REF_START, whose 52-bit mantissa
 // is split into the high 20 bits (MANTISSA_HI_MASK) and the low 32
@@ -22,11 +23,12 @@ function roundNs(fn, n) {
   return Number(process.hrtime.bigint() - t0) / n;
 }
 
-let sink = 0n;   // (keeps the loop's result alive)
+let sink = 0n;   // (keeps the loop's result alive; masked to SINK_MASK so that it stays small)
+const SINK_MASK = 0xffffffffn;
 function reference(i) {
   F64[0] = i * REF_STEP + REF_START;
   const m = (BigInt(U32[1] & MANTISSA_HI_MASK) << 32n) | BigInt(U32[0]);
-  sink += (m * m + (m << 7n)) >> 3n;
+  sink = (sink + ((m * m + (m << 7n)) >> 3n)) & SINK_MASK;
 }
 
 function unitsOf(fn) {
@@ -38,10 +40,16 @@ function unitsOf(fn) {
   return best / ref;
 }
 
-function refNs() {
-  let ref = Infinity;
-  for (let r = 0; r < ROUNDS; r++) ref = Math.min(ref, roundNs(reference, CALLS));
-  return ref;
+function cpuUnitsOf(step, frames) {
+  let best = Infinity, ref = Infinity;
+  for (let r = 0; r < ROUNDS; r++) {
+    const c0 = process.cpuUsage();
+    for (let f = 0; f < frames; f++) step(f);
+    const c = process.cpuUsage(c0);
+    best = Math.min(best, (c.user + c.system) * 1000 / frames);
+    ref = Math.min(ref, roundNs(reference, CALLS));
+  }
+  return best / ref;
 }
 
-module.exports = { refNs, unitsOf };
+module.exports = { unitsOf, cpuUnitsOf };

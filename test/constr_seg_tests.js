@@ -6,9 +6,9 @@
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limit is a ratio of two timings taken in the same run, so it holds on any machine
-// (the seg limit: the ratio, and the rounds it takes the least of: many short ones, alternating, so that one of each lands in a
-// quiet moment of a loaded machine)
-const SEG_RATIO = 1.8, SEG_ROUNDS = 15, SEG_CALLS = 1000;
+// (the seg limit: the old absolute budget of 10 us on a whole recompute of 13 us is a ratio of 1.77; it takes the least of
+// many short rounds, alternating, so that one of each lands in a quiet moment of a loaded machine)
+const SEG_RATIO = 1.77, SEG_ROUNDS = 15, SEG_CALLS = 1000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.3's constr.js, frozen: the build before this one reading a saved seg)
