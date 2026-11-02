@@ -306,8 +306,8 @@ const Sheets = (host) => {
   }
   // a top-level step's path with a cut of its own at 0 < t < 1 (z^n: z^(1 + (n - 1)t), and the power path of a
   // (z - c)^n): on the local cut opposite its input at the cell centre c0, sheet 0; the Joukowski path: the formula of
-  // c0's side of the unit circle for every z. The landscape so finds that cut by continuation (GPU: the step's _hc in
-  // chainSheetHom); null for any other step
+  // c0's side of the unit circle for every z. This is how the landscape finds that cut by continuation (GPU: the
+  // step's _hc in chainSheetHom); null for any other step
   function localCutHom(bb, c0, t) {
     if (!(t > 0 && t < 1) || !bb || !bb.def) return null;
     if (bb.def.id === 'pown') {
