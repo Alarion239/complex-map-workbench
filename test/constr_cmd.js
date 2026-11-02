@@ -21,6 +21,14 @@ const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
+// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
+// full names become the tile labels, so each suite states the label once)
+const CHIP_NAMES = [['Circle through 3 points', '3-pt circle'], ['Perpendicular circle', 'Perpendicular'], ['Touching circle', 'Touching'], ['Окружность по трём точкам', 'По 3 точкам'], ['Ортогональная окружность', 'Ортогональная'], ['Касающаяся окружность', 'Касание']];
+const chipLabel = async (c) => {
+  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
+  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
+};
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e * Math.max(1, Math.abs(a), Math.abs(b));
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -83,7 +91,7 @@ await section('A', async () => {
   await move(a[0] + 3, a[1] - 2); await settle(80);
   const r0 = await CI();
   ok('hover: the ring is on z₀ with the chip "on z₀"', r0.ring && r0.ring.cls === 'point' && r0.ring.chip === 'on z₀', r0.ring);
-  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
+  ok('the draft chip names the pick', (await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`))) === 'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -102,7 +110,8 @@ await section('A', async () => {
   await shot('cm-d1440-c3-done');
   // 2. drag ζ₁ (Select): the disc follows; Shift-click with Circle through 3 points still adds a zero
   await tool('select');
-  await drag(z[0], z[1], z[0] + 48, z[1] - 32, 10, 16); await settle(300);
+  const zd = await W(1, 0.5);   // (the plane moves with the Inspector's width in the steps view)
+  await drag(zd[0], zd[1], zd[0] + 48, zd[1] - 32, 10, 16); await settle(300);
   st = await ST();
   const zeta = parseZ(st.zeros);
   const c3b = byId(st, c3.id);
@@ -353,7 +362,7 @@ await section('C', async () => {
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
   // (a chip drops its keyboard tail when it would wrap and fits one line without it; #35: it first drops the
   // tool's name, which the pane head's chip shows, and keeps the tail when that fits)
-  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t').textContent`))), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');
@@ -541,7 +550,9 @@ await section('G', async () => {
   ok('G: a circle on ζ₁', cz.def && cz.def.args.some((r) => r.zp), cz.def);
   await tool('select');
   const box = await ev(`(() => { const r = document.querySelector('#paneL canvas:last-of-type').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; })()`);
-  await drag(zq[0], zq[1], box[2] + 30, zq[1], 14, 16); await settle(400);
+  // (off the plane through its top edge, which has room above it in both views; the point's place is read again, the plane moved)
+  const zqNow = await W(1.5, -1);
+  await drag(zqNow[0], zqNow[1], zqNow[0], box[1] - 30, 14, 16); await settle(400);
   st = await ST();
   info.zpToast = await toastText();
   ok('G: ζ₁ removed; the circle is undefined, not deleted', st.zeros === '' && byId(st, cz.id) && byId(st, cz.id).cundef && byId(st, cz.id).cundef.code === 'zpRemoved', [st.zeros, byId(st, cz.id)]);
@@ -560,7 +571,10 @@ await section('G', async () => {
   const st0 = await ST();
   const wz = await ev(`(() => { const s = __cmwCI({shapes:true}).list.find((x) => x.id === 'u5'); return s.p; })()`);
   const w5 = await ev(`(() => { const z = [-1, -1.5]; return [z[0] - 1.5, z[1] + 1]; })()`);   // f₁(z) = z − 1.5 + i
-  const y0 = await W(w5[0], w5[1], 'R'), y1 = await W(1, 1.2, 'R'), y2 = await W(-1.2, 1.5, 'R');
+  // (Y: the classic right pane, or the steps view's one plane on its last step)
+  const sv = await ev(`document.documentElement.classList.contains('sv')`), Y = sv ? 'L' : 'R';
+  if (sv) { await ev(`__cmwSteps({ go: 1, now: true })`); await settle(900); }
+  const y0 = await W(w5[0], w5[1], Y), y1 = await W(1, 1.2, Y), y2 = await W(-1.2, 1.5, Y);
   await move(y0[0] + 2, y0[1] + 2); await settle(100);
   info.yRing = (await CI()).ring;
   await click(y0[0] + 2, y0[1] + 2); await settle(80); await click(y1[0], y1[1]); await settle(80); await click(y2[0], y2[1]); await settle(300);
@@ -584,7 +598,9 @@ await section('H', async () => {
   await view(1440, 900, false, false);
   await load(NS + 'h', { shapes: [{ id: 'h1', kind: 'point', p: [-0.5, 0.3], ci: 0, visible: true }, { id: 'h2', kind: 'point', p: [0.6, -0.2], ci: 1, visible: true }], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50 });
   await settle(800);
-  await key('2', 8); await settle(900);   // X: Sphere
+  // (X: Sphere, by its key in the classic view, by the surface switch in the steps view)
+  if (await ev(`document.documentElement.classList.contains('sv')`)) await ev(`__cmwSteps({ surf: 'sphere' }), 1`); else await key('2', 8);
+  await settle(900);
   ok('H: X shows its globe', (await ev(`__cmwState().view.L ? __cmwState().view.L.surf : JSON.stringify(__cmwState().view)`)) === 'sphere' || /sphere/.test(JSON.stringify(await ev(`__cmwState().view`))), await ev(`__cmwState().view`));
   await tool('circle3');
   const lift = async (x, y) => ev(`Region.Globe.lift(${x}, ${y})`);
@@ -602,6 +618,7 @@ await section('H', async () => {
     ok('H: the draft survives the turn', ((await CI()).draft || { picks: [] }).picks.length === 2, (await CI()).draft);
     ok('H: N is on the globe face after the turn', !!qN, qN);
     if (qN) {
+      qN = (await CI({ gs: ['L', [0, 0, 1]] })) || qN;   // (read again: the turn may still be settling)
       await click(qN[0] + 2, qN[1] - 2); await settle(400);
       const st = await ST();
       const cc = last(st);
