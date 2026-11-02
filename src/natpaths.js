@@ -176,7 +176,9 @@ const NatPaths = (() => {
   // in all: its cut is the lower unit semicircle (between the disk and the exterior); the upper one closes onto [−1, 1].
   // joukAt(t, inside): the disk's formula (inside) or the exterior's, for every z (the landscape continues the branch
   // of a cell's centre across the circle: Sheets localCutHom)
-  const joukAt = (t, inside) => (z) => (inside ? serS('tanh', CX.sub(sc(serS('atanh', z), 1 + t), C(0, HPI * t))) : cothX(sc(arcothS(z), 1 + t)));
+  const joukAt = (t, inside) => (z) => (inside
+    ? serS('tanh', CX.sub(sc(serS('atanh', z), 1 + t), C(0, HPI * t)))
+    : cothX(sc(arcothS(z), 1 + t)));
   const joukHom = (t) => (z) => joukAt(t, z.re * z.re + z.im * z.im < 1)(z);
   const ijoukHom = (sg) => (t) => (z) => cothX(CX.sub(sc(arcothS(z), 1 - t / 2), C(0, sg < 0 ? HPI * t : 0)));
   // names in a caption phrase: o = {f, p, c, a} (all at once and in turn, several steps: f_k, p_k, ..., so that one

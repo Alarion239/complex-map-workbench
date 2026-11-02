@@ -994,7 +994,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'jouk': {
         // inside the unit disk the branch arg Cz in (pi/2, 3pi/2): tanh((1 + t) artanh z - i pi t/2) (Funcs joukHom);
         // c J (nat.scaled): times c^t, lc = log c a uniform
-        const J = (c) => `vec2 J = dot(${c}, ${c}) < 1.0 ? cx_tanhS(cx_atanhS(z) * (1.0 + t) - vec2(0.0, CX_HALF_PI * t)) : cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 + t)));`;
+        const J = (c) => `vec2 J = dot(${c}, ${c}) < 1.0 ? cx_tanhS(cx_atanhS(z) * (1.0 + t) - vec2(0.0, CX_HALF_PI * t))`
+          + ' : cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 + t)));';
         // (hc: the branch of the triangle's centre zc, continued across the unit circle; dom: z's side of that circle
         // as seen from zc, positive on zc's side, where the continuation is the path itself)
         const dom = 'float g = dot(z, z) - 1.0;\n  return dot(zc, zc) < 1.0 ? -g : g;';
