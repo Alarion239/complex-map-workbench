@@ -189,7 +189,8 @@ const VIEWS = {
   'p3b_accept_cmd.js': port('render'),
   'p3bfix_cmd.js': port('render'),
   'p5_accept_cmd.js': port('render'),
-  'regions_phase_cmd.js': port('render'),
+  'regions_phase_cmd.js': steps({ pin: true }),
+  'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
   'sphere_light_cmd.js': port('render'),
 
   // to port: sound (Pietro's team, #580 and #598)
