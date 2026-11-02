@@ -1477,6 +1477,8 @@
           done = GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry: svCarryStyle(svT()), key, lim: 1e30 });
         }
       } catch (e) { done = false; }
+      // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
+      dropShapeGPU(SV_WARM.id);
       if (done) svWarmSig = sig; else setTimeout(() => svWarmCarry(n + 1), 500);
     });
   }
