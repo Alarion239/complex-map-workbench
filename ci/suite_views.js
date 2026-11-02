@@ -141,7 +141,7 @@ const VIEWS = {
   'tour_it360_cmd.js': port('words'),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
-  'tour_perf_cmd.js': port('words'),
+  'tour_perf_cmd.js': steps({ pin: true }),
   'tour_phone_cmd.js': port('words'),
   'tour_skip_hover_cmd.js': port('words'),
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
