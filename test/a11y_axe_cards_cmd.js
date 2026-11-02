@@ -24,7 +24,6 @@ await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: ab[0], y: ab[
 await settle(600);
 const off = await ev('__cmwP().steps[0].on');
 ok('a mouse click on the card\'s Bypass bypasses the step', off === false, off);
-await ev('document.querySelector(\'#pipeline .card[data-k="1"] .acts .bypass\') && 1');
 await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 }); await settle(300);
 const st2 = await ev(`document.querySelector('#pipeline .card[data-k="1"] .acts').inert`);
 ok('a pointer leaving the card makes them inert again', st2 === true, st2);
