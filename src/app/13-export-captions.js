@@ -135,6 +135,7 @@
     }
     if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
     box.hidden = !want.length;
+    if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');
     if (ac) {
       let k = ac.querySelector('.kbd');

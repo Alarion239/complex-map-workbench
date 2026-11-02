@@ -374,6 +374,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 @media (min-width: 1280px) and (max-width: 1440px) { :root:is([data-lang="ru"], [data-lang="it"]) .cm-chip > .cm-t { -webkit-line-clamp: 3; } }
 .mc-stop { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0 8px; height: 22px; cursor: pointer; }
 .mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
+.mode-chips { max-width: var(--mc-max, none); }   /* (svFitHead sets --mc-max when the head is short of room) */
+.mode-chips > .mode-chip { min-width: 0; }
+.mode-chip .mc-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mode-chip > :not(.mc-t) { flex: 0 0 auto; }
 .mode-chips[hidden] { display: none; }
 .mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip .kbd, .mode-chip .kbd { font-size: 10px; padding: 0 4px; }

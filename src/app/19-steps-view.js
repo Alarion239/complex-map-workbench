@@ -941,10 +941,15 @@
     // once when the glide settles; rework on #473)
     if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
-    const key = [ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
+    const mc = $('modeChips');
+    const key = [
+      ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
+      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '',
+    ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
     const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
+    if (mc) mc.style.removeProperty('--mc-max');
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
     E.bar.classList.remove('sv-c3', 'sv-c4');
@@ -974,6 +979,14 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (the mode chips are the head's own items, counted above. Short of room even then, the chip's label gives up the
+    // width that would wrap the head onto a second row (a row is the head's 40 px minimum), down to a few letters: the
+    // plane never moves for a chip)
+    if (mc && !mc.hidden) {
+      const wraps = () => head.getBoundingClientRect().height > 44;
+      let w = Math.ceil(mc.getBoundingClientRect().width);
+      while (wraps() && w > 72) { w -= 16; mc.style.setProperty('--mc-max', w + 'px'); }
+    }
     // (the strip in the head fits its controls to the room the bar now leaves)
     if (typeof layoutFoot === 'function') layoutFoot(true);
   }
