@@ -80,7 +80,12 @@ ok('A2 with a pole inside the curve there is a Both | Inside | Outside choice, B
 ok('A2 the note says f₊ inside and f₋ outside', /f₊ inside, f₋ outside/.test(A2.text.replace(/\s+/g, ' ')), A2.text);
 await settle(400);
 // (the options pop-up is opened again in the same step: the steps view closes it when the page head loses the pointer)
-await ev(`(() => { if (!document.querySelector('.opts-pop')) { const o = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (o) o.click(); } const seg = document.getElementById('cauchySeg'); const b = seg ? seg.querySelector('[data-v="in"]') : null; if (b) b.click(); return !!b; })()`);
+await ev(`(() => {
+  if (!document.querySelector('.opts-pop')) { const o = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (o) o.click(); }
+  const seg = document.getElementById('cauchySeg'), b = seg ? seg.querySelector('[data-v="in"]') : null;
+  if (b) b.click();
+  return !!b;
+})()`);
 await settle(800);
 const inCap = await ev(`Export.figCapParts().cauchy`);
 ok('A2 clicking Inside sets the part shown; the caption data follows', inCap && inCap.kind === 'split' && inCap.show === 'in' && inCap.poles === 1, inCap);
