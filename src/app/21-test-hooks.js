@@ -268,8 +268,20 @@
     const src = svPathsSource(), d = mfDrawn;
     let err = 0;
     // (in the plane's own view, the one the paths are drawn in; the pane's view is put back as it was)
-    if (src && d) { const v0 = paneL.view; paneL.setView(S.srcView); try { for (const q of d.heads) { const p = paneL.w2s(src.Fat(d.T)(C(q[2], q[3]))); err = Math.max(err, mDist(p, q)); } } finally { paneL.setView(v0); } }
-    return { on: S.morphPaths !== false, src: src ? { T: src.T, Tend: src.Tend, startId: src.startId, seq: src.seq } : null, T: d ? d.T : null, heads: d ? d.heads.length : 0, err, kept: mfCache.sel ? mfCache.sel.kept.length : 0, ready: !!(src && mfCache.sel && mfCache.key === mfScreenKey(paneL, src).key) };
+    if (src && d) {
+      const v0 = paneL.view;
+      paneL.setView(S.srcView);
+      try {
+        for (const q of d.heads) { const p = paneL.w2s(src.Fat(d.T)(C(q[2], q[3]))); err = Math.max(err, mDist(p, q)); }
+      } finally { paneL.setView(v0); }
+    }
+    return {
+      on: S.morphPaths !== false,
+      src: src ? { T: src.T, Tend: src.Tend, startId: src.startId, seq: src.seq } : null,
+      T: d ? d.T : null, heads: d ? d.heads.length : 0, err,
+      kept: mfCache.sel ? mfCache.sel.kept.length : 0,
+      ready: !!(src && mfCache.sel && mfCache.key === mfScreenKey(paneL, src).key),
+    };
   };
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && o.span) SV.span = svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, all: svBetween().all, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1 } : null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook() }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity

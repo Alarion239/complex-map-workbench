@@ -635,9 +635,14 @@
   }
   // the Paths toggle (the classic deformation's S.morphPaths, setMorphPaths): the paths t -> H_t(z) of a glide and of a
   // parked view (svPathsSource); key P. Off, with its reason, when a d/dz step is in the chain (svPlaySync)
-  // (inPop: the button of the Playback popover, whose row is labelled Paths, says On or Off)
+  // (inPop: the button of the Playback popover, whose row is labelled Paths, says On or Off; the phone sheet's, a toggle
+  // like its Loop, is labelled Paths itself)
   function svPathsBtn(cls, inPop) {
-    return h('button', { type: 'button', class: cls, 'aria-pressed': String(S.morphPaths !== false), onclick: () => { setMorphPaths(S.morphPaths === false); svSync(); requestRender('L'); } }, inPop ? (S.morphPaths !== false ? $t('On') : $t('Off')) : $t('Paths'));
+    const label = inPop ? (S.morphPaths !== false ? $t('On') : $t('Off')) : $t('Paths');
+    return h('button', {
+      type: 'button', class: cls, 'aria-pressed': String(S.morphPaths !== false),
+      onclick: () => { setMorphPaths(S.morphPaths === false); svSync(); requestRender('L'); },
+    }, label);
   }
   // the order of a glide across several planes (S.homAll): plane by plane, or all at once as one homotopy of the whole range
   function svOrderSel(title) {
@@ -1304,7 +1309,8 @@
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
     const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]);
-    for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); if (b === E.paths) b.textContent = S.morphPaths !== false && !noPaths ? $t('On') : $t('Off'); }
+    for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); if (b === E.paths) b.textContent = S.morphPaths !== false && !noPaths ? $t('On') : $t('Off');
+    }
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }

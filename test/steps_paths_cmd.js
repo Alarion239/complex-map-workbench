@@ -1,6 +1,7 @@
 // The steps view's Paths: the paths t -> H_t(z) of the classic deformation, drawn in the steps view from its own
 // deformation source (the glide's run of planes), with no classic transport open.
-// - Paths is a toggle beside Loop on the strip, pressed as the saved S.morphPaths; a click and key P switch it;
+// - Paths is a toggle in the Playback popover (its button says On or Off), pressed as the saved S.morphPaths;
+//   a click and key P switch it;
 // - parked between planes 0 and 1, and between 1 and 2, paths are drawn: T is the place in the run, the run starts at
 //   the identity on plane z and at z ↦ z² past it, and every moving point drawn is H_T(z) of its start (within 1.5 px);
 // - Paths off: none drawn;
@@ -29,7 +30,15 @@ const parked = async (x) => {
   await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.ready && p.heads > 0 && Math.abs(p.T - p.src.T) < 1e-9; })()` });
   return (await S()).paths;
 };
-const btn = () => ev(`(() => { const b = document.querySelector('#svStrip .sv-playpop .sv-paths'); if (!b) return null; return { pressed: b.getAttribute('aria-pressed'), disabled: b.disabled, text: b.textContent, label: ((b.closest('label') || {}).firstElementChild || {}).textContent || '', tip: b.dataset.tip || '', inPopover: !!b.closest('.sv-playpop'), onStrip: !!document.querySelector('#svStrip > .sv-paths') }; })()`);
+const btn = () => ev(`(() => {
+  const b = document.querySelector('#svStrip .sv-playpop .sv-paths');
+  if (!b) return null;
+  return {
+    pressed: b.getAttribute('aria-pressed'), disabled: b.disabled, text: b.textContent,
+    label: ((b.closest('label') || {}).firstElementChild || {}).textContent || '', tip: b.dataset.tip || '',
+    inPopover: !!b.closest('.sv-playpop'), onStrip: !!document.querySelector('#svStrip > .sv-paths'),
+  };
+})()`);
 await view(1440, 900, false, false);
 await open(chain());
 const b0 = await btn();
