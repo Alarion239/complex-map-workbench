@@ -144,7 +144,7 @@
   // then does the hyperbolic line pass through them as points of its plane
   function segThru(s, info) {
     if (!info || !info.seg || !s.def) return false;
-    const plane = isT(s) || s._capT ? 1 : 0;
+    const plane = isT(s) || s._capT ? 'T' : planeOf(s);
     return [s.def.args[1], s.def.args[2]].every((r) => {
       if (!r || r.inf) return false;
       let z = null;
@@ -204,7 +204,7 @@
   function menuItems(ctx) {
     if (!A || ctx.surface !== 'flat') return [];
     const side = ctx.side;
-    if (side === 'L' && (A.leftStage() > 0 || ctx.plane !== 'X')) return [];
+    if (side === 'L' && ctx.plane !== 'X') return [];
     if (side === 'R' && !A.targetsEditable()) return [];
     const touch = !!ctx.touch, items = [];
     const t = snapAt(side, ctx.x, ctx.y, { points: true, cross: true, curves: true, touch, disp: true });
@@ -224,7 +224,7 @@
         const c = snapAt(side, ctx.x, ctx.y, { points: false, cross: false, curves: true, disp: true, touch, exclude: ex });
         // ([v16.5 rail] a display curve too: its fixed shape is made, or the plane's reused, in the same undo step)
         if (c) items.push({ label: $t('Put on this curve'), run: () => {
-          const pre = [], list = side === 'R' ? S().targets : S().shapes;
+          const pre = [], list = listOf(side);
           const def = { op: 'glider', args: [c.disp ? dispRef(c.disp, side, null, pre) : c.ref] };
           if (c.seed) def.seed = c.seed;
           for (const x of pre) list.splice(list.indexOf(p), 0, x);
@@ -241,7 +241,7 @@
   }
   function hitShape(side, x, y) {
     const pane = A.setView(side), z = pane.s2w(x, y), tol = 7 / pane.view.s;
-    const list = (side === 'R' ? S().targets : S().shapes).filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
+    const list = listOf(side).filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
     for (const s of list) { try { if (Region.hitTest(s, z, tol, A.win(side))) return s; } catch (e) { /* */ } }
     return null;
   }

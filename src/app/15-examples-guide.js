@@ -576,13 +576,6 @@
     const u = $('unitChk');
     if (u && u.checked !== !!S.unit) u.checked = !!S.unit;
   }
-  // P4: a drawing tool pressed in X at focus k >= 2 draws nothing; the Whole chain button pulses once
-  function pulseWhole() {
-    const b = $('viewAllBtn');
-    if (!b) return;
-    b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
-    clearTimeout(/** @type {any} */ (pulseWhole).t); /** @type {any} */ (pulseWhole).t = setTimeout(() => b.classList.remove('pulse'), 900);
-  }
   // resizable gutters between the planes and above the chain (sizes are per viewer)
   function setupGutters() {
     const stage = $('stage'), panes = $('panes');

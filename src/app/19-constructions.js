@@ -12,6 +12,8 @@
       zp: (st, kind, i) => val(Funcs.splitList(st.params[kind])[i] || ''),
       zpAll: (st, kind) => Funcs.splitList(st.params[kind]).map(val),
       F: (z) => { if (z === Constr.INF) return null; try { const w = stageF(nSteps())(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } },
+      // the map that carries a z-plane point to plane k (the steps up to k)
+      Fk: (k) => (z) => { if (z === Constr.INF) return null; try { const w = stageF(k)(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } },
       // (review math-11: one component per traced branch, each with its level function for the float64 Newton step,
       // traced on the z-plane's window plus a margin, never joined into one polyline)
       trace: (s) => {

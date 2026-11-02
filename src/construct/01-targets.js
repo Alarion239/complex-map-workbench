@@ -33,6 +33,14 @@
   const S = () => A.S();
   const find = (id) => S().shapes.find((x) => x.id === id) || S().targets.find((x) => x.id === id) || null;
   const isT = (s) => !!s && S().targets.includes(s);
+  // the plane an object lives in ('T' for a target, else its stage), the plane a side shows, and a plane's objects
+  const planeOf = (s) => Constr.planeOf(S(), s);
+  const planeOfSide = (side) => (side === 'R' ? 'T' : A.leftStage());
+  const listOfPlane = (p) => (p === 'T' ? S().targets : S().shapes.filter((x) => planeOf(x) === p));
+  const listOf = (side) => listOfPlane(planeOfSide(side));
+  // the map that carries a z-plane point to the plane a side shows: the whole chain on Y, the steps up to plane k on a
+  // later plane of X; null where X shows no such plane
+  const carriedF = (side) => (side === 'R' ? (A.yWhole() ? env().F : null) : A.leftStage() > 0 && env().Fk ? env().Fk(A.leftStage()) : null);
   const touchNow = () => !!lastEv && (lastEv.pointerType === 'touch' || lastEv.pointerType === 'pen');
   // [v16.5 rail SPEC 1.1] the radii in screen px: points p, curves c (a finger 14, was 10), the grid lattice g, a rail's
   // detents det
@@ -208,7 +216,7 @@
     if (!(k in dispPcs)) { try { dispPcs[k] = Constr.pieces(Object.assign({ id: '', ci: 0, visible: true }, DISP[k]()), {})[0] || null; } catch (e) { dispPcs[k] = null; } }
     return dispPcs[k];
   }
-  const fixedShape = (side, k) => (side === 'R' ? S().targets : S().shapes).find((x) => x.fixed === k && !x.def && !x.at) || null;
+  const fixedShape = (side, k) => listOf(side).find((x) => x.fixed === k && !x.def && !x.at) || null;
   // the display curves of a pane no visible shape stands for: [{key, pc, shape: its hidden fixed shape | null}]
   function dispCurves(side) {
     const out = [];
@@ -241,7 +249,7 @@
     if (!ref) return '?';
     if (ref.inf) return '∞';
     if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
-    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + (S().steps.length < 4 ? ['', '′', '″', '‴'][S().steps.length] : '″') : '?'; }
+    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + (((n) => (n < 4 ? ['', '′', '″', '‴'][n] : '″'))(A.yWhole() ? S().steps.length : A.leftStage() || S().steps.length)) : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
     const s = find(ref.s);
@@ -292,7 +300,7 @@
   // the two finite defining points of a half-plane through 3 points in the order its region is left of [math-9]: the
   // region is the form's left side, so it is "left of P -> Q" only while the form's direction agrees with Q - P
   function hpOrder(s) {
-    const d = s.def, plane = isT(s) ? 1 : 0;
+    const d = s.def, plane = planeOf(s);
     const R = d.args.map((r, i) => ({ i, r: Constr.resolve(S(), r, plane, env()) })).filter((x) => x.r && x.r.z);
     if (R.length < 2) return [0, 1];
     const [P, Q] = R;
@@ -312,7 +320,7 @@
   // it (by its name), or null
   function tangentPoint(s) {
     const c = s.def.args[0], same = (r) => !!r && r.part === 0 && r.s === s.id, onC = (r) => !!r && r.s === c.s && r.part === c.part;
-    const m = (isT(s) ? S().targets : S().shapes).find((x) => x.kind === 'point' && x.def && x.def.op === 'meet' && !x.helper && x.visible !== false && x.def.args.some(same) && x.def.args.some(onC));
+    const m = listOfPlane(planeOf(s)).find((x) => x.kind === 'point' && x.def && x.def.op === 'meet' && !x.helper && x.visible !== false && x.def.args.some(same) && x.def.args.some(onC));
     return m ? pointName(m) : null;
   }
   // short: a row (the curve first, so the cut-off end is the least needed part [v16.3 review user-10]); else the
@@ -426,7 +434,7 @@
     if (!st) return null;
     const pane = A.setView(side);
     const zc = pane.s2w(x, y), Z = [zc.re, zc.im], sc = pane.view.s;
-    const list = side === 'R' ? st.targets : st.shapes;
+    const list = listOf(side);
     const ex = o.exclude || new Set();
     const touch = o.touch != null ? o.touch : touchNow();
     const R = radii(touch);
@@ -452,9 +460,9 @@
           });
         }
       }
-      if (side === 'R' && A.yWhole()) {
-        const F = env().F;
-        for (const s of st.shapes) if (s.kind === 'point' && s.visible !== false && !s.helper && !s._atInf && F) { const w = F(s.p); if (w) consider(w, { img: s.id }); }
+      {
+        const F = carriedF(side);
+        if (F) for (const s of st.shapes) if (s.kind === 'point' && planeOf(s) === 0 && s.visible !== false && !s.helper && !s._atInf) { const w = F(s.p); if (w) consider(w, { img: s.id }); }
       }
       if (best) return best;
     }
@@ -519,7 +527,7 @@
         if (u) best = u;
       }
       if (best) {
-        const p3 = best.s ? pts3Of(best.s, side === 'R' ? 1 : 0) : null;
+        const p3 = best.s ? pts3Of(best.s, planeOfSide(side)) : null;
         let pr = null;
         try { pr = Constr.projectPiece(best.pc, Z, best.pc.c3 ? p3 : null); } catch (e) { pr = null; }
         if (pr && isXY(pr.z)) {
@@ -552,13 +560,13 @@
     const avoid = [];
     if (ex) for (const id of ex) { if (id === o.self) continue; const q = find(id); if (q && q.kind === 'point' && !q._atInf && isXY(q.p)) avoid.push(q.p); }
     const clash = (z) => avoid.some((q) => Math.abs(q[0] - z[0]) <= 1e-9 * Math.max(1, Math.abs(z[0])) && Math.abs(q[1] - z[1]) <= 1e-9 * Math.max(1, Math.abs(z[1])));
-    const p3 = railS && pc.c3 ? pts3Of(railS, side === 'R' ? 1 : 0) : null;
+    const p3 = railS && pc.c3 ? pts3Of(railS, planeOfSide(side)) : null;
     if (pc.c3 && (!p3 || p3 === 'inf')) return null;
     const at = (t) => { let z = null; try { z = Constr.glide(pc, t, p3); } catch (e) { z = null; } return isXY(z) ? z : null; };
     const cands = [];
     const add = (t, label, zz, rr) => { const z = at(t); if (!z || clash(z)) return; const d = Math.hypot(z[0] - tg.z[0], z[1] - tg.z[1]) * sc; if (d <= (rr != null ? rr : R) * f) cands.push({ t, z, d, label: label || fmtZl(zz || z) }); };
     // 1. its crossings with the other shown curves (the point stays on its rail: it only stops there)
-    const list = side === 'R' ? S().targets : S().shapes, others = [];
+    const list = listOf(side), others = [];
     const box = { x0: tg.z[0] - h, x1: tg.z[0] + h, y0: tg.z[1] - h, y1: tg.z[1] + h };
     for (const s of list) {
       if (s.visible === false || s === railS || (ex && ex.has(s.id)) || s.kind === 'point' || GRID.has(s.kind) || s.kind === 'formula') continue;

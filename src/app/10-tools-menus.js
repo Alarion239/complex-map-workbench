@@ -77,9 +77,6 @@
     draft = null;
     Construct.toolChanged();   // (v16)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
-    // plane at any focus)
-    if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
     if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
