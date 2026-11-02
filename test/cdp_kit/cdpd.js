@@ -88,28 +88,32 @@ H.go = async (url, ms = 15000) => {
 // with o.panes false, for a check that needs no GL frame),
 // no finite animation or transition running (document.getAnimations(); an endless one, a spinner, never ends), and
 // o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
-// and the suite's log says so, so a check after it sees the page as it is. Answers { ok, ms, busy }.
+// and the suite's log says so, so a check after it sees the page as it is. Answers { ok, ms, busy, at }; at is ms when
+// ok and -1 when not, for a check that reads the wait as a time (at >= 0). With o.only the page's quiet is not asked, only
+// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true.
 H.settled = async (o = {}) => {
   if (o.floor) await sleep(o.floor);
   const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null';
-  const r = await H.ev(`await (async (until, max, panes) => {
+  const r = await H.ev(`await (async (until, max, panes, only) => {
     const t0 = performance.now(), frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     for (;;) {
-      await frames();
+      if (!only) await frames();
       const busy = [];
+      if (!only) {
       if (document.readyState !== 'complete') busy.push('loading');
       if (panes && typeof window.__cmwPaneStatus === 'function') for (const p of ['L', 'R']) { const st = window.__cmwPaneStatus(p); if (st && (st.pending || st.compiling)) busy.push('pane ' + p + (st.compiling ? ' compiling' : ' pending')); }
       const an = document.getAnimations().filter((a) => a.playState === 'running' && a.effect && Number.isFinite(a.effect.getComputedTiming().endTime));
       if (an.length) busy.push(an.length + ' animation(s)');
+      }
       if (until) { let u; try { u = until(); } catch (e) { u = false; } if (!u) busy.push('until'); }
       const ms = Math.round(performance.now() - t0);
       if (!busy.length) return { ok: true, ms, busy };
       if (ms > max) return { ok: false, ms, busy };
       await new Promise((r) => setTimeout(r, 50));
     }
-  })(${until}, ${max}, ${o.panes !== false})`, max + 5000);
-  if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: not quiet after ${max} ms (${JSON.stringify(r)})` });
-  return r && r.busy ? r : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'] };
+  })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
+  if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
+  return r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
 };
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
@@ -167,8 +171,10 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js)
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8') }, S);
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js); with CMW_VIEW=steps, the steps
+  // view (#620: a ported suite, ci/suite_views.js steps({ pin: true }))
+  const pin = (process.env.CMW_VIEW === 'steps' ? "window.__cmwPinView = 'steps';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
   const done = new Set();
   for (;;) {
