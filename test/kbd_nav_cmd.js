@@ -1,4 +1,4 @@
-// Laptop keyboard in the steps view (issue #44, UX98): the tool grid is one Tab stop and the arrows move inside it, and F6 / Shift+F6
+// Laptop keyboard in the steps view: the tool grid is one Tab stop and the arrows move inside it, and F6 / Shift+F6
 // move between the areas: top bar, tools, the plane, the thread (on its ring), the Inspector, wrapping both ways; Tab on a focused
 // plane steps through its shapes; the Construct tools have letters. The classic view's chain cards and its X → Y → chain areas are
 // kbd_nav_classic_cmd.js. A command file for a CDP daemon.
