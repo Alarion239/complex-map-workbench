@@ -356,14 +356,24 @@
     // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
+    // (probe, scratch: globalThis.__svCarryProbe {noCarry: no carry draw, noFill: the cached draw without the fill,
+    // fillTex: the fill's centre-sheet values from the fill point pass (fillPass, regionKSCft)})
+    const probe = globalThis.__svCarryProbe || {};
+    if (probe.noCarry) return true;
     let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
-    const fill = cuts && P ? program(clip ? 'regionKSCclip' : 'regionKSC', st.map) : null;
+    let fill = cuts && P && !probe.noFill ? program(clip ? 'regionKSCclip' : 'regionKSC', st.map) : null;
+    let ft = null;
+    if (fill && probe.fillTex) {
+      const Pft = program(clip ? 'regionKSCclipft' : 'regionKSCft', st.map);
+      ft = Pft ? fillPass(res, L, st.map) : null;
+      if (ft) fill = Pft;
+    }
     let full = null;
-    if (cuts && !fill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
+    if (cuts && !fill && !probe.noFill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
@@ -376,9 +386,11 @@
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
       if (clip) u1i(Q, 'uKPass', 0);
+      if (ft && Q === fill) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, ft.tex); u1i(Q, 'uFTW', ft.W); u1i(Q, 'uFTP', ft.P); }
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
+    { const ps = globalThis.__svPathStats; if (ps) { const nm = P.name || 'regionK'; ps[nm] = (ps[nm] || 0) + 1; if (fill) { ps.fill = (ps.fill || 0) + 1; ps[fill.name] = (ps[fill.name] || 0) + 1; } ps.carryVerts = (ps.carryVerts || 0) + n * res.n; } }   // (probe, scratch)
     set(P);
     carryDraw(k, st.depth, () => {
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);

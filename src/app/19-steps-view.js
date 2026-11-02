@@ -621,6 +621,7 @@
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
+    { const ps = globalThis.__svPathStats; if (ps) ps.frames = (ps.frames || 0) + 1; }   // (probe, scratch)
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const { a, b, u, map, F } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first

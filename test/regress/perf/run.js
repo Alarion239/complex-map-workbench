@@ -982,6 +982,84 @@ async function svInteractUnit(scene) {
     put(`sv.scrub.in.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.in)], { limit: SV_COPIES_IN_LIMIT, samples: copies.in.map(r3) });
   }
 }
+// [#643 probe, measurement only, not for merge] a steps-view strip scrub (Inside regions and Everywhere) under
+// globalThis.__svCarryProbe settings, in turn within each rep (so drift falls on all alike): frame p95, cpu p95 and fps
+// per setting, as info, a summary line per setting in the log, and __svPathStats logged per scrub leg. Scenes (SVP_SCENES):
+// the Mountain King, the Joukowski airfoil, the default page, and z^3 after a Möbius on a half-plane (steps_play_cmd.js)
+const SVP_SETTINGS = { base: {}, fillTex: { fillTex: true }, noFill: { noFill: true }, noCarry: { noCarry: true } };
+const SVP_SCENES = {
+  king: { ex: 'In the Hall of the Mountain King' },
+  jouk: { ex: 'Joukowski airfoil' },
+  default: {},
+  pow: { state: { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
+    steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } } },
+};
+async function svProbeUnit(scene) {
+  const S = SVP_SCENES[scene];
+  const leg = async (fn) => {
+    const a = await pageNow();
+    await fn();
+    const b = await pageNow();
+    const w = await windowStats(a, b);
+    await settle(b);
+    return w;
+  };
+  const ends = `(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`;
+  const R = {};
+  for (const k of Object.keys(SVP_SETTINGS)) R[k] = { in: [], all: [] };
+  for (let i = 0; i < REPS; i++) {
+    const ns = `perfsvp${process.pid}_${++nsCounter}`;
+    const init = S.state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + ns)}, ${JSON.stringify(JSON.stringify(S.state))}); } catch (e) {} }`) : null;
+    await B.nav(`${BASE}test.html?ns=${ns}&view=steps`);
+    if (init) await B.removeInit(init);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    if (S.ex) await B.ev(`__cmwExample(${exampleIndex(S.ex)}), 1`);
+    await settle(await pageNow());
+    await sleep(SV_IDLE_MS);
+    for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+    await settle(await pageNow());
+    // (one unmeasured scrub there and back per setting first: each setting's programs (fillTex's fill and point pass)
+    // linked before its measured scrub)
+    for (const k of Object.keys(SVP_SETTINGS)) {
+      await B.ev(`globalThis.__svCarryProbe = ${JSON.stringify(SVP_SETTINGS[k])}, 1`);
+      await B.ev(`__cmwSteps({ scope: 'all', go: 0, now: true }), 1`);
+      await settle(await pageNow());
+      const r = await B.ev(ends);
+      await B.drag(r.x0, r.y, r.x1, r.y, { n: 20, dt: 16 }); await settle(await pageNow());
+      await B.drag(r.x1, r.y, r.x0, r.y, { n: 20, dt: 16 }); await settle(await pageNow());
+    }
+    const names = Object.keys(SVP_SETTINGS);
+    // (the order turns by one each rep)
+    for (let j = 0; j < names.length; j++) {
+      const k = names[(j + i) % names.length];
+      await B.ev(`globalThis.__svCarryProbe = ${JSON.stringify(SVP_SETTINGS[k])}, 1`);
+      for (const scope of ['in', 'all']) {
+        await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
+        await settle(await pageNow());
+        const r = await B.ev(ends);
+        const legs = [];
+        for (const [xa, xb, dir] of [[r.x0, r.x1, 'there'], [r.x1, r.x0, 'back']]) {
+          await B.ev('globalThis.__svPathStats = {}, 1');
+          legs.push(await leg(() => B.drag(xa, r.y, xb, r.y, { n: 40, dt: 16 })));
+          const ps = await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || null); })()');
+          console.log(`[perf] svp.${scene}.${k}.scrub.${scope} rep ${i + 1} leg ${dir} path stats: ${ps}`);
+        }
+        if (!legs[0].drawn.length || !legs[1].drawn.length) throw new Error(`svp.${scene}.${k}: the ${scope} scrub drew no frames`);
+        R[k][scope].push(legSummary(legs, 'pointermove'));
+      }
+    }
+    await B.ev('globalThis.__svCarryProbe = {}, 1');
+  }
+  for (const [k, sc] of Object.entries(R)) for (const [scope, reps] of Object.entries(sc)) {
+    const id = `svp.${scene}.${k}.scrub.${scope}`;
+    putPooled(`${id}.frame_p95_ms`, 'info', 'ms', reps, 'frame', 0.95, 'frame_p95');
+    putPooled(`${id}.cpu_p95_ms`, 'info', 'ms', reps, 'cpu', 0.95, 'cpu_p95');
+    put(`${id}.fps`, 'info', 'frames/s', reps.map((r) => r.fps));
+    const f = reps.map((r) => r.frame_p95).filter((x) => x != null), c = reps.map((r) => r.cpu_p95).filter((x) => x != null);
+    log(`${id}: frame p95 ${f.map((x) => x.toFixed(1)).join(' / ')} ms; cpu p95 ${c.map((x) => x.toFixed(1)).join(' / ')} ms; fps ${reps.map((r) => r.fps.toFixed(1)).join(' / ')}`);
+  }
+}
 // [#439 F, #443] the steps view's glide at 60 fps: a warm glide there and back between z and w₁ (Everywhere, the plane
 // surface, the normal speed), on a GPU only (a software renderer is skipped, as sv.interact), at dpr 1 and at dpr 2 (the
 // Mac's: setDpr, as the image units' dpr2). Scenes: the default page, zeta and the Mountain King (by name). Per dpr:
@@ -1821,6 +1899,10 @@ unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its ar
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
+unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('king'), { timeoutS: 900 });
+unit('svp.jouk', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('jouk'), { timeoutS: 900 });
+unit('svp.default', 'probe for #643 (not for merge): the default page strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('default'), { timeoutS: 900 });
+unit('svp.pow', 'probe for #643 (not for merge): z^3 after a Mobius on a half-plane strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('pow'), { timeoutS: 900 });
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });

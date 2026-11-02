@@ -374,6 +374,13 @@ float len2(vec2 v) { float m = amax(v); return m > 1e18 ? m * length(v / m) : le
   // (cutKinds' clip): each vertex's side of it (vSide) for CARRY_FS's clip, and the pass uKPass 1 for the part of a
   // triangle past it (only the programs of a chain with such a cut: CARRY_FS's discard costs every fragment its early
   // depth test)
+  // (probe, scratch) REGION_VS's fillTex option (with sheet and 'tex'): the fill's four centre-sheet values per
+  // sub-triangle (corners 0..2, centroid 3) and their side values, read from the fill point pass's RGBA32F texture
+  // uFT (FILL_TF_VS: texel instance * uFTP + sub-triangle * 4 + k) instead of evaluated here; the uKPass 1 pass still
+  // evaluates its own (another centre)
+  const FILL_TEX_FETCH = `uniform highp sampler2D uFT; uniform int uFTW; uniform int uFTP;
+vec2 FT(int k, out float side) { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4 + k; vec4 v = texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0); side = v.z; return v.xy; }
+`;
   const REGION_VS = (sphere, fetch, o = {}) => `
 layout(location = 0) in vec4 aTpl0;
 layout(location = 1) in vec4 aTpl1;
@@ -391,7 +398,7 @@ ${FETCH(fetch)}
 ${LIFT}
 ${BARY}
 ${VALID}
-${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }\n' : ''}void main() {
+${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }\n' : ''}${o.fillTex ? FILL_TEX_FETCH : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
 ${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a triangle the cached places draw, or a fix-up skips, is culled here, so
   // only a triangle torn across a cut is evaluated on its centre's sheet)
@@ -403,8 +410,9 @@ ${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a tria
   }
 ` : ''}${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   float d0, d1, d2, dMid;
-  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
-  vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
+${o.fillTex ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
+  vec2 wm = FT(3, dMid);` : `  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
+  vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);`}` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
   vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet && o.clip ? `
   // (uKPass 1: only a triangle with a vertex past a clipped cut, on that vertex's branch, which colours the triangle's
   // part past the cut, the part the pass 0 draw clipped)
@@ -729,6 +737,35 @@ ${TF_EMIT(rt)}
 ${SRC}
 ${BARY}
 void main() { emit(mapPoint(srcOf(bary(aT)))); }
+`;
+  // (probe, scratch) the fill point pass: for every sub-triangle t of every instance (uSub: its three template corners,
+  // regionTemplate's order), point k = 0..3 is REGION_VS's onCentreSheet(zc, s_k) with zc its centroid's source point
+  // (s_3 the centroid), written as (w, side, 0) into texel instance * uP + 4 t + k of an RGBA32F texture
+  const FILL_TF_VS = `
+layout(location = 2) in vec4 aAB;
+layout(location = 3) in vec2 aC;
+uniform vec2 uSub[12];
+flat out vec4 tfOut4;
+uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
+${SRC}
+${BARY}
+vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }
+void main() {
+  int v = gl_VertexID, t = v / 4, k = v - 4 * t;
+  vec2 s0 = bary(uSub[3 * t]), s1 = bary(uSub[3 * t + 1]), s2 = bary(uSub[3 * t + 2]);
+  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
+  float side;
+  vec2 w = onCentreSheet(zc, k == 0 ? s0 : (k == 1 ? s1 : (k == 2 ? s2 : (s0 + s1 + s2) / 3.0)), side);
+  tfOut4 = vec4(w, side, 0.0);
+  int i = gl_InstanceID * uP + v;
+  gl_Position = vec4((vec2(float(i % uRtW), float(i / uRtW)) + 0.5) / uRtSz * 2.0 - 1.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+}
+`;
+  const RT4_FS = `
+flat in vec4 tfOut4;
+out vec4 o;
+void main() { o = tfOut4; }
 `;
   const TF_LINE_VS = (rt) => `
 layout(location = 0) in vec2 aT;
