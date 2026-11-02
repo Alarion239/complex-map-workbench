@@ -53,10 +53,14 @@ for (const lang of ['en', 'ru']) {
   const dl = await lane();
   ok(`${lang}: the derivative line is the steps view's own (a chip, no card)`, !!dl && !/\bcard\b|карточк/i.test(dl) && /chip|шаг/.test(dl), dl);
   const moreOf = (k) => ev(`(() => { const b = document.querySelectorAll('#svStrip .sv-more')[${k}]; if (b) b.click(); return !!b; })()`);
-  const menuItem = (re) => ev(`(() => { const m = [...document.querySelectorAll('.pop.menu [role=menuitem]')].find((x) => ${re}.test(x.textContent)); if (m) m.click(); return !!m; })()`);
+  const MOVE_LEFT = /Move left|Сдвинуть влево/;
+  const menuItemOf = (re) => `[...document.querySelectorAll('.pop.menu [role=menuitem]')].find((x) => ${re}.test(x.textContent))`;
+  const hasMenuItem = (re) => ev(`!!(${menuItemOf(re)})`);
+  const clickMenuItem = (re) => ev(`(() => { const m = ${menuItemOf(re)}; if (m) m.click(); return !!m; })()`);
   await moreOf(1); await settled({ until: `!!document.querySelector('.pop.menu')` });
   ok(`${lang}: opening the d/dz chip's menu leaves the derivative line`, !!(await lane()), await lane());
-  ok(`${lang}: the menu offers Move left`, await menuItem(/Move left|Сдвинуть влево/), null);
+  ok(`${lang}: the menu offers Move left`, await hasMenuItem(MOVE_LEFT), null);
+  await clickMenuItem(MOVE_LEFT);
   await settled({ until: `!document.querySelector('.tour-lane[data-lane="example"]')` });
   ok(`${lang}: moving the d/dz step closes the derivative line`, !(await lane()), await lane());
 }
