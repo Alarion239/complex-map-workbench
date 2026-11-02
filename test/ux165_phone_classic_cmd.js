@@ -197,7 +197,7 @@ ok('UX69 a 330 px keyboard: the field is lifted above it (the sheet grows when s
 ok('UX69 with the keyboard up the sheet body gets room at its end', (await ev(`parseFloat(getComputedStyle(document.querySelector('.ph-sb:not([hidden])')).paddingBottom)`)) >= 330);
 await ev('Phone._kb(0)'); await settle();
 ok('UX69 the sheet goes back to its height when the keyboard goes', !(await phSt()).full);
-await ev('Phone._kb(330)'); await settle(); await ev('document.activeElement.blur()'); await settle();
+await ev('Phone._kb(330)'); await settle(); await ev('document.activeElement.blur()'); await settled({ until: `!Phone._state().full` });
 ok('UX69 … or when the field is left', !(await phSt()).full);
 await ev('Phone._kb(0)');
 // a formula field with the keyboard up has a strip of symbols above the keyboard; a press types at the caret and the field keeps the focus
@@ -377,7 +377,7 @@ await ev(`document.querySelector('.ph-ctx .ph-cb').click()`); await settle();
 ok('D3 Last takes the last point back', (await ctxInfo()).btn[1].dis === true, await ctxInfo());
 await touch(pc[0] + 20, pc[1] + 30); await settle();
 const sh0 = await ev(`__cmwShapes().shapes.length`);
-await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Done/.test(b.textContent)).click()`); await settle();
+await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Done/.test(b.textContent)).click()`); await settled({ until: `__cmwShapes().shapes.length === ${sh0 + 1}` });
 ok('D3 Done makes the polygon', (await ev(`__cmwShapes().shapes.length`)) === sh0 + 1, [sh0, await ev(`__cmwShapes().shapes.length`)]);
 await ev(`document.querySelector('#secDraw .tool[data-tool="polygon"]').click()`); await settle();
 await touch(pc[0] - 60, pc[1]); await settle();
