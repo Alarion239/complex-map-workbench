@@ -287,13 +287,15 @@
       if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
         if (frame) frame.open = true; else GLR.blit(cc);
+        { const ps = globalThis.__svPathStats; if (ps) { ps.gridGPU = (ps.gridGPU || 0) + 1; ps.gridGPUverts = (ps.gridGPUverts || 0) + 6 * nx * ny; } }
         return true;
       }
     }
     // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first, and the caller composes
     // from cc; a frame that must stay whole (frame.keep, the Inside regions mask) goes on without it while the GPU's
     // program links)
-    if (frame && frame.keep) return false;
+    if (frame && frame.keep) { const ps = globalThis.__svPathStats; if (ps) ps.gridKeepSkip = (ps.gridKeepSkip || 0) + 1; return false; }
+    { const ps = globalThis.__svPathStats; if (ps) { ps.gridCPU = (ps.gridCPU || 0) + 1; ps.gridCPUpts = (ps.gridCPUpts || 0) + (nx + 1) * (ny + 1); } }
     if (frame && frame.open) { GLR.blit(cc); frame.open = false; }
     if (frame) frame.cc = true;
     const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
@@ -464,6 +466,7 @@
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
+    { const ps = globalThis.__svPathStats; if (ps) ps.frames = (ps.frames || 0) + 1; }
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const { a, b, u, map, F } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first

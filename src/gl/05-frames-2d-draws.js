@@ -378,6 +378,7 @@
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
+    { const ps = globalThis.__svPathStats; if (ps) { const nm = P && P.name ? P.name : (e ? 'regionKC' : full ? 'regionKS' : 'regionK'); ps[nm] = (ps[nm] || 0) + 1; if (fill) ps.fill = (ps.fill || 0) + 1; ps.carryVerts = (ps.carryVerts || 0) + n * res.n; } }
     set(P);
     carryDraw(k, st.depth, () => {
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
