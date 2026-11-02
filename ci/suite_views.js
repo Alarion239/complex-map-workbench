@@ -141,7 +141,7 @@ const VIEWS = {
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
-  'figure_wait_cmd.js': port('export'),
+  'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
   'phone_glide_export_cmd.js': steps({ pin: true }),
 
