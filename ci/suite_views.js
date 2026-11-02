@@ -1,7 +1,6 @@
 'use strict';
-// (#620, K1 item 1) Which view each browser suite tests, for the switch-over to the steps view. The plan is #443 and its
-// sub-issues: K1 (#620) ports the suites and the exports, K2 makes the steps view the default, K3 deletes the classic
-// views. Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails
+// (#620, K1 item 1) Which view each browser suite tests: the steps view, or the classic views, which stay as a view of
+// their own (#621). The plan is #443 and its sub-issues; #620 ports the suites and the exports. Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails
 // without one. The kit pins every page to the classic view unless its URL asks for ?view=steps
 // (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
 //   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
@@ -10,8 +9,8 @@
 //                         Porting a suite is this tag, plus its assertions retargeted to what the steps view shows
 //   port(area, note)      tests behaviour the steps view has (or K1 adds: the note says which item): it must run
 //                         against the steps view; area is the worker group that ports it (#620's breakdown)
-//   classic(why)          tests a part of the classic views that the steps view replaces: it stays pinned to the classic
-//                         view until K3 deletes that part, and goes with it
+//   classic(why)          tests a part of the classic views that the steps view does not have: it stays pinned to the
+//                         classic view, which keeps that part
 // Areas: interact (the plane, the thread, editing, the keyboard), phone, words (the tour, the examples' lines, the
 // languages), export, geometry (constructions, sheets), render (the GPU pictures, regions, globes), sound, engine (no
 // view of its own: dropping the pin is the port).
@@ -48,13 +47,13 @@ const VIEWS = {
   'toasts_515_cmd.js': steps(),
   'tour_planes_cmd.js': steps(),
 
-  // the classic views' own parts, pinned until K3
+  // the classic views' own parts, pinned to the classic view
   'card_canvas_cmd.js': classic('the chain cards\' thumbnails: the steps view has the thread, no card row'),
   'card_resize_cmd.js': classic('the chain cards during a resize: no card row in the steps view'),
   'chain_row_cmd.js': classic('the phone\'s chain bar with Deformation and its glide: the steps view\'s phone has the strip'),
   'clear_chain_open_cmd.js': classic('the classic chain head beside the floating Inspector (it names the classic view)'),
   'deform_range_cmd.js': classic('the Deformation bracket over the card row: the thread\'s range is steps_play_cmd\'s'),
-  'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which K3 deletes'),
+  'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which only the classic view has'),
   'land_cards_cmd.js': classic('the Landscape step cards: no card row in the steps view'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'mv_views_cmd.js': classic('the merged X → Y / Phase / Landscape views and their switch, which the steps view replaces'),
@@ -213,6 +212,6 @@ if (require.main === module) {
     const inArea = by('port').filter(([, tag]) => tag.area === a);
     if (inArea.length) console.log(`port, ${a} (${inArea.length}):\n${inArea.map(([f, tag]) => `  ${f}${tag.note ? ` (${tag.note})` : ''}`).join('\n')}`);
   }
-  console.log(`classic until K3 (${by('classic').length}):\n${by('classic').map(([f, tag]) => `  ${f}: ${tag.why}`).join('\n')}`);
+  console.log(`classic (${by('classic').length}):\n${by('classic').map(([f, tag]) => `  ${f}: ${tag.why}`).join('\n')}`);
 }
 module.exports = { VIEWS, checkViews };
