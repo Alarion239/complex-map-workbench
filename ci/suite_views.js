@@ -150,16 +150,16 @@ const VIEWS = {
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
-  'constr_cmd.js': steps({ pin: true }),
-  'curves_cmd.js': steps({ pin: true }),
+  'constr_cmd.js': port('geometry', 'constr G (drawing on the chain\'s last plane, #692/#693) and R picture-1 (a plain plane under the stroke)'),
+  'curves_cmd.js': port('geometry', 'its exact-truth checks diff the plane\'s canvas with the curve shown and hidden: in the steps view that diff reads no ink, not yet understood'),
   'dh_cmd.js': steps({ pin: true }),
   'fix163_cmd.js': steps({ pin: true }),
   'meetnear_coincide_cmd.js': steps({ pin: true }),
-  'perp_cmd.js': steps({ pin: true }),
+  'perp_cmd.js': port('geometry', 'G and the Y-plane picks: drawing on the chain\'s last plane (#692/#693)'),
   'poly_verts_cmd.js': steps({ pin: true }),
   'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
   'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
-  'touch_cmd.js': steps({ pin: true }),
+  'touch_cmd.js': port('geometry', 'G and the Y-plane picks: drawing on the chain\'s last plane (#692/#693)'),
   'ux165_rail_cmd.js': steps({ pin: true }),
 
   // to port: render
