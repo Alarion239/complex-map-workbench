@@ -297,7 +297,10 @@
     svOn: () => SV.on,
     // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it, in o.box when one is
     // given (the stage is moved to it for the one render and back)
-    svFrames: () => svPlanes().map((k, i, P) => ({ name: k === 0 ? 'z' : `w_{${k}}`, prev: i ? (P[i - 1] === 0 ? 'z' : `w_{${P[i - 1]}}`) : null, f: i ? `f_{${k}}` : null })),
+    svFrames: () => svPlanes().map((k, i, P) => {
+      const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
+      return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
+    }),
     svArt: async (i, o) => {
       const keep = SV.i;
       svGo(i, true);

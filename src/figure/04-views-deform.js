@@ -312,7 +312,7 @@
   // side, widened to the camera's aspect so the frames keep one size, with its own ticks. A plane keeps the camera's
   // window when no shape is in view, or when the box is wider than SV_FIT_MAX cameras (an image running off to
   // infinity, as exp sends a strip, would be a speck in it)
-  const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10;
+  const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10, SV_FILM_OVER = 1.5;
   const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
   async function figSvFilm(o, P, W, T) {
     const [tp, lp] = T;
@@ -333,15 +333,18 @@
     const roughW = (W - gap * (cols - 1)) / cols;
     const steps = boxes ? boxes.map((b) => stepFor(b, roughW)) : null;
     const mL = boxes ? Math.max(...boxes.map((b, i) => tickW(b, steps[i], tp))) + 3 : 0, mR = boxes ? Math.max(2, ...boxes.map((b, i) => overR(b, steps[i], tp))) : 0;
+    // (the x tick labels' row under a frame: a label's height and its 4.2 pt gap, as the plane figure's bottom margin)
     const below = boxes ? tp * 1.05 + 4.2 : 0;
     const pw = (W - gap * (cols - 1) - cols * (mL + mR)) / cols;
     const raws = [];
     for (let i = 0; i < n; i++) {
-      const r = await A.svArt(i, Object.assign({ wpt: pw * 1.5, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
+      // (rendered at SV_FILM_OVER times the frame's width: the frames are small, and the extra pixels keep thin level
+      // lines sharp in print)
+      const r = await A.svArt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
       if (!r) return null;
       raws.push(r);
     }
-    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (lp * 1.6 + 6 + below)) / rows);
+    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (tH + 6 + below)) / rows);
     const items = [], lines = [];
     let defs = '';
     for (let i = 0; i < n; i++) {
