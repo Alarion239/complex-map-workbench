@@ -443,8 +443,11 @@ await grab();
 // ---------------- the last pick of a construction on touch: the preview under the finger, lift to commit ----------------
 await fresh('last', 412, 860, false, true);
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle();
-const picks50 = (n) => settled({ max: 4000, until: `Construct.debug().draft && Construct.debug().draft.picks.length === ${n}` });   // (a pick is made when the finger lifts)
-await touch(150, 250); await picks50(1); await touch(260, 330); await picks50(2);
+// (a pick is made when the finger lifts)
+const waitPicks = (n) => settled({
+  max: 4000, until: `Construct.debug().draft && Construct.debug().draft.picks.length === ${n}`,
+});
+await touch(150, 250); await waitPicks(1); await touch(260, 330); await waitPicks(2);
 const n50 = () => ev(`__tourApi.snapshot().state.shapes.length`);
 const nBefore = await n50();
 const pk2 = await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : -1');
@@ -455,7 +458,9 @@ const dn = await ev(`(() => { const d = Construct.debug(); return { hover: d.hov
 ok('UX50 two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
 const h1 = dn.hover;
 await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] });
-await settled({ max: 4000, until: `JSON.stringify(Construct.debug().hover) !== ${JSON.stringify(h1)}` });
+await settled({
+  max: 4000, until: `JSON.stringify(Construct.debug().hover) !== ${JSON.stringify(h1)}`,
+});
 const h2 = await ev('Construct.debug().hover');
 ok('UX50 sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
 await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
