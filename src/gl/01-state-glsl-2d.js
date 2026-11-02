@@ -554,7 +554,8 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   vec3 col = c0;
 `;
   // a pre-mapped mesh's polar pattern coordinates gp = (ln |z|, arg z) * 16 / tau back to (|z|, arg z) (preRT) and to the
-  // source point z (preSrc): PAT_PRE.pre's and CARRY_FS's pre option's one conversion
+  // source point z (preSrc): PAT_PRE.pre's and CARRY_FS's pre option's one conversion (ln |z| clamped to [-80, 80], so
+  // its exp stays a finite float32: e^88.7 is past the largest)
   const PRE_SRC = `vec2 preRT(vec2 gp) { return vec2(exp(clamp(gp.x * (TAU / 16.0), -80.0, 80.0)), gp.y * (TAU / 16.0)); }
 vec2 preSrc(vec2 gp) { vec2 rt = preRT(gp); return rt.x * vec2(cos(rt.y), sin(rt.y)); }
 `;
