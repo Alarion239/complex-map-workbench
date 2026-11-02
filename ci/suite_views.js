@@ -177,7 +177,7 @@ const VIEWS = {
   // to port: render
   'cauchy_residue_cmd.js': port('render'),
   'deform_dirichlet_cmd.js': steps({ pin: true }),
-  'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
+  'land_release_cmd.js': steps({ pin: true }),
   'link_standin_cmd.js': port('render'),
   'overlay_ghost_cmd.js': port('render'),
   'p3_accept_cmd.js': port('render'),
