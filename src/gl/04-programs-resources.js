@@ -76,11 +76,36 @@
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
+  // the region program's carried colour (drawRegion with st.carry): each fragment of a region's tessellated
+  // mesh, wherever the map takes it, is coloured with the colour plane's colour of its source point z,
+  // dcolor(f_T ∘ … ∘ f_{s+1}(z)) (uGs, uGt; the same z the region's patterns read, made absolute: vSrc + uQ), so the
+  // colour travels with the region's points as its patterns do
+  // the steps view's carried colour on a region's tessellated mesh: the region tiling's vertex stage (its places,
+  // from the chain, the map cache or each triangle's own sheet) with its carry option (REGION_VS), and the carried
+  // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
+  // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
+  // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
+  const REGION_K_VS = (fetch, sheet, fill) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, fill: !!fill });
+  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false, false);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
+    // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
+    // triangle's own sheet)
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS },
+    // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
+    // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
+    // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
+    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS },
+    // (and the fill after regionK: the same, the places from the chain at every vertex)
+    regionKSF: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS },
+    // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
+    // its depth the sheet key)
+    regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -944,13 +969,16 @@ float wabs(vec2 w) {
   // the leaf order draws after a nearer one (only where the leaf order and the key disagree) is left out (alpha < 1).
   // (A depth-only pre-pass and separate passes for the layers behind and the front, which keep those layers, drew the
   // mesh three times: gl_FragDepth turns early depth tests off, and exp(exp z)(H)'s settle frames jank by 20 ms.)
+  // st.carry (flat only, the steps view's carried colour): each fragment the colour plane's colour of its source point
+  // (regionPK), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source
+  // point itself (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
   function drawPreMapped(res, st) {
-    if (!ok || !res || !res.n) return;
-    const sph = !!st.sphere;
-    const P = program(sph ? 'regionSP' : 'regionP');
-    if (!P) return;
+    if (!ok || !res || !res.n) return false;
+    const sph = !!st.sphere, carry = !!st.carry && !sph;
+    const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    if (!P) return false;
     preAll.delete(res); preAll.set(res, true);
-    use(P);
+    if (carry) use(P, st.map); else use(P);
     if (sph) {
       uM4(P, 'uMVP', st.sphere.MVP);
       u3(P, 'uEye', st.sphere.eye);
@@ -961,25 +989,22 @@ float wabs(vec2 w) {
       u2f(P, 'uScale', 2 * v.s * dpr / fw, 2 * v.s * dpr / fh);
     }
     // (origin [0, 0]: uQ = 0, the attributes are already reduced; the pattern origin is 0)
-    regionUniforms(P, Object.assign({}, st, { fade: null }), [0, 0]);
+    if (carry) { u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); dcUniforms(P, st.carry, st.dpr || 1); u1i(P, 'uPreZ', st.preZ ? 1 : 0); }
+    else regionUniforms(P, Object.assign({}, st, { fade: null }), [0, 0]);
     const sc = st.scissor;
     const scOn = sc ? gl.isEnabled(gl.SCISSOR_TEST) : false, prevSc = sc && scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
     if (sc) {
       let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
       if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
-      if (x1 <= x0 || y1 <= y0) return;
+      if (x1 <= x0 || y1 <= y0) return true;
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
     const k = !sph && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    u1i(P, 'uKeyOn', k ? 1 : 0);
+    keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
-    if (k) {
-      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
-      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
-      u1i(P, 'uKSingN', sing.length);
+    if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
+    else if (k) {
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
       gl.drawArrays(gl.TRIANGLES, 0, res.count);
@@ -988,6 +1013,7 @@ float wabs(vec2 w) {
     } else gl.drawArrays(gl.TRIANGLES, 0, res.count);
     gl.bindVertexArray(null);
     if (sc) { if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST); }
+    return true;
   }
   function destroy(res) {
     if (!res || !gl) return;

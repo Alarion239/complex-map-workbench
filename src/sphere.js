@@ -25,6 +25,9 @@
 //   left: {cx, cy, s, W, H}: the meshing window (clipWin) and its scale (px per unit of the source view)
 //   view: {kind: 'flat', cx, cy, s, W, H, guard} (device px) | {kind: 'sphere', R} (globe radius, device px)
 //   Kmax: the saturation K (SphereMesh.kOf(min alpha)); pattern: {id, cell} (gl.js PATTERNS ids)
+//   depth (optional): z -> the sheet key D of a source point (Inverse.sheetKey); a leaf's depth, which orders the
+//          refinement and decides which K layers saturate a pixel, is then the least key of its vertices, so the kept
+//          layers are the ones that key puts in front (a drawing that orders its fragments by it)
 //   maxWork (evaluations; deterministic), maxNodes (300000), budgetMs (1500: a safety stop in CPU ms; the app passes
 //   a large one, so its meshes do not depend on the machine's load)
 // mesh.step(ms) -> {done, partial}; mesh.publish() -> data (8.7); mesh.stats(), mesh.bytes(), mesh.dispose()
@@ -382,7 +385,9 @@ const SphereMesh = (() => {
       return d * LR * left.s / 2;
     }
     function cheb(i) { if (!Number.isFinite(ZX[i]) || !Number.isFinite(ZY[i])) return Infinity; return Math.max(Math.abs(ZX[i] - Lc[0]) / Lhw, Math.abs(ZY[i] - Lc[1]) / Lhh); }
+    const keyOf = cfg.depth ? (i) => (Number.isFinite(ZX[i]) && Number.isFinite(ZY[i]) ? cfg.depth(C(ZX[i], ZY[i])) : Infinity) : null;
     function depthOf(t) {
+      if (keyOf) return Math.min(keyOf(TA[t]), keyOf(TB[t]), keyOf(TC[t]));
       const d = Math.min(cheb(TA[t]), cheb(TB[t]), cheb(TC[t]));
       const out = d > 1 ? Math.log2(d) : 0;
       const sp = srcPx(t);

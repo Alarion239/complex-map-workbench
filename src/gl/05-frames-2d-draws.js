@@ -242,7 +242,7 @@
   }
 
   // ---------------- regions and lines ----------------
-  const PATTERNS = { solid: 0, checker: 1, polar: 2, tiles: 3, grid: 4, polargrid: 5, phase: 6, stretch: 7, sphere: 8 };
+  const PATTERNS = { solid: 0, checker: 1, polar: 2, tiles: 3, grid: 4, polargrid: 5, phase: 6, stretch: 7, sphere: 8, carry: 9 };
   function fadeUniforms(P, f) {
     if (f && f.R != null) {
       u1i(P, 'uFadeMode', 2); u4f(P, 'uFade', f.cx || 0, f.cy || 0, f.R, 0); u1f(P, 'uFadeW', 0.08 * f.R);
@@ -332,11 +332,84 @@
     const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
+  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
+  // colour
+  // (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice point,
+  // not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
+  // program compiles
+  // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
+  function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  function drawRegionCarry(res, st) {
+    if (!ok || !res || !res.n) return false;
+    const L = st.L || 4;
+    // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
+    // triangles they tear across a cut on their centre's sheet (regionKSC, the fill); without the cache, every triangle
+    // on its centre's sheet (regionKS, the chain at every vertex). st.moving (a glide, a play, a scrub): the places
+    // from the chain at every vertex (regionK, then its fill regionKSF), not the map cache, whose evaluation pass each
+    // frame of a moving map costs more than the vertex stage's (the Mountain King's scrub on the Mac GPU))
+    const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
+    let e = rtOK && !st.moving && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    if (e === PENDING) e = null;
+    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    let P = e ? program('regionKC', st.map) : st.moving ? program('regionK', st.map) : null;
+    const fill = cuts && P ? program(e ? 'regionKSC' : 'regionKSF', st.map) : null;
+    if (cuts && !fill) { P = program('regionKS', st.map); if (P) e = null; }
+    if (!P) { e = null; P = program('regionK', st.map); }
+    if (!P) return false;
+    const set = (Q) => {
+      use(Q, st.map);
+      if (e) bindCache(Q, e);
+      view2D(Q, st.view, st.dpr || 1, res.org);
+      regionUniforms(Q, st, res.org);
+      u1f(Q, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
+      u1f(Q, 'uKLim', st.lim || 1e30);
+      keyUniforms(Q, k);
+      u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+    };
+    gl.bindVertexArray(meshVAO(res, L, st.skip));
+    const n = regionTemplate(L).count;
+    set(P);
+    carryDraw(k, st.depth, () => {
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+    });
+    gl.bindVertexArray(null);
+    return true;
+  }
+  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
+  function keyUniforms(Q, k) {
+    u1i(Q, 'uKeyOn', k ? 1 : 0);
+    if (!k) return;
+    const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+    sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+    u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
+    if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
+    u1i(Q, 'uKSingN', sing.length);
+  }
+  // a carried-colour draw under the sheet key k (none: the draw order). depth: 'only' (default) a depth of its own;
+  // 'first', 'mid', 'last' draws sharing one depth, so the key orders the points of all of them: the first clears it,
+  // the last clears it after. Unblended: the carried colour is opaque (alpha 1, which the premultiplied blend only
+  // copies), and an opaque draw lets a tiling GPU shade only the front sheet's fragments, where a blended one shades
+  // every sheet's, each the colour's whole chain
+  function carryDraw(k, depth, draw) {
+    gl.disable(gl.BLEND);
+    try {
+      if (!k) { draw(); return; }
+      const depthMode = depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
+      if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
+      draw();
+      if (last) carryDepthEnd();
+    } finally { gl.enable(gl.BLEND); }
+  }
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
+  // (st.carry: drawRegionCarry)
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
+    if (st.carry) return drawRegionCarry(res, st);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
     try {

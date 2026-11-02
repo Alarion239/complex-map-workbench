@@ -92,7 +92,7 @@
     const k = plan._ck + '|' + winKey();
     let v = invSings.get(k);
     if (!v) {
-      try { v = Inverse.accumulation(plan, clipWin); } catch (e) { v = []; }
+      try { v = Inverse.keySing(plan, clipWin); } catch (e) { v = []; }
       if (invSings.size >= 32) invSings.clear();
       invSings.set(k, v);
     }
@@ -456,6 +456,11 @@
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
   }
+  // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
+  // them (the steps view's whole-plane region)
+  function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
+  // the visible area shapes, in list order
+  const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
   // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
   // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin
@@ -486,7 +491,7 @@
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
-      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
+      recs = packRecs();
       if (!sideDraw) lastRecs = recs;
       if (live && guard) {
         const info = GLR.inverseInfo;
