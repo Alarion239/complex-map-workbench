@@ -51,11 +51,12 @@
     const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
     return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
   }
-  // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
-  // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is one step
-  // the longest step formula (TeX characters) the caption shows in its display: a longer one would not fit the
-  // display's one line, so the caption names the map without it
+  // the longest step formula, in TeX characters, that the export's caption shows in its display: a longer one would
+  // not fit the display's one line, so the caption names the map without it
   const SV_CAP_TEX_MAX = 240;
+  // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
+  // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is
+  // one step and no longer than SV_CAP_TEX_MAX
   function svFigParts() {
     const k = svStage(), T = svT(), coloured = svColoured(k), [a, b] = coloured ? [k, T] : [0, k];
     const ss = svPlanes().filter((s) => s > a && s <= b), st = ss.length === 1 ? built[ss[0] - 1] : null;

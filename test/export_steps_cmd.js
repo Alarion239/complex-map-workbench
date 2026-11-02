@@ -70,12 +70,14 @@ for (const c of CASES) {
   const px = (im, x, y) => { const i = (Math.min(im.h - 1, Math.max(0, Math.round(y))) * im.w + Math.min(im.w - 1, Math.max(0, Math.round(x)))) * (im.ch || 3); return [im.data[i], im.data[i + 1], im.data[i + 2]]; };
   const med = (im, x, y, r) => { const s = [[], [], []]; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const q = px(im, x + a * r, y + b * r); for (let k = 0; k < 3; k++) s[k].push(q[k]); } return s.map((v) => v.sort((p, q) => p - q)[4]); };
   const chroma = (q) => Math.max(...q) - Math.min(...q);
+// a pixel whose channels spread by less than INK is grey: paper, a grid or axis line, a label, never the plane's colour
+const INK = 50;
   const hueOf = (q) => { const [r, g, b] = q.map((v) => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn); return ((h * 60) + 360) % 360; };
   const hueDiff = (a, b) => { const d = Math.abs(hueOf(a) - hueOf(b)) % 360; return Math.min(d, 360 - d); };
   const art = { w: fig.art.w, h: fig.art.h, data: Buffer.from(fig.art.b64, 'base64'), ch: 3 };
   if (c.surf === 'land') {
     // the hue shares of the coloured pixels: the figure's crop is the relief's, the stage's the camera's
-    const hues = (im, sel) => { const b = new Array(12).fill(0); let n = 0; for (let y = 0; y < im.h; y += 3) for (let x = 0; x < im.w; x += 3) { if (sel && !sel(x, y)) continue; const q = px(im, x, y); if (chroma(q) < 50) continue; b[Math.floor(hueOf(q) / 30) % 12]++; n++; } return b.map((v) => v / Math.max(1, n)); };
+    const hues = (im, sel) => { const b = new Array(12).fill(0); let n = 0; for (let y = 0; y < im.h; y += 3) for (let x = 0; x < im.w; x += 3) { if (sel && !sel(x, y)) continue; const q = px(im, x, y); if (chroma(q) < INK) continue; b[Math.floor(hueOf(q) / 30) % 12]++; n++; } return b.map((v) => v / Math.max(1, n)); };
     const a = hues(scr, (x, y) => free[Math.min(GRID[1] - 1, Math.floor(y / scr.h * GRID[1])) * GRID[0] + Math.min(GRID[0] - 1, Math.floor(x / scr.w * GRID[0]))] === 1), b = hues(art), l1 = a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0);
     info[tag] = { l1: +l1.toFixed(3) };
     ok(`${tag}: the figure's hues are the stage's (L1 of the 12 hue shares under 0.35)`, l1 < 0.35, { l1: +l1.toFixed(3), stage: a.map((v) => +v.toFixed(2)), fig: b.map((v) => +v.toFixed(2)) });
@@ -90,7 +92,7 @@ for (const c of CASES) {
     const cover = overlap && overlap.x1 > overlap.x0 && overlap.y1 > overlap.y0 ? area(overlap) / area(scrBox) : 0;
     ok(`${tag}: the figure shows the stage's window (80% of it or more)`, cover >= 0.8, { cover: +cover.toFixed(3), stage: scrBox, fig: fig.box });
   }
-  const cbox = (im, sel) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (let y = 0; y < im.h; y += 2) for (let x = 0; x < im.w; x += 2) { if (sel && !sel(x, y)) continue; if (chroma(px(im, x, y)) >= 50) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } } return { x0, y0, x1, y1 }; };
+  const cbox = (im, sel) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (let y = 0; y < im.h; y += 2) for (let x = 0; x < im.w; x += 2) { if (sel && !sel(x, y)) continue; if (chroma(px(im, x, y)) >= INK) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } } return { x0, y0, x1, y1 }; };
   const freeAt = (x, y) => free[Math.min(GRID[1] - 1, Math.floor(y / scr.h * GRID[1])) * GRID[0] + Math.min(GRID[0] - 1, Math.floor(x / scr.w * GRID[0]))] === 1;
   const stageInk = c.surf === 'sphere' ? cbox(scr, freeAt) : null, figInk = c.surf === 'sphere' ? cbox(art) : null;
   let n = 0, agree = 0;
@@ -98,7 +100,7 @@ for (const c of CASES) {
   for (let j = 0; j < GRID[1]; j++) for (let i = 0; i < GRID[0]; i++) {
     if (!free[j * GRID[0] + i]) continue;
     const sx = (i + 0.5) * scr.w / GRID[0], sy = (j + 0.5) * scr.h / GRID[1], q = med(scr, sx, sy, 2);
-    if (chroma(q) < 50) continue;
+    if (chroma(q) < INK) continue;
     let ax, ay;
     if (scrBox && fig.box) {
       const wx = scrBox.x0 + (i + 0.5) / GRID[0] * (scrBox.x1 - scrBox.x0), wy = scrBox.y1 - (j + 0.5) / GRID[1] * (scrBox.y1 - scrBox.y0);
@@ -121,16 +123,19 @@ await go(`${base}/test.html?view=steps&ns=xsvl${Date.now() % 1e7}`);
 await settled({ until: 'window.MathJax && typeof MathJax.tex2mml === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
 await ev(`(__cmwExample(1), 1)`);
 await settled({ until: '__cmwSteps().planes.length > 2', max: 15000, floor: 300 });
+// (plane 1 is coloured by f₂, the map from w₁ into the colour plane; plane 2 lies past the colour plane w₁, and carries
+// the shapes from z under F)
+const CAPMAP = { 1: { has: /f_\{2\}\(w_\{1\}\)/, not: /\$F\$/ }, 2: { has: /\$F\$/, not: /f_\{2\}/ } };
 for (const [plane, T] of [[1, null], [2, 1]]) for (const lang of ['ru', 'it']) {
   await ev(`(${T != null ? `__cmwSteps({ T: ${T} }),` : ''} __cmwSteps({ go: ${plane}, now: true }), 1)`);
   await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 300 });
   await ev(`window.__xsv = null; Figure.build({ lang: '${lang}' }).then((f) => { const cap = String(f && f.captionTex || ''), bad = [];
     for (const m of cap.match(/\$[^$]+\$|\\\[[\s\S]*?\\\]/g) || []) { const t = m.replace(/^\$|\$$|^\\\[|\\\]$/g, ''); try { const d = new DOMParser().parseFromString(MathJax.tex2mml(t, { display: false }), 'application/xml'); if (d.querySelector('merror') || d.querySelector('[mathcolor="red"]')) bad.push(t.slice(0, 60)); } catch (e) { bad.push('throws ' + t.slice(0, 40)); } }
-    window.__xsv = { cap: cap.slice(0, 200), bad }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
+    window.__xsv = { cap, bad }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xsv != null', max: 90000, panes: false });
   const r = await ev('window.__xsv');
   const tag = `${lang}, plane ${plane}${T != null ? ', past the colour plane' : ''}`;
   ok(`${tag}: the caption's formulas parse (no raw TeX)`, r && !r.err && r.bad.length === 0, r);
-  ok(`${tag}: the caption names the plane's map`, r && /f_\{2\}|\$F\$|F\(z\)/.test(r.cap), r && r.cap);
+  ok(`${tag}: the caption names the plane's map and no other`, r && CAPMAP[plane].has.test(r.cap) && !CAPMAP[plane].not.test(r.cap), r && r.cap);
 }
 return { pass: fails.length === 0, fails, info };
