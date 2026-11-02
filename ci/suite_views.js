@@ -111,7 +111,7 @@ const VIEWS = {
   'example_cauchy_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': port('words', 'the Try lines left: K1 item 11'),
-  'fix152_cmd.js': port('words'),
+  'fix152_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': port('words'),
   'i18n_walk_cmd.js': port('words'),
