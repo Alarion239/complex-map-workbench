@@ -901,11 +901,11 @@ async function svFirstGlideUnit() {
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
 }
-// [#626] the steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
+// The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
 // idle SV_IDLE_MS, then the first glide to plane 1 (cold: its pole tracks made whole at its first frame,
 // __svPathStats.poleSyncMs), and back; then a step added (the same function again, __cmwAddStep) and a glide to plane 1
 // at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness). Per glide: its longest frame (CPU),
-// frames over 33 ms (jank), frame p95 and the poles' synchronous ms. Info rows; the reference lacks the view (NEW)
+// frames over 33 ms (jank), frame p95 and the poles' synchronous ms. Info rows
 async function svColdGlideUnit() {
   for (const scene of ['default', 'king']) {
     const R = { first: [], edit: [] };
@@ -947,7 +947,7 @@ async function svColdGlideUnit() {
     }
   }
 }
-// [#626] a long session: the Mountain King's strip scrub (Everywhere, there and back) SV_LONG_N times on one page, the
+// A long session: the Mountain King's strip scrub (Everywhere, there and back) SV_LONG_N times on one page, the
 // frame p95 of each and the live GL objects after it (textures, buffers, programs, vertex arrays, framebuffers: the
 // context's create and delete calls counted from the page's start). A growing count with a growing p95 is a leak.
 // Info rows: the first and last five scrubs' median p95, and the counts after the first and the last scrub
@@ -1909,8 +1909,8 @@ unit('scrub.morph', 'parameter scrub with the deformation open and paused (its a
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
-unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms (#626)', svColdGlideUnit, { timeoutS: 900 });
-unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub (#626)', svLongSessionUnit, { timeoutS: 900 });
+unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
+unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
