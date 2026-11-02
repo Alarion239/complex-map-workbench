@@ -331,11 +331,10 @@ module.exports = function ({ K, ok }) {
     ok(K.describe(S, 'k').fill === 'in' && K.describe(S, 'k').op === 'perp', 'describe: op perp, fill');
     // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P, in units of a
     // reference operation measured in this run (test/lib/speed_ref.js): each limit keeps the margin the absolute one had
-    // on the development Mac: about 2.6 times what perpForm takes (about 43 of them), about 18 times what the drag takes
-    // (about 1000)
+    // on the development Mac
     const ref = refNs();
     const G = circ([0.3, -0.2], 1.7);
-    const per = bestNs((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]), 20000) / ref;
+    const per = bestNs((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6])) / ref;
     const W = state([{ id: 'C', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, pt('P', [0.3, 0.2])]);
     for (let j = 0; j < 10; j++) W.shapes.push(pt('Q' + j, [Math.cos(j), Math.sin(j) * 0.5]), perpShape('k' + j, 'C', 0, { s: 'P' }, { s: 'Q' + j }, j % 2 ? 'in' : 'none'));
     rec(W);

@@ -287,7 +287,7 @@ module.exports = function ({ K, ok }) {
   {
     const G = { A: 1 / 1.7, B: [0, 0], C: -1.7, o: [0.3, -0.2] }, T = [0.3 + 1.7 * Math.cos(0.4), -0.2 + 1.7 * Math.sin(0.4)];
     const ref = refNs();
-    const a = bestNs((i) => K.touchForm(G, T, [-1.1 + i * 1e-9, 0.6]), 20000) / ref, b = bestNs((i) => K.tangentForm(G, [3 + i * 1e-9, 1], i & 1), 20000) / ref;
+    const a = bestNs((i) => K.touchForm(G, T, [-1.1 + i * 1e-9, 0.6])) / ref, b = bestNs((i) => K.tangentForm(G, [3 + i * 1e-9, 1], i & 1)) / ref;
     ok(a < TOUCH_UNITS && b < TOUCH_UNITS, `speed: touchForm and tangentForm under ${TOUCH_UNITS} reference operations (test/lib/speed_ref.js)`, `${a.toFixed(0)}, ${b.toFixed(0)}`);
   }
 
