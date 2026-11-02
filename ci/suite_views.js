@@ -30,7 +30,7 @@ const VIEWS = {
   'phone_edit_head_cmd.js': steps(),
   'phone_landscape_cmd.js': steps(),
   'phone_palette_cmd.js': steps(),
-  'sound_steps_cmd.js': steps(),   // (#580: Hear the function in the steps view; its last check opens the classic view)
+  'sound_steps_cmd.js': steps(),   // (#580: Hear the function in the steps view; one check opens the classic view)
   'steps_carry_cmd.js': steps(),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
