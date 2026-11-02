@@ -85,7 +85,7 @@ const VIEWS = {
   'key_popup_cmd.js': steps({ pin: true }),
   'mode_chips_cmd.js': steps({ pin: true }),
   'mode_chips_classic_cmd.js': classic('the step-alone, expanded-plane and deformation chips of the classic pane head: the steps view keeps the Construct tool chip and Listening along only'),
-  'param_planes_cmd.js': port('interact'),
+  'param_planes_cmd.js': steps({ pin: true }),
   'phase_key_cmd.js': steps({ pin: true }),
   'phase_key_classic_cmd.js': classic('X → Y\'s hidden X key: the steps view has one plane and shows its key (phase_key_cmd)'),
   'phase_style_cmd.js': steps({ pin: true }),
