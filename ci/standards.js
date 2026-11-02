@@ -16,6 +16,8 @@
 const { execFileSync } = require('child_process');
 const { ROOT, summary, esc } = require('./lib');
 
+// room for the diff of a large change (256 MiB); git's output is read whole
+const GIT_BUFFER = 1 << 28;
 const SCOPE = /^(src|ci|test|tools)\//;
 const GENERATED = /^(src\/(i18n_[a-z]+|cyr|seasong)\.js|src\/.*\.min\.js|tools\/vendor\/|test\/fixtures\/)/;
 const COMMENTED = /\.(js|mjs|cjs|ts|py|yml|yaml|sh|css|html)$/;
@@ -91,7 +93,7 @@ function check(files) {
   const found = [];
   for (const f of files) {
     if (!SCOPE.test(f.file) || GENERATED.test(f.file)) continue;
-    const marked = f.added.some((a) => commentOf(a.text, f.file) && MARKER.test(commentOf(a.text, f.file)) && MARKER.exec(commentOf(a.text, f.file))[1].trim());
+    const marked = f.added.some((a) => (MARKER.exec(commentOf(a.text, f.file)) || [])[1]?.trim());
     if (COMMENTED.test(f.file)) {
       for (const a of f.added) {
         const c = commentOf(a.text, f.file);
@@ -125,7 +127,7 @@ function report(found) {
 }
 
 function diffAgainst(ref) {
-  return execFileSync('git', ['diff', '--unified=0', '--no-color', '--find-renames', ref, '--', 'src', 'ci', 'test', 'tools'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 });
+  return execFileSync('git', ['diff', '--unified=0', '--no-color', '--find-renames', ref, '--', 'src', 'ci', 'test', 'tools'], { cwd: ROOT, encoding: 'utf8', maxBuffer: GIT_BUFFER });
 }
 
 if (require.main === module) {
@@ -138,4 +140,4 @@ if (require.main === module) {
   summary(report(found));
   process.exit(a.includes('--block') && found.length ? 1 : 0);
 }
-module.exports = { commentOf, assertionsOf, parseDiff: parseDiff, check, report };
+module.exports = { commentOf, assertionsOf, parseDiff, check, report };
