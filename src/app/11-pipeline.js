@@ -105,7 +105,8 @@
   // field is looked for this long, then given up)
   const REPEAT_FIELD_WAIT_MS = 1500;
   // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
-  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
+  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it. Returns the bracket's field,
+  // for the caller to focus, and null in the steps view, where the field is focused here once it is drawn
   function focusRepeatField(k) {
     const field = () => repFields.map((f) => f.inp).find((el, i) => repFields[i].getK() === k && el.isConnected && el.getClientRects().length) || null;
     if (!SV.on) return field();

@@ -63,7 +63,7 @@ await typeN('0');
 ok('a typed 0 is no N: the field goes back to 5', (await rep(2)).n === 5 && (await row()).n === '5', [await rep(2), await row()]);
 await press('.insp-repeat .rep-ctl button:first-of-type'); await settled({});
 ok('− makes N = 4', (await rep(2)).n === 4, await rep(2));
-ok('N = 3 on the way: the planes are still the chain\'s', (await planes()) === p0, await planes());
+ok('N = 4 after −: the planes are still the chain\'s', (await planes()) === p0, await planes());
 
 // ---- undo restores each change ----
 await undo();
@@ -85,7 +85,8 @@ ok('undo restores the repeat, N = 3, with its badge and row', (await rep(2)).n =
 
 // ---- the keyboard's End the repeat: the focus goes back to the step's chip, not to the page; the row's controls have a border and room ----
 const geo = await ev(`(() => { const f = document.querySelector('.insp-repeat .rep-n'), b = document.querySelector('.insp-repeat .rep-step'); return { w: Math.round(f.getBoundingClientRect().width), bw: parseFloat(getComputedStyle(b).borderTopWidth) }; })()`);
-ok('the N field is at least 56 px wide and the − and + have a border', geo.w >= 56 && geo.bw >= 1, geo);
+const N_FIELD_MIN_PX = 56;   // (two digits with the field's padding and border; its style gives it 64)
+ok(`the N field is at least ${N_FIELD_MIN_PX} px wide and the − and + have a border`, geo.w >= N_FIELD_MIN_PX && geo.bw >= 1, geo);
 await ev(`document.querySelector('.insp-repeat .rep-end').focus(); 1`);
 await key('Enter');
 await settled({ until: `document.activeElement !== document.body` });
