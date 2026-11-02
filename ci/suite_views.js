@@ -102,7 +102,7 @@ const VIEWS = {
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
   'phone_focus_margin_cmd.js': steps({ pin: true }),
   'phone_fwell_cmd.js': port('phone', 'F\'s well: after K1 item 9'),
-  'phone_sheet_target_cmd.js': port('phone'),
+  'phone_sheet_target_cmd.js': steps({ pin: true }),
   'phone_sheets_cmd.js': port('phone'),
   'phone_toast_chain_cmd.js': port('phone'),
   'ux165_phone_cmd.js': port('phone'),
