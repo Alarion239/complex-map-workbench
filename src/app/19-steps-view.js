@@ -517,7 +517,7 @@
   // (the caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
-    for (const s of S.shapes) {
+    for (const s of hideStrokes ? [] : S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const map = shapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
