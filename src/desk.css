@@ -668,7 +668,7 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-playmore { align-self: center; flex: 0 0 auto; width: 36px; height: 36px; }
 .sv-playpop { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: grid; gap: 6px; max-width: min(320px, calc(100vw - 16px)); padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
 .sv-playpop[hidden], .sv-playpop-why[hidden] { display: none; }
-.sv-playpop-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 14px/1.2 var(--f-ui); color: var(--ink); }
+.sv-playpop-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-playpop-why { margin: 0; font: 400 13px/1.35 var(--f-ui); color: var(--muted); }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
