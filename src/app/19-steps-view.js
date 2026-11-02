@@ -295,114 +295,6 @@
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
-  // The colour carried by the points: a grid over plane s's window (the camera's, half again as wide), each vertex
-  // painted by where it lands in the colour plane, G = f_T ∘ … ∘ f_{s+1} (its phase, the Arg pattern of the
-  // pre-mapped meshes, which reads (ln |G|, arg G) from the vertex), and placed where posF takes it. So the colour
-  // travels with the points along a deformation, and a plane past the colour plane shows the colour plane's colours
-  // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
-  // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
-  // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
-  let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
-  // (#439 I) frame: the GL frame the caller composes the colour layer in ({open}); the GPU path draws into it (opening
-  // it if need be) and leaves the copy to the caller; the CPU path first copies what it holds into cc
-  function svCarry(pane, cc, s, a, H, frame) {
-    const T = svT();
-    if (s > 0 && derivIn(s, T)) return false;
-    const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
-    // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
-    // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
-    if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
-      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
-      const map = H ? (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u }) : { mode: 0, a: s, b: a };
-      // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
-      // to plane a, as smKeyOf for the forward meshes)
-      const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
-      const plan = a > s ? invPlan(s, a) : null;
-      const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
-      if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
-      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
-        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
-        if (frame) frame.open = true; else GLR.blit(cc);
-        return true;
-      }
-    }
-    // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first, and the caller composes
-    // from cc; a frame that must stay whole (frame.keep, the Inside regions mask) goes on without it while the GPU's
-    // program links)
-    if (frame && frame.keep) return false;
-    if (frame && frame.open) { GLR.blit(cc); frame.open = false; }
-    if (frame) frame.cc = true;
-    const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
-    let m = svCarryMemo;
-    if (!m || m.key !== key) {
-      const G = s === T ? (z) => z : rangeF(s, T), toA = s === a ? null : rangeF(s, a);
-      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, W = (nx + 1) * (ny + 1);
-      m = svCarryMemo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
-      for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
-        const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
-        let q, g;
-        try { q = toA ? toA(p) : p; g = G(p); } catch (e) { continue; }
-        if (!q || !g || !CX.isFin(q) || !CX.isFin(g)) continue;
-        m.ax[n] = q.re; m.ay[n] = q.im;
-        m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
-      }
-    }
-    // (perf on #448) the mesh is made once per memo: every grid triangle whose corners have a colour, with its colours
-    // (arg unwrapped within it), on the GPU; a frame only moves its corners (GLR.updatePreMesh: one upload, no new
-    // buffer), and a triangle torn across a cut or a pole, or with a corner H cannot place, collapses to a point. The
-    // same frame again (at rest, parked) is drawn as it is
-    const fkey = key + '|' + (H ? SV.g.x.toFixed(6) : 'rest');
-    if (!m.tris) {
-      const K = 16 / TAU, tris = [], attr = [];
-      const add = (A, B, D) => {
-        if (!m.ok[A] || !m.ok[B] || !m.ok[D]) return;
-        const a0 = m.ga[A];
-        tris.push(A, B, D);
-        for (const n of [A, B, D]) { let t = m.ga[n] - a0; t -= TAU * Math.round(t / TAU); attr.push(0, 0, m.gl[n] * K, (a0 + t) * K); }
-      };
-      for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
-        const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
-        add(n, e, d); add(n, d, u);
-      }
-      m.tris = Uint32Array.from(tris);
-      m.pos = new Float32Array(tris.length * 2);
-      m.attr = Float32Array.from(attr);
-      if (svCarryRes) { GLR.destroy(svCarryRes.res); svCarryRes = null; }
-    }
-    const nt = m.tris.length / 3;
-    if (!nt) return true;
-    let res = svCarryRes && svCarryRes.memo === m && svCarryRes.res.n ? svCarryRes.res : null;
-    if (!res || svCarryRes.key !== fkey) {
-      const W = (nx + 1) * (ny + 1), lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
-      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W) };
-      const { qx, qy, ok } = svCarryBuf, pos = m.pos, T3 = m.tris;
-      for (let n = 0; n < W; n++) {
-        ok[n] = 0;
-        if (!m.ok[n]) continue;
-        if (!H) { qx[n] = m.ax[n] - v.cx; qy[n] = m.ay[n] - v.cy; ok[n] = 1; continue; }
-        let q;
-        try { q = H(C(m.ax[n], m.ay[n])); } catch (e) { continue; }
-        if (!q || !CX.isFin(q)) continue;
-        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
-      }
-      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
-      for (let t = 0, o = 0; t < nt; t++, o += 6) {
-        const A = T3[3 * t], B = T3[3 * t + 1], D = T3[3 * t + 2];
-        if (!ok[A] || !ok[B] || !ok[D] || d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) { pos.fill(3e7, o, o + 6); continue; }
-        pos[o] = qx[A]; pos[o + 1] = qy[A]; pos[o + 2] = qx[B]; pos[o + 3] = qy[B]; pos[o + 4] = qx[D]; pos[o + 5] = qy[D];
-      }
-      if (res) GLR.updatePreMesh(res, pos);
-      else {
-        res = GLR.createPreMesh({ n: nt, pos, attr: m.attr, tri: new Float32Array(nt), origin: [v.cx, v.cy], dynamic: true });
-        if (!res) return false;
-      }
-      svCarryRes = { key: fkey, memo: m, res };
-    }
-    GLR.begin(pane.pw, pane.ph);
-    GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
-    GLR.blit(cc);
-    return true;
-  }
   // The colour the points carry, by the region tiling's own machinery (the machinery that carries region patterns,
   // applied to colours): Inside regions, each visible region; Everywhere,
   // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
@@ -412,8 +304,10 @@
   const SV_ALL = { id: '__svAll', kind: 'disc', c: [1e9, 0], r: 1e-6, complement: true, visible: true };
   function svCarryShapes() {
     if (SV.scope !== 'in' || !svMaskOn()) return [SV_ALL];
+    // (a region of a later plane has no points on plane 0: the whole plane is carried, and svMask's moving regions keep
+    // the colour inside them, as Everywhere is under the mask)
     const areas = visibleAreas();
-    return areas.some((x) => shapeStage(x)) ? null : areas;
+    return areas.some((x) => shapeStage(x)) ? [SV_ALL] : areas;
   }
   // the sheet key's parameters for the image on plane b: the region tiling's own (smKeyOf: clipWin, half its diagonal
   // R, R / 8, Inverse.keySing of the map to b; with no inverse plan to b, the window alone), the one key the inverse
@@ -663,7 +557,7 @@
   // in while the mesher's job runs
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
+    if (!list || !list.length || !GLR.drawRegion) return false;
     const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
@@ -696,11 +590,12 @@
     return true;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
-  // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
+  // colour carried by the points along h_{b,u} (svCarryExact, svCarryRegions), with each plane's exact pull-back colour
+  // blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const { a, b, u, map, F, H: Hb } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const { a, b, u, map, F } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
@@ -711,10 +606,10 @@
     const grid = (under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
-    const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
+    const T = svT(), still = u <= 1e-6 || b === a;
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
-    const frame = { open: false, cc: false };
+    const frame = { open: false };
     const plot = (k, al) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
@@ -722,21 +617,19 @@
     };
     const colour = () => {
       // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
-      // the window would, the picture is not left blank)
+      // the window would, and while the carried colour's programs link, the picture is not left blank)
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
       let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
-      // svCarryExact; the carried grid only where neither path can draw)
+      // svCarryExact)
       if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
-      // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
-      // travel on, each fragment its point's colour)
-      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
-      // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
-      // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling)
-      else if (still ? !svColoured(a) : !isDeriv(b)) {
-        carried = svCarry(pane, cc, src, a, still ? null : Hb, frame);
-      }
+      // (and while gliding, a step at a time or all at once, or at rest while the exact pass compiles: the tessellated
+      // meshes the tiling's patterns travel on, each fragment its point's colour)
+      else if ((still ? !svColoured(a) : !isDeriv(b)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
+      // (at rest while the programs at rest link: the glide's own to plane a at its end, t = 1, the same places, with
+      // the programs the glide there linked)
+      else if (still && !svColoured(a) && a > 0 && !isDeriv(a)) carried = svCarryRegions(pane, { mode: 1, hi: a, t: 1 }, T, a, frame, null);
       // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
       // first and the last 15 % of a glide)
       const near = (w) => Math.max(0, Math.min(1, w));
@@ -747,17 +640,17 @@
     // the outlines over it, in one frame and one copy to the page, #545)
     if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
       // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
-      // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
-      paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
-      after: () => { grid(true); svOutlines(pane, map, frame); frame.open = false; frame.keep = false; },
+      // colour layer stays in this frame)
+      paint: () => { grid(false); frame.open = true; colour(); },
+      after: () => { grid(true); svOutlines(pane, map, frame); frame.open = false; },
     })) {
       // (drawn: the frame is on the page)
     } else {
       colour();
       // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
-      // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
-      // the CPU path (it is in cc already), the layers go one by one, the grid first
-      if (!svMaskOn() && !frame.cc) {
+      // to the page. Inside regions in 2D (the mask is a pass over the colour layer), the layers go one by one, the grid
+      // first
+      if (!svMaskOn()) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
         svOutlines(pane, map, frame);
@@ -1465,11 +1358,8 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
-      // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
-      // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
-      if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);
-      // (and the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn
-      // once: svWarmCarry)
+      // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
+      // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();
       svWarmCarry(0);
       svPolesAhead();
