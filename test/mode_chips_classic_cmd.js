@@ -1,6 +1,6 @@
 // Esc steps out one level at a time, and each active mode is a chip in the classic pane head (issue #31): the tool, a step shown
 // alone, an expanded plane, the deformation. The tool's own cases are mode_chips_cmd.js, which runs in the steps view; this suite
-// is the classic views' part, until K3. A command file for a CDP daemon.
+// covers the classic views, which have the pane heads and the deformation dock. A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'mode_chips_kit.js'), 'utf8')), st = K.st;
