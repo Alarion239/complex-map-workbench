@@ -135,17 +135,17 @@ const VIEWS = {
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
-  'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (outline on #34):'
+  'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (#717):'
     + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
   'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
   'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
-    + ' chapters (outline on #34), whose tour walks 38'),
+    + ' chapters (#717), whose tour walks 38'),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
   'tour_perf_cmd.js': steps({ pin: true }),
   'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour walks 38), and'
-    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (outline on #34)'),
+    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
   'tour_titles_cmd.js': steps({ pin: true }),
