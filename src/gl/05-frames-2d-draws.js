@@ -360,9 +360,9 @@
     const k = !probe0.noKey && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
     const probe = globalThis.__svCarryProbe || {};
-    const fill = cuts && P && !probe.noKSC ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
+    const fill = cuts && P && !probe.noKSC && !probe.noFill ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
     let full = null;
-    if (cuts && !fill && !probe0.uncached) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
+    if (cuts && !fill && !probe0.uncached && !probe0.noFill) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
