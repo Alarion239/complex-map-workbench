@@ -84,7 +84,7 @@ const VIEWS = {
   'repeat_cmd.js': port('interact'),
   'repeat_settle_cmd.js': steps({ pin: true }),
   'series_edit_cmd.js': steps({ pin: true }),
-  'series_params_cmd.js': port('interact'),
+  'series_params_cmd.js': steps({ pin: true }),
   'shape_rows_cmd.js': port('interact'),
   'stage_shapes_cmd.js': port('interact'),
   'top_bar_focus_cmd.js': port('interact', 'without the view switch and Deformation in the bar'),
