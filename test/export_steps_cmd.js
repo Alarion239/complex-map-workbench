@@ -151,7 +151,7 @@ for (const ex of [1, 18]) {
   await ev(`(__cmwExample(${ex}), __cmwSet('wKey', false), 1)`);
   await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
   const planes = await ev('__cmwSteps().planes');
-  await ev(`window.__xsv = null; Figure.build({ svPic: 'film' }).then(async (f) => {
+  await ev(`window.__xsv = null; Figure.build({ svPic: 'film', crop: 'screen' }).then(async (f) => {
     const urls = [...f.svg.matchAll(/<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g)].map((m) => m[1]), arts = [];
     for (const u of urls) { const im = new Image(); im.src = u; await im.decode(); const W = Math.min(240, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]); arts.push({ w: W, h: H, b64: btoa(bin) }); }
     window.__xsv = { cap: String(f.captionTex || ''), view: f.view, name: f.name, bytes: f.svg.length, arts }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
@@ -177,5 +177,24 @@ for (const ex of [1, 18]) {
     }
     ok(`${tag}, frame ${i}: the frame is that plane's stage (${Math.round(AGREE * 100)}% of the coloured cells within ${TOL} per channel)`, n >= 12 && agree / n >= AGREE, { cells: n, agree: n ? +(agree / n).toFixed(3) : 0 });
   }
+}
+// Fit: each frame has a window of its own round the images of the shapes the camera shows in z, with its own ticks,
+// and the caption says so. ζ's w₁ frame lies round ζ's values near 0, far from the camera's window [-10,10]x[12.5,27.5]
+await go(`${base}/test.html?view=steps&ns=xsvfit${Date.now() % 1e7}`);
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+await ev(`(__cmwExample(18), __cmwSet('wKey', false), 1)`);
+await settled({ until: '__cmwSteps().planes.length === 2', max: 15000, floor: 300 });
+const cam = await ev('__cmwStageBox()');
+for (const crop of ['fit', 'screen']) {
+  await ev(`window.__xsv = null; Figure.build({ svPic: 'film', crop: '${crop}' }).then((f) => { window.__xsv = { cap: String(f.captionTex || ''), boxes: f.info.boxes, own: f.info.ownWin, ticks: f.boxes.filter((b) => b.kind === 'tick').length }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
+  await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
+  const r = await ev('window.__xsv');
+  const tag = `filmstrip of example 18, ${crop}`;
+  if (crop === 'fit') {
+    const w1 = r && r.boxes && r.boxes[1], sp = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
+    ok(`${tag}: a window per frame, which the caption names`, r && !r.err && r.own === true && r.boxes.length === 2 && /own window/.test(r.cap), r);
+    ok(`${tag}: w₁'s window lies round ζ's values near 0, under half the camera's size`, !!w1 && w1.x0 < 0 && w1.x1 > 0 && w1.y0 < 0 && w1.y1 > 0 && sp(w1) < sp(cam) / 2, { w1, cam });
+    ok(`${tag}: each frame has its own ticks`, r && r.ticks >= 8, r && r.ticks);
+  } else ok(`${tag}: every frame shows the camera's window, with no note`, r && !r.err && !r.boxes && !r.own && !/own window/.test(r.cap), r);
 }
 return { pass: fails.length === 0, fails, info };

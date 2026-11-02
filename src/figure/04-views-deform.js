@@ -306,28 +306,62 @@
     return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), tracked, pts, marks, hidden: ptShapes.map((z, q) => ({ z, lab: ptLab[q] })).filter((x, q) => !ptSeen[q]), open: openS.length > 0, outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
   }
   // the steps view's filmstrip: one frame per plane of the thread, each that plane's picture as its stage shows
-  // it (its window, surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1})
+  // it (its surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1}).
+  // As on screen, every frame shows the window all the planes share (the camera). Fit, on the plane, gives each frame
+  // its own window: the box of the images in that plane of the shapes the camera shows in z, plus SV_FIT_PAD of each
+  // side, widened to the camera's aspect so the frames keep one size, with its own ticks. A plane keeps the camera's
+  // window when no shape is in view, or when the box is wider than SV_FIT_MAX cameras (an image running off to
+  // infinity, as exp sends a strip, would be a speck in it)
+  const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10;
+  const toAspect = (b, a) => {
+    const w = b.x1 - b.x0, h = b.y1 - b.y0, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    return w / h > a ? { x0: b.x0, x1: b.x1, y0: cy - w / a / 2, y1: cy + w / a / 2 } : { x0: cx - h * a / 2, x1: cx + h * a / 2, y0: b.y0, y1: b.y1 };
+  };
+  const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
   async function figSvFilm(o, P, W, T) {
-    const [, lp] = T;
+    const [tp, lp] = T;
     const frames = A.svFrames(), n = frames.length, cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols), gap = 8;
-    const pw = (W - gap * (cols - 1)) / cols, ink = printInkFor(o, A.state().alpha), raws = [];
+    const ink = printInkFor(o, A.state().alpha);
+    let boxes = null;
+    if (o.crop !== 'screen' && A.svSurf() === 'plane') {
+      const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
+      const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
+      boxes = frames.map((f, i) => { const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD); return c && span(c) <= SV_FIT_MAX * span(cam) ? toAspect(c, aspect(cam)) : cam; });
+      if (boxes.every((b) => sameBox(b, cam))) boxes = null;
+    }
+    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp)), tH = Math.max(...titles.map((it) => it.a + it.d + 4));
+    // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
+    const roughW = (W - gap * (cols - 1)) / cols;
+    const steps = boxes ? boxes.map((b) => stepFor(b, roughW)) : null;
+    const mL = boxes ? Math.max(...boxes.map((b, i) => tickW(b, steps[i], tp))) + 3 : 0, mR = boxes ? Math.max(2, ...boxes.map((b, i) => overR(b, steps[i], tp))) : 0;
+    const below = boxes ? tp * 1.05 + 4.2 : 0;
+    const pw = (W - gap * (cols - 1) - cols * (mL + mR)) / cols;
+    const raws = [];
     for (let i = 0; i < n; i++) {
-      const r = await A.svArt(i, { wpt: pw * 1.5, dpi: 300, ink, alive: o.alive });
+      const r = await A.svArt(i, Object.assign({ wpt: pw * 1.5, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
       if (!r) return null;
       raws.push(r);
     }
-    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (lp * 1.6 + 6)) / rows);
-    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp)), tH = Math.max(...titles.map((it) => it.a + it.d + 4));
+    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (lp * 1.6 + 6 + below)) / rows);
     const items = [], lines = [];
+    let defs = '';
     for (let i = 0; i < n; i++) {
-      const x = (i % cols) * (pw + gap), y = Math.floor(i / cols) * (tH + ph + 6) + tH, r = raws[i];
-      const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
-      items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
-      items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' });
+      const x = (i % cols) * (mL + pw + mR + gap) + mL, y = Math.floor(i / cols) * (tH + ph + below + 6) + tH, r = raws[i];
+      if (boxes) {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[i], { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
+        const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw });
+        items.push(p.markup); defs += p.defs; lines.push(...p.lines);
+      } else {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
+        items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
+        items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+        lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' });
+      }
       items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
     }
-    return { items, defs: '', lines, H: rows * (tH + ph + 6) - 2, info: { svFilm: true, frames } };
+    // (ownWin: the frames' windows differ, which the caption says)
+    const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
+    return { items, defs, lines, H: rows * (tH + ph + below + 6) - 2, info: { svFilm: true, frames, ownWin, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {
