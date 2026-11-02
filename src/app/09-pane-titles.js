@@ -196,8 +196,13 @@
     for (const [v, l, title] of options) {
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
-    requestAnimationFrame(() => setSeg(el, value));
     setSeg(el, value);
+    // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
+    // have changed)
+    requestAnimationFrame(() => {
+      const on = el.querySelector('.on');
+      if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
+    });
     el.addEventListener('keydown', (e) => {
       const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;

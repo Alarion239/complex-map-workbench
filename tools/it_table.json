@@ -3312,6 +3312,7 @@
  "Click the chip $f_1$.": "Clicca sul chip $f_1$.",
  "Tap the chip $f_1$.": "Tocca il chip $f_1$.",
  "Add a function to send z through it.": "Aggiungi una funzione per farci passare z.",
+ "Draw a region to colour it, or choose Everywhere.": "Disegna una regione per colorarla, o scegli «Ovunque».",
  "Showing f{k} alone, from {a} to {b}": "Mostro solo f{k}, da {a} a {b}",
  "Open in the Inspector": "Apri nell'Ispettore",
  "Bypassed f{x} ({name}).": "Passo f{x} escluso ({name}).",
