@@ -438,6 +438,9 @@ const SB = {
   steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0.5, cy: 0.3, s: 75 }, snap: true, nextId: 60,
 };
 
+// (a page opened by a link is read once its shapes are in: the steps view takes longer to open than the classic one)
+const shapesIn = async (n, ms = 20000) => { for (let t = 0; t < ms; t += 250) { const k = await ev(`typeof __cmwCI === 'function' ? __cmwCI({ shapes: true }).list.length : 0`).catch(() => 0); if (k >= n) return true; await sleep(250); } return false; };
+
 await section('B', async () => {
   await view(1440, 900, false, false);
   await load(NS + 'b', SB); await settle(900);
@@ -446,17 +449,17 @@ await section('B', async () => {
   const before = snap(st), fb = JSON.stringify(await FORMS());
   info.Bkinds = st.list.map((s) => s.id + ':' + s.kind + (s.complement ? '/out' : '') + (s.cundef ? '/undef' : ''));
   ok('B the state: a circle, a line, a disc, the outside, two lines and a touching point, all defined', info.Bkinds.join() === 'bc:circle,bt:point,bp:point,bq:point,bk:circle,bl:line,bd:disc,bo:disc/out,bn:line,ba:line,bm:point', info.Bkinds);
-  await nav(`${U}?ns=${NS}b`); await settle(1500);
+  await nav(`${U}?ns=${NS}b`); await shapesIn(11); await settle(500);
   st = await ST();
   ok('B reload: every shape and every form come back bitwise', before.join('\n') === snap(st).join('\n') && fb === JSON.stringify(await FORMS()), { before, after: snap(st) });
   const payload = await ev(`await Params.encodeLink(__cmwP().figure)`);
   info.linkLen = payload && payload.length;
-  await nav(`${U}?ns=${NS}lk#cmw=${payload}`); await settle(1800);
+  await nav(`${U}?ns=${NS}lk#cmw=${payload}`); await shapesIn(11); await settle(500);
   st = await ST();
   ok('B a link opens it in a fresh namespace', before.join('\n') === snap(st).join('\n'), snap(st));
   const has162 = fs.existsSync(path.join(DIR, '..', '..', 'dist', 'v162-test.html'));
   if (has162) {
-    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await settle(2200);
+    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await shapesIn(7, 15000); await settle(500);
     const old = await ev(`__cmwCI({shapes:true}).list.filter((s) => ['bk', 'bl', 'bd', 'bo', 'bn', 'ba', 'bm'].includes(s.id)).map((s) => ({ id: s.id, kind: s.kind, def: s.def || null, c: s.c, r: s.r, a: s.a, b: s.b, p: s.p }))`);
     const ev162 = await ev(`({ freed: __cmwC().freed, events: __cmwC().events })`);
     info.v162 = { old, ev162, toasts: await toasts() };
