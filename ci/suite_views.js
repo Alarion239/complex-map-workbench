@@ -7,8 +7,8 @@
 //   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
 //                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
 //                         Porting a suite is this tag, plus its assertions retargeted to what the steps view shows
-//   port(area, note)      tests behaviour the steps view has (or #620 adds: the note says which item): it must run
-//                         against the steps view; area is the worker group that ports it (#620's breakdown)
+//   port(area, note)      tests behaviour the steps view has, or will have (the note says what it waits on): it must
+//                         run against the steps view; area is the worker group that ports it (#620's breakdown)
 //   classic(why)          tests a part of the classic views that the steps view does not have: it stays pinned to the
 //                         classic view, which keeps that part
 // Areas: interact (the plane, the thread, editing, the keyboard), phone, words (the tour, the examples' lines, the
@@ -71,7 +71,7 @@ const VIEWS = {
   'chip_clamp_cmd.js': port('interact'),
   'complex_point_cmd.js': port('interact'),
   'complex_params_cmd.js': port('interact'),
-  'custom_show_cmd.js': port('interact', 'F\'s well: after #620 item 9 (the F chip)'),
+  'custom_show_cmd.js': port('interact', 'F\'s well: after the F tile is settled in the steps view (the F chip)'),
   'd1_replace_cmd.js': port('interact'),
   'display_inline_cmd.js': port('interact'),
   'field_settle_cmd.js': port('interact'),
@@ -96,52 +96,52 @@ const VIEWS = {
   'v15_planemenu_cmd.js': port('interact'),
   'zp_cmd.js': port('interact'),
   'zpfix_cmd.js': port('interact'),
-  'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once: after #620 item 5'),
+  'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once, which the steps view does not have yet'),
 
   // to port: phone
   'phone_ctx_tex_cmd.js': port('phone'),
   'phone_focus_margin_cmd.js': port('phone'),
-  'phone_fwell_cmd.js': port('phone', 'F\'s well: after #620 item 9'),
+  'phone_fwell_cmd.js': port('phone', 'F\'s well: after the F tile is settled in the steps view'),
   'phone_sheet_target_cmd.js': port('phone'),
   'phone_sheets_cmd.js': port('phone'),
   'phone_toast_chain_cmd.js': port('phone'),
   'ux165_phone_cmd.js': port('phone'),
 
-  // to port: words (the tour after #620 items 3 and 11, the chapters' retargeting)
+  // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': port('words'),
   'example_params_cmd.js': port('words'),
-  'example_try_events_cmd.js': port('words', 'the Try lines left: #620 item 11'),
+  'example_try_events_cmd.js': port('words', 'the Try lines left (those that need a card\'s menu)'),
   'fix152_cmd.js': port('words'),
   'guide_nav_cmd.js': port('words'),
   'i18n_cmd.js': port('words'),
   'i18n_walk_cmd.js': port('words'),
   'raw_tex_cmd.js': port('words'),
   'split_cmd.js': port('words'),
-  'tour_audit_cmd.js': port('words', 'every chapter: #620 items 3 and 11'),
-  'tour_auto_cmd.js': port('words', '#620 item 3'),
-  'tour_chapters_cmd.js': port('words', '#620 item 3'),
-  'tour_cmd.js': port('words', '#620 items 3 and 11'),
-  'tour_it360_cmd.js': port('words', '#620 item 3'),
-  'tour_lane_cmd.js': port('words', '#620 item 3'),
-  'tour_lit_cmd.js': port('words', 'every step\'s anchor: #620 items 3 and 11'),
-  'tour_perf_cmd.js': port('words', '#620 item 3'),
-  'tour_phone_cmd.js': port('words', '#620 item 3'),
-  'tour_skip_hover_cmd.js': port('words', '#620 item 3'),
-  'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after #620 items 9 and 11'),
-  'tour_titles_cmd.js': port('words', '#620 item 3'),
-  'tour_words_cmd.js': port('words', '#620 item 3'),
+  'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
+  'tour_auto_cmd.js': port('words'),
+  'tour_chapters_cmd.js': port('words'),
+  'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
+  'tour_it360_cmd.js': port('words'),
+  'tour_lane_cmd.js': port('words'),
+  'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
+  'tour_perf_cmd.js': port('words'),
+  'tour_phone_cmd.js': port('words'),
+  'tour_skip_hover_cmd.js': port('words'),
+  'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
+  'tour_titles_cmd.js': port('words'),
+  'tour_words_cmd.js': port('words'),
   'ux165_learn_cmd.js': port('words'),
   'v151_cmd.js': port('words'),
 
-  // to port: export (#620 items 6 to 8: the shown plane, the filmstrip, the glide)
-  'complex_lang_export_cmd.js': port('export', '#620 item 6'),
-  'export_cmd.js': port('export', '#620 items 6 and 7'),
+  // to port: export (the shown plane, the filmstrip, the glide)
+  'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
+  'export_cmd.js': port('export', 'the shown plane and the filmstrip'),
   'export_fit_cmd.js': port('export'),
   'export_sheet_cmd.js': port('export'),
-  'export_tex_cmd.js': port('export', '#620 item 6'),
+  'export_tex_cmd.js': port('export', 'the shown plane\'s export'),
   'figure_wait_cmd.js': port('export'),
-  'morphfig_cmd.js': port('export', 'the deformation as one picture: #620 item 8 (the glide)'),
-  'phone_glide_export_cmd.js': port('export', 'the shown plane: #620 item 6'),
+  'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
+  'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
 
   // to port: geometry
   'between_cmd.js': port('geometry'),
@@ -152,8 +152,8 @@ const VIEWS = {
   'meetnear_coincide_cmd.js': port('geometry'),
   'perp_cmd.js': port('geometry'),
   'poly_verts_cmd.js': port('geometry'),
-  'rel162_sheets_cmd.js': port('geometry', 'All sheets: after #620 item 4'),
-  'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after #620 item 4'),
+  'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
+  'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
   'touch_cmd.js': port('geometry'),
   'ux165_rail_cmd.js': port('geometry'),
 
