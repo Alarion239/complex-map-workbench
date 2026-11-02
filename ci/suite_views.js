@@ -61,7 +61,7 @@ const VIEWS = {
   'phone_glide_cmd.js': classic('the phone\'s ‹ › glide of Y between X and Y: the steps view glides its one plane (steps_view_cmd)'),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
-  'ux165_phone_classic_cmd.js': classic('v16.5\'s phone fixes of the chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
+  'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
   'v15_desktop_cmd.js': classic('the cards following the view switch (X → Y, Phase, Landscape, the Deformation)'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
   'deform_range_gl_cmd.js': classic('it drives the Deformation bracket itself (__cmwMorph({ range }), #homOrderSel), which the steps view does not have'),
