@@ -1,4 +1,5 @@
-// [#465] No raw TeX on the screen, in the classic views (X → Y, Phase, Landscape: raw_tex_cmd.js scans the steps view): a formula's source (\text{кривая, 5 точек}, \frac{1}{z}, z^{2}, u_k) never shows as
+// No raw TeX on the screen in the classic views (X → Y, Phase, Landscape; raw_tex_cmd.js scans the steps view).
+// A formula's source (\text{кривая, 5 точек}, \frac{1}{z}, z^{2}, u_k) never shows as
 // text, before MathJax has loaded (or where it cannot: a blocked CDN) nor after. Scanned: the visible text, the
 // accessible names and tooltips (aria-label, title, data-tip, alt) and the text drawn on canvases (fillText,
 // strokeText, recorded from the page's first script). Where: drawn shapes (a curve, a polygon, a disc, a point) in

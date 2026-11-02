@@ -1,5 +1,5 @@
 // The raw-TeX scan shared by test/raw_tex_cmd.js (the steps view) and test/raw_tex_classic_cmd.js (X → Y, Phase and
-// Landscape) (#465): each eval's this file and gets { RECORDER, SCAN, scanner }.
+// Landscape): each eval's this file and gets { RECORDER, SCAN, scanner }.
 //   RECORDER  the page script that records the text drawn on canvases (fillText, strokeText), installed before the page's
 //             own scripts run (Page.addScriptToEvaluateOnNewDocument)
 //   SCAN      the expression that reads the visible text, the accessible names and tooltips and the recorded canvas text,
@@ -38,18 +38,18 @@
   const scanner = ({ ev, LANG, fails, info }) => {
     const seen = new Set();
     // (a scan that read nothing, or a test-mj.html that typeset nothing, would pass whatever the page shows)
-  const MIN_STRINGS = 20;
+    const MIN_STRINGS = 20;
     return async (page, ctx) => {
-    info.scanned++;
-    let r;
-    const t0 = Date.now();
-    try { r = await ev(SCAN); } catch (e) { fails.push(`${LANG} ${page} ${ctx}: the scan threw: ${e.message}`); return; }
-    if (r.n < MIN_STRINGS) fails.push(`${LANG} ${page} ${ctx}: the scan read only ${r.n} strings (at least ${MIN_STRINGS} expected)`);
-    if (page === 'test-mj.html' && !r.mj) fails.push(`${LANG} ${page} ${ctx}: MathJax typeset nothing (no mjx-container): the page tested what it shows before MathJax`);
-    info.minStrings = Math.min(info.minStrings ?? Infinity, r.n);
-    info.scanMs = (info.scanMs || 0) + Date.now() - t0;
-    for (const f of r.out) { const key = `${page}|${f.where}|${f.s}`; if (seen.has(key)) continue; seen.add(key); fails.push(`${LANG} ${page} ${ctx}: raw TeX (${f.k}) in ${f.where}: "${f.s}"`); }
-  };
+      info.scanned++;
+      let r;
+      const t0 = Date.now();
+      try { r = await ev(SCAN); } catch (e) { fails.push(`${LANG} ${page} ${ctx}: the scan threw: ${e.message}`); return; }
+      if (r.n < MIN_STRINGS) fails.push(`${LANG} ${page} ${ctx}: the scan read only ${r.n} strings (at least ${MIN_STRINGS} expected)`);
+      if (page === 'test-mj.html' && !r.mj) fails.push(`${LANG} ${page} ${ctx}: MathJax typeset nothing (no mjx-container): the page tested what it shows before MathJax`);
+      info.minStrings = Math.min(info.minStrings ?? Infinity, r.n);
+      info.scanMs = (info.scanMs || 0) + Date.now() - t0;
+      for (const f of r.out) { const key = `${page}|${f.where}|${f.s}`; if (seen.has(key)) continue; seen.add(key); fails.push(`${LANG} ${page} ${ctx}: raw TeX (${f.k}) in ${f.where}: "${f.s}"`); }
+    };
   };
   return { RECORDER, SCAN, scanner };
 })()
