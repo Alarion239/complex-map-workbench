@@ -587,7 +587,9 @@ await section('K', async () => {
   await view(1366, 768, false, false);
   await load(NS + 'k', U0({ unit: false, shapes: [Object.assign({}, C1, { r: 0.8 }), gl('g', 0.1)], nextId: 30 }));
   await settle(900);
-  await ev(`__cmwSetView('L', 'sphere'), 1`); await settle(1200);
+  // (the globe: the classic left pane's Sphere view, or the steps view's surface switch)
+  if (await ev(`document.documentElement.classList.contains('sv')`)) await ev(`__cmwSteps({ surf: 'sphere' }), 1`); else await ev(`__cmwSetView('L', 'sphere'), 1`);
+  await settle(1200);
   await tool('select');
   const GS = (re, im) => ev(`(() => { const P = Region.Globe.lift(${re}, ${im}); return __cmwCI({ gs: ['L', P] }); })()`);
   const pt = (deg) => GS(0.8 * Math.cos(deg * Math.PI / 180), 0.8 * Math.sin(deg * Math.PI / 180));

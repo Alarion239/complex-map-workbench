@@ -196,8 +196,13 @@
     for (const [v, l, title] of options) {
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
-    requestAnimationFrame(() => setSeg(el, value));
     setSeg(el, value);
+    // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
+    // have changed)
+    requestAnimationFrame(() => {
+      const on = el.querySelector('.on');
+      if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
+    });
     el.addEventListener('keydown', (e) => {
       const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
@@ -829,16 +834,24 @@
   // t -> H_t(z) on the merged plane and globe, remembered in the saved state, and the figure's default
   // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
   function pathsToggle(hasD = morphHasDeriv()) {
-    const on = S.morphPaths !== false;
-    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P'), html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
-    if (hasD) { b.disabled = true; b.dataset.tip = $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw'); }
+    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
+    syncPathsBtn(b, S.morphPaths !== false, hasD);
     return b;
+  }
+  // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
+  // press does; off, with the reason, when there are no paths to draw (noPaths: a d/dz)
+  function syncPathsBtn(b, on, noPaths) {
+    const pressed = String(on && !noPaths);
+    const tip = noPaths ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P');
+    if (b.getAttribute('aria-pressed') !== pressed) b.setAttribute('aria-pressed', pressed);
+    if (b.disabled !== !!noPaths) b.disabled = !!noPaths;
+    if (b.dataset.tip !== tip) b.dataset.tip = tip;
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
     setOpt('morphPaths', !!on);
     const b = $('pathsBtn');
-    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P'); }
+    if (b) syncPathsBtn(b, !!on, b.disabled);
     requestRender('R'); drawLegend(); save();
     tourEmit('paths-toggled', { on: !!on });
   }

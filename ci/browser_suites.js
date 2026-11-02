@@ -56,6 +56,10 @@ const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
 // (the pages and the runs of both raw-TeX suites: one language per run, MathJax's page where the language has it)
 const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}'; globalThis.MJ = ${l !== 'it'};` })) };
 const SUITES = {
+  // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
+  // suite run too)
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'] },
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
