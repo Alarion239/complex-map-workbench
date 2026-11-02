@@ -130,7 +130,7 @@ const VIEWS = {
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after K1 items 9 and 11'),
   'tour_titles_cmd.js': port('words', 'K1 item 3'),
   'tour_words_cmd.js': port('words', 'K1 item 3'),
-  'ux165_learn_cmd.js': port('words'),
+  'ux165_learn_cmd.js': steps({ pin: true }),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
   // to port: export (K1 items 6 to 8: the shown plane, the filmstrip, the glide)
