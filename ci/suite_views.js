@@ -115,7 +115,7 @@ const VIEWS = {
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': port('words'),
   'i18n_walk_cmd.js': port('words'),
-  'raw_tex_cmd.js': port('words'),
+  'raw_tex_cmd.js': steps({ pin: true }),
   'split_cmd.js': port('words'),
   'tour_audit_cmd.js': port('words', 'every chapter: K1 items 3 and 11'),
   'tour_auto_cmd.js': port('words', 'K1 item 3'),
