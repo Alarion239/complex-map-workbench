@@ -777,11 +777,6 @@
     const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); } }));
     openMenu(E.surf1, Object.assign(items, { menuLabel: $t('Surface'), focusChecked: true }));
   }
-  // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
-  // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
-  // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
-  // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
-  // or a new title, button or surface), and never while the view moves (#320)
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
   // after the fold (the rail grows by exactly that width): no flicker at the edge.
@@ -796,6 +791,11 @@
     const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
     add.classList.toggle('fold', thread > room);
   }
+  // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
+  // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
+  // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
+  // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
+  // or a new title, button or surface), and never while the view moves (#320)
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
