@@ -92,7 +92,7 @@ const VIEWS = {
   'ux165_merge_cmd.js': port('interact'),
   'ux165_plane_cmd.js': port('interact'),
   'v15_merge_cmd.js': steps({ pin: true }),
-  'v15_params_cmd.js': port('interact'),
+  'v15_params_cmd.js': steps({ pin: true }),
   'v15_planemenu_cmd.js': steps({ pin: true }),
   'zp_cmd.js': steps({ pin: true }),
   'zp_classic_cmd.js': classic('the held mid-drag frame of Y: the steps view shows one plane, so the image cannot be read while a handle of the domain is held'),

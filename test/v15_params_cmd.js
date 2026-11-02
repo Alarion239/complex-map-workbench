@@ -34,7 +34,13 @@ const typeIn = async (sel, text) => {
   return true;
 };
 // (v15 merge: a step's fields are in the Inspector; a click on the step's card selects it there)
-const inStep = async (k, inner) => { await clickSel(`#pipeline .card[data-k="${k}"]`); await settle(300); return `#propsPanel .insp-step[data-k="${k}"] ${inner}`; };
+// (the card in the classic chain, the chip in the steps view's thread, where a toast covers the thread until it goes)
+const inStep = async (k, inner) => {
+  const steps = await ev(`document.documentElement.classList.contains('sv')`);
+  if (steps) await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
+  await clickSel(steps ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`);
+  await settle(300); return `#propsPanel .insp-step[data-k="${k}"] ${inner}`;
+};
 const bound = async () => ev(`(()=>{const p=__cmwP(); const sh=p.shapes; return {
   a: (p.params.find((x)=>x.name==='a')||{}).value,
   b: p.steps[0].params.b, zeros: p.steps[1].params.zeros, errors: p.errors,
