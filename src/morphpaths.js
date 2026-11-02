@@ -68,7 +68,8 @@ const MorphPaths = (() => {
   // runGenSliced). P maps the plane to px (null where a point is not shown: the globe's far side and limb), box is the
   // panel (px), win its world window. opt: scale (the spacings' factor), footPx, nogo (px rectangles to keep clear),
   // maxN, globe, fig (the exported figure: stricter about the frame and the picture's lines), src (the deformation
-  // source, defSource: H_T as Fat(T), whether H_0 is the identity, the marks' order; default the classic transport's).
+  // source, classicSource or svPathsSource: H_T as Fat(T), whether H_0 is the identity, the marks' order; default
+  // classicSource()).
   // Every path is traced whole
   // (the same points at every t: no popping while scrubbing or playing). A path may leave the panel (it is clipped
   // there, with a cue) when most of it is inside, but never leaves and comes back.
@@ -103,9 +104,10 @@ const MorphPaths = (() => {
     for (const s of X.vis) if (kindType(s) === 'point' && s.p) seeds.push({ z: C(s.p[0], s.p[1]), kind: 'point' });
     const eg = sep / 3;
     let nEdge = 0, nNode = 0;
-    // (notes/deform-range/SPEC.md 5.2, D6: when H_0 is not the identity, a bracket's pre or post or a focused step
-    // k > 1, the seeds are spaced at their starts H_0(z) in the plane, not at z: the boundary mapped through H_0, and a
-    // z-grid binned by the screen point of H_0(z). With H_0 = id, today's code below, unchanged)
+    // (notes/deform-range/SPEC.md 5.2, D6: when the source's H_0 is not the identity (src.startId false: in the classic
+    // transport a bracket's pre or post or a focused step k > 1, in the steps view a run that starts past plane z), the
+    // seeds are spaced at their starts H_0(z) in the plane, not at z: the boundary mapped through H_0, and a z-grid
+    // binned by the screen point of H_0(z). With H_0 = id, the seeds are spaced at z, below)
     const startId = src.startId;
     if (!startId) {
       const H0 = Fat(0);
