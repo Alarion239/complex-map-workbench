@@ -33,6 +33,7 @@ const VIEWS = {
   'steps_carry_cmd.js': steps(),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
+  'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
   'steps_labels_cmd.js': steps(),
   'steps_long_549_cmd.js': steps(),
