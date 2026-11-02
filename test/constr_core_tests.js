@@ -1,8 +1,9 @@
 // Section C of test/t_constr.js (v16 CORE, notes/constructions-v16/SPEC.md 18): the integration and exactness tests.
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
-// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
-const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
+// the speed limit is in reference operations measured in the same run (test/lib/speed_ref.js), so it holds on any machine
+const { cpuUnitsOf } = require('./lib/speed_ref');
+const DRAG50_UNITS = 8000;
 module.exports = function ({ K, ok, near, nearP, Inverse }) {
   const C = CX.C;
   let seed = 20261024;
@@ -407,9 +408,9 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     for (let i = 0; i < 50; i++) shapes.push(pt('p' + i, [Math.cos(i), Math.sin(i) + 2]), { id: 'k' + i, kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'p' + i }], fill: 'in' } });
     const S = state(shapes);
     rec(S);
-    const c0 = process.cpuUsage();
-    for (let f = 0; f < 600; f++) { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); }
-    const c = process.cpuUsage(c0), ms = (c.user + c.system) / 1000 / 600;
-    ok(ms < 1 * SPEED, `speed: a drag with 50 dependent discs: ${ms.toFixed(3)} ms CPU per recompute`);
+    // (the least CPU time of several short rounds, each followed by a round of the reference; the limit is 1 ms per
+    // recompute in this container's reference operation of about 125 ns)
+    const units = cpuUnitsOf((f) => { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); });
+    ok(units < DRAG50_UNITS, `speed: a drag with 50 dependent discs: ${units.toFixed(0)} reference operations CPU per recompute (limit ${DRAG50_UNITS})`);
   }
 };
