@@ -64,6 +64,7 @@ const VIEWS = {
   'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
   'v15_desktop_cmd.js': classic('the cards following the view switch (X → Y, Phase, Landscape, the Deformation)'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
+  'deform_range_gl_cmd.js': classic('it drives the Deformation bracket itself (__cmwMorph({ range }), #homOrderSel), which the steps view does not have'),
   'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
 
   // to port: interact
@@ -178,13 +179,12 @@ const VIEWS = {
   'sound_v152_cmd.js': port('sound'),
 
   // to port: engine (no view of its own)
-  'deform_range_gl_cmd.js': port('engine'),
-  'kit_settled_cmd.js': port('engine', 'the kit\'s settled(): a page of its own, no view to test'),
-  'line_slice_cmd.js': port('engine'),
-  'mj_ranges_cmd.js': port('engine'),
-  'offline_cmd.js': port('engine'),
-  'smoke_cmd.js': port('engine', 'its view switch to Phase becomes the steps view\'s surface and plane'),
-  'warm_bar_cmd.js': port('engine'),
+  'kit_settled_cmd.js': steps({ pin: true }),
+  'line_slice_cmd.js': steps({ pin: true }),
+  'mj_ranges_cmd.js': steps({ pin: true }),
+  'offline_cmd.js': steps({ pin: true }),
+  'smoke_cmd.js': port('engine', 'it checks the default page, which is the classic view: it moves to the steps view when that becomes the default, and its view switch then becomes the surface and the plane'),
+  'warm_bar_cmd.js': steps({ pin: true }),
 };
 
 // the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
