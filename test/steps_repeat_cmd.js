@@ -84,7 +84,6 @@ await undo();
 ok('undo restores the repeat, N = 3, with its badge and row', (await rep(2)).n === 3 && (await badges())[1][1] === '×3' && (await row()).n === '3', [await rep(2), await badges()]);
 
 // ---- the keyboard's End the repeat: the focus goes back to the step's chip, not to the page; the row's controls have a border and room ----
-await ev(`document.querySelector('.insp-repeat .rep-n') && 1`);
 const geo = await ev(`(() => { const f = document.querySelector('.insp-repeat .rep-n'), b = document.querySelector('.insp-repeat .rep-step'); return { w: Math.round(f.getBoundingClientRect().width), bw: parseFloat(getComputedStyle(b).borderTopWidth) }; })()`);
 ok('the N field is at least 56 px wide and the − and + have a border', geo.w >= 56 && geo.bw >= 1, geo);
 await ev(`document.querySelector('.insp-repeat .rep-end').focus(); 1`);
