@@ -374,6 +374,17 @@ float len2(vec2 v) { float m = amax(v); return m > 1e18 ? m * length(v / m) : le
   // (cutKinds' clip): each vertex's side of it (vSide) for CARRY_FS's clip, and the pass uKPass 1 for the part of a
   // triangle past it (only the programs of a chain with such a cut: CARRY_FS's discard costs every fragment its early
   // depth test)
+  // the chain on the sheets of the cell centre zc at the template point s, and its side value (a path's dom, cxs0_dom):
+  // the fill's value at a point (REGION_VS's sheet option, FILL_PTS_VS)
+  const ON_CENTRE = `vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }
+`;
+  // whether the cache's places c0..c2 (and cm, the centroid's) draw a triangle (the cached pass), or the fill takes it:
+  // REGION_VS's fill cull and FILL_PTS_VS's, one test (uKPx, uKLim declared by each)
+  const FILL_DRAWN = `bool fillDrawn(vec2 c0, vec2 c1, vec2 c2, vec2 cm) {
+  float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
+  return cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
+}
+`;
   // REGION_VS's points option (with sheet and 'tex', the fill): the fill's four centre-sheet values per sub-triangle
   // (corners 0..2, centroid 3) and their side values come from the fill's point pass (FILL_PTS_VS) in the RGBA32F
   // texture uFT, texel instance * uFTP + 4 * sub-triangle + k, and a sub-triangle is evaluated when that pass marked
@@ -399,14 +410,12 @@ ${FETCH(fetch)}
 ${LIFT}
 ${BARY}
 ${VALID}
-${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }\n' : ''}${o.points ? FILL_PTS_FETCH : ''}void main() {
+${o.sheet ? ON_CENTRE : ''}${o.sheet && fetch === 'tex' ? FILL_DRAWN : ''}${o.points ? FILL_PTS_FETCH : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
 ${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a triangle the cached places draw, or a fix-up skips, is culled here, so
   // only a triangle torn across a cut is evaluated on its centre's sheet)
   {
-${o.points ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : `    vec2 c0 = W(aIdx.x, s0), c1 = W(aIdx.y, s1), c2 = W(aIdx.z, s2), cm = W(aIdx.w, (s0 + s1 + s2) / 3.0);
-    float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
-    bool drawn = cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
+${o.points ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : `    bool drawn = fillDrawn(W(aIdx.x, s0), W(aIdx.y, s1), W(aIdx.z, s2), W(aIdx.w, (s0 + s1 + s2) / 3.0));
     if (aSkip > 0.5 || drawn) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }`}
   }
 ` : ''}${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
@@ -761,17 +770,13 @@ ${SRC}
 ${BARY}
 ${VALID}
 vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
-vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }
-void main() {
+${ON_CENTRE}${FILL_DRAWN}void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;
   int i = gl_InstanceID * uP + v;
   gl_Position = vec4((vec2(float(i % uRtW), float(i / uRtW)) + 0.5) / uRtSz * 2.0 - 1.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   vec4 I = uSubI[t];
-  vec2 c0 = WC(I.x), c1 = WC(I.y), c2 = WC(I.z), cm = WC(I.w);
-  float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
-  bool drawn = cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
-  if (aSkip > 0.5 || drawn) { tfOut4 = vec4(0.0); return; }
+  if (aSkip > 0.5 || fillDrawn(WC(I.x), WC(I.y), WC(I.z), WC(I.w))) { tfOut4 = vec4(0.0); return; }
   vec2 s0 = bary(uSub[3 * t]), s1 = bary(uSub[3 * t + 1]), s2 = bary(uSub[3 * t + 2]);
   vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   float side;

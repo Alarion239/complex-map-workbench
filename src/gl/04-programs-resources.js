@@ -824,13 +824,17 @@ float wabs(vec2 w) {
     gl.bindVertexArray(v);
     gl.bindBuffer(gl.ARRAY_BUFFER, tpl.buf);
     attrib(0, 4, 48, 0, 0); attrib(1, 4, 48, 16, 0); attrib(6, 4, 48, 32, 0);
+    instanceAttribs(res, skip);
+    gl.bindVertexArray(null);
+    res.vaos.set(key, v);
+    return v;
+  }
+  // a mesh's per-instance attributes in the bound VAO: its base triangle (aAB, aC) and skip flag (aSkip)
+  function instanceAttribs(res, skip) {
     gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
     attrib(2, 4, 24, 0, 1); attrib(3, 2, 24, 16, 1);
     gl.bindBuffer(gl.ARRAY_BUFFER, skip.buf);
     attrib(4, 1, 4, 0, 1);
-    gl.bindVertexArray(null);
-    res.vaos.set(key, v);
-    return v;
   }
   function meshTFVAO(res, L) {
     const key = 't' + L;
@@ -1237,10 +1241,7 @@ float wabs(vec2 w) {
     if (!vao) {
       vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
-      attrib(2, 4, 24, 0, 1); attrib(3, 2, 24, 16, 1);
-      gl.bindBuffer(gl.ARRAY_BUFFER, skip.buf);
-      attrib(4, 1, 4, 0, 1);
+      instanceAttribs(res, skip);
       gl.bindVertexArray(null);
       res.vaos.set(vk, vao);
     }
