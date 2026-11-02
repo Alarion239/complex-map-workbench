@@ -6,7 +6,7 @@
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {}, shots = [];
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const settle = async (ms = 500) => { await settled({ floor: ms }); };
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 const errs = [];
 const grab = async () => { errs.push(...exc(await logs())); };

@@ -116,7 +116,8 @@ const TIMING = {
   'p3_review_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
     t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
   'v15_desktop_cmd.js': [t(/^dragging a (zero|shape): p95 frame/, (d) => d && d.n > 20)],
-  'zp_cmd.js': [t(/^drag at 60 fps/), t(/^deformation plays at 60 fps/)],
+  'zp_cmd.js': [t(/^drag at 60 fps/)],
+  'zp_classic_cmd.js': [t(/^deformation plays at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
   'p5_accept_cmd.js': [t(/: no slice over 6 ms$/), t(/^8\.8: the slices of the rebuild stay within 6 ms/)],
 };

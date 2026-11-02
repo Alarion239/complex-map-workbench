@@ -1,4 +1,4 @@
-// v16.5 wave 1 merge, classic view only: Y's head carries the "Y · " tag (the plane) and is not cut. Y is the classic
+// The merged look of the classic view only: Y's head carries the "Y · " tag (the plane) and is not cut. Y is the classic
 // view's right pane; the steps view has one plane and no such head. The rest of the merge look is ux165_merge_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};

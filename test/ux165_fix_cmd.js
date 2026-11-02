@@ -164,8 +164,9 @@ await key('m'); await settle(500);
 await ev(`document.getElementById('undoBtn').focus(), 1`); await settle(400);
 ok('regress-9: no tip for a focus the app moves', await ev(`document.getElementById('tip').hidden`));
 // (the Tab goes on until it reaches an icon, which has a tip: the command field comes first in the steps view's top bar)
-await key('Tab'); await settle(600);
-for (let i = 0; i < 3 && !(await ev(`!!document.activeElement.dataset.tip`)); i++) { await key('Tab'); await settle(600); }
+await key('Tab'); await settled({ floor: 600 });
+// (the steps view's top bar has the command field next: Tab on, one press at a time, until a control with a tip has the focus)
+for (let i = 0; i < 3 && !(await ev(`!!document.activeElement.dataset.tip`)); i++) { await key('Tab'); await settled({ floor: 600 }); }
 ok('regress-9: a Tab to an icon shows its tip', await ev(`!document.getElementById('tip').hidden`));
 // regress-10: undoing a Midpoint names the point
 await load(NS + 'u10', U0({ shapes: [{ id: 'a', kind: 'point', p: [0.5, 0.5], ci: 0 }, { id: 'b', kind: 'point', p: [1.5, -0.5], ci: 1 }], nextId: 20 })); await settle(900);
