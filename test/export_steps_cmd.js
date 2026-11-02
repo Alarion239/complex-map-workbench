@@ -51,7 +51,6 @@ for (const c of CASES) {
     return out; })()`);
   const shotImg = await img({ x: pane.x, y: pane.y, width: pane.w, height: pane.h });
   const scr = { w: shotImg.w, h: shotImg.h, ch: shotImg.ch, data: shotImg.data };
-  const st = await ev(`(() => { const s = __cmwSteps(); return { main: s.main, stage: s.stage, T: s.T }; })()`);
   // the figure: its raster (the first image) as a downsampled RGB array, its window, its caption
   // (built in the page, the result kept on window: a figure can take longer than one evaluation's timeout)
   await ev(`window.__xsv = null; (async () => {

@@ -53,12 +53,15 @@
   }
   // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
   // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is one step
+  // the longest step formula (TeX characters) the caption shows in its display: a longer one would not fit the
+  // display's one line, so the caption names the map without it
+  const SV_CAP_TEX_MAX = 240;
   function svFigParts() {
     const k = svStage(), T = svT(), coloured = svColoured(k), [a, b] = coloured ? [k, T] : [0, k];
     const ss = svPlanes().filter((s) => s > a && s <= b), st = ss.length === 1 ? built[ss[0] - 1] : null;
     const lvar = k === 0 ? 'z' : `w_{${k}}`, arg = a === 0 ? 'z' : `w_{${a}}`;
     const raw = st && !st.error ? st.tex({ s: arg, p: 4 }).s : null;
-    return { k, coloured, lvar, arg, name: svMapName('tex', a, b), raw: raw && raw.length < 240 ? raw : null };
+    return { k, coloured, lvar, arg, name: svMapName('tex', a, b), raw: raw && raw.length < SV_CAP_TEX_MAX ? raw : null };
   }
   // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
   const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? (fmt === 'html' ? `${m}<span class="rm">(</span>${v}<span class="rm">)</span>` : `${m}(${v})`) : v; };
