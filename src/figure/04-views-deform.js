@@ -313,10 +313,6 @@
   // window when no shape is in view, or when the box is wider than SV_FIT_MAX cameras (an image running off to
   // infinity, as exp sends a strip, would be a speck in it)
   const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10;
-  const toAspect = (b, a) => {
-    const w = b.x1 - b.x0, h = b.y1 - b.y0, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-    return w / h > a ? { x0: b.x0, x1: b.x1, y0: cy - w / a / 2, y1: cy + w / a / 2 } : { x0: cx - h * a / 2, x1: cx + h * a / 2, y0: b.y0, y1: b.y1 };
-  };
   const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
   async function figSvFilm(o, P, W, T) {
     const [tp, lp] = T;
@@ -327,7 +323,7 @@
     if (o.crop !== 'screen' && A.svSurf() === 'plane') {
       const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
       const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
-      boxes = frames.map((f, i) => { const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD); return c && span(c) <= SV_FIT_MAX * span(cam) ? toAspect(c, aspect(cam)) : null; });
+      boxes = frames.map((f, i) => { const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD); return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null; });
       fellBack = boxes.some((b) => !b);
       boxes = boxes.map((b) => b || cam);
       if (boxes.every((b) => sameBox(b, cam))) boxes = null;
