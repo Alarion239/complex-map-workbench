@@ -120,4 +120,5 @@ ok('UX24 Russian 360: the Snap pill is not squeezed, Undo and × are 44 px', hr.
 await ev(`Phone.close(true)`); await settle();
 await grab();
 
+ok('no exceptions or console errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };
