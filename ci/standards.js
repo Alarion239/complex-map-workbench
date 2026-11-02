@@ -18,6 +18,9 @@ const { ROOT, summary, esc } = require('./lib');
 
 // room for the diff of a large change (256 MiB); git's output is read whole
 const GIT_BUFFER = 1 << 28;
+// the part of an offending line a report shows, and the most warning annotations one run writes (GitHub shows about
+// ten per step in the diff and drops the rest above fifty)
+const SHOWN_CHARS = 100, MAX_ANNOTATIONS = 50;
 const SCOPE = /^(src|ci|test|tools)\//;
 const GENERATED = /^(src\/(i18n_[a-z]+|cyr|seasong)\.js|src\/.*\.min\.js|tools\/vendor\/|test\/fixtures\/)/;
 const COMMENTED = /\.(js|mjs|cjs|ts|py|yml|yaml|sh|css|html)$/;
@@ -27,7 +30,8 @@ const HISTORY = [
   [/\bwas\b/i, 'was'], [/\bused to\b/i, 'used to'], [/\bnow\b/i, 'now'], [/\bpreviously\b/i, 'previously'],
   [/\bno longer\b/i, 'no longer'], [/\breplaces\b/i, 'replaces'], [/\binstead of the old\b/i, 'instead of the old'],
   [/\bv1\d(?:\.\d+)?(?:-beta(?:\.\d+)?)?\b/i, 'a version label'], [/\bbeta\.\d+\b/i, 'a version label'],
-  [/\bwaves? \d+\b/i, 'a wave label'], [/\b(?:fixed|fixes|added|removed|changed|introduced) (?:in|by|after) #\d+/i, 'an issue number as a changelog'],
+  [/\bwaves? \d+\b/i, 'a wave label'],
+  [/\b(?:fixed|fixes|added|removed|changed|introduced) (?:in|by|after) #\d+/i, 'an issue number as a changelog'],
   [/\bafter #\d+/i, 'an issue number as a changelog'],
 ];
 const PLAN = [
@@ -120,7 +124,7 @@ function check(files) {
 function report(found) {
   const rules = { history: 'history words in a comment', plan: 'plan label in a comment', asserts: 'dropped test assertions', marker: 'opt-out without a reason' };
   if (!found.length) return '### Standards check: nothing found\n\nReport only (no check here fails the Gate). Opt a line out with `standards-ok: <reason>` in its comment.\n';
-  const rows = found.map((x) => `| ${x.rule} | \`${x.file}:${x.line}\` | ${esc(x.why)} | ${x.text ? '`' + esc(x.text.slice(0, 100)) + '`' : ''} |`);
+  const rows = found.map((x) => `| ${x.rule} | \`${x.file}:${x.line}\` | ${esc(x.why)} | ${x.text ? '`' + esc(x.text.slice(0, SHOWN_CHARS)) + '`' : ''} |`);
   const by = Object.entries(rules).map(([k, v]) => [v, found.filter((x) => x.rule === k).length]).filter(([, c]) => c).map(([v, c]) => `${c} ${v}`);
   return ['### Standards check: ' + by.join(', '), '', 'Report only. Review each; opt a line out with `standards-ok: <reason>` in its comment.', '',
     '| rule | where | found | line |', '|---|---|---|---|', ...rows, ''].join('\n');
@@ -135,8 +139,8 @@ if (require.main === module) {
   const ref = a.includes('--ref') ? a[a.indexOf('--ref') + 1] : 'HEAD~1';
   const found = check(parseDiff(diffAgainst(ref)));
   const gh = a.includes('--github') || !!process.env.GITHUB_ACTIONS;
-  if (gh) for (const x of found.slice(0, 50)) console.log(`::warning file=${x.file},line=${x.line},title=standards ${x.rule}::${x.why}`);
-  for (const x of found) console.log(`${x.file}:${x.line}: ${x.rule}: ${x.why}${x.text ? '  ' + x.text.slice(0, 100) : ''}`);
+  if (gh) for (const x of found.slice(0, MAX_ANNOTATIONS)) console.log(`::warning file=${x.file},line=${x.line},title=standards ${x.rule}::${x.why}`);
+  for (const x of found) console.log(`${x.file}:${x.line}: ${x.rule}: ${x.why}${x.text ? '  ' + x.text.slice(0, SHOWN_CHARS) : ''}`);
   summary(report(found));
   process.exit(a.includes('--block') && found.length ? 1 : 0);
 }
