@@ -183,7 +183,7 @@ const VIEWS = {
   'p3bfix_cmd.js': port('render'),
   'p5_accept_cmd.js': port('render'),
   'regions_phase_cmd.js': port('render'),
-  'sphere_light_cmd.js': port('render'),
+  'sphere_light_cmd.js': steps({ pin: true }),
 
   // to port: sound (Pietro's team, #580 and #598)
   'seasong_cmd.js': port('sound'),
