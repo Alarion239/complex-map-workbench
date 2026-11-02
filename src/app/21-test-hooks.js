@@ -273,10 +273,10 @@
     });
     return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
   };
-  // the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
-  // {win, R, rs, sing}, as svSheetKey
   // the steps view's outer ring of carried points, Everywhere (svRingFor): {m, c, r1, r2} or null
   /** @type {any} */ (window).__cmwSvRing = () => (svRingMemo && svRingMemo.ring ? { m: svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null);
+  // the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
+  // {win, R, rs, sing}, as svSheetKey; with t, the key of the glide's frame at t to plane b (svSheetKeyAt)
   /** @type {any} */ (window).__cmwSvKey = (b, t) => { const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }; };
   // whether the steps view's carried colour has the tiling's fix-up under its parked map (true with none asked)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone();
