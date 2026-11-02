@@ -37,6 +37,7 @@ const VIEWS = {
   'steps_labels_cmd.js': steps(),
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
+  'steps_order_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_play_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
