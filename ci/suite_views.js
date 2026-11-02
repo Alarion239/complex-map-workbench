@@ -149,18 +149,18 @@ const VIEWS = {
   'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
 
   // to port: geometry
-  'between_cmd.js': port('geometry'),
-  'constr_cmd.js': port('geometry'),
-  'curves_cmd.js': port('geometry'),
-  'dh_cmd.js': port('geometry'),
-  'fix163_cmd.js': port('geometry'),
-  'meetnear_coincide_cmd.js': port('geometry'),
-  'perp_cmd.js': port('geometry'),
-  'poly_verts_cmd.js': port('geometry'),
+  'between_cmd.js': steps({ pin: true }),
+  'constr_cmd.js': steps({ pin: true }),
+  'curves_cmd.js': steps({ pin: true }),
+  'dh_cmd.js': steps({ pin: true }),
+  'fix163_cmd.js': steps({ pin: true }),
+  'meetnear_coincide_cmd.js': steps({ pin: true }),
+  'perp_cmd.js': steps({ pin: true }),
+  'poly_verts_cmd.js': steps({ pin: true }),
   'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
   'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
-  'touch_cmd.js': port('geometry'),
-  'ux165_rail_cmd.js': port('geometry'),
+  'touch_cmd.js': steps({ pin: true }),
+  'ux165_rail_cmd.js': steps({ pin: true }),
 
   // to port: render
   'cauchy_residue_cmd.js': port('render'),
