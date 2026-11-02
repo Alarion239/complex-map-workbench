@@ -112,6 +112,7 @@ ok('End the repeat from the menu ends it', (await rep(1)) === null, await rep(1)
 
 // ---- a block of two steps ----
 await press('.insp-repeat .rep-end'); await settled({});
+await settled({ floor: 600 });   // (a menu is not raised again within 500 ms of the last)
 await press('#svStrip .sv-step[data-k="3"] .sv-more');
 await settled({ panes: false, until: `!!document.querySelector('#popHost .menu')` });
 await pickItem('Repeat');
