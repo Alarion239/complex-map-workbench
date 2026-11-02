@@ -17,7 +17,8 @@
 //     p95 ≤ 14 ms, frame delta p95 ≤ 16.7 ms; 50 is reported).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/constr_cmd.js
 // Prints {pass, fails, info}; shots go to <daemon folder>/shots/cm-*.png (copied to notes/constructions-v16/shots).
-const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
+// (CMW_ONLY=A,G runs those sections alone)
+const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
@@ -32,6 +33,8 @@ const chipLabel = async (c) => {
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e * Math.max(1, Math.abs(a), Math.abs(b));
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
+const dragH = async (x0, y0, x1, y1, n, dt) => { await move(x0, y0); await settle(80); return drag(x0, y0, x1, y1, n, dt); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -41,7 +44,18 @@ const CI = (o) => ev(`__cmwCI(${JSON.stringify(o || null)})`);
 const ST = () => CI({ shapes: true });
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const last = (st) => st.list[st.list.length - 1];
-const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
+// (the steps view's plane re-fits when a tool's chip row opens or closes: a point's screen place is read once it has
+// stopped moving)
+const planeRest = async () => {
+  if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
+  let p = await W(0, 0), still = 0;
+  for (let i = 0; i < 40 && still < 5; i++) { await sleep(100); const q = await W(0, 0); still = q[0] === p[0] && q[1] === p[1] ? still + 1 : 0; p = q; }
+};
+const tool = async (id) => {
+  const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
+  await settle(120); await planeRest();
+  return r;
+};
 const parseZ = (t) => { const v = String(t).replace(/\s/g, '').replace(/−/g, '-'); const m = /^([-+]?\d*\.?\d+(?:e[-+]?\d+)?)?(?:([-+])(\d*\.?\d*)i)?$/.exec(v); if (!m) return null; return [m[1] ? +m[1] : 0, m[2] ? (m[2] === '-' ? -1 : 1) * (m[3] === '' ? 1 : +m[3]) : 0]; };
 const mods = async (type, x, y, m, buttons) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: buttons || 0, clickCount: 1, modifiers: m || 0 });
 // a drag with modifiers held (1 Alt, 8 Shift)
@@ -111,7 +125,7 @@ await section('A', async () => {
   // 2. drag ζ₁ (Select): the disc follows; Shift-click with Circle through 3 points still adds a zero
   await tool('select');
   const zd = await W(1, 0.5);   // (the plane moves with the Inspector's width in the steps view)
-  await drag(zd[0], zd[1], zd[0] + 48, zd[1] - 32, 10, 16); await settle(300);
+  await dragH(zd[0], zd[1], zd[0] + 48, zd[1] - 32, 10, 16); await settle(300);
   st = await ST();
   const zeta = parseZ(st.zeros);
   const c3b = byId(st, c3.id);
@@ -129,7 +143,7 @@ await section('A', async () => {
   // 3. a half-plane from polygon vertex v0 to vertex v2: both ends bind and follow the vertex
   await tool('halfplane');
   const v0 = await W(-2.5, 1), v2 = await W(0.5, 1.2);
-  await drag(v0[0] + 3, v0[1] - 2, v2[0] - 2, v2[1] + 3, 10, 16); await settle(300);
+  await dragH(v0[0] + 3, v0[1] - 2, v2[0] - 2, v2[1] + 3, 10, 16); await settle(300);
   st = await ST();
   const hp = last(st);
   ok('half-plane: both ends bound to the polygon vertices', hp.kind === 'halfplane' && hp.at && hp.at.a.s === 's3' && hp.at.a.h === 'v0' && hp.at.b.h === 'v2' && hp.a[0] === -2.5 && hp.b[0] === 0.5, hp);
@@ -138,7 +152,7 @@ await section('A', async () => {
   // drag vertex v0 (select the polygon first): the half-plane's end follows
   await tool('select');
   await clickSel('.shape[data-id="s3"] .shape-name'); await settle(200);
-  await drag(v0[0], v0[1], v0[0] - 24, v0[1] + 16, 8, 16); await settle(300);
+  await dragH(v0[0], v0[1], v0[0] - 24, v0[1] + 16, 8, 16); await settle(300);
   st = await ST();
   const poly = byId(st, 's3'), hp2 = byId(st, hp.id);
   ok('the half-plane follows the dragged vertex', hp2.a[0] === poly.pts[0][0] && hp2.a[1] === poly.pts[0][1] && poly.pts[0][0] !== -2.5, [hp2.a, poly.pts[0]]);
@@ -146,12 +160,12 @@ await section('A', async () => {
   // 9. drawing tools: a segment from the circle's stroke (no crossing there) binds nothing; from a crossing, a helper
   await tool('segment');
   const sStroke = await W(1.5, 0.3), sEnd = await W(2.8, 1.5);
-  await drag(sStroke[0], sStroke[1], sEnd[0], sEnd[1], 6, 16); await settle(250);
+  await dragH(sStroke[0], sStroke[1], sEnd[0], sEnd[1], 6, 16); await settle(250);
   st = await ST();
   const sg = last(st);
   ok('a drawing tool never makes a point on a curve', sg.kind === 'segment' && !sg.at && !st.list.some((p) => p.def && p.def.op === 'glider' && p.id !== gl.id), sg);
   const X2 = [1.5 - 0.8 / Math.SQRT2, -0.5 - 0.8 / Math.SQRT2], x2 = await W(X2[0], X2[1]), x2e = await W(-0.5, -2.4);
-  await drag(x2[0] + 3, x2[1] - 3, x2e[0], x2e[1], 6, 16); await settle(250);
+  await dragH(x2[0] + 3, x2[1] - 3, x2e[0], x2e[1], 6, 16); await settle(250);
   st = await ST();
   const sg2 = last(st), hl = st.list.find((p) => sg2.at && sg2.at.a && p.id === sg2.at.a.s);
   ok('a crossing snap: the start binds to a helper meet point', !!hl && hl.helper === true && hl.owner === sg2.id && hl.def.op === 'meet' && dist(hl.p, X2) < 1e-12, [sg2.at, hl]);
@@ -197,13 +211,13 @@ await section('A', async () => {
   // ([v16.5 rail SPEC 2.3] a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
   // within the glide zone; the old drag, 58 px straight off the stroke, now frees it at the drop point)
   const g1 = await W(1.5 + 0.8 * Math.cos(5.85), -0.5 + 0.8 * Math.sin(5.85));
-  await drag(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
+  await dragH(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
   st = await ST();
   const gl2 = byId(st, gl.id);
   ok('dragged, it slides along the circle', !!gl2 && gl2.t !== gl.t && near(dist(gl2.p, [1.5, -0.5]), 0.8, 1e-12), [gl.t, gl2.t, gl2.p]);
   // 6. a fixed constructed point: a drag says what it is built from
   const mp = await W(m.p[0], m.p[1]);
-  await drag(mp[0], mp[1], mp[0] + 30, mp[1], 6, 16); await settle(250);
+  await dragH(mp[0], mp[1], mp[0] + 30, mp[1], 6, 16); await settle(250);
   st = await ST();
   ok('a meet point does not move', byId(st, m.id).p[0] === m.p[0], byId(st, m.id).p);
   info.builtToast = await toastText();
@@ -211,13 +225,14 @@ await section('A', async () => {
   // "Pull further to free z₃" while held, and no "built from" toast; ux165_rail_cmd C and D test the pull itself)
   ok('… a 30 px drag only stretches it (v16.5: a pull frees a meet point)', !/is built from/.test(info.builtToast), info.builtToast);
   // 7. Midpoint of z₀, z₁; a circle through z₀, z₁ and the midpoint: the half-plane, A = 0 exactly
-  a = await W(-1.5, 0); b = await W(0.5, -1);
   await tool('midpoint');
+  a = await W(-1.5, 0); b = await W(0.5, -1);
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(300);
   st = await ST();
   const mid = last(st);
   ok('Midpoint', mid.def && mid.def.op === 'midpoint' && mid.p[0] === -0.5 && mid.p[1] === -0.5, mid);
   await tool('circle3');
+  a = await W(-1.5, 0); b = await W(0.5, -1);
   const mq = await W(-0.5, -0.5);
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80); await click(mq[0], mq[1]); await settle(300);
   st = await ST();
@@ -227,16 +242,24 @@ await section('A', async () => {
   ok('its row: the half-plane left of z₀ → z₁', info.colRow === 'the half-plane left of z₀ → z₁', info.colRow);
   // drag z₀: it stays a half-plane through z₀, z₁ (incidence), and its line passes through the moved z₀
   await tool('select');
-  await drag(a[0], a[1], a[0] - 20, a[1] - 26, 8, 16); await settle(300);
+  a = await W(-1.5, 0);
+  await dragH(a[0], a[1], a[0] - 20, a[1] - 26, 8, 16); await settle(300);
   st = await ST();
   const z0 = byId(st, 's1').p, col2 = byId(st, col.id), mid2 = byId(st, mid.id);
   ok('after a drag of z₀: still A = 0, the midpoint follows', col2.kind === 'halfplane' && col2.A === 0 && mid2.p[0] === (z0[0] + 0.5) / 2, [col2.kind, col2.A, mid2.p, z0]);
   const cr = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
   ok('… its edge passes through z₀ and z₁', !!col2.a && Math.abs(cr(col2.a, col2.b, z0)) < 1e-12 && Math.abs(cr(col2.a, col2.b, [0.5, -1])) < 1e-12, [col2.a, col2.b]);
   // a drag of the midpoint says what it is built from by the point, not in a toast
+  await planeRest();
   const mp2 = await W(mid2.p[0], mid2.p[1]);
-  await drag(mp2[0], mp2[1], mp2[0] + 30, mp2[1], 6, 16); await settle(250);
+  // (the chip lasts 1.2 s: it is read right after the first move, as a page that draws slowly may not answer in time later)
+  await move(mp2[0], mp2[1]); await settle(80);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: mp2[0], y: mp2[1], button: 'left', buttons: 1, clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mp2[0] + 5, y: mp2[1], button: 'left', buttons: 1 });
   info.builtChip = { chip: (await CI()).freeChip, toast: await toastText() };
+  for (let i = 2; i <= 6; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mp2[0] + 5 * i, y: mp2[1], button: 'left', buttons: 1 }); await sleep(16); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: mp2[0] + 30, y: mp2[1], button: 'left', clickCount: 1 });
+  await settle(250);
   ok('a drag of the midpoint: "built from … drag those" by the point, no toast', / is built from .*: drag those$/.test(info.builtChip.chip || '') && !/is built from/.test(info.builtChip.toast), info.builtChip);
   ok('… and the midpoint stays', byId(await ST(), mid.id).p[0] === mid2.p[0], byId(await ST(), mid.id).p);
   await shot('cm-d1440-collinear');
@@ -267,14 +290,14 @@ await section('A', async () => {
   st = await ST();
   const [fa, fb] = st.list.slice(-2);
   await tool('line');
-  await drag(pA[0], pA[1], pB[0], pB[1], 6, 16); await settle(250);
+  await dragH(pA[0], pA[1], pB[0], pB[1], 6, 16); await settle(250);
   st = await ST();
   const ln = last(st);
   ok('a line through two free points', ln.at && ln.at.a.s === fa.id && ln.at.b.s === fb.id, ln.at);
   await tool('select');
   const lm = await W(-1.8, 2.55);
   await click(lm[0], lm[1]); await settle(150);
-  await drag(lm[0], lm[1], lm[0], lm[1] - 40, 8, 16); await settle(250);
+  await dragH(lm[0], lm[1], lm[0], lm[1] - 40, 8, 16); await settle(250);
   st = await ST();
   ok('dragging the line moves both points', byId(st, fa.id).p[1] > 2.7 && byId(st, fb.id).p[1] > 3 && byId(st, ln.id).a[1] === byId(st, fa.id).p[1], [byId(st, fa.id).p, byId(st, fb.id).p]);
   // the disc on ζ₁ pans X (its press is not a move)
@@ -282,7 +305,7 @@ await section('A', async () => {
   const c3n = byId(await ST(), c3.id);
   const dc = await W(c3n.c[0] - 0.3, c3n.c[1] - 0.6);
   await click(dc[0], dc[1]); await settle(150);
-  await drag(dc[0], dc[1], dc[0] + 30, dc[1] + 10, 6, 16); await settle(250);
+  await dragH(dc[0], dc[1], dc[0] + 30, dc[1] + 10, 6, 16); await settle(250);
   st = await ST();
   ok('a disc built on ζ₁: a drag pans X, the disc does not move', byId(st, c3.id).c[0] === c3n.c[0] && (await ev(`JSON.stringify(__cmwW2S('L', 0, 0))`)) !== v0view, [byId(st, c3.id).c, c3n.c]);
   info.panToast = await toastText();
@@ -332,7 +355,7 @@ await section('B', async () => {
   const zeta0 = parseZ(String(st.zeros).split(',')[0]);
   await tool('select');
   const zz = await W(zeta0[0], zeta0[1]);
-  await drag(zz[0], zz[1], zz[0] - 20, zz[1] + 30, 8, 16); await settle(300);
+  await dragH(zz[0], zz[1], zz[0] - 20, zz[1] + 30, 8, 16); await settle(300);
   st = await ST();
   const zeta = parseZ(String(st.zeros).split(',')[0]), c3b = byId(st, c3.id);
   ok('after a reload ζ₁ still drives its disc', near(dist(zeta, c3b.c), c3b.r, 1e-12) && zeta[0] !== zeta0[0], [zeta, c3b.c, c3b.r]);
@@ -471,7 +494,7 @@ await section('F', async () => {
       let t0 = 0; window.addEventListener('pointermove', () => { t0 = performance.now(); }, true); window.addEventListener('pointermove', () => { if (window.__pm) window.__pm.push(performance.now() - t0); });
       return 1; })()`);
     const p = await W(-1, 0);
-    await drag(p[0], p[1], p[0] + 60, p[1] - 40, 45, 16);
+    await dragH(p[0], p[1], p[0] + 60, p[1] - 40, 45, 16);
     await settle(200);
     const r = await ev(`(()=>{ const q = (a, p) => { const b = (a || []).slice().sort((x, y) => x - y); return b.length ? +b[Math.min(b.length - 1, Math.floor(p * b.length))].toFixed(2) : null; };
       const r = { work_p95: q(__frw, 0.95), work_max: q(__frw, 1), delta_p50: q(__frd, 0.5), delta_p95: q(__frd, 0.95), move_p95: q(__pm, 0.95), n: (__frd || []).length };
@@ -552,7 +575,7 @@ await section('G', async () => {
   const box = await ev(`(() => { const r = document.querySelector('#paneL canvas:last-of-type').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; })()`);
   // (off the plane through its top edge, which has room above it in both views; the point's place is read again, the plane moved)
   const zqNow = await W(1.5, -1);
-  await drag(zqNow[0], zqNow[1], zqNow[0], box[1] - 30, 14, 16); await settle(400);
+  await dragH(zqNow[0], zqNow[1], zqNow[0], box[1] - 30, 14, 16); await settle(400);
   st = await ST();
   info.zpToast = await toastText();
   ok('G: ζ₁ removed; the circle is undefined, not deleted', st.zeros === '' && byId(st, cz.id) && byId(st, cz.id).cundef && byId(st, cz.id).cundef.code === 'zpRemoved', [st.zeros, byId(st, cz.id)]);
@@ -613,7 +636,7 @@ await section('H', async () => {
     await click(p2[0] - 1, p2[1] + 2); await settle(100);
     const c = await ev(`(() => { const r = document.querySelector('#paneL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
     let qN = await CI({ gs: ['L', [0, 0, 1]] });
-    for (let k = 0; k < 4 && !qN; k++) { await drag(c[0], c[1] - 60, c[0], c[1] + 60, 10, 16); await settle(500); qN = await CI({ gs: ['L', [0, 0, 1]] }); }
+    for (let k = 0; k < 4 && !qN; k++) { await dragH(c[0], c[1] - 60, c[0], c[1] + 60, 10, 16); await settle(500); qN = await CI({ gs: ['L', [0, 0, 1]] }); }
     info.globe.qN = qN;
     ok('H: the draft survives the turn', ((await CI()).draft || { picks: [] }).picks.length === 2, (await CI()).draft);
     ok('H: N is on the globe face after the turn', !!qN, qN);
@@ -644,7 +667,7 @@ await section('I', async () => {
   ok('I: a polygon with its first two vertices bound to z₀, z₁', pg.kind === 'polygon' && pg.at && pg.at.v0.s === 'i1' && pg.at.v1.s === 'i2' && !pg.at.v2, pg);
   await tool('select');
   await clickSel(`.shape[data-id="${pg.id}"] .shape-name`); await settle(200);
-  await drag(a[0], a[1], a[0] - 30, a[1] + 20, 8, 16); await settle(300);
+  await dragH(a[0], a[1], a[0] - 30, a[1] + 20, 8, 16); await settle(300);
   st = await ST();
   const z0 = byId(st, 'i1').p, pg2 = byId(st, pg.id);
   ok('I: a press on the bound vertex drags z₀; the polygon follows', z0[0] < -1.2 && pg2.pts[0][0] === z0[0] && pg2.pts[0][1] === z0[1] && pg2.pts[2][1] === 1, [z0, pg2.pts]);
@@ -652,7 +675,7 @@ await section('I', async () => {
   const zq = await W(z0[0], z0[1]);
   await clickSel('.shape[data-id="i2"] .shape-name'); await settle(150);
   const bq = await W(1, -1);
-  await drag(bq[0], bq[1], zq[0] + 2, zq[1] - 1, 10, 16); await settle(300);
+  await dragH(bq[0], bq[1], zq[0] + 2, zq[1] - 1, 10, 16); await settle(300);
   st = await ST();
   ok('I: a free point dropped on a point stays free', !byId(st, 'i2').at && !byId(st, 'i2').def, byId(st, 'i2'));
   await grab();
@@ -761,7 +784,7 @@ await section('V', async () => {
   const sel1 = (await CI({ shapes: true })).selected;
   ok('V verify-1: a click on z₁ of a 3-point circle selects z₁', sel1 === 'v2', sel1);
   const r0 = byId(await ST(), 'vc').r;
-  await drag(a[0], a[1], b[0], b[1], 12, 16); await settle(400);
+  await dragH(a[0], a[1], b[0], b[1], 12, 16); await settle(400);
   const st = await ST(), p1 = byId(st, 'v1').p, p2 = byId(st, 'v2').p, c = byId(st, 'vc');
   ok('V verify-1: dragging z₁ moves only z₁, and the circle follows it', near(p1[0], -1) && near(p1[1], -0.5) && Math.abs(p2[0] - 1.5) < 0.02 && Math.abs(p2[1]) < 0.02 && Math.abs(c.r - r0) > 1e-3 && near(dist(p2, c.c), c.r, 1e-9), [p1, p2, c.c, c.r, r0]);
   await grab();
