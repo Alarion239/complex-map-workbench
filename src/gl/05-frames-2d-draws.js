@@ -368,8 +368,8 @@
     let fill = cuts && P && !probe.noFill ? program(clip ? 'regionKSCclip' : 'regionKSC', st.map) : null;
     let ft = null;
     if (fill && probe.fillTex) {
-      const Pft = program(clip ? 'regionKSCclipft' : 'regionKSCft', st.map);
-      ft = Pft ? fillPass(res, L, st.map) : null;
+      const gated = !!(probe.fillGate && e), Pft = program(clip ? (gated ? 'regionKSCclipftg' : 'regionKSCclipft') : (gated ? 'regionKSCftg' : 'regionKSCft'), st.map);
+      ft = Pft ? fillPass(res, L, st.map, gated ? { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 } : null) : null;
       if (ft) fill = Pft;
     }
     let full = null;

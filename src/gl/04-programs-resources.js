@@ -107,6 +107,8 @@
     // (probe, scratch: the fill with its centre-sheet values from the fill point pass, fillTF / fillPass)
     regionKSCft: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, fillTex: true }), fs: REGION_K_FS() },
     regionKSCclipft: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, fillTex: true }), fs: REGION_K_FS(true) },
+    regionKSCftg: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, fillTex: true, fillGate: true }), fs: REGION_K_FS() },
+    regionKSCclipftg: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, fillTex: true, fillGate: true }), fs: REGION_K_FS(true) },
     fillTF: { chain: true, sheet: true, vs: () => FILL_TF_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
@@ -763,6 +765,7 @@ float wabs(vec2 w) {
     const t = { buf: makeBuf(new Float32Array(data)), count: data.length / 12, P: pts.length / 2, pts: makeBuf(new Float32Array(pts)) };
     // (probe, scratch: each sub-triangle's three corners, for the fill point pass's uSub)
     t.subs = new Float32Array(tris.flatMap((tr) => tr.flatMap(([i, j]) => [i / L, j / L])));
+    t.subI = new Float32Array(tris.flatMap((tr, ti) => tr.map(([i, j]) => idx.get(i * (L + 1) + j)).concat([V + ti])));
     tplCache.set(key, t);
     return t;
   }
@@ -1217,7 +1220,7 @@ float wabs(vec2 w) {
   // (probe, scratch) the fill point pass (fillTF) of mesh res at template size L (at most 2) under map: the fill's four
   // centre-sheet values and sides of every sub-triangle of every instance, into res's RGBA32F texture (unit 12,
   // uFT); -> {tex, W, P} for regionKSCft's uFT, uFTW, uFTP, or null while fillTF compiles
-  function fillPass(res, L, map) {
+  function fillPass(res, L, map, gate = null) {
     if (L > 2 || !rtOK) return null;
     const P = program('fillTF', map);
     if (!P) return null;
@@ -1230,20 +1233,51 @@ float wabs(vec2 w) {
     const alloc = !f || f.W !== W || f.H !== H;
     if (!f) f = res.probeFill = { tex: floatTex(), W: 0, H: 0, P: per };
     f.W = W; f.H = H; f.P = per;
-    let vao = res.vaos.get('probeFill');
+    // (gate {e, skip, kpx, lim}: the cache entry the draw binds, its skip buffer and the fill's uKPx, uKLim)
+    const skip = (gate && gate.skip) || res.skip0, vk = 'probeFill|' + skip.id;
+    let vao = res.vaos.get(vk);
     if (!vao) {
       vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
       attrib(2, 4, 24, 0, 1); attrib(3, 2, 24, 16, 1);
+      gl.bindBuffer(gl.ARRAY_BUFFER, skip.buf);
+      attrib(4, 1, 4, 0, 1);
       gl.bindVertexArray(null);
-      res.vaos.set('probeFill', vao);
+      res.vaos.set(vk, vao);
     }
-    { const ps = globalThis.__svPathStats; if (ps) { ps.fillTF = (ps.fillTF || 0) + 1; ps.fillTFpts = (ps.fillTFpts || 0) + count; } }
+    const ps = globalThis.__svPathStats;
     use(P, map);
     originUniforms(P, res.org);
     if (P.loc.uSub) gl.uniform2fv(P.loc.uSub, tpl.subs);
-    runRT(P, vao, per, res.n, f.tex, W, H, alloc, true);
+    if (P.loc.uSubI) gl.uniform4fv(P.loc.uSubI, tpl.subI);
+    if (gate && gate.e) {
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gate.e.tex);
+      u1i(P, 'uCW', gate.e.W); u1i(P, 'uCP', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
+      gl.activeTexture(gl.TEXTURE12);
+    }
+    // (the f stat, probe.fStat: every point's "the fill evaluates its sub-triangle" read back; per 32 points (two
+    // instances, one SIMD group) whether any is evaluated)
+    if (gate && gate.e && (globalThis.__svCarryProbe || {}).fStat && ps) {
+      u1i(P, 'uGate', 2);
+      runRT(P, vao, per, res.n, f.tex, W, H, alloc, true);
+      const px = new Float32Array(W * H * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, rtFbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, f.tex, 0);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.FLOAT, px);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      let sub = 0, torn = 0, groups = 0, hot = 0;
+      for (let g = 0; g < count; g += 32) {
+        let any = false;
+        for (let i = g; i < Math.min(count, g + 32); i += 4) { sub++; if (px[4 * i] > 0.5) { torn++; any = true; } }
+        groups++; if (any) hot++;
+      }
+      ps.fSub = (ps.fSub || 0) + sub; ps.fTorn = (ps.fTorn || 0) + torn; ps.fGroups = (ps.fGroups || 0) + groups; ps.fHot = (ps.fHot || 0) + hot;
+    }
+    u1i(P, 'uGate', gate && gate.e ? 1 : 0);
+    if (ps) { ps.fillTF = (ps.fillTF || 0) + 1; ps.fillTFpts = (ps.fillTFpts || 0) + count; if (gate && gate.e) ps.fillGate = (ps.fillGate || 0) + 1; }
+    runRT(P, vao, per, res.n, f.tex, W, H, alloc && !(gate && gate.e && (globalThis.__svCarryProbe || {}).fStat && ps), true);
     gl.activeTexture(unit);
     return f;
   }

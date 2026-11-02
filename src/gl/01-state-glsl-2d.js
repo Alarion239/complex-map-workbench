@@ -379,6 +379,7 @@ float len2(vec2 v) { float m = amax(v); return m > 1e18 ? m * length(v / m) : le
   // uFT (FILL_TF_VS: texel instance * uFTP + sub-triangle * 4 + k) instead of evaluated here; the uKPass 1 pass still
   // evaluates its own (another centre)
   const FILL_TEX_FETCH = `uniform highp sampler2D uFT; uniform int uFTW; uniform int uFTP;
+float FTon() { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4; return texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0).w; }
 vec2 FT(int k, out float side) { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4 + k; vec4 v = texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0); side = v.z; return v.xy; }
 `;
   const REGION_VS = (sphere, fetch, o = {}) => `
@@ -403,10 +404,10 @@ ${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chai
 ${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a triangle the cached places draw, or a fix-up skips, is culled here, so
   // only a triangle torn across a cut is evaluated on its centre's sheet)
   {
-    vec2 c0 = W(aIdx.x, s0), c1 = W(aIdx.y, s1), c2 = W(aIdx.z, s2), cm = W(aIdx.w, (s0 + s1 + s2) / 3.0);
+${o.fillGate ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : `    vec2 c0 = W(aIdx.x, s0), c1 = W(aIdx.y, s1), c2 = W(aIdx.z, s2), cm = W(aIdx.w, (s0 + s1 + s2) / 3.0);
     float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
     bool drawn = cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
-    if (aSkip > 0.5 || drawn) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    if (aSkip > 0.5 || drawn) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }`}
   }
 ` : ''}${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   float d0, d1, d2, dMid;
@@ -741,25 +742,47 @@ void main() { emit(mapPoint(srcOf(bary(aT)))); }
   // (probe, scratch) the fill point pass: for every sub-triangle t of every instance (uSub: its three template corners,
   // regionTemplate's order), point k = 0..3 is REGION_VS's onCentreSheet(zc, s_k) with zc its centroid's source point
   // (s_3 the centroid), written as (w, side, 0) into texel instance * uP + 4 t + k of an RGBA32F texture
+  // (probe, scratch) the fill point pass: for every sub-triangle t of every instance (uSub: its three template corners,
+  // regionTemplate's order), point k = 0..3 is REGION_VS's onCentreSheet(zc, s_k) with zc its centroid's source point
+  // (s_3 the centroid), written as (w, side, 0) into texel instance * uP + 4 t + k of an RGBA32F texture.
+  // uGate 1 (fillGate): REGION_VS's fill cull here, on the same cache texture (unit 1, uCW, uCP) and uniforms (uKPx,
+  // uKLim, aSkip): a culled sub-triangle is not evaluated and its points are written as (0, 0, 0, 0), an evaluated
+  // one's with .w = 1; the fill (REGION_VS's fillGate) culls by that flag, so the two never disagree. uGate 2 (the f
+  // stat): every point written as (1 if the fill evaluates its sub-triangle, else 0), no chain
   const FILL_TF_VS = `
 layout(location = 2) in vec4 aAB;
 layout(location = 3) in vec2 aC;
+layout(location = 4) in float aSkip;
 uniform vec2 uSub[12];
+uniform vec4 uSubI[4];
+uniform int uGate; uniform float uKPx; uniform float uKLim;
+uniform highp sampler2D uW; uniform int uCW; uniform int uCP;
 flat out vec4 tfOut4;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
 ${SRC}
 ${BARY}
+${VALID}
+vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
 vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }
 void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;
+  int i = gl_InstanceID * uP + v;
+  gl_Position = vec4((vec2(float(i % uRtW), float(i / uRtW)) + 0.5) / uRtSz * 2.0 - 1.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  if (uGate != 0) {
+    vec4 I = uSubI[t];
+    vec2 c0 = WC(I.x), c1 = WC(I.y), c2 = WC(I.z), cm = WC(I.w);
+    float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
+    bool drawn = cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
+    bool culled = aSkip > 0.5 || drawn;
+    if (uGate == 2) { tfOut4 = vec4(culled ? 0.0 : 1.0, 0.0, 0.0, 0.0); return; }
+    if (culled) { tfOut4 = vec4(0.0); return; }
+  }
   vec2 s0 = bary(uSub[3 * t]), s1 = bary(uSub[3 * t + 1]), s2 = bary(uSub[3 * t + 2]);
   vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   float side;
   vec2 w = onCentreSheet(zc, k == 0 ? s0 : (k == 1 ? s1 : (k == 2 ? s2 : (s0 + s1 + s2) / 3.0)), side);
-  tfOut4 = vec4(w, side, 0.0);
-  int i = gl_InstanceID * uP + v;
-  gl_Position = vec4((vec2(float(i % uRtW), float(i / uRtW)) + 0.5) / uRtSz * 2.0 - 1.0, 0.0, 1.0);
-  gl_PointSize = 1.0;
+  tfOut4 = vec4(w, side, 1.0);
 }
 `;
   const RT4_FS = `
