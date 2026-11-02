@@ -11,7 +11,7 @@
     await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
     await nav(`${U}/test.html?ns=${ns}`);
-    for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
+    await settled({ only: true, max: 60000, until: `typeof __cmwRegions === 'function'` });
     await settled({ floor: 800 });
   };
   const popFit = async (lang, o) => {
@@ -19,7 +19,7 @@
     await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE({})))}); 1`);
     await nav(`${U}/test.html?ns=${ns}&lang=${lang}`);
-    for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
+    await settled({ only: true, max: 60000, until: `typeof __cmwRegions === 'function'` });
     await settled({ floor: 800 });
     if (o.prep) { await ev(o.prep); await settled({ floor: 800 }); }
     await ev(`document.querySelector(${JSON.stringify(o.btn)}).click()`); await settled({ floor: 500, until: `!!document.querySelector(${JSON.stringify(o.pop)})` });
