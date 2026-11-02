@@ -1,7 +1,8 @@
 // The Cauchy examples (issue #293): an example may name its curve (`selected`, a shape's index or id), so the three
 // examples (1/z, z + 1/z, e^{1/z}) open in the Cauchy style with their circle selected, in English and in Russian;
 // another example takes the selection away.
-// It runs in the steps view (ci/suite_views.js: steps({ pin: true })): the examples open there, the circle is selected in the shown plane.
+// It runs in the steps view (ci/suite_views.js: steps({ pin: true })): the examples open there, the circle is selected
+// in the shown plane.
 // A command file for a CDP daemon.
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
