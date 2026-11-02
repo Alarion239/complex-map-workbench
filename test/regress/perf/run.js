@@ -330,6 +330,20 @@ async function sceneStatics(prefix) {
   await settle(await pageNow());
 }
 
+// [#698 probe, scratch, not for merge] the construction speed checks' ratios on this machine (#694): ci/snapshots.js,
+// then test/t_constr.js -v three times, their reference-operation and seg K lines logged; no page, info only
+function macConstrUnit() {
+  const { execFileSync } = require('child_process');
+  const root = path.join(__dirname, '..', '..', '..');
+  execFileSync(process.execPath, [path.join(root, 'ci', 'snapshots.js')], { cwd: root, stdio: 'ignore' });
+  for (let i = 1; i <= 3; i++) {
+    let out;
+    try { out = execFileSync(process.execPath, [path.join(root, 'test', 't_constr.js'), '-v'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 }); } catch (e) { out = String(e.stdout || '') + String(e.stderr || ''); log(`macx.constr run ${i}: exit ${e.status}`); }
+    const lines = out.split('\n').filter((l) => /reference operations|seg K/.test(l));
+    for (const l of lines) log(`macx.constr run ${i}: ${l.trim()}`);
+    put(`macx.constr.run${i}.lines`, 'info', 'lines', [lines.length]);
+  }
+}
 // ---------------- units ----------------
 // A unit is one page load with its scenarios; --only / --skip select units by id (see --list).
 const UNITS = [];
@@ -1823,6 +1837,7 @@ unit('scrub.morph', 'parameter scrub with the deformation open and paused (its a
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
+unit('macx.constr', 'probe for #698 (not for merge): test/t_constr.js -v three times on this machine, the speed ratios logged, info only', () => macConstrUnit(), { timeoutS: 900 });
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
