@@ -1,6 +1,6 @@
 // Laptop keyboard in the classic view (issue #44, UX98): the chain is one Tab stop and the arrows move between its cards, and F6 /
 // Shift+F6 move between the areas: top bar, tools, X, Y, chain, Inspector. kbd_nav_cmd.js, which runs in the steps view, has the
-// tool grid, the steps view's areas and the plane's Tab; this is the classic views' part, until K3. A command file for a CDP daemon.
+// tool grid, the steps view's areas and the plane's Tab; this covers the classic views, with their chain and the X and Y planes. A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'kbd_nav_kit.js'), 'utf8')), where = K.where;
