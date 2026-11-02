@@ -93,8 +93,6 @@
   }
   // the block that step k is in, as repeatBlocks gives it, or null
   const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
-  // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
-  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
   // the keyboard goes back to a step's chip on the thread (its card in the classic view) once the chain is drawn again: after a
   // control that has gone, such as the Inspector's End the repeat, no longer holds it
   function focusStepChip(k) {
@@ -106,6 +104,8 @@
   // (the Inspector draws its row a frame or two after the step is selected; on a slow machine a first draw takes longer: the
   // field is looked for this long, then given up)
   const REPEAT_FIELD_WAIT_MS = 1500;
+  // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
+  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
   function focusRepeatField(k) {
     const field = () => repFields.map((f) => f.inp).find((el, i) => repFields[i].getK() === k && el.isConnected && el.getClientRects().length) || null;
     if (!SV.on) return field();
