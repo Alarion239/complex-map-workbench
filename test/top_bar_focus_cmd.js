@@ -1,4 +1,4 @@
-// The top bar's keyboard order and the small controls' target size (issues #359, #360), in the steps view. Tab from the top
+// The top bar's keyboard order and the small controls' target size, in the steps view. Tab from the top
 // of the page goes Examples (leftmost on screen), then the menu's buttons (search … Help), in the order of the screen; and
 // every segment of a segmented control in the bar and the plane head is at least 24 x 24 px (WCAG 2.5.8; the segments
 // touch, so the spacing exception does not apply) without the control overflowing. 1440 px in English, 1024 px in Russian
