@@ -67,7 +67,7 @@ const VIEWS = {
   'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
 
   // to port: interact
-  'a11y_axe_cmd.js': port('interact'),
+  'a11y_axe_cmd.js': steps({ pin: true }),
   'chip_clamp_cmd.js': port('interact'),
   'complex_point_cmd.js': port('interact'),
   'complex_params_cmd.js': port('interact'),

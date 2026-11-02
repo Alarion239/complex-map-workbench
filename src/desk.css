@@ -339,6 +339,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
    while it shows (it covers no control), and < > and the speed beside it stay live */
 #toastHost[data-placed="rail"] .toast { height: auto; min-height: 36px; white-space: normal; box-shadow: none; }
 .sv-strip.sv-toast .sv-rail > * { visibility: hidden; }
+/* (while the message covers it the rail has nothing to show, so it does not scroll: a scroll region with no control left in it is what a screen reader tool reports) */
+.sv-strip.sv-toast .sv-rail { overflow-x: hidden; }
 /* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
    once wrapped to four lines and cut its longest word (ru, 1024) */
 #toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
