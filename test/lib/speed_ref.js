@@ -12,12 +12,13 @@
 //                            CPU time (a drag is judged by what it computes, not by what else the machine runs), the
 //                            reference as wall time: a reference round is about 2 ms, shorter than the tick a CPU clock
 //                            may count in, while a drag round is DRAG_FRAMES frames (tens of ms). The least round of
-//                            the reference is one with no time off the CPU, so its wall time is its CPU time.
+//                            the reference is likely one with no time off the CPU, so its wall time is close to its
+//                            CPU time.
 // ROUNDS: enough rounds that one of each lands in a quiet moment of a machine running more busy loops than it has cores
 // (all of t_constr.js's checks passed under six busy loops on four cores).
 const ROUNDS = 7, CALLS = 20000;
-// the frames of one drag round (about 5 ms of CPU for a drag with 10 dependents, much more for 50, so a tick-counting CPU
-// clock cannot read 0)
+// the frames of one drag round (about 40 ms of CPU for a drag with 10 dependents, more for 50: many ticks of a
+// tick-counting CPU clock, so it cannot read 0)
 const DRAG_FRAMES = 300;
 // the reference operation's input: a double that changes by REF_STEP per call from REF_START, whose 52-bit mantissa
 // is split into the high 20 bits (MANTISSA_HI_MASK) and the low 32

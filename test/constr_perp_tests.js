@@ -330,8 +330,8 @@ module.exports = function ({ K, ok }) {
     ok((K.moveRoots(T, 'k') || []).join() === 'a,b,c,P,Q', 'moveRoots: K on a 3-point C of free points moves all five');
     ok(K.describe(S, 'k').fill === 'in' && K.describe(S, 'k').op === 'perp', 'describe: op perp, fill');
     // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P, in units of a
-    // reference operation measured in this run (test/lib/speed_ref.js): each limit keeps the margin the absolute one had
-    // on the development Mac
+    // reference operation measured in this run (test/lib/speed_ref.js): each limit is set from the margin the absolute one
+    // had on the development Mac in the notes' figures (the Mac's own ratios in these units are not measured)
     const G = circ([0.3, -0.2], 1.7);
     const per = unitsOf((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]));
     const W = state([{ id: 'C', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, pt('P', [0.3, 0.2])]);
