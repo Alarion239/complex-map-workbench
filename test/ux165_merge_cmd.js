@@ -45,26 +45,25 @@ async function section(k, f) { try { await f(); } catch (e) { fails.push({ name:
 logs();
 
 // ---------------------------------------------------------------- L1 laptop, light, English
+// (Y's head with its "Y · " tag is the classic view's right pane; its check is in ux165_merge_classic_cmd.js)
 await section('L1', async () => {
   await laptop();
   await fresh(NS + 'a');
-  const h = await ev(`(() => { const t = document.getElementById('rightTitle'), p = t && t.querySelector('.ptitle'); const sb = document.getElementById('snapBtn');
-    return { title: t ? t.textContent.trim() : null, cut: p ? p.scrollWidth > p.clientWidth + 1 : null, tiny: document.getElementById('paneR').classList.contains('tiny'),
-      snapWord: sb && sb.querySelector('.snap-w') ? sb.querySelector('.snap-w').textContent : null, snapTip: sb && sb.dataset.tip, steps: document.querySelectorAll('#pipeline .card[data-k]:not([data-k="0"])').length }; })()`);
+  const h = await ev(`(() => { const sb = document.getElementById('snapBtn');
+    return { snapWord: sb && sb.querySelector('.snap-w') ? sb.querySelector('.snap-w').textContent : null, snapTip: sb && sb.dataset.tip, steps: document.querySelectorAll('#svStrip .sv-step').length }; })()`);
   info.L1 = h;
-  ok('L1 Y\'s head carries the Y tag, whole', h.title && /^Y ·/.test(h.title) && !h.cut && !h.tiny, h);
   ok('L1 Snap shows its word with the rail piece\'s tooltip', h.snapWord === 'Snap' && /grid and to figures/.test(h.snapTip || ''), h);
   await SHOT('L1-laptop-light-en');
   if (h.steps >= 1) {
-    const b = await box('#pipeline .card[data-k="1"] .thumb');
-    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: b.l + 20, y: b.t + 20 });
-    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: b.l + 20, y: b.t + 20, button: 'right', buttons: 2, clickCount: 1 });
-    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.l + 20, y: b.t + 20, button: 'right', buttons: 0, clickCount: 1 });
+    const b = await box('#svStrip .sv-step[data-k="1"] .sv-fchip');
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: b.l + 20, y: b.t + 10 });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: b.l + 20, y: b.t + 10, button: 'right', buttons: 2, clickCount: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.l + 20, y: b.t + 10, button: 'right', buttons: 0, clickCount: 1 });
     await settle(300);
     const m = await ev(`[...document.querySelectorAll('#popHost .pop.menu .mi')].map((x) => [x.querySelector('.mi-label') ? x.querySelector('.mi-label').textContent : x.textContent, (x.querySelector('.mi-key') || {}).textContent || ''])`);
     info.L1menu = m;
     const ml = m.find((x) => x[0] === 'Move left'), mr = m.find((x) => x[0] === 'Move right');
-    ok('L1 a card\'s ⋯ (right click, learn UX99) shows Alt ← / Alt → on Move left / right', ml && ml[1] === 'Alt ←' && mr && mr[1] === 'Alt →', m);
+    ok('L1 a step\'s ⋯ (right click, learn UX99) shows Alt ← / Alt → on Move left / right', ml && ml[1] === 'Alt ←' && mr && mr[1] === 'Alt →', m);
     await SHOT('L1-card-menu');
     await key('Escape'); await settle(200);
   }
@@ -75,15 +74,15 @@ await section('L2', async () => {
   await laptop();
   await load(NS + 'b', st0({ steps: [{ type: 'exp', params: {}, on: true }, { type: 'recip', params: {}, on: true }, { type: 'mul', params: { c: '2' }, on: true }] }));
   await settle(800);
-  const names = () => ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
+  const names = () => ev(`[...document.querySelectorAll('#svStrip .sv-step')].map((c) => c.querySelector('.sv-fn').textContent).join(',')`);
   const a = await names();
-  await ev(`document.querySelector('#pipeline .card[data-k="1"]').focus(); 1`);
+  await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`);
   await key('ArrowRight', 1); await settle(400);
   const b = await names();
-  const foc = await ev(`document.activeElement && document.activeElement.closest('.card') ? document.activeElement.closest('.card').dataset.k : null`);
+  const foc = await ev(`document.activeElement && document.activeElement.closest('.sv-step') ? document.activeElement.closest('.sv-step').dataset.k : null`);
   const A3 = a.split(',');
   info.L2 = { a, b, foc };
-  ok('L2 one Alt+→ moves the step one place (not two), the card keeps the keyboard', A3.length === 3 && b === [A3[1], A3[0], A3[2]].join(',') && foc === '2', info.L2);
+  ok('L2 one Alt+→ moves the step one place (not two), the chip keeps the keyboard', A3.length === 3 && b === [A3[1], A3[0], A3[2]].join(',') && foc === '2', info.L2);
   info.L2toast = await toasts();
   await SHOT('L2-alt-move');
 });
