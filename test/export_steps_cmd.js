@@ -71,7 +71,7 @@ for (const c of CASES) {
     const f = await Figure.build({}); if (!f) return { none: true };
     const m = /<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/.exec(f.svg); if (!m) return { cap: String(f.captionTex || ''), view: f.view, box: f.box, art: null };
     const im = new Image(); im.src = m[1]; await im.decode();
-    const W = Math.min(RASTER_W, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const W = Math.min(${RASTER_W}, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
     let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]);
     return { cap: String(f.captionTex || ''), view: f.view, box: f.box, art: { w: W, h: H, b64: btoa(bin) } };
@@ -154,7 +154,7 @@ for (const ex of [1, 18]) {
   const planes = await ev('__cmwSteps().planes');
   await ev(`window.__xsv = null; Figure.build({ svPic: 'film', crop: 'screen' }).then(async (f) => {
     const urls = [...f.svg.matchAll(/<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g)].map((m) => m[1]), arts = [];
-    for (const u of urls) { const im = new Image(); im.src = u; await im.decode(); const W = Math.min(RASTER_W, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]); arts.push({ w: W, h: H, b64: btoa(bin) }); }
+    for (const u of urls) { const im = new Image(); im.src = u; await im.decode(); const W = Math.min(${RASTER_W}, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]); arts.push({ w: W, h: H, b64: btoa(bin) }); }
     window.__xsv = { cap: String(f.captionTex || ''), view: f.view, name: f.name, bytes: f.svg.length, arts }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
   const fig = await ev('window.__xsv');
