@@ -74,7 +74,7 @@ const VIEWS = {
   'custom_show_cmd.js': port('interact', 'F\'s well: after K1 item 9 (the F chip)'),
   'd1_replace_cmd.js': port('interact'),
   'display_inline_cmd.js': port('interact'),
-  'field_settle_cmd.js': port('interact'),
+  'field_settle_cmd.js': steps({ pin: true }),
   'kbd_nav_cmd.js': port('interact', 'F6\'s areas are X, Y, chain, Inspector today'),
   'key_popup_cmd.js': port('interact'),
   'mode_chips_cmd.js': port('interact'),
