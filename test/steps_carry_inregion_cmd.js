@@ -108,6 +108,7 @@ await wait();
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 60, 40);
   // the region: outside the circle |z - c| = r; the points at w: z = w ± sqrt(w^2 - 1)
+  // (the example's disc, its centre and radius as 15-examples-guide.js gives them)
   const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
   // (the trailing edge's mark and its label in w, which the page draws over the colour: 1.1, 77 px at this view's 70 px
   // per unit, around them)
