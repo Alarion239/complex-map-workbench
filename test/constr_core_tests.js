@@ -408,8 +408,8 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     for (let i = 0; i < 50; i++) shapes.push(pt('p' + i, [Math.cos(i), Math.sin(i) + 2]), { id: 'k' + i, kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'p' + i }], fill: 'in' } });
     const S = state(shapes);
     rec(S);
-    // (the least CPU time of several short rounds, each followed by a round of the reference; the limit is the old absolute
-    // 1 ms per recompute expressed in this container's reference operation, so it is as strict here as that was)
+    // (the least CPU time of several short rounds, each followed by a round of the reference; the limit is 1 ms per
+    // recompute in this container's reference operation of about 125 ns)
     const units = cpuUnitsOf((f) => { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); });
     ok(units < DRAG50_UNITS, `speed: a drag with 50 dependent discs: ${units.toFixed(0)} reference operations CPU per recompute (limit ${DRAG50_UNITS})`);
   }

@@ -6,9 +6,10 @@
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limit is a ratio of two timings taken in the same run, so it holds on any machine
-// (the seg limit: the old absolute budget was an extra 10 us per recompute; a whole recompute takes 14.9 us on the 4-core
-// container this was set on, and 1 + 10 / 14.9 = 1.67 (the Mac measured the extra at 0.2 us). It takes the least of
-// many short rounds, alternating, so that one of each lands in a quiet moment of a loaded machine)
+// (the seg limit: a seg K adds at most 10 us to a recompute, which takes 14.9 us on the 4-core container the limit was
+// set on, so a recompute with seg may take 1 + 10 / 14.9 = 1.67 times as long; the Mac measured the extra at 0.2 us. The
+// check takes the least of many short rounds, alternating, so that one of each lands in a quiet moment of a loaded
+// machine)
 const SEG_RATIO = 1.67, SEG_ROUNDS = 15, SEG_CALLS = 1000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
