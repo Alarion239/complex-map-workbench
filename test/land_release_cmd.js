@@ -1,4 +1,4 @@
-// Issue #50: the Landscape's refinement textures are released when the steps view's surface switch leaves Landscape, and
+// The Landscape's refinement textures are released when the steps view's surface switch leaves Landscape, and
 // built again when Landscape comes back (GLR.releaseLandscape, called from renderLeft; GLR.landHeld counts the bytes,
 // test.html only).
 // It runs in the steps view (ci/suite_views.js: steps({ pin: true })): Plane ▾ → Landscape and back to Plane.
