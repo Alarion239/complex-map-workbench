@@ -1,5 +1,6 @@
-// Esc steps out one level at a time, and each active mode is a chip in the pane head (issue #31): the tool, a step shown
-// alone, an expanded plane, the deformation. A command file for a CDP daemon.
+// Esc leaves a Construct tool, and the tool is a chip in the plane's head with its pick count (issue #31, the steps view's
+// part: ux keeps the tool chip and Listening along in the head, counted by svFitHead; the step-alone, expanded-plane and
+// deformation chips are the classic views' and are mode_chips_classic_cmd.js). A command file for a CDP daemon.
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
@@ -15,54 +16,15 @@ ok('a Construct tool is a chip in the head with its count', s0.tool === 'circle3
 await key('Escape'); await settle(300);
 const s1 = await st();
 ok('Esc leaves the Construct tool and its chip', s1.tool === 'select' && !s1.chips.some((c) => /Circle through/.test(c)), s1);
-// the tool is the first level
-await key('l'); await settle(200);
-await ev(`document.getElementById('leftSolo').click()`); await settle(400);
-let s = await st();
-ok('an expanded plane shows a chip, Esc on it once the tool is closed', s.tool === 'line' && s.chips.some((c) => /^Y hidden/.test(c)), s);
-await key('Escape'); await settle(300);
-s = await st();
-ok('Esc 1 leaves the tool, the plane stays expanded', s.tool === 'select' && s.chips.some((c) => /Y hidden/.test(c) && /Esc/.test(c)), s);
-await key('Escape'); await settle(400);
-s = await st();
-ok('Esc 2 shows both planes', !s.chips.some((c) => /hidden/.test(c)) && s.solo === 'falsefalse', s);
-// a step alone, then the expanded plane: alone goes first
-const cc = await ev(`(() => { const r = document.querySelector('#pipeline .card:not(.region-card)').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-await click(cc[0], cc[1]); await settle(800);
-// (the Inspector shows the step's button a moment after the card is picked, longer on a slow machine: waited for)
-let pressed = false;
-for (let i = 0; i < 40 && !pressed; i++) {
-  pressed = await ev(`(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Show f\\S* alone$/.test(x.getAttribute('aria-label') || '') || /Show alone/.test(x.textContent)); if (b) b.click(); return !!b; })()`);
-  if (!pressed) await sleep(250);
+// (the chip takes room in the plane's head: at each width it is inside the pane, clear of the head's own controls, and the head fits)
+for (const w of [1440, 1024]) {
+  await view(w, 900, false, false); await settle(600);
+  await key('e'); await settle(500);
+  const g = await ev(`(() => { const c = document.querySelector('.mode-chip'), pane = document.getElementById('paneL').getBoundingClientRect(), hd = document.getElementById('svHead');
+    if (!c || !c.getClientRects().length) return null; const b = c.getBoundingClientRect(), h = hd.getBoundingClientRect();
+    const kids = [...hd.children].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect());
+    return { inPane: b.left >= pane.left - 1 && b.right <= pane.right + 1, clear: kids.every((k) => k.right <= b.left + 1 || k.left >= b.right - 1 || k.bottom <= b.top + 1 || k.top >= b.bottom - 1), headFits: hd.scrollWidth <= hd.clientWidth + 1, w: Math.round(b.width) }; })()`);
+  ok(`${w}: the Construct tool chip is in the pane, clear of the head's controls, and the head fits`, !!g && g.inPane && g.clear && g.headFits, g);
+  await key('Escape'); await settle(300);
 }
-await settle(800);
-await ev(`document.getElementById('rightSolo').click()`); await settle(400);
-s = await st();
-ok('a step alone and an expanded plane both show', s.chips.some((c) => /alone/.test(c)) && s.chips.some((c) => /hidden/.test(c)), s);
-await key('Escape'); await settle(300);
-s = await st();
-ok('Esc closes the selection or the alone mode first, one level only', s.chips.length >= 1, s);
-for (let i = 0; i < 4; i++) { await key('Escape'); await settle(300); }
-s = await st();
-ok('Esc walks out of alone and the expanded plane', s.chips.length === 0 && s.solo === 'falsefalse', s);
-// the deformation is the last level
-await key('m'); await settle(800);
-s = await st();
-ok('the deformation shows a chip with its key', s.chips.some((c) => /^Deformation/.test(c)) && /merged/.test(s.merged), s);
-await key('Escape'); await settle(500);
-s = await st();
-ok('Esc ends the deformation', !s.chips.some((c) => /Deformation/.test(c)), s);
-// an expanded plane leaves the other one as a labelled strip at the edge, which brings it back
-await ev(`document.getElementById('leftSolo').click()`); await settle(400);
-const strip = await ev(`(() => { const e = document.getElementById('hiddenStrip'); return e && !e.hidden ? { t: e.textContent, side: e.dataset.side, w: Math.round(e.getBoundingClientRect().width) } : null; })()`);
-ok('the hidden plane is a strip at the edge, named', strip && /Y hidden/.test(strip.t) && strip.side === 'R' && strip.w > 8, strip);
-await ev(`document.getElementById('hiddenStrip').click()`); await settle(400);
-s = await st();
-ok('pressing the strip shows both planes', s.solo === 'falsefalse' && !(await ev(`!document.getElementById('hiddenStrip').hidden`)), s);
-// Y's head with the chain empty at 1366 x 768 keeps its title (the Add function button shrinks to its plus first)
-await view(1366, 768, false, false);
-await load('modechipsy' + Date.now(), { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
-await settle(1800);
-const yh = await ev(`(() => { const t = document.getElementById('rightTitle'); return { w: Math.round(t.getBoundingClientRect().width), txt: t.textContent.slice(0, 12), tiny: document.getElementById('paneR').classList.contains('tiny') }; })()`);
-ok('Y keeps its title at 1366 with the chain empty', yh.w > 20 && !yh.tiny, yh);
 return { pass: fails.length === 0, fails, info };
