@@ -65,12 +65,16 @@ for (const [name, steps] of [['exp', [step('exp')]], ['sin', [step('sin')]], ['z
   const ch = chain(steps), q = Inverse.pointPre(Inverse.planChain(ch.steps, ch.built), p);
   check(`${name}: not exact (the app searches)`, !q.exact, JSON.stringify(q).slice(0, 120));
 }
-// (#551) opts.fam = K: a periodic family's members m = -K … K of each base, said truncated; each maps to p
-for (const [name, steps, want] of [['exp, K = 3', [step('exp')], 7], ['sin, K = 2 (two bases)', [step('sin')], 10],
-  ['z^2, then exp, K = 1', [step('pown', { n: 2 }), step('exp')], 6]]) {
-  const ch = chain(steps), K = +name.match(/K = (\d)/)[1], q = Inverse.pointPre(Inverse.planChain(ch.steps, ch.built), p, 64, { fam: K });
+// opts.fam = K: a periodic family's members m = -K … K of each base, said truncated; each maps to p. A chain with b
+// bases (the branches before the family's step, or the family's own) has b (2K + 1) members
+for (const { name, steps, K, bases } of [
+  { name: 'exp', steps: [step('exp')], K: 3, bases: 1 },
+  { name: 'sin (two bases)', steps: [step('sin')], K: 2, bases: 2 },
+  { name: 'z^2, then exp (two square roots)', steps: [step('pown', { n: 2 }), step('exp')], K: 1, bases: 2 },
+]) {
+  const want = bases * (2 * K + 1), ch = chain(steps), q = Inverse.pointPre(Inverse.planChain(ch.steps, ch.built), p, 64, { fam: K });
   const f = F(ch, 0, steps.length), worst = q.exact ? Math.max(0, ...q.zs.map((z) => CX.abs(CX.sub(f(z), p)) / (1 + CX.abs(p)))) : Infinity;
-  check(`${name}: ${want} members, each maps to p to 1e-9, truncated`, q.exact && q.truncated && q.zs.length === want && worst <= 1e-9, [q.exact, q.truncated, q.zs && q.zs.length, worst]);
+  check(`${name}, K = ${K}: ${want} members, each maps to p to 1e-9, truncated`, q.exact && q.truncated && q.zs.length === want && worst <= 1e-9, [q.exact, q.truncated, q.zs && q.zs.length, worst]);
 }
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);
