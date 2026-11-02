@@ -17,7 +17,7 @@ const open = async (state) => {
 };
 const { ctl, quiet, planePixels } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_pixels.js'), 'utf8'));
 // the share of the plane's pixels with a colour: the channels more than COLOURED apart
-const COLOURED = 40;
+const COLOURED = 40;   // (the phase colours differ by well over this between channels; the plane's paper, grid and ink are greys within it)
 const colour = async () => { const r = await planePixels('', `(r, g, b) => Math.max(r, g, b) - Math.min(r, g, b) > ${COLOURED}`); return r.__exc ? r : { share: +(r.n / r.total).toFixed(3) }; };
 const NEUTRAL_MAX = 0.02, COLOURED_MIN = 0.2;   // (a neutral plane has only its grid and curves' ink: a few pixels in a hundred)
 // (the head's switch: the scope it shows checked)
