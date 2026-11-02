@@ -1,7 +1,7 @@
-// The plane's names and a finger drag, classic view only: a one-finger drag from an unselected disc selects it and pans the plane (the steps view's finger drag scrubs its thread); the names of the two planes and of their panes (UX27 and UX37: X and
-// Y with their titles, the canvases' names, the Shapes headings, Plane | Sphere in the heads of both panes, the "X" tag on
-// the phone's big plane, and the same names in Russian). The steps view has one plane and no X or Y. The rest of the
-// piece is ux165_plane_cmd.js. A command file for a CDP daemon (test/cdp_kit README).
+// The plane's names and a finger drag, classic view only: a one-finger drag from an unselected disc selects it and pans the
+// plane (in the steps view a finger drag scrubs its thread), and the names of X and Y: titles, canvas names, Shapes headings,
+// Plane | Sphere in both heads, the phone chip's X tag, and the same in Russian (the steps view has one plane and no X or Y).
+// The rest of the piece is ux165_plane_cmd.js. A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 300) => { await settled({ floor: ms }); };

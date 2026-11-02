@@ -550,7 +550,10 @@ await section('LAY', async () => {
   // the key's "=" and parentheses in the maths face (not the old mono face's "[")
   await move(p[0], p[1]); await settle(200);
   const ff = await ev(`[...document.querySelectorAll('#leftReadout .rk .rm')].map((e) => getComputedStyle(e).fontFamily.split(',')[0])`);
-  ok('UX105 the readout key\'s "(" and "=" are set in STIX', ff.length >= (stepsLay ? 2 : 3) && ff.every((f) => /STIX/.test(f)), ff);
+  // (the classic key reads `w = F(z) =`: three marks in the maths face, "(", "=" and ")"; the steps view's reads `F(z)`: the two
+  // parentheses, and no "=", because the plane it belongs to is the one shown, not the right pane's image)
+  const marks = stepsLay ? 2 : 3;
+  ok(`UX105 the readout key's ${marks} marks (${stepsLay ? '"(" and ")"' : '"(", "=" and ")"'}) are set in STIX`, ff.length >= marks && ff.every((f) => /STIX/.test(f)), ff);
   await key('Escape'); await key('Escape'); await settle(80);
   // UX48: with a mouse the ? sits beside the chip's words (two lines of words), never alone on a line below them
   for (const t of ['hyper', 'meet']) {
