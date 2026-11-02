@@ -1,13 +1,17 @@
-// P5 acceptance in the browser (notes/sphere-design/SPEC.md 8, 12.3, 12.4 (k)): the forward fallback SphereMesh.
+// P5 acceptance in the browser (notes/sphere-design/SPEC.md 8, 12.3, 12.4 (k)): the forward fallback SphereMesh, in the
+// steps view. Each page shows the chain's last plane with the colour plane z (T = 0) on Inside regions, in the Phase
+// colouring: the regions' mask on that plane is drawn from the steps view's SphereMesh slot 'SV' (drawScene's opt.sm).
+// One camera shows every plane (S.srcView): the scenes' views of the image are their srcView.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
-//  (k) the crack test: exact images off, each scene's fill drawn solid at alpha 1 from its SphereMesh; every interior
-//      pixel (the analytic truth, 4 px from the rims) is covered (fill = the frame differs from the same frame at alpha 0)
-//  12.3 the trouble classification (__cmwSmVerdict) is the same at 1x, 4x and 1/4x right-view zoom for every quality scene
+//  (k) the crack test: exact images off, each scene's region drawn from its SphereMesh; every interior pixel (the
+//      analytic truth, 4 px from the rims) is covered (fill = a Phase colour: its channels spread more than FILL_SPREAD;
+//      the paper, its tint and the grid spread less)
+//  12.3 the trouble classification (__cmwSmVerdict) is the same at 1x, 4x and 1/4x zoom for every quality scene
 //  8.8 a left pan that re-centres the meshing window: no frame shows today's GPU image (the old mesh stands in until
 //      the new one lands), and the slices of every job stay within 6 ms
 //  the forward image of exp(H) against the exact inverse image
-//  memory: one mesh per slot at rest (after pattern and alpha changes), the export's meshes freed once the figure is
+//  memory: one mesh per slot at rest (after four moves of the region), the export's meshes freed once the figure is
 //      drawn, and after a context loss the pre-mapped GPU bytes equal the bytes of the meshes drawn
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -15,8 +19,13 @@ const req = process.getBuiltinModule('module').createRequire(process.cwd() + '/'
 const Q = req('./test/regress/quality/scenes.js');
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
 const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false, exactImages: false };
+// the steps view at the chain's last plane (sv.at is clamped to it), coloured from plane z, on Inside regions
+const SV = { dc: 'phase', sv: { at: 99, T: 0, scope: 'in' } };
+// (the Phase wheel's channels spread at least 73/255 at its L 0.75; the paper, its tint, the grid lines and the axes at
+// most 42)
+const FILL_SPREAD = 50;
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-// wait until every SphereMesh job has published and the right canvas is still. `want`: the least number of meshes and of
+// wait until every SphereMesh job has published and the canvas is still. `want`: the least number of meshes and of
 // builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet)
 const settle = async (ms = 120000, want = {}) => {
   const t0 = Date.now();
@@ -77,24 +86,24 @@ const meshDrawn = async (trigger, alpha, ms = 90000) => {
 const exactDrawn = async (ms = 90000) => {
   const t0 = Date.now();
   for (;;) {
-    if ((await ev('__cmwDrawn()["R|s1"]')) === 'inverse') break;
+    if ((await ev('__cmwDrawn()["SV|s1"]')) === 'inverse') break;
     if (Date.now() - t0 > ms) return false;
     await sleep(150);
   }
   await ev(rAF2);
   return true;
 };
-const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasR'); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p5 = window.__p5 || {}; window.__p5[${JSON.stringify(tag)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
+const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p5 = window.__p5 || {}; window.__p5[${JSON.stringify(tag)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
 // interior pixels of the truth cls(w) (1 inside, -1 outside) not covered by the fill
 const crack = (cls) => ev(`(() => {
-  const cv = document.getElementById('canvasR'), r = cv.getBoundingClientRect(), dpr = cv.width / r.width, GW = cv.width;
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), dpr = cv.width / r.width, GW = cv.width;
   // (__cmwW2S answers page coordinates: made relative to the canvas)
   const rel = (p) => [p[0] - r.left, p[1] - r.top];
-  const o = rel(__cmwW2S('R', 0, 0)), x1 = rel(__cmwW2S('R', 1, 0)), y1 = rel(__cmwW2S('R', 0, 1)), sx = x1[0] - o[0], sy = o[1] - y1[1];
+  const o = rel(__cmwW2S('L', 0, 0)), x1 = rel(__cmwW2S('L', 1, 0)), y1 = rel(__cmwW2S('L', 0, 1)), sx = x1[0] - o[0], sy = o[1] - y1[1];
   const cls = ${cls};
   const ec = getComputedStyle(document.documentElement).getPropertyValue('--c1-edge').trim(), EDGE = [1, 3, 5].map((k) => parseInt(ec.slice(k, k + 2), 16));
   const wOf = (x, y) => [(x - o[0]) / sx, (o[1] - y) / sy];
-  const A = window.__p5.a1, B = window.__p5.a0;
+  const A = window.__p5.a1;
   let inN = 0, miss = 0, outN = 0, spill = 0; const ex = [];
   for (let y = 6; y < r.height - 6; y += 2) for (let x = 6; x < r.width - 6; x += 2) {
     const c = cls(wOf(x + 0.5, y + 0.5));
@@ -102,10 +111,10 @@ const crack = (cls) => ev(`(() => {
     for (let k = 0; k < 12 && !near; k++) { const t = k * Math.PI / 6; if (cls(wOf(x + 0.5 + 4 * Math.cos(t), y + 0.5 + 4 * Math.sin(t))) !== c) near = true; }
     if (near) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
-    const fill = Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) > 24;
-    // (a pixel under a stroke is the same in both frames: not a crack; the strokes are hidden in these frames, so this
-    // only skips pixels some other edge-coloured mark covers)
-    if (!fill && Math.abs(B[i] - EDGE[0]) + Math.abs(B[i + 1] - EDGE[1]) + Math.abs(B[i + 2] - EDGE[2]) < 90) continue;
+    const fill = Math.max(A[i], A[i + 1], A[i + 2]) - Math.min(A[i], A[i + 1], A[i + 2]) > ${FILL_SPREAD};
+    // (a pixel under an edge-coloured mark is not a crack; the strokes are hidden in this frame, so this only skips
+    // pixels some other mark covers)
+    if (!fill && Math.abs(A[i] - EDGE[0]) + Math.abs(A[i + 1] - EDGE[1]) + Math.abs(A[i + 2] - EDGE[2]) < 90) continue;
     if (c > 0) { inN++; if (!fill) { miss++; if (ex.length < 4) ex.push([x, y, wOf(x, y).map((v) => +v.toPrecision(4))]); } }
     else if (c < 0) { outN++; if (fill) spill++; }
   }
@@ -114,6 +123,7 @@ const crack = (cls) => ev(`(() => {
 
 // ---- (k) the crack test ----
 const EPI = Math.exp(-Math.PI);
+// (name, steps, shapes, the view of plane z (unused: one camera), the view of the image, cls)
 const CRACK = [
   ['expH', [{ type: 'exp', params: {} }], [H], { cx: 0, cy: 1, s: 60 }, { cx: 0, cy: 0, s: 30 }, '(w) => (Math.hypot(w[0], w[1]) > 0.02 ? 1 : 0)'],
   ['ziH', [{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 } }], [H], { cx: 0, cy: 1, s: 60 }, { cx: 0, cy: 0, s: 190 }, `(w) => { const a = Math.hypot(w[0], w[1]); return a > ${EPI} && a < 1 ? 1 : -1; }`],
@@ -123,22 +133,19 @@ const CRACK = [
 ];
 await view(1440, 900, false);
 R.crack = {};
-for (const [name, steps, shapes, srcView, rightView, cls] of CRACK) {
-  await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView, rightView }, solid));
+for (const [name, steps, shapes, , view, cls] of CRACK) {
+  await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView: view }, solid, SV));
   const st = await settle(60000, { entries: 1, built: 1 });
-  // (the shape's strokes are left out of both frames: the fill under the image of the boundary inside the image, e.g.
+  // (the shape's strokes are left out of the frame: the fill under the image of the boundary inside the image, e.g.
   // exp(H)'s positive real axis or e^{1/z}'s exp of the unit circle, is tested too; the 85 % casing over it hid it)
-  // (each frame is grabbed once the app has drawn the mesh in that state, not after a fixed wait: see meshDrawn)
-  const drew = [await meshDrawn('__cmwHideStrokes(true); 1', 1)];
+  // (the frame is grabbed once the app has drawn the mesh in that state, not after a fixed wait: see meshDrawn)
+  const drew = [await meshDrawn('__cmwHideStrokes(true); 1')];
   await grab('a1');
-  drew.push(await meshDrawn('__cmwSet("alpha", 0); 1', 0));
-  await grab('a0');
-  drew.push(await meshDrawn('__cmwSet("alpha", 1); 1', 1));
   await ev('__cmwHideStrokes(false)');
   const c = await crack(cls);
   R.crack[name] = Object.assign(c, { meshes: st.entries.map((e) => ({ why: e.why, n: e.n, partial: e.partial, ms: e.ms })), maxSlice: +st.stats.maxSlice.toFixed(1) });
   ok(`(k) ${name}: drawn from a SphereMesh`, st.entries.length > 0, st.entries.length);
-  ok(`(k) ${name}: the app drew the mesh in each of the three frames compared`, drew.every(Boolean), drew);
+  ok(`(k) ${name}: the app drew the mesh before the frame compared`, drew.every(Boolean), drew);
   ok(`(k) ${name}: interior pixels not covered = 0`, c.miss === 0 && c.inN > 1000, c);
   ok(`(k) ${name}: no fill outside the image`, c.spill === 0, c);
   ok(`(k) ${name}: no slice over 6 ms`, st.stats.maxSlice <= 6, st.stats.maxSlice);
@@ -152,15 +159,15 @@ for (const run of Q.runs()) {
   seen.add(run.scene.name);
   const v = [];
   for (const k of [1, 4, 0.25]) {
-    const st = Object.assign({}, run.state, { exactImages: false, rightView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
+    const st = Object.assign({}, run.state, SV, { exactImages: false, srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
     await loadReady('p5v' + Date.now(), st);
     // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
     // is asked for here: the first may have come before) and the LED rests)
     await ev('window.__p5f = window.__p5w.frames; __cmwHideStrokes(false); 1');
     let rested = false;
-    for (let i = 0; i < 240 && !rested; i++) { const b = await ev('({ led: document.getElementById("rightLed").className, drew: window.__p5w.frames > window.__p5f, pending: GLR.frameStatus().pending })'); rested = b.drew && !b.pending && !/busy/.test(b.led); if (!rested) await sleep(250); }
+    for (let i = 0; i < 240 && !rested; i++) { const b = await ev('({ led: document.getElementById("leftLed").className, drew: window.__p5w.frames > window.__p5f, pending: GLR.frameStatus().pending })'); rested = b.drew && !b.pending && !/busy/.test(b.led); if (!rested) await sleep(250); }
     if (!rested) R.verdict.stalled.push(`${run.scene.name} @${k}`);
-    v.push(JSON.stringify(await ev('__cmwSmVerdict("R")')));
+    v.push(JSON.stringify(await ev('__cmwSmVerdict("SV")')));
   }
   R.verdict.n++;
   if (v[0] !== v[1] || v[0] !== v[2]) R.verdict.differ.push({ scene: run.scene.name, v });
@@ -170,7 +177,7 @@ ok('12.3: every load drew a frame and rested before its verdict was read', R.ver
 ok('12.3: the SphereMesh verdict is the same at 1x, 4x and 1/4x for every quality scene', R.verdict.differ.length === 0, R.verdict.differ.slice(0, 4));
 
 // ---- 8.8: a left pan that re-centres clipWin; the stand-in is the old mesh, never the GPU image ----
-await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }));
+await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
 await settle(120000, { entries: 1, built: 1 });
 ok('8.8: the app drew the mesh before the rest frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest0');
@@ -215,7 +222,7 @@ ok('8.8: frames during the rebuild match the rest frame (<= 0.5 % of pixels > 32
 ok('8.8: frames during the rebuild match the exact image (<= 0.5 % of pixels > 32/255)', R.panFrames.duringVsTruth.every((d) => d && d.frac32 <= 0.005), R.panFrames);
 
 // ---- the forward image of exp(H) (checker, alpha 0.85) against the exact inverse image ----
-await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }));
+await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
 await settle(120000, { entries: 1, built: 1 });
 ok('exp(H) forward vs inverse: the app drew the mesh before the forward frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('fwd');
@@ -229,11 +236,11 @@ ok('exp(H) forward vs inverse: <= 0.5 % of the pixels differ by more than 8/255'
 // (checker) and z^i of H (polar): the forward draw's front sheet is chosen per sample by the inverse path's key (SPEC
 // 13.22; before, a per-leaf choice showed triangle-jagged shard seams where sheets meet)
 R.fwdVsInvSheets = {};
-for (const [name, steps, shapes, srcView, rightView, pattern] of [
+for (const [name, steps, shapes, , view, pattern] of [
   ['e1z_checker', [{ type: 'recip', params: {}, on: true }, { type: 'exp', params: {}, on: true }], [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], { cx: 0, cy: 0, s: 120 }, { cx: 0, cy: 0, s: 60 }, 'checker'],
   ['ziH_polar', [{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true }], [H], { cx: 0, cy: 1, s: 60 }, { cx: 0, cy: 0, s: 190 }, 'polar'],
 ]) {
-  await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView, rightView }, solid, { pattern, alpha: 1 }));
+  await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView: view }, solid, { pattern, alpha: 1 }, SV));
   await settle(120000, { entries: 1, built: 1 });
   ok(`${name} forward vs inverse: the app drew the mesh before the forward frame was grabbed`, await meshDrawn('__cmwHideStrokes(false); 1'));
   await grab('fwd');
@@ -249,7 +256,7 @@ for (const [name, steps, shapes, srcView, rightView, pattern] of [
 await ev('__cmwSet("exactImages", false); 1');
 const stE0 = await settle();
 // (ev does not await a promise: the figure's result is polled)
-await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["R"], widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');
+await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["L"], widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');
 let fig = null;
 for (let i = 0; i < 400 && !fig; i++) { await sleep(300); fig = await ev('window.__p5fig'); }
 const figOk = !!(fig && fig.ok);
@@ -260,12 +267,15 @@ ok('10.6: the export built a SphereMesh at its own resolution', figOk && stE1.la
 ok('10.6: the export meshes are freed once the figure is drawn', exE.length === 0 && stE1.preBytes <= stE0.preBytes && stE1.cpuBytes <= stE0.cpuBytes, R.export);
 ok('10.6: the export mesh ended on no budget', stE1.lastExport && stE1.lastExport.every((e) => !e.partial), R.export);
 
-// ---- memory: one mesh per slot at rest (pattern and alpha changes), example 9 ----
-await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }));
+// ---- memory: one mesh per slot at rest after four moves of the region (each a new mesh content) ----
+await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
 await settle(120000, { entries: 1, built: 1 });
 // (each change is a new mesh: wait for its build, a job is asked for by a draw that may come late)
 let builtNow = 1;
-for (const [k, v] of [['pattern', 'polar'], ['alpha', 0.6], ['pattern', 'checker'], ['alpha', 0.9]]) { await ev(`__cmwSet(${JSON.stringify(k)}, ${JSON.stringify(v)}); 1`); builtNow = (await settle(60000, { entries: 1, built: builtNow + 1 })).stats.built; }
+for (const y of [0.1, 0.2, 0.3, 0.4]) {
+  await ev(`__cmwSet("shapes", [${JSON.stringify(Object.assign({}, H, { a: [0, y], b: [1, y] }))}]); 1`);
+  builtNow = (await settle(60000, { entries: 1, built: builtNow + 1 })).stats.built;
+}
 const stM = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
 const perSlot = {};
 for (const e of stM.entries) perSlot[e.slot] = (perSlot[e.slot] || 0) + 1;

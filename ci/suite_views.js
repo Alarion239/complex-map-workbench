@@ -182,7 +182,7 @@ const VIEWS = {
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': port('render'),
   'p3bfix_cmd.js': port('render'),
-  'p5_accept_cmd.js': port('render'),
+  'p5_accept_cmd.js': steps({ pin: true }),
   'regions_phase_cmd.js': port('render'),
   'sphere_light_cmd.js': port('render'),
 

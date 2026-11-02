@@ -485,6 +485,9 @@
     // area shape takes its path in list order (inverse and forward passes interleave, so list order holds across paths)
     const m0 = normalizeMap(map);
     const live = (role === 'R' || role === 'L') && !offRender && !opt.thin;
+    // (opt.sm: the SphereMesh role of a draw with no pane role of its own, the steps view's region mask 'SV': its
+    // meshes are asked for and its paths noted as a live pane's)
+    const smRole = role || opt.sm || null, smLive = live || (!!opt.sm && !offRender);
     let recs = null, gf = null, timing = false, invN = 0;
     const halfDraws0 = GLR.inverseHalfDraws || 0;
     if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
@@ -634,15 +637,13 @@
             if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
           }
         }
-        if (live) notePath(role, s.id, lp);
+        if (smLive) notePath(smRole, s.id, lp);
       }
       // the dragged shape's fix-up keeps up with the drag; the pair drawn is the current mesh with its fix-up, or the
       // last complete pair while the current one's is on its way (never an unfixed mesh in motion)
       if (live && role) liveFix(s, r);
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
-      // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built;
-      // opt.sm, the role of a draw with no pane role of its own: the steps view's region mask, 'SV', asks for its jobs)
-      const smRole = role || opt.sm || null, smLive = live || (!!opt.sm && !offRender);
+      // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
       const smd = (smLive || offRender) && smRole
         ? smFor(s, r, smRole, 'flat', map, pane, 0, smLive && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
