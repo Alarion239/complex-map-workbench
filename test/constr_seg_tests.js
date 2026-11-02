@@ -244,7 +244,8 @@ module.exports = function ({ K, ok }) {
     const whole = timer(0), withSeg = timer(1);
     let a = Infinity, b = Infinity;
     for (let r = 0; r < SEG_ROUNDS; r++) { a = Math.min(a, whole()); b = Math.min(b, withSeg()); }
-    ok(b / a <= SEG_RATIO, `seg: a seg K makes a recompute ${(b / a).toFixed(2)} times as long (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; limit ${SEG_RATIO})`);
+    ok(b / a <= SEG_RATIO,
+      `seg: a seg K makes a recompute ${(b / a).toFixed(2)} times as long (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; limit ${SEG_RATIO})`);
   }
 
   // ------------------------------------------------ 10. the review fixes (notes/orthogonal-circle/segments/ledger.json)

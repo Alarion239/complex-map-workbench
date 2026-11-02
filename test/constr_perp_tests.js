@@ -338,7 +338,8 @@ module.exports = function ({ K, ok }) {
     for (let j = 0; j < 10; j++) W.shapes.push(pt('Q' + j, [Math.cos(j), Math.sin(j) * 0.5]), perpShape('k' + j, 'C', 0, { s: 'P' }, { s: 'Q' + j }, j % 2 ? 'in' : 'none'));
     rec(W);
     const drag = cpuUnitsOf((f) => { sh(W, 'P').p = [0.3 + 0.1 * Math.cos(f / 50), 0.2 + 0.1 * Math.sin(f / 50)]; rec(W, { shapes: ['P'] }); });
-    ok(per < PERP_UNITS && drag < DRAG_UNITS, `speed: perpForm ${per.toFixed(0)} reference operations (limit ${PERP_UNITS}); a drag with 10 dependents ${drag.toFixed(0)} (limit ${DRAG_UNITS})`);
+    ok(per < PERP_UNITS && drag < DRAG_UNITS,
+      `speed: perpForm ${per.toFixed(0)} reference operations (limit ${PERP_UNITS}); a drag with 10 dependents ${drag.toFixed(0)} (limit ${DRAG_UNITS})`);
   }
 
   // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)
