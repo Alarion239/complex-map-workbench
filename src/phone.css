@@ -637,7 +637,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
-:root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-loop { display: none; }
+:root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-loop, :root.ph.sv #svStrip .sv-paths { display: none; }
 /* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge cleared the range (eyes on #460)) */
 :root.ph.sv .sv-bandx { clip-path: inset(0 0 8px 0); width: 44px; height: 44px; top: -30px; left: clamp(var(--rl, 0px), calc(var(--bx, 0px) - 10px), calc(var(--rr, 100%) - 44px)); background: transparent; border: 0; font-size: 0; }
 :root.ph.sv .sv-bandx::before { content: "×"; display: grid; place-items: center; width: 24px; height: 24px; margin: auto; font: 400 15px/1 var(--f-ui); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; }
