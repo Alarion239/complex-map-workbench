@@ -985,7 +985,7 @@ async function svInteractUnit(scene) {
 // [#643 probe, measurement only, not for merge] the Mountain King's strip scrub (Inside regions and Everywhere) under
 // shaders' globalThis.__svCarryProbe settings, in turn within each rep (so drift falls on all alike): frame p95, cpu p95
 // and fps per setting, as info, and a summary line per setting in the log
-const SVP_SETTINGS = { base: {}, tf: { tfMode: 'tf' }, pts: { tfMode: 'pts' }, noCarry: { noCarry: true } };
+const SVP_SETTINGS = { base: {} };
 async function svProbeUnit() {
   const leg = async (fn) => {
     const a = await pageNow();
@@ -1024,8 +1024,11 @@ async function svProbeUnit() {
         await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
         await settle(await pageNow());
         const r = await B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+        await B.ev('globalThis.__svPathStats = {}, 1');
         const l1 = await leg(() => B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 }));
         const l2 = await leg(() => B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }));
+        const ps = await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || null); })()');
+        console.log(`[perf] svp.king.${k}.scrub.${scope} rep ${i + 1} path stats: ${ps}`);
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`svp.king.${k}: the ${scope} scrub drew no frames`);
         R[k][scope].push(legSummary([l1, l2], 'pointermove'));
       }
@@ -1880,7 +1883,7 @@ unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its ar
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
-unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub under globalThis.__svCarryProbe {base, tf, pts, noCarry}, info only', svProbeUnit, { timeoutS: 900 });
+unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub under globalThis.__svCarryProbe {base}, with __svPathStats logged per scrub, info only', svProbeUnit, { timeoutS: 900 });
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
