@@ -382,6 +382,7 @@ const p3 = await ctxInfo();
 ok('D3 three points: Done is on', p3 && !p3.btn[1].dis, p3);
 await ev(`document.querySelector('.ph-ctx .ph-cb').click()`); await settle();
 ok('D3 Last takes the last point back', (await ctxInfo()).btn[1].dis === true, await ctxInfo());
+await settled({ floor: 500 });   // (the same spot is touched again: the window a second touch there is read as a new pick, not the first one's lift)
 await touch(pc[0] + 20, pc[1] + 30);
 await settled({ until: `(() => { const b = [...document.querySelectorAll('.ph-ctx .ph-cb')].find((x) => /Done/.test(x.textContent)); return !!b && !b.disabled; })()` });
 await settle();   // (Done turns on under the finger; the lift commits the point a frame later)
