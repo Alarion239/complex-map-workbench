@@ -429,12 +429,13 @@
   // for being near the centre alone, as beside plane b's poles. Its points: plane b's accumulation set, then plane b's
   // poles and the glide's poles at t, nearest the window first (at most 4 in all, as Inverse.keySing gives them at
   // rest). At t = 1 the glide's poles are plane b's: the key meets plane b's own.
-  // The poles are tracked once per glide (the plane, the chain, the window): SV_POLE_K steps of t, found on a grid over
-  // the window (a quarter wider each side, SV_POLE_GRID cells a side) and on a coarser one over it widened by three
-  // times its size on each side, at t = 0 and every SV_POLE_SEED steps; each followed from step to step by Newton's
+  // The poles are tracked once per glide (the plane, the chain, the windows), in idle moments or a few ms a frame ahead
+  // of the glide, whole at the glide's first frame if not yet: SV_POLE_K steps of t, found on a grid over
+  // the camera's window (a quarter wider each side, SV_POLE_GRID cells a side) and on a coarser one over the key's
+  // window widened by three times its size on each side, at t = 0 and every SV_POLE_SEED steps; each followed from step to step by Newton's
   // method on 1/F (or, where it leaves through a cut, by svPeakAt while the points beside it go past 4 R), and read
   // between two steps by linear interpolation, so the key moves continuously with t
-  const SV_POLE_K = 64, SV_POLE_SEED = 8, SV_POLE_GRID = 24, SV_POLE_MAX = 8;
+  const SV_POLE_K = 64, SV_POLE_SEED = 8, SV_POLE_GRID = 24, SV_POLE_MAX = 8, SV_POLE_TOP = 8;
   const svPoleMemo = new Map();
   // Newton's method on h = 1/F from z: a pole of F (h(z) = 0, |F| past 1e8) or null (it left the box or did not settle)
   function svPoleAt(F, z, box) {
@@ -474,61 +475,100 @@
       try { w = F(C(box.x0 + i * dx, box.y0 + j * dy)); } catch (e) { w = null; }
       M.push(w && CX.isFin(w) ? CX.abs(w) : Infinity);
     }
-    const out = [];
+    // (the starts: the grid's local maxima of |F|, and its SV_POLE_TOP points of the largest |F| / (1 + |z - c|), c the
+    // box's centre: a map that grows like z far out hides a pole's maximum from a coarse grid, not its ratio)
+    const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2, at = (i, j) => C(box.x0 + i * dx, box.y0 + j * dy);
+    const starts = [], ratio = [];
     for (let j = 1; j < n; j++) for (let i = 1; i < n; i++) {
       const m = M[j * (n + 1) + i];
+      ratio.push([m / (1 + Math.hypot(box.x0 + i * dx - cx, box.y0 + j * dy - cy)), i, j]);
       let top = true;
       for (let b = -1; b <= 1 && top; b++) for (let a = -1; a <= 1; a++) if ((a || b) && M[(j + b) * (n + 1) + i + a] > m) { top = false; break; }
-      if (!top) continue;
-      const p = svPoleAt(F, C(box.x0 + i * dx, box.y0 + j * dy), lim);
+      if (top) starts.push([i, j]);
+    }
+    ratio.sort((u, v) => v[0] - u[0]);
+    for (const [, i, j] of ratio.slice(0, SV_POLE_TOP)) if (!starts.some(([a, b]) => a === i && b === j)) starts.push([i, j]);
+    const out = [];
+    for (const [i, j] of starts) {
+      const p = svPoleAt(F, at(i, j), lim);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
   }
-  // the tracks of the glide's poles to plane b: {tr: [[z or null] x (SV_POLE_K + 1)]} for the window w
+  // the tracks of the glide's poles to plane b for the window w: {tr: [[z or null] x (SV_POLE_K + 1)], k: the next
+  // step of t to make}, made a step at a time by svPoleStep
   function svPoleTracks(b, w) {
-    const key = [b, chainSig[nSteps()], w.x0, w.x1, w.y0, w.y1].join('|');
+    // (the fine grid over the camera's window, what the view shows, a quarter wider each side: clipWin, kept while the
+    // view stays inside it, can be many times larger after a zoom out and back, and its grid's cells too coarse to have
+    // a point by a pole that has just come out of a cut)
+    const v = S.srcView, hw = 0.75 * paneL.w / v.s, hh = 0.75 * paneL.h / v.s, cam = { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh };
+    const key = [b, chainSig[nSteps()], w.x0, w.x1, w.y0, w.y1, cam.x0, cam.x1, cam.y0, cam.y1].join('|');
     if (svPoleMemo.has(key)) return svPoleMemo.get(key);
     const ex = (f) => ({ x0: w.x0 - f * (w.x1 - w.x0), x1: w.x1 + f * (w.x1 - w.x0), y0: w.y0 - f * (w.y1 - w.y0), y1: w.y1 + f * (w.y1 - w.y0) });
-    const big = 4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0) / 2, box = ex(3), win = ex(0.25), cz = C((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2), Fp = stageF(b - 1);
-    const Ft = (t) => { const H = homF(b, t); return (z) => H(Fp(z)); };
-    const tr = [];
-    try {
-      for (let k = 0; k <= SV_POLE_K; k++) {
-        const F = Ft(k / SV_POLE_K);
-        for (const r of tr) r[k] = r[k - 1] ? svPoleAt(F, r[k - 1], box) || svPeakAt(F, r[k - 1], big) : null;
-        if (k % SV_POLE_SEED === 0) {
-          const near = svPolesIn(F, win, SV_POLE_GRID, box).concat(svPolesIn(F, box, SV_POLE_GRID / 2, box)).sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz))).slice(0, SV_POLE_MAX);
-          for (const p of near) {
-            if (tr.some((r) => r[k] && CX.abs(CX.sub(r[k], p)) < 1e-6 * (1 + CX.abs(p)))) continue;
-            // (a track lost since its last step near p is p's: the steps between are bridged on the line from there to
-            // p, so the key keeps the pole through them, never dropping it for a step and taking it back)
-            const old = tr.find((r) => { if (r[k]) return false; const j = r.findLastIndex((q, i) => q && i < k); return j >= 0 && CX.abs(CX.sub(r[j], p)) < 0.25 * (1 + CX.abs(p)); });
-            if (old) {
-              const j = old.findLastIndex((q, i) => q && i < k);
-              for (let i = j + 1; i <= k; i++) old[i] = CX.add(old[j], CX.mul(C((i - j) / (k - j), 0), CX.sub(p, old[j])));
-              continue;
-            }
-            const r = new Array(SV_POLE_K + 1).fill(null);
-            r[k] = p;
-            // (and back to where it came into the box, or out of a cut: a pole found at a seed step was there before)
-            for (let j = k - 1; j >= 0 && r[j + 1]; j--) { const G = Ft(j / SV_POLE_K); r[j] = svPoleAt(G, r[j + 1], box) || svPeakAt(G, r[j + 1], big); }
-            tr.push(r);
-          }
-        }
-      }
-    } catch (e) { tr.length = 0; }
+    const Fp = stageF(b - 1);
+    const P = { key, tr: [], k: 0, box: ex(3), win: cam, big: 4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0) / 2, cz: C((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2),
+      Ft: (t) => { const H = homF(b, t); return (z) => H(Fp(z)); } };
     if (svPoleMemo.size >= 16) svPoleMemo.clear();
-    const out = { key, tr };
-    svPoleMemo.set(key, out);
-    return out;
+    svPoleMemo.set(key, P);
+    return P;
   }
-  // every glide's pole tracks for the window, one glide an idle moment at a time, so a glide finds them made (made at
-  // its first frame otherwise): after the chain changes and when a glide arrives
+  // step P.k of P's tracks: each track followed from the step before; at a seed step the poles found there, each new
+  // one back-tracked, and a track lost near one bridged to it. A seed step can find a pole the grid missed before (a
+  // grid has no point near one that has just come out of a cut), and its back-track changes earlier steps: the tracks
+  // are final only once every step is made. A map that throws leaves no tracks
+  function svPoleStep(P) {
+    const k = P.k, { tr, box, big, win, cz, Ft } = P;
+    P.k++;
+    try {
+      const F = Ft(k / SV_POLE_K);
+      for (const r of tr) r[k] = r[k - 1] ? svPoleAt(F, r[k - 1], box) || svPeakAt(F, r[k - 1], big) : null;
+      if (k % SV_POLE_SEED) return;
+      const near = svPolesIn(F, win, SV_POLE_GRID, box).concat(svPolesIn(F, box, SV_POLE_GRID / 2, box)).sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz))).slice(0, SV_POLE_MAX);
+      for (const p of near) {
+        if (tr.some((r) => r[k] && CX.abs(CX.sub(r[k], p)) < 1e-6 * (1 + CX.abs(p)))) continue;
+        // (a track lost near p is p's: the steps between are bridged on the line from there to p, so the key keeps the
+        // pole through them, never dropping it for a step and taking it back)
+        const last = (r) => r.findLastIndex((q, i) => q && i < k);
+        const old = tr.find((r) => { if (r[k]) return false; const j = last(r); return j >= 0 && CX.abs(CX.sub(r[j], p)) < 0.25 * (1 + CX.abs(p)); });
+        if (old) {
+          const j = last(old);
+          for (let i = j + 1; i <= k; i++) old[i] = CX.add(old[j], CX.mul(C((i - j) / (k - j), 0), CX.sub(p, old[j])));
+          continue;
+        }
+        const r = new Array(SV_POLE_K + 1).fill(null);
+        r[k] = p;
+        // (and back to where it came into the box, or out of a cut: a pole found at a seed step was there before)
+        for (let j = k - 1; j >= 0 && r[j + 1]; j--) { const G = Ft(j / SV_POLE_K); r[j] = svPoleAt(G, r[j + 1], box) || svPeakAt(G, r[j + 1], big); }
+        tr.push(r);
+      }
+    } catch (e) { tr.length = 0; P.k = SV_POLE_K + 1; }
+  }
+  // P made through step k (synchronously; the time it takes counted in __svPathStats.poleSyncMs where a measurement
+  // sets that object)
+  function svPoleUpTo(P, k) {
+    if (P.k > k) return P;
+    const t0 = performance.now();
+    while (P.k <= k) svPoleStep(P);
+    const ps = globalThis.__svPathStats;
+    if (ps) { ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0; ps.poleSync = (ps.poleSync || 0) + 1; }
+    return P;
+  }
+  // a frame's share of the tracks ahead, at most SV_POLE_BUDGET ms: the glides on either side of the glide to plane b
+  const SV_POLE_BUDGET = 2;
+  function svPolesBudget(b) {
+    const t0 = performance.now(), n = nSteps();
+    for (const c of [b + 1, b - 1]) {
+      if (c < 1 || c > n || derivIn(c - 1, c)) continue;
+      const P = svPoleTracks(c, svSheetKey(c).win);
+      while (P.k <= SV_POLE_K) { if (performance.now() - t0 >= SV_POLE_BUDGET) return; svPoleStep(P); }
+    }
+  }
+  // every glide's pole tracks for the window, one glide an idle moment at a time, so a glide finds them made: after the
+  // chain changes and when a glide arrives
   function svPolesAhead() {
     const n = nSteps(), w = clipWin, idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 100));
     let b = 1;
-    const next = () => { if (b > n || clipWin !== w) return; if (!derivIn(b - 1, b)) svPoleTracks(b, svSheetKey(b).win); b++; idle(next); };
+    const next = () => { if (b > n || clipWin !== w) return; if (!derivIn(b - 1, b)) { const P = svPoleTracks(b, svSheetKey(b).win); while (P.k <= SV_POLE_K) svPoleStep(P); } b++; idle(next); };
     idle(next);
   }
   // the key of the glide's frame at t in (0, 1) to plane b (svSheetKey(b) at rest)
@@ -538,7 +578,10 @@
     const plan = invPlan(0, b);
     let acc = [];
     try { acc = plan && plan.ok ? Inverse.accumulation(plan, k.win) : []; } catch (e) { acc = []; }
-    const { tr } = svPoleTracks(b, k.win), s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
+    // (this glide's tracks made whole first if they are not yet, then this frame's share of the glides on either side)
+    const s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
+    const { tr } = svPoleUpTo(svPoleTracks(b, k.win), SV_POLE_K);
+    svPolesBudget(b);
     const cz = C((k.win.x0 + k.win.x1) / 2, (k.win.y0 + k.win.y1) / 2), near = (p, q) => CX.abs(CX.sub(p, q)) < 1e-9 * (1 + CX.abs(p));
     const poles = (k.sing || []).filter((p) => !acc.some((q) => near(p, q)));
     for (const r of tr) {
