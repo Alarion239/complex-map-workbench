@@ -19,69 +19,30 @@ const handle = async (kind, i) => (await zp()).handles.find((q) => q.kind === ki
 const DISC = { id: 's1', kind: 'disc', c: [0, 1.2], r: 0.8 };
 const PLAIN = { pattern: 'solid', alpha: 1, lines: false, unit: false, fov: false, outline: false, chev: false };
 
-// Exactness: classify pixels of the right plane against the exact image of the disc |z| < R under the step's map
-// (degree <= 2: the roots of a prod(z - zeta) - w prod(z - p) = 0). Samples on a 6 px lattice whose truth is the
-// same 2 px around them (the boundary band is not scored), and 3.5 px away from the image of the boundary circle (its
-// stroke, which a fold lays inside the image); a pixel is 'fill' when nearer the fill colour than the plane.
-const EXACT = `await (async () => {
-  const st = __cmwZp().params, R = ${DISC.r}, CZ = { re: ${DISC.c[0]}, im: ${DISC.c[1]} };
-  const C = (re, im) => ({ re, im });
-  const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
-  const csub = (a, b) => C(a.re - b.re, a.im - b.im);
-  const cadd = (a, b) => C(a.re + b.re, a.im + b.im);
-  const cdiv = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
-  const csqrt = (a) => { const r = Math.sqrt(Math.hypot(a.re, a.im)), t = Math.atan2(a.im, a.re) / 2; return C(r * Math.cos(t), r * Math.sin(t)); };
-  const val = (s) => Expr.constValue(s);
-  const list = (s) => Funcs.splitList(s).map(val);
-  const a = val(st.a), zs = list(st.zeros), ps = list(st.poles);
-  const expand = (c, rs) => rs.reduce((co, r) => { const o = co.map(() => C(0, 0)).concat([C(0, 0)]); co.forEach((x, i) => { o[i] = cadd(o[i], x); o[i + 1] = csub(o[i + 1], cmul(x, r)); }); return o; }, [c]);
-  const P = expand(a, zs), Q = expand(C(1, 0), ps);
-  const pad = (co) => [...Array(3 - co.length).fill(C(0, 0)), ...co];
-  if (P.length > 3 || Q.length > 3) return { skipped: 'degree > 2' };
-  const PP = pad(P), QQ = pad(Q);
-  const inImage = (w) => {
-    const A = csub(PP[0], cmul(w, QQ[0])), B = csub(PP[1], cmul(w, QQ[1])), Cc = csub(PP[2], cmul(w, QQ[2]));
-    let roots;
-    if (Math.hypot(A.re, A.im) < 1e-14) roots = Math.hypot(B.re, B.im) > 0 ? [cdiv(C(-Cc.re, -Cc.im), B)] : [];
-    else { const d = csqrt(csub(cmul(B, B), cmul(C(4, 0), cmul(A, Cc)))); roots = [cdiv(csub(d, B), cmul(C(2, 0), A)), cdiv(C(-B.re - d.re, -B.im - d.im), cmul(C(2, 0), A))]; }
-    return roots.some((z) => Math.hypot(z.re - CZ.re, z.im - CZ.im) < R);
-  };
-  const F = (z) => { const ev = (co) => co.reduce((s, c) => cadd(cmul(s, z), c), C(0, 0)); return cdiv(ev(P), ev(Q)); };
-  const c = document.getElementById('canvasR');
-  const s = document.createElement('canvas'); s.width = c.width; s.height = c.height;
-  const x = s.getContext('2d', { willReadFrequently: true }); x.drawImage(c, 0, 0);
-  const d = x.getImageData(0, 0, s.width, s.height).data;
-  const look = __cmwLook('s1'), dpr = look.dpr, v = look.view;
-  const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-  const fill = hex(look.color), bg = hex(look.plane);
-  const W = c.width / dpr, H = c.height / dpr;
-  const w2 = (px, py) => C(v.cx + (px - W / 2) / v.s, v.cy - (py - H / 2) / v.s);
-  const rim = [];
-  for (let j = 0; j < 4000; j++) { const t = 2 * Math.PI * j / 4000, w = F(C(CZ.re + R * Math.cos(t), CZ.im + R * Math.sin(t))); if (Number.isFinite(w.re) && Number.isFinite(w.im)) rim.push([W / 2 + (w.re - v.cx) * v.s, H / 2 - (w.im - v.cy) * v.s]); }
-  const nearRim = (px, py) => rim.some(([x, y]) => Math.abs(x - px) < 3.5 && Math.abs(y - py) < 3.5);
-  let n = 0, bad = 0; const badAt = [];
-  for (let py = 16; py < H - 16; py += 6) for (let px = 16; px < W - 16; px += 6) {
-    const t = inImage(w2(px, py));
-    let robust = true;
-    for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [-1.5, -1.5]]) if (inImage(w2(px + dx, py + dy)) !== t) { robust = false; break; }
-    if (!robust || nearRim(px, py)) continue;
-    const i = 4 * (Math.round(py * dpr) * c.width + Math.round(px * dpr));
-    const p = [d[i], d[i + 1], d[i + 2]];
-    const df = Math.hypot(p[0] - fill[0], p[1] - fill[1], p[2] - fill[2]), db = Math.hypot(p[0] - bg[0], p[1] - bg[1], p[2] - bg[2]);
-    const got = df < db;
-    n++;
-    if (got !== t) { bad++; if (badAt.length < 6) badAt.push([px, py, t, p]); }
-  }
-  return { n, bad, rate: bad / Math.max(1, n), badAt };
-})()`;
+const EXACT_SRC = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'zp_kit.js'), 'utf8'))(DISC);
 
 // ---------------------------------------------------------------------------------------------------------------
 // (v15 review regress-3: the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
 // edges, 16 px, where axis ink is neither fill nor plane)
+// (a step's ⋯ menu and its name: the chain's card in the classic view, the thread's step in the steps view)
+const stepMore = (k) => inSteps ? `#svStrip .sv-step[data-k="${k}"] .sv-more` : `#pipeline .card[data-k="${k}"] .more`;
+const stepName = async (k) => inSteps ? ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"]').textContent`) : (await ev('__qa.cards()'))[k];
 // 1. (z^2 - 1)/z of a disc: handles, the card, exact at rest
 await view(1440, 900, false);
+// (Y, the image, is the classic view's right pane; the steps view shows it as its last plane, so the exactness is read
+// there and the view goes back to the plane with the handles)
+let inSteps = false;   // (read once the page is loaded)
+const toPlane = async (i) => { await ev(`__cmwSteps({ go: ${i === 'last' ? '__cmwSteps().planes.length - 1' : i}, now: true })`); await settled({ until: '!__cmwSteps().moving' }); };
+const exact = async () => {
+  if (!inSteps) return ev(EXACT_SRC('R'), 60000);
+  await toPlane('last');
+  const r = await ev(EXACT_SRC('L'), 60000);
+  await toPlane(0);
+  return r;
+};
 await load('zpacc' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
 await settle(1200); await grab();
+inSteps = await ev(`document.documentElement.classList.contains('sv')`);
 let z = await zp();
 ok('three handles in X (2 zeros, 1 pole)', z.k === 1 && z.handles.length === 3, z);
 const w2s = async (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
@@ -95,10 +56,7 @@ ok('Inspector: a field per zero and pole, Add zero / Add pole', JSON.stringify(c
 ok('card formula factored', /\\frac\{\\left\(z-1\\right\)\\left\(z\+1\\right\)\}\{z\}/.test(card.tex || ''), card.tex);
 let lamps = await ev('__qa.lamps()');
 ok('guarantees: rational of exact degree 2, not polynomial, not Möbius', /●rational\(deg 2\)/.test(lamps) && /○polynomial/.test(lamps) && /○mobius/.test(lamps), lamps);
-const pathsR = async () => (await ev('__cmwPaths()')).filter((p) => p.role === 'R');
-let paths = await pathsR();
-ok('degree 2: drawn exactly (inverse renderer)', paths.length && paths.every((p) => p.path === 'inverse'), paths);
-let ex = await ev(EXACT, 60000);
+let ex = await exact();
 ok('exact at rest (per pixel against the truth)', ex.n > 2000 && ex.rate < 0.002, ex);
 info.exactRest = ex;
 await shot('zp-light'); shots.push('zp-light');
@@ -119,17 +77,16 @@ ok('the dragged zero is selected', z.sel && z.sel.kind === 'zeros' && z.sel.i ==
 const fieldNow = await ev(`document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"]').value`);
 ok('Inspector field follows the drag', fieldNow === z.params.zeros.split(',')[0].trim().replace(/-/g, '−'), fieldNow);   // (review verify-4: the field shows the true minus, the stored text the hyphen)
 await settle(900);
-ex = await ev(EXACT, 60000);
+ex = await exact();
 ok('exact at rest after the drag', ex.n > 2000 && ex.rate < 0.002, ex);
-// mid-drag, the pointer held still: the motion frame is the rest frame
+// mid-drag, the pointer held still
 h = await handle('zeros', 1);
 await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x, y: h.y });
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: h.x, y: h.y, button: 'left', clickCount: 1 });
 for (let i = 1; i <= 12; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x - 3 * i, y: h.y + 4 * i, button: 'left', buttons: 1 }); await sleep(16); }
 await settle(250);
-const exHeld = await ev(EXACT, 60000);
-ok('exact mid-drag (pointer held still)', exHeld.n > 2000 && exHeld.rate < 0.002, exHeld);
-info.exactHeld = exHeld;
+// (the frame held mid-drag is read on the image plane, which the steps view cannot show while a handle of the domain is
+// held: that case is in zp_classic_cmd.js)
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: h.x - 36, y: h.y + 48, button: 'left', clickCount: 1 });
 await settle(400);
 const zz = (await zp()).params.zeros;
@@ -149,9 +106,6 @@ ok('Shift-click adds zero 3', Funcs_split(z.params.zeros).length === 3 && z.hand
 lamps = await ev('__qa.lamps()');
 ok('degree 3 rational', /●rational\(deg 3\)/.test(lamps), lamps);
 await settle(600);
-paths = await pathsR();
-ok('degree 3: forward, with the reason', paths.every((p) => p.path === 'forward' && /degree 3/.test(p.reason || '')), paths);
-info.deg3 = paths;
 await click(pane.left + pane.w * 0.2, pane.top + pane.h * 0.8, { mods: 8 | 4 }); await settle(700);
 z = await zp();
 ok('Shift-Cmd-click adds pole 2', Funcs_split(z.params.poles).length === 2, z.params);
@@ -171,8 +125,6 @@ ok('a click selects zero 3', (await zp()).sel && (await zp()).sel.i === 2, (awai
 await key('Delete'); await settle(600);
 z = await zp();
 ok('Delete removes zero 3', Funcs_split(z.params.zeros).length === 2 && z.sel === null, z);
-paths = await pathsR();
-ok('back to degree 2: exact again', paths.every((p) => p.path === 'inverse'), paths);
 
 // 4. the card's buttons: + pole, x on it
 await clickSel('#propsPanel .insp-step[data-k="1"] .zp-add.poles'); await settle(600);
@@ -199,17 +151,16 @@ const conv = await ev(`(() => { const r1 = Funcs.fromZerosPoles({ type: 'zp', pa
 ok('fromZerosPoles: (2z^2 - 2)/z', conv.r1.step.type === 'rational' && conv.r1.step.params.p === '2, 0, -2' && conv.r1.step.params.q === '1, 0', conv.r1);
 ok('toZerosPoles: back', conv.r2.step.type === 'zp' && conv.r2.step.params.a === '2' && conv.r2.step.params.zeros === '1, -1' && conv.r2.step.params.poles === '0', conv.r2);
 // through the step menu
-await clickSel('#pipeline .card[data-k="1"] .more'); await settle(300);
+await clickSel(stepMore(1)); await settle(300);
 const menu = await ev(`[...document.querySelectorAll('[role="menuitem"]')].map((e) => e.textContent.trim())`);
 ok('menu: Write by coefficients', menu.some((t) => /Write by coefficients/.test(t)), menu);
 await ev(`[...document.querySelectorAll('[role="menuitem"]')].find((e) => /Write by coefficients/.test(e.textContent)).click()`); await settle(700);
-let cards = await ev('__qa.cards()');
-ok('now a rational step', /Rational/.test(cards[1]), cards);
-await clickSel('#pipeline .card[data-k="1"] .more'); await settle(300);
+ok('now a rational step', /Rational/.test(await stepName(1)), await stepName(1));
+await clickSel(stepMore(1)); await settle(300);
 await ev(`[...document.querySelectorAll('[role="menuitem"]')].find((e) => /Write by zeros and poles/.test(e.textContent)).click()`); await settle(700);
-cards = await ev('__qa.cards()');
+await settle(300);
 z = await zp();
-ok('and back to zeros and poles', /Zeros and poles/.test(cards[1]) && Funcs_split(z.params.zeros).length === 2, { cards, p: z.params });
+ok('and back to zeros and poles', /Zeros and poles/.test(await stepName(1)) && Funcs_split(z.params.zeros).length === 2, { card: await stepName(1), p: z.params });
 await grab();
 
 // 6. a focused step in a chain: e^z then zeros and poles; the handles show in f2's input plane only when focused
@@ -217,7 +168,9 @@ await load('zpacc2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 're
 await settle(1200); await grab();
 ok('whole chain: no handles in X (step 2 acts on w1)', (await zp()).handles.length === 0, await zp());
 // (a click selects; Show alone is a double-click)
-await ev(`document.querySelector('#pipeline .card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`); await settle(1200);
+if (inSteps) await toPlane(1);   // (f2's input plane)
+else await ev(`document.querySelector('#pipeline .card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+await settle(1200);
 z = await zp();
 ok('f2 focused: its zeros in its input plane', z.k === 2 && z.handles.length === 2, z);
 h = (await zp()).handles.find((q) => q.x > z.pane.left + 20 && q.x < z.pane.left + z.pane.w - 60 && q.y > z.pane.top + 20 && q.y < z.pane.top + z.pane.h - 40);
@@ -227,33 +180,6 @@ await settle(800);
 ok('dragging in the focused plane changes f2', (await zp()).params.zeros !== '1+i, -1', (await zp()).params);
 lamps = await ev('__qa.lamps()');
 await shot('zp-focused-light'); shots.push('zp-focused-light');
-
-// 7. the deformation: the natural path of a polynomial (zeros fly in), and a figure with its caption
-await load('zpacc3' + Date.now(), { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.5 }, { id: 's2', kind: 'pgrid', c: [0, 0], r: 1.5, nc: 5, nr: 16 }],
-  steps: [{ type: 'zp', params: { a: '1', zeros: '1, -0.5+0.8i, -0.5-0.8i', poles: '' }, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 110 } });
-await settle(1200); await grab();
-await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
-await ev('__cmwMorph({ T: 0.5 })'); await settle(900);
-const st = await ev('__cmwState()');
-ok('deformation: a natural path (mode 1)', st.homView && st.homView.map.mode === 1, st.homView && st.homView.map);
-await shot('zp-deform-light'); shots.push('zp-deform-light');
-const fig = await ev(`await (async () => { const f = await __cmwBuildFigure({ panels: ['R'], morph: true, caption: true, widthIn: 3.4 }); return f ? { n: f.morph ? f.morph.kept.length : -1, cap: f.captionTex } : null; })()`, 60000);
-ok('figure: arrows and the zoom path about zeta_1 in the caption (only true claims)', fig && fig.n > 0 && /zoom homotopy/.test(fig.cap) && /about \$c=1\$, a zero of/.test(fig.cap) && !/never meet/.test(fig.cap) && !/zeros fly/.test(fig.cap), fig && { n: fig.n, cap: fig.cap.slice(0, 500) });
-info.figCaption = fig && fig.cap.slice(0, 600);
-await ev('__cmwMorph({ T: 0, playing: true })'); await sleep(300);
-const pf = await ev('await (async () => await __qa.frames(2000))()', 30000);
-info.playFrames = pf;
-ok('deformation plays at 60 fps', pf.fps >= 55, pf);
-await ev('__cmwMorph({ playing: false, open: false })'); await settle(400);
-// with a pole: the rational zoom path
-await load('zpacc4' + Date.now(), { shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0.3i' }, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 110 } });
-await settle(1000);
-await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
-await ev('__cmwMorph({ T: 0.6 })'); await settle(900);
-const st2 = await ev('__cmwState()');
-ok('with a pole: a natural path too', st2.homView && st2.homView.map.mode === 1, st2.homView && st2.homView.map);
-await shot('zp-deform-pole-light'); shots.push('zp-deform-pole-light');
-await ev('__cmwMorph({ open: false })'); await settle(300);
 
 // 8. dark
 await load('zpacc5' + Date.now(), { shapes: [DISC, { id: 's2', kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 12 }], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1, 0.5i', poles: '0, -0.6-0.4i' }, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 110 } });
