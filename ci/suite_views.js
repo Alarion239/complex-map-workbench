@@ -178,6 +178,7 @@ const VIEWS = {
 
   // to port: engine (no view of its own)
   'deform_range_gl_cmd.js': port('engine'),
+  'kit_settled_cmd.js': port('engine', 'the kit\'s settled(): a page of its own, no view to test'),
   'line_slice_cmd.js': port('engine'),
   'mj_ranges_cmd.js': port('engine'),
   'offline_cmd.js': port('engine'),
