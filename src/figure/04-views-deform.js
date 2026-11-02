@@ -325,6 +325,8 @@
     // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
     let boxes = null, fellBack = false;
     if (o.crop !== 'screen' && A.svSurf() === 'plane') {
+      // (the shapes are traced in the camera's window grown 3 times each way, as the other views trace them, so a shape
+      // running off the screen keeps its part)
       const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
       const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
       boxes = frames.map((f, i) => {
