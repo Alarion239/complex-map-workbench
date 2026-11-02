@@ -177,11 +177,11 @@ const VIEWS = {
   'ux165_rail_cmd.js': steps({ pin: true }),
 
   // to port: render
-  'cauchy_residue_cmd.js': port('render'),
+  'cauchy_residue_cmd.js': steps({ pin: true }),
   'deform_dirichlet_cmd.js': port('render', 'the glide on a Dirichlet series instead of the Deformation click'),
   'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
-  'link_standin_cmd.js': port('render'),
-  'overlay_ghost_cmd.js': port('render'),
+  'link_standin_cmd.js': port('render', 'the steps view\'s last plane draws no stand-in while its chain links: it shows an empty plane with "Compiling…", where the classic right pane shows the CPU-mapped shape'),
+  'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': port('render'),
@@ -189,7 +189,7 @@ const VIEWS = {
   'p5_accept_cmd.js': port('render'),
   'regions_phase_cmd.js': steps({ pin: true }),
   'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
-  'sphere_light_cmd.js': port('render'),
+  'sphere_light_cmd.js': steps({ pin: true }),
 
   // to port: sound (Pietro's team, #580 and #598)
   'seasong_cmd.js': port('sound'),
