@@ -135,7 +135,8 @@
     if ((ext === svMain() || ext === SV.main) && !force) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
-    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas, S.steps.length === 0);
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
+    const o = Views.svOf(S.view, areas, S.steps.length === 0);
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     if (SV.els) setSeg(SV.els.scope, SV.scope);   // (the head's switch shows what the view opened on)
     SV.i = 0; SV.g.set(0);
@@ -568,10 +569,13 @@
     c.clearRect(0, 0, cv.width, cv.height);
     return cv;
   }
-  // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is neutral)
+  // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is
+  // neutral)
   function svMaskOn() { return SV.on && SV.scope === 'in'; }
   // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
-  function svNoRegions() { return SV.scope === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
+  function svNoRegions() {
+    return SV.scope === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
+  }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
   // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
   // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
@@ -778,7 +782,8 @@
     svBuildTrack();
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
-    const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, SV.play ? 1 : 0, SV.loop ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
+    const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,
+      SV.play ? 1 : 0, SV.loop ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
@@ -815,7 +820,10 @@
       const none = P.length < 2;
       E.slider.setAttribute('tabindex', none ? '-1' : '0'); E.slider.setAttribute('aria-disabled', String(none));
       E.strip.querySelector('.sv-speed').disabled = none;
-      const msg = [none ? $t('Add a function to send z through it.') : '', !none && svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : ''].filter(Boolean).join(' ');
+      const msg = [
+        none ? $t('Add a function to send z through it.') : '',
+        !none && svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : '',
+      ].filter(Boolean).join(' ');
       if (E.empty.textContent !== msg) E.empty.textContent = msg;
       E.empty.hidden = !msg;
     }
