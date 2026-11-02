@@ -171,8 +171,10 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js)
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8') }, S);
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js); with CMW_VIEW=steps, the steps
+  // view (#620: a ported suite, ci/suite_views.js steps({ pin: true }))
+  const pin = (process.env.CMW_VIEW === 'steps' ? "window.__cmwPinView = 'steps';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
   const done = new Set();
   for (;;) {
