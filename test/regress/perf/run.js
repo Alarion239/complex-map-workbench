@@ -1062,7 +1062,8 @@ async function svProbeUnit(scene) {
 }
 // [#643 probe, measurement only, not for merge] the King's colours with the thread held mid-glide (a scrub on the rail
 // not let go, as steps_carry_far_cmd.js's hold), under base, fillTex and base again: canvasL's pixels once two successive
-// reads agree, fillTex compared with the first base and the two bases with each other (the floor). Logged per x, info only.
+// reads agree, fillTex compared with each base and the two bases with each other (the floor), with __svPathStats per
+// read (fillTF counts the fillTex fill). Logged per x, info only.
 async function svProbeExactUnit() {
   await B.nav(`${BASE}test.html?ns=perfsvpx${process.pid}&view=steps`);
   await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
@@ -1092,19 +1093,21 @@ async function svProbeExactUnit() {
     for (let i = 0; i < A.length; i += 4) { let m = 0; for (let c = 0; c < 4; c++) m = Math.max(m, Math.abs(A[i + c] - Bq[i + c])); if (m) px++; if (m > max) max = m; }
     return { px, max, of: A.length / 4 }; })()`);
   const planes = await B.ev(`document.querySelectorAll('.sv-track .sv-plane').length`);
-  for (const x of [0.5, 1.5, 2.5].filter((v) => v < planes - 1)) {
+  for (const x of [0.25, 0.5, 1.5].filter((v) => v < planes - 1)) {
     for (const [tag, set] of [['base1', {}], ['fillTex', { fillTex: true }], ['base2', {}]]) {
       await B.ev(`globalThis.__svCarryProbe = ${JSON.stringify(set)}, 1`);
       await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
       await settle(await pageNow());
       await hold(x);
       await B.until(`GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving`, 30000);
+      await B.ev('globalThis.__svPathStats = {}, 1');
       await grab(tag);
+      log(`svp.kingpx held ${x} ${tag} path stats: ${await B.ev('JSON.stringify(globalThis.__svPathStats || null)')}`);
       await B.ev('window.__svScrubUp(), 1');
       await settle(await pageNow());
     }
-    const floor = await diff('base1', 'base2'), ft = await diff('base1', 'fillTex');
-    log(`svp.kingpx held ${x}: fillTex vs base ${ft.px}/${ft.of} px differ, max channel ${ft.max}; base vs base ${floor.px} px, max ${floor.max}`);
+    const floor = await diff('base1', 'base2'), ft = await diff('base2', 'fillTex'), ft1 = await diff('base1', 'fillTex');
+    log(`svp.kingpx held ${x}: fillTex vs base2 ${ft.px}/${ft.of} px differ, max channel ${ft.max}; vs base1 ${ft1.px} px, max ${ft1.max}; base1 vs base2 ${floor.px} px, max ${floor.max}`);
     put(`svp.kingpx.x${x}.fillTex_px`, 'info', 'px', [ft.px]);
     put(`svp.kingpx.x${x}.floor_px`, 'info', 'px', [floor.px]);
   }
