@@ -147,9 +147,18 @@ H.clickSel = async (sel) => {
   if (!r || r.__exc) return 'nosel ' + sel;
   await H.click(r[0], r[1]); return r;
 };
+const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
+// loadView(view, ns, state, { lang }): like load(), but the app's first load is in `view` ('classic' or 'steps') whatever the
+// kit's pin is (load() opens the pinned view, and a page loaded there first saves that view's state under ns); waits for
+// the page's load event, and the caller waits for the app with settled({ until })
+H.loadView = async (view, ns, st, o = {}) => {
+  await H.go('http://localhost:8793/gl-helpers.html');
+  await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(st)))}); 1`);
+  await H.go(`http://localhost:8793/test.html?ns=${ns}${o.lang ? '&lang=' + o.lang : ''}&view=${view}`);
+};
 H.load = async (ns, st, extra) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
-  const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
+  const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns }, S); await sleep(2200);
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
