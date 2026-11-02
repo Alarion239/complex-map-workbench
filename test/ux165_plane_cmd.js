@@ -396,6 +396,7 @@ await section('P10', async () => {
   await shot('ux10-phone-probe');
   await tEnd(); await settle(300);
   ok('UX10 phone: z = … and w = F(z) = …, no doubled z, not cut', info.p10probe.length === 2 && zRe.test(info.p10probe[0]) && wRe.test(info.p10probe[1]) && wid, [info.p10probe, wid]);
+  await settled({ until: `!/Hold and slide/.test(document.getElementById('leftReadout').textContent)`, max: 4000 });
   const idle2 = await ev(`document.getElementById('leftReadout').textContent`);
   ok('UX10 phone: after the first use the chip shows the scale only', !/Hold and slide/.test(idle2), idle2);
   // the phone in landscape (915 × 412): the same two lines, whole, inside the plane
@@ -653,7 +654,8 @@ await section('D9', async () => {
   stage = 'first'; // the first press on a disc only selects it; a drag from it pans the plane
   await tdrag(o0[0], o0[1], o0[0] + 40, o0[1] + 30, 8);
   const o1 = await W(0, 0), d = await sh('d1');
-  ok('D9 touch: a drag from an unselected disc selects it and pans the plane (the disc stays)', (await ST()).selected === 'd1' && d.c[0] === 0 && d.c[1] === 0 && Math.abs(o1[0] - o0[0] - 40) < 4, [o0, o1, d]);   // (x only: the context bar that the selection brings makes the plane shorter)
+  // (a one-finger drag from the unselected disc selecting it and panning the plane is the classic view's: in the steps view a finger drag on a plane scrubs the thread; it is in ux165_plane_classic_cmd.js)
+  ok('D9 touch: a drag from an unselected disc selects it (the disc stays)', (await ST()).selected === 'd1' && d.c[0] === 0 && d.c[1] === 0, [o0, o1, d]);
   stage = 'second';
   await tdrag(o1[0], o1[1], o1[0] + 30, o1[1], 8);
   const d2 = await sh('d1'), o2 = await W(0, 0);
