@@ -752,18 +752,22 @@ await section('F', async () => {
 await section('G', async () => {
   // Y: a touching circle on a target circle, through z₀″ (P first), T on the target circle's stroke
   await view(1440, 900, false, false);
+  await load(NS + 'g0', { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50 }); await settle(600);
+  const SV = await ev(`document.documentElement.classList.contains('sv')`);
   const SG = {
     shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }],
-    targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }],
+    // (the classic Y pane holds the target circle; the steps view's last plane holds a circle of its own)
+    ...(SV ? { shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }, { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }] } : { targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }] }),
     steps: [{ type: 'zp', params: { a: '1', zeros: '1.5-1i', poles: '' }, on: true }],
     srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50,
   };
   await load(NS + 'g', SG); await settle(900);
+  await W(0, 0, 'R');   // (the steps view goes to Y's plane before the tool opens: moving to it afterwards would drop the pick)
   await tool('touch');
   const tcs = await W(1.1 * Math.cos(3.6), 0.3 + 1.1 * Math.sin(3.6), 'R');
   await click(tcs[0] + 1, tcs[1]); await settle(120);
   let d = (await CI()).draft;
-  ok('G Y: the target circle is picked as the curve', d && d.side === 'R' && d.curve1 && d.curve1.s === 'tc', d);
+  ok('G Y: the target circle is picked as the curve', d && d.side === (SV ? 'L' : 'R') && d.curve1 && d.curve1.s === 'tc', d);
   const w0 = [-1 - 1.5, -1.5 + 1];   // f₁(z) = z − 1.5 + i
   const y0 = await W(w0[0], w0[1], 'R');
   await click(y0[0] + 2, y0[1] + 2); await settle(100);
