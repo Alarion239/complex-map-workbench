@@ -39,7 +39,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     await steps({ scope, surf: 'plane', go: 0, now: true });
     await steps({ scope, surf: 'plane', park: x });
     // (parked: the tiling's fix-up lands once, changing the frame, so both settings are read after it)
-    await settled({ max: 30000, until: 'typeof __cmwSvFixed !== "function" || __cmwSvFixed()' });
+    await settled({ max: 30000, until: '__cmwSvFixed()' });
     // (the count read before the redraw is asked for: the frame may be drawn before the next evaluation)
     const n0 = await ev('GLR.fillPointsRuns()');
     await ev('GLR.fillPointsOn(true), 1'); await redraw();

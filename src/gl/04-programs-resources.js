@@ -538,7 +538,11 @@ float wabs(vec2 w) {
   let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
   function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
   // (tests) the names of the programs started for the current chain (of any map mode), each once
-  function chainProgs() { const out = new Set(); for (const e of progs.values()) if (e.chain && e.key === cur.key) out.add(e.name); return [...out]; }
+  function chainProgs() {
+    const out = new Set();
+    for (const e of progs.values()) if (e.chain && e.key === cur.key) out.add(e.name);
+    return [...out];
+  }
   function holdLinks(on) {
     held = !!on;
     if (!held && api.onReady) api.onReady({ main: true, side: false });

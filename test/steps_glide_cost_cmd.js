@@ -12,7 +12,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvRingCull === "function" && typeof __cmwSvPoleTracks === "function" && !!window.GLR' }); };
+const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvRingCull === "function" && !!window.GLR' }); };
 // the thread held at x mid-glide: a scrub on the rail, not let go (window.__svScrubUp lets it go)
 // (links: wait for every program to have linked too; false while links are held)
 async function hold(x, links = true) {
@@ -41,7 +41,8 @@ async function hold(x, links = true) {
   await ev(`__cmwAddStep('exp'), 1`);
   await settled({ max: 20000, panes: false, until: '!!document.querySelector(".sv-plane")' });
   await hold(0.5, false);
-  await sleep(1500);
+  // (the glide's frames asked for the carry's own programs: the map cache's and the cached places')
+  await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
   await ev('window.__svScrubUp(), 1');
   await ev('GLR.holdLinks(false), 1');
@@ -65,12 +66,10 @@ async function hold(x, links = true) {
   await ev(`__cmwAddStep('exp'), 1`);
   await settled({ max: 20000, until: '!!document.querySelector(".sv-plane")' });
   await hold(0.5);
-  const tr = await ev('__cmwSvPoleTracks(1)');
-  const now = await ev('__cmwSvKey(1, 0.5)');
+  const now = await ev('__cmwSvKey(1, 0.5)'), tr = now.tracks;
   await ev('window.__svScrubUp(), 1');
   await settled({ max: 20000 });
-  await ev('__cmwSvPoleTracks(1, true), 1');
-  const whole = await ev('__cmwSvKey(1, 0.5)');
+  const whole = await ev('__cmwSvKey(1, 0.5, true)');
   const near = (p, L) => L.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-3 * (1 + Math.hypot(q[0], q[1])));
   info['after an edit'] = { tracks: tr, now: now.sing, whole: whole.sing };
   ok('after an edit, held mid-glide: the glide\'s frames did not make its pole tracks', tr.k === 0, tr);

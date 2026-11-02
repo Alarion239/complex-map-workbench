@@ -379,7 +379,10 @@
       fill = fp ? Q : (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
     }
     let full = null;
-    if (cuts && !fill) { P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
+    if (cuts && !fill) {
+      P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
+      if (P) e = null;
+    }
     if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
