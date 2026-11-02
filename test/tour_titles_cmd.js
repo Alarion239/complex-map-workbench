@@ -1,12 +1,13 @@
 // The tour's task titles and the Phase portrait task (issue #34): a step whose title is a task reads as one in Russian
 // (Draw a shape: «Нарисуйте фигуру», Add a function: «Добавьте функцию», where the same words on a button stay in the
 // infinitive), a title that starts in lower case (Cauchy integral) is capitalised in every language, and the Phase
-// portrait step of Views now has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it.
+// portrait step of Views now has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it. It runs in
+// the steps view (ci/suite_views.js: steps({ pin: true })); a step is found by its id, not by its place in the chapter.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
-const settle = async (ms = 600) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
 const strip = () => ev(`(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`);
 const WANT = {
   en: { draw: 'Draw a shape', add: 'Add a function', cauchy: 'Cauchy integral', zoom: 'Zoom in on a zero or a pole.' },
@@ -15,24 +16,25 @@ const WANT = {
 };
 for (const lang of ['en', 'ru', 'it']) {
   await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=tt${lang}${Date.now()}&lang=${lang}` });
-  await sleep(2600); await settle();
+  await go(`http://localhost:${PORT}/test.html?ns=tt${lang}${Date.now()}&lang=${lang}`);
+  await settled({ until: `${TOUR} && I18N.lang === '${lang}'` });
+  if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.auto(false); 1');
   const w = WANT[lang];
-  const at = async (chapter, step) => { await ev(`Tour.start(${JSON.stringify({ chapter, step })})`); await settle(1500); return strip(); };
-  let g = await at('basics', 4);
+  const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`Tour.start(${JSON.stringify({ chapter, step })})`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}'` }); return strip(); };
+  let g = await at('basics', 'draw');
   ok(`${lang}: Draw a shape reads as a task`, g.cur === 'draw' && g.title === w.draw, g);
-  g = await at('basics', 8);
+  g = await at('basics', 'add');
   ok(`${lang}: Add a function reads as a task`, g.cur === 'add' && g.title === w.add, g);
-  g = await at('analysis', 1);
+  g = await at('analysis', 'cauchy');
   ok(`${lang}: Cauchy integral starts in capitals`, g.cur === 'cauchy' && g.title === w.cauchy, g);
-  g = await at('views', 1);
+  g = await at('views', 'phase');
   ok(`${lang}: the Phase portrait step has its task`, g.cur === 'phase' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 450, deltaX: 0, deltaY: -120 });
-  await settle(800);
+  await settled({ until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 3000 });
   g = await strip();
   ok(`${lang}: a zoom ticks it`, g.done, g);
   info[lang] = g;
-  await ev('Tour.stop()'); await settle(300);
+  await ev('Tour.stop()'); await settled({ until: `!Tour.isActive()` });
 }
 return { pass: fails.length === 0, fails, info };
