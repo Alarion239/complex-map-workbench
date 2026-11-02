@@ -934,8 +934,8 @@
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
     const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
-    // (the F chip beside the rail steps aside with the planes, and the message takes its room too)
-    const wm = rail ? box(strip.querySelector('.sv-wholemap')) : null, room = rail ? (wm ? wm.right : rail.right) - rail.left : 0;
+    // (the F chip and "+ Add function" beside the rail step aside with the planes, and the message takes their room too)
+    const aside = rail ? [strip.querySelector('.sv-wholemap'), strip.querySelector('.sv-add')].map(box).filter(Boolean) : [], room = rail ? Math.max(rail.right, ...aside.map((b) => b.right)) - rail.left : 0;
     if (rail && rail.width >= 160 && host.children.length === 1) {
       stripAway(true);
       host.setAttribute('data-placed', 'rail');
