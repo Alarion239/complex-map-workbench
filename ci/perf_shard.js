@@ -49,10 +49,10 @@ async function main() {
   const f = (n) => path.join(OUT, n);
   // CI machines are never idle: no waiting for a quiet machine (both sides of a pair see the same load); a unit may
   // take long on software rendering
-  const common = ['--reps', REPS, '--load-wait', '0', '--load-max', '100000', '--unit-timeout', opt('--unit-timeout', '1800'), '--settle-timeout', opt('--settle-timeout', '20000')];
+  const common = ['--reps', REPS, '--load-wait', '0', '--load-max', '100000', '--unit-timeout', opt('--unit-timeout', '1800'), '--settle-timeout', opt('--settle-timeout', '20000'), '--raf-max', opt('--raf-max', '20')];
   const paired = (only, k, flip) => {
     const rc = run(process.execPath, [path.join(PERF, 'run.js'), '--ab', R.dist, '--out', f(`cur-${k}.json`), '--ab-out', f(`ref-${k}.json`), '--only', only, ...common, ...(flip ? ['--ab-flip'] : [])]);
-    if (rc !== 0) throw new Error(rc === 4 ? 'a unit stalled (run.js exit 4): see the log' : `run.js exited ${rc}`);
+    if (rc !== 0) throw new Error(rc === 4 ? 'a unit stalled (run.js exit 4): see the log' : rc === 5 ? 'the machine is throttled (run.js exit 5: an idle page\'s rAF median over --raf-max; the display asleep?): no numbers; see the log' : `run.js exited ${rc}`);
   };
   const compare = (b, c, json, fu, table) => {
     const a = [CMP, '--baseline', b, '--results', c, '--json', json, '--paired', '--tol-scale', SCALE];

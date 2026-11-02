@@ -156,6 +156,10 @@ jobs:
           echo "shards=$s" >> "$GITHUB_OUTPUT"
       - name: Browser shards (every suite in exactly one)
         run: node ci/browser_shards.js check
+      # the standards check (ci/README.md, Standards check): history words, plan labels and dropped assertions on the
+      # lines this change adds; it reports in the job summary and as warnings, and never fails the job
+      - name: Standards check (report only)
+        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github
       # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
       # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
       # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
@@ -352,7 +356,7 @@ jobs:
       # (shared virtual machines: a timing swings both ways by more than any tolerance between two runs of the same app, so
       # timings and memory are reported with 3-fold allowances and not gated; the checks gate. Software rendering
       # settles slower than a GPU.)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE || needs.plan.outputs.perf_force }}
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 --raf-max 0 ${{ env.FORCE || needs.plan.outputs.perf_force }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -373,6 +377,9 @@ jobs:
     if: needs.plan.outputs.browser != '[]'
     strategy:
       fail-fast: false
+      # (at most 8 shards of one run at a time: the hosted runners are shared by every open pull request, and a run that
+      # holds all of them leaves the others half done; the full gate's 29 shards take four rounds, a tier's few run at once)
+      max-parallel: 8
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.browser) }}
     runs-on: ubuntu-latest

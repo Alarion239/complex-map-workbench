@@ -596,7 +596,6 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
-  const until = async (expr, ms = 30000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(expr)) return Date.now() - t0; await sleep(100); } return -1; };
   const filled = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.total > 0 && s.ready === s.total); })()`;
   // (in the page: the preview's picture at timeline index k against the saved video's frame k, decoded, and against the
   // exact render at its t, all at the preview's size; mean abs difference of 255)
@@ -617,13 +616,13 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await ev(`(() => { window.__lt = []; window.__po = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }); window.__po.observe({ entryTypes: ['longtask'] }); window.__rf = []; window.__rfOn = true; (function f() { window.__rf.push(performance.now()); if (window.__rfOn) requestAnimationFrame(f); })(); return 1; })()`);
   const t0 = Date.now();
   await key('e', 4);
-  const tPoster = await until(`!!document.querySelector('.xf-poster').getAttribute('src')`, 20000);
-  const tMoving = await until(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.playing && s.shown && s.i > 0); })()`, 20000);
+  const tPoster = (await settled({ until: `!!document.querySelector('.xf-poster').getAttribute('src')`, max: 20000, only: true })).at;
+  const tMoving = (await settled({ until: `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.playing && s.shown && s.i > 0); })()`, max: 20000, only: true })).at;
   // (the animation frames are timed from here: the preview fills and plays; the dialog's own opening is not counted)
   await ev('window.__rf = []; 1');
   // it advances by itself: the index after a second, at the video's frame rate
   const adv = await ev(`await (async () => { const d = __cmwFig.dialog(), a = d.preview.state(), d0 = __cmwFig.previewStats().draws, t = performance.now(); await new Promise((r) => setTimeout(r, 1000)); const b = d.preview.state(); const dt = performance.now() - t; return { i0: a.i, i1: b.i, n: b.n, fps: b.fps, rate: +(((b.i - a.i + b.n) % b.n) / dt * 1000).toFixed(1), draws: __cmwFig.previewStats().draws - d0 }; })()`);
-  const tFilled = await until(filled, 40000);
+  const tFilled = (await settled({ until: filled, max: 40000, only: true })).at;
   await sleep(1200);
   const perf = await ev(`(() => { window.__rfOn = false; window.__po.disconnect(); const r = window.__rf, d = []; for (let i = 1; i < r.length; i++) d.push(r[i] - r[i - 1]); const s = d.slice().sort((a, b) => a - b); return { lt: window.__lt, frames: d.length, med: +s[s.length >> 1].toFixed(1), p95: +s[Math.floor(s.length * 0.95)].toFixed(1), max: +s[s.length - 1].toFixed(1), over20: d.filter((x) => x > 20).length }; })()`);
   let st = await pvState();
@@ -659,16 +658,16 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   const sv0 = await pvState();
   await ev('window.__saved.length = 0; 1');
   await clickSel('#xfVideo');
-  const svMs = await until('window.__saved.length > 0', 90000); await sleep(3200);
+  const svMs = (await settled({ until: 'window.__saved.length > 0', max: 90000, only: true })).at; await sleep(3200);
   const sv1 = await pvState();
   ok('preview: Save video leaves it be (the same frames, not drawn again; still playing)', svMs >= 0 && sv1.id === sv0.id && sv1.stats.renders === sv0.stats.renders && sv1.playing && sv1.canvas, { svMs, sv0: [sv0.id, sv0.stats], sv1: [sv1.id, sv1.stats, sv1.playing] });
   // Loop: a fade frame of the preview against the video's
   const id0 = k4.id;
   await clickSel('#xfVEnds button[data-v="loop"]');
-  await until(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id > ${id0}); })()`, 20000);
+  await settled({ until: `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id > ${id0}); })()`, max: 20000, only: true });
   st = await pvState();
   ok('preview: an option change starts it again with the new frames (one preview alive)', st.id > id0 && st.stats.live === 1 && st.n > 211, st);
-  await until(filled, 60000);
+  await settled({ until: filled, max: 60000, only: true });
   const kFade = await ev(`(() => { const d = __cmwFig.dialog(); for (let i = 0; i < d.preview.state().n; i++) { const e = d.preview.entry(i); if (e && typeof e === 'object' && e.k > 0.4) return i; } return -1; })()`);
   const m2 = await ev(`await (${VS})(${kFade})`, 300000);
   if (m2 && m2.png) { fs.writeFileSync(path.join(OUT, 'pv-loop-fade-frame.png'), Buffer.from(m2.png.split(',')[1], 'base64')); delete m2.png; }
@@ -680,7 +679,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   const f0 = await ev('__cmwFig.previewStats()'); await sleep(800); const f1 = await ev('__cmwFig.previewStats()');
   ok('preview: Format PDF stops it (nothing alive, nothing drawn)', f0.live === 0 && f1.renders === f0.renders && f1.draws === f0.draws, { f0, f1 });
   await clickSel('#xfFmt button[data-v="video"]');
-  const back = await until(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.playing && s.shown); })()`, 20000);
+  const back = (await settled({ until: `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.playing && s.shown); })()`, max: 20000, only: true })).at;
   ok('preview: back on Video it plays again', back >= 0, back);
   // the dialog closes: the preview stops
   await key('Escape'); await sleep(300);
@@ -691,7 +690,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await key('1'); await settle(300); await ev(`__cmwSetView('R', 'sphere'); 1`); await settle(800);
   await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; s.video = Object.assign({}, s.video, { size: '1280x720', fps: 30, secs: 2, ends: 'bounce' }); __cmwFig.saveSettings(s); return 1; })()`);
   await key('e', 4);
-  const gb = await until(filled, 60000);
+  const gb = (await settled({ until: filled, max: 60000, only: true })).at;
   const kBack = await ev(`(() => { const d = __cmwFig.dialog(), n = d.preview.state().n; return Math.floor(n * 0.7); })()`);
   const m3 = await ev(`await (${VS})(${kBack})`, 300000);
   if (m3 && m3.png) { fs.writeFileSync(path.join(OUT, 'pv-globe-bounce-frame.png'), Buffer.from(m3.png.split(',')[1], 'base64')); delete m3.png; }
@@ -701,14 +700,14 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // reduced motion: paused on the poster frame (the screen's t), with Play; Play plays it
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'reduce' }] });
   await key('e', 4);
-  await until(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.n > 0 && s.ready >= 1); })()`, 20000);
+  await settled({ until: `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.n > 0 && s.ready >= 1); })()`, max: 20000, only: true });
   const r0 = await pvState(); await sleep(800); const r1 = await pvState();
   const rt = await ev(`(() => { const d = __cmwFig.dialog(); return d.preview.entry(d.preview.state().i); })()`);
   await shot('export-pv-reduced-1440');
   R.pv.reduced = { r0, r1, rt };
   ok('preview, reduced motion: paused on the poster frame (t = 1.2), Play offered, the note says why', !r0.playing && r0.poster && !r0.canvas && r0.btn === 'Play' && r1.i === r0.i && Math.abs(rt - 1.2) < 0.05 && /reduced motion is on/.test(r0.note), R.pv.reduced);
   await clickSel('#xfPvPlay');
-  await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.playing && s.shown && s.i !== ${r1.i}; })()`, 20000); await sleep(100); // (time runs from the first shown picture, so on a slow machine the playhead moves a little after it)
+  await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.playing && s.shown && s.i !== ${r1.i}; })()`, max: 20000, only: true }); await sleep(100); // (time runs from the first shown picture, so on a slow machine the playhead moves a little after it)
   const r2 = await pvState();
   ok('preview, reduced motion: Play plays it', r2.playing && r2.canvas && !r2.poster && r2.i !== r1.i, r2);
   await key('Escape'); await sleep(300);
@@ -724,7 +723,6 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !cv.hidden, cssW: Math.round(cv.getBoundingClientRect().width || parseFloat(cv.style.width) || 0), dpr: devicePixelRatio, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
-  const until = async (expr, ms = 30000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(expr)) return Date.now() - t0; await sleep(100); } return -1; };
   const shownE = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id && s.shown); })()`;
   const VS = `async (k) => { const d = __cmwFig.dialog(), s = d.preview.state(), o = Object.assign(d.preview.opts(), { keepForCheck: true, alive: null });
     const r = await __cmwFig.makeVideo(o); const chk = await __cmwFig.videoCheck(k, s.pw, s.ph), pf = await d.preview.frame(k);
@@ -750,13 +748,13 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await setV({ secs: 2 });
   await key('e', 4);
   // (the animation frames are timed once the preview shows: it fills and plays; the dialog's opening is not counted)
-  await until(shownE, 20000); await perfOn(); await sleep(2500);
+  await settled({ until: shownE, max: 20000, only: true }); await perfOn(); await sleep(2500);
   let a = await pvState(); const pa = await perfOff(), fs0 = await firstShown(), ra = await rate();
   R.pv2.dpr2 = { a, pa, fs0, ra };
   ok('preview DPR 2 (vp-1): frames kept at the shown size in device pixels (not below it), compressed, the note says the video is 1920 × 1080', a.dpr === 2 && a.pw >= Math.min(1920, a.cssW * 2) - 2 && a.raw === false && /^image\/(webp|jpeg)$/.test(a.mime) && a.hot <= 40, R.pv2.dpr2);
   ok('preview (vp-4): the first picture is the poster\'s frame (t = 1.2), not t = 0', fs0 && Math.abs(fs0.t - 1.2) < 0.15, fs0);
   ok('preview DPR 2: plays at 30 fps from compressed frames, no task of 50 ms, frames on time', ra >= 24 && ra <= 36 && !pa.lt.some((d) => d >= 50) && pa.p95 < 25 && pa.max < 50, { ra, pa });
-  await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.ready === s.total; })()`, 90000); await sleep(400);
+  await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.ready === s.total; })()`, max: 90000, only: true }); await sleep(400);
   const an = await ev('__cmwFig.dialog().preview.note()');
   ok('preview DPR 2: filled, the note says the frames are scaled and compressed, and that the video is 1920 × 1080', /^Preview: the frames of the video itself, scaled to fit here and lightly compressed \(the video is 1920 × 1080\)$/.test(an), an);
   const kq = await ev(`(() => { const d = __cmwFig.dialog(), n = d.preview.state().n; for (let i = Math.floor(n * 0.45); i < n; i++) if (typeof d.preview.entry(i) === 'number') return i; return 0; })()`);
@@ -773,7 +771,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // fills; a hidden page draws nothing (vp-7)
   await setV({ fps: 60, secs: 6, ends: 'loop', look: 'print' });
   await key('e', 4);
-  await until(shownE, 20000); await perfOn(); await sleep(2000);
+  await settled({ until: shownE, max: 20000, only: true }); await perfOn(); await sleep(2000);
   const b = await pvState(), rb = await rate(), pb = await perfOff();
   R.pv2.loop60 = { b, rb, pb };
   ok('preview 60 fps Loop (vp-1, vp-8): 721 frames kept at the shown size (743 px, not 344), compressed', b.total === 721 && b.pw >= Math.min(1920, b.cssW) - 2 && b.pw >= 700 && b.raw === false, b);
@@ -789,14 +787,14 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // (c) a restart after an option change (vp-2): Pause, change the ends, Play during the restart: the wish holds
   await setV({ size: '1280x720', secs: 2 });
   await key('e', 4);
-  await until(shownE, 20000); await sleep(500);
+  await settled({ until: shownE, max: 20000, only: true }); await sleep(500);
   await clickSel('#xfPvPlay'); await sleep(100);
   const id1 = (await pvState()).id;
   await clickSel('#xfVEnds button[data-v="bounce"]'); await sleep(40);
   const c0 = await pvState();
   await clickSel('#xfPvPlay'); await sleep(30);
   const c1 = await pvState();
-  await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id1} && s.shown; })()`, 20000); await sleep(300);
+  await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id1} && s.shown; })()`, max: 20000, only: true }); await sleep(300);
   const c2 = await pvState();
   R.pv2.restart = { c0, c1, c2 };
   ok('preview (vp-2): during a restart the bar is cleared and the button shows the wish; Play there is kept', c0.id === 0 && c0.btn === 'Play' && c0.seek[1] === 0 && c0.time === '' && /drawing the frames, 0 %/.test(c0.note) && c1.btn === 'Pause' && c2.id > id1 && c2.playing && c2.btn === 'Pause', R.pv2.restart);
@@ -805,11 +803,11 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await clickSel('#xfPvPlay'); await sleep(100);
   const id2 = (await pvState()).id;
   await clickSel('#xfVEnds button[data-v="loop"]'); await sleep(40);
-  const tp = await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id2} && s.shown; })()`, 20000); await sleep(200);
+  const tp = (await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id2} && s.shown; })()`, max: 20000, only: true })).at; await sleep(200);
   const c3 = await pvState();
   R.pv2.pausedRestart = { tp, c3: { id: c3.id, shown: c3.shown, playing: c3.playing, canvas: c3.canvas, poster: c3.poster, btn: c3.btn, pw: c3.pw } };
   ok('preview (vp-2 residual): a restart while paused shows its own frames, not the poster, and stays paused', tp >= 0 && c3.shown && c3.canvas && !c3.poster && !c3.playing && c3.btn === 'Play', R.pv2.pausedRestart);
-  await clickSel('#xfPvPlay'); await until(`__cmwFig.dialog().preview.state().playing`, 5000); await sleep(300);
+  await clickSel('#xfPvPlay'); await settled({ until: `__cmwFig.dialog().preview.state().playing`, max: 5000, only: true }); await sleep(300);
   // (vp-6) the scrubber with focus stands still for a screen reader while the video plays; a key moves from the frame in view
   await ev(`document.getElementById('xfPvSeek').focus(); 1`); await sleep(150);
   const f0 = await pvState(); await sleep(1300); const f1 = await pvState();
@@ -821,7 +819,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // (d) a bigger window (vp-3): opened at 390 px, then 1440 px: drawn again at the new size, same play state
   await view(390, 844, false, true); await settle(500);
   await key('e', 4);
-  await until(shownE, 20000); await sleep(600);
+  await settled({ until: shownE, max: 20000, only: true }); await sleep(600);
   const d0 = await pvState();
   await view(1440, 900, false, false); await sleep(250);
   const d1 = await pvState(); await sleep(900); const d2 = await pvState();
@@ -833,11 +831,11 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // asking for Play; Play draws them all
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'reduce' }] });
   await key('e', 4);
-  await until(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id && s.ready >= 1); })()`, 20000); await sleep(1500);
+  await settled({ until: `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id && s.ready >= 1); })()`, max: 20000, only: true }); await sleep(1500);
   const e0 = await pvState();
   await ev(`document.getElementById('xfPvSeek').focus(); 1`); await key('ArrowRight'); await sleep(400);
   const e1 = await pvState();
-  await clickSel('#xfPvPlay'); await until(`(() => { const s = __cmwFig.dialog().preview.state(); return s.ready === s.total; })()`, 90000);
+  await clickSel('#xfPvPlay'); await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.ready === s.total; })()`, max: 90000, only: true });
   const e2 = await pvState();
   R.pv2.reduced = { e0, e1, e2 };
   ok('preview, reduced motion (vp-5): only the frame in view is drawn; a scrub draws its frames and the note drops "Press Play"; Play draws them all', e0.lazy && e0.ready === 1 && !e0.canvas && /Press Play/.test(e0.note) && e1.canvas && e1.ready <= 7 && !/Press Play/.test(e1.note) && e2.ready === e2.total && e2.playing, { e0: [e0.ready, e0.note], e1: [e1.ready, e1.note], e2: [e2.ready, e2.total, e2.playing] });
@@ -847,7 +845,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   // (f) a device with 4 GB or less (vp-7): plain frames get 64 MB, so 121 frames of 743 x 418 (150 MB) are compressed
   await ev(`(() => { Object.defineProperty(Navigator.prototype, 'deviceMemory', { configurable: true, get: () => 2 }); return 1; })()`);
   await key('e', 4);
-  await until(shownE, 20000); await sleep(300);
+  await settled({ until: shownE, max: 20000, only: true }); await sleep(300);
   const g0 = await pvState();
   R.pv2.lowmem = g0;
   ok('preview (vp-7): with 4 GB or less, a timeline that fits 192 MB but not 64 MB is kept compressed', g0.raw === false && g0.total === 121, g0);

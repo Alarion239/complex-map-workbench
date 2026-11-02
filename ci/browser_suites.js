@@ -53,7 +53,13 @@ const EXCLUDED = {
 
 const audit = (label, sizes, inputs, layerAll) => ({ label, preamble: `const AUDIT_CFG = { sizes: ${JSON.stringify(sizes)}, inputs: ${JSON.stringify(inputs)}, layerAll: ${JSON.stringify(layerAll)} };` });
 const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
+// (the pages and the runs of both raw-TeX suites: one language per run, MathJax's page where the language has it)
+const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}'; globalThis.MJ = ${l !== 'it'};` })) };
 const SUITES = {
+  // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
+  // suite run too)
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'] },
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
@@ -70,7 +76,8 @@ const SUITES = {
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
   // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
-  'raw_tex_cmd.js': { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}'; globalThis.MJ = ${l !== 'it'};` })) },
+  'raw_tex_cmd.js': RAW_TEX,
+  'raw_tex_classic_cmd.js': RAW_TEX,
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
@@ -116,20 +123,22 @@ const TIMING = {
   'p3_review_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
     t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
   'v15_desktop_cmd.js': [t(/^dragging a (zero|shape): p95 frame/, (d) => d && d.n > 20)],
-  'zp_cmd.js': [t(/^drag at 60 fps/), t(/^deformation plays at 60 fps/)],
+  'zp_cmd.js': [t(/^drag at 60 fps/)],
+  'zp_classic_cmd.js': [t(/^deformation plays at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
   'p5_accept_cmd.js': [t(/: no slice over 6 ms$/), t(/^8\.8: the slices of the rebuild stay within 6 ms/)],
 };
 
 const s = (re, why, measured) => ({ re, why, measured });
 const SOFTWARE = {
-  // (the tour masks its rings off an open layer frame by frame; the audit looks once, 450 ms and 2 frames after the
-  // layer opens, during its 4-px pop-in, which here is 1-3 frames: the mask is an earlier frame's. Only when the layer is
+  // (the tour masks its rings off an open layer frame by frame; the audit looks once, two frames after the layer shows
+  // and its animations end (#504: no fixed 450 ms), which can still fall in its 4-px pop-in, 1-3 frames here: the mask
+  // is an earlier frame's. Only when the layer is
   // on top at all its points, the tour stays and the layer closes)
   'tour_audit_cmd.js': [
     s(/ layer (palette|export|toast)\*?: the tour covers none of it, its rings masked off it, the tour stays$/, 'one look during the layer\'s pop-in, which takes 1-3 frames here: the rings\' mask is from an earlier frame',
       (d) => d && JSON.stringify(d.kinds) === '["ringOverLayer"]' && d.g && Array.isArray(d.g.lay) && d.g.lay.every((x) => x === 'ok') && d.g.strip === true && d.after && d.after.active === true && d.after.layer === false),
-    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s, before the audit\'s look (450 ms and 2 frames of seconds each)',
+    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s (a timer), before the audit\'s look (its frames take seconds each here)',
       (d) => d && JSON.stringify(d.kinds) === '["noLayer"]'),
   ],
   'tour_cmd.js': [s(/^Sphere: one lit panel \(and the strip's window\) and a ring on its surface control$/, 'the ring comes once the shade\'s morph ends, seconds later here (the CI screenshot right after shows it)',

@@ -9,7 +9,7 @@
     { id: '1024', w: 1024, h: 768, dev: 'desktop' }, { id: '1280', w: 1280, h: 800, dev: 'desktop' }, { id: '1440', w: 1440, h: 900, dev: 'desktop' },
   ];
   // the states: name, dev (phone or desktop only), views (the views it is in), go (a page script), click (a button's id),
-  // key, run (an async function with the daemon's helpers), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
+  // key, run (an async function with the daemon's helpers), sizes (the sizes it is measured at; all when absent), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
   const STATES = [
@@ -23,6 +23,18 @@
     { name: 'inspector F', go: `(() => { const e = document.querySelector('#pipeline .ftile'); e && e.click(); return 1; })()`, dev: 'desktop',
       ready: `(() => { const p = document.getElementById('propsPanel'); return !!p && p.checkVisibility() && p.getBoundingClientRect().right <= innerWidth + 1; })()` },
     { name: 'tour strip', go: `Tour.start({ chapter: 'basics' }), 1`, wait: 1500, ready: `!!Tour.current()` },
+    // (#565: the strip at its fullest: for each chapter, the step with the longest lead, text and task in the language
+    // shown, opened on a phone at 360 px, where the strip is narrowest; 'na' where this view has no such chapter)
+    ...['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys', 'planes'].map((ch) => ({
+      name: 'tour longest ' + ch, dev: 'phone', sizes: ['360'], wait: 1500,
+      go: `(() => { try { Tour.dismissSuggestion(); Tour.auto(false); } catch (e) { /* */ }
+        const T = Tour._t, c = T.CHAPTERS.find((x) => x.id === ${JSON.stringify(ch)});
+        if (!c || (T.chapterShown && !T.chapterShown(c))) return 'na';   // (a chapter this screen does not offer: Palette and keys on touch)
+        let best = 0, len = -1;
+        c.steps.forEach((st, i) => { const n = (T.leadFor(st) || '').length + (T.copyFor(st, null) || '').length + (st.try ? (T.tryFor(st.try) || '').length : 0); if (n > len) { len = n; best = i; } });
+        Tour.start({ chapter: c.id, step: best });
+        return 1; })()`,
+      ready: `!!Tour.current() && Tour.current().chapter === ${JSON.stringify(ch)}` })),
     { name: 'menu examples', click: 'examplesBtn', dev: 'desktop' },
     { name: 'menu export', click: 'exportBtn', dev: 'desktop' },
     { name: 'menu share', click: 'shareBtn', dev: 'desktop' },
@@ -69,7 +81,7 @@
     for (let tries = 0; tries < 2; tries++) {
       if (tries) await reset();
       if (st.after) undo = st.after;
-      if (st.go) await ev(st.go);
+      if (st.go) { const r = await ev(st.go); if (r === 'na') return 'na'; }
       if (st.click && !(await clickId(st.click))) return false;
       if (st.key) await key(st.key[0], st.key[1]);
       if (st.run) await st.run();
@@ -105,9 +117,11 @@
         const got = await ev(`[innerWidth, innerHeight]`);
         if (!Array.isArray(got) || got[0] !== sz.w || got[1] !== sz.h) { skipped.push(`${lang} ${view} ${sz.id}: NOT RENDERED (the page is ${JSON.stringify(got)})`); continue; }
         for (const st of states) {
-          if ((st.dev && st.dev !== dev) || (st.views && !st.views.includes(view))) continue;
+          if ((st.dev && st.dev !== dev) || (st.views && !st.views.includes(view)) || (st.sizes && !st.sizes.includes(sz.id))) continue;
           await reset();
-          if (!(await enter(st))) { skipped.push(`${lang} ${view} ${sz.id} ${st.name}: did not open`); continue; }
+          const opened = await enter(st);
+          if (opened === 'na') continue;   // (the state has nothing to open here: no such chapter in this view)
+          if (!opened) { skipped.push(`${lang} ${view} ${sz.id} ${st.name}: did not open`); continue; }
           for (const th of cfg.themes) {
             await theme(th === 'dark');
             await settle(150);
