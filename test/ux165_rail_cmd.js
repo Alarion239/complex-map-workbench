@@ -315,7 +315,10 @@ await section('D', async () => {
   await settle(300);
   const sm = await ST(), uu = byId(sm, 'u'), uc = sm.list.find((x) => x.fixed === 'unit');
   info.Dmenu = { mi, uu, uc: uc && uc.id, n: sm.n, m0 };
-  ok('D ⋯ Put on this curve on the unit circle: the point on it, the fixed unit circle made before the point in the list, one undo step', uu.def && uu.def.op === 'glider' && uc && uu.def.args[0].s === uc.id && Math.abs(Math.hypot(uu.p[0], uu.p[1]) - 1) < 1e-15 && sm.n === m0 + 1 && sm.list.indexOf(uc) < sm.list.indexOf(uu), info.Dmenu);
+  ok('D ⋯ Put on this curve on the unit circle: the point on it, the unit circle before it, one undo step',
+    uu.def && uu.def.op === 'glider' && uc && uu.def.args[0].s === uc.id &&
+    Math.abs(Math.hypot(uu.p[0], uu.p[1]) - 1) < 1e-15 && sm.n === m0 + 1 &&
+    sm.list.indexOf(uc) < sm.list.indexOf(uu), info.Dmenu);
 });
 
 // ---------------------------------------------------------------- E
