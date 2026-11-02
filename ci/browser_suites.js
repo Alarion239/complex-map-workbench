@@ -174,7 +174,7 @@ const SOFTWARE = {
 const KNOWN = {
   'p3_review_cmd.js': [
     s(/^the w-globe of Cayley\(H\) with the colour plane z shows the colour carried from z$/,
-      'a later plane on the Sphere surface draws no carried region: the w-globe shows the bare paper where H\'s image is; open on #716 (SphereMesh for a later plane\'s regions in the steps view, which gates this check)',
+      'a later plane on the Sphere surface draws no carried colour: the w-globe shows the bare paper where H\'s image is; open on #729 (the carried colour on a later plane\'s globe, which gates this check)',
       (d) => d && d.paper > 0.5 * d.considered && d.unlisted === 0),
   ],
   'steps_carry_exact_cmd.js': [
