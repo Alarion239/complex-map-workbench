@@ -138,7 +138,15 @@ await settle(1200);
   for (const d of [20, 60, 100]) { const q = await pt(d); await click(q[0] + 2, q[1]); await settle(200); }
   const st = await ST(), K = st.list.find((x) => x.def && x.def.op === 'circle3');
   ok('rail-5: three globe picks on C are gliders and the circle is C', K && Math.abs(K.r - 0.8) < 1e-12 && st.list.filter((x) => x.def && x.def.op === 'glider').length === 3, sum(st));
-  // (Orthogonal on the globe says to switch to the plane: the classic view's hint, in ux165_fix_classic_cmd.js)
+  await key('Escape');
+  // (Orthogonal on the globe says to switch to the plane after a press: the classic view's hint, in ux165_fix_classic_cmd.js)
+  // (before any press: the chip of a tool that picks a curve says where the curve is picked)
+  const q = await pt(60);
+  for (const t of ['perp', 'touch', 'hyper', 'meet']) {
+    await tool(t); await move(q[0], q[1]);
+    await settled({ max: 3000, until: `[...document.querySelectorAll('.cm-chip')].some((e) => !!e.offsetParent)` });
+    ok(`rail-5: ${t} on the globe, before a press, says to switch to the plane`, /^Switch to the plane to pick the curve/.test(await mchip() || ''), await mchip());
+  }
 }
 // user-1, user-5, regress-3: z^2 + a from the palette
 await view(1366, 768, false, false);
