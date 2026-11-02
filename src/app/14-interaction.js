@@ -763,7 +763,8 @@
       const last = list[list.length - 1], now = performance.now();
       // ([v16.5 rail SPEC 1.2 (c)] on a drawn curve (no point or mark took the press): a point on that curve)
       if (!gs.pt && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
-        const pl = list[list.length - 1];
+        // (the plane's shapes read again: the point was just added, and `list` is a copy taken before it)
+        const cur = target ? S.targets : planeShapes(), pl = cur[cur.length - 1];
         lastGlobePoint = pl ? { id: pl.id, t: now } : null; gSnapMark = null;
         return;
       }
