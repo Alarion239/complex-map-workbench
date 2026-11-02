@@ -56,4 +56,3 @@ await settled({ floor: 1800 });
 const yh = await ev(`(() => { const t = document.getElementById('rightTitle'); return { w: Math.round(t.getBoundingClientRect().width), txt: t.textContent.slice(0, 12), tiny: document.getElementById('paneR').classList.contains('tiny') }; })()`);
 ok('Y keeps its title at 1366 with the chain empty', yh.w > 20 && !yh.tiny, yh);
 return { pass: fails.length === 0, fails, info };
-
