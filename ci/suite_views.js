@@ -62,6 +62,7 @@ const VIEWS = {
   'phone_glide_cmd.js': classic('the phone\'s ‹ › glide of Y between X and Y: the steps view glides its one plane (steps_view_cmd)'),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
+  'ux165_phone_classic_cmd.js': classic('v16.5\'s phone fixes of the chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
   'v15_desktop_cmd.js': classic('the cards following the view switch (X → Y, Phase, Landscape, the Deformation)'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
   'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
@@ -105,7 +106,7 @@ const VIEWS = {
   'phone_sheet_target_cmd.js': port('phone'),
   'phone_sheets_cmd.js': port('phone'),
   'phone_toast_chain_cmd.js': port('phone'),
-  'ux165_phone_cmd.js': port('phone'),
+  'ux165_phone_cmd.js': steps({ pin: true }),
 
   // to port: words (the tour after #620 items 3 and 11, the chapters' retargeting)
   'example_cauchy_cmd.js': port('words'),
