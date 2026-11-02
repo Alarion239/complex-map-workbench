@@ -189,8 +189,10 @@ await settle(1500);
 // ------------------------------------------------------------------ 2. exact truth
 // the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden
 // (the steps view has one plane: the source plane is step 0, the right pane's plane is the chain's last step)
-const inkOf = async (side, id, isTarget, nSteps) => {
+// (a later plane takes the shared view of the steps view, so the right pane's pinned view `rv` is set as that view first)
+const inkOf = async (side, id, isTarget, nSteps, rv) => {
   if (await ev(`document.documentElement.classList.contains('sv')`)) {
+    if (side === 'R') await ev(`__cmwSet('srcView', ${JSON.stringify(rv)}); 1`);
     await ev(`__cmwSteps({ go: ${side === 'R' ? nSteps : 0}, now: true })`);
     await settle(1200);
     side = 'L';
@@ -322,7 +324,7 @@ for (const sc of SC) {
   await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle(800);
   // (the steps view draws a shape's curve on its colour plane only while Outlines is on; the classic right pane's image always does)
   if (await ev(`document.documentElement.classList.contains('sv')`)) { await ev(`__cmwSet('outline', true); 1`); await settle(800); }
-  const I = await inkOf(sc.side || 'R', id, !!sc.target, sc.steps.length);
+  const I = await inkOf(sc.side || 'R', id, !!sc.target, sc.steps.length, sc.rv);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
   await shot('curves-' + sc.name, sc.side === 'L' ? { x: 268, y: 44, width: 432, height: 570 } : { x: 706, y: 44, width: 432, height: 570 });
 }
