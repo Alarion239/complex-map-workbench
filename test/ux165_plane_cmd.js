@@ -9,7 +9,8 @@ const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (waits for the panes to be drawn: on a slow renderer a pick lands a frame or two after its click)
+const settle = async (ms = 300) => { await settled({ floor: ms }); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon|MathJax|cdnjs/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
