@@ -146,7 +146,8 @@ const VIEWS = {
   'tour_skip_hover_cmd.js': port('words'),
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
   'tour_titles_cmd.js': port('words'),
-  'tour_words_cmd.js': port('words'),
+  'tour_words_cmd.js': steps({ pin: true }),
+  'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour does not have (chapter retargeting, #620 item 11); the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the retargeted tour chapters and the F chip'),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
