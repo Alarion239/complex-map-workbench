@@ -6,22 +6,27 @@
 //     sheet's own box; one scrolled out of it is not under the message's reach);
 //   - is whole: inside the window, its words not cut;
 //   - leaves its own buttons (Show alone, Undo) hit-testable.
+// The chain sheet is reached from the chain bar ("N steps ▾"), which the steps view's phone does not have, so that half opens the
+// classic view (?view=classic); the More sheet half runs in the steps view, which the suite is pinned to (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }, { type: 'pown', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
-const fresh = async (w, h, lang) => {
+const fresh = async (w, h, lang, classic = false) => {
   await view(w, h, false, true);
   const ns = 'ptc' + w + lang + (Date.now() % 1000000);
-  await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` });
-  await settled({ max: 30000, until: `typeof __cmwAddStep === 'function'` }); await settle(1000);
+  if (classic) await loadView('classic', ns, ST, { lang });
+  else await load(ns, ST);
+  if (!classic) await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` });
+  await settled({ max: 30000, until: `typeof __cmwAddStep === 'function' && !!window.Phone && Phone.isOn()` });
 };
-// (the toast stays 5 s: the measure runs the moment it shows)
-const shown = async () => { for (let i = 0; i < 30; i++) { if (await ev(`!!document.querySelector('#toastHost .toast')`)) return true; await sleep(100); } return false; };
+// (the toast stays 5 s: the measure runs once the sheet has made way for it, and for the chain sheet the list has scrolled to the step just added)
+const shown = async () => (await settled({ max: 3000, panes: false, until: `!!document.querySelector('#toastHost .toast')` })).ok;
+const madeWay = (k) => settled({ max: 3000, panes: false, until: `(() => { const sh = document.querySelector('.ph-sheet[data-k="${k}"]'), t = document.querySelector('#toastHost .toast'); return !sh || !t || sh.getBoundingClientRect().bottom <= t.getBoundingClientRect().top + 1; })()` });
+// (the chain sheet's list scrolls to the step just added once the sheet has its new size; it is measured at the latest 3 s after that, inside the toast's 5 s)
+const listScrolled = () => settled({ max: 3000, panes: false, until: `(() => { const sh = document.querySelector('.ph-sheet[data-k="chain"]'), nc = sh && sh.querySelector('#pipeline .card[aria-selected="true"]'); if (!nc) return false; const sb = sh.getBoundingClientRect(), r = nc.getBoundingClientRect(); return Math.min(r.bottom, sb.bottom) - Math.max(r.top, sb.top) >= 0.9 * r.height; })()` });
 const measure = () => ev(`(() => {
   const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
   const sheet = document.querySelector('.ph-sheet[data-k="chain"]'), sb = sheet && sheet.getBoundingClientRect();
@@ -45,17 +50,16 @@ const measure = () => ev(`(() => {
 // (portrait 360 × 640 and 390 × 844, the width of Alexander's screenshot; landscape 740 × 360 and 915 × 412, where the sheet is a side panel)
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360], [915, 412]]) {
   const tag = `${lang} ${w}×${h}`;
-  await fresh(w, h, lang);
-  await ev(`document.querySelector('.ph-csteps').click(); 1`); await settle(900);
+  await fresh(w, h, lang, true);
+  await ev(`document.querySelector('.ph-csteps').click(); 1`);
+  await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="chain"].open')` });
   ok(`${tag}: the chain sheet is open`, await ev(`!!document.querySelector('.ph-sheet[data-k="chain"].open')`), null);
-  // (a second after the toast shows: the sheet's 220 ms to make way for it, and the list's scroll to the card just added)
+  // (measured once the sheet has made way for the toast and the list has scrolled to the card just added)
   let m = null;
   for (let i = 0; i < 3 && !m; i++) {
     await ev(`__cmwAddStep('exp')`);
     if (await shown()) {
-      await settle(1000); m = await measure();
-      // (the list's smooth scroll to the card just added takes longer on a slow start: measured again, up to eight times, until the card is in view)
-      for (let j = 0; j < 8 && m && !(m.newCard && m.newCard.seen >= 0.9); j++) { await sleep(500); const n = await measure(); if (!n) break; m = n; }
+      await madeWay('chain'); await listScrolled(); m = await measure();
     }
   }
   info[tag] = m;
@@ -82,9 +86,11 @@ const measureMore = () => ev(`(() => {
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   await fresh(w, h, lang);
-  await ev(`document.getElementById('hdrMoreBtn').click(); 1`); await settle(900);
+  ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
+  await ev(`document.getElementById('hdrMoreBtn').click(); 1`);
+  await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="more"].open')` });
   let m = null;
-  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await settle(1000); m = await measureMore(); } }
+  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await madeWay('more'); m = await measureMore(); } }
   info[tag] = m;
   ok(`${tag}: it is open and a toast shows`, !!m && m.open, m);
   if (!m) continue;
