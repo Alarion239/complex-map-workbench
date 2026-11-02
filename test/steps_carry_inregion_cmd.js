@@ -90,6 +90,7 @@ await wait();
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 60, 40);
   // the region: outside the circle |z - c| = r; the points at w: z = w ± sqrt(w^2 - 1)
+  // (the example's disc, as 15-examples-guide.js gives it: centre c, radius |1 - c| to ten places, the circle through 1)
   const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
   const both = (w) => {
     const ax = w[0] * w[0] - w[1] * w[1] - 1, ay = 2 * w[0] * w[1], m = Math.hypot(ax, ay);
