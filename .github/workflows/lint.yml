@@ -4,6 +4,7 @@
 #   - ESLint errors and tsc errors fail the job when they grow beyond ci/lint_baseline.json. The baseline is the count
 #     the tools report today; it may only shrink: when a PR fixes findings the step says so, and that PR lowers the
 #     numbers (node ci/lint_ratchet.js update eslint.json tsc.txt). ESLint warnings are listed but not gated.
+# A baseline of 0 is the floor: that tool is clean, and any error it reports fails the job.
 # The tools still report everything in the job summary; only the counts above gate.
 name: Lint
 
