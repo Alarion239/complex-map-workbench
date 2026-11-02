@@ -111,7 +111,7 @@ const VIEWS = {
   'example_cauchy_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': port('words', 'the Try lines left: K1 item 11'),
-  'fix152_cmd.js': steps({ pin: true }),
+  'fix152_cmd.js': port('words', 'the Split offer: focus after Split, and the long-chain rows in the steps view\'s Inspector'),
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': steps({ pin: true }),
   'i18n_walk_cmd.js': port('words'),
@@ -131,7 +131,7 @@ const VIEWS = {
   'tour_titles_cmd.js': port('words', 'K1 item 3'),
   'tour_words_cmd.js': port('words', 'K1 item 3'),
   'ux165_learn_cmd.js': port('words'),
-  'v151_cmd.js': steps({ pin: true }),
+  'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
   // to port: export (K1 items 6 to 8: the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': port('export', 'K1 item 6'),
