@@ -25,6 +25,11 @@
 // opts: { nx = 40, ny = 25, margin = 48 (device px), tol = 24 (a channel, 0-255), steep = 8, fam = 6, own, skip, skipW,
 // nex = 3, style = 'phase', sectors = 12, at (points [x, y] of the shown plane to sample in place of the grid) }
 (function carryCompare(o) {
+  // (a pixel is grey, the bare paper, below PAPER_SPREAD between its channels; a point's own colour is not near grey
+  // from OWN_SPREAD; a wrong pixel is blank (left unpainted) when its channels differ by less than BLANK in all; points
+  // within SEAM_D of the front in the sheet key are a seam, either may show; two roots of H_u closer than DUP relative
+  // to their size are one)
+  const PAPER_SPREAD = 6, OWN_SPREAD = 24, BLANK = 12, SEAM_D = 0.02, DUP = 1e-7;
   o = Object.assign({ nx: 40, ny: 25, margin: 48, tol: 24, steep: 8, fam: 6, own: null, skip: null, skipW: null, cut: null, nex: 3, style: 'phase', sectors: 12 }, o || {});
   const C = CX.C;
   const angle = (a, b) => { const d = a - b; return Math.abs(Math.atan2(Math.sin(d), Math.cos(d))); };
@@ -35,24 +40,10 @@
   const skipW = !o.skipW ? null : o.skipW.discs ? (([x, y]) => o.skipW.discs.some(([cx, cy, r]) => Math.hypot(x - cx, y - cy) < r))
     : (([x, y]) => o.skipW.rays.some((a) => angle(Math.atan2(y, x), a) < o.skipW.eps));
   const c = document.getElementById('canvasL'), x2d = c.getContext('2d'), W = c.width, H = c.height, d = x2d.getImageData(0, 0, W, H).data;
-  const b = c.getBoundingClientRect(), sx = b.width / W, sy = b.height / H, M = __cmwPlaneMenu();
-  const pts = [], at = [];
-  // (the samples: the grid, or opts.at's points of the shown plane where they fall on the pane within the margin)
-  const cells = [];
-  if (o.at) for (const [x, y] of o.at) { const q = M.w2s('L', x, y); if (!q) continue; const px = Math.round((q[0] - b.left) / sx), py = Math.round((q[1] - b.top) / sy); if (px >= o.margin && py >= o.margin && px < W - o.margin && py < H - o.margin) cells.push([px, py]); }
-  else for (let j = 0; j < o.ny; j++) for (let i = 0; i < o.nx; i++) cells.push([Math.round(o.margin + (W - 2 * o.margin) * (i + 0.5) / o.nx), Math.round(o.margin + (H - 2 * o.margin) * (j + 0.5) / o.ny)]);
-  for (const [px, py] of cells) {
-    for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) pts.push(M.s2w('L', b.left + (px + ox) * sx, b.top + (py + oy) * sy));
-    at.push([px, py]);
-  }
+  const { pts, at } = samples(c);
   const fr = __cmwSvFrame(o.fam), K = fr.key;
   const prep = { win: K.win, R: K.R, rs: K.rs, sing: K.sing.map((q) => C(q[0], q[1])) };
-  const roots = fr.H ? deformRoots(fr, pts) : pts.map(([x, y]) => [C(x, y)]);
-  const pre = roots.map((vs) => {
-    const zs = [];
-    for (const v of vs) { const r = fr.pre(v); if (!r) return null; zs.push(...r); }
-    return zs.filter((z) => CX.abs(z) < 1e6).map((z) => { let g = null; try { g = fr.G(z); } catch (e) { g = null; } return g && CX.isFin(g) ? [z.re, z.im, g.re, g.im] : null; }).filter(Boolean);
-  });
+  const pre = pointsOf(fr, pts);
   // (a point [x, y, gx, gy]: its colour, the style's colouring of its image in T (Inverse.dcolorRGB, the GPU's
   // dcolorAt as a point sample), kept on it)
   const col = (z) => z[4] || (z[4] = Inverse.dcolorRGB(o.style, Math.atan2(z[3], z[2]), Math.log(Math.max(Math.hypot(z[2], z[3]), 1e-300)), 0, 0, o.sectors).map((t) => t * 255));
@@ -78,7 +69,7 @@
   const fronts = (zs) => {
     const k = zs.map((z) => ({ z: C(z[0], z[1]), D: keyOf(z), p: z }));
     k.sort((p, q) => (Inverse.front(p, q) ? -1 : Inverse.front(q, p) ? 1 : 0));
-    return k.filter((e) => e.D - k[0].D < 0.02).map((e) => e.p);
+    return k.filter((e) => e.D - k[0].D < SEAM_D).map((e) => e.p);
   };
   let considered = 0, wrong = 0, blank = 0, none = 0, unlisted = 0, filled = 0, paper = 0;
   const ex = [], paperAt = [];
@@ -100,14 +91,37 @@
     const [px, py] = at[s], n = 4 * (py * W + px), got = [d[n], d[n + 1], d[n + 2]];
     // (a judged sample on the paper where its own colour is not near grey: where the colour changes slowly, so not a
     // zero of the map nor its |g| = 1 stroke, which the steep test leaves out)
-    if (spread(got) < 6 && cand.every((z) => spread(colFp(z, nb)) >= 24)) { paper++; if (paperAt.length < 8) paperAt.push({ px, py, w: pts[5 * s], got }); }
+    if (spread(got) < PAPER_SPREAD && cand.every((z) => spread(colFp(z, nb)) >= OWN_SPREAD)) { paper++; if (paperAt.length < 8) paperAt.push({ px, py, w: pts[5 * s], got }); }
     if (cand.some((z) => dist(got, colFp(z, nb)) <= o.tol)) continue;
     wrong++;
-    if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < 12) blank++;
+    if (Math.abs(got[0] - got[1]) + Math.abs(got[1] - got[2]) < BLANK) blank++;
     if (ex.length < o.nex) ex.push({ px, py, w: pts[5 * s], got, want: cand.slice(0, 3).map((z) => colFp(z, nb).map(Math.round)), z: cand[0].slice(0, 2), all: P0.map((z) => [z[0], z[1], keyOf(z)]) });
   }
   return { considered, wrong, blank, none, unlisted, filled, paper, rate: considered ? +(wrong / considered).toFixed(4) : null, ex, paperAt };
 
+  // the samples: the grid, or opts.at's points of the shown plane where they fall on the pane within the margin, each
+  // with its 4 neighbours 1.5 device px away (pts: 5 plane points a sample; at: its device pixel)
+  function samples(cv) {
+    const b = cv.getBoundingClientRect(), sx = b.width / W, sy = b.height / H, M = __cmwPlaneMenu();
+    const pts = [], at = [], cells = [];
+    if (o.at) for (const [x, y] of o.at) { const q = M.w2s('L', x, y); if (!q) continue; const px = Math.round((q[0] - b.left) / sx), py = Math.round((q[1] - b.top) / sy); if (px >= o.margin && py >= o.margin && px < W - o.margin && py < H - o.margin) cells.push([px, py]); }
+    else for (let j = 0; j < o.ny; j++) for (let i = 0; i < o.nx; i++) cells.push([Math.round(o.margin + (W - 2 * o.margin) * (i + 0.5) / o.nx), Math.round(o.margin + (H - 2 * o.margin) * (j + 0.5) / o.ny)]);
+    for (const [px, py] of cells) {
+      for (const [ox, oy] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) pts.push(M.s2w('L', b.left + (px + ox) * sx, b.top + (py + oy) * sy));
+      at.push([px, py]);
+    }
+    return { pts, at };
+  }
+  // each sample's points of plane z, each with its image in the colour plane T, [x, y, gx, gy] (null: the frame's maps
+  // could not list them all)
+  function pointsOf(f, ws) {
+    const roots = f.H ? deformRoots(f, ws) : ws.map(([x, y]) => [C(x, y)]);
+    return roots.map((vs) => {
+      const zs = [];
+      for (const v of vs) { const r = f.pre(v); if (!r) return null; zs.push(...r); }
+      return zs.filter((z) => CX.abs(z) < 1e6).map((z) => { let g = null; try { g = f.G(z); } catch (e) { g = null; } return g && CX.isFin(g) ? [z.re, z.im, g.re, g.im] : null; }).filter(Boolean);
+    });
+  }
   // The points v of plane b - 1 with H_u(v) = w, for each sample w ([C, ...] per point; see above)
   function deformRoots(f, ws) {
     const kw = f.key.win, mx = kw.x1 - kw.x0, my = kw.y1 - kw.y0, box = { x0: kw.x0 - mx, x1: kw.x1 + mx, y0: kw.y0 - my, y1: kw.y1 + my };
@@ -115,7 +129,7 @@
     const poles = f.poles(f.H, box, 16).map((p) => { const e = 1e-6 * (1 + CX.abs(p)); return { p, a: CX.scale(f.H(CX.add(p, C(e, 0))), e), r: 0.25 * mx }; });
     return ws.map(([re, im]) => {
       const w = C(re, im), tol = 1e-10 * (1 + CX.abs(w)), vs = [];
-      const add = (v) => { if (v && CX.isFin(v) && !vs.some((q) => CX.abs(CX.sub(q, v)) < 1e-7 * (1 + CX.abs(v)))) vs.push(v); };
+      const add = (v) => { if (v && CX.isFin(v) && !vs.some((q) => CX.abs(CX.sub(q, v)) < DUP * (1 + CX.abs(v)))) vs.push(v); };
       for (const s of grid.starts(re, im)) add(f.newton(f.H, w, s.z, 1, tol, s.lim));
       for (const q of poles) add(f.newton(f.H, w, CX.add(q.p, CX.div(q.a, w)), 1, tol, q.r));
       return vs;
