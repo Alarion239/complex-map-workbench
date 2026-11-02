@@ -47,6 +47,8 @@ for (const k of [0, 1]) {
     S1.shapes.length === 1 && S1.targets.length === 0 && d && d.kind === 'disc', S1);
   ok(`${where}: the shape belongs to the plane it was drawn on`, d && (k === 0 ? !('stage' in d) : d.stage === k), d);
   ok(`${where}: the Whole chain button does not pulse`, (await ev('window.__pulse')) === 0, await ev('window.__pulse'));
+  const hint = await ev(`(document.getElementById('sphereChipL') || { textContent: '' }).textContent`);
+  ok(`${where}: no hint says the globe draws in the z-plane only`, !/drawn in the z-plane/.test(hint), hint);
   // a press on the shape just drawn (on its rim) moves it on that plane
   if (d) {
     const c0 = d.c.slice(), rim = await at(c0[0] + d.r, c0[1]), to = await at(c0[0] + d.r + 0.3, c0[1] + 0.2);
