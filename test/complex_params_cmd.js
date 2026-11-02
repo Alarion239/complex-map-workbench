@@ -69,16 +69,21 @@ ok('the program key is unchanged (the value is a uniform)', key1 && (await glKey
 ok('step 2 follows: conj(1 - i) (z + 1 - i) at 0 is 2', near(await stage(2, 0, 0), [2, 0]), await stage(2, 0, 0));
 ok('typing the value is one undo step', s.hi === hi0 + 1, { hi: s.hi, was: hi0 });
 await settle(600);
-const restL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), restR = await ev(`__cmwRenderOff('R', 320, 240, 1)`);
+// (Y is the classic view's right pane, the image of the chain; the steps view's equivalent is its last plane)
+const inSteps = await ev(`document.documentElement.classList.contains('sv')`);
+const yFrame = async () => {
+  if (!inSteps) return ev(`__cmwRenderOff('R', 320, 240, 1)`);
+  await ev(`__cmwSteps({ go: __cmwSteps().planes.length - 1, now: true })`); await settled({ until: '!__cmwSteps().moving' });
+  return ev(`__cmwRenderOff('L', 320, 240, 1)`);
+};
+const restL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), restR = await yFrame();
 await ev('new Promise((r) => setTimeout(r, 400))');
 await load(NS + 'f', STATE(-1));
 await settle(1500);
-const freshL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), freshR = await ev(`__cmwRenderOff('R', 320, 240, 1)`);
+const freshL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), freshR = await yFrame();
 ok('rest frame after the edit = a fresh load of the same value (X)', restL === freshL, restL.length + ' vs ' + freshL.length);
-// (the steps view has the one plane, X; its right pane is not shown, so there is no Y to compare there)
-const yShown = await ev(`!!document.getElementById('paneR').getClientRects().length`);
-if (yShown) ok('rest frame after the edit = a fresh load of the same value (Y)', restR === freshR, restR.length + ' vs ' + freshR.length);
-ok('the picture really depends on im', freshR !== (await (async () => { await load(NS + 'g', STATE(1)); await settle(1500); return ev(`__cmwRenderOff('R', 320, 240, 1)`); })()), null);
+ok('rest frame after the edit = a fresh load of the same value (Y: the last plane in the steps view)', restR === freshR, restR.length + ' vs ' + freshR.length);
+ok('the picture really depends on im', freshR !== (await (async () => { await load(NS + 'g', STATE(1)); await settle(1500); return yFrame(); })()), null);
 
 // 3. undo and redo bring the imaginary part back
 await load(NS, STATE(1));
