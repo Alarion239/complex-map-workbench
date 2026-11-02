@@ -373,6 +373,9 @@ jobs:
     if: needs.plan.outputs.browser != '[]'
     strategy:
       fail-fast: false
+      # (at most 8 shards of one run at a time: the hosted runners are shared by every open pull request, and a run that
+      # holds all of them leaves the others half done; the full gate's 29 shards take four rounds, a tier's few run at once)
+      max-parallel: 8
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.browser) }}
     runs-on: ubuntu-latest
