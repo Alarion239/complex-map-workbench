@@ -1,6 +1,6 @@
 // The regions suites' front (regions_phase_cmd.js, regions_phase_classic_cmd.js): a command file evaluates this file's
 // text, `eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))`, and calls the function it
-// gives with the kit's helpers: ({ U, ev, send, nav, sleep, settled }) => { DISC, STATE, openSaved }.
+// gives with the kit's helpers: ({ U, ev, send, nav, sleep, settled }) => { DISC, STATE, openSaved, popFit }.
 //   DISC, STATE(o)       a unit disc under exp, and a saved state around it with the fields of o set
 //   openSaved(ns, st)    the app with the saved state st written straight to its storage (not the kit's load(), which
 //                        sets a seeded pattern through the test hook): what a user's own saved work does
