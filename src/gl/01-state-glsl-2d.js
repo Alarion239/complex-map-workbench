@@ -728,6 +728,21 @@ ${SRC}
 ${BARY}
 void main() { emit(mapPoint(srcOf(bary(aT)))); }
 `;
+  // (probe, scratch: the same evaluation as one non-instanced draw of P x n points, each base triangle's corners from
+  // uInst (two RGBA32F texels: A, B; C) and each template point from uTplPts)
+  const TF_REGION_FLAT_VS = (rt) => `
+uniform highp sampler2D uInst; uniform int uInstW; uniform int uTP; uniform vec2 uTplPts[32];
+vec4 aAB; vec2 aC;
+${TF_EMIT(rt)}
+${SRC}
+${BARY}
+void main() {
+  int i = gl_VertexID, inst = i / uTP, k = i - inst * uTP, t0 = 2 * inst, t1 = t0 + 1;
+  aAB = texelFetch(uInst, ivec2(t0 % uInstW, t0 / uInstW), 0);
+  aC = texelFetch(uInst, ivec2(t1 % uInstW, t1 / uInstW), 0).xy;
+  emit(mapPoint(srcOf(bary(uTplPts[k]))));
+}
+`;
   const TF_LINE_VS = (rt) => `
 layout(location = 0) in vec2 aT;
 layout(location = 2) in vec4 aP;

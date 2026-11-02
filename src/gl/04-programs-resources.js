@@ -123,6 +123,7 @@
     tfRegion: { chain: true, vs: () => TF_REGION_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     // (probe, scratch: the same evaluation by transform feedback, and the point pass with the chain left out)
     tfRegionX: { chain: true, vs: () => TF_REGION_VS(false), fs: () => TF_FS, tf: true },
+    tfRegionF: { chain: true, vs: () => TF_REGION_FLAT_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     tfRegionId: { chain: true, vs: () => TF_REGION_VS(rtOK).replace('emit(mapPoint(srcOf(bary(aT))))', 'emit(srcOf(bary(aT)))'), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     tfLine: { chain: true, vs: () => TF_LINE_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     // TEMP-DEBUG-HOOK (removed before publishing)
@@ -788,7 +789,7 @@ float wabs(vec2 w) {
     const buf = makeBuf(instances);
     const n = instances.length / 6;
     const org = origin || instances.origin || [0, 0];
-    const res = { kind: 'mesh', buf, n, org: [org[0], org[1]], vaos: new Map(), skips: [], tf: null };
+    const res = { kind: 'mesh', buf, n, org: [org[0], org[1]], vaos: new Map(), skips: [], tf: null, probeInst: instances };
     res.skip0 = createSkip(res);
     live.add(res);
     return res;
@@ -1100,6 +1101,34 @@ float wabs(vec2 w) {
   // alloc false: tex already has W x H RG32F storage (a reused scratch texture)
   // (maskRGB, maskA: the frame's write mask (writeMask); the pass writes its texel's RG whatever it is, #440)
   let rtFbo = null, maskRGB = true, maskA = true;
+  // (probe, scratch) tfRegionF's pass: the instances into an RGBA32F texture (once per mesh), the template points as
+  // uniforms, then one non-instanced draw of P x n points through runRT
+  let flatVAO = null;
+  function runRTFlat(P, res, L, tp, tex, W, H, alloc) {
+    if (!res.probeInstTex) {
+      const n = res.n, iw = Math.min(4096, 2 * n), ih = Math.ceil(2 * n / iw), d = new Float32Array(iw * ih * 4), src = res.probeInst;
+      for (let i = 0; i < n; i++) { d.set([src[6 * i], src[6 * i + 1], src[6 * i + 2], src[6 * i + 3]], 8 * i); d.set([src[6 * i + 4], src[6 * i + 5], 0, 0], 8 * i + 4); }
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, iw, ih, 0, gl.RGBA, gl.FLOAT, d);
+      res.probeInstTex = t; res.probeInstW = iw;
+    }
+    if (!res.probeTpl || res.probeTpl.L !== L) {
+      const pts = [];
+      for (let i = 0; i <= L; i++) for (let j = 0; i + j <= L; j++) pts.push(i / L, j / L);
+      for (let i = 0; i < L; i++) for (let j = 0; i + j < L; j++) {
+        pts.push((3 * i + 1) / (3 * L), (3 * j + 1) / (3 * L));
+        if (i + j < L - 1) pts.push((3 * i + 2) / (3 * L), (3 * j + 2) / (3 * L));
+      }
+      res.probeTpl = { L, pts: new Float32Array(pts) };
+    }
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, res.probeInstTex); u1i(P, 'uInst', 2); gl.activeTexture(gl.TEXTURE0);
+    u1i(P, 'uInstW', res.probeInstW); u1i(P, 'uTP', tp);
+    if (P.loc.uTplPts) gl.uniform2fv(P.loc.uTplPts, res.probeTpl.pts);
+    if (!flatVAO) flatVAO = gl.createVertexArray();
+    runRT(P, flatVAO, tp * res.n, 0, tex, W, H, alloc);
+  }
   function runRT(P, vao, count, instances, tex, W, H, alloc = true) {
     gl.bindTexture(gl.TEXTURE_2D, tex);
     if (alloc) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
@@ -1182,7 +1211,7 @@ float wabs(vec2 w) {
   // (spec 8.7), and a frame evaluates the chain ~10x less often than per vertex. null while nothing can evaluate.
   function tmpEntry(res, isMesh, L, map) {
     const pm = (globalThis.__svCarryProbe || {}).tfMode;
-    const P = program(isMesh ? (pm === 'tf' ? 'tfRegionX' : pm === 'pts' ? 'tfRegionId' : 'tfRegion') : 'tfLine', map);
+    const P = program(isMesh ? (pm === 'tf' ? 'tfRegionX' : pm === 'pts' ? 'tfRegionId' : pm === 'flat' ? 'tfRegionF' : 'tfRegion') : 'tfLine', map);
     if (!P) return null;
     const tpl = isMesh ? regionTemplate(L) : lineTemplate(L);
     const count = tpl.P * res.n;
@@ -1208,7 +1237,8 @@ float wabs(vec2 w) {
     { const ps = globalThis.__svPathStats; if (ps && isMesh) { ps.cacheTF = (ps.cacheTF || 0) + 1; ps.cacheTFpts = (ps.cacheTFpts || 0) + count; } }
     use(P, map);
     originUniforms(P, res.org);
-    if (isMesh && pm === 'tf') runTF(P, meshTFVAO(res, L), gl.POINTS, tpl.P, res.n, W * H * 8, e.tex, W, H, gl.RG32F, gl.RG);
+    if (isMesh && pm === 'flat') runRTFlat(P, res, L, tpl.P, e.tex, W, H, alloc);
+    else if (isMesh && pm === 'tf') runTF(P, meshTFVAO(res, L), gl.POINTS, tpl.P, res.n, W * H * 8, e.tex, W, H, gl.RG32F, gl.RG);
     else runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
     return e;
   }
