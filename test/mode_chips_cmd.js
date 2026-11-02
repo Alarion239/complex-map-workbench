@@ -1,5 +1,5 @@
-// Esc leaves a Construct tool, and the tool is a chip in the plane's head with its pick count (issue #31, the steps view's
-// part: ux keeps the tool chip and Listening along in the head, counted by svFitHead; the step-alone, expanded-plane and
+// Esc leaves a Construct tool, and the tool is a chip in the plane's head with its pick count (the steps view's
+// part: the tool chip and Listening along stay in the head, counted by svFitHead; the step-alone, expanded-plane and
 // deformation chips are the classic views' and are mode_chips_classic_cmd.js). A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
