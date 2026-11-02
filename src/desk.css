@@ -378,6 +378,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .mode-chips > .mode-chip { min-width: 0; }
 .mode-chip .mc-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mode-chip > :not(.mc-t) { flex: 0 0 auto; }
+.mode-chip.mc-bare .mc-t { display: none; }
+.mode-chip.mc-bare { padding-left: 0; }
 .mode-chips[hidden] { display: none; }
 .mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip .kbd, .mode-chip .kbd { font-size: 10px; padding: 0 4px; }

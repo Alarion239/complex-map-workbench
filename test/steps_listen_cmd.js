@@ -51,4 +51,44 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h, mobile] of SIZES) {
   ok(`${at}: stopping Listen leaves it where it sits in its pane`,
     JSON.stringify(beforeIn) === JSON.stringify(afterIn), { beforeIn, afterIn });
 }
+// a long name at 1024 px in en: the chip drops its label and keeps Stop; the label is its tooltip, and Stop's name says
+// what it stops
+{
+  const LONG = 'A circle with a name much too long for the plane head';
+  const at = 'en 1024 long name';
+  await view(1024, 700, false, false);
+  await loadView('steps', `stll${Date.now() % 100000}`, STATE, { lang: 'en' });
+  await settled({ max: 20000, until: `typeof __cmwSteps === 'function' && __cmwSteps().on` });
+  await ev(`document.getElementById('examplesBtn').click(), 1`);
+  await settled({ only: true, until: `!!document.querySelector('#popHost .examples .ex-snd')` });
+  await ev(`document.querySelector('#popHost .examples .ex-snd').closest('.ex-item').click()`);
+  await settled({ max: 15000, until: `!!document.querySelector('.tour-lane .btn.primary')` });
+  await ev(`(() => {
+    const name = ${JSON.stringify(LONG)};
+    const named = window.__cmwShapes().shapes.map((s) => (s.kind === 'point' ? s : Object.assign({}, s, { name })));
+    __cmwSet('shapes', named);
+    return 1;
+  })()`);
+  await settled({});
+  const before = await rect('#plotL');
+  await ev(`document.querySelector('.tour-lane .btn.primary').click(), 1`);
+  await settled({ max: 8000, only: true, until: `!!document.querySelector('${LISTEN_CHIP}')` });
+  await settled({});
+  const chip = await ev(`(() => {
+    const c = document.querySelector('${LISTEN_CHIP}');
+    if (!c) return null;
+    const t = c.querySelector('.mc-t'), stop = c.querySelector('.mc-stop');
+    const head = document.querySelector('#paneL .pane-head').getBoundingClientRect().height;
+    return {
+      label: t.textContent, labelShown: t.getClientRects().length > 0, tip: c.getAttribute('data-tip'),
+      stop: stop.getAttribute('aria-label'), stopShown: stop.getClientRects().length > 0, head,
+    };
+  })()`);
+  ok(`${at}: the chip says what is playing`, chip && chip.label.includes(LONG), chip);
+  ok(`${at}: the chip drops its label and keeps Stop`, chip && !chip.labelShown && chip.stopShown, chip);
+  ok(`${at}: the label is the chip's tooltip and Stop's name carries it`,
+    chip && chip.tip === chip.label && chip.stop.includes(LONG), chip);
+  ok(`${at}: the head is one row and the plane stays`,
+    chip && chip.head < 44 && JSON.stringify(before) === JSON.stringify(await rect('#plotL')), { chip, before });
+}
 return { pass: fails.length === 0, fails, info };

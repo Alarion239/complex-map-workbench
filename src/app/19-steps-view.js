@@ -933,10 +933,25 @@
   // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
   // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
   // or a new title, button or surface), and never while the view moves (#320)
-  // svFitHead's chip fit: the head is one row while it is under SV_HEAD_ROW px tall (its 40 px minimum height, with 4 px for
-  // the border and rounding), and a chip's label gives up its width in SV_CHIP_STEP px steps (a few letters each, so the
-  // fit takes few layouts) down to SV_CHIP_MIN px (an ellipsis and the Stop button, the least that still reads as a chip)
+  // svFitHead's chip fit: the head is one row while it is under SV_HEAD_ROW px tall (40 px minimum, with 4 px for
+  // the border and rounding). Short of room the Listening chip drops its label and keeps Stop; a tool chip's name
+  // gives up its width in SV_CHIP_STEP px steps (a few letters each, so the fit takes few layouts) down to SV_CHIP_MIN
+  // px (an ellipsis, the count and Esc, the least that still reads as the tool's chip)
   const SV_HEAD_ROW = 44, SV_CHIP_STEP = 16, SV_CHIP_MIN = 72;
+  // the Listening chip without its label: the label is its tooltip and the Stop button's name says what it stops
+  function svChipBare(chip, bare) {
+    const t = chip.querySelector('.mc-t'), stop = chip.querySelector('.mc-stop');
+    chip.classList.toggle('mc-bare', bare);
+    if (!t || !stop) return;
+    if (stop.dataset.name === undefined) stop.dataset.name = stop.getAttribute('aria-label') || '';
+    if (bare) {
+      chip.setAttribute('data-tip', t.textContent);
+      stop.setAttribute('aria-label', `${stop.dataset.name}: ${t.textContent}`);
+    } else {
+      chip.removeAttribute('data-tip');
+      stop.setAttribute('aria-label', stop.dataset.name);
+    }
+  }
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
@@ -953,7 +968,10 @@
     if (key === E.fitKey) return;
     E.fitKey = key;
     const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
-    if (mc) mc.style.removeProperty('--mc-max');
+    if (mc) {
+      mc.style.removeProperty('--mc-max');
+      for (const c of mc.querySelectorAll('[data-mode="listen"]')) svChipBare(c, false);
+    }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
     E.bar.classList.remove('sv-c3', 'sv-c4');
@@ -983,11 +1001,11 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
-    // (the mode chips are the head's own items, counted above. Short of room even then, the chip's label gives up the
-    // width that would wrap the head onto a second row (a row is the head's 40 px minimum), down to a few letters: the
-    // plane never moves for a chip)
+    // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
+    // chip: the Listening chip drops its label, and a tool chip's name gives up the width that would wrap the head)
     if (mc && !mc.hidden) {
       const wraps = () => head.getBoundingClientRect().height > SV_HEAD_ROW;
+      for (const c of mc.querySelectorAll('[data-mode="listen"]')) if (wraps()) svChipBare(c, true);
       let w = Math.ceil(mc.getBoundingClientRect().width);
       while (wraps() && w > SV_CHIP_MIN) { w -= SV_CHIP_STEP; mc.style.setProperty('--mc-max', w + 'px'); }
     }
