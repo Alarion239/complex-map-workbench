@@ -332,13 +332,12 @@
     const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
-  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
-  // colour
-  // (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice point,
-  // not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
-  // program compiles
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
+  // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
+  // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
+  // program compiles
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
