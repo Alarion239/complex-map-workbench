@@ -1,4 +1,4 @@
-// The classic view's top bar (issues #359, #360): Tab from the top of the page goes Examples, the view switch, Deformation,
+// The classic view's top bar: Tab from the top of the page goes Examples, the view switch, Deformation,
 // then the menu's buttons, and every segment of the view switch, the plane heads' style row, Landscape's height and paint
 // rows and the chain's Pictures | Names is at least 24 x 24 px without overflowing. The steps view has no view switch,
 // Deformation or those heads (top_bar_focus_cmd.js). 1440 px in English, 1024 px in Russian and Italian.

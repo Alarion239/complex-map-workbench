@@ -6,7 +6,7 @@
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
-const { open, tabs, scan, settle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'top_bar_kit.js'), 'utf8'))({ ev, send, view, key, sleep, DIR });
+const { open, tabs, scan } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'top_bar_kit.js'), 'utf8'))({ ev, send, view, key, sleep, DIR });
 for (const [w, h, lang] of [[1440, 900, 'en'], [1024, 768, 'ru'], [1024, 768, 'it']]) {
   const at = `${w} ${lang}`;
   await open(w, h, lang);
