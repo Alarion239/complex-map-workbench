@@ -30,7 +30,7 @@ const SHARDS = [
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
   // ([#465] raw TeX on screen, a language a run)
   { id: 'raw-tex', suites: ['raw_tex_cmd.js#en', 'raw_tex_cmd.js#ru', 'raw_tex_cmd.js#it'] },
-  { id: 'i18n', suites: ['i18n_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang'] },                    // 334 + 164 + 112
+  { id: 'i18n', suites: ['i18n_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang', 'a11y_axe_cards_cmd.js'] },                    // 334 + 164 + 112 + 21
   { id: 'i18n-desktop', suites: ['i18n_walk_cmd.js#1440'] },                                                // 693
   { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark'] },                                              // 601
   { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#deform', 'phone_swap_cmd.js#views', 'phone_toast_chain_cmd.js'] },   // 379 + 326 + 37
