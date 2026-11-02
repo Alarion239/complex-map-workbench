@@ -304,7 +304,8 @@
     svArt: async (i, o) => {
       const keep = SV.i;
       svGo(i, true);
-      try { return await artRender('L', Object.assign({}, o, SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) } : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) })); } finally { svGo(keep, true); }
+      const at = SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) } : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
+      try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there

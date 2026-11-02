@@ -333,8 +333,12 @@
     const roughW = (W - gap * (cols - 1)) / cols;
     const steps = boxes ? boxes.map((b) => stepFor(b, roughW)) : null;
     const mL = boxes ? Math.max(...boxes.map((b, i) => tickW(b, steps[i], tp))) + 3 : 0, mR = boxes ? Math.max(2, ...boxes.map((b, i) => overR(b, steps[i], tp))) : 0;
-    // (the x tick labels' row under a frame: a label's height and its 4.2 pt gap, as the plane figure's bottom margin)
+    // (the x tick labels' row under a frame, as the plane figure's bottom margin: a label's line, 1.05 times its point
+    // size, and its 4.2 pt gap from the frame)
     const below = boxes ? tp * 1.05 + 4.2 : 0;
+    // (a row: its titles (tH), the frames, their tick labels, and ROW_GAP to the next row's titles; the last row keeps
+    // ROW_GAP - 2 below it, the 4 pt the frames' strokes and tick marks need)
+    const ROW_GAP = 6;
     const pw = (W - gap * (cols - 1) - cols * (mL + mR)) / cols;
     const raws = [];
     for (let i = 0; i < n; i++) {
@@ -344,11 +348,11 @@
       if (!r) return null;
       raws.push(r);
     }
-    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (tH + 6 + below)) / rows);
+    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (tH + ROW_GAP + below)) / rows);
     const items = [], lines = [];
     let defs = '';
     for (let i = 0; i < n; i++) {
-      const x = (i % cols) * (mL + pw + mR + gap) + mL, y = Math.floor(i / cols) * (tH + ph + below + 6) + tH, r = raws[i];
+      const x = (i % cols) * (mL + pw + mR + gap) + mL, y = Math.floor(i / cols) * (tH + ph + below + ROW_GAP) + tH, r = raws[i];
       if (boxes) {
         const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[i], { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
         const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw });
@@ -363,7 +367,7 @@
     }
     // (ownWin: the frames' windows differ, which the caption says)
     const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
-    return { items, defs, lines, H: rows * (tH + ph + below + 6) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
+    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {
