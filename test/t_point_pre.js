@@ -76,5 +76,22 @@ for (const { name, steps, K, bases } of [
   const f = F(ch, 0, steps.length), worst = q.exact ? Math.max(0, ...q.zs.map((z) => CX.abs(CX.sub(f(z), p)) / (1 + CX.abs(p)))) : Infinity;
   check(`${name}, K = ${K}: ${want} members, each maps to p to 1e-9, truncated`, q.exact && q.truncated && q.zs.length === want && worst <= 1e-9, [q.exact, q.truncated, q.zs && q.zs.length, worst]);
 }
+// a power's log family: z^i (principal) has infinitely many preimages (|z| = e^(arg p + 2 pi m)): with opts.fam = K the
+// 2K + 1 about its centre, truncated, each mapping to p; without it, not exact. z^0.4 (a finite family over its
+// argument range): every member, exact and not truncated
+{
+  const K = 2, ch = chain([step('powa', { alpha: 'i', cut: 180, k: 0 })]), plan = Inverse.planChain(ch.steps, ch.built);
+  const q = Inverse.pointPre(plan, p, 64, { fam: K }), f = F(ch, 0, 1);
+  const worst = q.exact ? Math.max(0, ...q.zs.map((z) => CX.abs(CX.sub(f(z), p)) / (1 + CX.abs(p)))) : Infinity;
+  check(`z^i, K = ${K}: ${2 * K + 1} members, each maps to p to 1e-9, truncated`,
+    q.exact && q.truncated && q.zs.length === 2 * K + 1 && worst <= 1e-9,
+    [q.exact, q.truncated, q.zs && q.zs.length, worst]);
+  check('z^i without opts.fam: not exact', !Inverse.pointPre(plan, p).exact);
+  const c4 = chain([step('powa', { alpha: '0.4', cut: 180, k: 0 })]), f4 = F(c4, 0, 1);
+  const q4 = Inverse.pointPre(Inverse.planChain(c4.steps, c4.built), p);
+  const w4 = q4.exact ? Math.max(0, ...q4.zs.map((z) => CX.abs(CX.sub(f4(z), p)) / (1 + CX.abs(p)))) : Infinity;
+  check('z^0.4: its members over the argument range, exact, not truncated, each maps to p',
+    q4.exact && !q4.truncated && q4.zs.length >= 1 && w4 <= 1e-9, [q4.exact, q4.truncated, q4.zs && q4.zs.length, w4]);
+}
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);
