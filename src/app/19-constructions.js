@@ -111,6 +111,8 @@
     const find = (id) => S.shapes.find((x) => x.id === id) || S.targets.find((x) => x.id === id) || null;
     const isT = (id) => S.targets.some((x) => x.id === id);
     const done = (ids, live, structural) => {
+      // (a construction is an edit of the chain shown, not another chain: the steps view stays on its plane)
+      if (SV.on && SV.sig != null) SV.sig = svSigNow();
       // (v16.3 review user-4: a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag)
       const r = live && !structural ? null : cmSync({ all: true });
       const st = structural || !!(r && (r.kindChanged.length || r.undefChanged.length));

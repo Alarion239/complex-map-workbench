@@ -33,6 +33,8 @@ const S1 = await shapes(), circle = S1.find((s) => s.def && s.def.op === 'circle
 ok('a 3-point circle on plane 1: the circle is made', !!circle && S1.length === n0 + 4, S1);
 ok('a 3-point circle on plane 1: it and its three points belong to plane 1', !!circle && S1.slice(n0).every((s) => s.stage === 1), S1.slice(n0));
 ok('a 3-point circle on plane 1: its points are plane 1\'s own (no reference to plane z)', !!circle && circle.def.args.every((r) => { const t = S1.find((s) => s.id === r.s); return !!t && t.stage === 1; }), circle && circle.def);
+const stageNow = await ev('__cmwSteps().stage');
+ok('a 3-point circle on plane 1: the view stays on plane 1', stageNow === 1, stageNow);
 await key('z', 4); await quiet();
 ok('a 3-point circle on plane 1: one Undo takes the circle and its points', (await shapes()).length === n0, (await shapes()).length);
 // a point of plane z carried to plane 1 is an input: two plane-1 points and z₀′
