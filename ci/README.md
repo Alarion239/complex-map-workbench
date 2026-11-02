@@ -104,7 +104,7 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
-| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build; their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
+| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build, at most 8 shards of a run at a time (`max-parallel`: the runners are shared by every open pull request); their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
 | **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
