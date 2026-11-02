@@ -134,7 +134,7 @@
     if ((ext === svMain() || ext === SV.main) && !force) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
-    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas);
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas, S.steps.length === 0);
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
     SV.i = 0; SV.g.set(0);
   }
@@ -541,8 +541,8 @@
     c.clearRect(0, 0, cv.width, cv.height);
     return cv;
   }
-  // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
-  function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
+  // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is neutral)
+  function svMaskOn() { return SV.on && SV.scope === 'in'; }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
   // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
   // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
