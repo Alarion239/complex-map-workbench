@@ -260,19 +260,6 @@
   window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
-  // the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
-  // a] each, row by row), or null off the pane; and the view they were read in
-  /** @type {any} */ (window).__cmwLPx = (pts) => {
-    const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, c = paneL.canvas.getContext('2d'), img = c.getImageData(0, 0, W, H).data;
-    const px = pts.map(([x, y]) => {
-      const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
-      if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
-      const out = [];
-      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
-      return out;
-    });
-    return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
-  };
   // the steps view's frame as maps, for test/cdp_kit/carry_compare.js: b and its sheet key; H, the deformation H_u when
   // parked (else null); pre(v), plane z's points over v in plane b or b - 1 (Inverse.pointPre, family members -K … K;
   // null past 512 or with no inverse); G, the map into the colour plane; poles(F, box, n), polesOf; newton, newtonTo
