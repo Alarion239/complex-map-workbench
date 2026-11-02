@@ -75,7 +75,9 @@ await load(NS + 'f', STATE(-1));
 await settle(1500);
 const freshL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), freshR = await ev(`__cmwRenderOff('R', 320, 240, 1)`);
 ok('rest frame after the edit = a fresh load of the same value (X)', restL === freshL, restL.length + ' vs ' + freshL.length);
-ok('rest frame after the edit = a fresh load of the same value (Y)', restR === freshR, restR.length + ' vs ' + freshR.length);
+// (the steps view has the one plane, X; its right pane is not shown, so there is no Y to compare there)
+const yShown = await ev(`!!document.getElementById('paneR').getClientRects().length`);
+if (yShown) ok('rest frame after the edit = a fresh load of the same value (Y)', restR === freshR, restR.length + ' vs ' + freshR.length);
 ok('the picture really depends on im', freshR !== (await (async () => { await load(NS + 'g', STATE(1)); await settle(1500); return ev(`__cmwRenderOff('R', 320, 240, 1)`); })()), null);
 
 // 3. undo and redo bring the imaginary part back
