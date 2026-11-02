@@ -292,6 +292,12 @@ const Inspector = (() => {
     }
     // after a split, the keyboard goes to the first new step: its card in the classic view, its chip on the steps view's
     // thread (the button and its Inspector are rebuilt: the element is looked up again while the chain is drawn)
+    // The focus has to survive the redraw that follows a split. The classic card is drawn once, but on the steps view's
+    // thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
+    // frames) after the click; what takes it back there is not known (nothing calls blur(), the chip is not replaced). So
+    // the focus is put on the chip again each frame until it has stayed FOCUS_STAYS frames; FOCUS_TRIES frames (10 s at
+    // 60 Hz) bounds the wait. (A user who moves the focus elsewhere in that time has it taken back.)
+    const FOCUS_STAYS = 8, FOCUS_TRIES = 600;
     function focusCard(k) {
       let n = 0, held = 0;
       const go = () => {
@@ -299,9 +305,7 @@ const Inspector = (() => {
         if (c && c.isConnected) {
           if (document.activeElement !== c) { c.focus({ preventScroll: true }); held = 0; } else held++;
         }
-        // (held until it has stayed for 8 frames, at most 600: the chain and the Inspector are drawn again after the split,
-        // and the steps view's thread keeps drawing its new chips for a while)
-        if (held < 8 && ++n < 600) requestAnimationFrame(go);
+        if (held < FOCUS_STAYS && ++n < FOCUS_TRIES) requestAnimationFrame(go);
       };
       go();
     }

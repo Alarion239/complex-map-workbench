@@ -36,8 +36,10 @@ const toF = () => ev(`(() => { const n = __cmwSteps().planes.length - 1; __cmwSt
 const focus = () => ev('__cmwCards().focus');
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
 // (the plane's picture without the colour legend in its top right corner, whose label names the plane (w₃ or w₁), and without
-// the thread's strip under it)
-const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4 - 170, height: Math.round(r.bottom - top - 100) }); } return out; })()`);
+// the thread's strip under it: LEGEND_W is the legend's width (about 150 px) and its margin, STRIP_H the strip (64 px) and the
+// ruler above it)
+const LEGEND_W = 170, STRIP_H = 100;
+const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4 - ${LEGEND_W}, height: Math.round(r.bottom - top - ${STRIP_H}) }); } return out; })()`);
 async function planes() { await hideToasts(true); await toF(); await settled(); const rs = await planesRect(); const out = []; for (const r of rs) out.push(await img(r)); await hideToasts(false); return out; }
 function diff(a, b) {
   if (a.length !== b.length) return -1;
@@ -82,7 +84,8 @@ await open('fxA', { steps: [] });
   const p1 = await planes();
   const d = diff(p0, p1);
   // (an added step is selected, and F, the thread's last plane, is the same picture after the split)
-  ok('steps-1: palette add then Split: F, the last plane, is unchanged (0 px over 8/255)', info.afterSplit.steps.join() === 'pown,add,sin' && d === 0, { ...info, d });
+  // (S.focus, which the classic view uses to show one step alone, stays 0 in the steps view: no step is shown alone)
+  ok('steps-1: palette add (no step shown alone) then Split: focus 0, F, the last plane, unchanged (0 px over 8/255)', info.afterAdd.focus === 0 && info.afterSplit.focus === 0 && info.afterSplit.steps.join() === 'pown,add,sin' && d === 0, { ...info, d });
   ok('steps-11: after Split the keyboard focus is on a chip of the thread, not the page', info.afterSplit.active === 'chip', info.afterSplit.active);
   await shot('fix-steps1-after-split');
 }
@@ -99,7 +102,7 @@ await open('fxB', { steps: [] });
   await open('fxB2', { steps: [F1('\\sin(z^2+1)')] });
   const pB = await planes();
   const d = diff(pA, pB);
-  ok('steps-1: Add as 3 steps into an empty chain: F, the last plane, equals the formula\'s',  info.addAs.steps.join() === 'pown,add,sin' && d === 0, { addAs: info.addAs, d });
+  ok('steps-1: Add as 3 steps into an empty chain (no step shown alone): F, the last plane, equals the formula\'s', info.addAs.focus === 0 && info.addAs.steps.join() === 'pown,add,sin' && d === 0, { addAs: info.addAs, d });
 }
 await open('fxC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)')], focus: 2 });
 {
@@ -107,7 +110,9 @@ await open('fxC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2
   await clickSel('#propsPanel .split-offer .so-btn'); await settled();
   const t = await ev('__qa.toasts()');
   info.chainSplit = { focus: await focus(), toast: t };
-  ok('steps-1: with other steps, the toast says which steps f₂ became', t.some((x) => /Split f₂ into f₂–f₄: Integer power → Translation → Sine\./.test(x)), info.chainSplit);
+  // (the classic view's "f₂ shown alone stays f₂" has no steps-view counterpart: S.focus is 0 here, whatever a saved state
+  // says, and the toast says what became of f₂ and nothing of a step shown alone)
+  ok('steps-1: with other steps, no step is shown alone and the toast says which steps f₂ became', info.chainSplit.focus === 0 && !(await ev(`!!document.querySelector('#svStrip .sv-whole')`)) && t.some((x) => /Split f₂ into f₂–f₄: Integer power → Translation → Sine\./.test(x)), info.chainSplit);
 }
 await grab();
 
