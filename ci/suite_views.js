@@ -1,8 +1,8 @@
 'use strict';
 // (#620, K1 item 1) Which view each browser suite tests: the steps view, or the classic views, which stay as a view of
 // their own (#621). The plan is #443 and its sub-issues; #620 ports the suites and the exports. Every runnable suite
-// (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails without one. The kit pins every page to the classic view unless its URL asks for ?view=steps
-// (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
+// (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails without one. The kit pins
+// every page to the classic view unless its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
 //   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
 //   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
 //                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
