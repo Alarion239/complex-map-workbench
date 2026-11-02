@@ -89,7 +89,14 @@ ok('UX34 phone: no tip after an add (the focus came back to +)', !(await tipText
 // sheet, a modal layer over the tool row: it is closed first)
 await ev('Phone.close(true); 1');
 await settled({ until: `!document.querySelector('.ph-sheet.open')` });
-const tc = await center('#secDraw .tool[data-tool="point"]');
+let tc = await center('#secDraw .tool[data-tool="point"]');
+for (let i = 0; i < 10; i++) {   // (the planes and the tool row move while the sheet goes: the press lands where the tool rests)
+  await settle();
+  const again = await center('#secDraw .tool[data-tool="point"]');
+  const rest = !!again && !!tc && again[0] === tc[0] && again[1] === tc[1];
+  tc = again;
+  if (rest) break;
+}
 await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tc[0], y: tc[1], id: 1 }] }); await sleep(700);
 const lpTip = await tipText();
 const lpKey = await ev(`!!document.querySelector('#tip .tip-key')`);
@@ -375,7 +382,8 @@ const p3 = await ctxInfo();
 ok('D3 three points: Done is on', p3 && !p3.btn[1].dis, p3);
 await ev(`document.querySelector('.ph-ctx .ph-cb').click()`); await settle();
 ok('D3 Last takes the last point back', (await ctxInfo()).btn[1].dis === true, await ctxInfo());
-await touch(pc[0] + 20, pc[1] + 30); await settle();
+await touch(pc[0] + 20, pc[1] + 30);
+await settled({ until: `(() => { const b = [...document.querySelectorAll('.ph-ctx .ph-cb')].find((x) => /Done/.test(x.textContent)); return !!b && !b.disabled; })()` });
 const sh0 = await ev(`__cmwShapes().shapes.length`);
 await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Done/.test(b.textContent)).click()`); await settled({ until: `__cmwShapes().shapes.length === ${sh0 + 1}` });
 ok('D3 Done makes the polygon', (await ev(`__cmwShapes().shapes.length`)) === sh0 + 1, [sh0, await ev(`__cmwShapes().shapes.length`)]);
