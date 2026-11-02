@@ -83,6 +83,17 @@ ok('End the repeat: no repeat on the step, no badge, no row', (await rep(2)) ===
 await undo();
 ok('undo restores the repeat, N = 3, with its badge and row', (await rep(2)).n === 3 && (await badges())[1][1] === '×3' && (await row()).n === '3', [await rep(2), await badges()]);
 
+// ---- the keyboard's End the repeat: the focus goes back to the step's chip, not to the page; the row's controls have a border and room ----
+await ev(`document.querySelector('.insp-repeat .rep-n') && 1`);
+const geo = await ev(`(() => { const f = document.querySelector('.insp-repeat .rep-n'), b = document.querySelector('.insp-repeat .rep-step'); return { w: Math.round(f.getBoundingClientRect().width), bw: parseFloat(getComputedStyle(b).borderTopWidth) }; })()`);
+ok('the N field is at least 56 px wide and the − and + have a border', geo.w >= 56 && geo.bw >= 1, geo);
+await ev(`document.querySelector('.insp-repeat .rep-end').focus(); 1`);
+await key('Enter');
+await settled({ until: `document.activeElement !== document.body` });
+const afterEnd = await ev(`(() => { const a = document.activeElement, s = a && a.closest && a.closest('.sv-step'); return { cls: a && a.className, k: s ? s.dataset.k : null, body: a === document.body }; })()`);
+ok('End the repeat with the keyboard: the focus is on the step\'s chip on the thread, not on the page', (await rep(2)) === null && !afterEnd.body && afterEnd.k === '2' && /sv-fchip/.test(afterEnd.cls), afterEnd);
+await undo();
+
 // ---- a menu with one choice has no submenu: the item acts at once (step 1 can only repeat itself) ----
 await press('.insp-repeat .rep-end'); await settled({});
 await press('#svStrip .sv-step[data-k="1"] .sv-more');

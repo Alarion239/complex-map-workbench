@@ -235,7 +235,7 @@ const Inspector = (() => {
       const field = A.repeatField(() => { const r = block(); return r ? r.b : 0; });
       const less = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time fewer'), 'data-tip': $t('One time fewer'), onclick: () => { const r = block(); if (r) A.repeatStep(r.b, -1); } }, '−');
       const more = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time more'), 'data-tip': $t('One time more'), onclick: () => { const r = block(); if (r) A.repeatStep(r.b, 1); } }, '+');
-      const off = h('button', { type: 'button', class: 'btn small rep-end', onclick: () => { const r = A.repeatOf(k); if (r) A.setRepeat(r.b, null); } }, $t('End the repeat'));
+      const off = h('button', { type: 'button', class: 'btn small rep-end', onclick: () => { const r = A.repeatOf(k); if (r) { A.setRepeat(r.b, null); A.focusStep(r.b); } } }, $t('End the repeat'));
       const range = h('span', { class: 'rep-range' });
       const root = h('div', { class: 'insp-repeat', role: 'group', 'aria-label': $t('Repeat'), hidden: true },
         h('span', { class: 'rep-name' }, $t('Repeat'), range), h('span', { class: 'rep-ctl' }, less, field, more), off);
