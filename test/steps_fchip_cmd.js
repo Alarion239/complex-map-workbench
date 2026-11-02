@@ -7,6 +7,8 @@
 // - on a phone it is not on the strip: the chain sheet has the whole-map row;
 // - it is the round F alone, clear of the rail: at 1440 in en, ru and it, with 3 steps and with 12 that scroll, it is
 //   in view, pressable and overlaps nothing at rest;
+// - "+ Add function" keeps its words while the whole thread fits beside them and folds to the round + when it would not (at 1440 the
+//   3-step chain shows whole in en, ru and it);
 // - at 1024 px in English, Russian and Italian the strip's controls sit on one row inside it, overlapping nothing.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -62,18 +64,20 @@ ok('a page saved with F selected opens with the chip pressed', (await S()).sel =
 const atRest = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), f = document.querySelector('#svStrip .sv-wholemap'), n = f.querySelector('.sv-fn');
   r.scrollLeft = 0; const fb = f.getBoundingClientRect(), rb = r.getBoundingClientRect(), at = document.elementFromPoint(fb.left + fb.width / 2, fb.top + fb.height / 2);
   return { rail: Math.round(r.clientWidth), scrolls: r.scrollWidth > r.clientWidth + 1, onlyF: getComputedStyle(n).display === 'none', label: f.getAttribute('aria-label'), tip: f.dataset.tip,
-    clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
+    addFolded: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display === 'none', addOnTop: (() => { const a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(), e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); return !!e && !!e.closest('.sv-add'); })(), clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
 const LABEL = { en: 'Whole map', ru: 'Вся карта', it: 'Mappa intera' };
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
-  for (const [what, chain] of [['3 steps', null], ['12 steps', CHAIN12]]) {
+  for (const [what, chain] of [['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
     await open(1440, 900, false, lang, chain);
     const w = await atRest();
     info[`1440 ${lang} ${what}`] = w;
     ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, on top at its centre, clear of the rail`,
       w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.clearOfRail && w.onTop, w);
     if (what === '12 steps') ok(`1440 ${lang}, 12 steps: the thread scrolls, and the chip is still pressable at rest`, w.scrolls && w.onTop, w);
-    else ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
+    if (what === '3 steps') ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
+    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: the whole chain z … w₂ shows (the thread does not scroll), + Add function is whole and on top, and it keeps its words in English`, !w.scrolls && w.addOnTop && (lang !== 'en' || !w.addFolded), w);
+    else if (what === '12 steps') ok(`1440 ${lang}, 12 steps: + Add function is the round + (its words would make the thread scroll more), whole and on top`, w.addFolded && w.addOnTop, w);
   }
 }
 // (a real mouse press on it at rest selects F, and the chip says it is pressed: aria-pressed follows whether F is the selected step)
