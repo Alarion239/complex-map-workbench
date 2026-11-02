@@ -186,12 +186,16 @@ await dbl(p[0], p[1]);
 v1 = await H(`view('L')`);
 ok('a double-click on empty X centres the view there', Math.abs(v1.cx - z0[0]) < 1e-9 && Math.abs(v1.cy - z0[1]) < 1e-9 && v1.s === v0.s, { v0, v1, z0 });
 ok('a double-click opens no menu', !(await anyMenu()));
-R = await paneRect('R');
-const vr0 = await H(`view('R')`);
-const zr = await H(`s2w('R', ${R.l + 60}, ${R.t + 60})`);
+// (Y is the classic view's right pane, the image of the chain; the steps view's equivalent is its last plane, in the one pane)
+const yPane = (await ev(`document.documentElement.classList.contains('sv')`)) ? 'L' : 'R';
+if (yPane === 'L') { await ev(`__cmwSteps({ go: __cmwSteps().planes.length - 1, now: true })`); await settled({ until: '!__cmwSteps().moving' }); }
+R = await paneRect(yPane);
+const vr0 = await H(`view('${yPane}')`);
+const zr = await H(`s2w('${yPane}', ${R.l + 60}, ${R.t + 60})`);
 await dbl(R.l + 60, R.t + 60);
-const vr1 = await H(`view('R')`);
+const vr1 = await H(`view('${yPane}')`);
 ok('a double-click on empty Y centres Y there', Math.abs(vr1.cx - zr[0]) < 1e-9 && Math.abs(vr1.cy - zr[1]) < 1e-9, { vr0, vr1, zr });
+if (yPane === 'L') { await ev(`__cmwSteps({ go: 0, now: true })`); await settled({ until: '!__cmwSteps().moving' }); }
 await tool('point');
 const nS0 = (await H('shapes()')).length;
 v0 = await H(`view('L')`);

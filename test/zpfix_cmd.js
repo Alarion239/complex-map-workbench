@@ -42,7 +42,9 @@ const st2 = await ev('__cmwShapes()'), z2 = await zp();
 ok('the selected disc\'s radius handle wins over zeta_1 on the same spot', z2.params.zeros === '1, -1' && Math.abs(st2.shapes[0].r - 1.5) < 0.06, { zeros: z2.params.zeros, r: st2.shapes[0].r });
 // a zero snapped onto the pole: repeated clicks cycle between them (the pole can be grabbed)
 await ev(`__cmwSelect(null)`); await settle(200);
-await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:1"]'); e.value = '0'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(500);
+await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:1"]'); e.value = '0'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`);
+// the handle of the typed zero is redrawn onto the pole: wait for that, then click there
+await settled({ until: `__cmwZp().params.zeros === '1, 0' && __cmwZp().handles.filter((q) => q.kind === 'zeros').some((q) => Math.abs(q.x - __cmwW2S('L', 0, 0)[0]) < 1)`, max: 6000 });
 const c0 = await w2s(0, 0);
 await click(c0[0], c0[1]); await settle(250);
 const s1 = (await zp()).sel;
