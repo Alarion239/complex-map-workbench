@@ -34,7 +34,7 @@ await ev(`document.getElementById('undoBtn').click(); 1`); await sleep(2000);
 st = await ev('__cmwSteps()');
 info.undo = st;
 ok('undo returns to the saved place', Math.abs(st.x - 1) < 1e-6 || Math.abs(st.x - 2.25) < 1e-6, st);
-// a step shown alone (#620): a state saved with it opens on it, a save writes it back, a reload and a language switch keep it,
+// a step shown alone: a state saved with it opens on it, a save writes it back, a reload and a language switch keep it,
 // a link carries it, and leaving it goes back to the chain's place
 const aloneSv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow', alone: 2 };
 await load(ns, { steps, sv: aloneSv });
@@ -54,8 +54,8 @@ ok('and back again', st.on && st.planes.length === 2 && st.planes[1] === 2, st);
 await ev(`(window.__svLink = null, Params.encodeLink(JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)}))).then((p) => { window.__svLink = p; }), 1)`);
 const alonePayload = await linkMade();
 await nav(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
-let ra = null;
-for (let i = 0; i < 20 && !(ra && ra.on && ra.planes.length === 2); i++) { await sleep(1500); ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`); }
+await settled({ until: "window.__cmwSteps && __cmwSteps().on && __cmwSteps().planes.length === 2", max: 30000 });
+const ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`);
 ok('a link carries the step shown alone', ra && ra.on && ra.planes.length === 2 && ra.planes[1] === 2, ra && { on: ra.on, planes: ra.planes });
 // a saved alone that the chain no longer has (a step bypassed) opens on the whole chain
 const byp = steps.map((x, i) => (i === 1 ? Object.assign({}, x, { on: false }) : x));

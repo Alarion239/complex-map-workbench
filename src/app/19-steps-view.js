@@ -146,7 +146,7 @@
     // (#437: a step shown alone keeps the whole chain's place, which is what undo and a link restore)
     const b = SV.alone && SV.back ? SV.back : null;
     const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed };
-    if (SV.alone) o.alone = SV.alone;   // (#620: the step shown alone is part of the state: a reload, a language switch and a link keep it)
+    if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
     setOpt('sv', o);
   }
   function svLoad(open) {
@@ -157,8 +157,8 @@
     if (o.speed) { SV.speed = o.speed; svPlayRebase(); if (SV.els) { if (SV.els.speed) SV.els.speed.value = o.speed; if (SV.els.sheetSpeed) SV.els.sheetSpeed.value = o.speed; } }   // (a state without one keeps the device's)
     SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
     SV.at = Math.abs(o.at - SV.i) < 1e-6 ? SV.i : null;
-    // (#620: when the page opens on a state that had a step shown alone, it is shown alone again, over the chain's place that
-    // leaving it goes back to; an undo leaves it, #437)
+    // (when the page opens on a state that had a step shown alone, it is shown alone again, over the chain's place that
+    // leaving it goes back to; an undo leaves it)
     if (open && o.alone && !SV.alone) {
       SV.back = { i: SV.i, T: SV.T };
       SV.alone = o.alone; SV.i = 0; SV.at = 0; SV.g.set(0); SV.g.max = 1;

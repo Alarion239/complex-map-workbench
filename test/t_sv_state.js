@@ -27,7 +27,7 @@ for (const sp of ['fast', 'normal', 'slow', 'slower']) check('speed ' + sp, View
 check('unknown speed is dropped (the device\'s applies)', 'speed' in Views.cleanSv({ ...ok, speed: 'warp' }, P), false);
 check('a state without a speed has none', 'speed' in Views.cleanSv({ at: 1 }, P), false);
 check('missing fields take defaults', Views.cleanSv({}, P), { at: 0, T: -1, scope: 'all', surf: 'plane' });
-// a step shown alone (#620): an active step's index, kept through a save, a link and an undo entry (JSON), dropped when the chain
+// a step shown alone: an active step's index, kept through a save, a link and an undo entry (JSON), dropped when the chain
 // lacks the step or bypasses it, or when it is not a whole number
 check('alone: a step of the chain is kept', Views.cleanSv({ ...ok, alone: 2 }, P).alone, 2);
 for (const via of ['save', 'link', 'undo']) check('round trip ' + via + ' keeps alone', Views.cleanSv(JSON.parse(JSON.stringify({ sv: { ...ok, alone: 3 } })).sv, P).alone, 3);
