@@ -1,9 +1,8 @@
-// v16.5 wave 1, the phone piece, the parts the steps view has (notes/ux-audit/REPORT.md; notes/ux-build/w1-phone-AS-BUILT.md):
-// D6 (the Tools sheet's tabs, the ⋯ menu grouped and searchable), UX40 (a tip inside the Display and Editor sheets, none cut,
-// at 390 and at 360 px in Russian), UX49 (a slow tap picks a point during a construction) and UX17 (touch wording of the guide
-// and the tour, no Palette and keys on touch), checked on a phone (412 × 860, 360 × 780, Android emulation, real touch events
-// through Input.dispatchTouchEvent). The suite is pinned to the steps view (ci/suite_views.js) and checks every page it opens
-// is the steps view. The sections that test the classic view's chain bar, Deformation bar, Both key and cards are
+// The phone's parts the steps view has, checked on a phone (412 × 860, 360 × 780 and a laptop's 1366 × 768, Android emulation, real touch
+// events through Input.dispatchTouchEvent): the Tools sheet's tabs and the ⋯ menu (grouped, searchable), a tip inside the Display and Editor
+// sheets (none cut, at 390 and at 360 px in Russian), a slow tap picks a point during a construction, and the guide's and the tour's touch
+// wording (no Palette and keys on touch). The suite is pinned to the steps view (ci/suite_views.js) and checks every page it opens is the steps
+// view. The phone's parts of the classic view (the chain bar and its sheet, the Deformation bar, the Both key, the cards) are
 // test/ux165_phone_classic_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_phone_cmd.js
 // Prints {pass, fails, info}.
@@ -11,8 +10,7 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
-let n = 0;
-const ok = (name, cond, got) => { n++; if (!cond) fails.push({ name, got }); };
+const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = () => settled({});
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
@@ -22,45 +20,37 @@ const fresh = async (ns, w, h, dark, mobile, extra = '') => {
   await nav(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
   ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
 };
-const withState = async (ns, w, h, mobile, st, extra = '') => { await view(w, h, false, !!mobile); await load(`ux165p-${ns}-${Date.now()}`, st); await settle();
+const withState = async (ns, w, h, mobile, st) => { await view(w, h, false, !!mobile); await load(`ux165p-${ns}-${Date.now()}`, st); await settle();
   ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
 };
 const box = (sel) => ev(`(() => { const e = typeof ${JSON.stringify(sel)} === 'string' ? document.querySelector(${JSON.stringify(sel)}) : null; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom), top: !!t && (t === e || e.contains(t)) }; })()`);
 const center = async (sel) => { const b = await box(sel); return b ? [b.l + b.w / 2, b.t + b.h / 2] : null; };
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-// (#246: on a phone the chain's cards, F, Add function and Numbers are rows of the chain sheet; while it is closed, a
+// (on a phone the chain's cards, F, Add function and Numbers are rows of the chain sheet; while it is closed, a
 // tap on one of them is first the tap on "N steps ▾" that opens it, as a user's)
 const CHAIN = /#pipeline|#addStepBtn|\.ph-nums/;
-const tap = async (sel, wait = 400) => {
+const tap = async (sel) => {
   const into = () => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); })()`);
   await into(); await settled({ panes: false });
   let c = await center(sel);
   if (!c && CHAIN.test(sel)) { const o = await center('.ph-csteps'); if (o) { await touch(o[0], o[1]); await settle(); await into(); await settled({ panes: false }); c = await center(sel); } }
   if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; }
-  await touch(c[0], c[1]); await settle(wait); return true;
-};
-const pinch = async (cx, cy, d0, d1) => {
-  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx - d0 / 2, y: cy, id: 1 }, { x: cx + d0 / 2, y: cy, id: 2 }] });
-  for (let i = 1; i <= 10; i++) { const d = d0 + (d1 - d0) * i / 10; await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx - d / 2, y: cy, id: 1 }, { x: cx + d / 2, y: cy, id: 2 }] }); await sleep(16); }
-  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle();
+  await touch(c[0], c[1]); await settle(); return true;
 };
 const hold = async (x, y, ms) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(); };
-const goBack = async () => { const h = await send('Page.getNavigationHistory'); if (h.currentIndex < 1) return false; await send('Page.navigateToHistoryEntry', { entryId: h.entries[h.currentIndex - 1].id }); await settle(); return true; };
-const tipText = () => ev(`(() => { const t = document.getElementById('tip'); return t && !t.hidden ? t.textContent : null; })()`);
-const phSt = () => ev('Phone._state()');
 const STEPS2 = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }];
 
-// ---------------- D6: the Tools sheet's tabs; the ⋯ menu grouped and searchable ----------------
+// ---------------- the Tools sheet's tabs; the ⋯ menu grouped and searchable ----------------
 await withState('d6', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });
 await ev(`Phone.open('tools')`); await settle();
 const tabInfo = async () => ev(`(() => { const tabs = [...document.querySelectorAll('.ph-sheet .ph-tabs > button')]; const body = document.querySelector('.ph-sheet .ph-sb[data-k="tools"]'); return { names: tabs.map((b) => b.textContent), on: tabs.filter((b) => b.getAttribute('aria-selected') === 'true').map((b) => b.dataset.tab), h: tabs.map((b) => Math.round(b.getBoundingClientRect().height)), w: tabs.map((b) => Math.round(b.getBoundingClientRect().width)), fits: body.scrollHeight <= body.clientHeight + 1, cut: tabs.some((b) => b.scrollWidth > b.clientWidth + 1), badge: (document.querySelector('#toolMore .ph-badge') || {}).textContent }; })()`);
 const t0 = await tabInfo();
 ok('D6 three tabs: Draw, Construct, Shapes with its count; 44 px, none cut', JSON.stringify(t0.names) === JSON.stringify(['Draw', 'Construct', 'Shapes 2']) && t0.h.every((x) => x >= 44) && !t0.cut, t0);
 ok('D6 the Draw tab fits at 360 × 780 without scrolling; the More key shows the shape count', t0.on[0] === 'draw' && t0.fits && t0.badge === '2', t0);
-await tap('.ph-tabs > button[data-tab="construct"]', 300);
+await tap('.ph-tabs > button[data-tab="construct"]');
 const t1 = await tabInfo();
 ok('D6 the Construct tab fits without scrolling and lists the construction tools', t1.on[0] === 'construct' && t1.fits && (await ev(`!![...document.querySelectorAll('.ph-sheet .ph-tiles[data-tab="construct"] .ph-tile')].find((t) => t.dataset.tool === 'circle3')`)), t1);
-await tap('.ph-tabs > button[data-tab="shapes"]', 300);
+await tap('.ph-tabs > button[data-tab="shapes"]');
 const t2 = await tabInfo();
 ok('D6 the Shapes tab holds the shapes and the formula field', t2.on[0] === 'shapes' && (await ev(`document.querySelectorAll('.ph-sheet .shape-row').length`)) === 2 && (await ev(`!!document.querySelector('.ph-sheet .ph-tabpane #formulaInput')`)), t2);
 await ev(`Phone.close(true)`); await settle();
@@ -72,7 +62,7 @@ const mn = await ev(`(() => { const b = document.querySelector('.ph-sb[data-k="m
 ok('D6 the ⋯ menu: Scene, Figure, Sound, Help, Look, with a 44 px search field', JSON.stringify(mn.heads) === JSON.stringify(['Scene', 'Figure', 'Sound', 'Help', 'Look']) && mn.q >= 44, mn);
 ok('D6 searching "theme" leaves the Theme row (and the command search), and clearing restores every row', mn.theme.some((r) => /^Theme/.test(r)) && mn.theme.length <= 3 && mn.back === mn.all, mn);
 await ev(`Phone.close(true)`); await settle();
-// ---------------- UX40 (#34): a tip inside the Display and Editor sheets, none cut, at 390 and at 360 px in Russian ----------------
+// ---------------- a tip inside the Display and Editor sheets, none cut, at 390 and at 360 px in Russian ----------------
 for (const [w, extra, lang] of [[390, '', 'en'], [360, '&lang=ru', 'ru']]) {
   await fresh('tips' + w, w, 780, false, true, extra); await settle();
   for (const k of ['display', 'edit']) {
@@ -83,20 +73,20 @@ for (const [w, extra, lang] of [[390, '', 'en'], [360, '&lang=ru', 'ru']]) {
   await ev('Phone.close(true)'); await settle();
 }
 
-// ---------------- UX49: a slow tap picks a point during a construction ----------------
+// ---------------- a slow tap picks a point during a construction ----------------
 await fresh('slow', 412, 860, false, true);
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle();
 const z0 = await ev(`(() => { const p = window.__cmwPlaneMenu && __cmwPlaneMenu(); return p ? p.w2s('L', 0, 0) : null; })()`);
 await hold(z0[0], z0[1], 700);
 ok('UX49 a 700 ms tap on z₀ picks it, no menu', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : 0')) === 1, await ev('Construct.debug().draft && Construct.debug().draft.picks.length'));
 await hold(z0[0] + 120, z0[1] - 160, 700);
-// (issue #13: a long press while drawing cancels the drawing, as Esc does, and opens no menu)
+// (a long press while drawing cancels the drawing, as Esc does, and opens no menu)
 // (as Esc: the picks and the picked curve go, the tool stays armed)
 ok('UX49 a long press on empty space cancels the construction and opens no menu (issue #13)', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('(() => { const d = Construct.debug().draft; return !d || (!d.picks.length && !d.curve1); })()')), await ev('Construct.debug().draft'));
 await key('Escape'); await settle();
 await grab();
 
-// ---------------- UX17: touch wording of the guide and the tour; no Palette and keys on touch ----------------
+// ---------------- touch wording of the guide and the tour; no Palette and keys on touch ----------------
 const guideText = async () => { await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove()`); await ev(`__tourApi.openGuide()`); await settle(); return ev(`(document.querySelector('.modal') || {}).innerText || ''`); };
 await fresh('guide', 412, 860, false, true);
 const gp = await guideText();
@@ -122,7 +112,7 @@ ok('UX17 Russian phone guide: the touch wording', /Удерживайте пал
 await ev(`document.querySelector('.modal-bg').remove()`);
 await grab();
 
-// UX24 in Russian at 360: the sheet head keeps its keys whole (the title gives way)
+// In Russian at 360: the sheet head keeps its keys whole (the title gives way)
 await fresh('headRu', 360, 780, false, true, '&lang=ru');
 await ev(`Phone.open('tools')`); await settle();
 const hr = await ev(`(() => { const r = (s) => { const e = document.querySelector(s); const b = e.getBoundingClientRect(); return { w: Math.round(b.width), sw: e.scrollWidth, cw: e.clientWidth, r: Math.round(b.right) }; }; return { snap: r('.ph-sheet .ph-snap'), undo: r('.ph-sheet .ph-hundo'), x: r('.ph-sheet .ph-x') }; })()`);
