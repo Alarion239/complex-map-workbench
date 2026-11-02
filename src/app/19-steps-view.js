@@ -433,6 +433,8 @@
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
     const key = svSheetKey(b);
     const carry = svCarryStyle(T);
+    // (a moving map's places from the chain at every vertex: GLR.drawRegion's st.moving)
+    const moving = svGliding();
     const draws = [], fixed = [], still = F && !(map.mode || 0);
     for (const x of list) {
       // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
@@ -452,7 +454,7 @@
     // the map sends far, which would cover the pane many times over, so it is left out)
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
-      const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === 4 };
+      const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, moving, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === 4 };
       if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;

@@ -389,8 +389,9 @@ ${BARY}
 ${VALID}
 ${o.sheet ? 'vec2 onCentreSheet(vec2 zc, vec2 s) { return chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }\n' : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
-${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a triangle the cached places draw, or a fix-up skips, is culled here, so
-  // only a triangle torn across a cut is evaluated on its centre's sheet)
+${o.sheet && (fetch === 'tex' || o.fill) ? `  // (the fill pass after the plain one (the cached places, or with o.fill the chain at every vertex): a triangle
+  // the plain pass draws, or a fix-up skips, is culled here, so only a triangle torn across a cut is evaluated on its
+  // centre's sheet)
   {
     vec2 c0 = W(aIdx.x, s0), c1 = W(aIdx.y, s1), c2 = W(aIdx.z, s2), cm = W(aIdx.w, (s0 + s1 + s2) / 3.0);
     float ce = max(max(len2(c1 - c0), len2(c2 - c1)), len2(c0 - c2));
