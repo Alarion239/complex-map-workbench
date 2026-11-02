@@ -3,10 +3,11 @@
 // (the measured times: ci/README.md). Every suite that runs is in exactly one shard: a suite listed in no shard (a new
 // one, e.g. v16.5's test/ux165_*_cmd.js) runs in the shard `new`, so none is left out; move it to a shard once its time
 // is known. `node ci/browser_shards.js check` fails when a suite is listed twice, or is listed and excluded
-// (ci/browser_suites.js EXCLUDED); a listed file that no longer exists is only reported.
+// (ci/browser_suites.js EXCLUDED), or has no view in ci/suite_views.js (#620: steps, port or classic-only); a listed
+// file that no longer exists is only reported.
 //   node ci/browser_shards.js matrix [--only id,id]   the shard ids with at least one suite, as a JSON array
 //   node ci/browser_shards.js list ID                  one shard's suites (and runs)
-//   node ci/browser_shards.js check                    every suite in exactly one shard
+//   node ci/browser_shards.js check                    every suite in exactly one shard, and with a view
 const fs = require('fs');
 const path = require('path');
 
@@ -41,7 +42,7 @@ const SHARDS = [
   { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js', 'clear_chain_open_cmd.js'] },            // 210 + 172 + 116
-  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'key_popup_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js', 'phone_ctx_tex_cmd.js', 'phone_ctx_slide_cmd.js', 'phone_palette_cmd.js', 'phone_glide_cmd.js', 'phone_glide_export_cmd.js', 'card_canvas_cmd.js', 'card_resize_cmd.js'] },   // 149 + 108 + 130 (key_popup) + 70 + 63 (it threw)
+  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_phone_classic_cmd.js', 'ux165_plane_cmd.js', 'key_popup_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'chain_row_cmd.js', 'phone_ctx_tex_cmd.js', 'phone_ctx_slide_cmd.js', 'phone_palette_cmd.js', 'phone_glide_cmd.js', 'phone_glide_export_cmd.js', 'card_canvas_cmd.js', 'card_resize_cmd.js'] },   // 149 (ux165_phone and ux165_phone_classic together) + 108 + 130 (key_popup) + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
   // (#470: the layout checks; en 376 points in 11 min on SwiftShader in a sandbox, both views; ru and it 3 sizes each)
   { id: 'layout-1', suites: ['layout_invariants_cmd.js#en'] },
@@ -82,6 +83,8 @@ function check() {
   for (const f of new Set([...seen.keys()].filter((e) => e.includes('#')).map(fileOf))) {
     for (const r of (SUITES[f] && SUITES[f].runs) || []) if (!seen.has(`${f}#${r.label}`)) bad.push(`${f}#${r.label}: in no shard`);
   }
+  // (#620) every runnable suite says which view it tests (ci/suite_views.js)
+  bad.push(...require('./suite_views').checkViews(runnable()));
   return { bad, gone };
 }
 
@@ -92,7 +95,7 @@ if (require.main === module) {
   if (cmd === 'check') {
     const { bad, gone } = check();
     if (gone.length) console.log(`listed in a shard but not in test/ (ignored): ${gone.join(', ')}`);
-    if (bad.length) { console.error('browser suites not in exactly one shard (ci/browser_shards.js):\n  ' + bad.join('\n  ')); process.exit(1); }
+    if (bad.length) { console.error('browser suites not in exactly one shard (ci/browser_shards.js), or with no view (ci/suite_views.js):\n  ' + bad.join('\n  ')); process.exit(1); }
     const n = runnable().length, rest = suitesOf(SHARDS.find((s) => s.rest).id);
     console.log(`every one of ${n} browser suites is in exactly one of ${SHARDS.length} shards${rest.length ? `; in the catch-all shard: ${rest.join(', ')}` : ''}`);
   } else if (cmd === 'list') {
