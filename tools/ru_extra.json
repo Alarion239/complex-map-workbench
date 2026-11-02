@@ -563,6 +563,7 @@
  "Click the chip $f_1$.": "Нажмите на метку $f_1$.",
  "Tap the chip $f_1$.": "Нажмите на метку $f_1$.",
  "Add a function to send z through it.": "Добавьте функцию, чтобы провести z через неё.",
+ "Draw a region to colour it, or choose Everywhere.": "Нарисуйте область, чтобы её раскрасить, или выберите «Везде».",
  "Showing f{k} alone, from {a} to {b}": "Показан только f%{k}: из %{a} в %{b}",
  "Open in the Inspector": "Открыть в Инспекторе",
  "Bypassed f{x} ({name}).": "Шаг f%{x} отключён (%{name}).",
