@@ -69,7 +69,7 @@ const VIEWS = {
   // to port: interact
   'a11y_axe_cmd.js': port('interact'),
   'chip_clamp_cmd.js': steps({ pin: true }),
-  'complex_point_cmd.js': port('interact'),
+  'complex_point_cmd.js': steps({ pin: true }),
   'complex_params_cmd.js': steps({ pin: true }),
   'custom_show_cmd.js': port('interact', 'F\'s well: after K1 item 9 (the F chip)'),
   'd1_replace_cmd.js': steps({ pin: true }),
