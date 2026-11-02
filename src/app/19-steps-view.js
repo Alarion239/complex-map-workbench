@@ -570,7 +570,7 @@
   }
   // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is neutral)
   function svMaskOn() { return SV.on && SV.scope === 'in'; }
-  // (Inside regions with no area drawn: the plane is neutral, and says what to do)
+  // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
   function svNoRegions() { return SV.scope === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
   // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
@@ -810,7 +810,7 @@
       const none = P.length < 2;
       E.slider.setAttribute('tabindex', none ? '-1' : '0'); E.slider.setAttribute('aria-disabled', String(none));
       E.strip.querySelector('.sv-speed').disabled = none;
-      const msg = [none ? $t('Add a function to send z through it.') : '', svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : ''].filter(Boolean).join(' ');
+      const msg = [none ? $t('Add a function to send z through it.') : '', !none && svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : ''].filter(Boolean).join(' ');
       if (E.empty.textContent !== msg) E.empty.textContent = msg;
       E.empty.hidden = !msg;
     }

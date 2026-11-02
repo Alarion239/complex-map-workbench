@@ -31,7 +31,7 @@ await open(base([], []));
 let a = await read(); info.empty = a;
 ok('a chain with no steps opens on Inside regions', a.scope === 'in', a);
 ok('the head\'s switch shows Inside regions checked', a.shown === 'in', a);
-ok('and its plane is neutral (no region drawn), saying what to do', !a.__exc && a.share <= NEUTRAL_MAX && HINT.test(a.said) && /Add a function/.test(a.said), a);
+ok('and its plane is neutral (no region drawn), asking only for a function', !a.__exc && a.share <= NEUTRAL_MAX && !HINT.test(a.said) && /Add a function/.test(a.said), a);
 await ctl({ scope: 'all' });
 a = await read(); info.emptyAll = a;
 ok('Everywhere on the empty chain colours the plane, the switch shows it, and the hint is gone', a.scope === 'all' && a.shown === 'all' && a.share >= COLOURED_MIN && !HINT.test(a.said), a);
