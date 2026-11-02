@@ -133,6 +133,7 @@ const Constr = (function (factory) {
   const lists = (state) => [Array.isArray(state.shapes) ? state.shapes : [], Array.isArray(state.targets) ? state.targets : []];
   // the plane an object lives in: 'T' for a target (the w-plane's Preimage list), else its stage (0 is the z-plane, k the
   // plane after step k); a reference only reaches an object of its own plane
+  // (the app's shapeStage is the same test: the engine runs on its own, without the app, so it keeps its own copy)
   const stageOf = (s) => (s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0);
   const planeOfList = (li, s) => (li === 1 ? 'T' : stageOf(s));
   // the objects of one plane
@@ -1668,7 +1669,7 @@ const Constr = (function (factory) {
     // v16 CORE (SPEC 20.2)
     formOf, formOfFields, level, reanchor, mob3: mob3obj, mR, sampleMR,
     pieces, meets: (a, b) => (a && a.G ? meetsPieces(a, b) : meets(a, b)), meetNear, project2: projectPiece, projectPiece, glide, onPiece, tRange,
-    resolve, planeOf: (state, s) => (lists(state)[1].includes(s) ? 'T' : stageOf(s)), graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
+    resolve, planeOf: (state, s) => (lists(state)[1].includes(s) ? 'T' : stageOf(s)), listOfPlane, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
     syncSteps, zpRemoveId, zpNum, zpRenumber, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
     // v16.5 rail (notes/ux-build/rail/SPEC.md)
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,

@@ -36,8 +36,8 @@
   // the plane an object lives in ('T' for a target, else its stage), the plane a side shows, and a plane's objects
   const planeOf = (s) => Constr.planeOf(S(), s);
   const planeOfSide = (side) => (side === 'R' ? 'T' : A.leftStage());
-  const listOfPlane = (p) => (p === 'T' ? S().targets : S().shapes.filter((x) => planeOf(x) === p));
-  const listOf = (side) => listOfPlane(planeOfSide(side));
+  const listOfPlane = (p) => Constr.listOfPlane(S(), p);
+  const listOf = (side) => (side === 'R' ? S().targets : A.planeShapes());
   // the map that carries a z-plane point to the plane a side shows: the whole chain on Y, the steps up to plane k on a
   // later plane of X; null where X shows no such plane
   const carriedF = (side) => (side === 'R' ? (A.yWhole() ? env().F : null) : A.leftStage() > 0 && env().Fk ? env().Fk(A.leftStage()) : null);
