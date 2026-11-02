@@ -1205,6 +1205,7 @@ float wabs(vec2 w) {
     }
     e.key = key;
     { const pr = globalThis.__svCarryProbe; if (pr) { pr.tf = (pr.tf || 0) + 1; const k = `${slot}:${res.n}:${map && map.t}`; (pr.by = pr.by || {})[k] = (pr.by[k] || 0) + 1; } }
+    { const ps = globalThis.__svPathStats; if (ps && isMesh) { ps.cacheTF = (ps.cacheTF || 0) + 1; ps.cacheTFpts = (ps.cacheTFpts || 0) + count; } }
     use(P, map);
     originUniforms(P, res.org);
     if (isMesh && pm === 'tf') runTF(P, meshTFVAO(res, L), gl.POINTS, tpl.P, res.n, W * H * 8, e.tex, W, H, gl.RG32F, gl.RG);
