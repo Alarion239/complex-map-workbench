@@ -95,7 +95,7 @@ const VIEWS = {
   'v15_params_cmd.js': port('interact'),
   'v15_planemenu_cmd.js': port('interact'),
   'zp_cmd.js': port('interact'),
-  'zpfix_cmd.js': port('interact'),
+  'zpfix_cmd.js': steps({ pin: true }),
   'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once: after K1 item 5'),
 
   // to port: phone
