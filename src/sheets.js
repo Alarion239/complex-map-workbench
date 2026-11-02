@@ -6,7 +6,7 @@
 const Sheets = (host) => {
   const { DEG, PI, circleAt, circleRel, isLive } = host;
   const { C } = CX;
-  const { linHom, logHom, powHom, sc } = NatPaths;
+  const { joukAt, linHom, logHom, powHom, sc } = NatPaths;
   // ---------------- whole Riemann surfaces: local cuts, every sheet ----------------
   // Each multivalued piece (an n-th root, log, a complex power, a branch node of a custom formula) is evaluated with
   // a LOCAL cut opposite the cell centre zc (cut angle = arg of the piece's input at zc + 180°, so the cut never
@@ -305,14 +305,21 @@ const Sheets = (host) => {
     return [H(c0), H(w0)];
   }
   // a top-level step's path with a cut of its own at 0 < t < 1 (z^n: z^(1 + (n - 1)t), and the power path of a
-  // (z - c)^n): on the local cut opposite its input at the cell centre c0, sheet 0, so the landscape finds that cut by
-  // continuation (GPU: the step's _hc in chainSheetHom); null for any other step
+  // (z - c)^n): on the local cut opposite its input at the cell centre c0, sheet 0; the Joukowski path: the formula of
+  // c0's side of the unit circle for every z. The landscape so finds that cut by continuation (GPU: the step's _hc in
+  // chainSheetHom); null for any other step
   function localCutHom(bb, c0, t) {
     if (!(t > 0 && t < 1) || !bb || !bb.def) return null;
     if (bb.def.id === 'pown') {
       const n = bb.vals.n, th = Math.atan2(c0.im, c0.re) + PI;
       if (n >= 0) return powHom(C(n, 0), th, 0)(t);
       return t < 0.5 ? powHom(C(-n, 0), th, 0)(2 * t) : null;
+    }
+    if (bb.nat && bb.nat.kind === 'jouk') {
+      const J = joukAt(t, c0.re * c0.re + c0.im * c0.im < 1), lc = bb.nat.scaled && bb.natData ? bb.natData.lc : null;
+      if (!lc) return J;
+      const k = CX.exp(sc(lc, t));
+      return (z) => CX.mul(k, J(z));
     }
     const d = bb.nat && bb.nat.kind === 'pow' ? bb.natData : null;
     if (!d) return null;
