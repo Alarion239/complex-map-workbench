@@ -113,6 +113,7 @@ const VIEWS = {
   'example_params_cmd.js': port('words'),
   'example_try_events_cmd.js': port('words', 'the Try lines left (those that need a card\'s menu)'),
   'fix152_cmd.js': steps({ pin: true }),
+  'fix152_classic_cmd.js': classic('the Split offer in the classic views: focus on a card, f₂ shown alone; fix152_cmd.js runs the offer in the steps view'),
   'guide_nav_cmd.js': port('words'),
   'i18n_cmd.js': port('words'),
   'i18n_walk_cmd.js': port('words'),
