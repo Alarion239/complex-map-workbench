@@ -1,17 +1,16 @@
 'use strict';
-// (#620, K1 item 1) Which view each browser suite tests, for the switch-over to the steps view. The plan is #443 and its
-// sub-issues: K1 (#620) ports the suites and the exports, K2 makes the steps view the default, K3 deletes the classic
-// views. Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails
-// without one. The kit pins every page to the classic view unless its URL asks for ?view=steps
-// (test/cdp_kit/pin_view.js), so a suite tagged port or classic runs classic.
+// Which view each browser suite tests: the steps view, or the classic views, which stay as a view of their own (#621).
+// Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails without
+// one. The kit pins every page to the classic view unless its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so
+// a suite tagged port or classic runs classic.
 //   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
 //   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
 //                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
 //                         Porting a suite is this tag, plus its assertions retargeted to what the steps view shows
-//   port(area, note)      tests behaviour the steps view has (or K1 adds: the note says which item): it must run
-//                         against the steps view; area is the worker group that ports it (#620's breakdown)
-//   classic(why)          tests a part of the classic views that the steps view replaces: it stays pinned to the classic
-//                         view until K3 deletes that part, and goes with it
+//   port(area, note)      tests behaviour the steps view has, or will have (the note says what it waits on): it must
+//                         run against the steps view; area is the worker group that ports it (#620's breakdown)
+//   classic(why)          tests a part of the classic views that the steps view does not have: it stays pinned to the
+//                         classic view, which keeps that part
 // Areas: interact (the plane, the thread, editing, the keyboard), phone, words (the tour, the examples' lines, the
 // languages), export, geometry (constructions, sheets), render (the GPU pictures, regions, globes), sound, engine (no
 // view of its own: dropping the pin is the port).
@@ -48,13 +47,13 @@ const VIEWS = {
   'toasts_515_cmd.js': steps(),
   'tour_planes_cmd.js': steps(),
 
-  // the classic views' own parts, pinned until K3
+  // the classic views' own parts, pinned to the classic view
   'card_canvas_cmd.js': classic('the chain cards\' thumbnails: the steps view has the thread, no card row'),
   'card_resize_cmd.js': classic('the chain cards during a resize: no card row in the steps view'),
   'chain_row_cmd.js': classic('the phone\'s chain bar with Deformation and its glide: the steps view\'s phone has the strip'),
   'clear_chain_open_cmd.js': classic('the classic chain head beside the floating Inspector (it names the classic view)'),
   'deform_range_cmd.js': classic('the Deformation bracket over the card row: the thread\'s range is steps_play_cmd\'s'),
-  'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which K3 deletes'),
+  'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which only the classic view has'),
   'land_cards_cmd.js': classic('the Landscape step cards: no card row in the steps view'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'mv_views_cmd.js': classic('the merged X → Y / Phase / Landscape views and their switch, which the steps view replaces'),
@@ -64,6 +63,7 @@ const VIEWS = {
   'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
   'v15_desktop_cmd.js': classic('the cards following the view switch (X → Y, Phase, Landscape, the Deformation)'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
+  'deform_range_gl_cmd.js': classic('it drives the Deformation bracket itself (__cmwMorph({ range }), #homOrderSel), which the steps view does not have'),
   'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
 
   // to port: interact
@@ -71,7 +71,7 @@ const VIEWS = {
   'chip_clamp_cmd.js': port('interact'),
   'complex_point_cmd.js': port('interact'),
   'complex_params_cmd.js': port('interact'),
-  'custom_show_cmd.js': port('interact', 'F\'s well: after K1 item 9 (the F chip)'),
+  'custom_show_cmd.js': port('interact', 'F\'s well: after the F tile is settled in the steps view (the F chip)'),
   'd1_replace_cmd.js': port('interact'),
   'display_inline_cmd.js': port('interact'),
   'field_settle_cmd.js': port('interact'),
@@ -96,52 +96,52 @@ const VIEWS = {
   'v15_planemenu_cmd.js': port('interact'),
   'zp_cmd.js': port('interact'),
   'zpfix_cmd.js': port('interact'),
-  'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once: after K1 item 5'),
+  'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once, which the steps view does not have yet'),
 
   // to port: phone
   'phone_ctx_tex_cmd.js': port('phone'),
   'phone_focus_margin_cmd.js': port('phone'),
-  'phone_fwell_cmd.js': port('phone', 'F\'s well: after K1 item 9'),
+  'phone_fwell_cmd.js': port('phone', 'F\'s well: after the F tile is settled in the steps view'),
   'phone_sheet_target_cmd.js': port('phone'),
   'phone_sheets_cmd.js': port('phone'),
   'phone_toast_chain_cmd.js': port('phone'),
   'ux165_phone_cmd.js': port('phone'),
 
-  // to port: words (the tour after #620 items 3 and 11, the chapters' retargeting)
+  // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
-  'example_try_events_cmd.js': port('words', 'the Try lines left: K1 item 11'),
+  'example_try_events_cmd.js': port('words', 'the Try lines left (those that need a card\'s menu)'),
   'fix152_cmd.js': port('words', 'the Split offer: focus after Split, and the long-chain rows in the steps view\'s Inspector'),
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': port('words', 'in the steps view its header, menu, overflow and palette checks pass; its Deformation round trip, the M and P shortcuts, the X → Y digit and the All sheets title have no steps-view equivalent yet (K1 items 4 and 5)'),
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152: focus after Split and the long-chain rows in the steps view; plus the Deformation and the alone walk'),
-  'tour_audit_cmd.js': port('words', 'every chapter: K1 items 3 and 11'),
-  'tour_auto_cmd.js': port('words', 'K1 item 3'),
-  'tour_chapters_cmd.js': port('words', 'K1 item 3'),
-  'tour_cmd.js': port('words', 'K1 items 3 and 11'),
-  'tour_it360_cmd.js': port('words', 'K1 item 3'),
-  'tour_lane_cmd.js': port('words', 'K1 item 3'),
-  'tour_lit_cmd.js': port('words', 'every step\'s anchor: K1 items 3 and 11'),
-  'tour_perf_cmd.js': port('words', 'K1 item 3'),
-  'tour_phone_cmd.js': port('words', 'K1 item 3'),
-  'tour_skip_hover_cmd.js': port('words', 'K1 item 3'),
-  'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after K1 items 9 and 11'),
-  'tour_titles_cmd.js': port('words', 'K1 item 3'),
-  'tour_words_cmd.js': port('words', 'K1 item 3'),
+  'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
+  'tour_auto_cmd.js': port('words'),
+  'tour_chapters_cmd.js': port('words'),
+  'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
+  'tour_it360_cmd.js': port('words'),
+  'tour_lane_cmd.js': port('words'),
+  'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
+  'tour_perf_cmd.js': port('words'),
+  'tour_phone_cmd.js': port('words'),
+  'tour_skip_hover_cmd.js': port('words'),
+  'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
+  'tour_titles_cmd.js': port('words'),
+  'tour_words_cmd.js': port('words'),
   'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with K1 items 3 and 9'),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
-  // to port: export (K1 items 6 to 8: the shown plane, the filmstrip, the glide)
-  'complex_lang_export_cmd.js': port('export', 'K1 item 6'),
-  'export_cmd.js': port('export', 'K1 items 6 and 7'),
+  // to port: export (the shown plane, the filmstrip, the glide)
+  'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
+  'export_cmd.js': port('export', 'the shown plane and the filmstrip'),
   'export_fit_cmd.js': port('export'),
   'export_sheet_cmd.js': port('export'),
-  'export_tex_cmd.js': port('export', 'K1 item 6'),
+  'export_tex_cmd.js': port('export', 'the shown plane\'s export'),
   'figure_wait_cmd.js': port('export'),
-  'morphfig_cmd.js': port('export', 'the deformation as one picture: K1 item 8 (the glide)'),
-  'phone_glide_export_cmd.js': port('export', 'the shown plane: K1 item 6'),
+  'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
+  'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
 
   // to port: geometry
   'between_cmd.js': port('geometry'),
@@ -152,8 +152,8 @@ const VIEWS = {
   'meetnear_coincide_cmd.js': port('geometry'),
   'perp_cmd.js': port('geometry'),
   'poly_verts_cmd.js': port('geometry'),
-  'rel162_sheets_cmd.js': port('geometry', 'All sheets: after K1 item 4'),
-  'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after K1 item 4'),
+  'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
+  'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
   'touch_cmd.js': port('geometry'),
   'ux165_rail_cmd.js': port('geometry'),
 
@@ -177,13 +177,12 @@ const VIEWS = {
   'sound_v152_cmd.js': port('sound'),
 
   // to port: engine (no view of its own)
-  'deform_range_gl_cmd.js': port('engine'),
-  'kit_settled_cmd.js': port('engine', 'the kit\'s settled(): a page of its own, no view to test'),
-  'line_slice_cmd.js': port('engine'),
-  'mj_ranges_cmd.js': port('engine'),
-  'offline_cmd.js': port('engine'),
-  'smoke_cmd.js': port('engine', 'its view switch to Phase becomes the steps view\'s surface and plane'),
-  'warm_bar_cmd.js': port('engine'),
+  'kit_settled_cmd.js': steps({ pin: true }),
+  'line_slice_cmd.js': steps({ pin: true }),
+  'mj_ranges_cmd.js': steps({ pin: true }),
+  'offline_cmd.js': steps({ pin: true }),
+  'smoke_cmd.js': port('engine', 'it checks the default page, which is the classic view: it moves to the steps view when that becomes the default, and its view switch then becomes the surface and the plane'),
+  'warm_bar_cmd.js': steps({ pin: true }),
 };
 
 // the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
@@ -213,6 +212,6 @@ if (require.main === module) {
     const inArea = by('port').filter(([, tag]) => tag.area === a);
     if (inArea.length) console.log(`port, ${a} (${inArea.length}):\n${inArea.map(([f, tag]) => `  ${f}${tag.note ? ` (${tag.note})` : ''}`).join('\n')}`);
   }
-  console.log(`classic until K3 (${by('classic').length}):\n${by('classic').map(([f, tag]) => `  ${f}: ${tag.why}`).join('\n')}`);
+  console.log(`classic (${by('classic').length}):\n${by('classic').map(([f, tag]) => `  ${f}: ${tag.why}`).join('\n')}`);
 }
 module.exports = { VIEWS, checkViews };
