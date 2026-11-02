@@ -111,7 +111,7 @@ const VIEWS = {
   'example_cauchy_cmd.js': port('words'),
   'example_params_cmd.js': port('words'),
   'example_try_events_cmd.js': port('words', 'the Try lines left (those that need a card\'s menu)'),
-  'fix152_cmd.js': port('words'),
+  'fix152_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': port('words'),
   'i18n_cmd.js': port('words'),
   'i18n_walk_cmd.js': port('words'),
