@@ -56,9 +56,10 @@ const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
 const SUITES = {
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'] },
-  // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
-  // on lavapipe, so it runs in two halves)
-  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a-fig', '4a-vid', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
+  // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  'export_deform_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
   // repository: work/xv16-merged-snap; v16's own build differs from it by design)
   'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
@@ -97,7 +98,8 @@ const TIMING = {
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
-  'export_cmd.js': [t(/^a figure builds in under 2\.5 s/), t(/no main-thread task of 50 ms or more/), t(/^preview: it advances at the video's frame rate/),
+  'export_cmd.js': [t(/^a figure builds in under 2\.5 s/)],
+  'export_deform_cmd.js': [t(/no main-thread task of 50 ms or more/), t(/^preview: it advances at the video's frame rate/),
     t(/^preview: no main-thread task/), t(/^preview: the animation frames keep time/), t(/^preview DPR 2: plays at 30 fps/), t(/^preview 60 fps Loop/),
     t(/^dark theme: a video and a filmstrip flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^video in a hidden page: made at a pace close to a visible one/, (d) => d && d.hv && d.vv && d.hv.frames === d.vv.frames)],
@@ -156,7 +158,7 @@ const SOFTWARE = {
   'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
     (d) => d && d.quiet === true && d.hit === true)],
   // (a 1280 x 720 Bounce of 2 s on the globe fills its preview frame by frame: more than the suite's 60 s here)
-  'export_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
+  'export_deform_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
     (d) => d && d.filledMs === -1 && d.frames === d.n && typeof d.entry === 'number' && d.madVideo < 4 && d.madExact < 2 && d.range > 100)],
   'p3_accept_cmd.js': [
     s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',

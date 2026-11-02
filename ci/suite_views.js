@@ -138,6 +138,7 @@ const VIEWS = {
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': steps({ pin: true }),
   'export_cmd.js': port('export', 'the shown plane and the filmstrip'),
+  'export_deform_cmd.js': port('export', 'the deformation\'s export in every view and its video: the glide\'s export (#620 item 8)'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
