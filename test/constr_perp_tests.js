@@ -6,7 +6,7 @@
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limits are in reference operations measured in the same run (test/lib/speed_ref.js), so they hold on any machine
-const { refNs, bestNs } = require('./lib/speed_ref');
+const { refNs, unitsOf } = require('./lib/speed_ref');
 const PERP_UNITS = 110, DRAG_UNITS = 19000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
@@ -332,15 +332,14 @@ module.exports = function ({ K, ok }) {
     // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P, in units of a
     // reference operation measured in this run (test/lib/speed_ref.js): each limit keeps the margin the absolute one had
     // on the development Mac
-    const ref = refNs();
     const G = circ([0.3, -0.2], 1.7);
-    const per = bestNs((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6])) / ref;
+    const per = unitsOf((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]));
     const W = state([{ id: 'C', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, pt('P', [0.3, 0.2])]);
     for (let j = 0; j < 10; j++) W.shapes.push(pt('Q' + j, [Math.cos(j), Math.sin(j) * 0.5]), perpShape('k' + j, 'C', 0, { s: 'P' }, { s: 'Q' + j }, j % 2 ? 'in' : 'none'));
     rec(W);
-    const c0 = process.cpuUsage();
+    const ref = refNs(), c0 = process.cpuUsage();
     for (let f = 0; f < 600; f++) { sh(W, 'P').p = [0.3 + 0.1 * Math.cos(f / 50), 0.2 + 0.1 * Math.sin(f / 50)]; rec(W, { shapes: ['P'] }); }
-    const cu = process.cpuUsage(c0), drag = (cu.user + cu.system) * 1000 / 600 / ref;
+    const cu = process.cpuUsage(c0), drag = (cu.user + cu.system) * 1000 / 600 / Math.min(ref, refNs());
     ok(per < PERP_UNITS && drag < DRAG_UNITS, `speed: perpForm ${per.toFixed(0)} reference operations (limit ${PERP_UNITS}); a drag with 10 dependents ${drag.toFixed(0)} (limit ${DRAG_UNITS})`);
   }
 
