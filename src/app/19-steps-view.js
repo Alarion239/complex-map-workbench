@@ -555,10 +555,12 @@
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands
   // in while the mesher's job runs
+  // (the sheet key: mid-glide a step at a time, the glide's at t (svSheetKeyAt); all at once, the span's first plane's,
+  // whose window the glide starts from; at rest, plane b's)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;
-    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : svSheetKey(b);
+    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.a) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
