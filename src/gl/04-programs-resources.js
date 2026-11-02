@@ -975,6 +975,7 @@ float wabs(vec2 w) {
     const sph = !!st.sphere, carry = !!st.carry && !sph;
     const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
+    // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
     if (carry) use(P, st.map); else use(P);
     if (sph) {
