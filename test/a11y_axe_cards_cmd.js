@@ -1,4 +1,4 @@
-// The classic chain cards' actions are for the mouse (issue #361): inert and hidden from a screen reader at rest, usable under a
+// The classic chain cards' actions are for the mouse: inert and hidden from a screen reader at rest, usable under a
 // pointer over the card, a click on Bypass bypasses the step, and inert again when the pointer leaves. The steps view has the thread,
 // whose chips hold their ⋯ as ordinary controls; a11y_axe_cmd.js runs in the steps view, this is the classic cards' part until K3.
 // A command file for a CDP daemon.
