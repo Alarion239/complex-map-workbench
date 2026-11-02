@@ -587,8 +587,8 @@ await section('G', async () => {
   await key('z', 4); await settle(300);
   st = await ST();
   ok('G: undo brings ζ₁ and the circle back', st.zeros === '1.5-1i' && !byId(st, cz.id).cundef, [st.zeros, byId(st, cz.id).cundef]);
-  // the export caption names the circle through its points
-  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  // the export caption names the circle through its points (the plain picture: a phase figure names no shapes; the steps view opens coloured)
+  const cap = await ev(`await (async () => { __cmwSetMain('xy'); const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
   info.capEn = cap;
   ok('G: the caption: the circle through z₂ = …, z₀ = … and ζ₁ = …', /the (circle|disc bounded by the circle) through z₂ = .*, z₀ = .* and ζ₁ = 1\.5 − i/.test(cap || '') || /through/.test(cap || ''), cap);
   // drawing in Y: Circle through 3 points picks z₂″ (F(z₂) of X's point) and two empty spots
@@ -609,7 +609,7 @@ await section('G', async () => {
   await shot('cm-d1440-y');
   // Russian caption
   await nav(`${U}?ns=${NS}g&lang=ru`); await settle(1800);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const capRu = await ev(`await (async () => { __cmwSetMain('xy'); const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
   info.capRu = capRu;
   ok('G: the Russian caption names the circle', /проходящей через|проходящая через/.test(capRu || ''), capRu);
   // v16 verify-2: no English inside the Russian caption (outside maths and TeX commands)
