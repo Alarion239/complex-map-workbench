@@ -77,11 +77,19 @@ for (const lang of ['en', 'ru', 'it']) {
     else ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 360 px)`, w.rail >= 360, w);
   }
 }
-// (a press on it at rest selects F)
+// (a real mouse press on it at rest selects F, and the chip says it is pressed: aria-pressed follows whether F is the selected step)
 await open(1440, 900, false, 'en', CHAIN12);
-await ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'), b = f.getBoundingClientRect(); f.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse', clientX: b.left + 5, clientY: b.top + 5 })); f.click(); return 1; })()`);
+const ctr = await ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'), b = f.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: ctr[0], y: ctr[1] });
+await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: ctr[0], y: ctr[1], button: 'left', clickCount: 1 });
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: ctr[0], y: ctr[1], button: 'left', clickCount: 1 });
 await settled({});
-ok('at rest on a 12-step thread, a press on the chip selects F', (await S()).sel === 'F', (await S()).sel);
+const pr = await ev(`document.querySelector('#svStrip .sv-wholemap').getAttribute('aria-pressed')`);
+ok('at rest on a 12-step thread, a mouse press on the chip selects F and the chip is pressed', (await S()).sel === 'F' && pr === 'true', { sel: (await S()).sel, pr });
+// … and it is pressed only while F is the selected step: selecting a step lets it go, the chip stays where it was
+await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').click(); 1`);
+await settled({});
+ok('selecting a step lets the chip go: aria-pressed false', (await ev(`document.querySelector('#svStrip .sv-wholemap').getAttribute('aria-pressed')`)) === 'false' && (await S()).sel !== 'F', await S());
 
 // translated
 for (const lang of ['ru', 'it']) {

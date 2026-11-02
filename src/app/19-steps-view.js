@@ -891,7 +891,7 @@
       return ns.length - 1;
     };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-wholemap, .sv-add, .sv-whole, .sv-bandx')) return;
       const d = SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
       svRangeDown(d, e, rail, posX);
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
@@ -899,7 +899,7 @@
     // (a press on the thread away from the planes and the chips goes there too)
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
-      if (e.target.closest('.sv-fwrap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
       svOutsideBand(posX(e));
       SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
