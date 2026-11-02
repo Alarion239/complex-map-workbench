@@ -70,9 +70,7 @@ ok('step 2 follows: conj(1 - i) (z + 1 - i) at 0 is 2', near(await stage(2, 0, 0
 ok('typing the value is one undo step', s.hi === hi0 + 1, { hi: s.hi, was: hi0 });
 await settle(600);
 // (Y is the classic view's right pane, the image of the chain; the steps view's equivalent is its last plane)
-const inSteps = await ev(`document.documentElement.classList.contains('sv')`);
 const yFrame = async () => {
-  if (!inSteps) return ev(`__cmwRenderOff('R', 320, 240, 1)`);
   await ev(`__cmwSteps({ go: __cmwSteps().planes.length - 1, now: true })`); await settled({ until: '!__cmwSteps().moving' });
   return ev(`__cmwRenderOff('L', 320, 240, 1)`);
 };

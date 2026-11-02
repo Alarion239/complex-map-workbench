@@ -1,7 +1,7 @@
 // D1, issue #23: the function search replaces as well as inserts. A chip in the search row says where the function
 // goes (Insert, Replace F, Replace f_k; Tab or a click changes it, and it is remembered); the best match is listed all
 // three ways; "Replace…" is the first item of a card's ⋯; the Inspector's title opens the search ready to replace its
-// step; Clear chain is a word button in the classic chain head and the palette's command in both views. On a laptop (1366×768), a phone (412×860) and in Russian.
+// step; Clear chain is a word button in the classic chain head (clear_chain_open_cmd.js clicks it) and the palette's command in the steps view. On a laptop (1366×768), a phone (412×860) and in Russian.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/d1_replace_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -104,14 +104,9 @@ p = await pal();
 ok('a connector\'s + inserts (at the start)', p && /^Insert at the start/.test(p.where), p);
 await key('Escape'); await settle(250);
 // Clear chain
-if (inSteps) {
-  await key('k', 4); await settle(400);
-  await palQ('Clear chain'); await key('Enter'); await settle(600);
-  ok('Clear chain (the palette\'s command) empties the chain and hides the chain head\'s button', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
-} else {
-  await ev(`document.getElementById('clearChain').click()`); await settle(600);
-  ok('Clear chain empties the chain and hides itself', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
-}
+await key('k', 4); await settle(400);
+await palQ('Clear chain'); await key('Enter'); await settle(600);
+ok('Clear chain (the palette\'s command) empties the chain and hides the chain head\'s button', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
 // an empty chain: no chip, the old context
 await key('k', 4); await settle(400);
 p = await pal();
