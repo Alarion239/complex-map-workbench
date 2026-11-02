@@ -202,6 +202,7 @@
     requestRender('L');
   }
   function svArrive() {
+    svPolesAhead();
     const i = Math.round(SV.g.x), was = SV.at;
     SV.g.set(i);
     SV.i = i;
@@ -399,7 +400,7 @@
   // method on 1/F (or, where it leaves through a cut, by svPeakAt while the points beside it go past 4 R), and read
   // between two steps by linear interpolation, so the key moves continuously with t
   const SV_POLE_K = 64, SV_POLE_SEED = 8, SV_POLE_GRID = 24, SV_POLE_MAX = 8;
-  let svPoleMemo = null;
+  const svPoleMemo = new Map();
   // Newton's method on h = 1/F from z: a pole of F (h(z) = 0, |F| past 1e8) or null (it left the box or did not settle)
   function svPoleAt(F, z, box) {
     const h = (p) => { const w = F(p); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
@@ -452,7 +453,7 @@
   // the tracks of the glide's poles to plane b: {tr: [[z or null] x (SV_POLE_K + 1)]} for the window w
   function svPoleTracks(b, w) {
     const key = [b, chainSig[nSteps()], w.x0, w.x1, w.y0, w.y1].join('|');
-    if (svPoleMemo && svPoleMemo.key === key) return svPoleMemo;
+    if (svPoleMemo.has(key)) return svPoleMemo.get(key);
     const ex = (f) => ({ x0: w.x0 - f * (w.x1 - w.x0), x1: w.x1 + f * (w.x1 - w.x0), y0: w.y0 - f * (w.y1 - w.y0), y1: w.y1 + f * (w.y1 - w.y0) });
     const big = 4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0) / 2, box = ex(3), win = ex(0.25), cz = C((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2), Fp = stageF(b - 1);
     const Ft = (t) => { const H = homF(b, t); return (z) => H(Fp(z)); };
@@ -465,6 +466,14 @@
           const near = svPolesIn(F, win, SV_POLE_GRID, box).concat(svPolesIn(F, box, SV_POLE_GRID / 2, box)).sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz))).slice(0, SV_POLE_MAX);
           for (const p of near) {
             if (tr.some((r) => r[k] && CX.abs(CX.sub(r[k], p)) < 1e-6 * (1 + CX.abs(p)))) continue;
+            // (a track lost since its last step near p is p's: the steps between are bridged on the line from there to
+            // p, so the key keeps the pole through them, never dropping it for a step and taking it back)
+            const old = tr.find((r) => { if (r[k]) return false; const j = r.findLastIndex((q, i) => q && i < k); return j >= 0 && CX.abs(CX.sub(r[j], p)) < 0.25 * (1 + CX.abs(p)); });
+            if (old) {
+              const j = old.findLastIndex((q, i) => q && i < k);
+              for (let i = j + 1; i <= k; i++) old[i] = CX.add(old[j], CX.mul(C((i - j) / (k - j), 0), CX.sub(p, old[j])));
+              continue;
+            }
             const r = new Array(SV_POLE_K + 1).fill(null);
             r[k] = p;
             // (and back to where it came into the box, or out of a cut: a pole found at a seed step was there before)
@@ -474,8 +483,18 @@
         }
       }
     } catch (e) { tr.length = 0; }
-    svPoleMemo = { key, tr };
-    return svPoleMemo;
+    if (svPoleMemo.size >= 16) svPoleMemo.clear();
+    const out = { key, tr };
+    svPoleMemo.set(key, out);
+    return out;
+  }
+  // every glide's pole tracks for the window, one glide an idle moment at a time, so a glide finds them made (made at
+  // its first frame otherwise): after the chain changes and when a glide arrives
+  function svPolesAhead() {
+    const n = nSteps(), w = clipWin, idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 100));
+    let b = 1;
+    const next = () => { if (b > n || clipWin !== w) return; if (!derivIn(b - 1, b)) svPoleTracks(b, svSheetKey(b).win); b++; idle(next); };
+    idle(next);
   }
   // the key of the glide's frame at t in (0, 1) to plane b (svSheetKey(b) at rest)
   function svSheetKeyAt(b, t) {
@@ -1292,7 +1311,36 @@
       // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
       // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
       if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);
+      // (and the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn
+      // once: svWarmCarry)
+      if (GLR.prestartCarry) GLR.prestartCarry();
+      svWarmCarry(0);
+      svPolesAhead();
     } catch (e) { /* (the first glide starts them) */ }
+  }
+  // The glide's carried colour drawn once on a speck (SV_WARM's mesh, at x = 1/2 of the first step) into the GL canvas,
+  // which no pane shows until a frame copies it: a renderer that makes a program's machine code at its first draw
+  // (SwiftShader, llvmpipe) makes it then, in an idle moment, not in the first frame of the first glide, whose clock
+  // would run on past that stall and end it. Tried again while the programs link (prestartCarry), at most 40 times
+  const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true };
+  let svWarmSig = null;
+  function svWarmCarry(n) {
+    const sig = chainSig[nSteps()];
+    if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 250));
+    idle(() => {
+      if (chainSig[nSteps()] !== sig) return;
+      const r = shapeGPU(SV_WARM, { base: 2 }), pane = paneL;
+      let done = false;
+      try {
+        if (r && r.meshRes && pane && pane.view) {
+          GLR.begin(pane.pw, pane.ph);
+          const map = { mode: 1, hi: 1, t: 0.5 }, key = svSheetKey(1);
+          done = GLR.drawRegion(r.meshRes, { map, view: pane.view, dpr: pane.dpr, L: SV_CARRY_L, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry: svCarryStyle(svT()), key, lim: 1e30 });
+        }
+      } catch (e) { done = false; }
+      if (done) svWarmSig = sig; else setTimeout(() => svWarmCarry(n + 1), 500);
+    });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
   // The speed is the steps view's setting (SV.speed, saved as S.sv.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
