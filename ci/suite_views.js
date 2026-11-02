@@ -82,7 +82,7 @@ const VIEWS = {
   'phase_key_cmd.js': port('interact'),
   'phase_style_cmd.js': steps({ pin: true }),
   'repeat_cmd.js': port('interact'),
-  'repeat_settle_cmd.js': port('interact'),
+  'repeat_settle_cmd.js': steps({ pin: true }),
   'series_edit_cmd.js': port('interact'),
   'series_params_cmd.js': port('interact'),
   'shape_rows_cmd.js': port('interact'),
