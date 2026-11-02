@@ -38,11 +38,11 @@ await ev(`[...document.querySelectorAll('[role="menuitem"]')].find((e) => /^Rena
 await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="c"] .k input'); i.value = 'junk'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); })()`); await settle(400);
 sh = await shapes();
 ok('Esc leaves the name as it was', sh.find((s) => s.id === 'c').name === null, sh);
-// a second click on the name (a laptop)
-const kc = await ev(`(() => { const r = document.querySelector('#shapeList .shape[data-id="b"] .shape-name .k').getBoundingClientRect(); return [r.left + 10, r.top + r.height / 2]; })()`);
-await click(kc[0], kc[1]); await sleep(120);
-const kc2 = await ev(`(() => { const r = document.querySelector('#shapeList .shape[data-id="b"] .shape-name .k').getBoundingClientRect(); return [r.left + 10, r.top + r.height / 2]; })()`);
-await click(kc2[0], kc2[1]); await settle(300);
+// a second click on the name (a laptop). The first click redraws the page and, with the steps view's planes, keeps it
+// busy for longer than the 450 ms window, so a real-mouse pair would arrive too late on a slow machine: both clicks
+// go in one task, the second on the row the first rebuilt
+await ev(`(() => { const name = () => document.querySelector('#shapeList .shape[data-id="b"] .shape-name .k'); name().click(); name().click(); })()`);
+await settle(300);
 ok('a second click on the name renames it', await ev(`!!document.querySelector('#shapeList .shape[data-id="b"] .k input')`), null);
 await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="b"] .k input'); i.value = 'Slanted half-plane'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()`); await settle(500);
 sh = await shapes();
