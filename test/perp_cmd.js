@@ -222,6 +222,7 @@ await section('A', async () => {
   await tool('select');
   const p0 = await W(0.3, 0.2), p1 = await W(1.6, 0.3);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p0[0], y: p0[1] });
+  await settle(150);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p0[0], y: p0[1], button: 'left', buttons: 1, clickCount: 1 });
   let worst = 0, und = 0, flips = 0, crossed = false;
   const flip0 = byId(await ST(), K1.id).def.flip;

@@ -119,6 +119,7 @@ const sameForm = (a, b) => !!a && !!b && a.A === b.A && a.C === b.C && a.B[0] ==
 // a 20-frame mouse drag (select tool) along pts (screen), after a press at p0; each frame calls f()
 async function dragPath(p0, pts, f) {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p0[0], y: p0[1] });
+  await settle(150);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p0[0], y: p0[1], button: 'left', buttons: 1, clickCount: 1 });
   for (const [x, y] of pts) {
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 });
@@ -197,6 +198,8 @@ await section('A', async () => {
   // 3. the drags: T once round, P across C, P across the tangent at T (20 frames each; undone after each)
   await tool('select');
   const sc = (await W(1, 0))[0] - (await W(0, 0))[0], c0 = await W(0, 0);
+  // (the plane re-fits when the tool changes: the points' places are read again)
+  const tz = await W(1, 0), pk = await W(2, 1);
   const measure = (o) => async () => {
     const s2 = await ST(), k = byId(s2, K1.id), fm = (await FORMS())[K1.id];
     if (k.cundef || !fm) { o.und++; return; }
@@ -208,15 +211,15 @@ await section('A', async () => {
   };
   const fresh = async () => ({ und: 0, flips: 0, g: 0, inc: 0, n: 0, line: false, flip0: byId(await ST(), K1.id).def.flip });
   const oT = await fresh();
-  await dragPath(t0, Array.from({ length: 20 }, (_, i) => { const a = 2 * Math.PI * (i + 1) / 20 - 0.0001; return [c0[0] + sc * Math.cos(a), c0[1] - sc * Math.sin(a)]; }), measure(oT));
+  await dragPath(tz, Array.from({ length: 20 }, (_, i) => { const a = 2 * Math.PI * (i + 1) / 20 - 0.0001; return [c0[0] + sc * Math.cos(a), c0[1] - sc * Math.sin(a)]; }), measure(oT));
   const tAfter = byId(await ST(), T1.id);
   await key('z', 4); await settle(250);
   const oP = await fresh(), pIn = await W(0.2, 0.3);
-  await dragPath(p0, Array.from({ length: 20 }, (_, i) => [p0[0] + (pIn[0] - p0[0]) * (i + 1) / 20, p0[1] + (pIn[1] - p0[1]) * (i + 1) / 20]), measure(oP));
+  await dragPath(pk, Array.from({ length: 20 }, (_, i) => [pk[0] + (pIn[0] - pk[0]) * (i + 1) / 20, pk[1] + (pIn[1] - pk[1]) * (i + 1) / 20]), measure(oP));
   const pAfter = byId(await ST(), P1.id).p;
   await key('z', 4); await settle(250);
   const oL = await fresh(), pL = await W(0.4, 1.2);
-  await dragPath(p0, Array.from({ length: 20 }, (_, i) => [p0[0] + (pL[0] - p0[0]) * (i + 1) / 20, p0[1] + (pL[1] - p0[1]) * (i + 1) / 20]), measure(oL));
+  await dragPath(pk, Array.from({ length: 20 }, (_, i) => [pk[0] + (pL[0] - pk[0]) * (i + 1) / 20, pk[1] + (pL[1] - pk[1]) * (i + 1) / 20]), measure(oL));
   const pAfterL = byId(await ST(), P1.id).p;
   await key('z', 4); await settle(250);
   const fmt = (o) => ({ und: o.und, flips: o.flips, g: f1(o.g), inc: f1(o.inc), n: o.n, line: o.line });
@@ -263,7 +266,7 @@ await section('A', async () => {
   // (issue #12) T, then Snap off: the tangent 7 px off the dashed line (outside the old 6 px band); by the chip's Tangent
   // line; by Enter. Each is undone again
   {
-    const tPick = async () => { await click(t0[0] + 2, t0[1] + 2); await settle(150); };
+    const tPick = async () => { await click(t0[0] + 2, t0[1] + 2); await settle(800); };
     const isTan = (s) => !!s && s !== KT && s.id !== KT.id && !!s.def && s.def.op === 'touch' && s.def.args[2].inf === 1 && s.kind === 'line';
     const snapBtn = () => ev(`(() => { const b = document.getElementById('snapBtn'); if (b) b.click(); return !!b && b.getAttribute('aria-pressed'); })()`);
     await tPick();
