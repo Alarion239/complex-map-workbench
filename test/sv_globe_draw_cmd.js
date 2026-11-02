@@ -1,6 +1,7 @@
 // The steps view's globe takes drawing on any plane: on plane k > 0 with the Sphere surface, a Disc drag makes a shape
 // of that plane (stage = k) and #viewAllBtn never gets the pulse class; a press on the shape just drawn moves it
-// there, still a shape of plane k. On plane 0 the shape has no stage. A command file for a CDP daemon (test/cdp_kit README).
+// there, still a shape of plane k. On plane 0 the shape has no stage.
+// A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
@@ -46,7 +47,10 @@ for (const k of [0, 1]) {
   ok(`${where}: a Disc drag draws one shape`,
     S1.shapes.length === 1 && S1.targets.length === 0 && d && d.kind === 'disc', S1);
   ok(`${where}: the shape belongs to the plane it was drawn on`, d && (k === 0 ? !('stage' in d) : d.stage === k), d);
-  ok(`${where}: #viewAllBtn never gets the pulse class`, (await ev('window.__pulse')) === 0, await ev('window.__pulse'));
+  const pulses = await ev('window.__pulse');
+  ok(`${where}: #viewAllBtn never gets the pulse class`, pulses === 0, pulses);
+  const hint = await ev(`(document.getElementById('sphereChipL') || { textContent: '' }).textContent`);
+  ok(`${where}: no hint says the globe draws in the z-plane only`, !/drawn in the z-plane/.test(hint), hint);
   // a press on the shape just drawn (on its rim) moves it on that plane
   if (d) {
     const c0 = d.c.slice(), rim = await at(c0[0] + d.r, c0[1]), to = await at(c0[0] + d.r + 0.3, c0[1] + 0.2);
@@ -60,5 +64,11 @@ for (const k of [0, 1]) {
         S2.shapes.length === 1 && e && stageOk(e) && changed, [d, e]);
     }
   }
+  // a construction tool picks on this plane too, so the globe says nothing of drawing in the z-plane only
+  await ev(`[...document.querySelectorAll('[data-tool="circle3"]')].find((e) => e.offsetParent).click(); 1`);
+  await quiet();
+  const hintC = await ev(`(document.getElementById('sphereChipL') || { textContent: '' }).textContent`);
+  ok(`${where}: a construction tool gets no hint that the globe draws in the z-plane only`,
+    !/drawn in the z-plane/.test(hintC), hintC);
 }
 return { pass: fails.length === 0, fails, info };

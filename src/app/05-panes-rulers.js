@@ -158,7 +158,7 @@
     }
     Construct.syncChip();
     // P3b: the globes take drawing (panels.md 9). What still draws nothing says so: the landscape, a planar-centred
-    // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane'), the z-globe at a focused stage (P4)
+    // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
       const drawing = tool !== 'select' && solo() !== 'R';
@@ -167,7 +167,6 @@
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
-      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('On the globe, shapes are drawn in the z-plane: choose Plane to draw in this plane, or Show F.');
       // (v16.5 UX71) listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
       if (!msg) { msg = listenChipMsg(); if (msg) act = { stop: true }; }
