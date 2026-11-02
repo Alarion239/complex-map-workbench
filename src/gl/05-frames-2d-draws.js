@@ -351,10 +351,15 @@
     const probe0 = globalThis.__svCarryProbe || {};
     if (globalThis.__svCarryProbe) probe0.draws = (probe0.draws || 0) + 1;
     if (probe0.noCarry) return true;
-    let e = probe0.uncached ? null : probe0.noTF && res.__probeE ? res.__probeE : rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    // (probe freezeT: the cache rebuilt until the glide's t first reaches freezeT on step freezeHi or later, then kept, so the draws run on a
+    // mid-glide cache that is not rebuilt; flush: gl.flush() between the cache pass and the draws)
+    if (probe0.freezeT != null && st.map && (st.map.hi || 0) >= (probe0.freezeHi || 0) && (st.map.t || 0) >= probe0.freezeT && res.__probeE) probe0.frozen = true;
+    const stale = probe0.noTF || probe0.frozen;
+    let e = probe0.uncached ? null : stale && res.__probeE ? res.__probeE : rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    if (probe0.flush) gl.flush();
     if (e === PENDING) e = null;
-    if (e && !probe0.noTF) res.__probeE = e;
-    if (e && probe0.noTF) e.t = performance.now();   // (kept from the sweep of stale scratch textures)
+    if (e && !stale) res.__probeE = e;
+    if (e && stale) e.t = performance.now();   // (kept from the sweep of stale scratch textures)
     if (probe0.cacheOnly) return true;   // (probe: the map cache built, nothing drawn)
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = !probe0.noKey && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
