@@ -65,11 +65,11 @@ ok('a page saved with F selected opens with the chip pressed', (await S()).sel =
 const atRest = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail'), f = document.querySelector('#svStrip .sv-wholemap'), n = f.querySelector('.sv-fn');
   r.scrollLeft = 0; const fb = f.getBoundingClientRect(), rb = r.getBoundingClientRect(), at = document.elementFromPoint(fb.left + fb.width / 2, fb.top + fb.height / 2);
   return { rail: Math.round(r.clientWidth), scrolls: r.scrollWidth > r.clientWidth + 1, onlyF: getComputedStyle(n).display === 'none', label: f.getAttribute('aria-label'), tip: f.dataset.tip,
-    addFolded: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display === 'none', addOnTop: (() => { const a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(), e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); return !!e && !!e.closest('.sv-add'); })(), clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
+    addFolded: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display === 'none', moreLast: (() => { const k = [...document.querySelector('#svStrip').children].filter((e) => e.getClientRects().length).pop(); return !!k && k.classList.contains('sv-playmore'); })(), addOnTop: (() => { const a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(), e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); return !!e && !!e.closest('.sv-add'); })(), clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
 const LABEL = { en: 'Whole map', ru: 'Вся карта', it: 'Mappa intera' };
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
-  for (const [what, chain] of [['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
+  for (const [what, chain] of [['1 step', st.steps.slice(0, 1)], ['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
     await open(1440, 900, false, lang, chain);
     const w = await atRest();
     info[`1440 ${lang} ${what}`] = w;
@@ -77,8 +77,12 @@ for (const lang of ['en', 'ru', 'it']) {
       w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.clearOfRail && w.onTop, w);
     if (what === '12 steps') ok(`1440 ${lang}, 12 steps: the thread scrolls, and the chip is still pressable at rest`, w.scrolls && w.onTop, w);
     if (what === '3 steps') ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
-    // (the Russian chain's names are wide: it scrolled before the chip too; the Playback ⋯ at the strip's end takes the words' room in en and it, so + is the round one there)
-    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: the whole chain z … w₂ shows (the thread does not scroll; Russian's wide names scroll as before), and + Add function is whole and on top`, (lang === 'ru' || !w.scrolls) && w.addOnTop, w);
+    // (the Playback ⋯ ends the strip and takes the room of "+ Add function"'s words once the thread is longer than a step or two:
+    // + keeps its words on a short thread and is the round one beside a longer one; the rule never lets the words make the thread
+    // scroll; Russian's wide names scroll as they did before the chip: the rail still keeps most of its width)
+    ok(`1440 ${lang}, ${what}: the Playback ⋯ ends the strip, and the words of + Add function never make the thread scroll`, w.moreLast && (w.addFolded || !w.scrolls), w);
+    if (what === '1 step') ok(`1440 ${lang}, 1 step: + Add function keeps its words beside the short thread, which does not scroll`, !w.addFolded && !w.scrolls && w.addOnTop, w);
+    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: + Add function is the round + (the words would not fit beside the thread and the Playback controls), whole and on top, the chain z … w₂ shows in en and it, and Russian's wide names scroll as before in a rail of 400 px or more`, w.addFolded && w.addOnTop && (lang === 'ru' ? w.scrolls && w.rail >= 400 : !w.scrolls), w);
     else if (what === '12 steps') ok(`1440 ${lang}, 12 steps: + Add function is the round + (its words would make the thread scroll more), whole and on top`, w.addFolded && w.addOnTop, w);
   }
 }
