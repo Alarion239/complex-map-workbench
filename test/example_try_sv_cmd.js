@@ -18,7 +18,7 @@ const next = () => ev(`(() => { const b = document.querySelector('#svStrip .sv-n
 let idx = null;
 for (const lang of ['en', 'ru']) {
   await open(lang);
-  const names = { strip: /Strip to disk|Полоса/, quarter: /Quarter plane squared|Четверть|квадрант/i, cayley: /Cayley, then cube|Кэли/, log: /Sheets of the logarithm|Листы логарифма/, gamma: /Poles of the Gamma|Полюсы гамма/, auto: /Disk automorphism|Автоморфизм диска/ };
+  const names = { strip: /Strip to disk|Полоса/, quarter: /Quarter plane squared|Четверть|квадрант/i, cayley: /Cayley, then cube|Кэли/, log: /Sheets of the logarithm|Листы логарифма/, gamma: /Poles of the Gamma|Полюсы гамма/, auto: /Disk automorphism|Автоморфизм диска/, deriv: /The derivative in the chain|Производная в цепочке/ };
   if (!idx) { idx = {}; for (const k of Object.keys(names)) idx[k] = await byName(names[k]); }
   ok(`${lang}: examples found`, Object.values(idx).every((i) => i >= 0), idx);
   // the line is the steps view's own (no word Deformation) and is there
@@ -48,5 +48,16 @@ for (const lang of ['en', 'ru']) {
   await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'); if (b) b.click(); return !!b; })()`); await sleep(400);
   await ev(`(() => { const m = document.querySelectorAll('.pop.menu [role=menuitemradio]')[2]; if (m) m.click(); return !!m; })()`); await settle(1500);
   ok(`${lang}: Landscape closes the log line`, !(await lane()), await lane());
+  // the derivative: the line names the chip and its ⋯ menu (not a card); opening the menu leaves it, moving the step closes it
+  await ev(`__cmwExample(${idx.deriv})`); await settled({ until: `!!document.querySelector('.tour-lane[data-lane="example"]') && document.querySelectorAll('#svStrip .sv-more').length === 2` });
+  const dl = await lane();
+  ok(`${lang}: the derivative line is the steps view's own (a chip, no card)`, !!dl && !/\bcard\b|карточк/i.test(dl) && /chip|шаг/.test(dl), dl);
+  const moreOf = (k) => ev(`(() => { const b = document.querySelectorAll('#svStrip .sv-more')[${k}]; if (b) b.click(); return !!b; })()`);
+  const menuItem = (re) => ev(`(() => { const m = [...document.querySelectorAll('.pop.menu [role=menuitem]')].find((x) => ${re}.test(x.textContent)); if (m) m.click(); return !!m; })()`);
+  await moreOf(1); await settled({ until: `!!document.querySelector('.pop.menu')` });
+  ok(`${lang}: opening the d/dz chip's menu leaves the derivative line`, !!(await lane()), await lane());
+  ok(`${lang}: the menu offers Move left`, await menuItem(/Move left|Сдвинуть влево/), null);
+  await settled({ until: `!document.querySelector('.tour-lane[data-lane="example"]')` });
+  ok(`${lang}: moving the d/dz step closes the derivative line`, !(await lane()), await lane());
 }
 return { pass: fails.length === 0, fails };
