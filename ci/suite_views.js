@@ -88,7 +88,7 @@ const VIEWS = {
   'series_edit_cmd.js': steps({ pin: true }),
   'series_params_cmd.js': steps({ pin: true }),
   'shape_rows_cmd.js': steps({ pin: true }),
-  'stage_shapes_cmd.js': port('interact'),
+  'stage_shapes_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
   'top_bar_focus_classic_cmd.js': classic('the classic top bar\'s view switch and Deformation in the Tab order, and the segments of the view switch and of the classic heads: the steps view has none of them (top_bar_focus_cmd)'),
   'ux165_fix_cmd.js': steps({ pin: true }),
