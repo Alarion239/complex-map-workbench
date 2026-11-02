@@ -271,10 +271,11 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf, speed}. at: the shown position in
+  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
   // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
-  // its own speed (a state without one takes the device's). planes: the stages of
+  // its own speed (a state without one takes the device's). alone: the step shown alone (#620), an active step's index, a key only
+  // while one is shown; at and T are then the whole chain's place (what leaving it goes back to). planes: the stages of
   // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state was
   // never saved from the steps view): a fractional or far `at` is clamped to the planes, a T the chain no longer has
   // is -1, an unknown scope or surface is the default, an unknown speed is dropped.
@@ -289,6 +290,7 @@ const Views = (() => {
       surf: SV_SURFS.includes(v.surf) ? v.surf : 'plane',
     };
     if (SV_SPEEDS.includes(v.speed)) o.speed = v.speed;
+    if (Number.isInteger(v.alone) && v.alone > 0 && planes && planes.includes(v.alone)) o.alone = v.alone;   // (a step the chain lacks or bypasses is not shown alone)
     return o;
   }
   // the steps view's picture of a state that has no S.sv (concept §6): X → Y opens at the z-plane with T = the last

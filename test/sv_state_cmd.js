@@ -34,6 +34,35 @@ await ev(`document.getElementById('undoBtn').click(); 1`); await sleep(2000);
 st = await ev('__cmwSteps()');
 info.undo = st;
 ok('undo returns to the saved place', Math.abs(st.x - 1) < 1e-6 || Math.abs(st.x - 2.25) < 1e-6, st);
+// a step shown alone (#620): a state saved with it opens on it, a save writes it back, a reload and a language switch keep it,
+// a link carries it, and leaving it goes back to the chain's place
+const aloneSv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow', alone: 2 };
+await load(ns, { steps, sv: aloneSv });
+await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+st = await ev('__cmwSteps()');
+info.alone = st;
+ok('a state saved with a step shown alone opens on it: its plane and the one before', st.on && st.planes.length === 2 && st.planes[1] === 2 && st.x === 0, st);
+await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
+let wa = await saved();
+ok('the next save keeps it, with the whole chain\'s place (the plane it was on, as leaving it goes back to)', wa && wa.alone === 2 && wa.at === 1 && wa.T === 2, wa);
+await nav(`${base}/test.html?ns=${ns}&lang=ru&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+st = await ev('__cmwSteps()');
+ok('a reload in another language keeps the step shown alone', st.on && st.planes.length === 2 && st.planes[1] === 2, st);
+await nav(`${base}/test.html?ns=${ns}&lang=en&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+st = await ev('__cmwSteps()');
+ok('and back again', st.on && st.planes.length === 2 && st.planes[1] === 2, st);
+await ev(`(window.__svLink = null, Params.encodeLink(JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)}))).then((p) => { window.__svLink = p; }), 1)`);
+const alonePayload = await linkMade();
+await nav(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
+let ra = null;
+for (let i = 0; i < 20 && !(ra && ra.on && ra.planes.length === 2); i++) { await sleep(1500); ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`); }
+ok('a link carries the step shown alone', ra && ra.on && ra.planes.length === 2 && ra.planes[1] === 2, ra && { on: ra.on, planes: ra.planes });
+// a saved alone that the chain no longer has (a step bypassed) opens on the whole chain
+const byp = steps.map((x, i) => (i === 1 ? Object.assign({}, x, { on: false }) : x));
+await load(ns, { steps: byp, sv: aloneSv });
+await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+st = await ev('__cmwSteps()');
+ok('a bypassed step is not shown alone: the whole chain opens', st.on && st.planes.length === 3 && Math.abs(st.x - 1.4) < 0.5, st);
 // malformed sv is repaired
 await load(ns, { steps, sv: { at: 99.5, T: 77, scope: 'x', surf: 'cube' } });
 await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500); await hooked(); await sleep(500);
