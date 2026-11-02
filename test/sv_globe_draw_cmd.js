@@ -37,7 +37,9 @@ for (const k of [0, 1]) {
     if (rim && to) {
       await drag(rim[0], rim[1], to[0], to[1], 10, 16); await quiet();
       const S2 = await shapes(), e = S2.shapes[0];
-      ok(`${where}: a press on the rim reshapes the shape of that plane`, S2.shapes.length === 1 && e && (k === 0 ? !('stage' in e) : e.stage === k) && (Math.abs(e.r - d.r) > 1e-3 || Math.abs(e.c[0] - c0[0]) > 1e-3 || Math.abs(e.c[1] - c0[1]) > 1e-3), [d, e]);
+      const stageOk = (x) => (k === 0 ? !('stage' in x) : x.stage === k);
+      const changed = !!e && (Math.abs(e.r - d.r) > 1e-3 || Math.abs(e.c[0] - c0[0]) > 1e-3 || Math.abs(e.c[1] - c0[1]) > 1e-3);
+      ok(`${where}: a press on the rim reshapes the shape of that plane`, S2.shapes.length === 1 && e && stageOk(e) && changed, [d, e]);
     }
   }
 }
