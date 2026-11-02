@@ -34,6 +34,7 @@ const VIEWS = {
   'steps_carry_inregion_cmd.js': steps(),
   'steps_carry_far_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
+  'steps_rim_clip_cmd.js': steps(),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
   'steps_head_cmd.js': steps(),

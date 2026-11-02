@@ -554,7 +554,8 @@
       }
       if (due()) { yield; t0 = performance.now(); }
     }
-    return { flags, extra: new Float32Array(close ? fixClose(mesh, flags, extra, close, maxDepth) : extra), trouble, close };
+    const out = close ? yield* fixClose(mesh, flags, extra, close, maxDepth, slice) : extra;
+    return { flags, extra: new Float32Array(out), trouble, close };
   }
   // The extra mesh of a fix-up without cracks (T-junctions): a refined piece meets a coarser piece, or a base triangle
   // drawn with the GPU template of level L, along an edge where only one side has a vertex, and the map bends that
@@ -563,13 +564,15 @@
   // every vertex on its edges (dyadic midpoints of the edge, up to depth levels; a base triangle's also at the points
   // its template puts on its edges) into a fan about its centroid, so every edge is shared vertex for vertex.
   // flags: the base mesh's skip flags (set here for the base triangles taken in); extra: the pieces, 6 coordinates
-  // each -> the extra mesh's coordinates
-  function fixClose(mesh, flags, extra, L, depth) {
+  // each -> the extra mesh's coordinates. A generator, as fixGen, yielding after every slice.ms of work
+  function* fixClose(mesh, flags, extra, L, depth, slice) {
     if (!extra.length) return extra;
+    let t0 = performance.now();
+    const due = () => performance.now() - t0 > slice.ms;
     const SRC = mesh.src, T = mesh.tri, nt = T.length / 3;
     const key = (x, y) => x + ',' + y;
-    const V = new Set();
-    for (let i = 0; i < extra.length; i += 2) V.add(key(extra[i], extra[i + 1]));
+    const verts = new Set();
+    for (let i = 0; i < extra.length; i += 2) verts.add(key(extra[i], extra[i + 1]));
     // (the points a base triangle's template puts on edge p..q: its dyadic points down to level L)
     const tpl = (px, py, qx, qy, l, out) => {
       if (l < 2) return;
@@ -580,6 +583,7 @@
     const ek = (a, b) => (a < b ? a * 4294967296 + b : b * 4294967296 + a);
     const skipped = new Set();
     for (let t = 0; t < nt; t++) if (flags[t]) for (let k = 0; k < 3; k++) skipped.add(ek(T[3 * t + k], T[3 * t + (k + 1) % 3]));
+    if (due()) { yield; t0 = performance.now(); }
     const take = [];
     for (let t = 0; t < nt; t++) {
       if (flags[t]) continue;
@@ -587,11 +591,12 @@
       for (let k = 0; k < 3 && !by; k++) by = skipped.has(ek(T[3 * t + k], T[3 * t + (k + 1) % 3]));
       if (!by) continue;
       take.push(t);
+      if (due()) { yield; t0 = performance.now(); }
       // (its template's points are vertices: of the base triangles beside it, and of its own pieces here)
       for (let k = 0; k < 3; k++) {
         const a = T[3 * t + k], b = T[3 * t + (k + 1) % 3], pts = [];
         tpl(SRC[2 * a], SRC[2 * a + 1], SRC[2 * b], SRC[2 * b + 1], L, pts);
-        for (let i = 0; i < pts.length; i += 2) V.add(key(pts[i], pts[i + 1]));
+        for (let i = 0; i < pts.length; i += 2) verts.add(key(pts[i], pts[i + 1]));
       }
     }
     const out = [];
@@ -600,7 +605,7 @@
     const onEdge = (px, py, qx, qy, d, pts) => {
       if (d <= 0) return;
       const mx = (px + qx) / 2, my = (py + qy) / 2;
-      if (!V.has(key(mx, my))) return;
+      if (!verts.has(key(mx, my))) return;
       onEdge(px, py, mx, my, d - 1, pts); pts.push(mx, my); onEdge(mx, my, qx, qy, d - 1, pts);
     };
     const D = depth + Math.round(Math.log2(L)) + 1;
@@ -613,11 +618,15 @@
       const gx = (ax + bx + cx) / 3, gy = (ay + by + cy) / 3, n = poly.length / 2;
       for (let i = 0; i < n; i++) { const j = (i + 1) % n; out.push(gx, gy, poly[2 * i], poly[2 * i + 1], poly[2 * j], poly[2 * j + 1]); }
     };
-    for (let i = 0; i < extra.length; i += 6) emit(extra[i], extra[i + 1], extra[i + 2], extra[i + 3], extra[i + 4], extra[i + 5]);
+    for (let i = 0; i < extra.length; i += 6) {
+      emit(extra[i], extra[i + 1], extra[i + 2], extra[i + 3], extra[i + 4], extra[i + 5]);
+      if (due()) { yield; t0 = performance.now(); }
+    }
     for (const t of take) {
       const a = T[3 * t], b = T[3 * t + 1], c = T[3 * t + 2];
       flags[t] = 1;
       emit(SRC[2 * a], SRC[2 * a + 1], SRC[2 * b], SRC[2 * b + 1], SRC[2 * c], SRC[2 * c + 1]);
+      if (due()) { yield; t0 = performance.now(); }
     }
     return out;
   }
