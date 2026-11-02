@@ -39,6 +39,10 @@
         : CURVE1.has(tool) && d && curve1Ok() ? $t('Pick a point (on {c} or anywhere)', { c: curve1Name() }) : $t('Pick a point or an empty spot');
       cnt = of(n, m);
     }
+    // (on a globe the curve tools pick their curve in the plane, as a press there says (globeClick): the chip says so
+    // before the press)
+    const cs = chipSide();
+    if ((tool === 'meet' || CURVE1.has(tool)) && cs && A.globeEdit(cs)) what = $t('Switch to the plane to pick the curve');
     lastCnt = cnt.replace(/^ · /, '');
     // (a construction of several picks on a later plane says which plane it lives on)
     const onPlane = A.leftStage() > 0 && NEED[tool] > 1 && (d ? d.side : hoverSide) === 'L' ? ' · ' + $t('on {x}', { x: 'w' + sub(A.leftStage()) }) : '';
