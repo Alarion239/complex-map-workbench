@@ -418,9 +418,8 @@
   // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
   // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape draws so
-  // (a region's mesh split as the tiling's, MESH_L^2 per base triangle, so the carry and the tiling's own draw of that
-  // mesh under the same map read one evaluation of the map cache; the whole plane's mesh, which only the carry draws, in
-  // SV_CARRY_L^2: each fragment's colour is its own point's exactly, the subdivision only places it)
+  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
+  // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
   // F (at rest or parked: the map's CPU function): the tiling's fix-up job is asked for the shapes under map
   // (svWantFix), and each mesh is drawn with its fix-up once it lands (carryFix: the cells the map bends too much
   // refined, drawn as an extra mesh of their own, their base cells skipped)
@@ -429,38 +428,24 @@
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands in while
   // the mesher's job runs
   const SV_CARRY_L = 2;
-  // the meshes svCarryRegions draws under map, {draws: [{res, L, skip} or {res, pre: true}], fixed: the shapes drawn
-  // from their tessellated mesh}, or null where it cannot draw
-  function svCarryDraws(pane, map, T, F) {
+  function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return null;
+    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
+    const key = svSheetKey(b);
+    const carry = svCarryStyle(T);
     const draws = [], fixed = [], still = F && !(map.mode || 0);
     for (const x of list) {
       // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
       const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
-      if (!r || !r.meshRes) return null;
+      if (!r || !r.meshRes) return false;
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: x === SV_ALL ? SV_CARRY_L : MESH_L, skip: fx ? fx.skip : null });
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
       if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
-    return { draws, fixed };
-  }
-  // the map cache of each tessellated mesh svCarryRegions will draw under map, evaluated before the frame begins
-  // (GLR.prepRegion; a pre-mapped mesh has its places already)
-  function svCarryPrep(pane, map, T, F) {
-    const plan = GLR.prepRegion ? svCarryDraws(pane, map, T, F) : null;
-    for (const d of plan ? plan.draws : []) if (!d.pre) GLR.prepRegion(d.res, d.L, map);
-  }
-  function svCarryRegions(pane, map, T, b, frame, F) {
-    const plan = svCarryDraws(pane, map, T, F);
-    if (!plan) return false;
-    const key = svSheetKey(b);
-    const carry = svCarryStyle(T);
-    const draws = plan.draws;
-    if (F && plan.fixed.length) svWantFix(F, map, plan.fixed);
+    if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
@@ -492,8 +477,6 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
-    // (gliding or parked: the carried meshes' map cache evaluated before anything opens this frame)
-    if (!still && !isDeriv(b) && map.mode === 1) svCarryPrep(pane, map, T, rest ? F : null);
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false, cc: false };
