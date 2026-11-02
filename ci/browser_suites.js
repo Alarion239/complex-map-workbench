@@ -60,6 +60,7 @@ const SUITES = {
   // suite run too)
   'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'p3bfix_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'] },
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
