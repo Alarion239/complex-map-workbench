@@ -17,7 +17,7 @@ const state = () => ev(`(() => { const p = __cmwP(), c = __cmwCauchy(); return {
 for (const [lang, exp] of [['en', /^Cauchy: /], ['ru', /^Коши: /]]) {
   await ev(`I18N.setPref('${lang}'), 1`); await settled({ until: `I18N.lang === '${lang}'` });
   for (let k = 0; k < 3; k++) {
-    await ev(`__cmwExample(${i0 + k})`); await settled({ until: `document.querySelector('#examplesBtn .exlabel').textContent === ${JSON.stringify(names[i0 + k])} || ${JSON.stringify(lang)} !== 'en'` });
+    await ev(`__cmwExample(${i0 + k})`); await settled();
     const s = await state();
     ok(`${lang}: example ${k} opens in the Cauchy style`, s.dc === 'cauchy', s);
     // (the plane's selection itself: the Cauchy plot alone would pick the only closed curve)

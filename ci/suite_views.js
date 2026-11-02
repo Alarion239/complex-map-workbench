@@ -113,9 +113,10 @@ const VIEWS = {
   'example_try_events_cmd.js': port('words', 'the Try lines left (those that need a card\'s menu)'),
   'fix152_cmd.js': port('words', 'the Split offer: the focus after Split in the steps view (PR #679, which ports it)'),
   'guide_nav_cmd.js': steps({ pin: true }),
-  'i18n_cmd.js': port('words', 'in the steps view its header, menu, overflow and palette checks pass; its Deformation round trip, the M and P shortcuts, the X → Y digit and the All sheets title have no steps-view equivalent yet (K1 items 4 and 5)'),
+  'i18n_cmd.js': port('words', 'in the steps view its header, menu, overflow and palette checks pass; its Deformation round trip, the M and P shortcuts, the X → Y digit and the All sheets title have no steps-view equivalent yet (the Paths and All sheets controls)'),
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
+  'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152 (the focus after Split: PR #679); plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
   'tour_auto_cmd.js': port('words'),
@@ -130,7 +131,7 @@ const VIEWS = {
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
   'tour_titles_cmd.js': port('words'),
   'tour_words_cmd.js': port('words'),
-  'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with K1 items 3 and 9'),
+  'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the tour chapters' retargeting and the F chip'),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
