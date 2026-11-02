@@ -38,7 +38,15 @@ const last = (st) => st.list[st.list.length - 1];
 const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
-const chipT = (side = 'L') => ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`);
+// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
+// full names become the tile labels, so each suite states the label once)
+const CHIP_NAMES = [['Circle through 3 points', '3-pt circle'], ['Perpendicular circle', 'Perpendicular'], ['Touching circle', 'Touching'], ['Окружность по трём точкам', 'По 3 точкам'], ['Ортогональная окружность', 'Ортогональная'], ['Касающаяся окружность', 'Касание']];
+const chipLabel = async (c) => {
+  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
+  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
+};
+const chipT = async (side = 'L') => chipLabel(await ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`));
 const rowD = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .d') || {}).textContent`);
 const names = async () => { const n = await CI({ names: true }); return (id) => (n.find((x) => x.id === id) || {}).name; };
 const NS = 'tc' + (Date.now() % 1000000);
@@ -203,7 +211,7 @@ await section('A', async () => {
   d = (await CI()).draft;
   // (a chip that would wrap keeps one line without its keyboard tail; the rings' chip in X at 1440 does.
   // v16.5 UX48 wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
-  const a5 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
+  const a5 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`));
   const a5base = ((d && d.rings && d.rings.length) ? 'Pick the touching point on the unit circle, or a ring for a tangent' : 'Pick the touching point on the unit circle') + ' · 2 of 2 · Touching';
   ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · ⌫ undo pick · Esc' || (a5.text === a5base.replace(/ · Touching$/, '') + ' · ⌫ undo pick · Esc' && a5.lines === 1) || (a5.text === a5base && a5.lines === 1)), [d, a5]);
   await click(t0[0] + 2, t0[1] + 2); await settle(400);

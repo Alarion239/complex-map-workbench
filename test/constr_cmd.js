@@ -21,6 +21,14 @@ const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
+// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
+// full names become the tile labels, so each suite states the label once)
+const CHIP_NAMES = [['Circle through 3 points', '3-pt circle'], ['Perpendicular circle', 'Perpendicular'], ['Touching circle', 'Touching'], ['Окружность по трём точкам', 'По 3 точкам'], ['Ортогональная окружность', 'Ортогональная'], ['Касающаяся окружность', 'Касание']];
+const chipLabel = async (c) => {
+  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
+  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
+};
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e * Math.max(1, Math.abs(a), Math.abs(b));
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -83,7 +91,7 @@ await section('A', async () => {
   await move(a[0] + 3, a[1] - 2); await settle(80);
   const r0 = await CI();
   ok('hover: the ring is on z₀ with the chip "on z₀"', r0.ring && r0.ring.cls === 'point' && r0.ring.chip === 'on z₀', r0.ring);
-  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
+  ok('the draft chip names the pick', (await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`))) === 'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -353,7 +361,7 @@ await section('C', async () => {
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
   // (a chip drops its keyboard tail when it would wrap and fits one line without it; #35: it first drops the
   // tool's name, which the pane head's chip shows, and keeps the tail when that fits)
-  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t').textContent`))), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');

@@ -23,7 +23,15 @@ const ST = () => CI({ shapes: true });
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const last = (st) => st.list[st.list.length - 1];
 const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
-const chipT = (side = 'L') => ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`);
+// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
+// full names become the tile labels, so each suite states the label once)
+const CHIP_NAMES = [['Circle through 3 points', '3-pt circle'], ['Perpendicular circle', 'Perpendicular'], ['Touching circle', 'Touching'], ['Окружность по трём точкам', 'По 3 точкам'], ['Ортогональная окружность', 'Ортогональная'], ['Касающаяся окружность', 'Касание']];
+const chipLabel = async (c) => {
+  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
+  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
+};
+const chipT = async (side = 'L') => chipLabel(await ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`));
 const rowD = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .d') || {}).textContent`);
 const rowK = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .shape-name .k') || {}).textContent`);
 const toastAll = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()).join(' | ')`);
@@ -87,7 +95,7 @@ await view(1440, 900, false, false);
   let d = (await CI()).draft;
   // (a chip that would wrap keeps one line without its keyboard tail; this one in X at 1440 does. v16.5 UX48
   // wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
-  const u6 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
+  const u6 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`));
   const u6base = 'Pick the touching point on the unit circle, or a ring for a tangent · 2 of 2 · Touching';
   ok('U6 the chip after P with the rings', !!u6 && (u6.text === u6base + ' · ⌫ undo pick · Esc' || (u6.text === u6base.replace(/ · Touching$/, '') + ' · ⌫ undo pick · Esc' && u6.lines === 1) || (u6.text === u6base && u6.lines === 1)), u6);
   const r0 = d.rings[0], r1 = d.rings[1], z0 = await W(r0.tp[0], r0.tp[1]);
