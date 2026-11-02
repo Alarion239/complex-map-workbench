@@ -910,6 +910,11 @@ async function svFirstGlideUnit() {
 // the outlines in G's masked frame, one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there
 // (refCannot)
 const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
+// The label pass of a frame on the move samples no curve through the map; what it costs is placing and drawing the labels
+// themselves: 0.5 ms a pass on the default scene (no zeta in it) and 1.1 to 1.7 ms on zeta's, measured on the Mac on a loaded
+// machine. The limit sits above that floor and well below the cost of the sampling (5 to 8 ms on zeta), so it fails if the
+// sampling returns
+const SV_LABEL_MS_LIMIT = 2;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -948,9 +953,12 @@ async function svInteractUnit(scene) {
       for (const scope of ['all', 'in']) {
         await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
         await settle(await pageNow());
-        const r = await B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
-        const l1 = await leg(() => B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 }));
-        const l2 = await leg(() => B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }));
+        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
+        const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+        const r1 = await stripAt();
+        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }));
+        const r2 = await stripAt();
+        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
@@ -993,15 +1001,17 @@ async function svGlideUnit(scene) {
   // one glide from where the view rests to plane `to`, its window from the call to the landing
   const glide = async (to) => {
     const c0 = await B.ev('__perf.counters().links'), bl0 = await B.ev('__svBl.n'), a = await pageNow();
+    await B.ev('(__cmwLabelStats.n = 0, __cmwLabelStats.ms = 0, __cmwLabelStats.list = [], 1)');
     await B.ev(`__cmwSteps({ go: ${to} }), 1`);
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    const lbl = (await B.ev('__cmwLabelStats.list')).slice(0, -1);   // (the frames on the move: the last pass is the landing's, at rest)
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
     const w = await windowStats(a, b);
-    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, jank: await jankIn(a, b), a, b });
+    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, labels: lbl.map((p) => p.ms), jank: await jankIn(a, b), a, b });
   };
   for (const dpr of [1, 2]) {
     const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
-    const R = [], copies = [], links = [], longInt = [], dprOk = [], td = Date.now();
+    const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
       for (let i = 0; i < REPS; i++) {
@@ -1029,6 +1039,7 @@ async function svGlideUnit(scene) {
         R.push(legSummary([l1, l2], 'none'));
         copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
         links.push(l1.links + l2.links);
+        { const ms = [...l1.labels, ...l2.labels]; labelMs.push(ms.length ? ms.reduce((x, y) => x + y, 0) / ms.length : 0); }
         longInt.push([...l1.ints, ...l2.ints].filter((d) => d > SV_GLIDE_JANK_MS).length);
       }
     } finally { if (dpr !== 1) await setDpr(1); }
@@ -1041,6 +1052,7 @@ async function svGlideUnit(scene) {
     put(`${pre}.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, longInt);
     put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
+    put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
   }
 }
 async function cardsStartupUnit() {

@@ -89,7 +89,7 @@
     pane.setView(cardZView(pane));
     pane.begin(TH.plane);
     GLR.begin(pane.pw, pane.ph);
-    GLR.drawColorPlot({ map: stageMap(k), view: pane.view, dpr: pane.dpr, style: S.dc === 'cauchy' ? 'enhanced' : S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
+    GLR.drawColorPlot({ map: stageMap(k), view: pane.view, dpr: pane.dpr, style: S.dc === 'cauchy' ? 'enhanced' : S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
     if (S.outline) {
       const map = stageMap(0);
       for (const o of shapeOutlines(map)) {
@@ -263,7 +263,7 @@
   let thumbT = 0, lastInputT = 0, motionInT = 0;
   // motionInT: the last CONTINUOUS input (a wheel, a pointer moved with a button down, a range slider's input, a held
   // key); a hover or a single click is not motion (interacting(): a ready inverse program is not held back for it)
-  for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'input']) window.addEventListener(ev, (e) => {
+  for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'input']) window.addEventListener(ev, (/** @type {any} */ e) => {
     const t = performance.now();
     lastInputT = t;
     if (ev === 'wheel' || (ev === 'pointermove' && e.buttons) || (ev === 'input' && e.target && e.target.type === 'range') || (ev === 'keydown' && e.repeat)) motionInT = t;
@@ -434,7 +434,7 @@
     // (the landscape and the z-globe orbit in X, the w-globe in Y)
     const c3 = rGlobe() ? camS : null;
     const cL = lLand() ? cam : lGlobe() ? leftCam() : null;
-    for (const [cc, side] of [[c3, 'R'], [cL, 'L']]) {
+    for (const [cc, side] of /** @type {[any, string][]} */ ([[c3, 'R'], [cL, 'L']])) {
       if (!cc || drag || !(Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) continue;
       cc.yaw += cc.vyaw;
       cc.pitch = Math.max(pitchMin(cc), Math.min(88 * DEG, cc.pitch + cc.vpitch));

@@ -23,8 +23,19 @@ async function openApp(st) {
 // the Inspector's Add field of kind ('dhray' | 'dheq') of step k: its text set, then Enter
 const addVia = (k, kind, text) => ev(`(() => { const i = document.getElementById('dh${k}_${kind}'); if (!i) return null; i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return { bad: i.classList.contains('bad'), tip: i.getAttribute('data-tip') }; })()`);
 const shapes = async () => (await ev('__cmwP().shapes')).filter((s) => s.kind === 'dhray' || s.kind === 'dheq');
-// F at the samples of shape id's curve (every 8th), in the page: [[re, im] | null]
-const imagesOf = (id) => ev(`(() => { const s = __cmwP().shapes.find((x) => x.id === ${JSON.stringify(id)}); const cs = Region.curvesOf(s, { x0: -3, x1: 3, y0: -2, y1: 2 }); if (!cs.length) return []; const pts = []; for (let i = 0; i < cs[0].pts.length; i += 8) pts.push([cs[0].pts[i].re, cs[0].pts[i].im]); return __cmwEval('F', null, pts); })()`);
+// a ray's or level's full trace lands asynchronously, in slices once its c has rested (Region's dhCurve); until then
+// curvesOf gives a quick curve (17 points for an equipotential), which a slow runner read after a fixed settle and
+// failed the point count with. Wait for the full trace (dhStamp 'f'); one that never lands fails by name
+const traced = async (id) => {
+  for (let i = 0; i < 100; i++) {
+    if (await ev(`(() => { const s = __cmwP().shapes.find((x) => x.id === ${JSON.stringify(id)}); if (!s) return false; Region.curvesOf(s, { x0: -3, x1: 3, y0: -2, y1: 2 }); return Region.dhStamp(s) === 'f'; })()`)) return true;
+    await sleep(200);
+  }
+  fails.push({ name: `the full trace of shape ${id} landed`, got: 'not in 20 s' });
+  return false;
+};
+// F at the samples of shape id's full curve (every 8th), in the page: [[re, im] | null]
+const imagesOf = async (id) => (await traced(id), ev(`(() => { const s = __cmwP().shapes.find((x) => x.id === ${JSON.stringify(id)}); const cs = Region.curvesOf(s, { x0: -3, x1: 3, y0: -2, y1: 2 }); if (!cs.length) return []; const pts = []; for (let i = 0; i < cs[0].pts.length; i += 8) pts.push([cs[0].pts[i].re, cs[0].pts[i].im]); return __cmwEval('F', null, pts); })()`));
 const palOpen = async () => { if (!(await ev(`!!document.getElementById('palInput')`))) { await key('k', 4); await settle(350); } };
 const palType = async (q) => { await palOpen(); await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settle(300); };
 const palLabels = () => ev(`[...document.querySelectorAll('.pal-item')].map((e) => e.querySelector('.pal-label').textContent)`);
@@ -58,8 +69,10 @@ ok('their TeX: arg Φ_M(z) = 2π·1/3 and |Φ_M(z)| = 1.05', /\\arg \\Phi_M\(z\)
 await palType('external ray');
 info.pal = await palLabels();
 ok('the palette offers Add an external ray to f₁…', info.pal.some((l) => /external ray/.test(l) && /f₁/.test(l)), info.pal.slice(0, 8));
-await ev(`[...document.querySelectorAll('.pal-item')].find((e) => /external ray/.test(e.querySelector('.pal-label').textContent)).click()`); await settle(700);
-info.focused = await ev('document.activeElement && document.activeElement.id');
+await ev(`[...document.querySelectorAll('.pal-item')].find((e) => /external ray/.test(e.querySelector('.pal-label').textContent)).click()`);
+// (dhFocusAdd focuses the field two frames after the Inspector's redraw: under load that came after a fixed 700 ms;
+// wait for it, up to 3 s, so a focus that never lands still fails)
+for (let i = 0; i < 30; i++) { await settle(100); info.focused = await ev('document.activeElement && document.activeElement.id'); if (info.focused === 'dh1_dhray') break; }
 ok('… which focuses the Ray field of f₁', info.focused === 'dh1_dhray', info.focused);
 
 // ---- φ_c with c = a, a shared number: the ray follows a

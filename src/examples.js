@@ -37,11 +37,17 @@ const Examples = (() => {
   // action closes it (a line about something else stays), and another example, its X or Show me ends the watch.
   let exTry = null;
   function exTryStop() { if (exTry) { for (const off of exTry.offs) off(); exTry = null; } }
+  // (the steps view has its own line for an example whose classic one names X, Y, Deformation or a card: trySv, closed by
+  // tryDoneSv, and Show me's chapter tourSv; the others, and a line with no events of its own, keep the classic fields; #442)
+  const exSv = () => !!(A.svOn && A.svOn());
+  const exTryText = (ex) => (exSv() && ex.trySv) || ex.try;
+  const exTryDone = (ex) => (exSv() && ex.tryDoneSv) || ex.tryDone;
   function exTryWatch(ex) {
-    if (!Array.isArray(ex.tryDone) || !ex.tryDone.length || typeof A.tourOn !== 'function') return;
-    const mine = { offs: [], left: ex.tryDone.map(() => true), t0: performance.now() };
+    const done = exTryDone(ex);
+    if (!Array.isArray(done) || !done.length || typeof A.tourOn !== 'function') return;
+    const mine = { offs: [], left: done.map(() => true), t0: performance.now() };
     exTry = mine;
-    ex.tryDone.forEach((group, gi) => {
+    done.forEach((group, gi) => {
       for (const g of group) {
         mine.offs.push(A.tourOn(g.on, (e) => {
           // (what the example's own opening sets going is not the user's doing)
@@ -160,9 +166,9 @@ const Examples = (() => {
     if (piece && !spec && !laned) sndPieceHint();
     // (issue #34, D7) every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
-    if (!spec && !piece && !(opt && opt.quiet) && ex.try && Tour.lane && !laned) {
-      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: ex.try, drop: 'title', onClose: exTryStop,
-        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: ex.tour || 'basics' }); } }] });
+    if (!spec && !piece && !(opt && opt.quiet) && exTryText(ex) && Tour.lane && !laned) {
+      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: exTryText(ex), drop: 'title', onClose: exTryStop,
+        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
       exTryWatch(ex);
     }
     // the line integral the example is about, once the planes have their size

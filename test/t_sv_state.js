@@ -27,6 +27,17 @@ for (const sp of ['fast', 'normal', 'slow', 'slower']) check('speed ' + sp, View
 check('unknown speed is dropped (the device\'s applies)', 'speed' in Views.cleanSv({ ...ok, speed: 'warp' }, P), false);
 check('a state without a speed has none', 'speed' in Views.cleanSv({ at: 1 }, P), false);
 check('missing fields take defaults', Views.cleanSv({}, P), { at: 0, T: -1, scope: 'all', surf: 'plane' });
+// a step shown alone: an active step's index, kept through a save, a link and an undo entry (JSON), dropped when the chain
+// lacks the step or bypasses it, or when it is not a whole number
+check('alone: a step of the chain is kept', Views.cleanSv({ ...ok, alone: 2 }, P).alone, 2);
+check('a JSON round trip (a save, a link and an undo entry are all JSON of the state) keeps alone', Views.cleanSv(JSON.parse(JSON.stringify({ sv: { ...ok, alone: 3 } })).sv, P).alone, 3);
+check('alone: a step the chain lacks is dropped', 'alone' in Views.cleanSv({ ...ok, alone: 7 }, P), false);
+check('alone: a bypassed step is dropped', 'alone' in Views.cleanSv({ ...ok, alone: 2 }, [0, 1, 3]), false);
+check('alone: z (0) is not a step', 'alone' in Views.cleanSv({ ...ok, alone: 0 }, P), false);
+check('alone: fractional, string or negative is dropped', [1.5, '2', -1, NaN].map((x) => 'alone' in Views.cleanSv({ ...ok, alone: x }, P)), [false, false, false, false]);
+check('alone: a state without one has none', 'alone' in Views.cleanSv(ok, P), false);
+check('alone: the place stays the whole chain\'s', Views.cleanSv({ ...ok, alone: 2 }, P), { ...ok, alone: 2 });
+check('alone: idempotent', Views.cleanSv(Views.cleanSv({ ...ok, alone: 2 }, P), P), { ...ok, alone: 2 });
 check('idempotent', Views.cleanSv(Views.cleanSv({ ...ok, at: 9 }, P), P), Views.cleanSv({ ...ok, at: 9 }, P));
 check('no planes given still returns a state', Views.cleanSv(ok, null).at, 0);
 // old states: X → Y, Phase, Landscape (concept §6), from their legacy links as migrate reads them
