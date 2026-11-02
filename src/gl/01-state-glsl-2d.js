@@ -207,7 +207,7 @@ vec3 dcolorD(vec2 w, vec2 wx, vec2 wy) {
   vec2 fw0 = abs(wx) + abs(wy);
   return dcolorAt(w, r, th, lr, abs(lx.x) + abs(ly.x), abs(lx.y) + abs(ly.y), w / max(uGrid, 1e-30), fw0 / max(uGrid, 1e-30), fw0);
 }
-// the colour itself, from w and its footprints (the change of a value over one device pixel, an f before its name):
+// the colour itself, from w and its footprints (the change of a value over one device pixel, named with an f in front of the value's name):
 // r = |w|, th = arg w, lr = ln |w| and flr its footprint, faw arg w's footprint, g = w / uGrid and gw its footprint,
 // fw0 w's own; xm = lr / q and xp = th / q are the modulus and phase in sectors of q = tau / uSectors, fm and fp their
 // footprints

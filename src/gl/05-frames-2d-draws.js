@@ -334,15 +334,15 @@
   }
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
-  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
-  // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
-  // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
-  // program compiles
   // whether the chain has a path cut the sheets continue (a deformation map's carried colour then draws a fill)
   const carryCuts = () => !!cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
   // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   function prestartCarry() { return prestartNames(carryCuts() ? ['regionKC', 'regionKSC'] : ['regionKC'], [1]); }
+  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
+  // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
+  // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
+  // program compiles
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
