@@ -3,9 +3,9 @@
 // of the points z landing there (the region's, or all), the front one under the steps view's sheet key (the region
 // tiling's: Inverse.sheetKey and Inverse.front in the page, with __cmwSvKey's parameters) must be the one whose colour
 // w shows, the colour plane z shows at z. The reference is plane z itself, Everywhere, coloured from z, in the same
-// camera (or zoomed out, for points past it). A point counts as wrong when its pixel differs by more than 14 in a channel from all 9 pixels around z's (a
-// phase edge or a contour between two pixels is not an error). Left out: points whose front point jumps when w is
-// moved 1.5 px (a seam of that choice), and points near outlines, cuts and labels.
+// camera (or zoomed out, for points past it). A point counts as wrong when its pixel differs by more than 14 in a
+// channel from all 9 pixels around z's (a phase edge or a contour between two pixels is not an error). Left out: points
+// whose front point jumps when w is moved 1.5 px (a seam of that choice), and points near outlines, cuts and labels.
 // - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside regions
 //   (and every region point coloured, past the window too) and Everywhere; Everywhere parked and held at x = 1/2, where
 //   the path pulls points from past the camera's window into the view (their reference read with plane z zoomed out),
@@ -62,7 +62,9 @@ async function compare(at, W, Z) {
 async function check(tag, at, b, P, pts, cand, min) {
   const d = 1.5 / P.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
   const C = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
-  const F = await fronts(C.map((c) => c.map((e) => e.z)), b);
+  // (mid-glide, the key of the glide's frame at t: its points are the glide map's poles at t, __cmwSvKey(b, t))
+  const xt = at.hold != null ? at.hold : at.park, t = xt != null ? xt - Math.floor(xt) : 0;
+  const F = await fronts(C.map((c) => c.map((e) => e.z)), b, t > 0 ? (await ev(`__cmwSvKey(${b}, ${t})`)).sing : null);
   const at5 = (k, j) => { const i = 5 * k + j; return F[i] < 0 ? null : C[i][F[i]]; };
   const W = [], Z = [];
   let left = 0;
@@ -135,9 +137,9 @@ async function far(P0, c, r, outside) {
     }
     return out;
   };
-  // (the key at t: plane w1's window, and the path's pole on the disc, -i tan(pi (1 - t) / (2 (1 + t))), there from
-  // t = 1/3 on, where it leaves the unit circle: H_t has no other pole, and J's own, z = 0, is one only at t = 1)
-  const poleAt = (t) => (t > 1 / 3 ? [[0, -Math.tan(Math.PI * (1 - t) / (2 * (1 + t)))]] : []);
+  // (the key at t: plane w1's, its point J's pole z = 0, and the path's pole on the disc, -i tan(pi (1 - t) / (2 (1 +
+  // t))), there from t = 1/3 on, where it leaves the unit circle: H_t has no other pole)
+  const poleAt = (t) => (t > 1 / 3 ? [[0, 0], [0, -Math.tan(Math.PI * (1 - t) / (2 * (1 + t)))]] : [[0, 0]]);
   const cand = candAt(0.5), pts = [];
   for (let j = 0; j < 32; j++) for (let i = 0; i < 48; i++) pts.push([P0.v.cx + (i / 47 - 0.5) * 0.9 * P0.w / P0.v.s, P0.v.cy + (j / 31 - 0.5) * 0.9 * P0.h / P0.v.s]);
   // (the front point at each w and 1.5 px away: a point whose front jumps there is on a seam of the key's choice, left out)
@@ -184,13 +186,13 @@ async function far(P0, c, r, outside) {
     ok(`${tag}: the front point's colour, at most 1 % wrong`, n > 800 && wrong <= 0.01 * n, info[tag]);
     ok(`${tag}: no point on the bare paper`, paper === 0, info[tag]);
   }
-  // the steps view's key at t (__cmwSvKey(1, t)) has the path's pole, and no other point, for t from 0.30 to 0.70
+  // the steps view's key at t (__cmwSvKey(1, t)) has plane w1's point and the path's pole, no other, for t in [0.3, 0.7]
   const keyOff = [];
   for (let s = 30; s <= 70; s += 5) {
     const got = (await ev(`__cmwSvKey(1, ${s / 100})`)).sing, want = poleAt(s / 100);
     if (got.length !== want.length || got.some((p, i) => Math.hypot(p[0] - want[i][0], p[1] - want[i][1]) > 2e-3)) keyOff.push({ t: s / 100, got, want });
   }
-  ok("Joukowski key along t: its points are the path's pole at t", keyOff.length === 0, keyOff);
+  ok("Joukowski key along t: its points are J's pole and the path's pole at t", keyOff.length === 0, keyOff);
   // the front along t: at 40 points w over the pane, t = 0.30 .. 0.70
   const ws = [];
   for (let j = 0; j < 5; j++) for (let i = 0; i < 8; i++) ws.push([P0.v.cx + (i / 7 - 0.5) * 0.9 * P0.w / P0.v.s, P0.v.cy + (j / 4 - 0.5) * 0.9 * P0.h / P0.v.s]);
