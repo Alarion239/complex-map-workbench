@@ -91,6 +91,8 @@
     const pane = paneL;
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
+    // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
+    if (SV.on) mfDrawn = null;
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
@@ -518,6 +520,8 @@
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
     const handles = drawCuts(pane, k, true, false);
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
+    // (the points of later planes, by their preimages here, as in X Plane)
+    if (pane === paneL) { updatePre('L', pane, k); drawPre(pane, 'L', k); }
     if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');

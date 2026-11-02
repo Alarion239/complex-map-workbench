@@ -9,7 +9,7 @@ const MorphPaths = (() => {
   let C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor,
     compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
     drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
-    lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
+    classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
     morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
     patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
     resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
@@ -17,9 +17,11 @@ const MorphPaths = (() => {
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
   // caption explains them, dots at m/4 and 3m/4); steps one after another have an arrowhead in the middle of each step
   // (t = k - 1/2: never on the corner where the steps meet) and a bar across the path at each step's end inside the
-  // range (t = k), so a corner reads as "the step changes here"
-  function pathMarkTimes(Tend) {
-    if (allAtOnce() || morphRange().steps.length < 2) return { arrows: [0.5 * Tend], dots: [0.25 * Tend, 0.75 * Tend], nodes: [], seq: false };
+  // range (t = k), so a corner reads as "the step changes here". seq: steps one after another (default: the classic
+  // transport's, classicSeq)
+  const classicSeq = () => !allAtOnce() && morphRange().steps.length >= 2;
+  function pathMarkTimes(Tend, seq = classicSeq()) {
+    if (!seq) return { arrows: [0.5 * Tend], dots: [0.25 * Tend, 0.75 * Tend], nodes: [], seq: false };
     const arrows = [], nodes = [];
     for (let k = 1; k - 0.5 < Tend + 1e-9; k++) arrows.push(k - 0.5);
     for (let k = 1; k < Tend - 1e-9; k++) nodes.push(k);
@@ -56,16 +58,19 @@ const MorphPaths = (() => {
   }
   // the marks of a path in the plane (pathMarkTimes): z = H_0(z), e = H_Tend(z) (null where not finite), the
   // arrowheads and the step bars with H_t(z) just before and after their time (a, b: the direction), the dots
-  function pathMarksW(z, Fat, Tend) {
+  function pathMarksW(z, Fat, Tend, seq) {
     const at = (T) => { const w = Fat(T)(z); return w && CX.isFin(w) ? w : null; };
-    const h = Tend / 512, mt = pathMarkTimes(Tend);
+    const h = Tend / 512, mt = pathMarkTimes(Tend, seq);
     const dirAt = (T) => ({ T, w: at(T), a: at(Math.max(0, T - h)), b: at(Math.min(Tend, T + h)) });
     return { z: at(0), e: at(Tend), arrows: mt.arrows.map(dirAt), nodes: mt.nodes.map(dirAt), dots: mt.dots.map((T) => ({ T, w: at(T) })), seq: mt.seq };
   }
   // the selection (a generator: it yields between candidates, so it runs in slices off the frame;
   // runGenSliced). P maps the plane to px (null where a point is not shown: the globe's far side and limb), box is the
   // panel (px), win its world window. opt: scale (the spacings' factor), footPx, nogo (px rectangles to keep clear),
-  // maxN, globe, fig (the exported figure: stricter about the frame and the picture's lines). Every path is traced whole
+  // maxN, globe, fig (the exported figure: stricter about the frame and the picture's lines), src (the deformation
+  // source, classicSource or svPathsSource: H_T as Fat(T), whether H_0 is the identity, the marks' order; default
+  // classicSource()).
+  // Every path is traced whole
   // (the same points at every t: no popping while scrubbing or playing). A path may leave the panel (it is clipped
   // there, with a cue) when most of it is inside, but never leaves and comes back.
   function* pathsGen(P, box, win, Tend, opt = {}) {
@@ -82,7 +87,8 @@ const MorphPaths = (() => {
     const X = morphX(), outline = morphOutline(X, win);
     yield;
     const Fc = new Map();
-    const Fat = (T) => { let f = Fc.get(T); if (!f) { f = morphAt(T); Fc.set(T, f); } return f; };
+    const src = opt.src || classicSource();
+    const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
     const m0 = 2 * k, foot = opt.footPx || 0;
     const inner = { x0: box.x + m0, x1: box.x + box.w - m0, y0: box.y + m0, y1: box.y + box.h - foot - m0 };
     const nogo = opt.nogo || [];
@@ -98,10 +104,11 @@ const MorphPaths = (() => {
     for (const s of X.vis) if (kindType(s) === 'point' && s.p) seeds.push({ z: C(s.p[0], s.p[1]), kind: 'point' });
     const eg = sep / 3;
     let nEdge = 0, nNode = 0;
-    // (notes/deform-range/SPEC.md 5.2, D6: when H_0 is not the identity, a bracket's pre or post or a focused step
-    // k > 1, the seeds are spaced at their starts H_0(z) in the plane, not at z: the boundary mapped through H_0, and a
-    // z-grid binned by the screen point of H_0(z). With H_0 = id, today's code below, unchanged)
-    const startId = !(A.S.focus > 1 || (A.S.focus === 0 && !!homRangeOk()));
+    // (notes/deform-range/SPEC.md 5.2, D6: when the source's H_0 is not the identity (src.startId false: in the classic
+    // transport a bracket's pre or post or a focused step k > 1, in the steps view a run that starts past plane z), the
+    // seeds are spaced at their starts H_0(z) in the plane, not at z: the boundary mapped through H_0, and a z-grid
+    // binned by the screen point of H_0(z). With H_0 = id, the seeds are spaced at z, below)
+    const startId = src.startId;
     if (!startId) {
       const H0 = Fat(0);
       for (const o of outline) {
@@ -182,7 +189,7 @@ const MorphPaths = (() => {
       }
     }
     yield;
-    const mt = pathMarkTimes(Tend);
+    const mt = pathMarkTimes(Tend, src.seq);
     const N = Math.max(48, 48 * Math.ceil(Tend));
     // (why candidates were left out, by reason: a test hook's and the notes' view of the choice)
     const rej = {}, no = (w) => { rej[w] = (rej[w] || 0) + 1; };
@@ -369,7 +376,7 @@ const MorphPaths = (() => {
         if (++it % 3 === 0) yield;
       }
     }
-    for (const c of kept) { c.mk = pathMarksW(c.sp.z, Fat, Tend); pathFlat(c); }
+    for (const c of kept) { c.mk = pathMarksW(c.sp.z, Fat, Tend, src.seq); pathFlat(c); }
     const pxLines = outline.map((o) => o.l.map((q) => P(C(q[0], q[1]))).filter(Boolean));
     return { kept, log: [], budget: cap, X, outline, pxLines, endLines: [], Tend, nCands: cands.length, ms: { nT: Fc.size }, globe: !!opt.globe, ink, rej, arrowMin: arrowPx, away: opt.globe ? ((rej.trace || 0) + (rej.hidden || 0)) / Math.max(1, seeds.length) : 0 };
   }
@@ -437,9 +444,9 @@ const MorphPaths = (() => {
   // (a kept path's samples as one list s and its px polyline l: the test hooks' and the caption's view of it)
   const pathFlat = (c) => { c.s = c.runs.flat(); c.l = c.s.map((q) => q.p); c.lenPx = lenPx(c.l); return c; };
   // a kept path re-traced under a changed chain or shapes (the screen cache)
-  function pathRetrace(k, Fat, Tend, P, N) {
+  function pathRetrace(k, Fat, Tend, P, N, seq) {
     const runs = traceRuns(k.sp.z, Fat, Tend, P, N);
-    return runs.length ? pathFlat({ sp: k.sp, runs, mk: pathMarksW(k.sp.z, Fat, Tend) }) : null;
+    return runs.length ? pathFlat({ sp: k.sp, runs, mk: pathMarksW(k.sp.z, Fat, Tend, seq) }) : null;
   }
   // On screen (the merged plane; the globe with P its projection, null on the far side, where the run splits): the
   // travelled part 0 -> T in ink on a halo of the plane's colour (light and dark), the open ring at z, the marks the
@@ -449,14 +456,14 @@ const MorphPaths = (() => {
   // globe's limb. Nothing ahead of the moving point: rest and motion look alike. A path whose start has left the view
   // (a pan or a scrub's auto-fit) stays, clipped, with the chevron where it comes in, until the next choice (verify fix
   // path-3: it vanished at once). o.fade scales the opacity (the cross-fade between two sets, drawMorphPathsX); o.hook
-  // false leaves the test hook's record alone.
+  // false leaves the test hook's record alone; o.T the time drawn to (default the classic transport's).
   function drawMorphPaths(pane, sel, F, P = null, o = {}) {
     if (!sel || !sel.kept.length) return;
     const fade = o.fade == null ? 1 : o.fade;
     if (!(fade > 0.01)) return;
     const flat = !P;
     if (flat) P = (w) => pane.w2s(w);
-    const ctx = pane.ctx, T = morph.T, W = pane.w, Hh = pane.h;
+    const ctx = pane.ctx, T = o.T == null ? morph.T : o.T, W = pane.w, Hh = pane.h;
     const inView = (q) => q[0] >= 0 && q[0] <= W && q[1] >= 0 && q[1] <= Hh;
     const LW = flat ? 1.4 : 1.6, AL = 9.5, AW = 3.2, BAR = 4;
     const lines = [], rings = [], arrows = [], bars = [], heads = [], cues = [], drawnZ = [];
@@ -562,14 +569,15 @@ const MorphPaths = (() => {
   // the live paths with the cross-fade between two sets (verify fix path-3: a new choice after a pan, a zoom or an
   // orbit swapped the whole set in one frame): for PATHS.fade ms after a choice replaced a set under the same chain and
   // shapes, the old set fades out while the new one fades in
-  function drawMorphPathsX(pane, sel, F, P = null) {
+  // o: { T, side } (the time drawn to and the pane to redraw, default the classic transport's and 'R')
+  function drawMorphPathsX(pane, sel, F, P = null, o = {}) {
     const pv = mfCache.prev;
     let u = 1;
     if (pv && pv.next === sel) {
       u = Math.min(1, (performance.now() - pv.t0) / PATHS.fade);
-      if (u < 1) { drawMorphPaths(pane, pv.sel, F, P, { fade: 1 - u, hook: false }); requestRender('R'); } else mfCache.prev = null;
+      if (u < 1) { drawMorphPaths(pane, pv.sel, F, P, { fade: 1 - u, hook: false, T: o.T }); requestRender(o.side || 'R'); } else mfCache.prev = null;
     }
-    drawMorphPaths(pane, sel, F, P, { fade: u });
+    drawMorphPaths(pane, sel, F, P, { fade: u, T: o.T });
   }
   // the paths as print vectors in figure units (u: units per pt): items [{ runs: [[[x, y], ...], ...], z, e (the
   // start ring and the end dot: [x, y] or null), arrows: [{ p, d: [ux, uy] }], nodes: [{ p, d }] (where steps meet),
@@ -1142,7 +1150,7 @@ const MorphPaths = (() => {
 
   function init(api) {
     A = api;
-    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
+    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
   }
   return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
 })();
