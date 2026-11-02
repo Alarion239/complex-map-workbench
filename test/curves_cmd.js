@@ -188,7 +188,13 @@ await settle(1500);
 
 // ------------------------------------------------------------------ 2. exact truth
 // the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden
-const inkOf = async (side, id, isTarget) => {
+// (the steps view has one plane: the source plane is step 0, the right pane's plane is the chain's last step)
+const inkOf = async (side, id, isTarget, nSteps) => {
+  if (await ev(`document.documentElement.classList.contains('sv')`)) {
+    await ev(`__cmwSteps({ go: ${side === 'R' ? nSteps : 0}, now: true })`);
+    await settle(1200);
+    side = 'L';
+  }
   const snap = `(() => { const c = document.getElementById('canvas${side}'); const s = document.createElement('canvas'); s.width = c.width; s.height = c.height; const x = s.getContext('2d', { willReadFrequently: true }); x.drawImage(c, 0, 0); return Array.from(x.getImageData(0, 0, s.width, s.height).data); })()`;
   const geo = await ev(`(() => { const c = document.getElementById('canvas${side}'), r = c.getBoundingClientRect(); return { w: c.width, h: c.height, r: [r.left, r.top], o: __cmwW2S('${side}', 0, 0), x1: __cmwW2S('${side}', 1, 0), y1: __cmwW2S('${side}', 0, 1) }; })()`);
   const on = await ev(snap);
@@ -314,7 +320,9 @@ for (const sc of SC) {
   await settle(2500);
   // (#363: the reload opens the saved pattern as the phase; the scoring reads the solid fill, the renderer's own)
   await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle(800);
-  const I = await inkOf(sc.side || 'R', id, !!sc.target);
+  // (the steps view draws a shape's curve on its colour plane only while Outlines is on; the classic right pane's image always does)
+  if (await ev(`document.documentElement.classList.contains('sv')`)) { await ev(`__cmwSet('outline', true); 1`); await settle(800); }
+  const I = await inkOf(sc.side || 'R', id, !!sc.target, sc.steps.length);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
   await shot('curves-' + sc.name, sc.side === 'L' ? { x: 268, y: 44, width: 432, height: 570 } : { x: 706, y: 44, width: 432, height: 570 });
 }
