@@ -14,5 +14,18 @@
     for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
     await settled({ floor: 800 });
   };
-  return { DISC, STATE, openSaved };
+  const popFit = async (lang, o) => {
+    const ns = `rgph-fit-${lang}-${Date.now() % 1000000}`;
+    await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
+    await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE({})))}); 1`);
+    await nav(`${U}/test.html?ns=${ns}&lang=${lang}`);
+    for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
+    await settled({ floor: 800 });
+    if (o.prep) { await ev(o.prep); await settled({ floor: 800 }); }
+    await ev(`document.querySelector(${JSON.stringify(o.btn)}).click()`); await settled({ floor: 500, until: `!!document.querySelector(${JSON.stringify(o.pop)})` });
+    const fit = await ev(`(() => { const p = document.querySelector(${JSON.stringify(o.pop)}); if (!p || !p.querySelector('#regionsBox')) return null; const out = [p, ...p.querySelectorAll('*')].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible').map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth); return { out, pw: Math.round(p.getBoundingClientRect().width) }; })()`);
+    await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settled({ floor: 300 });
+    return fit;
+  };
+  return { DISC, STATE, openSaved, popFit };
 })

@@ -7,7 +7,7 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
 await view(1440, 900, false, false);
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
 // ---- 4. the laptop's Regions button and its pop-up: no pattern swatch anywhere in the page
@@ -52,22 +52,12 @@ await ev('Tour.isActive() ? Tour.stop() : 0; 1'); await settle(300);
 info.views = ids;
 ok('the Views chapter has no Patterns step and ends with Phase key', ids.length >= 4 && !ids.includes('patterns') && ids[ids.length - 1] === 'key', ids);
 
-// ---- 7. the Regions pop-up fits its box in every language (its description wraps; eyes on #552: it had widened the
-// pop-up into a sideways scroll that cut the values)
+// ---- 7. the Regions pop-up fits its box in every language: its description wraps, with no sideways scroll cutting the values
 for (const lang of ['en', 'ru', 'it']) {
   await view(1280, 800, false, false);
-  const ns = `rgph-fit-${lang}-${Date.now() % 1000000}`;
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE({})))}); 1`);
-  await nav(`${U}/test.html?ns=${ns}&lang=${lang}`);
-  for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
-  await settle(800);
-  await ev(`__cmwSetMain('xy'); 1`); await settle(800);
-  await ev(`document.querySelector('#rightFoot .pat-btn').click()`); await settle(500);
-  const fit = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); if (!p) return null; const out = [p, ...p.querySelectorAll('*')].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible').map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth); return { out, pw: Math.round(p.getBoundingClientRect().width) }; })()`);
+  const fit = await popFit(lang, { prep: `__cmwSetMain('xy'); 1`, btn: '#rightFoot .pat-btn', pop: '#popHost .pat-pop' });
   info['fit ' + lang] = fit;
   ok(`${lang}: the Regions pop-up fits its box (no sideways scroll, nothing cut)`, fit && fit.out.length === 0, fit);
-  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(300);
 }
 
 return { pass: !fails.length, fails, info };

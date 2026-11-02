@@ -9,7 +9,7 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
 await view(1440, 900, false, false);
 // ---- 1. a saved state with an old pattern opens with the phase; its grid step and grid lines stay
 for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch', 0.5, true], ['sphere', 4, false], ['solid', 1, true], ['polar', 0.25, true]]) {
@@ -57,20 +57,12 @@ const ph = await ev(`(() => { const b = document.querySelector('.ph-sheet #regio
 ok("the phone's Display sheet: a Regions section with the regions' options, no swatch", ph && ph.ids.length === 4 && ph.swatches === 0 && ph.heads.includes('Regions'), ph);
 ok('the phone opens the saved Tiles as the phase', (await ev('__cmwRegions().pattern')) === 'phase', null);
 await ev(`Phone.close(true)`); await settle(300);
-// ---- 6. the ⋯ pop-up fits its box in every language (its description wraps; no sideways scroll cuts the values)
+// ---- 6. the ⋯ pop-up fits its box in every language: its description wraps, with no sideways scroll cutting the values
 for (const lang of ['en', 'ru', 'it']) {
   await view(1280, 800, false, false);
-  const ns = `rgph-fit-${lang}-${Date.now() % 1000000}`;
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE({})))}); 1`);
-  await nav(`${U}/test.html?ns=${ns}&lang=${lang}`);
-  for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
-  await settle(800);
-  await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
-  const fit = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'); if (!p || !p.querySelector('#regionsBox')) return null; const out = [p, ...p.querySelectorAll('*')].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible').map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth); return { out, pw: Math.round(p.getBoundingClientRect().width) }; })()`);
+  const fit = await popFit(lang, { btn: '#leftFoot .opts-btn', pop: '#popHost .opts-pop' });
   info['fit ' + lang] = fit;
   ok(`${lang}: the ⋯ pop-up fits its box (no sideways scroll, nothing cut)`, fit && fit.out.length === 0, fit);
-  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(300);
 }
 
 return { pass: !fails.length, fails, info };
