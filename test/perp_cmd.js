@@ -30,16 +30,7 @@ const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warning') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
-// (a world point on a pane: X is the classic left pane, Y the classic right pane; the steps view has one plane, X on its
-// first step and Y on its last)
-const W = async (re, im, side = 'L') => {
-  if (await ev(`document.documentElement.classList.contains('sv')`)) {
-    const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;
-    if ((await ev(`__cmwSteps().i`)) !== to) { await ev(`__cmwSteps({ go: ${to}, now: true })`); await sleep(900); }
-    side = 'L';
-  }
-  return ev(`__cmwW2S('${side}', ${re}, ${im})`);
-};
+const W = (re, im, side = 'L') => ev(`__cmwW2S('${side}', ${re}, ${im})`);
 const CI = (o) => ev(`__cmwCI(${JSON.stringify(o || null)})`);
 const ST = () => CI({ shapes: true });
 const FORMS = () => ev(`__cmwC().forms`);
@@ -48,15 +39,7 @@ const last = (st) => st.list[st.list.length - 1];
 const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
-// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
-// full names become the tile labels, so each suite states the label once)
-const CHIP_NAMES = [['Circle through 3 points', '3-pt circle'], ['Perpendicular circle', 'Perpendicular'], ['Touching circle', 'Touching'], ['Окружность по трём точкам', 'По 3 точкам'], ['Ортогональная окружность', 'Ортогональная'], ['Касающаяся окружность', 'Касание']];
-const chipLabel = async (c) => {
-  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
-  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
-  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
-};
-const chipT = async (side = 'L') => chipLabel(await ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`));
+const chipT = (side = 'L') => ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`);
 const rowD = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .d') || {}).textContent`);
 const NS = 'pp' + (Date.now() % 1000000);
 const section = async (k, f) => { if (!run(k)) return; try { await f(); } catch (e) { fails.push({ name: `section ${k} threw`, got: String(e && e.stack || e).slice(0, 700) }); } };
@@ -431,7 +414,7 @@ await section('C', async () => {
   // (at 1440 the chip with «Esc — отмена» took two lines in X's 427 px; it now keeps one line without it.
   // with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
   // keeps the whole text on two lines, not cut, as v16.4 showed it)
-  const ruChip = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`));
+  const ruChip = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`);
   // (#35: a chip that would wrap drops the tool's name first, which the pane head's chip shows, and keeps «Esc — отмена»
   // when that fits one line; else, as before, without «Esc — отмена» on one line, or the whole text on two)
   ok('C RU chip before the curve (one line without the tool\'s name, else without «Esc — отмена», when that fits; with the Whole | Inside icons the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Esc — отмена' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
@@ -441,7 +424,7 @@ await section('C', async () => {
   await click(u[0] + 3, u[1] - 2); await settle(100);
   // (v16.5 fix user-6: «Выберите точку (на кривой: … или в любом месте)»; v16.3.1/v16.5: a chip that would wrap with its
   // keyboard tail drops it when it then fits one line, as touch_cmd A5 accepts)
-  const ruChip2 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`));
+  const ruChip2 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   const ruBase2 = 'Выберите точку (на кривой: единичная окружность или в любом месте) · 1 из 2 · Ортогональная';
   // (construct.js syncChip, v16.3.1: without the tail when that is one line, or when the whole text would be cut at
   // the lines its place allows: then the shorter text, on two lines)
