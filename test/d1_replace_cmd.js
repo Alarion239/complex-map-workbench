@@ -104,9 +104,14 @@ p = await pal();
 ok('a connector\'s + inserts (at the start)', p && /^Insert at the start/.test(p.where), p);
 await key('Escape'); await settle(250);
 // Clear chain
-await key('k', 4); await settle(400);
-await palQ('Clear chain'); await key('Enter'); await settle(600);
-ok('Clear chain (the palette\'s command) empties the chain and hides the chain head\'s button', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
+if (inSteps) {
+  await key('k', 4); await settle(400);
+  await palQ('Clear chain'); await key('Enter'); await settle(600);
+  ok('Clear chain (the palette\'s command) empties the chain and hides the chain head\'s button', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
+} else {
+  await ev(`document.getElementById('clearChain').click()`); await settle(600);
+  ok('Clear chain empties the chain and hides itself', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
+}
 // an empty chain: no chip, the old context
 await key('k', 4); await settle(400);
 p = await pal();
