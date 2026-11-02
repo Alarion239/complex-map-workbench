@@ -9,7 +9,8 @@ const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (waits for the panes to be drawn: on a slow renderer a pick lands a frame or two after its click)
+const settle = async (ms = 300) => { await settled({ floor: ms }); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon|MathJax|cdnjs/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -45,6 +46,10 @@ const tdrag = async (x0, y0, x1, y1, n = 10, dt = 16) => { await tStart(x0, y0);
 const tapSel = async (css) => { const r = await ev(`(() => { const e = document.querySelector(${JSON.stringify(css)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`); if (!r || r.__exc) return null; await tap(r[0], r[1]); return r; };
 const phone = async (w = 412, h = 860, dark = false) => { await view(w, h, dark, true); };
 const laptop = async (dark = false) => { await view(1366, 768, dark, false); };
+const isSteps = () => ev(`document.documentElement.classList.contains('sv')`);
+// (the readout under the pointer: the classic view's two lines, `.rln`; the steps view's pairs, `.rp`, on one row on a laptop)
+const roPairs = () => ev(`[...document.querySelectorAll('#leftReadout .rp')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
+const roWhole = () => ev(`(() => { const r = document.getElementById('leftReadout'); return r.scrollWidth <= r.clientWidth + 0.01 && [...r.querySelectorAll('.rp')].every((k) => { const rg = document.createRange(); rg.selectNodeContents(k); return rg.getBoundingClientRect().width <= k.getBoundingClientRect().width + 0.01; }); })()`);
 const putLang = (l) => ev(`localStorage.setItem('cmw-lang', ${JSON.stringify(l)}); 1`);
 
 // a disc, a line, three points: the scenes of the drawing and construction checks
@@ -346,30 +351,31 @@ await section('L10', async () => {
   await settle(800);
   const p = await W(0.5, -0.8);
   await move(p[0], p[1]); await settle(200);
-  info.l10 = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
-  ok('UX10 laptop: one readout with z and w = F(z)', info.l10.length === 2 && /^z = 0\.5/.test(info.l10[0]) && /^w = F\(z\) = /.test(info.l10[1]), info.l10);
-  // (no line cut with an ellipsis: the text, measured to the sub-pixel, fits its line; at 1366 |z| and arg still show)
-  const cut = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((k) => { const rg = document.createRange(); rg.selectNodeContents(k); return +(rg.getBoundingClientRect().width - k.getBoundingClientRect().width).toFixed(2); })`);
-  ok('UX10 laptop: no readout line is cut', cut.length === 2 && cut.every((d) => d <= 0.01), cut);
-  ok('UX10 laptop: |z| and arg fit beside z at 1366', /\|z\| /.test(info.l10[0]) && /arg /.test(info.l10[0]), info.l10);
-  // X expanded: F(z) is still read
-  await clickSel('#leftSolo'); await settle(500);
-  const p2 = await W(0.5, -0.8);
-  await move(p2[0], p2[1]); await settle(200);
-  const solo = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
-  ok('UX10 with X expanded, F(z) is read in X', solo.length === 2 && /^w = F\(z\)/.test(solo[1]), solo);
-  await clickSel('#leftSolo'); await settle(400);
-  // UX27: one name per plane
-  info.l27 = await ev(`({ l: document.getElementById('leftTitle').textContent, r: document.getElementById('rightTitle').textContent, ax: document.getElementById('overlayL').getAttribute('aria-label'), ay: document.getElementById('overlayR').getAttribute('aria-label'), heads: [...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent) })`);
-  ok('UX27 X\'s title: "X · z-plane, domain of F"', /^X · z-plane/.test(info.l27.l) && /domain of F/.test(info.l27.l), info.l27);
-  ok('UX27 Y\'s title: "Y · w = F(z), image"', /^Y · w = F\(z\)/.test(info.l27.r) && /image/.test(info.l27.r), info.l27);
-  ok('UX27 the canvases\' names', /^X, the z-plane/.test(info.l27.ax) && /^Y, the w-plane/.test(info.l27.ay), info.l27);
-  ok('UX27 the Shapes headings: In X (z-plane), Targets in Y (w-plane)', info.l27.heads[0] === 'In X (z-plane)' && /^Targets in Y \(w/.test(info.l27.heads[1] || ''), info.l27.heads);
-  const tnote = await ev(`(document.querySelector('#shapeList .empty-note') || {}).textContent || ''`);
-  ok('UX27 no targets: "Draw one in Y (the w-plane)"', /Draw one in Y \(the w-plane\)/.test(tnote), tnote);
-  // UX37: Plane | Sphere in words at 1366 with both panels
-  info.l37 = await ev(`[...document.querySelectorAll('#leftTabs > button, #rightTabs > button')].map((b) => { const s = b.querySelector('span'); const r = b.getBoundingClientRect(); return { t: s && getComputedStyle(s).display !== 'none' ? s.textContent : '', h: Math.round(r.height) }; })`);
-  ok('UX37 "Plane | Sphere" in words in both pane heads', info.l37.length === 4 && info.l37.every((x) => /^(Plane|Sphere)$/.test(x.t) && x.h >= 28), info.l37);
+  const steps10 = await isSteps();
+  if (steps10) {
+    await settled({ until: `document.querySelectorAll('#leftReadout .rp').length >= 4` });
+    info.l10 = await roPairs();
+    ok('UX10 laptop: one readout with z and F(z)', info.l10.length >= 4 && /^z 0\.5/.test(info.l10[0]) && /^F\(z\) /.test(info.l10[3]), info.l10);
+    ok('UX10 laptop: no readout part is cut', await roWhole(), info.l10);
+    ok('UX10 laptop: |z| and arg fit beside z at 1366', /^\|z\| /.test(info.l10[1]) && /^arg /.test(info.l10[2]), info.l10);
+  } else {
+    info.l10 = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
+    ok('UX10 laptop: one readout with z and w = F(z)', info.l10.length === 2 && /^z = 0\.5/.test(info.l10[0]) && /^w = F\(z\) = /.test(info.l10[1]), info.l10);
+    // (no line cut with an ellipsis: the text, measured to the sub-pixel, fits its line; at 1366 |z| and arg still show)
+    const cut = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((k) => { const rg = document.createRange(); rg.selectNodeContents(k); return +(rg.getBoundingClientRect().width - k.getBoundingClientRect().width).toFixed(2); })`);
+    ok('UX10 laptop: no readout line is cut', cut.length === 2 && cut.every((d) => d <= 0.01), cut);
+    ok('UX10 laptop: |z| and arg fit beside z at 1366', /\|z\| /.test(info.l10[0]) && /arg /.test(info.l10[0]), info.l10);
+  }
+  // X expanded: F(z) is still read (the steps view's plane is the one pane: F(z) is in its readout already)
+  if (!steps10) {
+    await clickSel('#leftSolo'); await settle(500);
+    const p2 = await W(0.5, -0.8);
+    await move(p2[0], p2[1]); await settle(200);
+    const solo = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
+    ok('UX10 with X expanded, F(z) is read in X', solo.length === 2 && /^w = F\(z\)/.test(solo[1]), solo);
+    await clickSel('#leftSolo'); await settle(400);
+  }
+  // (UX27's names of X and Y and UX37's Plane | Sphere in the heads of both panes are the classic view's: ux165_plane_classic_cmd.js)
 });
 
 await section('P10', async () => {
@@ -378,17 +384,19 @@ await section('P10', async () => {
   // (v16.5 fix regress-4: the line shows once a session, for 8 s; this suite's earlier phone sections were that once,
   // so the session's mark is cleared with the learned one, as ux165_fix_cmd's regress-4 clears the session)
   await settle(1000);
+  const steps10 = await isSteps();
+  const zRe = steps10 ? /^z / : /^z = /, wRe = steps10 ? /^F\(z\) / : /^w = F\(z\) = /;   // (the steps view's readout has no "=")
   info.p10idle = await ev(`document.getElementById('leftReadout').textContent`);
   ok('UX10 phone: the scale chip teaches the hold-and-slide', /Hold and slide to read F\(z\)/.test(info.p10idle), info.p10idle);
-  const tag = await ev(`getComputedStyle(document.getElementById('leftReadout'), '::before').content`);
-  ok('UX27 phone: the big plane\'s chip is tagged X', tag === '"X"', tag);
+  // (UX27's "X" tag on the big plane's chip is the classic view's: ux165_plane_classic_cmd.js)
   const p = await W(0.5, -0.8);
   await tStart(p[0], p[1]); await sleep(800); await tMove([[p[0] + 14, p[1] + 4]]); await sleep(80); await tMove([[p[0] + 24, p[1] + 8]]); await sleep(200);
   info.p10probe = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
   const wid = await ev(`(() => { const c = document.getElementById('leftReadout'); return [...c.children].every((k) => { const rg = document.createRange(); rg.selectNodeContents(k); return rg.getBoundingClientRect().width <= k.getBoundingClientRect().width + 0.01; }); })()`);
   await shot('ux10-phone-probe');
   await tEnd(); await settle(300);
-  ok('UX10 phone: z = … and w = F(z) = …, no doubled z, not cut', info.p10probe.length === 2 && /^z = /.test(info.p10probe[0]) && /^w = F\(z\) = /.test(info.p10probe[1]) && wid, [info.p10probe, wid]);
+  ok('UX10 phone: z = … and w = F(z) = …, no doubled z, not cut', info.p10probe.length === 2 && zRe.test(info.p10probe[0]) && wRe.test(info.p10probe[1]) && wid, [info.p10probe, wid]);
+  await settled({ until: `!/Hold and slide/.test(document.getElementById('leftReadout').textContent)`, max: 4000 });
   const idle2 = await ev(`document.getElementById('leftReadout').textContent`);
   ok('UX10 phone: after the first use the chip shows the scale only', !/Hold and slide/.test(idle2), idle2);
   // the phone in landscape (915 × 412): the same two lines, whole, inside the plane
@@ -400,7 +408,7 @@ await section('P10', async () => {
   const land = await ev(`(() => { const c = document.getElementById('leftReadout'), r = c.getBoundingClientRect(), p = c.parentElement.getBoundingClientRect(); return { lines: [...c.querySelectorAll('.rln')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim()), whole: [...c.children].every((k) => k.scrollWidth <= k.clientWidth + 1), inside: r.right <= p.right && r.bottom <= p.bottom }; })()`);
   await shot('ux10-phone-landscape-probe');
   await tEnd(); await settle(300);
-  ok('UX10 phone landscape: z = … and w = F(z) = …, whole, inside the plane', land.lines.length === 2 && /^w = F\(z\) = /.test(land.lines[1]) && land.whole && land.inside, land);
+  ok('UX10 phone landscape: z = … and w = F(z) = …, whole, inside the plane', land.lines.length === 2 && wRe.test(land.lines[1]) && land.whole && land.inside, land);
 });
 
 // ------------------------------------------------------------------------------------------------------------ UX44
@@ -438,7 +446,7 @@ await section('L86', async () => {
   // UX94: off is outlined, not filled (moves that snap are the rail piece's, work/xu1-rail)
   await tool('select');
   const id = (await ST()).list[0].id;
-  await clickSel('#snapBtn'); await settle(120);
+  await clickSel('#snapBtn'); await settle(600);   // (its colours ease: read at rest)
   const so = await ev(`(() => { const b = document.getElementById('snapBtn'); return { on: b.getAttribute('aria-pressed'), bg: getComputedStyle(b).backgroundColor, bd: getComputedStyle(b).borderTopColor }; })()`);
   ok('UX94 Snap off: outlined, transparent', so.on === 'false' && so.bg === 'rgba(0, 0, 0, 0)' && so.bd !== 'rgba(0, 0, 0, 0)', so);
   await clickSel('#snapBtn'); await settle(120);
@@ -529,8 +537,10 @@ await section('LAY', async () => {
   await click(u[0] + 40, u[1]); await settle(120);
   const p = await W(-1, -1.2);
   await move(p[0], p[1]); await settle(200);
-  const g = await ev(`(() => { const r = document.getElementById('leftReadout'), c = document.getElementById('draftChipL'); const a = r.getBoundingClientRect(), b = c.getBoundingClientRect(); return { lines: r.querySelectorAll('.rln').length, rb: Math.round(a.bottom), ct: Math.round(b.top), hidden: c.hidden }; })()`);
-  ok('UX10/UX48 the chip sits below the two-line readout', g.lines === 2 && !g.hidden && g.ct >= g.rb + 4, g);
+  const g = await ev(`(() => { const r = document.getElementById('leftReadout'), c = document.getElementById('draftChipL'); const a = r.getBoundingClientRect(), b = c.getBoundingClientRect(); return { lines: r.querySelectorAll('.rln').length, pairs: r.querySelectorAll('.rp').length, rb: Math.round(a.bottom), ct: Math.round(b.top), hidden: c.hidden }; })()`);
+  // (the classic readout is two lines; the steps view's is one row of pairs on a laptop)
+  const stepsLay = await isSteps();
+  ok('UX10/UX48 the chip sits below the readout', (stepsLay ? g.pairs >= 4 : g.lines === 2) && !g.hidden && g.ct >= g.rb + 4, g);
   const sp = await ev(`(() => { const c = document.getElementById('draftChipL'); return [...c.querySelectorAll('.cm-t > .cm-nw')].map((e) => e.getClientRects().length); })()`);
   ok('UX48 the count and the keys never break inside ("1 of 2", "Esc cancels")', sp.length >= 2 && sp.every((k) => k === 1), sp);
   // the chip does not move when the pointer leaves X
@@ -539,8 +549,8 @@ await section('LAY', async () => {
   ok('UX10 the chip stays put when the readout goes back to one line', ct2 === g.ct, [g.ct, ct2]);
   // the key's "=" and parentheses in the maths face (not the old mono face's "[")
   await move(p[0], p[1]); await settle(200);
-  const ff = await ev(`[...document.querySelectorAll('#leftReadout .rln .rk .rm')].map((e) => getComputedStyle(e).fontFamily.split(',')[0])`);
-  ok('UX105 the readout key\'s "(" and "=" are set in STIX', ff.length >= 3 && ff.every((f) => /STIX/.test(f)), ff);
+  const ff = await ev(`[...document.querySelectorAll('#leftReadout .rk .rm')].map((e) => getComputedStyle(e).fontFamily.split(',')[0])`);
+  ok('UX105 the readout key\'s "(" and "=" are set in STIX', ff.length >= (stepsLay ? 2 : 3) && ff.every((f) => /STIX/.test(f)), ff);
   await key('Escape'); await key('Escape'); await settle(80);
   // UX48: with a mouse the ? sits beside the chip's words (two lines of words), never alone on a line below them
   for (const t of ['hyper', 'meet']) {
@@ -626,10 +636,7 @@ await section('RU', async () => {
   ok('RU the Hyperbolic line chip in Russian', /^Выберите границу: прямую или окружность/.test(info.ruChip), info.ruChip);
   info.ruTile = await ev(`(document.querySelector('#constructTools .tool[data-tool="hyper"]') || {}).textContent`);
   ok('RU the tile «Гиперболическая»', /Гипербо/.test(info.ruTile || ''), info.ruTile);
-  info.ruTitle = await ev(`document.getElementById('leftTitle').textContent`);
-  ok('RU X\'s title starts "X ·"', /^X · /.test(info.ruTitle), info.ruTitle);
-  info.ruHeads = await ev(`[...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent)`);
-  ok('RU Shapes headings', info.ruHeads[0] === 'В X (плоскость z)', info.ruHeads);
+  // (X's title and the Shapes headings in Russian are the classic view's: ux165_plane_classic_cmd.js)
   await shot('ux-ru-hyper-chip');
   await key('Escape');
   await ev(`localStorage.setItem('cmw-lang', 'en'); 1`);
@@ -647,7 +654,8 @@ await section('D9', async () => {
   stage = 'first'; // the first press on a disc only selects it; a drag from it pans the plane
   await tdrag(o0[0], o0[1], o0[0] + 40, o0[1] + 30, 8);
   const o1 = await W(0, 0), d = await sh('d1');
-  ok('D9 touch: a drag from an unselected disc selects it and pans the plane (the disc stays)', (await ST()).selected === 'd1' && d.c[0] === 0 && d.c[1] === 0 && Math.abs(o1[0] - o0[0] - 40) < 4, [o0, o1, d]);   // (x only: the context bar that the selection brings makes the plane shorter)
+  // (a one-finger drag from the unselected disc selecting it and panning the plane is the classic view's: in the steps view a finger drag on a plane scrubs the thread; it is in ux165_plane_classic_cmd.js)
+  ok('D9 touch: a drag from an unselected disc selects it (the disc stays)', (await ST()).selected === 'd1' && d.c[0] === 0 && d.c[1] === 0, [o0, o1, d]);
   stage = 'second';
   await tdrag(o1[0], o1[1], o1[0] + 30, o1[1], 8);
   const d2 = await sh('d1'), o2 = await W(0, 0);
