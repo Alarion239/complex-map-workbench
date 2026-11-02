@@ -480,10 +480,10 @@ await section('C', async () => {
   const esc = (await chipT()).split(' · ').pop();
   info.ruChips = [await chipT()];
   const u = await W(Math.cos(2.2), Math.sin(2.2));
-  await click(u[0] + 2, u[1] - 2); await settle(100);
+  await click(u[0] + 2, u[1] - 2); await settle(500);
   info.ruChips.push(await chipT());
   const t0 = await W(1, 0), p0 = await W(2, 1);
-  await click(t0[0] + 3, t0[1]); await settle(100);
+  await click(t0[0] + 3, t0[1]); await settle(500);
   info.ruChips.push(await chipT());
   const hz = await W(1, -1.3);
   await move(hz[0] + 3, hz[1]); await settle(120);
@@ -496,7 +496,7 @@ await section('C', async () => {
   info.ruRow = await rowD(K.id);
   // P first: the chip after P, the ring chip
   const p2 = await W(2, 0);
-  await click(p2[0], p2[1]); await settle(120);
+  await click(p2[0], p2[1]); await settle(500);
   info.ruChips.push(await chipT());
   const d = (await CI()).draft, up = d.rings.find((r) => r.tp[1] > 0), uz = await W(up.tp[0], up.tp[1]);
   await move(uz[0] + 4, uz[1] - 3); await settle(120);
@@ -516,12 +516,12 @@ await section('C', async () => {
   await shot('touch-d1440-ru-made');
   // the reason: the tangent's P dragged inside
   await tool('select');
-  const pin = await W(0.5, 0);
-  await dragH(p2[0], p2[1], pin[0], pin[1], 10, 16); await settle(300);
+  const pin = await W(0.5, 0), p2s = await W(2, 0);   // (read again: the plane re-fits when the tool changes)
+  await dragH(p2s[0], p2s[1], pin[0], pin[1], 10, 16); await settle(300);
   info.ruReason = await rowD(L.id);
   ok('C RU reason (inside)', info.ruReason === 'Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности', info.ruReason);
   await key('z', 4); await settle(300);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const capRu = await ev(`await (async () => { const f = (__cmwSetMain('xy'), await __cmwFig.build({ for: 'article', cols: 1 })); return f ? f.captionTex : null; })()`);
   info.capRu = capRu;
   ok('C RU caption: «окружность, проходящая через … и касающаяся окружности … в точке …»', /окружность, проходящая через .+ и[ ~]касающаяся окружности .+ в[ ~]точке/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -633,7 +633,7 @@ await section('D', async () => {
 await section('E', async () => {
   // the six captions, EN and RU (SB: K, the line case, the disc, the outside, the tangent at T, the tangent from P)
   await view(1440, 900, false, false);
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const cap = () => ev(`await (async () => { const f = (__cmwSetMain('xy'), await __cmwFig.build({ for: 'article', cols: 1 })); return f ? f.captionTex : null; })()`);
   await load(NS + 'e1', SB); await settle(900);
   info.capEn = await cap();
   const en = info.capEn || '';
