@@ -131,7 +131,7 @@ const VIEWS = {
   'tour_titles_cmd.js': port('words', 'K1 item 3'),
   'tour_words_cmd.js': port('words', 'K1 item 3'),
   'ux165_learn_cmd.js': port('words'),
-  'v151_cmd.js': port('words'),
+  'v151_cmd.js': steps({ pin: true }),
 
   // to port: export (K1 items 6 to 8: the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': port('export', 'K1 item 6'),
