@@ -344,16 +344,19 @@
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
     // triangles they tear across a cut on their centre's sheet (regionKSC, the fill); without the cache, every triangle
-    // on its centre's sheet (regionKS, the chain at every vertex). A cut clipped (cutKinds' clip): the sheet program's
-    // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
+    // on its centre's sheet (regionKS, the chain at every vertex). st.moving (a glide, a play, a scrub): the places
+    // from the chain at every vertex (regionK, then its fill regionKSF), not the map cache, whose evaluation pass each
+    // frame of a moving map costs more than the vertex stage's (the Mountain King's scrub on the Mac GPU). A cut
+    // clipped (cutKinds' clip): the sheet program's triangles cut at it, and its pass again (uKPass 1) for the
+    // triangles across it, on the branch past it)
     const m = st.map || {}, kinds = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
-    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    let e = rtOK && !st.moving && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    let P = e ? program('regionKC', st.map) : null;
-    const fill = cuts && P ? program(clip ? 'regionKSCclip' : 'regionKSC', st.map) : null;
+    let P = e ? program('regionKC', st.map) : st.moving ? program('regionK', st.map) : null;
+    const fill = cuts && P ? program((e ? 'regionKSC' : 'regionKSF') + (clip ? 'clip' : ''), st.map) : null;
     let full = null;
     if (cuts && !fill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
