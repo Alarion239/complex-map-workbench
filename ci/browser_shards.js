@@ -3,10 +3,11 @@
 // (the measured times: ci/README.md). Every suite that runs is in exactly one shard: a suite listed in no shard (a new
 // one, e.g. v16.5's test/ux165_*_cmd.js) runs in the shard `new`, so none is left out; move it to a shard once its time
 // is known. `node ci/browser_shards.js check` fails when a suite is listed twice, or is listed and excluded
-// (ci/browser_suites.js EXCLUDED); a listed file that no longer exists is only reported.
+// (ci/browser_suites.js EXCLUDED), or has no view in ci/suite_views.js (#620: steps, port or classic-only); a listed
+// file that no longer exists is only reported.
 //   node ci/browser_shards.js matrix [--only id,id]   the shard ids with at least one suite, as a JSON array
 //   node ci/browser_shards.js list ID                  one shard's suites (and runs)
-//   node ci/browser_shards.js check                    every suite in exactly one shard
+//   node ci/browser_shards.js check                    every suite in exactly one shard, and with a view
 const fs = require('fs');
 const path = require('path');
 
@@ -82,6 +83,8 @@ function check() {
   for (const f of new Set([...seen.keys()].filter((e) => e.includes('#')).map(fileOf))) {
     for (const r of (SUITES[f] && SUITES[f].runs) || []) if (!seen.has(`${f}#${r.label}`)) bad.push(`${f}#${r.label}: in no shard`);
   }
+  // (#620) every runnable suite says which view it tests (ci/suite_views.js)
+  bad.push(...require('./suite_views').checkViews(runnable()));
   return { bad, gone };
 }
 
@@ -92,7 +95,7 @@ if (require.main === module) {
   if (cmd === 'check') {
     const { bad, gone } = check();
     if (gone.length) console.log(`listed in a shard but not in test/ (ignored): ${gone.join(', ')}`);
-    if (bad.length) { console.error('browser suites not in exactly one shard (ci/browser_shards.js):\n  ' + bad.join('\n  ')); process.exit(1); }
+    if (bad.length) { console.error('browser suites not in exactly one shard (ci/browser_shards.js), or with no view (ci/suite_views.js):\n  ' + bad.join('\n  ')); process.exit(1); }
     const n = runnable().length, rest = suitesOf(SHARDS.find((s) => s.rest).id);
     console.log(`every one of ${n} browser suites is in exactly one of ${SHARDS.length} shards${rest.length ? `; in the catch-all shard: ${rest.join(', ')}` : ''}`);
   } else if (cmd === 'list') {
