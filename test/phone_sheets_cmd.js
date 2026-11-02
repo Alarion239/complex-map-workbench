@@ -1,7 +1,7 @@
 // The phone's sheets in English, Russian and Italian at 360, 390 and 412 px (#251): a sheet's title is whole (it wraps to a
 // second line before it is cut), the Tools sheet's grabber lies clear of its Snap pill, the Numbers sheet says its title once
 // with its Tip in view, the planes' readouts are not cut (Russian's "w 2 / дел." in the right plane), and the Display
-// sheet's regions show no pattern swatches (#363). A command file for a CDP daemon (test/cdp_kit README); prints
+// sheet's regions show no pattern swatches and no cut label, in the steps view and the classic one. A command file for a CDP daemon (test/cdp_kit README); prints
 // { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -57,10 +57,11 @@ for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['
   ok(`${at}: the Numbers sheet's Tip is in view`, n.tipIn, n);
   await ev('Phone.close(true)'); await settle(300);
 }
-// the Display sheet's regions (#363): the steps view's Display sheet has no regions' display (the X → Y view's Regions box), so this half opens the classic view
-for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['en', 'ru', 'it']) {
-  const at = `${w} ${lang} classic`;
-  await open(w, h, lang, true);
+// the Display sheet's regions: the steps view's and the classic X → Y view's both lend the regions' box
+for (const classic of [false, true]) for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['en', 'ru', 'it']) {
+  const at = `${w} ${lang}${classic ? ' classic' : ''}`;
+  await open(w, h, lang, classic);
+  if (!classic) ok(`${at}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   await ev(`Phone.open('display')`); await settle(700);
   const rg = await evr(`(() => { const b = document.querySelector('.ph-sheet #regionsBox'); if (!b || !b.getClientRects().length) return null; const cut = [...b.querySelectorAll('.check > span, .fl, .lbl')].filter((e) => e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)).map((e) => e.textContent); return { swatches: b.querySelectorAll('#patternSeg, .pat, canvas').length, lines: !!b.querySelector('#linesChk'), cut }; })()`);
   ok(`${at}: the Display sheet's regions: grid lines, no pattern swatches, no label cut`, rg && rg.swatches === 0 && rg.lines && rg.cut.length === 0, rg);

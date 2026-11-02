@@ -1,4 +1,4 @@
-// The regions' one fill (#363): the region patterns (Checker, Log-polar, Tiles, Square grid, Polar grid, Arg z, Stretch,
+// The regions' one fill and its display in the steps view (the classic X → Y view's is regions_phase_classic_cmd.js). The one fill (#363): the region patterns (Checker, Log-polar, Tiles, Square grid, Polar grid, Arg z, Stretch,
 // Sphere checker, Solid) are gone and every region is filled by the phase of z carried by the map. A saved state or a
 // link with any old pattern opens with the phase and keeps its grid step and grid lines; the Regions pop-up (Y's head in
 // the X → Y view) and the phone's Display sheet hold the grid lines, their step, the chevrons and the opacity with no
@@ -47,50 +47,28 @@ for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch',
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
 info.fresh = await ev('__cmwRegions()');
 ok('a state with no pattern: the phase', info.fresh.pattern === 'phase', info.fresh);
-// ---- 4. the laptop's Regions button and its pop-up: no pattern swatch anywhere in the page
-await ev(`__cmwSetMain('xy'); 1`); await settle(800);
-const btn = await ev(`(() => { const b = document.querySelector('#rightFoot .pat-btn'); return b && { name: b.getAttribute('aria-label'), tip: b.dataset.tip }; })()`);
-ok("Y's head holds a Regions button", btn && btn.name === 'Regions' && btn.tip === 'Regions', btn);
+// ---- 4. the steps head's ⋯ pop-up holds the regions' display: grid lines, their step, chevrons and opacity, no swatch
+ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
 ok('no pattern swatches in the page', (await ev(`document.querySelectorAll('#patternSeg, .patterns, [data-pat]').length`)) === 0, null);
-await ev(`document.querySelector('#rightFoot .pat-btn').click()`); await settle(500);
-const pop = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); return p && { label: p.getAttribute('aria-label'), ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => p.querySelector('#' + id)), swatches: p.querySelectorAll('.pat, [data-pat], #regionsBox canvas').length, text: p.querySelector('#regionsBox').innerText }; })()`);
-ok('the Regions pop-up: grid lines, their step, chevrons and opacity, no swatch', pop && pop.label === 'Regions' && pop.ids.length === 4 && pop.swatches === 0 && /phase of z/.test(pop.text) && /Grid step/.test(pop.text), pop);
-// the key chip: the grid's cell with the lines on, the phase with them off
+await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
+const pop = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'); const b = p && p.querySelector('#regionsBox'); return b && { ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => b.querySelector('#' + id)), swatches: p.querySelectorAll('.pat, [data-pat], #regionsBox canvas').length, text: b.innerText }; })()`);
+ok("the head's ⋯ pop-up: grid lines, their step, chevrons and opacity, no swatch", pop && pop.ids.length === 4 && pop.swatches === 0 && /phase of z/.test(pop.text) && /Grid step/.test(pop.text), pop);
 await ev(`(() => { const c = document.getElementById('linesChk'); if (!c.checked) c.click(); return 1; })()`); await settle(600);
-const chipOn = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`);
+ok('the grid lines check acts on the regions', (await ev('__cmwRegions().lines')) === true, null);
 await ev(`document.getElementById('linesChk').click(); 1`); await settle(600);
-let chipOff = '';
-for (let i = 0; i < 30 && (chipOff = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`)) !== 'Phase of z'; i++) await sleep(100);
-info.chip = [chipOn, chipOff];
-ok("Y's key chip: the cell with the grid lines on, the phase of z with them off", /^cell \S/.test(chipOn) && chipOff === 'Phase of z' && (await ev('__cmwRegions().lines')) === false, info.chip);
+ok('and switches them off again', (await ev('__cmwRegions().lines')) === false, null);
 await key('Escape'); await settle(300);
 ok("Escape closes it and the regions' box goes home", (await ev(`document.getElementById('regionsBox').parentElement.id`)) === 'regionsHome', null);
 // ---- 5. the phone's Display sheet: the regions' options, no swatch
 await view(390, 844, false, true);
-await openSaved(`rgph-ph-${Date.now() % 1000000}`, STATE({ pattern: 'tiles', view: { main: 'xy' } }));
-await ev(`__cmwSetMain('xy'); 1`); await settle(600);
+await openSaved(`rgph-ph-${Date.now() % 1000000}`, STATE({ pattern: 'tiles' }));
+ok('the steps view is on (phone)', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
 await ev(`Phone.open('display')`); await settle(700);
 const ph = await ev(`(() => { const b = document.querySelector('.ph-sheet #regionsBox'); const hs = [...document.querySelectorAll('.ph-sheet .ph-h')].filter((e) => !e.hidden).map((e) => e.textContent); return b && { ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => b.querySelector('#' + id)), swatches: b.querySelectorAll('.pat, [data-pat], canvas').length, heads: hs }; })()`);
 ok("the phone's Display sheet: a Regions section with the regions' options, no swatch", ph && ph.ids.length === 4 && ph.swatches === 0 && ph.heads.includes('Regions'), ph);
 ok('the phone opens the saved Tiles as the phase', (await ev('__cmwRegions().pattern')) === 'phase', null);
 await ev(`Phone.close(true)`); await settle(300);
-// ---- 6. the tour: no Patterns step in Views
-await view(1440, 900, false, false);
-await openSaved(`rgph-tour-${Date.now() % 1000000}`, STATE({}));
-await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'views' }); return 1; })()`); await settle(1500);
-const ids = [];
-for (let k = 0; k < 10 && (await ev('Tour.isActive()')); k++) {
-  const c = await ev('Tour.current()');
-  if (!c || c.chapter !== 'views') break;
-  ids.push(c.id);
-  await ev('Tour.next(); 1'); await settle(700);
-}
-await ev('Tour.isActive() ? Tour.stop() : 0; 1'); await settle(300);
-info.views = ids;
-ok('the Views chapter has no Patterns step and ends with Phase key', ids.length >= 4 && !ids.includes('patterns') && ids[ids.length - 1] === 'key', ids);
-
-// ---- 7. the Regions pop-up fits its box in every language (its description wraps; eyes on #552: it had widened the
-// pop-up into a sideways scroll that cut the values)
+// ---- 6. the ⋯ pop-up fits its box in every language (its description wraps; no sideways scroll cuts the values)
 for (const lang of ['en', 'ru', 'it']) {
   await view(1280, 800, false, false);
   const ns = `rgph-fit-${lang}-${Date.now() % 1000000}`;
@@ -99,11 +77,10 @@ for (const lang of ['en', 'ru', 'it']) {
   await nav(`${U}/test.html?ns=${ns}&lang=${lang}`);
   for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
   await settle(800);
-  await ev(`__cmwSetMain('xy'); 1`); await settle(800);
-  await ev(`document.querySelector('#rightFoot .pat-btn').click()`); await settle(500);
-  const fit = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); if (!p) return null; const out = [p, ...p.querySelectorAll('*')].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible').map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth); return { out, pw: Math.round(p.getBoundingClientRect().width) }; })()`);
+  await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
+  const fit = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'); if (!p || !p.querySelector('#regionsBox')) return null; const out = [p, ...p.querySelectorAll('*')].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible').map((e) => (e.id || e.className || e.tagName) + ' ' + e.scrollWidth + '/' + e.clientWidth); return { out, pw: Math.round(p.getBoundingClientRect().width) }; })()`);
   info['fit ' + lang] = fit;
-  ok(`${lang}: the Regions pop-up fits its box (no sideways scroll, nothing cut)`, fit && fit.out.length === 0, fit);
+  ok(`${lang}: the ⋯ pop-up fits its box (no sideways scroll, nothing cut)`, fit && fit.out.length === 0, fit);
   await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`); await settle(300);
 }
 

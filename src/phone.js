@@ -771,7 +771,7 @@ const Phone = (() => {
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
-    const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
+    const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
     if (reg) els.regions.append(reg);
