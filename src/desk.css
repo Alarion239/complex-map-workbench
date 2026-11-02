@@ -349,6 +349,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
 #toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
 #toastHost[data-placed="head"] .toast .toast-act { height: 24px; }
+/* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
+:root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
 /* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
 .pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
 .pane-head > .empty-chip[hidden] { display: none; }
