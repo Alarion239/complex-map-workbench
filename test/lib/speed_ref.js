@@ -7,10 +7,18 @@
 //   unitsOf(fn)           -> the cost of one call of fn(i) in reference operations: ROUNDS rounds of CALLS calls of fn,
 //                            each followed by a round of the reference, the least of each (the least disturbed round,
 //                            taken at the same moments, so a load that comes and goes moves both)
-//   cpuUnitsOf(step, frames) -> the CPU time of one call of step(f) in reference operations: ROUNDS rounds of `frames`
-//                            calls, each followed by a round of the reference, the least of each (CPU time, not wall
-//                            time: a drag is judged by what it computes, not by what else the machine runs)
+//   cpuUnitsOf(step)      -> the CPU time of one call of step(f) in reference operations: ROUNDS rounds of DRAG_FRAMES
+//                            calls, each followed by a round of the reference, the least of each. The drag is timed as
+//                            CPU time (a drag is judged by what it computes, not by what else the machine runs), the
+//                            reference as wall time: a reference round is about 2 ms, shorter than the tick a CPU clock
+//                            may count in, while a drag round is DRAG_FRAMES frames (tens of ms). The least round of
+//                            the reference is one with no time off the CPU, so its wall time is its CPU time.
+// ROUNDS: enough rounds that one of each lands in a quiet moment of a machine running more busy loops than it has cores
+// (all of t_constr.js's checks passed under six busy loops on four cores).
 const ROUNDS = 7, CALLS = 20000;
+// the frames of one drag round (about 5 ms of CPU for a drag with 10 dependents, much more for 50, so a tick-counting CPU
+// clock cannot read 0)
+const DRAG_FRAMES = 300;
 // the reference operation's input: a double that changes by REF_STEP per call from REF_START, whose 52-bit mantissa
 // is split into the high 20 bits (MANTISSA_HI_MASK) and the low 32
 const REF_START = 1.1, REF_STEP = 1e-3, MANTISSA_HI_MASK = 0xfffff;
@@ -40,13 +48,13 @@ function unitsOf(fn) {
   return best / ref;
 }
 
-function cpuUnitsOf(step, frames) {
+function cpuUnitsOf(step) {
   let best = Infinity, ref = Infinity;
   for (let r = 0; r < ROUNDS; r++) {
     const c0 = process.cpuUsage();
-    for (let f = 0; f < frames; f++) step(f);
+    for (let f = 0; f < DRAG_FRAMES; f++) step(f);
     const c = process.cpuUsage(c0);
-    best = Math.min(best, (c.user + c.system) * 1000 / frames);
+    best = Math.min(best, (c.user + c.system) * 1000 / DRAG_FRAMES);
     ref = Math.min(ref, roundNs(reference, CALLS));
   }
   return best / ref;
