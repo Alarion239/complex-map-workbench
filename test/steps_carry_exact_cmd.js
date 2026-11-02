@@ -26,6 +26,9 @@ const fails = [], info = { cases: {} };
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const MAX_BAD = 0.01;   // the share of a case's samples that may be wrong (antialiased seams, the probe's rounding)
 const MIN_N = 100;      // the samples a case must judge
+// the per-channel tolerance (0-255) of the rows that take over steps_carry_inregion_cmd.js's cases: its own; every other
+// row uses the kit's default, carryCompare's tol 24
+const TOL_INREGION = 14;
 const M = (a, b, c, d) => ({ type: 'mobius', params: { a, b, c, d }, on: true });
 const P = (n) => ({ type: 'pown', params: { n }, on: true });
 const A = (c) => ({ type: 'add', params: { c }, on: true });
@@ -146,9 +149,9 @@ if (EX >= 0) {
   const own = { outside: [-0.12, 0.1, 1.1244998888] };
   // (the circle, outlined over the colour, and the trailing edge's mark and label)
   const skip = { circles: [[-0.12, 0.1, 1.1244998888]], eps: 0.08 }, skipW = { discs: [[1.6, 0.1, 1.1]] };
-  if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW, nx: 60, ny: 40, tol: 14, min: 401, filled: 1501 });
+  if (await reach('Joukowski, Inside regions, w1 at rest', { go: 1, T: 0, scope: 'in' })) await judge('Joukowski, Inside regions, w1 at rest', { own, skip, skipW, nx: 60, ny: 40, tol: TOL_INREGION, min: 401, filled: 1501 });
   // (Everywhere at rest: each point against its front preimage under the shared key)
-  if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW, nx: 60, ny: 40, tol: 14, min: 401 });
+  if (await reach('Joukowski, Everywhere, w1 at rest', { go: 1, T: 0, scope: 'all' })) await judge('Joukowski, Everywhere, w1 at rest', { skip, skipW, nx: 60, ny: 40, tol: TOL_INREGION, min: 401 });
   // (parked, Everywhere: H_u's poles and its disc branch's tanh pole in the window; at 0.25 and 0.5 the two sheets
   // overlap over much of the plane)
   for (const park of [0.25, 0.3, 0.5, 0.6]) {
@@ -241,7 +244,7 @@ for (const n of [2, 3]) {
     // (parked, the principal power z^p, p = 1 + (n - 1) u: its cut, arg z = ±π, lands on arg w = ±pπ, where either side may
     // show)
     const p = 1 + (n - 1) * (park || 0), skipW = park == null ? null : { rays: [p * Math.PI, -p * Math.PI], eps: 0.06 };
-    if (await reach(key, park == null ? { go: 1, T: 0, scope } : { park, T: 0, scope })) await judge(key, Object.assign({ skip, skipW, nx: 44, ny: 30, tol: 14, min: 201 }, scope === 'in' ? { own } : {}));
+    if (await reach(key, park == null ? { go: 1, T: 0, scope } : { park, T: 0, scope })) await judge(key, Object.assign({ skip, skipW, nx: 44, ny: 30, tol: TOL_INREGION, min: 201 }, scope === 'in' ? { own } : {}));
   }
 }
 
