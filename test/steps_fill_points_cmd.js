@@ -38,8 +38,9 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     const tag = `${name} ${scope} ${x}`;
     await steps({ scope, surf: 'plane', go: 0, now: true });
     await steps({ scope, surf: 'plane', park: x });
-    await ev('GLR.fillPointsOn(true), 1'); await redraw();
+    // (the count read before the redraw is asked for: the frame may be drawn before the next evaluation)
     const n0 = await ev('GLR.fillPointsRuns()');
+    await ev('GLR.fillPointsOn(true), 1'); await redraw();
     const a = await grab('on');
     const n1 = await ev('GLR.fillPointsRuns()');
     await ev('GLR.fillPointsOn(false), 1'); await redraw();
