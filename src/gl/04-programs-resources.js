@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -104,6 +104,10 @@
     // (regionKS and regionKSC for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
     regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
     regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
+    // (regionKSC and regionKSCclip with the fill's values from its point pass, fillPts: drawRegionCarry, fillPoints)
+    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true }), fs: REGION_K_FS() },
+    regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
+    fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
@@ -757,6 +761,10 @@ float wabs(vec2 w) {
       for (let k = 0; k < 3; k++) data.push(b[0][0], b[0][1], b[1][0], b[1][1], b[2][0], b[2][1], k, 0, id[0], id[1], id[2], V + ti);
     });
     const t = { buf: makeBuf(new Float32Array(data)), count: data.length / 12, P: pts.length / 2, pts: makeBuf(new Float32Array(pts)) };
+    // (for the fill's point pass, FILL_PTS_VS: each sub-triangle's three corners (uSub), and their places in the map
+    // cache with its centroid's (uSubI))
+    t.subs = new Float32Array(tris.flatMap((tr) => tr.flatMap(([i, j]) => [i / L, j / L])));
+    t.subI = new Float32Array(tris.flatMap((tr, ti) => tr.map(([i, j]) => idx.get(i * (L + 1) + j)).concat([V + ti])));
     tplCache.set(key, t);
     return t;
   }
@@ -1034,6 +1042,7 @@ float wabs(vec2 w) {
     for (const b of (res.arcs || new Map()).values()) gl.deleteBuffer(b);
     if (res.arcs) res.arcs.clear();
     res.vaos.clear();
+    if (res.fillPts) { gl.deleteTexture(res.fillPts.tex); res.fillPts = null; }
     res.n = 0;
   }
 
@@ -1098,9 +1107,10 @@ float wabs(vec2 w) {
   // alloc false: tex already has W x H RG32F storage (a reused scratch texture)
   // (maskRGB, maskA: the frame's write mask (writeMask); the pass writes its texel's RG whatever it is, #440)
   let rtFbo = null, maskRGB = true, maskA = true;
-  function runRT(P, vao, count, instances, tex, W, H, alloc = true) {
+  // (rgba: RGBA32F storage)
+  function runRT(P, vao, count, instances, tex, W, H, alloc = true, rgba = false) {
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    if (alloc) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
+    if (alloc) gl.texImage2D(gl.TEXTURE_2D, 0, rgba ? gl.RGBA32F : gl.RG32F, W, H, 0, rgba ? gl.RGBA : gl.RG, gl.FLOAT, null);
     if (!rtFbo) rtFbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, rtFbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
@@ -1206,6 +1216,49 @@ float wabs(vec2 w) {
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
     return e;
   }
+  // The fill's point pass (fillPts, FILL_PTS_VS) of mesh res at template size L (at most 2: uSub's size) under map,
+  // after its map cache pass: gate {e, skip, kpx, lim} is the cache entry, the skip buffer and the uKPx, uKLim the fill
+  // draws with. -> {tex, W, P} for the fill's uFT (unit 12), uFTW, uFTP; or null (fillPts compiling, no float target,
+  // too many points for one texture), and the fill evaluates its points itself
+  function fillPoints(res, L, map, gate) {
+    if (L > 2 || !rtOK) return null;
+    const P = program('fillPts', map);
+    if (!P) return null;
+    const tpl = regionTemplate(L), per = 4 * (tpl.count / 3), count = per * res.n;
+    const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(count / W));
+    if (H > maxTex) return null;
+    let f = res.fillPts;
+    const unit = gl.getParameter(gl.ACTIVE_TEXTURE);
+    const alloc = !f || f.W !== W || f.H !== H;
+    if (!f) f = res.fillPts = { tex: floatTex(), W: 0, H: 0, P: per };
+    f.W = W; f.H = H; f.P = per;
+    const skip = gate.skip || res.skip0, vk = 'fillPts|' + skip.id;
+    let vao = res.vaos.get(vk);
+    if (!vao) {
+      vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
+      attrib(2, 4, 24, 0, 1); attrib(3, 2, 24, 16, 1);
+      gl.bindBuffer(gl.ARRAY_BUFFER, skip.buf);
+      attrib(4, 1, 4, 0, 1);
+      gl.bindVertexArray(null);
+      res.vaos.set(vk, vao);
+    }
+    use(P, map);
+    originUniforms(P, res.org);
+    if (P.loc.uSub) gl.uniform2fv(P.loc.uSub, tpl.subs);
+    if (P.loc.uSubI) gl.uniform4fv(P.loc.uSubI, tpl.subI);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gate.e.tex);
+    u1i(P, 'uCW', gate.e.W); u1i(P, 'uCP', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
+    gl.activeTexture(gl.TEXTURE12);
+    runRT(P, vao, per, res.n, f.tex, W, H, alloc, true);
+    gl.activeTexture(unit);
+    fillPtsRuns++;
+    return f;
+  }
+  // (how many point passes have run: the tests' proof that the fill took its values from one)
+  let fillPtsRuns = 0;
+  const fillPointsRuns = () => fillPtsRuns;
   function bindCache(P, e) {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, e.tex);

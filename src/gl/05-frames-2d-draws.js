@@ -341,8 +341,11 @@
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   function prestartCarry() {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
-    return prestartNames(clip ? ['regionKC', 'regionKSCclip'] : cuts ? ['regionKC', 'regionKSC'] : ['regionKC'], [1]);
+    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts'] : ['regionKC'], [1]);
   }
+  // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
+  let fillPtsOn = true;
+  function fillPointsOn(on) { fillPtsOn = !!on; return fillPtsOn; }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
@@ -351,7 +354,8 @@
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
-    // triangles they tear across a cut on their centre's sheet (regionKSC, the fill); without the cache, every triangle
+    // triangles they tear across a cut on their centre's sheet (regionKSCpt from its point pass, or regionKSC, the
+    // fill); without the cache, every triangle
     // on its centre's sheet (regionKS, the chain at every vertex). A cut clipped (cutKinds' clip): the sheet program's
     // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
@@ -361,7 +365,14 @@
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
-    const fill = cuts && P ? program(clip ? 'regionKSCclip' : 'regionKSC', st.map) : null;
+    // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
+    // pass cannot run, the fill evaluates its own)
+    let fill = null, fp = null;
+    if (cuts && P) {
+      const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
+      fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
+      fill = fp ? Q : program(clip ? 'regionKSCclip' : 'regionKSC', st.map);
+    }
     let full = null;
     if (cuts && !fill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
@@ -376,6 +387,7 @@
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
       if (clip) u1i(Q, 'uKPass', 0);
+      if (fp && Q === fill) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
