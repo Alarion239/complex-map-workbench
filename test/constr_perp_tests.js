@@ -5,8 +5,9 @@
 // and the plumbing (validate, save and load, v16.2's validate, plans, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
-// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
-const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
+// the speed limits are in reference operations measured in the same run (test/lib/speed_ref.js), so they hold on any machine
+const { refNs, bestNs } = require('./lib/speed_ref');
+const PERP_UNITS = 110, DRAG_UNITS = 19000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.1's = v16.2's constr.js, frozen: an older build reading a saved perpendicular circle)
@@ -328,18 +329,20 @@ module.exports = function ({ K, ok }) {
     rec(T);
     ok((K.moveRoots(T, 'k') || []).join() === 'a,b,c,P,Q', 'moveRoots: K on a 3-point C of free points moves all five');
     ok(K.describe(S, 'k').fill === 'in' && K.describe(S, 'k').op === 'perp', 'describe: op perp, fill');
-    // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P
+    // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P, in units of a
+    // reference operation measured in this run (test/lib/speed_ref.js): each limit keeps the margin the absolute one had
+    // on the development Mac: about 2.6 times what perpForm takes (about 43 of them), about 18 times what the drag takes
+    // (about 1000)
+    const ref = refNs();
     const G = circ([0.3, -0.2], 1.7);
-    const n = 100000, t0 = process.hrtime.bigint();
-    for (let i = 0; i < n; i++) K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]);
-    const per = Number(process.hrtime.bigint() - t0) / n;
+    const per = bestNs((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]), 20000) / ref;
     const W = state([{ id: 'C', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, pt('P', [0.3, 0.2])]);
     for (let j = 0; j < 10; j++) W.shapes.push(pt('Q' + j, [Math.cos(j), Math.sin(j) * 0.5]), perpShape('k' + j, 'C', 0, { s: 'P' }, { s: 'Q' + j }, j % 2 ? 'in' : 'none'));
     rec(W);
     const c0 = process.cpuUsage();
     for (let f = 0; f < 600; f++) { sh(W, 'P').p = [0.3 + 0.1 * Math.cos(f / 50), 0.2 + 0.1 * Math.sin(f / 50)]; rec(W, { shapes: ['P'] }); }
-    const cu = process.cpuUsage(c0), ms = (cu.user + cu.system) / 1000 / 600;
-    ok(per < 5000 * SPEED && ms < 1 * SPEED, `speed: perpForm ${per.toFixed(0)} ns; a drag with 10 dependents ${ms.toFixed(3)} ms CPU per recompute`);
+    const cu = process.cpuUsage(c0), drag = (cu.user + cu.system) * 1000 / 600 / ref;
+    ok(per < PERP_UNITS && drag < DRAG_UNITS, `speed: perpForm ${per.toFixed(0)} reference operations (limit ${PERP_UNITS}); a drag with 10 dependents ${drag.toFixed(0)} (limit ${DRAG_UNITS})`);
   }
 
   // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)
