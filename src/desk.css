@@ -735,3 +735,6 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
 .pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
+
+/* probe: the order select is not drawn, to see whether the strip width is the perf cost */
+.sv-order { display: none !important; }
