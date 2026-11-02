@@ -788,9 +788,9 @@
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
     }
   }
-  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between
-  // the areas (the top bar, the tools, X, Y, the chain, the Inspector; in the steps view the top bar, the tools, the plane, the thread, the
-  // Inspector). A phone keeps every control a stop
+  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between the
+  // areas (the top bar, the tools, X, Y, the chain, the Inspector; in the steps view the top bar, the tools, the
+  // plane, the thread, the Inspector). A phone keeps every control a stop
   const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
