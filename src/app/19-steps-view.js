@@ -388,12 +388,11 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: [] };
   }
-  // The sheet key mid-glide (the map h_{b,t} after the steps before b): the points that map sends far are its poles at
-  // t, which move with t (a path's pole sweeps across the plane, or flies in from infinity) and are not plane b's. A
-  // point beside one is not in front for being near the centre alone, as beside plane b's poles at rest, so the key's
-  // points are plane b's accumulation set, then the glide's poles at t nearest the window (at most 4 in all, as
-  // Inverse.keySing gives them at rest). At t = 1 the glide's poles are plane b's, at t = 0 those of the plane before:
-  // the key meets the planes' own at both ends.
+  // The sheet key mid-glide (the map h_{b,t} after the steps before b): plane b's key, and the glide's poles at t, which
+  // move with t (a path's pole sweeps across the plane, or flies in from infinity): a point beside one is not in front
+  // for being near the centre alone, as beside plane b's poles. Its points: plane b's accumulation set, then plane b's
+  // poles and the glide's poles at t, nearest the window first (at most 4 in all, as Inverse.keySing gives them at
+  // rest). At t = 1 the glide's poles are plane b's: the key meets plane b's own.
   // The poles are tracked once per glide (the plane, the chain, the window): SV_POLE_K steps of t, found on a grid over
   // the window (a quarter wider each side, SV_POLE_GRID cells a side) and on a coarser one over it widened by three
   // times its size on each side, at t = 0 and every SV_POLE_SEED steps; each followed from step to step by Newton's
@@ -486,10 +485,11 @@
     let acc = [];
     try { acc = plan && plan.ok ? Inverse.accumulation(plan, k.win) : []; } catch (e) { acc = []; }
     const { tr } = svPoleTracks(b, k.win), s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
-    const cz = C((k.win.x0 + k.win.x1) / 2, (k.win.y0 + k.win.y1) / 2), poles = [];
+    const cz = C((k.win.x0 + k.win.x1) / 2, (k.win.y0 + k.win.y1) / 2), near = (p, q) => CX.abs(CX.sub(p, q)) < 1e-9 * (1 + CX.abs(p));
+    const poles = (k.sing || []).filter((p) => !acc.some((q) => near(p, q)));
     for (const r of tr) {
       const p = r[i] && r[i + 1] ? CX.add(r[i], CX.mul(C(f, 0), CX.sub(r[i + 1], r[i]))) : r[i] || r[i + 1];
-      if (p && !acc.some((q) => CX.abs(CX.sub(p, q)) < 1e-9 * (1 + CX.abs(p)))) poles.push(p);
+      if (p && !acc.some((q) => near(p, q)) && !poles.some((q) => near(p, q))) poles.push(p);
     }
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
     return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
