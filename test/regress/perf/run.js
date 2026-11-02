@@ -1060,6 +1060,56 @@ async function svProbeUnit(scene) {
     log(`${id}: frame p95 ${f.map((x) => x.toFixed(1)).join(' / ')} ms; cpu p95 ${c.map((x) => x.toFixed(1)).join(' / ')} ms; fps ${reps.map((r) => r.fps.toFixed(1)).join(' / ')}`);
   }
 }
+// [#643 probe, measurement only, not for merge] the King's colours with the thread held mid-glide (a scrub on the rail
+// not let go, as steps_carry_far_cmd.js's hold), under base, fillTex and base again: canvasL's pixels once two successive
+// reads agree, fillTex compared with the first base and the two bases with each other (the floor). Logged per x, info only.
+async function svProbeExactUnit() {
+  await B.nav(`${BASE}test.html?ns=perfsvpx${process.pid}&view=steps`);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await B.ev(`__cmwExample(${exampleIndex('In the Hall of the Mountain King')}), 1`);
+  await settle(await pageNow());
+  await sleep(SV_IDLE_MS);
+  const hold = (x) => B.ev(`(() => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 71, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
+    window.__svScrubUp = () => ev('pointerup', cx);
+    return 1;
+  })()`);
+  // canvasL's pixels kept in the page as globalThis.__svpx[tag] once two successive reads 100 ms apart are identical
+  const grab = async (tag) => {
+    for (let n = 0; n < 100; n++) {
+      const same = await B.ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = globalThis.__svpx || (globalThis.__svpx = {}), p = g._prev;
+        g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false; g[${JSON.stringify(tag)}] = d; return true; })()`);
+      if (same) return;
+      await sleep(100);
+    }
+    throw new Error(`svp.kingpx: canvasL never settled for ${tag}`);
+  };
+  const diff = (a, b) => B.ev(`(() => { const A = globalThis.__svpx[${JSON.stringify(a)}], Bq = globalThis.__svpx[${JSON.stringify(b)}]; let px = 0, max = 0;
+    for (let i = 0; i < A.length; i += 4) { let m = 0; for (let c = 0; c < 4; c++) m = Math.max(m, Math.abs(A[i + c] - Bq[i + c])); if (m) px++; if (m > max) max = m; }
+    return { px, max, of: A.length / 4 }; })()`);
+  const planes = await B.ev(`document.querySelectorAll('.sv-track .sv-plane').length`);
+  for (const x of [0.5, 1.5, 2.5].filter((v) => v < planes - 1)) {
+    for (const [tag, set] of [['base1', {}], ['fillTex', { fillTex: true }], ['base2', {}]]) {
+      await B.ev(`globalThis.__svCarryProbe = ${JSON.stringify(set)}, 1`);
+      await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
+      await settle(await pageNow());
+      await hold(x);
+      await B.until(`GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving`, 30000);
+      await grab(tag);
+      await B.ev('window.__svScrubUp(), 1');
+      await settle(await pageNow());
+    }
+    const floor = await diff('base1', 'base2'), ft = await diff('base1', 'fillTex');
+    log(`svp.kingpx held ${x}: fillTex vs base ${ft.px}/${ft.of} px differ, max channel ${ft.max}; base vs base ${floor.px} px, max ${floor.max}`);
+    put(`svp.kingpx.x${x}.fillTex_px`, 'info', 'px', [ft.px]);
+    put(`svp.kingpx.x${x}.floor_px`, 'info', 'px', [floor.px]);
+  }
+  await B.ev('globalThis.__svCarryProbe = {}, 1');
+}
 // [#439 F, #443] the steps view's glide at 60 fps: a warm glide there and back between z and w₁ (Everywhere, the plane
 // surface, the normal speed), on a GPU only (a software renderer is skipped, as sv.interact), at dpr 1 and at dpr 2 (the
 // Mac's: setDpr, as the image units' dpr2). Scenes: the default page, zeta and the Mountain King (by name). Per dpr:
@@ -1903,6 +1953,7 @@ unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub 
 unit('svp.jouk', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('jouk'), { timeoutS: 900 });
 unit('svp.default', 'probe for #643 (not for merge): the default page strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('default'), { timeoutS: 900 });
 unit('svp.pow', 'probe for #643 (not for merge): z^3 after a Mobius on a half-plane strip scrub under globalThis.__svCarryProbe {base, fillTex, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('pow'), { timeoutS: 900 });
+unit('svp.kingpx', 'probe for #643 (not for merge): the Mountain King held mid-glide, canvasL under fillTex against base and base against base, info only', () => svProbeExactUnit(), { timeoutS: 600 });
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
