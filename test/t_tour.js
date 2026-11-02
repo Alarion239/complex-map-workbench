@@ -161,10 +161,11 @@ for (const s of steps) {
 }
 // (#442: the steps view's chapter, which only a page with ?view=steps has among its chapters)
 for (const s of T.PLANES.steps) for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`planes/${s.id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
-// (the examples' own Try lines, tryDone and tryDoneSv in src/app/15-examples-guide.js, wait for app events too: one they name counts as
-// a use of a documented event)
-for (const m of fs.readFileSync(path.join(__dirname, '../src/app/15-examples-guide.js'), 'utf8').matchAll(/tryDone(?:Sv)?: (\[\[.*?\]\]),/g)) for (const [, e] of m[1].matchAll(/on: '([\w-]+)'/g)) EVENTS_USED.add(e);
-for (const e of DOC_EVENTS) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
+// (an event only an example's Try line waits for, not a tour step: the examples are in src/app/15-examples-guide.js, and the
+// exemption holds while one of them names it)
+const EXAMPLE_ONLY = ['step-moved'];
+for (const e of EXAMPLE_ONLY) ok(`${e} is waited for by an example's Try line`, new RegExp(`tryDoneSv: .*on: '${e}'`).test(fs.readFileSync(path.join(__dirname, '../src/app/15-examples-guide.js'), 'utf8')), e);
+for (const e of DOC_EVENTS) if (!EXAMPLE_ONLY.includes(e)) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
 // (v16.4: a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
 for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.id !== 'targets')) {   // (draw and targets choose the Disc tool first, which they light)
