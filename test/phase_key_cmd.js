@@ -7,17 +7,7 @@
 const fails = [], info = { rows: [] };
 let phaseAria = '';
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-async function openApp(lang, w) {
-  const ns = 'pk' + Date.now();
-  await view(w, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
-  const o = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's1', kind: 'rect', a: [-2, -2], b: [2, 2] }], steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'color' };
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang ? '&lang=' + lang : ''}` }); await sleep(2300);
-  await settle(800);
-}
+const openApp = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'phase_key_open.js'), 'utf8'));
 const probe = () => ev(`(() => {
   const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width }; };
   const leg = document.getElementById('leftLegend'), cv = document.getElementById('legendCanvasL'), plot = document.getElementById('plotL');
@@ -32,7 +22,7 @@ for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) 
   await openApp(lang, w);
   const tag = `${lang || 'en'} ${w}`;
   for (const main of ['phase', 'land', 'phase']) {
-    await ev(`__cmwSetMain('${main}')`); await settle(1800);
+    await ev(`__cmwSetMain('${main}')`); await settled({});
     const r = await probe();
     info.rows.push([tag, main, r.onPlot, r.top, r.right]);
     if (main === 'phase') {
@@ -42,7 +32,7 @@ for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) 
       ok(`${tag}: Phase: it does not touch the readout or the chips`, !r.hits.length, r);
       ok(`${tag}: Phase: the key has an accessible name`, r.aria.length > 2, r);
       phaseAria = r.aria;
-      await ev(`document.getElementById('leftLegend').click()`); await settle(300);
+      await ev(`document.getElementById('leftLegend').click()`); await settled({});
       const c = await probe();
       ok(`${tag}: Phase: a click leaves the key shown`, c.shown && c.onPlot, c);
     } else {
