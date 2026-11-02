@@ -99,7 +99,7 @@ const VIEWS = {
   'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once: after K1 item 5'),
 
   // to port: phone
-  'phone_ctx_tex_cmd.js': port('phone'),
+  'phone_ctx_tex_cmd.js': steps({ pin: true }),
   'phone_focus_margin_cmd.js': port('phone'),
   'phone_fwell_cmd.js': port('phone', 'F\'s well: after K1 item 9'),
   'phone_sheet_target_cmd.js': port('phone'),
