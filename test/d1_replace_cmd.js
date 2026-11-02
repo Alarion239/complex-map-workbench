@@ -1,7 +1,7 @@
 // D1, issue #23: the function search replaces as well as inserts. A chip in the search row says where the function
 // goes (Insert, Replace F, Replace f_k; Tab or a click changes it, and it is remembered); the best match is listed all
 // three ways; "Replace…" is the first item of a card's ⋯; the Inspector's title opens the search ready to replace its
-// step; Clear chain is a word button in the chain head. On a laptop (1366×768), a phone (412×860) and in Russian.
+// step; Clear chain is a word button in the classic chain head and the palette's command in both views. On a laptop (1366×768), a phone (412×860) and in Russian.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/d1_replace_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -35,7 +35,14 @@ const clickMenu = (label) => ev(`(() => { const b = [...document.querySelectorAl
 // ======================= the laptop =======================
 await openApp({ shapes: [DISC], steps: CHAIN });
 const clr = await ev(`(() => { const b = document.getElementById('clearChain'); return { shown: !!b.getClientRects().length, text: b.textContent, more: !!document.getElementById('chainMoreBtn') }; })()`);
-ok('Clear chain is a word button in the chain head (no ⋯ there)', clr.shown && clr.text === 'Clear chain' && !clr.more, clr);
+// (the classic chain head has the word button; the steps view has no chain head: its Clear chain is the palette's command)
+const inSteps = await ev(`document.documentElement.classList.contains('sv')`);
+await key('k', 4); await settle(400);
+await palQ('Clear chain');
+const clrRows = await ev(`[...document.querySelectorAll('.pal-item .pal-label')].map((e) => e.textContent)`);
+await key('Escape'); await settle(250);
+ok(inSteps ? 'the steps view has no chain head: Clear chain is the palette\'s command' : 'Clear chain is a word button in the chain head (no ⋯ there)',
+  inSteps ? !clr.shown && clrRows.includes('Clear chain') : clr.shown && clr.text === 'Clear chain' && !clr.more, { clr, clrRows });
 await key('k', 4); await settle(400);
 let p = await pal();
 // (#35: "Insert at the end", beside "Insert at the start" and "Insert after f₂", for Append to the chain)
@@ -97,8 +104,9 @@ p = await pal();
 ok('a connector\'s + inserts (at the start)', p && /^Insert at the start/.test(p.where), p);
 await key('Escape'); await settle(250);
 // Clear chain
-await ev(`document.getElementById('clearChain').click()`); await settle(600);
-ok('Clear chain empties the chain and hides itself', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
+await key('k', 4); await settle(400);
+await palQ('Clear chain'); await key('Enter'); await settle(600);
+ok('Clear chain (the palette\'s command) empties the chain and hides the chain head\'s button', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
 // an empty chain: no chip, the old context
 await key('k', 4); await settle(400);
 p = await pal();

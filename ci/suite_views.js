@@ -72,7 +72,7 @@ const VIEWS = {
   'complex_point_cmd.js': port('interact'),
   'complex_params_cmd.js': port('interact'),
   'custom_show_cmd.js': port('interact', 'F\'s well: after K1 item 9 (the F chip)'),
-  'd1_replace_cmd.js': port('interact'),
+  'd1_replace_cmd.js': steps({ pin: true }),
   'display_inline_cmd.js': port('interact'),
   'field_settle_cmd.js': steps({ pin: true }),
   'kbd_nav_cmd.js': port('interact', 'F6\'s areas are X, Y, chain, Inspector today'),
