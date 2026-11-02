@@ -12,7 +12,6 @@ const tag = `${CFG.lang}_${CFG.w}_${CFG.dark ? 'dark' : 'light'}`;
 const R = { tag, checks: {}, info: {} };
 const ok = (k, v, got) => { R.checks[k] = !!v; if (got !== undefined) R.info[k] = got; };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const until = async (expr, ms = 15000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = await ev(expr); if (v && !v.__exc) return Date.now() - t0; await sleep(120); } return -1; };
 const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
 const touch = async (x, y, ms = 60) => { await T('touchStart', [[x, y]]); await sleep(ms); await T('touchEnd', []); };
 const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); if (b.width < 1 || b.height < 1) return null; return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
@@ -228,7 +227,7 @@ ok('section 2b: no console errors or warnings', lB2.length === 0, lB2.slice(0, 6
   await ev(`(() => { const o = Sound.harpAlong; window.__smkHA = null; Sound.harpAlong = function (...a) { const r = o.apply(this, a); window.__smkHA = r; return r; }; return 1; })()`);
   const bc = (await center('#paneHintL .toast-act')) || (await center('#sphereChipL .chip-act'));
   if (bc) await tap(bc[0], bc[1]);
-  const tPlay = await until('!!window.__smkHA', 6000);
+  const tPlay = (await settled({ until: '!!window.__smkHA', max: 6000, only: true })).at;
   await sleep(1500);
   const ha = await ev(`({ h: window.__smkHA && { up: __smkHA.up, down: __smkHA.down, notes: __smkHA.notes }, snd: { on: Sound.state().on, audio: Sound.state().audio, events: Sound.state().events }, chip: (document.getElementById('sphereChipL') || {}).textContent, hidden: (document.getElementById('sphereChipL') || {}).hidden })`);
   await shot(`${tag}_7_mountain_king_listen`);
@@ -320,7 +319,7 @@ ok('section 5: no console errors or warnings', l1.length === 0, l1.slice(0, 8));
   if (phone) { await T('touchStart', [[g[0], g[1]]]); for (let i = 1; i <= 10; i++) { await T('touchMove', [[g[0] + (g[2] - g[0]) * i / 10, g[1] + (g[3] - g[1]) * i / 10]]); await sleep(16); } await T('touchEnd', []); }
   else await drag(g[0], g[1], g[2], g[3], 10, 16);
   const tUp = Date.now();
-  const tick = await until(`!!document.querySelector('.ts-l2.done')`, 2500);
+  const tick = (await settled({ until: `!!document.querySelector('.ts-l2.done')`, max: 2500, only: true })).at;
   const l2 = await ev(`((document.querySelector('.ts-l2') || {}).textContent || '').replace(/\u00a0/g, ' ')`);
   await shot(`${tag}_11b_tour_draw_done`);
   const atD = await advancedAt('basics/draw', tUp, 8000);
