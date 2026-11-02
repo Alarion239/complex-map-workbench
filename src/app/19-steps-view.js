@@ -431,6 +431,7 @@
   // the mesher's job runs
   const SV_CARRY_L = 2;
   function svCarryRegions(pane, map, T, b, frame, F) {
+    if ((globalThis.__svCarryProbe || {}).forceGrid) return false;
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
     const key = svSheetKey(b);
