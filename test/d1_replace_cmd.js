@@ -35,14 +35,12 @@ const clickMenu = (label) => ev(`(() => { const b = [...document.querySelectorAl
 // ======================= the laptop =======================
 await openApp({ shapes: [DISC], steps: CHAIN });
 const clr = await ev(`(() => { const b = document.getElementById('clearChain'); return { shown: !!b.getClientRects().length, text: b.textContent, more: !!document.getElementById('chainMoreBtn') }; })()`);
-// (the classic chain head has the word button; the steps view has no chain head: its Clear chain is the palette's command)
-const inSteps = await ev(`document.documentElement.classList.contains('sv')`);
+// (the steps view has no chain head: its Clear chain is the palette's command; the classic head's button is clear_chain_open_cmd.js's)
 await key('k', 4); await settle(400);
 await palQ('Clear chain');
 const clrRows = await ev(`[...document.querySelectorAll('.pal-item .pal-label')].map((e) => e.textContent)`);
 await key('Escape'); await settle(250);
-ok(inSteps ? 'the steps view has no chain head: Clear chain is the palette\'s command' : 'Clear chain is a word button in the chain head (no ⋯ there)',
-  inSteps ? !clr.shown && clrRows.includes('Clear chain') : clr.shown && clr.text === 'Clear chain' && !clr.more, { clr, clrRows });
+ok('the steps view has no chain head: Clear chain is the palette\'s command', !clr.shown && clrRows.includes('Clear chain'), { clr, clrRows });
 await key('k', 4); await settle(400);
 let p = await pal();
 // (#35: "Insert at the end", beside "Insert at the start" and "Insert after f₂", for Append to the chain)
