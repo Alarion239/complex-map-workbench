@@ -80,6 +80,7 @@ const VIEWS = {
   'mode_chips_cmd.js': port('interact'),
   'param_planes_cmd.js': port('interact'),
   'phase_key_cmd.js': steps({ pin: true }),
+  'phase_key_xy_cmd.js': classic('X → Y hides X\'s colour key: the classic view\'s two panes; phase_key_cmd.js is the steps view\'s'),
   'phase_style_cmd.js': steps({ pin: true }),
   'repeat_cmd.js': classic('the bracket under the cards and its N chip, in the pipeline row the steps view hides; steps_repeat_cmd is the steps view\'s N row'),
   'repeat_settle_cmd.js': steps({ pin: true }),
