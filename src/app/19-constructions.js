@@ -9,7 +9,10 @@
   function cmEnv() {
     const val = (raw) => { let v = null; try { v = typeof zpParse === 'function' ? zpParse(raw) : Expr.constValue(raw); } catch (e) { v = null; } return v && CX.isFin(v) ? [v.re, v.im] : null; };
     // the map that carries a z-plane point to plane k (the steps up to k)
-    const Fk = (k) => (z) => { if (z === Constr.INF) return null; try { const w = stageF(k)(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } };
+    const Fk = (k) => (z) => {
+      if (z === Constr.INF) return null;
+      try { const w = stageF(k)(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; }
+    };
     return {
       zp: (st, kind, i) => val(Funcs.splitList(st.params[kind])[i] || ''),
       zpAll: (st, kind) => Funcs.splitList(st.params[kind]).map(val),
