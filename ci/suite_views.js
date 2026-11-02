@@ -86,7 +86,7 @@ const VIEWS = {
   'repeat_settle_cmd.js': port('interact'),
   'series_edit_cmd.js': port('interact'),
   'series_params_cmd.js': port('interact'),
-  'shape_rows_cmd.js': port('interact'),
+  'shape_rows_cmd.js': steps({ pin: true }),
   'stage_shapes_cmd.js': port('interact'),
   'top_bar_focus_cmd.js': port('interact', 'without the view switch and Deformation in the bar'),
   'ux165_fix_cmd.js': port('interact'),
@@ -100,12 +100,12 @@ const VIEWS = {
   'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once, which the steps view does not have yet'),
 
   // to port: phone
-  'phone_ctx_tex_cmd.js': port('phone'),
-  'phone_focus_margin_cmd.js': port('phone'),
+  'phone_ctx_tex_cmd.js': steps({ pin: true }),
+  'phone_focus_margin_cmd.js': steps({ pin: true }),
   'phone_fwell_cmd.js': port('phone', 'F\'s well: after the F tile is settled in the steps view'),
-  'phone_sheet_target_cmd.js': port('phone'),
-  'phone_sheets_cmd.js': port('phone'),
-  'phone_toast_chain_cmd.js': port('phone'),
+  'phone_sheet_target_cmd.js': steps({ pin: true }),
+  'phone_sheets_cmd.js': steps({ pin: true }),
+  'phone_toast_chain_cmd.js': steps({ pin: true }),
   'ux165_phone_cmd.js': steps({ pin: true }),
 
   // to port: words (the tour, the Try lines left and the chapters' retargeting)

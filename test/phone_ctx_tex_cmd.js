@@ -51,6 +51,7 @@ for (const lang of ['en', 'ru']) {
     const mj = await ev(`!!(window.MathJax && MathJax.tex2svg) && !!document.querySelector('#shapeList .shape .d svg')`);
     if (!block && !mj) { info[lang + 'NoMathJax'] = 'MathJax did not load here: the typeset case is not checked'; continue; }
     ok(`${tag}: the phone layout`, await ev('!!Phone._state().on'), null);
+    ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
     const got = {};
     for (const s of SHAPES) {
       const g = got[s.id] = await barOf(s.id);

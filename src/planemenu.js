@@ -16,7 +16,7 @@ const PlaneMenu = (() => {
   const ORDER = ['object', 'constructions'];
   const providers = new Map();      // group -> [provider]
   let api = null;
-  let openedAt = 0;                 // when the last menu opened (the contextmenu event that follows a key opens nothing)
+  let openedAt = -Infinity;         // when the last menu opened (the contextmenu event that follows a key opens nothing)
   const last = { side: null, x: 0, y: 0, t: 0 };   // the pointer's last position over a plane (pane pixels)
   let mark = null, ringEl = null, live = null;
 
