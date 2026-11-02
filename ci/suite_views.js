@@ -135,14 +135,17 @@ const VIEWS = {
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
-  'tour_auto_cmd.js': port('words'),
+  'tour_auto_cmd.js': classic('every chapter\'s tasks with real input; the Views chapter\'s door is the classic view switch,'
+    + ' which the steps view lacks (chapters not yet retargeted, #620 item 11)'),
   'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
-  'tour_it360_cmd.js': port('words'),
+  'tour_it360_cmd.js': classic('walks every step of every chapter and expects at least 40; the steps view\'s tour walks 38'
+    + ' (chapters not yet retargeted, #620 item 11)'),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
   'tour_perf_cmd.js': steps({ pin: true }),
-  'tour_phone_cmd.js': port('words'),
+  'tour_phone_cmd.js': classic('walks every step of every chapter and expects at least 40 (the steps view\'s tour walks 38); the'
+    + ' strip row, the X box and the pan task in X are the classic views\' (chapters not yet retargeted, #620 item 11)'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
   'tour_titles_cmd.js': steps({ pin: true }),
