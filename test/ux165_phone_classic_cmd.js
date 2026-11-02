@@ -98,11 +98,17 @@ for (let i = 0; i < 10; i++) {   // (the planes and the tool row move while the 
   if (rest) break;
 }
 await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tc[0], y: tc[1], id: 1 }] });
-await settled({ only: true, max: 3000, until: `(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()` });   // (the long-press timer and the tip's paint land after the press)
+// (the long-press timer and the tip's paint land after the press)
+await settled({
+  only: true, max: 3000, until: `(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()`,
+});
 const lpTip = await tipText();
 const lpKey = await ev(`!!document.querySelector('#tip .tip-key')`);
 await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-await settled({ max: 3000, until: `!(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()` });   // (the tip goes when the finger lifts)
+// (the tip goes when the finger lifts)
+await settled({
+  max: 3000, until: `!(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()`,
+});
 ok('UX34 phone: a long-press shows the tip', !!lpTip, lpTip);
 ok('UX17 phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
 ok('UX34 phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
