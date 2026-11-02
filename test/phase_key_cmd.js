@@ -50,8 +50,11 @@ for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) 
       ok(`${tag}: Landscape: the chip is named for the height key, not the colour key`, r.aria.length > 2 && r.aria !== phaseAria && (lang || !/Colour/.test(r.aria)) && (lang || /^Height key/.test(r.aria)), { aria: r.aria, phaseAria });
     }
   }
-  await ev(`__cmwSetMain('xy')`); await settle(1500);
-  const x = await probe();
-  ok(`${tag}: X → Y: X's key is hidden, as before`, x.hidden, x);
+  // (the classic X → Y view shows Y's key and hides X's; the steps view has the one plane and no X → Y view)
+  if (!(await ev(`document.documentElement.classList.contains('sv')`))) {
+    await ev(`__cmwSetMain('xy')`); await settle(1500);
+    const x = await probe();
+    ok(`${tag}: X → Y: X's key is hidden, as before`, x.hidden, x);
+  }
 }
 return { pass: fails.length === 0, fails, info: { n: info.rows.length, sample: info.rows.slice(0, 4) } };

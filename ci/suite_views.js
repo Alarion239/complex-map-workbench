@@ -79,7 +79,7 @@ const VIEWS = {
   'key_popup_cmd.js': port('interact'),
   'mode_chips_cmd.js': port('interact'),
   'param_planes_cmd.js': port('interact'),
-  'phase_key_cmd.js': port('interact'),
+  'phase_key_cmd.js': steps({ pin: true }),
   'phase_style_cmd.js': steps({ pin: true }),
   'repeat_cmd.js': port('interact'),
   'repeat_settle_cmd.js': steps({ pin: true }),
