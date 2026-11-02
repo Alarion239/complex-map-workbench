@@ -121,6 +121,9 @@
     lineFC: { chain: false, vs: () => FIN + LINE_VS('F', 'tex'), fs: () => FADE + LINE_FS },
     // the map cache passes: a point draw into the cache texture (rt), else transform feedback
     tfRegion: { chain: true, vs: () => TF_REGION_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
+    // (probe, scratch: the same evaluation by transform feedback, and the point pass with the chain left out)
+    tfRegionX: { chain: true, vs: () => TF_REGION_VS(false), fs: () => TF_FS, tf: true },
+    tfRegionId: { chain: true, vs: () => TF_REGION_VS(rtOK).replace('emit(mapPoint(srcOf(bary(aT))))', 'emit(srcOf(bary(aT)))'), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     tfLine: { chain: true, vs: () => TF_LINE_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     // TEMP-DEBUG-HOOK (removed before publishing)
     evalPt: { chain: true, vs: () => EVAL_VS, fs: () => TF_FS, tf: true },
@@ -1178,15 +1181,16 @@ float wabs(vec2 w) {
   // need the per-vertex chain programs (region, line): adding a step compiles two chain programs instead of four
   // (spec 8.7), and a frame evaluates the chain ~10x less often than per vertex. null while nothing can evaluate.
   function tmpEntry(res, isMesh, L, map) {
-    const P = program(isMesh ? 'tfRegion' : 'tfLine', map);
+    const pm = (globalThis.__svCarryProbe || {}).tfMode;
+    const P = program(isMesh ? (pm === 'tf' ? 'tfRegionX' : pm === 'pts' ? 'tfRegionId' : 'tfRegion') : 'tfLine', map);
     if (!P) return null;
     const tpl = isMesh ? regionTemplate(L) : lineTemplate(L);
     const count = tpl.P * res.n;
     const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(count / W));
-    if (H > maxTex || !P.rt) return null;
+    if (H > maxTex || !(P.rt || (isMesh && pm === 'tf'))) return null;
     if (!res.tmp) res.tmp = new Map();
     const slot = (isMesh ? 'm' : 'l') + L;
-    const key = `${mapKeyOf(mapIn(P, map))}|${P.ch.key}|${P.ch.hash}`;
+    const key = `${mapKeyOf(mapIn(P, map))}|${P.ch.key}|${P.ch.hash}|${isMesh ? pm || '' : ''}`;
     let e = res.tmp.get(slot);
     const now = performance.now();
     sweepTmpLater();
@@ -1203,7 +1207,8 @@ float wabs(vec2 w) {
     { const pr = globalThis.__svCarryProbe; if (pr) { pr.tf = (pr.tf || 0) + 1; const k = `${slot}:${res.n}:${map && map.t}`; (pr.by = pr.by || {})[k] = (pr.by[k] || 0) + 1; } }
     use(P, map);
     originUniforms(P, res.org);
-    runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
+    if (isMesh && pm === 'tf') runTF(P, meshTFVAO(res, L), gl.POINTS, tpl.P, res.n, W * H * 8, e.tex, W, H, gl.RG32F, gl.RG);
+    else runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
     return e;
   }
   function bindCache(P, e) {
