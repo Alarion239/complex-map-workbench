@@ -1,4 +1,4 @@
-// Toasts (#515): at 1024×768, en and ru, in the classic view and in ?view=steps, after adding two steps from the palette
+// Toasts (#515): at 1024×768, en, ru and it, in the classic view and in ?view=steps, after adding two steps from the palette
 // (Ctrl+K "sine", "exponential"), a desktop toast covers no plane and no control and is never cut: no violation of
 // __layout.toasts() (test/lib/layout.js) and no cut text in the toast host. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -11,7 +11,7 @@ const nSteps = () => ev('__cmwP().steps.length');
 const add = async (word) => { const n = await nSteps(); for (let i = 0; i < 3 && (await nSteps()) === n; i++) { await key('k', 2); await settle(400); await type(word); await settle(400); await key('Enter'); await settle(150); } };
 // (the toast stays 5 s; the measure runs as soon as it shows, and the page is given a moment to place it)
 const shown = async () => { for (let i = 0; i < 20; i++) { if (await ev(`!!document.querySelector('#toastHost .toast')`)) return true; await sleep(100); } return false; };
-for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
+for (const lang of ['en', 'ru', 'it']) for (const vw of ['classic', 'steps']) {
   const at = `${lang} ${vw}`;
   await view(1024, 768, false);
   await nav(`${U}?ns=toast515-${lang}-${vw}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`); await settle(2500);
@@ -41,10 +41,12 @@ for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
       const strip = document.getElementById('svStrip'), th = document.getElementById('toastHost'), t = th.querySelector('.toast');
       const live = [...strip.querySelectorAll('.sv-nav, .sv-speed')].map((e) => ({ c: e.className, ok: top(e) }));
       const tb = t.getBoundingClientRect(), rb = strip.querySelector('.sv-rail').getBoundingClientRect(), room = Math.max(rb.right, ...[...strip.querySelectorAll('.sv-wholemap, .sv-add')].map((e) => e.getBoundingClientRect().right));   // (the F chip and + Add function beside the rail step aside with the planes: the message may take their room)
-      return { placed: th.getAttribute('data-placed'), cls: strip.classList.contains('sv-toast'), live, inRail: tb.left >= rb.left - 1 && tb.right <= room + 1 && tb.top >= rb.top - 8 && tb.bottom <= rb.bottom + 8, tb: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), rb: [rb.left, rb.top, rb.right, rb.bottom].map(Math.round),
+      const fit = tb.height <= strip.getBoundingClientRect().height + 0.5;
+      return { placed: th.getAttribute('data-placed'), cls: strip.classList.contains('sv-toast'), live, fit, inRail: tb.left >= rb.left - 1 && tb.right <= room + 1 && tb.top >= rb.top - 8 && tb.bottom <= rb.bottom + 8, tb: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), rb: [rb.left, rb.top, rb.right, rb.bottom].map(Math.round),
         covers: [...strip.querySelectorAll('button, select, input')].filter((e) => getComputedStyle(e).visibility !== 'hidden').filter((e) => { const b = e.getBoundingClientRect(); return Math.min(b.right, tb.right) - Math.max(b.left, tb.left) > 2 && Math.min(b.bottom, tb.bottom) - Math.max(b.top, tb.top) > 2; }).map((e) => e.className) };
     })()`);
     if (g.placed !== 'rail' || !g.cls) fails.push(`${at}: the toast is not placed over the rail: ${JSON.stringify(g)}`);
+    else if (!g.fit) fails.push(`${at}: the toast is taller than the thread's strip: ${JSON.stringify(g.tb)}`);
     else if (!g.inRail) fails.push(`${at}: the toast is not inside the rail (and the F chip's room): ${JSON.stringify(g)}`);
     else if (g.covers.length) fails.push(`${at}: the toast covers a live control: ${JSON.stringify(g)}`);
     else if (!g.live.length || g.live.some((l) => !l.ok)) fails.push(`${at}: < > or the speed is not hit-testable under the toast: ${JSON.stringify(g.live)}`);

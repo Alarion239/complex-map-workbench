@@ -49,6 +49,7 @@ const VIEWS = {
   'sv_curve_menu_cmd.js': steps(),
   'sv_globe_mask_cmd.js': steps(),
   'sv_globe_draw_cmd.js': steps(),
+  'sv_construct_plane_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
   'toasts_515_cmd.js': steps(),
   'tour_planes_cmd.js': steps(),
@@ -136,18 +137,23 @@ const VIEWS = {
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
-  'tour_auto_cmd.js': port('words'),
-  'tour_chapters_cmd.js': port('words'),
+  'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (#717):'
+    + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
+  'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
-  'tour_it360_cmd.js': port('words'),
-  'tour_lane_cmd.js': port('words'),
+  'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
+    + ' chapters (#717), whose tour walks 38'),
+  'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
-  'tour_perf_cmd.js': port('words'),
-  'tour_phone_cmd.js': port('words'),
-  'tour_skip_hover_cmd.js': port('words'),
+  'tour_perf_cmd.js': steps({ pin: true }),
+  'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour walks 38), and'
+    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
+  'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
-  'tour_titles_cmd.js': port('words'),
-  'tour_words_cmd.js': port('words'),
+  'tour_titles_cmd.js': steps({ pin: true }),
+  'tour_words_cmd.js': steps({ pin: true }),
+  'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
+    + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the retargeted tour chapters and the F chip'),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
@@ -176,11 +182,11 @@ const VIEWS = {
   'ux165_rail_cmd.js': steps({ pin: true }),
 
   // to port: render
-  'cauchy_residue_cmd.js': port('render'),
+  'cauchy_residue_cmd.js': steps({ pin: true }),
   'deform_dirichlet_cmd.js': port('render', 'the glide on a Dirichlet series instead of the Deformation click'),
   'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
-  'link_standin_cmd.js': port('render'),
-  'overlay_ghost_cmd.js': port('render'),
+  'link_standin_cmd.js': port('render', 'the steps view\'s last plane draws no stand-in while its chain links: it shows an empty plane with "Compiling…", where the classic right pane shows the CPU-mapped shape'),
+  'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': port('render'),
@@ -188,7 +194,7 @@ const VIEWS = {
   'p5_accept_cmd.js': port('render'),
   'regions_phase_cmd.js': steps({ pin: true }),
   'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
-  'sphere_light_cmd.js': port('render'),
+  'sphere_light_cmd.js': steps({ pin: true }),
 
   // to port: sound (Pietro's team, #580 and #598)
   'seasong_cmd.js': port('sound'),
