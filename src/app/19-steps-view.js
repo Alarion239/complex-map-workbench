@@ -617,15 +617,6 @@
     }
     return true;
   }
-  // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
-  // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
-  // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
-  // (opened if need be). False (nothing more drawn) unless every shape draws so
-  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
-  // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
-  // F (at rest or parked: the map's CPU function): the tiling's fix-up job is asked for the shapes under map
-  // (svWantFix), and each mesh is drawn with its fix-up once it lands (carryFix: the cells the map bends too much
-  // refined, drawn as an extra mesh of their own, their base cells skipped)
   const SV_CARRY_L = 2;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
   // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
@@ -657,6 +648,15 @@
     svRingMemo = { key, ring, m };
     return ring;
   }
+  // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
+  // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
+  // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
+  // (opened if need be). False (nothing more drawn) unless every shape draws so
+  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
+  // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
+  // F (at rest or parked: the map's CPU function): the tiling's fix-up job is asked for the shapes under map
+  // (svWantFix), and each mesh is drawn with its fix-up once it lands (carryFix: the cells the map bends too much
+  // refined, drawn as an extra mesh of their own, their base cells skipped)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
