@@ -24,7 +24,7 @@ const scan = RT.scanner({ ev, LANG, fails, info });
 const settle = async (mj) => {
   const t0 = Date.now();
   await sleep(1500);
-  if (mj) for (let k = 0; k < 40 && !(await ev('!!(window.MathJax && MathJax.tex2svg)')); k++) await sleep(250);
+  if (mj) await settled({ until: `!!(window.MathJax && MathJax.tex2svg)`, max: 10000 });
   await sleep(mj ? 1200 : 400);
   info.settleMs = (info.settleMs || 0) + Date.now() - t0;
 };
@@ -40,7 +40,7 @@ async function openShapes(page) {
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', lang: LANG, shapes: SHAPES, steps: [{ type: 'pown', params: { n: 2 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}/${page}?ns=${ns}&lang=${LANG}` }); await sleep(2200);
-  for (let i = 0; i < 40 && !(await ev(`typeof __cmwSetMain === 'function'`)); i++) await sleep(250);
+  await settled({ until: `typeof __cmwSetMain === 'function'`, max: 10000 });
 }
 for (const page of MJ ? ['test-nomj.html', 'test-mj.html'] : ['test-nomj.html']) {
   const mj = page === 'test-mj.html';

@@ -1,5 +1,5 @@
 // The raw-TeX scan shared by test/raw_tex_cmd.js (the steps view) and test/raw_tex_classic_cmd.js (X → Y, Phase and
-// Landscape): each eval's this file and gets { RECORDER, SCAN, scanner }.
+// Landscape): a suite evals this file and gets { RECORDER, SCAN, scanner }.
 //   RECORDER  the page script that records the text drawn on canvases (fillText, strokeText), installed before the page's
 //             own scripts run (Page.addScriptToEvaluateOnNewDocument)
 //   SCAN      the expression that reads the visible text, the accessible names and tooltips and the recorded canvas text,
