@@ -1,13 +1,14 @@
 // [#465] No raw TeX on the screen: a formula's source (\text{кривая, 5 точек}, \frac{1}{z}, z^{2}, u_k) never shows as
 // text, before MathJax has loaded (or where it cannot: a blocked CDN) nor after. Scanned: the visible text, the
 // accessible names and tooltips (aria-label, title, data-tip, alt) and the text drawn on canvases (fillText,
-// strokeText, recorded from the page's first script). Where: drawn shapes (a curve, a polygon, a disc, a point) in
-// the steps view, on the plane z, on the plane w₁, on the sphere and on the landscape, each selected in turn, then every example of the gallery, on the page without MathJax
-// (test-nomj.html: what the page shows until MathJax arrives) and with it (test-mj.html: MathJax 4 and its STIX2 font
-// from vendor/, no CDN), and the shapes at a phone's width. One language per run (LANG, ci/browser_suites.js); the page
-// with MathJax only where MJ is set (en and ru: Alexander's report was Russian with MathJax, a Cyrillic \text MathJax
-// did not set; it is not set for it, whose tooltips, names and canvas text read the same with MathJax or without and are
-// read on the page without it). It runs in the steps view (ci/suite_views.js: steps({ pin: true })). A command file for a CDP daemon.
+// strokeText, recorded from the page's first script). Where: drawn shapes (a curve, a polygon, a disc, a point) in the
+// steps view, on the plane z, on the plane w₁, on the sphere and on the landscape, each selected in turn, then every
+// example of the gallery, on the page without MathJax (test-nomj.html: what the page shows until MathJax arrives) and
+// with it (test-mj.html: MathJax 4 and its STIX2 font from vendor/, no CDN), and the shapes at a phone's width. One
+// language per run (LANG, ci/browser_suites.js); the page with MathJax only where MJ is set (en and ru: Alexander's
+// report was Russian with MathJax, a Cyrillic \text MathJax did not set; it is not set for it, whose tooltips, names
+// and canvas text read the same with MathJax or without and are read on the page without it). It runs in the steps view
+// (ci/suite_views.js: steps({ pin: true })). A command file for a CDP daemon.
 const fails = [], info = { scanned: 0 };
 const LANG = globalThis.LANG || 'ru';
 const MJ = globalThis.MJ !== false;
