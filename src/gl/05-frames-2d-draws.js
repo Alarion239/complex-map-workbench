@@ -393,10 +393,12 @@
     { const ps = globalThis.__svPathStats; if (ps) { const nm = P.name || 'regionK'; ps[nm] = (ps[nm] || 0) + 1; if (fill) { ps.fill = (ps.fill || 0) + 1; ps[fill.name] = (ps[fill.name] || 0) + 1; } ps.carryVerts = (ps.carryVerts || 0) + n * res.n; } }   // (probe, scratch)
     set(P);
     carryDraw(k, st.depth, () => {
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
-      const sheet = fill || full;
-      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
-      if (sheet && clip) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      // (probe, scratch: noKCDraw, the cached places not drawn; noFillDraw, the fill and its clip pass not drawn (its
+      // point pass still runs); noClipPass, the clip pass (uKPass 1) not drawn)
+      if (!probe.noKCDraw) gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      const sheet = probe.noFillDraw && fill ? null : fill || full;
+      if (fill && !probe.noFillDraw) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      if (sheet && clip && !probe.noClipPass) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
     });
     gl.bindVertexArray(null);
     return true;

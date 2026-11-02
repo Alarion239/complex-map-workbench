@@ -986,10 +986,13 @@ async function svInteractUnit(scene) {
 // globalThis.__svCarryProbe settings, in turn within each rep (so drift falls on all alike): frame p95, cpu p95 and fps
 // per setting, as info, a summary line per setting in the log, and __svPathStats logged per scrub leg. Scenes (SVP_SCENES):
 // the Mountain King, the Joukowski airfoil, the default page, and z^3 after a Möbius on a half-plane (steps_play_cmd.js)
-const SVP_SETTINGS = { base: {}, fillTex: { fillTex: true }, fillGate: { fillTex: true, fillGate: true }, noFill: { noFill: true }, noCarry: { noCarry: true } };
+// (attribution: gateNoDraw, fillGate's point pass without the fill draw; gateNoClip, fillGate without the clip pass;
+// cacheOnly, the cache pass alone (no carry draw, no fill))
+const SVP_SETTINGS = { base: {}, fillGate: { fillTex: true, fillGate: true }, gateNoDraw: { fillTex: true, fillGate: true, noFillDraw: true }, gateNoClip: { fillTex: true, fillGate: true, noClipPass: true }, noFill: { noFill: true }, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };
 const SVP_SCENES = {
   king: { ex: 'In the Hall of the Mountain King' },
   jouk: { ex: 'Joukowski airfoil' },
+  jouk2: { ex: 'Joukowski airfoil' },   // (the same scene again: is its fillGate loss real)
   default: {},
   pow: { state: { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
     steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } } },
@@ -1966,11 +1969,12 @@ unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its ar
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
-unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub under globalThis.__svCarryProbe {base, fillTex, fillGate, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('king'), { timeoutS: 900 });
-unit('svp.jouk', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub under globalThis.__svCarryProbe {base, fillTex, fillGate, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('jouk'), { timeoutS: 900 });
-unit('svp.default', 'probe for #643 (not for merge): the default page strip scrub under globalThis.__svCarryProbe {base, fillTex, fillGate, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('default'), { timeoutS: 900 });
-unit('svp.pow', 'probe for #643 (not for merge): z^3 after a Mobius on a half-plane strip scrub under globalThis.__svCarryProbe {base, fillTex, fillGate, noFill, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('pow'), { timeoutS: 900 });
-unit('svp.kingpx', 'probe for #643 (not for merge): the Mountain King held mid-glide, canvasL under fillTex against base and base against base, info only', () => svProbeExactUnit(), { timeoutS: 600 });
+unit('svp.king', 'probe for #643 (not for merge): the Mountain King strip scrub under globalThis.__svCarryProbe {base, fillGate, gateNoDraw, gateNoClip, noFill, cacheOnly, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('king'), { timeoutS: 900 });
+unit('svp.jouk', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub under globalThis.__svCarryProbe {base, fillGate, gateNoDraw, gateNoClip, noFill, cacheOnly, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('jouk'), { timeoutS: 900 });
+unit('svp.jouk2', 'probe for #643 (not for merge): the Joukowski airfoil strip scrub again (svp.jouk repeated in the same run), info only', () => svProbeUnit('jouk2'), { timeoutS: 900 });
+unit('svp.default', 'probe for #643 (not for merge): the default page strip scrub under globalThis.__svCarryProbe {base, fillGate, gateNoDraw, gateNoClip, noFill, cacheOnly, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('default'), { timeoutS: 900 });
+unit('svp.pow', 'probe for #643 (not for merge): z^3 after a Mobius on a half-plane strip scrub under globalThis.__svCarryProbe {base, fillGate, gateNoDraw, gateNoClip, noFill, cacheOnly, noCarry}, with __svPathStats logged per scrub leg, info only', () => svProbeUnit('pow'), { timeoutS: 900 });
+unit('svp.kingpx', 'probe for #643 (not for merge): the Mountain King held mid-glide, canvasL under fillTex and fillGate against base and base against base, info only', () => svProbeExactUnit(), { timeoutS: 600 });
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
