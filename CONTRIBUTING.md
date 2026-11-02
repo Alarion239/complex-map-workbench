@@ -37,8 +37,9 @@ ruff check
 - Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
   versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
   test whose snapshot is missing fails and says so (#427).
-- `lint`, `typecheck` and `ruff` are report-only for now (`.github/workflows/lint.yml`): don't add new findings in the
-  code you touch, and fix the ones next to it when it's cheap. See issue #20 for the plan to bring them to zero.
+- `lint`, `typecheck` and `ruff` fail the Lint job on any error (`.github/workflows/lint.yml`): ESLint and tsc are at
+  zero, and `ci/lint_baseline.json` holds them there (`node ci/lint_ratchet.js check eslint.json tsc.txt`). ESLint
+  warnings are listed, not gated; clear the ones in the code you touch when it's cheap.
 
 ## Code
 

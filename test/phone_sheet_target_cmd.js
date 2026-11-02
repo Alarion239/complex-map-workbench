@@ -26,6 +26,7 @@ const probe = () => ev(`(() => { const sh = document.querySelector('.ph-sheet:no
 for (const lang of ['en', 'ru', 'it']) for (const w of [360, 390]) {
   const tag = `${w} ${lang}`;
   await open(w, w === 360 ? 740 : 844, lang);
+  ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   for (const k of ['edit', 'chain', 'display', 'more', 'tools']) {
     await ev(`Phone.open('${k}'); 1`); await sheetSettled();
     const t = await probe();

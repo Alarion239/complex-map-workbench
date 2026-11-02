@@ -76,6 +76,9 @@ for (const [name, shape, runs] of SCENES) for (const [surf, k, linking] of runs)
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
   for (let i = 0; i < 40 && !(await ev(`typeof __cmwSteps === 'function' && typeof __cmwLeftZ === 'function'`)); i++) await sleep(250);
+  // (the regions' outlines left out: they are drawn in the region's colour over the rim, on both pictures, and the
+  // suite measures the mask under them)
+  await ev(`__cmwHideStrokes(true)`);
   await quiet();
   await ev(`__cmwSteps({ go: ${k}, now: true, surf: '${surf}', scope: 'all' }), 1`); await quiet();
   const rect = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; })()`);

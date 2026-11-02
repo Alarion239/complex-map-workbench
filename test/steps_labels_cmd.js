@@ -14,13 +14,16 @@ const ns = 'svl' + Date.now();
 // zeta, a circle and a point: the circle's 600 samples go through zeta's map, the point has a label
 const st = { v3: true, v4: true, v5: true, v6: true,
   shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0], r: 0.8, ci: 0, visible: true }, { id: 'sp', kind: 'point', p: [0.4, 0.3], ci: 1, visible: true }],
-  steps: [{ type: 'zeta', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+  steps: [{ type: 'zeta', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 },
+  sv: { speed: 'slow' } };   // (a glide that lasts: a slow runner draws few frames of a quick one, and the check needs frames on the move)
 const open = async () => {
   await view(1280, 800, false, false);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && typeof __cmwLabelStats === 'object'` }); await quiet();
+  // (a first glide links its shader program and draws no frame meanwhile: one there and back before anything is counted)
+  await ctl({ go: 1 }); await quiet(); await ctl({ go: 0, now: true }); await quiet();
 };
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const stats = () => ev(`(() => { const s = __cmwLabelStats; return { n: s.n, ms: s.ms, list: s.list || [] }; })()`);
@@ -44,6 +47,8 @@ for (const scope of ['all', 'in']) {
   const redraw = async () => { await ctl({ scope: scope === 'all' ? 'in' : 'all' }); await quiet(); await zero(); await ctl({ scope }); await quiet('__cmwLabelStats.n >= 1'); };
   await open();
   await ctl({ scope, go: 1, now: true }); await quiet();
+  // (this scope's first glide links its own program: one there and back, then the plane the checks start from)
+  await ctl({ go: 0 }); await quiet(); await ctl({ go: 1, now: true }); await quiet();
   // a pass at rest: the plane drawn again once
   await redraw();
   const r0 = await stats();
