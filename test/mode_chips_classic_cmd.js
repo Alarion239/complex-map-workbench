@@ -3,7 +3,7 @@
 // is the classic views' part, until K3. A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
-const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'mode_chips_kit.js'), 'utf8')), st = K.st, clickText = K.clickText;
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'mode_chips_kit.js'), 'utf8')), st = K.st;
 await K.open();
 // the tool is the first level
 await key('l'); await settled({ floor: 200 });
@@ -20,11 +20,9 @@ ok('Esc 2 shows both planes', !s.chips.some((c) => /hidden/.test(c)) && s.solo =
 const cc = await ev(`(() => { const r = document.querySelector('#pipeline .card:not(.region-card)').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
 await click(cc[0], cc[1]); await settled({ floor: 800 });
 // (the Inspector shows the step's button a moment after the card is picked, longer on a slow machine: waited for)
-let pressed = false;
-for (let i = 0; i < 40 && !pressed; i++) {
-  pressed = await ev(`(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Show f\\S* alone$/.test(x.getAttribute('aria-label') || '') || /Show alone/.test(x.textContent)); if (b) b.click(); return !!b; })()`);
-  if (!pressed) await sleep(250);
-}
+const aloneBtn = `(() => [...document.querySelectorAll('button')].find((x) => /^Show f\\S* alone$/.test(x.getAttribute('aria-label') || '') || /Show alone/.test(x.textContent)))()`;
+await settled({ until: `!!${aloneBtn}`, max: 12000 });
+await ev(`${aloneBtn}.click()`);
 await settled({ floor: 800 });
 await ev(`document.getElementById('rightSolo').click()`); await settled({ floor: 400 });
 s = await st();

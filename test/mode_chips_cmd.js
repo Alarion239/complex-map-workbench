@@ -3,7 +3,7 @@
 // deformation chips are the classic views' and are mode_chips_classic_cmd.js). A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
-const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'mode_chips_kit.js'), 'utf8')), st = K.st, clickText = K.clickText;
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'mode_chips_kit.js'), 'utf8')), st = K.st;
 await K.open();
 // a Construct tool shows in the head with its pick count, and Esc leaves it
 await key('e'); await settled({ floor: 300 });
