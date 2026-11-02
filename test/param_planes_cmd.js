@@ -8,22 +8,32 @@
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (the page quiet: nothing pending, the frames drawn)
+const settle = (max = 3000) => settled({ max });
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''))); };
+// the page with state st; focus k > 0 shows plane w_{k−1} on the left: the classic X pane of step k, or in the steps
+// view that plane itself
 async function openApp(st) {
   const ns = 'pp' + Date.now();
   await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image', focus: 0, srcView: { cx: 0, cy: 0, s: 120 } }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
-  // (a loaded machine: the page answers once its hooks and the chain are up)
-  for (let i = 0; i < 60 && !(await ev(`typeof __cmwPre === 'function' && typeof __cmwP === 'function' && !!document.querySelector('#pipeline .card')`)); i++) await sleep(250);
-  await settle(1500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}`);
+  await settled({ max: 20000, until: `typeof __cmwPre === 'function' && typeof __cmwP === 'function' && (!!document.querySelector('#pipeline .card') || (typeof __cmwSteps === 'function' && __cmwSteps().on))` });
+  if (o.focus > 0 && (await ev(`typeof __cmwSteps === 'function' && __cmwSteps().on`))) {
+    await ev(`__cmwSteps({ go: ${o.focus - 1}, now: true }), 1`);
+    await settled({ max: 15000, until: `!__cmwSteps().moving && __cmwSteps().stage === ${o.focus - 1}` });
+  }
+  await settle(5000);
 }
 const pre = async () => ev(`__cmwPre('L')`);
+// (the preimages of point id solved for its place p: the search, or the following of a move, has caught up)
+const preAt = (id, re, im) => settled({ max: 10000, until: `(() => { const e = __cmwPre('L').list.find((q) => q.id === '${id}'); return !!e && Math.abs(e.p[0] - (${re})) < 1e-12 && Math.abs(e.p[1] - (${im})) < 1e-12; })()` });
+// (the dots of point id drawn)
+const preDrawn = (id) => settled({ max: 15000, until: `__cmwPre('L').hits.some((h) => h.id === '${id}')` });
 const aVal = async () => { const p = (await ev('__cmwP()')).params.find((q) => q.name === 'a'); return p ? [p.value, p.im || 0] : null; };
 const near = (z, re, im, tol = 1e-6) => !!z && Math.abs(z[0] - re) < tol && Math.abs(z[1] - im) < tol;
 const has = (sols, re, im, tol) => sols.some((z) => near(z, re, im, tol));
@@ -35,7 +45,7 @@ const sq = { type: 'pown', params: { n: 2 }, on: true }, plus1 = { type: 'add', 
 
 // ---- A: a in w₁ under w₁ = z²: its preimages in the z-plane are ±1
 await openApp({ steps: [sq, plus1], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(800);
+await preDrawn('pa');
 let P = await pre();
 const e0 = P.list.find((e) => e.id === 'pa');
 info.A = P.list;
@@ -46,17 +56,17 @@ ok('A both are drawn as dots in X', P.hits.length === 2, P.hits);
 const n0 = (await ev('__cmwP()')).n;
 await ev(`document.querySelector('.tool[data-tool="select"]').click(); 1`);
 const p1 = await at(1, 0), p2 = await at(1.2, 0);
-await drag(p1[0], p1[1], p2[0], p2[1], 12, 16); await settle(1200);
+await drag(p1[0], p1[1], p2[0], p2[1], 12, 16); await settle();
 info.B = { a: await aVal(), pre: (await pre()).list };
 ok('B dragging a preimage moves the number: a = (z at the pointer)² ≈ 1.44', !!info.B.a && Math.abs(info.B.a[0] - 1.44) < 0.03 && Math.abs(info.B.a[1]) < 0.03, info.B);
 const eB = info.B.pre.find((e) => e.id === 'pa');
 ok('B the other preimage follows, at −√a', !!eB && eB.sols.some((z) => Math.abs(z[0] + Math.sqrt(info.B.a[0])) < 1e-4 && Math.abs(z[1]) < 1e-4), info.B);
 ok('B the drag is one Undo step', (await ev('__cmwP()')).n === n0 + 1, [n0, (await ev('__cmwP()')).n]);
-await ev(`document.getElementById('undoBtn').click()`); await settle(900);
+await ev(`document.getElementById('undoBtn').click()`); await settled({ max: 5000, until: `(() => { const p = __cmwP().params.find((q) => q.name === 'a'); return !!p && p.value === 1 && !(p.im || 0); })()` });
 ok('B Undo brings a = 1 back', near(await aVal(), 1, 0), await aVal());
 
 // ---- C: a slider (or any change of a) moves the dots with it: a = i → preimages ±e^{iπ/4}
-await ev(`Params.set('a', { re: 0, im: 1 }, { live: true })`); await settle(200);
+await ev(`Params.set('a', { re: 0, im: 1 }, { live: true })`); await preAt('pa', 0, 1);
 const eC = (await pre()).list.find((e) => e.id === 'pa');
 const r2 = Math.SQRT1_2;
 info.C = eC;
@@ -64,7 +74,7 @@ ok('C a change of a moves its preimages at once (followed, not searched): ±(1 +
 
 // ---- D: more than 4 preimages: z⁸ (a = 1 gives the 8 roots of unity): 4 drawn, "+4 more"
 await openApp({ steps: [{ type: 'pown', params: { n: 8 }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(1500);
+await preDrawn('pa');
 P = await pre();
 const eD = P.list.find((e) => e.id === 'pa');
 info.D = { n: eD && eD.sols.length, hits: P.hits.length };
@@ -81,31 +91,29 @@ const h = P.hits[0];
 const pz = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left + ${h.x}, c.top + ${h.y}]; })()`);
 info.dragPre = await frames(pz, [pz[0] + 25, pz[1] + 10]);
 await openApp({ focus: 2, steps: [{ type: 'pown', params: { n: 8 }, on: true }, plus1], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(1200);
 const ph = await at(1, 0);
 info.dragHome = await frames(ph, [ph[0] + 25, ph[1] + 10]);
 ok('timing: a drag of one of 8 preimages keeps frames within 2× a drag of the point in its own plane', info.dragPre <= 2 * Math.max(16.7, info.dragHome), [info.dragPre, info.dragHome]);
 
 // ---- E: a step between that uses a: its preimages are shown, not dragged (Q4)
 await openApp({ steps: [{ type: 'custom', params: { expr: 'z^2+a' }, on: true }, plus1], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(1500);
+await preDrawn('pa');
 P = await pre();
 const eE = P.list.find((e) => e.id === 'pa');
 ok('E z² + a with a in w₁: the preimages of a are drawn (z² + a = a: z = 0, twice)', !!eE && eE.sols.length >= 1 && has(eE.sols, 0, 0, 1e-4), eE);
 const a0 = await aVal(), q0 = await at(0, 0), q1 = await at(0.3, 0.2);
-await drag(q0[0], q0[1], q1[0], q1[1], 10, 16); await settle(600);
+await drag(q0[0], q0[1], q1[0], q1[1], 10, 16); await settle();
 ok('E … and a press on one does not move a', near(await aVal(), a0[0], a0[1]), [a0, await aVal()]);
 
 // ---- F: "New complex number here" in the plane X shows (focus 2: w₁), on a shape there
 await openApp({ focus: 2, steps: [sq, plus1], shapes: [{ id: 'd1', kind: 'disc', c: [0.5, 0.5], r: 0.4, ci: 0, visible: true, stage: 1 }] });
-await settle(800);
 const c1 = await at(0.5, 0.5);
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c1[0], y: c1[1], button: 'right', buttons: 2, clickCount: 1 });
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c1[0], y: c1[1], button: 'right', buttons: 0, clickCount: 1 });
-await settle(400);
+await settled({ max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
 info.menu = await ev(`[...document.querySelectorAll('#popHost .mi .mi-label, .pmenu .mi-label, [role=menu] [role=menuitem]')].map((e) => e.textContent)`);
 const made = await ev(`(() => { const b = [...document.querySelectorAll('[role=menuitem], .mi')].find((e) => /New complex number here/.test(e.textContent)); if (!b) return false; b.click(); return true; })()`);
-await settle(600);
+await settled({ max: 5000, until: `__cmwP().shapes.some((s) => s.kind === 'point')` });
 const S6 = await ev('__cmwP()');
 const np = S6.shapes.find((s) => s.kind === 'point');
 ok('F "New complex number here" is offered in w₁ and makes a number and its point there', made === true && !!np && np.stage === 1 && S6.params.length === 1, { made, menu: info.menu, shapes: S6.shapes, params: S6.params });
@@ -113,26 +121,26 @@ ok('F … whose value is the place in w₁', !!np && Math.abs(S6.params[0].value
 
 // ---- G (#291, option 3): a rational chain lists its preimages exactly, all of them; another chain searches
 await openApp({ steps: [{ type: 'pown', params: { n: 8 }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(1200);
+await preDrawn('pa');
 let G = (await pre()).list.find((e) => e.id === 'pa');
 ok('G z⁸ is listed exactly: 8 preimages, every one maps to a', !!G && G.exact && G.sols.length === 8 && G.sols.every((z) => { const r = Math.hypot(...z), t = Math.atan2(z[1], z[0]); return Math.abs(r ** 8 - 1) < 1e-9 && Math.abs(Math.sin(8 * t)) < 1e-9; }), G);
 await openApp({ steps: [{ type: 'custom', params: { expr: 'z^8+0.001z^3' }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(1500);
+await preDrawn('pa');
 const Gs = (await pre()).list.find((e) => e.id === 'pa');
 ok('G a degree-8 polynomial the catalog does not invert keeps the search (not exact)', !!Gs && !Gs.exact && Gs.sols.length >= 1, Gs);
 // the cost of a frame of motion: the exact list against the tracker, 8 preimages each (the largest of 12 live steps)
-const frameCost = async () => { let mx = 0; for (let i = 1; i <= 12; i++) { await ev(`Params.set('a', { re: ${1 + 0.02 * i}, im: ${0.01 * i} }, { live: true }); 1`); await settle(30); mx = Math.max(mx, (await pre()).trackMs || 0); } return +mx.toFixed(3); };
+const frameCost = async () => { let mx = 0; for (let i = 1; i <= 12; i++) { const re = 1 + 0.02 * i, im = 0.01 * i; await ev(`Params.set('a', { re: ${re}, im: ${im} }, { live: true }); 1`); await preAt('pa', re, im); mx = Math.max(mx, (await pre()).trackMs || 0); } return +mx.toFixed(3); };
 info.trackerMs = await frameCost();
 await openApp({ steps: [{ type: 'pown', params: { n: 8 }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
-await settle(1200);
+await preDrawn('pa');
 info.exactMs = await frameCost();
 ok('timing: the exact list costs a frame no more than the tracker (8 preimages)', info.exactMs <= Math.max(0.5, info.trackerMs), [info.exactMs, info.trackerMs]);
 
 // ---- H (#291): through a critical value: a in w₁ under z² goes 0.01 → 0 → −0.01 while moving (no search runs): the
 // dots are ±0.1i, distinct (Newton tracking through w = 0 can lose or merge them)
 await openApp({ steps: [sq, plus1], params: numA(0.01, 0), shapes: [pointA(1, 0.01, 0)] });
-await settle(1200);
-for (const x of [0.005, 0.001, 0, -0.001, -0.005, -0.01]) { await ev(`Params.set('a', { re: ${x}, im: 0 }, { live: true }); 1`); await settle(30); }
+await preDrawn('pa');
+for (const x of [0.005, 0.001, 0, -0.001, -0.005, -0.01]) { await ev(`Params.set('a', { re: ${x}, im: 0 }, { live: true }); 1`); await preAt('pa', x, 0); }
 const H = (await pre()).list.find((e) => e.id === 'pa');
 info.H = H;
 ok('H through the critical value 0 the two preimages are ±0.1i, distinct', !!H && H.exact && H.sols.length === 2 && has(H.sols, 0, 0.1, 1e-12) && has(H.sols, 0, -0.1, 1e-12), H);

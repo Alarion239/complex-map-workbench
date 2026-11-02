@@ -79,7 +79,7 @@ const VIEWS = {
   'kbd_nav_cmd.js': port('interact', 'F6\'s areas are X, Y, chain, Inspector today'),
   'key_popup_cmd.js': steps({ pin: true }),
   'mode_chips_cmd.js': port('interact'),
-  'param_planes_cmd.js': port('interact'),
+  'param_planes_cmd.js': steps({ pin: true }),
   'phase_key_cmd.js': port('interact'),
   'phase_style_cmd.js': port('interact'),
   'repeat_cmd.js': port('interact'),
