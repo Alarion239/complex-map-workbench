@@ -338,13 +338,18 @@
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
   // program compiles
+  // whether the chain has a path cut the sheets continue (a deformation map's carried colour then draws a fill)
+  const carryCuts = () => !!cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
+  // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
+  // without parallel compiles links each in an idle moment before the first glide, not in its first frame
+  function prestartCarry() { return prestartNames(carryCuts() ? ['regionKC', 'regionKSC'] : ['regionKC'], [1]); }
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
     // triangles they tear across a cut on their centre's sheet (regionKSC, the fill); without the cache, every triangle
     // on its centre's sheet (regionKS, the chain at every vertex))
-    const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
+    const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && carryCuts();
     let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)

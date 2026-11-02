@@ -32,6 +32,7 @@ const VIEWS = {
   'phone_palette_cmd.js': steps(),
   'steps_carry_cmd.js': steps(),
   'steps_carry_inregion_cmd.js': steps(),
+  'steps_carry_far_cmd.js': steps(),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
