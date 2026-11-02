@@ -3,6 +3,7 @@
 // circle would land. The chain z → w₁ = z² → w₂ = w₁³; the circle |w₁ − 0.8i| = 0.3 of plane w₁. On plane w₁ a
 // right-click on its top point 1.1i offers the integral, one at −1.21 (1.1i squared) offers none, and the integral's
 // curve is the circle in plane w₁ (its box). The same in the classic view with step 2 focused (its left plane is w₁).
+// And a right-click at the page's first moment opens the menu as any other does.
 // A command file for a CDP daemon.
 const fails = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
@@ -63,5 +64,20 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   const off = await menu();
   ok(`${where}: a right-click at −1.21 (the circle's top point squared) offers no integral`, !off || !off.includes('integral'), off);
   await closeAll();
+}
+// a right-click as soon as the page is up (a fast machine has it up within a second of loading): the page's clock
+// starts again at 0 just before it, and the menu opens all the same
+{
+  const ns = 'svcm0' + Date.now();
+  await go(`${BASE}/gl-helpers.html`);
+  const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
+  await go(`${BASE}/test.html?ns=${ns}`);
+  await settled({ max: 15000, until: `typeof __cmwPlaneMenu === 'function'` });
+  const [x, y] = await at(0, 1.1);
+  const t = await ev(`(() => { const now = performance.now.bind(performance), t0 = now(); performance.now = () => now() - t0; return Math.round(performance.now()); })()`);
+  await rclick(x, y);
+  const m = await menu();
+  ok('a right-click on the circle at the page\'s first moment offers its line integral', !!m && m.includes('integral'), { menu: m, t });
 }
 return { pass: fails.length === 0, fails };
