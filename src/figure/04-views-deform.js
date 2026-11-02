@@ -314,25 +314,34 @@
   // infinity, as exp sends a strip, would be a speck in it)
   const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10, SV_FILM_OVER = 1.5;
   const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
+  // The frames are laid out as the deformation's filmstrips (figFilmPic, figFilmPhase): 8 pt between frames, a title
+  // 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the frame and at least 2 pt
+  // of room right of it for the last x label
   async function figSvFilm(o, P, W, T) {
     const [tp, lp] = T;
-    const frames = A.svFrames(), n = frames.length, cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols), gap = 8;
+    const frames = A.svFrames(), n = frames.length, gap = 8;
+    const cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
     const ink = printInkFor(o, A.state().alpha);
     // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
     let boxes = null, fellBack = false;
     if (o.crop !== 'screen' && A.svSurf() === 'plane') {
       const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
       const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
-      boxes = frames.map((f, i) => { const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD); return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null; });
+      boxes = frames.map((f, i) => {
+        const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD);
+        return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
+      });
       fellBack = boxes.some((b) => !b);
       boxes = boxes.map((b) => b || cam);
       if (boxes.every((b) => sameBox(b, cam))) boxes = null;
     }
-    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp)), tH = Math.max(...titles.map((it) => it.a + it.d + 4));
+    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
+    const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
     // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
     const roughW = (W - gap * (cols - 1)) / cols;
     const steps = boxes ? boxes.map((b) => stepFor(b, roughW)) : null;
-    const mL = boxes ? Math.max(...boxes.map((b, i) => tickW(b, steps[i], tp))) + 3 : 0, mR = boxes ? Math.max(2, ...boxes.map((b, i) => overR(b, steps[i], tp))) : 0;
+    const mL = boxes ? Math.max(...boxes.map((b, i) => tickW(b, steps[i], tp))) + 3 : 0;
+    const mR = boxes ? Math.max(2, ...boxes.map((b, i) => overR(b, steps[i], tp))) : 0;
     // (the x tick labels' row under a frame, as the plane figure's bottom margin: a label's line, 1.05 times its point
     // size, and its 4.2 pt gap from the frame)
     const below = boxes ? tp * 1.05 + 4.2 : 0;

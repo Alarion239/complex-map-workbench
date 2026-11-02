@@ -155,14 +155,15 @@
   // the landscape's clause on its sheets (app's sheetsClause, 'tex'): the window k and H, F as math, then the sentence on
   // the deformed pieces' paths on a sheet (v16.1 review math-2), if any
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
-  // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
   // the thread of a steps-view filmstrip, z → w₁ → w₂ with each step's name over its arrow, in TeX
   const svChain = (frames) => `$${frames.map((f) => (f.f ? `\\xrightarrow{${f.f}} ${f.name}` : f.name)).join(' ')}$`;
+  // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
   function captionFor(o, view, body) {
     const ru = capRu();
     const fi = body.info || {};
     if (fi.svFilm) {
-      const own = !fi.ownWin ? '' : ' ' + (fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.'));
+      const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
+      const own = fi.ownWin ? ' ' + note : '';
       return $t('The planes along %{chain}.', { chain: svChain(fi.frames) }) + own;
     }
     // (export review r3, verify2-new-1: a globe figure's points on the far side are not in its list of what it shows)

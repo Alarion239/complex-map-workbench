@@ -18,8 +18,9 @@
   function optsOf(s, extra) {
     const sk = sizeKey(s);
     return Object.assign({
-      for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink,
-      crop: cropOf(s), svPic: s.svPic, axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s),
+      for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
+      ink: s.ink, crop: cropOf(s), svPic: s.svPic, axes: s.axes[s.for] || null, deform: s.deform,
+      panels: s.panels || 'both', lang: capLangOf(s),
     }, extra || {});
   }
   const ICON = {
@@ -194,7 +195,10 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    const svPicRow = A.svOn() ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]], (v) => { set.svPic = v; changed(); }, $t('Picture'))) : null;
+    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]];
+    const svPicRow = A.svOn()
+      ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
+      : null;
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
