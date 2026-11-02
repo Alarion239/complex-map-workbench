@@ -1,6 +1,7 @@
 // The classic chain cards' actions are for the mouse: inert and hidden from a screen reader at rest, usable under a
-// pointer over the card, a click on Bypass bypasses the step, and inert again when the pointer leaves. The steps view has the thread,
-// whose chips hold their ⋯ as ordinary controls; a11y_axe_cmd.js runs in the steps view, and these checks stay on the classic cards.
+// pointer over the card, a click on Bypass bypasses the step, and inert again when the pointer leaves. The steps view
+// has the thread, whose chips hold their ⋯ as ordinary controls; a11y_axe_cmd.js runs in the steps view, and these
+// checks stay on the classic cards.
 // A command file for a CDP daemon.
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
