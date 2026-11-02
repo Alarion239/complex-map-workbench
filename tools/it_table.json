@@ -3364,5 +3364,6 @@
  "Picture": "Immagine",
  "Shown plane": "Piano mostrato",
  "The planes along %{chain}.": "I piani lungo %{chain}.",
- "Each plane is shown in its own window.": "Ogni piano è mostrato nella sua finestra."
+ "Each plane is shown in its own window.": "Ogni piano è mostrato nella sua finestra.",
+ "Each plane is shown in its own window where it fits.": "Ogni piano è mostrato nella sua finestra, dove ci sta."
 }

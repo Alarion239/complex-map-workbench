@@ -322,11 +322,14 @@
     const [tp, lp] = T;
     const frames = A.svFrames(), n = frames.length, cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols), gap = 8;
     const ink = printInkFor(o, A.state().alpha);
-    let boxes = null;
+    // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
+    let boxes = null, fellBack = false;
     if (o.crop !== 'screen' && A.svSurf() === 'plane') {
       const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
       const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
-      boxes = frames.map((f, i) => { const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD); return c && span(c) <= SV_FIT_MAX * span(cam) ? toAspect(c, aspect(cam)) : cam; });
+      boxes = frames.map((f, i) => { const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD); return c && span(c) <= SV_FIT_MAX * span(cam) ? toAspect(c, aspect(cam)) : null; });
+      fellBack = boxes.some((b) => !b);
+      boxes = boxes.map((b) => b || cam);
       if (boxes.every((b) => sameBox(b, cam))) boxes = null;
     }
     const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp)), tH = Math.max(...titles.map((it) => it.a + it.d + 4));
@@ -361,7 +364,7 @@
     }
     // (ownWin: the frames' windows differ, which the caption says)
     const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
-    return { items, defs, lines, H: rows * (tH + ph + below + 6) - 2, info: { svFilm: true, frames, ownWin, boxes } };
+    return { items, defs, lines, H: rows * (tH + ph + below + 6) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {

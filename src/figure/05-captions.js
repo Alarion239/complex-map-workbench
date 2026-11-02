@@ -161,7 +161,7 @@
   function captionFor(o, view, body) {
     const ru = capRu();
     const fi = body.info || {};
-    if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) }) + (fi.ownWin ? ' ' + $t('Each plane is shown in its own window.') : '');
+    if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) }) + (fi.ownWin ? ' ' + (fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.')) : '');
     // (export review r3, verify2-new-1: a globe figure's points on the far side are not in its list of what it shows)
     const c = A.capParts({ letters: !!PRESET[o.for].named, skip: (fi.globePaths || fi.film === 'globe') && fi.hidden && fi.hidden.length ? fi.hidden.map((x) => x.z) : null });
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
