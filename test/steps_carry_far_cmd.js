@@ -55,7 +55,8 @@ async function hold(x) {
   })()`);
   await settled({ max: 30000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
 }
-// plane z's camera zoomed by f about the pane's centre (a wheel turn there), once the camera has settled
+// plane z's camera zoomed by f about the pane's centre (a wheel turn there, whose deltaY zooms by exp(-0.0016 deltaY),
+// as 14-interaction.js's wheel handler scales a pixel-mode wheel), once the camera has settled
 async function zoom(f) {
   const b = await ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   const s0 = (await paneOf()).v.s;
@@ -210,6 +211,7 @@ await wait();
   info['tan all parked 0.5'] = Object.assign(k, { paper, n: px.filter(Boolean).length });
   ok('tan all parked 0.5: the key has at most 4 points, all finite', Array.isArray(k.sing) && k.sing.length <= 4 && k.sing.every((p) => p.every(Number.isFinite)), k);
   ok('tan all parked 0.5: the ring, if any, reaches at most 4 times the window', !k.ring || (k.ring.m >= 1.5 && k.ring.m <= 4), k.ring);
+  // (at once: under 5 ms, where making the tracks again is a whole grid search per seed step, tens of ms or more)
   ok("tan all parked 0.5: the glide's pole tracks are kept for it (a second key at once)", k.again < 5, k);
   ok('tan all parked 0.5: no point of the inner 90 % on the bare paper', paper === 0 && info['tan all parked 0.5'].n > 1000, info['tan all parked 0.5']);
 }
