@@ -355,8 +355,9 @@
     if (e === PENDING) e = null;
     if (e && !probe0.noTF) res.__probeE = e;
     if (e && probe0.noTF) e.t = performance.now();   // (kept from the sweep of stale scratch textures)
+    if (probe0.cacheOnly) return true;   // (probe: the map cache built, nothing drawn)
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    const k = !probe0.noKey && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
     const probe = globalThis.__svCarryProbe || {};
     const fill = cuts && P && !probe.noKSC ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
