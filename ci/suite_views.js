@@ -113,10 +113,10 @@ const VIEWS = {
   'example_try_events_cmd.js': port('words', 'the Try lines left: K1 item 11'),
   'fix152_cmd.js': port('words', 'the Split offer: focus after Split, and the long-chain rows in the steps view\'s Inspector'),
   'guide_nav_cmd.js': steps({ pin: true }),
-  'i18n_cmd.js': steps({ pin: true }),
-  'i18n_walk_cmd.js': port('words'),
+  'i18n_cmd.js': port('words', 'in the steps view its header, menu, overflow and palette checks pass; its Deformation round trip, the M and P shortcuts, the X → Y digit and the All sheets title have no steps-view equivalent yet (K1 items 4 and 5)'),
+  'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
-  'split_cmd.js': port('words'),
+  'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152: focus after Split and the long-chain rows in the steps view; plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: K1 items 3 and 11'),
   'tour_auto_cmd.js': port('words', 'K1 item 3'),
   'tour_chapters_cmd.js': port('words', 'K1 item 3'),
@@ -130,7 +130,7 @@ const VIEWS = {
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after K1 items 9 and 11'),
   'tour_titles_cmd.js': port('words', 'K1 item 3'),
   'tour_words_cmd.js': port('words', 'K1 item 3'),
-  'ux165_learn_cmd.js': steps({ pin: true }),
+  'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with K1 items 3 and 9'),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
   // to port: export (K1 items 6 to 8: the shown plane, the filmstrip, the glide)
