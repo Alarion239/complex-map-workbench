@@ -53,4 +53,3 @@ for (const [k, tool] of Object.entries(letters)) {
   ok('the letter ' + k + ' picks ' + tool, on === tool, on);
 }
 return { pass: fails.length === 0, fails, info };
-
