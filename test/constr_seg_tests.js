@@ -6,7 +6,9 @@
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limit is a ratio of two timings taken in the same run, so it holds on any machine
-const SEG_RATIO = 1.8;
+// (the seg limit: the ratio, and the rounds it takes the least of: many short ones, alternating, so that one of each lands in a
+// quiet moment of a loaded machine)
+const SEG_RATIO = 1.8, SEG_ROUNDS = 15, SEG_CALLS = 1000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.3's constr.js, frozen: the build before this one reading a saved seg)
@@ -233,9 +235,14 @@ module.exports = function ({ K, ok }) {
     ok(K.describe(st, 'k').seg === -1 && K.describe(st2, 'k').seg === -1 && K.describe(load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], 0)), 'k').seg === 0, 'seg: describe has seg');
     // speed: a seg K makes a recompute at most SEG_RATIO times as long as one without (both timed the same way in this run,
     // so the ratio holds on any machine and under load)
-    const time = (seg) => { const s = load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], seg, [glider('g', 0.3)])); for (let i = 0; i < 300; i++) rec(s); const t0 = process.hrtime.bigint(); for (let i = 0; i < 3000; i++) { byId(s, 'p').p = [0.3 + i * 1e-6, 0.2]; rec(s); } return Number(process.hrtime.bigint() - t0) / 3000 / 1000; };
+    const timer = (seg) => {
+      const s = load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], seg, [glider('g', 0.3)]));
+      for (let i = 0; i < 300; i++) rec(s);
+      return () => { const t0 = process.hrtime.bigint(); for (let i = 0; i < SEG_CALLS; i++) { byId(s, 'p').p = [0.3 + i * 1e-6, 0.2]; rec(s); } return Number(process.hrtime.bigint() - t0) / SEG_CALLS / 1000; };
+    };
+    const whole = timer(0), withSeg = timer(1);
     let a = Infinity, b = Infinity;
-    for (let r = 0; r < 3; r++) { a = Math.min(a, time(0)); b = Math.min(b, time(1)); }
+    for (let r = 0; r < SEG_ROUNDS; r++) { a = Math.min(a, whole()); b = Math.min(b, withSeg()); }
     ok(b / a <= SEG_RATIO, `seg: a seg K makes a recompute ${(b / a).toFixed(2)} times as long (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; limit ${SEG_RATIO})`);
   }
 
