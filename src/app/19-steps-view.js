@@ -388,6 +388,112 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: [] };
   }
+  // The sheet key mid-glide (the map h_{b,t} after the steps before b): plane b's key, and the glide's poles at t, which
+  // move with t (a path's pole sweeps across the plane, or flies in from infinity): a point beside one is not in front
+  // for being near the centre alone, as beside plane b's poles. Its points: plane b's accumulation set, then plane b's
+  // poles and the glide's poles at t, nearest the window first (at most 4 in all, as Inverse.keySing gives them at
+  // rest). At t = 1 the glide's poles are plane b's: the key meets plane b's own.
+  // The poles are tracked once per glide (the plane, the chain, the window): SV_POLE_K steps of t, found on a grid over
+  // the window (a quarter wider each side, SV_POLE_GRID cells a side) and on a coarser one over it widened by three
+  // times its size on each side, at t = 0 and every SV_POLE_SEED steps; each followed from step to step by Newton's
+  // method on 1/F (or, where it leaves through a cut, by svPeakAt while the points beside it go past 4 R), and read
+  // between two steps by linear interpolation, so the key moves continuously with t
+  const SV_POLE_K = 64, SV_POLE_SEED = 8, SV_POLE_GRID = 24, SV_POLE_MAX = 8;
+  let svPoleMemo = null;
+  // Newton's method on h = 1/F from z: a pole of F (h(z) = 0, |F| past 1e8) or null (it left the box or did not settle)
+  function svPoleAt(F, z, box) {
+    const h = (p) => { const w = F(p); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
+    for (let i = 0; i < 12; i++) {
+      const e = 1e-6 * (1 + CX.abs(z)), h0 = h(z);
+      if (!h0) return null;
+      if (CX.abs(h0) < 1e-8) return z;
+      const hp = h(CX.add(z, C(e, 0))), hm = h(CX.sub(z, C(e, 0)));
+      if (!hp || !hm) return null;
+      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
+      if (!CX.isFin(d) || CX.isZero(d)) return null;
+      z = CX.sub(z, CX.div(h0, d));
+      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
+    }
+    return null;
+  }
+  // where a pole leaves through a cut (the map continues past it on another branch): from z, the nearest local maximum
+  // of |F| (climbing over 8 points about it, its step shrinking), while |F| there is past big; null otherwise. A
+  // pole's track continues through it while the points beside it still go far, so the key does not lose it a step of
+  // t before it reaches the cut (or gain it a step after)
+  function svPeakAt(F, z, big) {
+    const m = (p) => { try { const w = F(p); return w && CX.isFin(w) ? CX.abs(w) : Infinity; } catch (e) { return 0; } };
+    let v = m(z), h = 0.05 * (1 + CX.abs(z));
+    for (let i = 0; i < 40 && h > 1e-7 * (1 + CX.abs(z)); i++) {
+      let best = null, bv = v;
+      for (let a = 0; a < 8; a++) { const p = CX.add(z, C(h * Math.cos(a * Math.PI / 4), h * Math.sin(a * Math.PI / 4))), u = m(p); if (u > bv) { bv = u; best = p; } }
+      if (best) { z = best; v = bv; } else h /= 2;
+    }
+    return v > big && v < Infinity ? z : null;
+  }
+  // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim)
+  function svPolesIn(F, box, n, lim) {
+    const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
+      let w = null;
+      try { w = F(C(box.x0 + i * dx, box.y0 + j * dy)); } catch (e) { w = null; }
+      M.push(w && CX.isFin(w) ? CX.abs(w) : Infinity);
+    }
+    const out = [];
+    for (let j = 1; j < n; j++) for (let i = 1; i < n; i++) {
+      const m = M[j * (n + 1) + i];
+      let top = true;
+      for (let b = -1; b <= 1 && top; b++) for (let a = -1; a <= 1; a++) if ((a || b) && M[(j + b) * (n + 1) + i + a] > m) { top = false; break; }
+      if (!top) continue;
+      const p = svPoleAt(F, C(box.x0 + i * dx, box.y0 + j * dy), lim);
+      if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
+    }
+    return out;
+  }
+  // the tracks of the glide's poles to plane b: {tr: [[z or null] x (SV_POLE_K + 1)]} for the window w
+  function svPoleTracks(b, w) {
+    const key = [b, chainSig[nSteps()], w.x0, w.x1, w.y0, w.y1].join('|');
+    if (svPoleMemo && svPoleMemo.key === key) return svPoleMemo;
+    const ex = (f) => ({ x0: w.x0 - f * (w.x1 - w.x0), x1: w.x1 + f * (w.x1 - w.x0), y0: w.y0 - f * (w.y1 - w.y0), y1: w.y1 + f * (w.y1 - w.y0) });
+    const big = 4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0) / 2, box = ex(3), win = ex(0.25), cz = C((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2), Fp = stageF(b - 1);
+    const Ft = (t) => { const H = homF(b, t); return (z) => H(Fp(z)); };
+    const tr = [];
+    try {
+      for (let k = 0; k <= SV_POLE_K; k++) {
+        const F = Ft(k / SV_POLE_K);
+        for (const r of tr) r[k] = r[k - 1] ? svPoleAt(F, r[k - 1], box) || svPeakAt(F, r[k - 1], big) : null;
+        if (k % SV_POLE_SEED === 0) {
+          const near = svPolesIn(F, win, SV_POLE_GRID, box).concat(svPolesIn(F, box, SV_POLE_GRID / 2, box)).sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz))).slice(0, SV_POLE_MAX);
+          for (const p of near) {
+            if (tr.some((r) => r[k] && CX.abs(CX.sub(r[k], p)) < 1e-6 * (1 + CX.abs(p)))) continue;
+            const r = new Array(SV_POLE_K + 1).fill(null);
+            r[k] = p;
+            // (and back to where it came into the box, or out of a cut: a pole found at a seed step was there before)
+            for (let j = k - 1; j >= 0 && r[j + 1]; j--) { const G = Ft(j / SV_POLE_K); r[j] = svPoleAt(G, r[j + 1], box) || svPeakAt(G, r[j + 1], big); }
+            tr.push(r);
+          }
+        }
+      }
+    } catch (e) { tr.length = 0; }
+    svPoleMemo = { key, tr };
+    return svPoleMemo;
+  }
+  // the key of the glide's frame at t in (0, 1) to plane b (svSheetKey(b) at rest)
+  function svSheetKeyAt(b, t) {
+    const k = svSheetKey(b);
+    if (!(t > 0 && t < 1)) return k;
+    const plan = invPlan(0, b);
+    let acc = [];
+    try { acc = plan && plan.ok ? Inverse.accumulation(plan, k.win) : []; } catch (e) { acc = []; }
+    const { tr } = svPoleTracks(b, k.win), s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
+    const cz = C((k.win.x0 + k.win.x1) / 2, (k.win.y0 + k.win.y1) / 2), near = (p, q) => CX.abs(CX.sub(p, q)) < 1e-9 * (1 + CX.abs(p));
+    const poles = (k.sing || []).filter((p) => !acc.some((q) => near(p, q)));
+    for (const r of tr) {
+      const p = r[i] && r[i + 1] ? CX.add(r[i], CX.mul(C(f, 0), CX.sub(r[i + 1], r[i]))) : r[i] || r[i + 1];
+      if (p && !acc.some((q) => near(p, q)) && !poles.some((q) => near(p, q))) poles.push(p);
+    }
+    poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
+    return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
+  }
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
@@ -428,15 +534,46 @@
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands in while
   // the mesher's job runs
   const SV_CARRY_L = 2;
+  // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
+  // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
+  // clipWin's centre, from its inscribed circle out to m times its half-diagonal: the least m of SV_RING_M whose circle
+  // the map sends past the view (a tenth wider), the largest when none does, the least when the map cannot be sampled.
+  // Its cells are coarser than the whole plane's (SV_RING_BASE a side over its box): the map is near the camera's
+  // window's own there, and the cells beside a pole, where it is not, are the whole plane's. Drawn in the same depth
+  // under the same key, its corners over the whole plane's mesh are the same points in the same colour. Kept while the
+  // planes, the window, the view and the glide to a twentieth stay; null: none needed
+  const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
+  const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
+  let svRingMemo = null;
+  function svRingFor(pane, map) {
+    const g = svBetween(), v = pane.view, w = clipWin;
+    const key = [g.a, g.b, Math.round(g.u * 20), map.mode || 0, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
+    if (svRingMemo && svRingMemo.key === key) return svRingMemo.ring;
+    const hw = 0.55 * pane.w / v.s, hh = 0.55 * pane.h / v.s;
+    const past = (z) => { const q = g.F(z); return !q || !CX.isFin(q) || Math.abs(q.re - v.cx) > hw || Math.abs(q.im - v.cy) > hh; };
+    const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
+    // (the edge of the box: 4 sides of SV_RING_N / 4 points; a circle of radius r: SV_RING_N points)
+    const side = (i) => { const q = 4 * i / SV_RING_N, k = Math.floor(q), f = 2 * (q - k) - 1; return k === 0 ? C(cx + ax * f, cy - ay) : k === 1 ? C(cx + ax, cy + ay * f) : k === 2 ? C(cx - ax * f, cy + ay) : C(cx - ax, cy - ay * f); };
+    const circ = (r, i) => C(cx + r * Math.cos(2 * Math.PI * i / SV_RING_N), cy + r * Math.sin(2 * Math.PI * i / SV_RING_N));
+    const all = (fn) => { for (let i = 0; i < SV_RING_N; i++) if (!past(fn(i))) return false; return true; };
+    let m = null;
+    try {
+      if (!all(side)) m = SV_RING_M.find((x) => all((i) => circ(x * R, i))) || SV_RING_M[SV_RING_M.length - 1];
+    } catch (e) { m = SV_RING_M[0]; }
+    const ring = m ? Object.assign({}, SV_RING, { c: [cx, cy], r1: Math.min(ax, ay), r2: m * R }) : null;
+    svRingMemo = { key, ring, m };
+    return ring;
+  }
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
-    const key = svSheetKey(b);
+    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : svSheetKey(b);
     const carry = svCarryStyle(T);
+    const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
-    for (const x of list) {
+    for (const x of shapes) {
       // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
-      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : x === ring ? { base: SV_RING_BASE, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } } : undefined);
       if (!r || !r.meshRes) return false;
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
