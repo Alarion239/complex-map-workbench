@@ -789,7 +789,8 @@
     }
   }
   // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between
-  // the areas (the top bar, the tools, X, Y, the chain, the Inspector). A phone keeps every control a stop
+  // the areas (the top bar, the tools, X, Y, the chain, the Inspector; in the steps view the top bar, the tools, the plane, the thread, the
+  // Inspector). A phone keeps every control a stop
   const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
@@ -845,6 +846,8 @@
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
       { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
       { id: 'chain', el: () => act('#pipeline'), has: (el) => !!el.closest('#pipeline') },
+      // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
+      { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
     ].filter((a) => a.el());
     if (!areas.length) return;
