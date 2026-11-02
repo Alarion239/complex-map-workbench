@@ -156,22 +156,28 @@ await shot('p3rv_stroke');
 // is judged as the steps view's flat planes are (H.carryCompare on the Sphere surface: each pixel's globe point, its
 // points of plane z ranked by the sheet key, and the front point's colour), at most MAX_BAD of the samples wrong
 const MAX_BAD = 0.01;
+// (each page is in the Tiles colouring, 'enhanced', set in its state)
+const DC = 'enhanced';
 const judged = (r, min) => !!r && r.considered >= min && r.wrong <= MAX_BAD * r.considered && r.unlisted === 0 && r.paper === 0;
-await load('p3rvC0' + Date.now(), { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6, complement: true }], steps: [ZI], srcView: { cx: 0, cy: 0, s: 60 } });
+await load('p3rvC0' + Date.now(), { dc: DC, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6, complement: true }],
+  steps: [ZI], srcView: { cx: 0, cy: 0, s: 60 } });
 await plane(0, 'sphere'); await settle();
 await ev('__cmwCam("L", { pitch: 0.9, yaw: -1.0, dist: 3.4 }); 1'); await settle(900);
-R.chkL0 = await carryCompare({ surf: 'sphere', nx: 40, ny: 30 });
+R.chkL0 = await carryCompare({ surf: 'sphere', nx: 40, ny: 30, style: DC });
 ok('the z-globe at stage 0 shows the exact colour (around infinity)', judged(R.chkL0, 300), R.chkL0);
-await load('p3rvCc' + Date.now(), { shapes: [H], steps: [CAY], sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 1, s: 60 } });
+await load('p3rvCc' + Date.now(), { dc: DC, shapes: [H], steps: [CAY], sv: { at: 1, T: 0 },
+  srcView: { cx: 0, cy: 1, s: 60 } });
 await plane(1, 'sphere'); await settle();
 await ev('__cmwCam("L", { pitch: 0.35, yaw: -0.4, dist: 3.4 }); 1'); await settle(900);
-R.chkCay = await carryCompare({ surf: 'sphere', nx: 40, ny: 30 });
+R.chkCay = await carryCompare({ surf: 'sphere', nx: 40, ny: 30, style: DC });
 ok('the w-globe of Cayley(H) with the colour plane z shows the colour carried from z', judged(R.chkCay, 300), R.chkCay);
 
 // ---- 3. the plane at stage 1 of [z^i, z^2] with the colour plane z: the colour carried from z, against the exact one
-await load('p3rvG' + Date.now(), { shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }], sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 1, s: 60 } });
+await load('p3rvG' + Date.now(), { dc: DC, shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }],
+  sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 1, s: 60 } });
 await settle(3000);
-R.gChk = await carryCompare({ nx: 40, ny: 25 });
+// (H's edge, the real axis, is the unit circle on w1 (|z^i| = e^(-arg z)): its anti-aliased rim is left out)
+R.gChk = await carryCompare({ nx: 40, ny: 25, style: DC, skipW: { circles: [[0, 0, 1]], eps: 0.04 } });
 ok('the plane at stage 1 shows the colour carried from z', judged(R.gChk, 400), R.gChk);
 
 // ---- 4. the main thread at dpr 2: the first switch to the Sphere surface (Plane ▾ → Sphere) on example 1, 4 and 1
