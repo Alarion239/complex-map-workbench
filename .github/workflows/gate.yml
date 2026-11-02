@@ -156,6 +156,10 @@ jobs:
           echo "shards=$s" >> "$GITHUB_OUTPUT"
       - name: Browser shards (every suite in exactly one)
         run: node ci/browser_shards.js check
+      # the standards check (ci/README.md, Standards check): history words, plan labels and dropped assertions on the
+      # lines this change adds; it reports in the job summary and as warnings, and never fails the job
+      - name: Standards check (report only)
+        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github
       # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
       # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
       # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
