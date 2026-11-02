@@ -249,22 +249,23 @@ check('end cases ran', endCases >= 60, endCases);
   const ext = (t) => (z) => CX.inv(CX.tanh(CX.mul(C(1 + t, 0), CX.atanh(CX.inv(z)))));
   for (const T of [0.37, 0.75]) {
     const m = ch.HR.state(S, T, true).map, t = m.t, H = ch.HR.cpuMap(m);
-    let across = 0, same = 0, agree = 0;
+    let toExt = 0, toDisk = 0, same = 0, agree = 0;
     for (let i = 0; i < 24; i++) {
       const th = 0.3 + (2 * Math.PI - 0.6) * i / 23, u = C(Math.cos(th), Math.sin(th));
       const zin = CX.mul(C(0.93, 0), u), zout = CX.mul(C(1.07, 0), u);
       const a = FN.sheetMapEval(S.steps, built, m, zout, zin, 0, W, n), b = FN.sheetMapEval(S.steps, built, m, zin, zout, 0, W, n);
-      if (!near(a, ext(t)(zin), 1e-9)) across++;
-      if (!near(b, disk(t)(zout), 1e-9)) across++;
+      if (!near(a, ext(t)(zin), 1e-9)) toExt++;
+      if (!near(b, disk(t)(zout), 1e-9)) toDisk++;
       if (!near(FN.sheetMapEval(S.steps, built, m, zin, zin, 0, W, n), H(zin), 1e-9) || !near(FN.sheetMapEval(S.steps, built, m, zout, zout, 0, W, n), H(zout), 1e-9)) same++;
       // (agree: where the centre's formula meets the point's own on the cut, which must not happen; at a looser 1e-6, so a
       // near-miss counts as meeting; the others ask for equality to float error)
       if (th > Math.PI && near(a, H(zin), 1e-6)) agree++;
-      checks += 3;
+      checks += 4;
     }
-    check(`jouk T=${T}: a point across the unit circle from its centre is on the centre's formula`, across === 0, across);
+    check(`jouk T=${T}: a point inside the unit circle whose centre is outside is on the exterior's formula`, toExt === 0, toExt);
+    check(`jouk T=${T}: a point outside the unit circle whose centre is inside is on the disk's formula`, toDisk === 0, toDisk);
     check(`jouk T=${T}: a point on its centre's side is the plain H_t`, same === 0, same);
-    check(`jouk T=${T}: on the lower semicircle, the path's cut, the two sides' formulas differ, so the first check tells the branches apart`, agree === 0, agree);
+    check(`jouk T=${T}: on the lower semicircle, the path's cut, the two sides' formulas differ, so the exterior's check tells the branches apart`, agree === 0, agree);
   }
 }
 // (v16.1 review math-7) the drawn count and the caption's count agree: a typed near-fraction is a window
