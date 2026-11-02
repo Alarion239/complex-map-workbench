@@ -7,8 +7,10 @@ Used twice:
   * perf/run.sh confirms failures: FIRST is the full run, MORE are re-runs of only the units that failed; every metric
     of a re-run unit becomes the median of its 3 attempts (a real regression fails again, a noise spike does not).
   * make_baseline.py merges 3 full runs into a baseline.
-Checks merge to true only if true in every run (--checks majority: in most runs, for confirmation re-runs). The merged file keeps FIRST's meta (so a full run stays full) and
-records the attempts per metric in `runs`.
+Checks merge to true only if true in every run (--checks majority: in most runs, for confirmation re-runs), except
+suite.no_errors: false whenever any run reported an error, so a unit that errored in the full run and was not re-run
+still fails the merged verdict. The merged file keeps FIRST's meta (so a full run stays full) and records the attempts
+per metric in `runs`.
 """
 import argparse
 import json
@@ -50,6 +52,10 @@ def merge(runs, names=None, checks='all'):
             if b:
                 m0['budget_ms'] = round(statistics.median(b), 3)
         out['metrics'][n] = m0
+    # an error of a unit in any run holds suite.no_errors false: the confirmation re-runs repeat only the units with a
+    # failing metric, so a unit that errored is not in them and their true values must not outvote it
+    if 'suite.no_errors' in out['metrics'] and out['errors']:
+        out['metrics']['suite.no_errors']['value'] = False
     out['meta']['merged_from'] = [r.get('meta', {}).get('date') for r in runs]
     return out
 

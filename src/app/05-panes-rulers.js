@@ -482,7 +482,7 @@
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
-    if (S.outline && !artMode) {
+    if (S.outline && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point') continue;
