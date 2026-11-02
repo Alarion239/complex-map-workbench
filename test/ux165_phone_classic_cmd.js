@@ -97,10 +97,18 @@ for (let i = 0; i < 10; i++) {   // (the planes and the tool row move while the 
   tc = again;
   if (rest) break;
 }
-await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tc[0], y: tc[1], id: 1 }] }); await sleep(700);
+await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tc[0], y: tc[1], id: 1 }] });
+// (the long-press timer and the tip's paint land after the press)
+await settled({
+  only: true, max: 3000, until: `(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()`,
+});
 const lpTip = await tipText();
 const lpKey = await ev(`!!document.querySelector('#tip .tip-key')`);
-await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle();
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+// (the tip goes when the finger lifts)
+await settled({
+  max: 3000, until: `!(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()`,
+});
 ok('UX34 phone: a long-press shows the tip', !!lpTip, lpTip);
 ok('UX17 phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
 ok('UX34 phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
@@ -430,7 +438,9 @@ ok('D3 ru, the orthogonal circle: its words and Отменить выбор fit 
 // ---------------- no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
 for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {
-  await withState(`thumb${w}`, w, h, mob, { shapes: [], steps: STEPS2 }); await settle();
+  await withState(`thumb${w}`, w, h, mob, { shapes: [], steps: STEPS2 });
+  // (the card pictures draw after the load settles: wait for the words where they are drawn, an absence window where they never are)
+  await (want ? settled({ max: 4000, until: '(window.__noShapes || 0) > 0' }) : settled({ floor: 500 }));
   const nsh = await ev('window.__noShapes || 0');
   ok(`UX83 ${w}: "No shapes" ${want ? 'drawn where it fits' : 'never drawn on a 44 px picture'}`, want ? nsh > 0 : nsh === 0, nsh);
 }
@@ -439,20 +449,28 @@ await grab();
 // ---------------- the last pick of a construction on touch: the preview under the finger, lift to commit ----------------
 await fresh('last', 412, 860, false, true);
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle();
-await touch(150, 250); await settle(); await touch(260, 330); await settle();
+// (a pick is made when the finger lifts)
+const waitPicks = (n) => settled({
+  max: 4000, until: `Construct.debug().draft && Construct.debug().draft.picks.length === ${n}`,
+});
+await touch(150, 250); await waitPicks(1); await touch(260, 330); await waitPicks(2);
 const n50 = () => ev(`__tourApi.snapshot().state.shapes.length`);
 const nBefore = await n50();
 const pk2 = await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : -1');
 await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 200, y: 450, id: 1 }] }); await sleep(200);
 for (let i = 1; i <= 5; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 + i * 10, y: 450 - i * 12, id: 1 }] }); await sleep(80); }
-await settle();
+await settled({ max: 4000, until: `!!Construct.debug().hover` });
 const dn = await ev(`(() => { const d = Construct.debug(); return { hover: d.hover, picks: d.draft ? d.draft.picks.length : -1, shapes: __tourApi.snapshot().state.shapes.length }; })()`);
 ok('UX50 two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
 const h1 = dn.hover;
-await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] }); await settle();
+await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] });
+await settled({
+  max: 4000, until: `JSON.stringify(Construct.debug().hover) !== ${JSON.stringify(h1)}`,
+});
 const h2 = await ev('Construct.debug().hover');
 ok('UX50 sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
-await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle();
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+await settled({ max: 4000, until: `__tourApi.snapshot().state.shapes.length > ${nBefore}` });
 ok('UX50 lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
 await key('Escape'); await settle();
 
