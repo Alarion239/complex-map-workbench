@@ -587,7 +587,7 @@
   // ---- the right-click menu and the integral popover ----
   let intPop = null;   // {id (shape), el, cx, cy (where it opened), it (the integral), x (winding, zeros and poles), timer}
   let lastPan = { t: 0, moved: false };   // a right-button pan just ended: its contextmenu opens nothing
-  let holdMenuT = 0;   // a long press opened the menu: the touch's own contextmenu event opens nothing more
+  let holdMenuT = -Infinity;   // when a long press opened the menu: the touch's own contextmenu event opens nothing more
   // ---- the planes' context menu (v15, src/planemenu.js): what it needs from the app ----
   function planeMenuApi() {
     const paneOf = (side) => (side === 'R' ? paneR : paneL);
