@@ -11,12 +11,8 @@ const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 
 const open = async (w, h, lang, classic = false) => {
   const ns = `psh${w}${lang}-${Date.now()}`;
   await view(w, h, false, true);
-  if (classic) {
-    // (the state is written from a page of the origin that is not the app, so the app's first load is the classic view's; the kit's load() would open the steps view)
-    await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-    await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(ST))}); 1`);
-    await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=classic` });
-  } else {
+  if (classic) await loadView('classic', ns, ST, { lang });
+  else {
     await load(ns, ST);
     if (lang !== 'en') { const u = await ev('location.href'); await send('Page.navigate', { url: u + (u.includes('?') ? '&' : '?') + 'lang=' + lang }); }
   }

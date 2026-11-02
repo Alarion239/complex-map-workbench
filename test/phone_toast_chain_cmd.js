@@ -17,12 +17,9 @@ const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 
 const fresh = async (w, h, lang, classic = false) => {
   await view(w, h, false, true);
   const ns = 'ptc' + w + lang + (Date.now() % 1000000);
-  if (classic) {
-    // (the state is written from a page of the origin that is not the app, so the app's first load is the classic view's)
-    await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-    await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(ST))}); 1`);
-  } else await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}${classic ? '&view=classic' : ''}` });
+  if (classic) await loadView('classic', ns, ST, { lang });
+  else await load(ns, ST);
+  if (!classic) await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` });
   await settled({ max: 30000, until: `typeof __cmwAddStep === 'function' && !!window.Phone && Phone.isOn()` });
 };
 // (the toast stays 5 s: the measure runs once the sheet has made way for it, and for the chain sheet the list has scrolled to the step just added)
