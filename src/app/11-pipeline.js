@@ -83,6 +83,92 @@
   }
   // ([#398] the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
   const repeatMoved = (k, rp) => tourEmit('repeat-changed', { k, n: rp ? rp.n : 0, len: rp ? rp.len : 0, by: rp && rp.by ? rp.by : null });
+  // the repeat that text typed into an N field asks for (a whole number, or the name of a shared number), or null when it
+  // is no change: the bracket's field and the Inspector's row read it alike
+  function repeatFromText(st, t) {
+    const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
+    if (ns.length === 1 && Params.get(ns[0]) !== undefined) return st.repeat.by !== ns[0] ? { n: st.repeat.n, len: st.repeat.len, by: ns[0] } : null;
+    if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) return { n: v, len: st.repeat.len };
+    return null;
+  }
+  // the block that step k is in, as repeatBlocks gives it, or null
+  const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
+  // the keyboard goes back to a step's chip on the thread (its card in the classic view) once the chain is drawn again: after a
+  // control that has gone, such as the Inspector's End the repeat, no longer holds it
+  function focusStepChip(k) {
+    requestAnimationFrame(() => {
+      const el = SV.on ? svEl(k, 'chip') : document.querySelector(`#pipeline .card[data-k="${k}"]`);
+      if (el) /** @type {HTMLElement} */ (el).focus({ preventScroll: true });
+    });
+  }
+  // (the Inspector draws its row a frame or two after the step is selected; on a slow machine a first draw takes longer: the
+  // field is looked for this long, then given up)
+  const REPEAT_FIELD_WAIT_MS = 1500;
+  // where the keyboard goes after a Repeat is chosen: the bracket's N field, or in the steps view the Inspector's row of the
+  // step's block (which the Edit sheet carries on a phone), found once the Inspector has drawn it
+  function focusRepeatField(k) {
+    const field = () => repFields.map((f) => f.inp).find((el, i) => repFields[i].getK() === k && el.isConnected && el.getClientRects().length) || null;
+    if (!SV.on) return field();
+    svInspect(k);
+    const t0 = performance.now(), look = () => {
+      const f = field();
+      if (f) { f.focus(); f.select(); } else if (performance.now() - t0 < REPEAT_FIELD_WAIT_MS) requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+    return null;
+  }
+  // N's field, one for every place that sets it (the bracket under the cards, the steps view's Inspector row): typed, or by the
+  // arrow keys, for the block ending at step getK(). N applies once typing settles, so 12 builds the chain once, not for
+  // N = 1 then N = 12; at once on change
+  const repFields = [];
+  function repeatShowAll() {
+    for (let i = repFields.length - 1; i >= 0; i--) {
+      const f = repFields[i];
+      if (!f.inp.isConnected) { repFields.splice(i, 1); continue; }
+      const st = S.steps[f.getK() - 1];
+      if (!f.inp.dataset.typing && st && st.repeat) f.inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n);
+    }
+  }
+  // one step of N for the block ending at step k (the arrow keys, the Inspector's − and +); not for a shared number's
+  function repeatStep(k, d) {
+    const st = S.steps[k - 1];
+    if (!st || !st.repeat || st.repeat.by) return;
+    const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + d));
+    if (v === st.repeat.n) return;
+    st.repeat = { n: v, len: st.repeat.len };
+    chainChanged(false); commit();
+    repeatMoved(k, st.repeat);
+    repeatShowAll();
+  }
+  function repeatField(getK) {
+    const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
+    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+    let settle = 0, typedFor = null;
+    const apply = () => {
+      clearTimeout(settle);
+      const t = inp.value.trim(), st = typedFor || S.steps[getK() - 1];
+      typedFor = null;
+      if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
+      const rp = repeatFromText(st, t);
+      if (!rp) return;
+      st.repeat = rp;
+      chainChanged(false);
+      repeatMoved(S.steps.indexOf(st) + 1, rp);
+    };
+    // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
+    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, 400); });
+    inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
+    inp.addEventListener('blur', () => { delete inp.dataset.typing; });
+    // (the arrow keys step a typed N, as a number field does)
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      delete inp.dataset.typing; clearTimeout(settle);
+      repeatStep(getK(), e.key === 'ArrowUp' ? 1 : -1);
+    });
+    repFields.push({ inp, getK });
+    return inp;
+  }
   let repRO = null;
   function updateRepeats() {
     const host = $('pipeline');
@@ -93,39 +179,7 @@
     blocks.forEach((r, i) => {
       let L = els[i];
       if (!L) {
-        const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-        // (N applies once typing settles, so 12 builds the chain once, not for N = 1 then N = 12; at once on change)
-        // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
-        let settle = 0, typedFor = null;
-        const show = (st) => { inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n); };
-        const apply = () => {
-          clearTimeout(settle);
-          const t = inp.value.trim(), st = typedFor || S.steps[+L.dataset.k - 1];
-          typedFor = null;
-          if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
-          const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
-          let rp = null;
-          if (ns.length === 1 && Params.get(ns[0]) !== undefined) { if (st.repeat.by !== ns[0]) rp = { n: st.repeat.n, len: st.repeat.len, by: ns[0] }; }
-          else if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) rp = { n: v, len: st.repeat.len };
-          if (!rp) return;
-          st.repeat = rp;
-          chainChanged(false);
-          repeatMoved(S.steps.indexOf(st) + 1, rp);
-        };
-        inp.addEventListener('input', () => { clearTimeout(settle); typedFor = S.steps[+L.dataset.k - 1] || null; settle = setTimeout(apply, 400); });
-        inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
-        // (the arrow keys step a typed N, as a number field does)
-        inp.addEventListener('keydown', (e) => {
-          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-          const k = +L.dataset.k, st = S.steps[k - 1];
-          if (!st || !st.repeat || st.repeat.by) return;
-          e.preventDefault();
-          const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + (e.key === 'ArrowUp' ? 1 : -1)));
-          if (v === st.repeat.n) return;
-          st.repeat = { n: v, len: st.repeat.len };
-          show(st); chainChanged(false); commit();
-          repeatMoved(k, st.repeat);
-        });
+        const inp = repeatField(() => +L.dataset.k);
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
           h('div', { class: 'rep-chip' }, h('span', { class: 'rep-x', 'aria-hidden': 'true' }, '×'), inp, off));
@@ -147,11 +201,11 @@
   // the ⋯ menu's Repeat: the blocks that may end at step k (back to a d/dz or another repeat), or N and End for its own
   function repeatItems(k) {
     const own = repeatBlocks().find((r) => r.a <= k && k <= r.b);
-    if (own) return [{ label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
+    if (own) return [{ label: $t('Repeat…'), run: () => focusRepeatField(own.b) }, { label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
     const kids = [], prevEnd = Math.max(0, ...repeatBlocks().filter((r) => r.b < k).map((r) => r.b));
     for (let j = k; j > prevEnd && j >= Math.max(1, k - 5); j--) {
       if (isDerivStep(S.steps[j - 1], built[j - 1])) break;
-      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); const c = document.querySelector(`#pipeline .rep-bracket[data-k="${k}"] .rep-n`); return c || null; } });
+      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); return focusRepeatField(k); } });
     }
     return kids;
   }
@@ -411,7 +465,13 @@
     // (v16: which steps the deformation deforms, SPEC 6.5)
     if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk }); }
+    if (!isDerivStep(st, built[k - 1])) {
+      const rk = repeatItems(k);
+      // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
+      if (opt && opt.thread && rk.length === 1) items.push({ id: 'repeat', label: $t('Repeat…'), run: rk[0].run });
+      else if (opt && opt.thread && repeatOf(k)) items.push({ id: 'repeat', label: rk[0].label, run: rk[0].run }, { id: 'repeatEnd', label: rk[1].label, run: rk[1].run });
+      else if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk });
+    }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)

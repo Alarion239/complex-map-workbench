@@ -1492,7 +1492,11 @@ const Funcs = (() => {
       },
       homTex: () => ({ tex: $t('the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$', { n: String(m) }) }),
       nat: { kind: 'chain', n: m }, natData: null,
-      tex: capTex((x) => ({ s: `${names}^{\\circ ${rp.n - 1}}\\!\\left(${base.tex(x).s}\\right)`, p: 4 })),
+      // (the whole count first, N passes of the block on the input, then the first pass written out: f^{∘N}(x) = f^{∘N-1}(f(x)))
+      tex: capTex((x) => {
+        const rest = rp.n === 2 ? names : `${names}^{\\circ ${rp.n - 1}}`;
+        return { s: `${names}^{\\circ ${rp.n}}\\!\\left(${x && typeof x.s === 'string' ? x.s : 'z'}\\right)=${rest}\\!\\left(${base.tex(x).s}\\right)`, p: 4 };
+      }),
       props: composeProps(seq.map((b) => b.props)),
       usesCut: seq.some((b) => b.usesCut),
       cuts: [], poles: [], domain: null, branchNote: null,
