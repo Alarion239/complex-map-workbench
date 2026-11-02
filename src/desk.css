@@ -338,7 +338,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* (#515, steps view) a message over the thread's rail: one line, the rail's height at most; the rail's planes and steps are hidden
    while it shows (it covers no control), and < > and the speed beside it stay live */
 #toastHost[data-placed="rail"] .toast { height: auto; min-height: 36px; white-space: normal; box-shadow: none; }
-.sv-strip.sv-toast .sv-rail > * { visibility: hidden; }
+.sv-strip.sv-toast .sv-rail > *, .sv-strip.sv-toast .sv-wholemap { visibility: hidden; }
 /* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
    once wrapped to four lines and cut its longest word (ru, 1024) */
 #toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }

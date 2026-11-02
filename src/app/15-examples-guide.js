@@ -931,11 +931,13 @@
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
     const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
+    // (the F chip beside the rail steps aside with the planes, and the message takes its room too)
+    const wm = rail ? box(strip.querySelector('.sv-wholemap')) : null, room = rail ? (wm ? wm.right : rail.right) - rail.left : 0;
     if (rail && rail.width >= 160 && host.children.length === 1) {
       stripAway(true);
       host.setAttribute('data-placed', 'rail');
-      st.left = Math.round(rail.left + rail.width / 2) + 'px';
-      st.maxWidth = Math.round(rail.width - 8) + 'px';
+      st.left = Math.round(rail.left + room / 2) + 'px';
+      st.maxWidth = Math.round(room - 8) + 'px';
       const tw = host.firstElementChild.getBoundingClientRect();
       st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
       return;
