@@ -19,7 +19,8 @@
 //   H screenshots (touch-*.png; copied to notes/orthogonal-circle/shots/touch/).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/touch_cmd.js
 // For B's v16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
-const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
+// (CMW_ONLY=A,G runs those sections alone)
+const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
@@ -44,7 +45,20 @@ const ST = () => CI({ shapes: true });
 const FORMS = () => ev(`__cmwC().forms`);
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const last = (st) => st.list[st.list.length - 1];
-const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
+// (the steps view's plane re-fits when a tool's chip row opens or closes: a point's screen place is read once it has
+// stopped moving)
+const planeRest = async () => {
+  if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
+  let p = await W(0, 0), still = 0;
+  for (let i = 0; i < 40 && still < 5; i++) { await sleep(100); const q = await W(0, 0); still = q[0] === p[0] && q[1] === p[1] ? still + 1 : 0; p = q; }
+};
+const tool = async (id) => {
+  const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
+  await settle(120); await planeRest();
+  return r;
+};
+// (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
+const dragH = async (x0, y0, x1, y1, n, dt) => { await move(x0, y0); await settle(150); return drag(x0, y0, x1, y1, n, dt); };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
 // (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
@@ -327,12 +341,12 @@ await section('A', async () => {
   await key('Escape'); await settle(100);
   await tool('select');
   const pz = await W(2, 0), pin = await W(0.5, 0);
-  await drag(pz[0], pz[1], pin[0], pin[1], 10, 16); await settle(300);
+  await dragH(pz[0], pz[1], pin[0], pin[1], 10, 16); await settle(300);
   st = await ST();
   info.inside = { und: byId(st, L2.id).cundef, row: await rowD(L2.id), p: byId(st, P2.id).p };
   ok('A9 a tangent\'s P dragged inside: undefined, the reason', info.inside.und && info.inside.und.code === 'inside' && info.inside.row === 'The point is inside the circle, so no line through it touches the circle', info.inside);
   await shot('touch-d1440-light-inside');
-  await drag(pin[0], pin[1], pz[0], pz[1], 10, 16); await settle(300);
+  await dragH(pin[0], pin[1], pz[0], pz[1], 10, 16); await settle(300);
   st = await ST();
   forms = await FORMS();
   ok('A9 dragged out: the line comes back, touching at the meet point', !byId(st, L2.id).cundef && !byId(st, M2.id).cundef && byId(st, M2.id).p[0] === forms[L2.id].tch.tp[0], [byId(st, L2.id).cundef, byId(st, M2.id).p]);
@@ -497,7 +511,7 @@ await section('C', async () => {
   // the reason: the tangent's P dragged inside
   await tool('select');
   const pin = await W(0.5, 0);
-  await drag(p2[0], p2[1], pin[0], pin[1], 10, 16); await settle(300);
+  await dragH(p2[0], p2[1], pin[0], pin[1], 10, 16); await settle(300);
   info.ruReason = await rowD(L.id);
   ok('C RU reason (inside)', info.ruReason === 'Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности', info.ruReason);
   await key('z', 4); await settle(300);
@@ -669,7 +683,7 @@ await section('F', async () => {
       await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c0[0], y: c0[1], button: 'left', buttons: 0, clickCount: 1 });
     } else {
       const p = await W(2.2, 1.6);
-      await drag(p[0], p[1], p[0] - 30, p[1] - 90, 45, 16);
+      await dragH(p[0], p[1], p[0] - 30, p[1] - 90, 45, 16);
     }
     await settle(200);
     const r = await collect();

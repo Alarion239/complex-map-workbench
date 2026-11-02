@@ -20,7 +20,8 @@
 //     dist/test.html to dist/v163-test.html and dist/v162-test.html first), layouts, BUDGET60, screenshots (seg-*.png).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/perp_cmd.js
 // For B's v16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
-const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
+// (CMW_ONLY=A,G runs those sections alone)
+const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
@@ -45,7 +46,20 @@ const ST = () => CI({ shapes: true });
 const FORMS = () => ev(`__cmwC().forms`);
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const last = (st) => st.list[st.list.length - 1];
-const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
+// (the steps view's plane re-fits when a tool's chip row opens or closes: a point's screen place is read once it has
+// stopped moving)
+const planeRest = async () => {
+  if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
+  let p = await W(0, 0), still = 0;
+  for (let i = 0; i < 40 && still < 5; i++) { await sleep(100); const q = await W(0, 0); still = q[0] === p[0] && q[1] === p[1] ? still + 1 : 0; p = q; }
+};
+const tool = async (id) => {
+  const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
+  await settle(120); await planeRest();
+  return r;
+};
+// (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
+const dragH = async (x0, y0, x1, y1, n, dt) => { await move(x0, y0); await settle(150); return drag(x0, y0, x1, y1, n, dt); };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
 // (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
@@ -275,7 +289,7 @@ await section('A', async () => {
   ok('A9 the pencil: undefined, the reason in the row, the eye disabled', K6.cundef && K6.cundef.code === 'pencil' && info.pencil.row === 'The points are symmetric in the curve: every circle through both is perpendicular to it' && info.pencil.eye === true, info.pencil);
   await shot('perp-d1440-light-pencil');
   await tool('select');
-  await drag(m2[0], m2[1], m2[0] + 24, m2[1] - 12, 8, 16); await settle(300);
+  await dragH(m2[0], m2[1], m2[0] + 24, m2[1] - 12, 8, 16); await settle(300);
   st = await ST();
   ok('A9 K comes back when Q moves', !byId(st, K6.id).cundef && (await FORMS())[K6.id], byId(st, K6.id).cundef);
   // 10. C a polygon side, and a 3-point circle (in a fresh copy of the scene: no K near the side)
@@ -609,7 +623,7 @@ await section('F', async () => {
       let t0 = 0; window.addEventListener('pointermove', () => { t0 = performance.now(); }, true); window.addEventListener('pointermove', () => { if (window.__pm) window.__pm.push(performance.now() - t0); });
       return 1; })()`);
     const p = await W(0.3, 0.2);
-    await drag(p[0], p[1], p[0] + 120, p[1] - 40, 45, 16);
+    await dragH(p[0], p[1], p[0] + 120, p[1] - 40, 45, 16);
     await settle(200);
     const r = await ev(`(()=>{ const q = (a, p) => { const b = (a || []).slice().sort((x, y) => x - y); return b.length ? +b[Math.min(b.length - 1, Math.floor(p * b.length))].toFixed(2) : null; };
       const r = { work_p95: q(__frw, 0.95), work_max: q(__frw, 1), delta_p50: q(__frd, 0.5), delta_p95: q(__frd, 0.95), move_p95: q(__pm, 0.95), n: (__frd || []).length };
@@ -793,7 +807,7 @@ await section('I', async () => {
   const sI = (await W(1, 0))[0] - (await W(0, 0))[0];
   const kk = byId(st, K1), g0 = byId(st, 'ig').p, kEnd = 1 + 30 / (sI * Math.hypot(kk.a[0], kk.a[1])), gEnd = await W(kk.a[0] * kEnd, kk.a[1] * kEnd);
   const gs = await W(g0[0], g0[1]);
-  await drag(gs[0], gs[1], gEnd[0], gEnd[1], 20, 16); await settle(300);
+  await dragH(gs[0], gs[1], gEnd[0], gEnd[1], 20, 16); await settle(300);
   st = await ST();
   const gl = byId(st, 'ig');
   info.glider = { t: gl.t, p: gl.p, a: byId(st, K1).a };
@@ -813,7 +827,7 @@ await section('I', async () => {
   ok('I2 Intersect on two crossing geodesics makes a point inside the disc', M && M.def && M.def.op === 'meet' && !M.cundef && Math.hypot(...M.p) < 1, M && M.def);
   await tool('select');
   const z4 = byId(st, Ks[2].def.args[1].s), z4s = await W(z4.p[0], z4.p[1]), z4t = await W(0.2, -0.7);
-  await drag(z4s[0], z4s[1], z4t[0], z4t[1], 16, 16); await settle(400);
+  await dragH(z4s[0], z4s[1], z4t[0], z4t[1], 16, 16); await settle(400);
   st = await ST();
   const M2 = M && byId(st, M.id);
   info.meetUndef = M2 && { undef: M2.cundef, row: await rowD(M.id), k3: byId(st, Ks[2].id).cundef };
@@ -960,7 +974,7 @@ await section('I', async () => {
         window.requestAnimationFrame = (cb) => raf((ts) => { const t0 = performance.now(); cb(ts); if (window.__frw) window.__frw.push(performance.now() - t0); }); }
       const tick = (ts) => { if (!window.__frd) return; if (lastT) window.__frd.push(ts - lastT); lastT = ts; requestAnimationFrame(tick); }; requestAnimationFrame(tick); return 1; })()`);
     const p = await W(0.3, 0.2);
-    await drag(p[0], p[1], p[0] + 60, p[1] - 30, 45, 16);
+    await dragH(p[0], p[1], p[0] + 60, p[1] - 30, 45, 16);
     await settle(200);
     return ev(`(()=>{ const q = (a, p) => { const b = (a || []).slice().sort((x, y) => x - y); return b.length ? +b[Math.min(b.length - 1, Math.floor(p * b.length))].toFixed(2) : null; };
       const r = { work_p95: q(__frw, 0.95), delta_p95: q(__frd, 0.95), n: (__frd || []).length }; window.__frw = null; window.__frd = null; return r; })()`);
