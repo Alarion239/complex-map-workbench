@@ -235,4 +235,16 @@ await wait();
   ok("tan all parked 0.5: the glide's pole tracks are kept for it (a second key at once)", k.again < 5, k);
   ok('tan all parked 0.5: no point of the inner 90 % on the bare paper', paper === 0 && info['tan all parked 0.5'].n > 1000, info['tan all parked 0.5']);
 }
+// The warm draw of the glide's carried colour (svWarmCarry) waits until the chain and the input have been still for 2 s:
+// on a renderer that makes a program's machine code at its first draw it takes the main thread for a second or more,
+// which just after an edit would hold back what the edit shows (phone_toast_chain_cmd's "Added" message)
+{
+  const before = await ev('__cmwSvWarm()'), t0 = await ev('performance.now()');
+  await ev(`__cmwAddStep('exp'), 1`);
+  let w = null;
+  for (let i = 0; i < 80; i++) { w = await ev('__cmwSvWarm()'); if (w.sig === w.now && w.sig !== before.sig) break; await sleep(250); }
+  info.warm = { before, w, after: w ? Math.round(w.at - t0) : null };
+  ok('warm: the warm draw is made for the chain just edited', !!w && w.sig === w.now && w.sig !== before.sig, info.warm);
+  ok('warm: it is made no sooner than 2 s after the edit', !!w && w.at - t0 >= 2000, info.warm);
+}
 return { pass: fails.length === 0, fails, info };

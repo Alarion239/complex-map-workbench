@@ -1450,12 +1450,18 @@
   // The glide's carried colour drawn once on a speck (SV_WARM's mesh, at x = 1/2 of the first step) into the GL canvas,
   // which no pane shows until a frame copies it: a renderer that makes a program's machine code at its first draw
   // (SwiftShader, llvmpipe) makes it then, in an idle moment, not in the first frame of the first glide, whose clock
-  // would run on past that stall and end it. Tried again while the programs link (prestartCarry), at most 40 times
-  const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true };
-  let svWarmSig = null;
-  function svWarmCarry(n) {
+  // would run on past that stall and end it. The idle moment is SV_WARM_IDLE_MS after the chain changed and after the
+  // last input (lastInputT): that machine code takes the main thread for a second or more on such a renderer, which
+  // just after an edit holds back what the edit shows (the "Added" message). Tried again while the programs link
+  // (prestartCarry), at most 40 times; the programs themselves link without waiting (prestartCarry, the parallel compile)
+  const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true }, SV_WARM_IDLE_MS = 2000;
+  let svWarmSig = null, svWarmAt = 0;
+  // (t0: when the chain changed, as svPrestart saw it)
+  function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
     if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
     const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 250));
     idle(() => {
       if (chainSig[nSteps()] !== sig) return;
@@ -1470,7 +1476,7 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) svWarmSig = sig; else setTimeout(() => svWarmCarry(n + 1), 500);
+      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
