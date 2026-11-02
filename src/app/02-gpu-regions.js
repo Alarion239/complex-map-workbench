@@ -191,10 +191,11 @@
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
   // (o.base: the mesh's base resolution, overriding the drawing's: the steps view's whole-plane carry mesh, which has
-  // no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it)
+  // no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it; o.win: the window its
+  // mesh is cut to, overriding winOf(s): the steps view's outer ring of carried points, past clipWin)
   function shapeGPU(s, o) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
-    const win = winOf(s);
+    const win = (o && o.win) || winOf(s);
     let r = gpu.get(s.id);
     if (!r) { r = { fix: {} }; gpu.set(s.id, r); }
     const t = kindType(s);
