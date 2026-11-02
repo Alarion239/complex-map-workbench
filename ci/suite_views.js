@@ -91,7 +91,7 @@ const VIEWS = {
   'top_bar_focus_cmd.js': port('interact', 'without the view switch and Deformation in the bar'),
   'ux165_fix_cmd.js': port('interact'),
   'ux165_merge_cmd.js': port('interact'),
-  'ux165_plane_cmd.js': port('interact'),
+  'ux165_plane_cmd.js': steps({ pin: true }),
   'ux165_plane_classic_cmd.js': classic('a finger drag from a disc panning the plane, and the names of X and Y (titles, canvas names, Shapes headings, Plane | Sphere in the two heads, the phone chip\'s X tag, in English and Russian): a finger drag on a steps-view plane scrubs the thread, and it has one plane and no X or Y'),
   'v15_merge_cmd.js': port('interact'),
   'v15_params_cmd.js': port('interact'),
