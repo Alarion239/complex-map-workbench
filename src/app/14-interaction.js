@@ -347,7 +347,7 @@
       : targetsEditable() && !drag && tool !== 'select' ? 'crosshair' : (drag ? 'grabbing' : 'grab');
     else if (lGlobe() && gEditDrag) c = gEditCur('L');
     else if (lGlobe() && gDraw('L') && !drag) c = gDrawCur('L');
-    else if (lGlobe() && leftStage() > 0 && tool !== 'select' && !drag) c = 'not-allowed';
+    else if (lGlobe() && leftStage() > 0 && Construct.isTool(tool) && !drag) c = 'not-allowed';
     // the landscape takes no drawing (panels.md 9.1)
     else if (lLand() && tool !== 'select' && tool !== 'formula' && !drag) c = 'not-allowed';
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
@@ -388,10 +388,8 @@
       setCursor(pane, side);
       return;
     }
-    // left pane: the z-globe at stage 0 takes shapes (P3b); at a focused stage a drawing tool draws nothing there, as
-    // in the plane (P4: the Whole chain button pulses); the landscape only turns
+    // left pane: the globe takes the shapes of the plane it shows; the landscape only turns
     if (lGlobe() && globeEdit('L')) { globeDown(pane, side, e, x, y); gestureProbeOff(); setCursor(pane, side); return; }
-    if (lGlobe() && leftStage() > 0 && tool !== 'select' && !panBtn) pulseWhole();
     if (!lFlat()) {
       const c = camOf('L');
       if (c) { c.vyaw = 0; c.vpitch = 0; drag = { mode: panBtn || e.shiftKey ? 'pan3' : 'orbit', cam: c, side: 'L', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; }
@@ -542,7 +540,7 @@
   // build caps (stored as disc, complement of a disc or half-plane; circle or line); Annulus, Sector and Polar grid
   // are off on the globes (the user's decision, panels.md 9.2).
   const GL3 = Region.Globe;
-  const globeEdit = (side) => (side === 'L' ? lGlobe() && leftStage() === 0 && solo() !== 'R' : rGlobe() && !morphOn() && solo() !== 'L');
+  const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && !morphOn() && solo() !== 'L');
   const GLOBE_OFF = new Set(['annulus', 'sector', 'pgrid']);
   // the snap net of a tool (panels.md 9.5, P8): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
   // the globe's graticule draws the net of the active tool (the polar net with Select)
@@ -632,7 +630,7 @@
     const best = (cands, rad) => { let b = null, bd = rad; for (const P of cands) { const d = dist(P); if (d <= bd) { bd = d; b = P; } } return b; };
     const out = (P) => { const Pn = GL3.norm3(P); gSnapMark = { side, P: Pn }; return { P: Pn, z: GL3.finiteOf(Pn), snapped: true, pt: true }; };
     const others = [];
-    for (const s of side === 'R' ? S.targets : S.shapes) {
+    for (const s of side === 'R' ? S.targets : planeShapes()) {
       if (s === self || s.visible === false) continue;
       for (const [k, P] of globeHandles(s, gc)) if (k !== 'rim') others.push(P);
     }
@@ -738,7 +736,7 @@
   // a press on an editable globe: a draft, a point, a handle or a shape to move; otherwise the globe turns
   function globeDown(pane, side, e, x, y) {
     const c = camOf(side), gc = globeCam(side);
-    const target = side === 'R', list = target ? S.targets : S.shapes, ov = side;
+    const target = side === 'R', list = target ? S.targets : planeShapes(), ov = side;
     altHeld = !!e.altKey; gSnapMark = null;
     gTurnPress[side] = false;
     const turn = () => { gTurnPress[side] = true; c.vyaw = 0; c.vpitch = 0; drag = { mode: e.button === 2 || e.shiftKey ? 'pan3' : 'orbit', cam: c, side, x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; };
@@ -746,7 +744,8 @@
     const g = pickGlobe(pane, c, x, y);
     if (!gc || !g || e.button === 1 || e.button === 2 || spaceHeld || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y)) { turn(); return; }
     if (GLOBE_OFF.has(tool) || tool === 'formula') { turn(); return; }
-    if (Construct.isTool(tool)) { turn(); drag.cmPick = true; return; }   // (v16: a click picks, onUp; a drag turns)
+    // (a click picks, onUp; a drag turns; a construction tool picks nothing on a later plane: the Whole chain button pulses)
+    if (Construct.isTool(tool)) { turn(); if (side === 'L' && leftStage() > 0) pulseWhole(); else drag.cmPick = true; return; }
     if (tool === 'polygon') {
       if (nearInf(gc, x, y)) return;
       const gs = globeSnap(gc, side, g, 'cart');
@@ -768,7 +767,8 @@
       const last = list[list.length - 1], now = performance.now();
       // ([v16.5 rail SPEC 1.2 (c)] on a drawn curve (no point or mark took the press): a point on that curve)
       if (!gs.pt && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
-        const pl = list[list.length - 1];
+        // (the plane's shapes read again: the point was just added, and `list` is a copy taken before it)
+        const cur = target ? S.targets : planeShapes(), pl = cur[cur.length - 1];
         lastGlobePoint = pl ? { id: pl.id, t: now } : null; gSnapMark = null;
         return;
       }
@@ -1015,7 +1015,7 @@
   function drawGlobeEdit(side) {
     const gc = globeCam(side);
     if (!gc) return;
-    const ctx = gc.pane.octx, list = side === 'R' ? S.targets : S.shapes;
+    const ctx = gc.pane.octx, list = side === 'R' ? S.targets : planeShapes();
     // the selected shape, and a shape being drawn here (panels.md 9.4: the draft with its handles, so a cap shows the
     // spherical centre it is built around)
     const sel = list.find((x) => x.id === selected);

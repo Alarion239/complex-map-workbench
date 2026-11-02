@@ -58,6 +58,8 @@ const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 
 const SUITES = {
   // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
   // suite run too)
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
