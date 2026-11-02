@@ -134,8 +134,8 @@ function sheetKey(win, P = []) {
     return D;
   };
 }
-// the tie step of the sheet key, in octaves: keys in one step of it tie (it must equal Inverse.front's TIE_D)
-const TIE_D = 2 ** -8;
+// the tie step of the sheet key, in octaves: keys in one step of it tie (Inverse.front's own)
+const { TIE_D } = require('../../../src/inverse.js');
 // members in front-to-back order: key D ascending; ties (keys in one TIE_D step): larger Im z, then larger Re z in front
 // (SPEC 5.2)
 function frontOrder(cands, key) {

@@ -595,7 +595,8 @@ const Inverse = (() => {
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
-  // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
+  // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
+  // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points
   function keySing(plan, win) {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }
@@ -1570,7 +1571,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
