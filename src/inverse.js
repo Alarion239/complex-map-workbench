@@ -380,9 +380,9 @@ const Inverse = (() => {
     return { R, rs: R / 8 };
   }
   // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|)), c the centre
-  // of W (#584: the point nearest the window's centre in front, continuous across W's edges, where the distance to W
-  // tied every point inside it and the tie rule flipped sheets along its sides; |z - c| >= dist(z, W), so every lower
-  // bound the walk takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
+  // of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself would
+  // tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
+  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
   function sheetKey(prep, z, lam) {
     const { win, R, rs, sing } = prep;
     if (lam && lam.re > LAM_CUT) return (lam.re - Math.log(R)) / LN2;
@@ -397,7 +397,7 @@ const Inverse = (() => {
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
   // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // the same step of TIE_D octave (round(D / TIE_D)) are ties (#584): a map symmetric about the window's centre (z^2
+  // the same step of TIE_D octave (round(D / TIE_D)) are ties: a map symmetric about the window's centre (z^2
   // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
   // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
   const TIE_D = 2 ** -8;
@@ -409,7 +409,6 @@ const Inverse = (() => {
     if (za.im !== zb.im) return za.im > zb.im;
     return za.re > zb.re;
   }
-
 
   // =====================================================================================================
   // 6. Singular points and pull-backs (SPEC 3.7)
@@ -604,17 +603,18 @@ const Inverse = (() => {
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total, truncated };
   }
-  // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
-  // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
-  // enumerated only inside expandBox(win, 3).
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
-  // back (#584: a point beside a pole, which takes far-away values, is not in front for being near the centre alone)
+  // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
+  // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points
   function keySing(plan, win) {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }
     try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
     return acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))).slice(0, 4);
   }
+  // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
+  // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
+  // enumerated only inside expandBox(win, 3).
   function singular(plan, win, kinds = ['undef', 'branch', 'pole'], cap = 16) {
     if (!plan || !plan.ok || !plan.ops.length) return [];
     const ops = plan.ops, { refs } = refsOf(plan, win), zb = expandBox(win, 3);
@@ -1179,7 +1179,7 @@ const Inverse = (() => {
     const noStop = !!opts.all && Kt > B, alphaR = opts.alpha ?? 1;
     const ramp = opts.ramp ?? RAMP;
     const dwX = opts.dwdX || C(pix, 0), dwY = opts.dwdY || C(0, pix);
-    const frontFn = front, paths = !!opts.paths;
+    const paths = !!opts.paths;
     const ev = prep.ev || (prep.ev = shapePx(prep.shape));
     const leaves = [], ent = [], loops = [];
     let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1;
@@ -1190,7 +1190,7 @@ const Inverse = (() => {
       && isFin(a.z) && isFin(b.z) && Math.hypot(a.z.re - b.z.re, a.z.im - b.z.im) <= a.fp;
     const admit = (e) => {
       let pos = ent.length;
-      for (let i = 0; i < ent.length; i++) if (frontFn(e, ent[i])) { pos = i; break; }
+      for (let i = 0; i < ent.length; i++) if (front(e, ent[i])) { pos = i; break; }
       for (const k of [pos - 1, pos]) {
         const t = ent[k];
         if (t && twin(e, t)) { t.cv = Math.min(1, t.cv + e.cv); if (t.cv > U) U = t.cv; t.merged = (t.merged || 0) + 1; return; }
@@ -1580,7 +1580,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, dcolorRGB, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

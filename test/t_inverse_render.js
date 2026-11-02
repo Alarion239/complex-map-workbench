@@ -203,11 +203,11 @@ for (const name of ['expH', 'zi_H', 'e1z_disc']) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// (h) golden emulation: today's forward draw (emulated) vs the inverse render of the bounded controls. Where a region
-// covers a pixel more than once, both show the front point of the one sheet key the region tiling, the pre-mapped
-// meshes and the steps view's colours share (Inverse.sheetKey: the point nearest the window's centre, the poles
-// penalised, keys within TIE_D tied and ordered by the tie rule; #584). The golden was the meshes' build order (the
-// last triangle drawn in front) until #584 made that key the forward draw's depth too
+// (h) golden emulation: the forward draw (emulated: the region meshes as the GPU places and orders them) vs the
+// inverse render of the bounded controls. Where a region covers a pixel more than once, both show the front point of
+// the one sheet key the region tiling, the pre-mapped meshes and the steps view's colours share (Inverse.sheetKey:
+// the point nearest the window's centre, the poles penalised, keys within TIE_D tied and ordered by the tie rule),
+// which is also the forward draw's depth
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (h) golden emulation');
 {
@@ -216,8 +216,8 @@ console.log('--- (h) golden emulation');
   const LOOKF = { pattern: 'solid', c0: hex('#3B6FD4'), c1: hex('#8CABE5'), k: EDGE };
   // the forward draw: Region.buildMesh at Q = 60, the L = 4 GPU template, the 0.2-edge midpoint test, linear source
   // interpolation inside each sub-triangle, its footprint, the shared sheet key's front point per pixel (its depth,
-  // PRE_KEY), alpha 1 (notes/proto/lead-inv/golden_cmp.js)
-  function forward(sc, view, pattern) {
+  // PRE_KEY), alpha 1 (notes/proto/lead-inv/golden_cmp.js); rev: the order reversed, the hindmost point shown
+  function forward(sc, view, pattern, rev = false) {
     const steps = sc.steps.map(St), built = builtOf(steps);
     const F = (z) => { for (const b of built) z = b.f(z); return z; };
     const win = sc.win || Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
@@ -250,7 +250,7 @@ console.log('--- (h) golden emulation');
           const b = bary(x + 0.5, y + 0.5);
           if (b[0] < -1e-12 || b[1] < -1e-12 || b[2] < -1e-12) continue;
           const z = srcAt(b), k = y * W + x, cand = { z, D: Inverse.sheetKey(kp, z, null), lam: null };
-          if (best[k] && !Inverse.front(cand, best[k])) continue;
+          if (best[k] && !(rev ? Inverse.front(best[k], cand) : Inverse.front(cand, best[k]))) continue;
           best[k] = cand;
           const pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] });
           col[3 * k] = pc.col[0]; col[3 * k + 1] = pc.col[1]; col[3 * k + 2] = pc.col[2]; cov[k] = 1;
@@ -259,10 +259,10 @@ console.log('--- (h) golden emulation');
     }
     return { col, cov };
   }
-  function composite(sc, view, variant, inv) {
+  function composite(sc, view, variant, inv, rev = false) {
     const map = { at: pixelAt(view), spx: view.s };
     const TG = MET.truthGrid(sc.truth, Q.cellOf(sc), map, W, H);
-    const fw = forward(sc, view, variant === 'mask' ? 'solid' : 'checker');
+    const fw = forward(sc, view, variant === 'mask' ? 'solid' : 'checker', rev);
     const A = Buffer.alloc(W * H * 4), B = Buffer.alloc(W * H * 4);
     for (let k = 0; k < W * H; k++) {
       const d = Math.min(Math.abs(TG.sdf[k]), TG.stroke ? TG.stroke[k] : Infinity);
@@ -285,10 +285,20 @@ console.log('--- (h) golden emulation');
       check(`golden ${name}.${variant} <= 0.05 %`, gd.frac <= 0.0005, `${(100 * gd.frac).toFixed(3)} %`);
     }
   }
-  // the key is continuous (#584): no tie class (the old key's D = 0 over the whole window, ordered by the tie rule
-  // alone, flipped sheets along the window's sides). Along a line from the window's centre out across its side, D
-  // grows strictly and never faster than its Lipschitz bound 1 / (R ln 2) per unit
+  // the order matters: the forward draw with the sheet order reversed is far from the inverse render (so the golden
+  // checks above see which point is in front)
   {
+    const sc = Q.SCENES.find((x) => x.name === 'disc_cube'), kd = kept['disc_cube.pattern'];
+    const gdr = composite(sc, sc.rightView, 'pattern', kd ? kd.r : render(sc, sc.rightView, 'checker'), true);
+    check('the sheet order matters: reversed disc_cube.pattern > 0.1 %', gdr.frac > 0.001, `${(100 * gdr.frac).toFixed(3)} %`);
+  }
+  // the key is continuous across the window's sides, so two sheets whose keys are near trade places along a smooth
+  // curve, not along the window's edges: along a line from the window's centre out across its side, D grows strictly
+  // and never faster than its Lipschitz bound 1 / (R ln 2) per unit (KEY_RATE_SLACK: the rate is a finite difference
+  // over h, a hair above the derivative's bound; h a 200th of the window's half-width, and 400 steps from the centre:
+  // the line crosses the side at step 200 and runs as far again outside it)
+  {
+    const KEY_RATE_SLACK = 1.0001;
     const sc = Q.SCENES.find((s) => s.name === 'disc_cube'), win = Q.boxOf(sc.srcView), R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     const kp = { win, R, rs: R / 8, sing: [] }, cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, h = (win.x1 - cx) / 200;
     let grows = true, maxRate = 0;
@@ -297,8 +307,7 @@ console.log('--- (h) golden emulation');
       if (!(d1 > d0)) grows = false;
       maxRate = Math.max(maxRate, (d1 - d0) / h);
     }
-    console.log(`sheet key across the window's side: grows ${grows}, max rate ${maxRate.toFixed(5)} (bound ${(1 / (R * Math.LN2)).toFixed(5)})`);
-    check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= 1.0001 / (R * Math.LN2), `${grows} ${maxRate}`);
+    check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= KEY_RATE_SLACK / (R * Math.LN2), `${grows} ${maxRate}`);
   }
 }
 

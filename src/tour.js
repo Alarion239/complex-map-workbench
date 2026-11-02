@@ -6,7 +6,7 @@
 const Tour = (() => {
   // the interface language (src/i18n.js, notes/i18n/DESIGN.md): $t(english, params). Run alone (the node tests), the
   // tour keeps its English: the same placeholder rule, %{name} always and {name} only in a template without TeX
-  const I18 = typeof globalThis !== 'undefined' && globalThis.I18N ? globalThis.I18N : null;
+  const I18 = typeof globalThis !== 'undefined' && /** @type {any} */ (globalThis).I18N ? /** @type {any} */ (globalThis).I18N : null;
   const $t = I18 ? I18.t : (s, p) => (p ? s.replace(/%\{(\w+)\}|\{(\w+)\}/g, (m, a, b) => { const k = a || (!/[$\\]/.test(s) && b); return k && k in p ? String(p[k]) : m; }) : s);
   // Russian notation (tg, sh, ln) where the tour sets TeX; English unchanged
   const notation = (tex) => (I18 ? I18.notation(tex) : tex);
@@ -306,14 +306,14 @@ const Tour = (() => {
           touch: 'Hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
           try: { text: 'Right-click the circle, then choose $\\oint$.', touch: 'Hold the circle, then choose $\\oint$.', on: 'integral-opened', then: '$\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.' } },
         // (v15: api.anchor selects the F tile for these names, so the Inspector shows F; on a phone, in the Editor sheet)
-        { id: 'domain', anchor: 'domain', also: ['fTile'], title: 'Natural domain', before: [['panel', 'right']],
+        { id: 'domain', anchor: 'domain', also: ['fTile', 'svF'], title: 'Natural domain', before: [['panel', 'right']],
           lead: 'Here $F$ is defined for every $z$ except $\\pm i$.',
           body: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
           touch: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', deskTouch: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', phoneFine: 'Click the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
           byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
           touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, deskTouchByScene: { residueZp: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, phoneFineByScene: { residueZp: 'Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
           try: { text: 'Click the F tile.', touch: 'Tap the F tile.', on: 'step-selected', test: (e) => !e || e.k === 'F', ctl: ['fTile'], then: 'The Inspector lists where every step is defined.' } },
-        { id: 'guarantees', anchor: 'guarantees', also: ['fTile'], title: 'Guarantees', before: [['panel', 'right']],
+        { id: 'guarantees', anchor: 'guarantees', also: ['fTile', 'svF'], title: 'Guarantees', before: [['panel', 'right']],
           lead: 'What the chain guarantees: always true when listed.',
           body: 'The F tile names what the chain guarantees. A property is listed only when every step has it and composition keeps it, so it is always true; one not listed is not implied, but may hold. Step by step shows which step brings which.' },
       ],
@@ -467,10 +467,10 @@ const Tour = (() => {
     // (#442: the steps view's thread, its ring, its Colour from here button, its two choices (a segmented control, or on a phone one
     // button that steps through them) and the first function chip)
     svStrip: '#svStrip', svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
-    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'),
+    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svF: () => vis1('#svStrip .sv-wholemap'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
-    constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
+    constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
     // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
     ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
@@ -513,7 +513,7 @@ const Tour = (() => {
     // (v15.1) the selected step's Show alone button (v16.5 UX85: no longer a lens) in the Inspector's head: in a phone's sheet
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
+    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ph-col .ph-sph'))].find((e) => e.offsetParent) || null,
     // v16.1 (notes/v16-user5/AS-BUILT-tour.md): the control a step's task needs, exactly. A tool is its own button where
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name
@@ -789,6 +789,7 @@ const Tour = (() => {
       return matchMedia('(prefers-reduced-motion: reduce)').matches;
     } catch (e) { return false; }
   };
+  /** @type {(n?: number) => Promise<void>} */
   const frames = (n = 2) => new Promise((res) => { const f = () => (--n <= 0 ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const narrow = () => (typeof innerWidth === 'number' ? innerWidth < 640 : false);
@@ -1119,7 +1120,7 @@ const Tour = (() => {
    button as the label does, growing from left to right over the countdown (CD_MS); restarted with the countdown, frozen while held */
 .tour-strip .ts-next::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: -1; background: var(--accent-ink); transform-origin: 0 50%; transform: scaleX(0); }
 .tour-strip .ts-next svg { width: 18px; height: 18px; display: block; }
-.tour-strip .ts-ncount { font: 600 16px/1 var(--f-ui); }
+.tour-strip .ts-ncount { font: 600 15px/1 var(--f-ui); }
 .tour-strip .ts-next.counting::before { animation: tour-fill var(--tour-cd, 1500ms) linear forwards; }
 .tour-strip .ts-next.counting.held::before { animation-play-state: paused; }
 @keyframes tour-fill { to { transform: scaleX(1); } }
@@ -1146,17 +1147,17 @@ const Tour = (() => {
 .ts-why { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 0 16px 10px 58px; font: 400 13px/19px var(--f-ui); color: var(--ink-2); }
 .ts-why[hidden] { display: none; }
 .ts-why .ts-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
-.ts-why .ts-auto { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font: 400 12.5px/16px var(--f-ui); color: var(--ink-2); cursor: pointer; }
+.ts-why .ts-auto { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font: 400 12px/16px var(--f-ui); color: var(--ink-2); cursor: pointer; }
 .ts-why .ts-auto input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
 .ts-why .ts-wend { display: none; }
 .tour-top .ts-why.ts-panel {
   position: fixed; left: 0; right: 0; top: 0; max-height: 50vh; max-height: 50dvh; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: var(--surface); border-bottom: 1px solid var(--line-strong); box-shadow: var(--shadow-3); pointer-events: auto;
-  font-size: 14px; line-height: 20px;
+  font-size: 13px; line-height: 20px;
 }
 .tour-top .ts-why.ts-panel .ts-wend { display: flex; gap: 8px; }
 .tour-top .ts-why.ts-panel .ts-wend .btn { min-height: 44px; padding: 0 14px; }
-.tour-top .ts-why.ts-panel .ts-auto { min-height: 44px; font-size: 14px; }
+.tour-top .ts-why.ts-panel .ts-auto { min-height: 44px; font-size: 13px; }
 .tour-top .ts-why.ts-panel .ts-auto input { width: 20px; height: 20px; }
 .tour-top .ts-why.ts-panel .ts-wtitle { display: block; margin: 0 0 4px; font: 600 15px/20px var(--f-ui); color: var(--ink); }
 .ts-wtitle { display: none; }
@@ -1177,6 +1178,7 @@ const Tour = (() => {
 .tl-mark svg { width: 24px; height: 24px; display: block; }
 .tour-lane:not([data-mode="desk"]) .tl-mark { display: none; }
 .tl-text { flex: 1 1 auto; min-width: 0; margin: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.tour-lane.grow .tl-text { -webkit-line-clamp: 4; line-clamp: 4; }
 .tour-lane[data-mode="desk"]:not(.two) .tl-text { -webkit-line-clamp: 1; line-clamp: 1; display: block; white-space: nowrap; text-overflow: ellipsis; }
 .tl-title { font-weight: 600; color: var(--ink); }
 .tl-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
@@ -1198,7 +1200,7 @@ const Tour = (() => {
 .tour-menu .tour-done svg { width: 14px; height: 14px; display: block; }
 .tour-menu .tour-new { font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--accent); }
 .tour-menu .mi.tour-continue { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
-.tour-menu .tour-sub { display: block; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
+.tour-menu .tour-sub { display: block; font: 400 11px/16px var(--f-ui); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .ts-ring svg, .ts-chev svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
 `;
   // a polite announcement outside the tour (the suggestion): one shared live region
@@ -1383,7 +1385,7 @@ const Tour = (() => {
     const added = now.some((e) => !ui.topSet.includes(e));
     ui.topSet = now;
     if (now.length ? isOpen && !added : !isOpen) return;
-    const a = document.activeElement;
+    const a = /** @type {HTMLElement | null} */ (document.activeElement);
     try {
       if (now.length) {
         if (!top.hasAttribute('popover')) top.setAttribute('popover', 'manual');
@@ -1530,7 +1532,7 @@ const Tour = (() => {
     ui.shade.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); });
     const onKey = (e) => {
       if (run !== r || e === fwdKey) return;
-      const a = document.activeElement, inS = inStrip(a);
+      const a = /** @type {HTMLInputElement | null} */ (document.activeElement), inS = inStrip(a);
       const idle = a === document.body || a == null || inS;
       if (e.key === 'Escape') {
         // The app's own layer comes first, wherever the focus is: a menu, the palette or a dialog closes and the tour
@@ -1593,7 +1595,7 @@ const Tour = (() => {
       if (ui.touching) clearTimeout(ui.backT);
       if (!ui.touching && ui.backH) { const H = ui.backH; clearTimeout(ui.backT); ui.backT = setTimeout(() => { if (run === r) bringBack(r, H); }, BACK_MS); }
     };
-    for (const t of ['touchstart', 'touchend', 'touchcancel']) { document.addEventListener(t, onTouch, { capture: true, passive: true }); r.offs.push(() => document.removeEventListener(t, onTouch, { capture: true, passive: true })); }
+    for (const t of ['touchstart', 'touchend', 'touchcancel']) { document.addEventListener(t, onTouch, { capture: true, passive: true }); r.offs.push(() => document.removeEventListener(t, onTouch, /** @type {EventListenerOptions} */ ({ capture: true, passive: true }))); }
     const onHide = () => { if (run === r && r.lend && r.lend.stashed) unbeat(); };
     const onShow = (e) => { if (e.persisted && run === r && r.lend && r.lend.stashed) beat(); };
     addEventListener('pagehide', onHide);
@@ -1668,7 +1670,7 @@ const Tour = (() => {
     r.timer = setInterval(() => { syncTop(ui); syncLayers(r); syncAct(r); onFocus(); track(); if (r.lend && r.lend.stashed && ++n % Math.round(BEAT_MS / 250) === 0) beat(); }, 250);
     r.offs.push(() => clearInterval(r.timer));
     // the app's hover tooltip sits above the strip: hidden while it would cover it
-    const tip = document.querySelector(TIP_SEL);
+    const tip = /** @type {HTMLElement | null} */ (document.querySelector(TIP_SEL));
     if (tip && typeof MutationObserver === 'function') {
       const mo = new MutationObserver(() => guardTip(r));
       mo.observe(tip, { attributes: true, attributeFilter: ['hidden', 'style', 'class'], childList: true });
@@ -1676,7 +1678,7 @@ const Tour = (() => {
     }
   }
   function guardTip(r) {
-    const tip = document.querySelector(TIP_SEL);
+    const tip = /** @type {HTMLElement | null} */ (document.querySelector(TIP_SEL));
     if (!tip || run !== r) return;
     const t = tip.getBoundingClientRect(), c = r.ui.strip.getBoundingClientRect();
     const shown = !tip.hidden && t.width > 0 && t.height > 0;
@@ -1726,7 +1728,7 @@ const Tour = (() => {
     if (!top) return 'row';
     const cs = getComputedStyle(top);
     let used = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0), k = 0;
-    for (const c of top.children) {
+    for (const c of /** @type {HTMLElement[]} */ ([...top.children])) {
       if (c.id === 'tourHeadSlot' || c.matches(':popover-open, [popover]') || getComputedStyle(c).display === 'none') continue;
       // (the view switch keeps at most 420 px, as when the header holds nothing else)
       used += c.id === 'viewSwitch' ? Math.min(420, c.scrollWidth > c.offsetWidth ? c.scrollWidth : Math.max(c.offsetWidth, 0)) : c.offsetWidth;
@@ -1734,7 +1736,7 @@ const Tour = (() => {
     }
     const gap = parseFloat(cs.columnGap || cs.gap) || 4;
     const free = top.clientWidth - used - gap * k;
-    stripMode.free = free;
+    /** @type {any} */ (stripMode).free = free;
     return free >= 260 ? 'head' : 'row';
   }
   // Mounts the strip in its slot (the app's api.slot, else the first child of .stage) and reserves its room: --tour-h
@@ -1762,7 +1764,7 @@ const Tour = (() => {
     ui.slot = slot; ui.mode = mode; ui.strip.dataset.mode = mode;
     ui.chap.hidden = mode !== 'desk' || !ui.chap.firstChild.textContent;
     // (r3 verify-2: × End in the landscape header only with 44 + 8 px to spare beyond the strip's 260)
-    ui.strip.classList.toggle('ts-xok', mode === 'head' && stripMode.free >= 312);
+    ui.strip.classList.toggle('ts-xok', mode === 'head' && /** @type {any} */ (stripMode).free >= 312);
     // the sheet: a panel in the tour's top layer on a phone (the narrow row has no room for Back, × End the tour and
     // Move on by itself); a laptop's strip has them in its row, and no sheet
     const panel = mode !== 'desk';
@@ -1783,15 +1785,22 @@ const Tour = (() => {
     if (changed && mode !== 'desk') call('slot', where);   // (the app's phone layout shares out its height again)
     paintNext(ui);
   }
+  // the phone's row under the header: the one place that writes its height (--ph-tour), for the strip and for the lane,
+  // true when it changed; PH_LINE: a line of the strip's or the lane's text, 17 px
+  const PH_LINE = 17;
+  const phTourGet = () => parseFloat(document.documentElement.style.getPropertyValue('--ph-tour')) || 0;
+  function phTourSet(px) {
+    if (phTourGet() === px) return false;
+    document.documentElement.style.setProperty('--ph-tour', px + 'px');
+    return true;
+  }
   // a phone's row: 68 px in portrait (76 for three lines), 48 under a landscape header (56), none in the header
   function setPhTour(r) {
     const ui = r.ui, n = ui.lines || 2;
     ui.strip.dataset.lines = String(n);
     // (#553: Italian at 360 px needs four lines for "Tieni premuto dentro il disco…": the row grows by a line, 17 px, again)
     const v = ui.mode === 'port' ? (n >= 4 ? 93 : n === 3 ? 76 : 68) : ui.mode === 'row' ? (n >= 4 ? 72 : n === 3 ? 56 : 48) : 0;
-    const st = document.documentElement.style;
-    if (st.getPropertyValue('--ph-tour') !== v + 'px') { st.setProperty('--ph-tour', v + 'px'); return true; }
-    return false;
+    return phTourSet(v);
   }
   // a resize or a layout change: the strip's place, then its lines, measured again
   function remount(r) { r.forceRow = false; mountStrip(r); fitLines(r); }
@@ -2051,7 +2060,7 @@ const Tour = (() => {
       if (cdLeft(s, performance.now()) > 1) { cdSync(r, s); return; }
       r.cd = countdown(s, { type: 'fire' }, performance.now());
       // (a focused text field is left first, so a phone's keyboard closes)
-      const a = document.activeElement;
+      const a = /** @type {HTMLElement | null} */ (document.activeElement);
       if (a && a !== document.body && !r.ui.strip.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) { try { a.blur(); } catch (x) { /* */ } }
       go(1);
     }, wait);
@@ -2294,6 +2303,7 @@ const Tour = (() => {
     if (narrow()) bot = Math.min(bot, H * 0.58);
     return { top, bot: Math.max(top + 80, bot) };
   }
+  /** @returns {Promise<void>} */
   function scrollWin(y) {
     return new Promise((res) => {
       if (Math.abs(y - scrollY) < 1) { res(); return; }
@@ -2365,7 +2375,7 @@ const Tour = (() => {
     for (let pass = 0; pass < 2; pass++) {
       // cut by a scrolling panel (a section low in a side panel, the add card at the end of a long chain): that panel
       // scrolls first, so the whole target shows when it fits
-      if (panelsReveal(target) | ctlsReveal()) await frames(1);
+      if (/** @type {any} */ (panelsReveal(target)) | /** @type {any} */ (ctlsReveal())) await frames(1);
       // the lit area: the anchor, and its second lit element when both can be brought in
       const b = target.getBoundingClientRect();
       const box = { top: b.top, bottom: b.bottom };
@@ -2493,12 +2503,12 @@ const Tour = (() => {
   // when a step asks), with its corner radii; an anchor inside a lit panel is the mark.
   // the lit parts: the anchor's, then its `also` areas and (v15.1) the areas its Try it names (try.work), each once
   function litParts(step, tgt) {
-    const parts = tgt.parts.slice();
+    const parts = /** @type {{ el: any, rect?: any }[]} */ (tgt.parts.slice());
     // (try.work names parts of the touch task: review-phone phone-2, the lens in the sheet the first tap opens)
     const ctl = new Set(ctlOf(step));
     for (const a of [].concat(step.also || [], ctlOf(step), workOf(step))) {
       const t = anchorOf(a);
-      if (t) for (const q of t.parts) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el) && !(ctl.has(a) && underLayer(q.el))) parts.push(q);
+      if (t) for (const q of /** @type {{ el: any, rect?: any }[]} */ (t.parts)) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el) && !(ctl.has(a) && underLayer(q.el))) parts.push(q);
     }
     return parts;
   }
@@ -3102,7 +3112,7 @@ const Tour = (() => {
     lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
     const st = document.documentElement.style;
     if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
-    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); }
+    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); lane.baseH = phTourGet(); }   // (baseH: the row's own height, which laneFit grows from)
     call('slot', where);
     laneFit();
   }
@@ -3116,9 +3126,23 @@ const Tour = (() => {
     box.classList.remove('two');
     if (opt) opt.hidden = false;
     const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
+    // (a phone's lane: back to its own height first, then grown below if the line needs more)
+    box.classList.remove('grow'); delete tx.dataset.lines;
+    if (!desk && lane.baseH && phTourGet() !== lane.baseH) laneSetH(lane.baseH);
     if (!over()) return;
     if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
-    if (desk) box.classList.add('two');
+    if (desk) { box.classList.add('two'); return; }
+    // (a phone's line that still needs a third line: the lane takes the lines it needs, as the tour's strip does; the lines are 17 px, the text has 7 px above and below)
+    // (at most four lines, 82 px: a line that would need a fifth is cut there; example_lane_cut_cmd.js lists such lines)
+    box.classList.add('grow');
+    tx.style.webkitLineClamp = 'unset'; tx.style.lineClamp = 'unset';
+    const full = Math.max(2, Math.ceil((tx.scrollHeight - 1) / PH_LINE));
+    tx.style.webkitLineClamp = ''; tx.style.lineClamp = '';
+    laneSetH(Math.max(lane.baseH || 56, Math.min(4, full) * PH_LINE + 14));
+    tx.dataset.lines = String(full);
+  }
+  function laneSetH(px) {
+    if (phTourSet(px)) call('slot', lane.mode === 'head' ? 'head' : 'stage');
   }
   function laneHide(id, anim) {
     if (!lane || (id && lane.id !== id)) return false;

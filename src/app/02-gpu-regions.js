@@ -115,7 +115,7 @@
       const old = r.fix[job.role];
       r.fix[job.role] = make(old && old.meshKey === r.meshKey ? old : null);
       // a hold that the current mesh now covers in every role it was drawn for is no longer needed
-      if (r.hold && Object.keys(r.hold.fix).every((k) => r.fix[k] && r.fix[k].meshKey === r.meshKey)) dropHold(r);
+      if (r.hold && holdCovered(r)) dropHold(r);
     } else if (r.fix[job.role] && r.fix[job.role].meshKey === r.meshKey) {
       // the newest mesh already has its own fix-up for this role: the finished older pair is not needed
       freePair({ meshRes: job.meshRes, fix: job.fixDone });
@@ -190,11 +190,12 @@
   // a usable meshing window: finite, positive size (a degenerate one, e.g. restored from old saved state, would
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
-  // (o.base: the mesh's base resolution instead of the drawing's (#584: the steps view's whole-plane carry mesh, which
-  // has no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it)
+  // (o.base: the mesh's base resolution, overriding the drawing's: the steps view's whole-plane carry mesh, which has
+  // no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it; o.win: the window its
+  // mesh is cut to, overriding winOf(s): the steps view's outer ring of carried points, past clipWin)
   function shapeGPU(s, o) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
-    const win = winOf(s);
+    const win = (o && o.win) || winOf(s);
     let r = gpu.get(s.id);
     if (!r) { r = { fix: {} }; gpu.set(s.id, r); }
     const t = kindType(s);
@@ -449,6 +450,7 @@
         out.push({ role: 'R', F: stageF(k), key: 'S' + chainSig[k], need: needs(stageMap(k), 'R', kind) });
       }
     }
+    if (svFixWant && SV.on) out.push(svFixWant);
     return out;
   }
   const yieldNow = (ms = 0) => new Promise((r) => setTimeout(r, ms));
@@ -486,8 +488,8 @@
     for (let i = 0; i < nv; i++) {
       const w = F(C(SRC[2 * i], SRC[2 * i + 1]));
       W[2 * i] = w.re; W[2 * i + 1] = w.im;
-      // ([#243] every 8 images: one of a series summed to 4096 terms takes about a millisecond)
-      if ((i & 7) === 7 && due()) { yield; t0 = performance.now(); }
+      // (the clock after every image: one of a series summed to 4096 terms takes about a millisecond)
+      if (due()) { yield; t0 = performance.now(); }
     }
     const LIM = 1e12;
     const ok = (x, y) => Math.abs(x) < LIM && Math.abs(y) < LIM;
@@ -504,7 +506,6 @@
     function* refine(ax0, ay0, bx0, by0, cx0, cy0, wa0, wb0, wc0) {
       stack.length = 0;
       stack.push([ax0, ay0, bx0, by0, cx0, cy0, wa0, wb0, wc0, 0]);
-      let n = 0;
       while (stack.length) {
         const [ax, ay, bx, by, cx, cy, wa, wb, wc, depth] = stack.pop();
         if (ok(wa.re, wa.im) && ok(wb.re, wb.im) && ok(wc.re, wc.im)) {
@@ -525,7 +526,7 @@
         stack.push([cax, cay, bcx, bcy, cx, cy, wca, wbc, wc, depth + 1]);
         stack.push([abx, aby, bx, by, bcx, bcy, wab, wb, wbc, depth + 1]);
         stack.push([ax, ay, abx, aby, cax, cay, wa, wab, wca, depth + 1]);
-        if ((++n & 15) === 0 && due()) { yield; t0 = performance.now(); }
+        if (due()) { yield; t0 = performance.now(); }
       }
     }
     for (let t = 0; t < nt; t++) {
@@ -545,7 +546,7 @@
         if (budget > 0) yield* refine(SRC[2 * a], SRC[2 * a + 1], SRC[2 * b], SRC[2 * b + 1], SRC[2 * c], SRC[2 * c + 1], C(ax, ay), C(bx, by), C(cx, cy));
         else flags[t] = 0;
       }
-      if ((t & 63) === 63 && due()) { yield; t0 = performance.now(); }
+      if (due()) { yield; t0 = performance.now(); }
     }
     return { flags, extra: new Float32Array(extra), trouble };
   }
@@ -562,29 +563,30 @@
     r.fix[role] = fx;
     return fx;
   }
-  // #584: the fix-up of shape s's mesh under the steps view's map at rest or parked (F its CPU map): the same job
-  // (fixGen in idle slices, computeFix) as the tiling's, in r.fix.SV by the map's key, so a carried colour whose
-  // cells the map bends too much (near a pole of a branch's continuation, the Joukowski path's disc at t = 0.3) is
-  // refined there as a region's is. -> the fix-up, or null until it lands (the job then redraws the left pane)
-  function carryFix(s, F, map) {
-    const r = gpu.get(s.id);
-    if (!r || !r.mesh || !r.meshRes || typeof F !== 'function') return null;
-    const mk = mapKeyOf(map), f = r.fix.SV, job = r.meshKey + '|' + mk;
-    if (f && f.meshKey === r.meshKey && f.mapKey === mk) return f;
-    if (r.svJob === job) return null;
-    r.svJob = job;
-    const meshKey = r.meshKey, meshRes = r.meshRes;
-    // (it also waits out the steps view's glides: its frames are motion too)
-    computeFix(r.mesh, F, fixJob.token, () => fixBusy() || (SV.on && svGliding())).then((res) => {
-      if (r.svJob === job) r.svJob = null;
-      if (res && r.meshKey === meshKey && r.meshRes === meshRes) {
-        installFix(r, 'SV', mk, res);
-      }
-      // (a job a newer fix-up cancelled is asked again by this redraw)
-      requestRender('L');
-    }, () => { if (r.svJob === job) r.svJob = null; });
-    return null;
+  // The steps view's fix-up target at rest or parked (role SV, drawn in the left pane): its shapes' meshes under its
+  // map (F its CPU function), refined where the map bends a cell too much (near a pole of a branch's continuation), as
+  // a region's are. The tiling's job runs it (fixTargets, runFixInner) once the view settles, waiting out the steps
+  // view's glides; a new map or shape list restarts it (scheduleFix)
+  let svFixWant = null;
+  function svWantFix(F, map, shapes) {
+    const key = mapKeyOf(map), ids = shapes.map((x) => x.id).join(',');
+    if (svFixWant && svFixWant.key === key && svFixWant.ids === ids) return;
+    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes, busy: () => fixBusy() || (SV.on && svGliding()) };
+    scheduleFix();
   }
+  // shape s's steps-view fix-up under map for its current mesh, or null while it has none
+  function carryFix(s, map) {
+    const r = gpu.get(s.id), f = r && r.fix.SV;
+    return f && f.meshKey === r.meshKey && f.mapKey === mapKeyOf(map) ? f : null;
+  }
+  // whether every shape of the steps view's target has its fix-up (true with none asked)
+  function svFixDone() {
+    if (!svFixWant || !SV.on) return true;
+    return svFixWant.shapes.every((x) => { const r = gpu.get(x.id), f = r && r.fix.SV; return !r || !r.meshRes || (f && f.meshKey === r.meshKey && f.mapKey === svFixWant.key); });
+  }
+  // every role a hold was drawn for has its own fix-up of the current mesh (the steps view's role is not one a hold
+  // stands in for)
+  const holdCovered = (r) => Object.keys(r.hold.fix).every((k) => k === 'SV' || (r.fix[k] && r.fix[k].meshKey === r.meshKey));
   async function runFix() {
     if (!GLR.ok) return;
     // started during motion: try again once it is over (the token stays, so the job is not lost)
@@ -595,7 +597,7 @@
   }
   async function runFixInner(token) {
     for (const tg of fixTargets()) {
-      for (const s of S.shapes) {
+      for (const s of tg.shapes || S.shapes) {
         if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;   // ([#253] a later plane's shapes: forward, no fix-ups)
         const r = gpu.get(s.id);
         if (!r || !r.mesh || !r.meshRes) continue;
@@ -607,11 +609,11 @@
         // the other plane may already have refined this mesh for the same map (after adding a step, the left
         // plane shows the stage the right one just refined)
         const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey);
-        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token);
+        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token, tg.busy);
         if (!res || token !== fixJob.token || r.meshKey === undefined || !r.meshRes) return;
         installFix(r, tg.role, tg.key, res);
-        if (r.hold && Object.keys(r.hold.fix).every((k) => r.fix[k] && r.fix[k].meshKey === r.meshKey)) dropHold(r);
-        requestRender(tg.role);
+        if (r.hold && holdCovered(r)) dropHold(r);
+        requestRender(tg.pane || tg.role);
       }
     }
   }
@@ -671,9 +673,10 @@
   // not carry the chain; not before, so a fast link never shows it
   // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
   const SM_LINKING_MS = 250, SM_LINK_WORK = 20000;
-  // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null
+  // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null (role SV: the
+  // steps view's carried colour in the left pane, its fix-ups r.fix.SV)
   function smNeed(s, r, role, m) {
-    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L')) return null;
+    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L' && role !== 'SV')) return null;
     if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
@@ -687,7 +690,7 @@
     if (isIdentMap(m)) return null;
     if (smStretched(s)) return 'unbounded';
     const f = r && r.fix && r.fix[role];
-    const fk = (m.mode || 0) === 0 && !(m.a || 0) ? 'S' + chainSig[m.b || 0] : null;
+    const fk = role === 'SV' ? (svFixWant && svFixWant.key) : (m.mode || 0) === 0 && !(m.a || 0) ? 'S' + chainSig[m.b || 0] : null;
     if (f && f.res && f.meshKey === r.meshKey && (!fk || f.mapKey === fk) && f.res.trouble) return 'trouble';
     return null;
   }
@@ -884,10 +887,13 @@
     sm.want.set(slot, key);
     if (!sm.jobs.has(key)) {
       const F = cpuMap(m), steps = smSteps(m);
+      // (the steps view's carried colour is opaque and orders its fragments by the sheet key: the mesher keeps the two
+      // layers that key puts in front)
+      const kp = role === 'SV' ? smKeyOf(m) : null;
       const cfg = {
         steps, F, injective: smInjective(m), shape: JSON.parse(JSON.stringify(s)),
         left: smLeft(),
-        view: v, Kmax: SphereMesh.kOf(S.alpha),
+        view: v, Kmax: kp ? 2 : SphereMesh.kOf(S.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
         pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
         maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
@@ -952,7 +958,7 @@
     sm.stats.built++; if (data.partial) sm.stats.partial++;
     // memory: the least recently drawn published meshes go first
     if (sm.cpuBytes > SM_CPU_BYTES) for (const x of [...sm.entries.values()].sort((a, b) => a.t - b.t)) { if (sm.cpuBytes <= SM_CPU_BYTES) break; if (x !== e) smDrop(x); }
-    requestRender(job.role === 'L' ? 'L' : 'R');
+    requestRender(job.role === 'R' ? 'R' : 'L');
   }
   // the export meshes, once the figure is drawn (or abandoned)
   function smDropExport(gen = null) { for (const e of [...sm.entries.values()]) if (e.exp && (gen == null || e.expGen === gen)) smDrop(e); }

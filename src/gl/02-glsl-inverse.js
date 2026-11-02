@@ -14,6 +14,8 @@
 #endif
 const float IX_LN2 = 0.6931471805599453;
 const float IX_BIG = 1e9;
+// (the sheet key's tie step, Inverse.front's TIE_D: 2^-8 octave)
+const float IX_TIE_D = 0.00390625;
 #if IX_LAM
 #define IX_HASLAM(L) (L).hasLam
 #else
@@ -233,12 +235,12 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5, #584): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
-  // (#584: the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
+  // (the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
   float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
@@ -407,7 +409,7 @@ float ixDKTail() {
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
 bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
   // (keys in the same step of 2^-8 octave are ties: Inverse.front's TIE_D)
-  float q1 = floor(D1 * 256.0 + 0.5), q2 = floor(D2 * 256.0 + 0.5);
+  float q1 = floor(D1 / IX_TIE_D + 0.5), q2 = floor(D2 / IX_TIE_D + 0.5);
   if (q1 != q2) return q1 < q2;
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
@@ -443,14 +445,14 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
     float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
-    return LB > dk + 0.00390625;
+    return LB > dk + IX_TIE_D;
   }
 #endif
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
   float lb = ixLastD;
   // (the members still to come start at the next one, z_m + q: a member past the front need not be walked to stop)
   if (ixLastFin) { vec2 q = cdiv(p, uIxAB[j].xy), qd = goUp ? q : -q; lb = log2(1.0 + ixRayBoxDist(ixLastZ + qd, qd, IX_INF) / uWinR); }
-  return lb > dk + 0.00390625;
+  return lb > dk + IX_TIE_D;
 }
 bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
@@ -469,7 +471,7 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       }
     }
   }
-  return lb > dk + 0.00390625;
+  return lb > dk + IX_TIE_D;
 }
 // ---- patterns with analytic footprints (6.1, 6.2) ----
 vec2 ixDivL(vec2 a, vec2 b) { return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-37); }
@@ -531,7 +533,7 @@ float ixLog2Det(vec4 J) {
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 #ifdef IX_CARRY
-  // (#584) the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
   if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
 #endif
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)

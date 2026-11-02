@@ -901,6 +901,92 @@ async function svFirstGlideUnit() {
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
 }
+// The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
+// idle SV_IDLE_MS, then the first glide to plane 1 (cold: its pole tracks made whole at its first frame,
+// __svPathStats.poleSyncMs), and back; then a step added (the same function again, __cmwAddStep) and a glide to plane 1
+// at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness). Per glide: its longest frame (CPU),
+// frames over 33 ms (jank), frame p95 and the poles' synchronous ms. Info rows
+async function svColdGlideUnit() {
+  for (const scene of ['default', 'king']) {
+    const R = { first: [], edit: [] };
+    for (let i = 0; i < REPS; i++) {
+      await B.nav(`${BASE}test.html?ns=perfsvc${process.pid}_${++nsCounter}&view=steps`);
+      await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+      await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      if (scene === 'king') await B.ev(`__cmwExample(${exampleIndex('In the Hall of the Mountain King')}), 1`);
+      await settle(await pageNow());
+      await sleep(SV_IDLE_MS);
+      const glide = async (to) => {
+        await B.ev('globalThis.__svPathStats = {}, 1');
+        const a = await pageNow();
+        await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+        await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+        const b = await pageNow();
+        const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
+        const fr = (await B.ev(`__perf.framesSince(${a}, ${b + 20})`)).filter((f) => f[4] > 0);
+        const frame = fr.map((f) => f[1] + f[2]);
+        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), jank: frame.filter((x) => x > 33).length, p95: quant(frame, 0.95), poleMs: ps.poleSyncMs || 0, poleN: ps.poleSync || 0 };
+      };
+      R.first.push(await glide(1));
+      await settle(await pageNow());
+      await glide(0);
+      await settle(await pageNow());
+      // (the step's own work done, then the glide at once: within the warm draw's 2 s)
+      await B.ev(`__cmwAddStep('exp'), 1`);
+      await B.until('!!document.querySelector(".sv-plane")', 10000);
+      R.edit.push(await glide(1));
+      await settle(await pageNow());
+    }
+    for (const [k, reps] of Object.entries(R)) {
+      const pre = `sv.cold_glide.${scene}.${k}`;
+      put(`${pre}.longest_ms`, 'info', 'ms', reps.map((r) => r.cpuMax));
+      put(`${pre}.jank_frames`, 'info', 'frames', reps.map((r) => r.jank));
+      put(`${pre}.frame_p95_ms`, 'info', 'ms', reps.map((r) => r.p95));
+      put(`${pre}.pole_sync_ms`, 'info', 'ms', reps.map((r) => r.poleMs));
+      log(`${pre}: longest ${reps.map((r) => r.cpuMax.toFixed(1)).join(' / ')} ms; jank ${reps.map((r) => r.jank).join(' / ')}; p95 ${reps.map((r) => (r.p95 || 0).toFixed(1)).join(' / ')} ms; poles ${reps.map((r) => r.poleMs.toFixed(1) + ' ms x' + r.poleN).join(' / ')}`);
+    }
+  }
+}
+// A long session: the Mountain King's strip scrub (Everywhere, there and back) SV_LONG_N times on one page, the
+// frame p95 of each and the live GL objects after it (textures, buffers, programs, vertex arrays, framebuffers: the
+// context's create and delete calls counted from the page's start). A growing count with a growing p95 is a leak.
+// Info rows: the first and last five scrubs' median p95, and the counts after the first and the last scrub
+const SV_LONG_N = 20;
+async function svLongSessionUnit() {
+  const init = await B.addInit(`(() => { const P = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype; if (!P || P.__counted) return; P.__counted = 1; const live = window.__glLive = {};
+    for (const k of ['Texture', 'Buffer', 'Program', 'VertexArray', 'Framebuffer']) { const c = P['create' + k], d = P['delete' + k]; live[k] = 0;
+      P['create' + k] = function () { const o = c.apply(this, arguments); if (o) live[k]++; return o; };
+      P['delete' + k] = function (o) { if (o) live[k]--; return d.apply(this, arguments); }; } })();`);
+  await B.nav(`${BASE}test.html?ns=perfsvl${process.pid}_${++nsCounter}&view=steps`);
+  await B.removeInit(init);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await B.ev(`__cmwExample(${exampleIndex('In the Hall of the Mountain King')}), 1`);
+  await settle(await pageNow());
+  await sleep(SV_IDLE_MS);
+  for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+  await B.ev(`__cmwSteps({ scope: 'all', go: 0, now: true }), 1`);
+  await settle(await pageNow());
+  const ends = `(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`;
+  const p95 = [], counts = [];
+  for (let n = 0; n < SV_LONG_N; n++) {
+    const r = await B.ev(ends), legs = [];
+    for (const [xa, xb] of [[r.x0, r.x1], [r.x1, r.x0]]) {
+      const a = await pageNow();
+      await B.drag(xa, r.y, xb, r.y, { n: 40, dt: 16 });
+      const b = await pageNow();
+      legs.push(await windowStats(a, b));
+      await settle(b);
+    }
+    const s = legSummary(legs, 'pointermove'), c = JSON.parse(await B.ev('JSON.stringify(window.__glLive || {})'));
+    p95.push(s.frame_p95); counts.push(c);
+    log(`sv.long_session.king scrub ${n + 1}: frame p95 ${(s.frame_p95 || 0).toFixed(1)} ms; live GL ${JSON.stringify(c)}`);
+  }
+  const med = (a) => quant(a.filter((x) => x != null), 0.5);
+  put('sv.long_session.king.first5_p95_ms', 'info', 'ms', [med(p95.slice(0, 5))]);
+  put('sv.long_session.king.last5_p95_ms', 'info', 'ms', [med(p95.slice(-5))]);
+  for (const k of Object.keys(counts[0] || {})) put(`sv.long_session.king.live_${k.toLowerCase()}s`, 'info', 'objects', [counts[0][k], counts[counts.length - 1][k]]);
+}
 // [#366 K] the steps view's own interactions, parked half-way between z and w1 (svRenderMoving's paths, not the
 // classic renders): the strip scrub (Everywhere and Inside regions), a pan of the plane with Inside regions, and an
 // orbit on the globe (Surface: Sphere, Space held). One unit per scene (each within UNIT_TIMEOUT_S on a GPU): the
@@ -910,6 +996,11 @@ async function svFirstGlideUnit() {
 // the outlines in G's masked frame, one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there
 // (refCannot)
 const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
+// The label pass of a frame on the move samples no curve through the map; what it costs is placing and drawing the labels
+// themselves: 0.5 ms a pass on the default scene (no zeta in it) and 1.1 to 1.7 ms on zeta's, measured on the Mac on a loaded
+// machine. The limit sits above that floor and well below the cost of the sampling (5 to 8 ms on zeta), so it fails if the
+// sampling returns
+const SV_LABEL_MS_LIMIT = 2;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
 async function svInteractUnit(scene) {
   // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
@@ -947,9 +1038,12 @@ async function svInteractUnit(scene) {
       for (const scope of ['all', 'in']) {
         await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
         await settle(await pageNow());
-        const r = await B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
-        const l1 = await leg(() => B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 }));
-        const l2 = await leg(() => B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }));
+        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
+        const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+        const r1 = await stripAt();
+        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }));
+        const r2 = await stripAt();
+        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
@@ -1001,8 +1095,10 @@ async function svGlideUnit(scene) {
   // one glide from where the view rests to plane `to`, its window from the call to the landing
   const glide = async (to) => {
     const c0 = await B.ev('__perf.counters().links'), bl0 = await B.ev('__svBl.n'), a = await pageNow();
+    await B.ev('(__cmwLabelStats.n = 0, __cmwLabelStats.ms = 0, __cmwLabelStats.list = [], 1)');
     await B.ev(`__cmwSteps({ go: ${to} }), 1`);
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    const lbl = (await B.ev('__cmwLabelStats.list')).slice(0, -1);   // (the frames on the move: the last pass is the landing's, at rest)
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
     const w = await windowStats(a, b);
     // the landing: the longest frame within 400 ms of it (the first frame at rest, and any drawn as its programs
@@ -1010,11 +1106,11 @@ async function svGlideUnit(scene) {
     await sleep(400);
     const land = await B.ev(`__perf.framesSince(${b - 50}, ${b + 400})`);
     const landing = Math.max(0, ...land.filter((f) => f[4] > 0).map((f) => f[1] + f[2]));
-    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, jank: await jankIn(a, b), a, b, landing });
+    return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, labels: lbl.map((p) => p.ms), jank: await jankIn(a, b), a, b, landing });
   };
   for (const dpr of [1, 2]) {
     const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
-    const R = [], copies = [], links = [], longInt = [], dprOk = [], landing = [], td = Date.now();
+    const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], landing = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
       for (let i = 0; i < REPS; i++) {
@@ -1042,6 +1138,7 @@ async function svGlideUnit(scene) {
         R.push(legSummary([l1, l2], 'none'));
         copies.push((l1.blits + l2.blits) / Math.max(1, l1.drawn.length + l2.drawn.length));
         links.push(l1.links + l2.links);
+        { const ms = [...l1.labels, ...l2.labels]; labelMs.push(ms.length ? ms.reduce((x, y) => x + y, 0) / ms.length : 0); }
         longInt.push([...l1.ints, ...l2.ints].filter((d) => d > SV_GLIDE_JANK_MS).length);
         landing.push(Math.max(l1.landing, l2.landing));
       }
@@ -1056,6 +1153,7 @@ async function svGlideUnit(scene) {
     put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
     put(`${pre}.landing_ms`, 'limit', 'ms', [Math.max(0, ...landing)], { limit: SV_LANDING_LIMIT, samples: landing.map(r3) });
+    put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
   }
 }
 // the worst case of the colour at rest past the colour plane (the carry's, or the exact pass that
@@ -1857,6 +1955,8 @@ unit('scrub.morph', 'parameter scrub with the deformation open and paused (its a
 unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its arrows off the frame)', morphOpenUnit);
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
+unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
+unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));

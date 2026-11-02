@@ -332,26 +332,49 @@
     const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
-  // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
-  //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
-  // Identity maps draw without the chain, in coordinates relative to the mesh origin.
-  // (#584) st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's colour
-  // (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice point,
-  // not four times per vertex, most of a glide frame on #587's first Mac run); -> true when drawn, false while its
-  // program compiles
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // the chain's cut kinds (a deformation map's carried colour draws a fill for a path cut the sheets continue, clipped
+  // at a cut marked clip)
+  const carryKinds = () => (cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : []);
+  // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
+  // without parallel compiles links each in an idle moment before the first glide, not in its first frame
+  function prestartCarry() {
+    const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
+    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts'] : ['regionKC'], [1]);
+  }
+  // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
+  let fillPtsOn = true;
+  function fillPointsOn(on) { fillPtsOn = !!on; return fillPtsOn; }
+  // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
+  // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
+  // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
+  // program compiles
   function drawRegionCarry(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
-    // (a deformation whose path has a cut the sheets continue: each triangle on its centre's sheet, regionKS, uncached)
-    const m = st.map || {}, cuts = (m.mode === 1 || m.mode === 3) && cur.info && Array.isArray(cur.info.cutKinds) && cur.info.cutKinds.some((c) => c && c.h === 'sheet');
-    const S = cuts ? program('regionKS', st.map) : null;
-    let e = !S && rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
+    // triangles they tear across a cut on their centre's sheet (regionKSCpt from its point pass, or regionKSC, the
+    // fill); without the cache, every triangle
+    // on its centre's sheet (regionKS, the chain at every vertex). A cut clipped (cutKinds' clip): the sheet program's
+    // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
+    const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
+    const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
+    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    let P = S || (e ? program('regionKC', st.map) : null);
+    let P = e ? program('regionKC', st.map) : null;
+    // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
+    // pass cannot run, the fill evaluates its own)
+    let fill = null, fp = null;
+    if (cuts && P) {
+      const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
+      fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
+      fill = fp ? Q : program(clip ? 'regionKSCclip' : 'regionKSC', st.map);
+    }
+    let full = null;
+    if (cuts && !fill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
@@ -361,31 +384,53 @@
       regionUniforms(Q, st, res.org);
       u1f(Q, 'uKPx', 4 / ((st.view.s || 1) * (st.dpr || 1)));   // (4 device px, in plane units)
       u1f(Q, 'uKLim', st.lim || 1e30);
-      u1i(Q, 'uKeyOn', k ? 1 : 0);
-      if (k) {
-        const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-        sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-        u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
-        if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
-        u1i(Q, 'uKSingN', sing.length);
-      }
+      keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+      if (clip) u1i(Q, 'uKPass', 0);
+      if (fp && Q === fill) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
-    if (k) {
-      // (st.depth: 'only' (default) one draw with a depth of its own; 'first', 'mid', 'last' draws sharing one depth, so
-      // the sheet key orders the points of all of them: the first clears it, the last clears it after)
-      const dm = st.depth || 'only', first = dm === 'only' || dm === 'first', last = dm === 'only' || dm === 'last';
-      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
-      if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
+    carryDraw(k, st.depth, () => {
       gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
-      if (last) carryDepthEnd();
-    } else gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      const sheet = fill || full;
+      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      if (sheet && clip) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+    });
     gl.bindVertexArray(null);
     return true;
   }
+  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
+  function keyUniforms(Q, k) {
+    u1i(Q, 'uKeyOn', k ? 1 : 0);
+    if (!k) return;
+    const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+    sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
+    u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
+    if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
+    u1i(Q, 'uKSingN', sing.length);
+  }
+  // a carried-colour draw under the sheet key k (none: the draw order). depth: 'only' (default) a depth of its own;
+  // 'first', 'mid', 'last' draws sharing one depth, so the key orders the points of all of them: the first clears it,
+  // the last clears it after. Unblended: the carried colour is opaque (alpha 1, which the premultiplied blend only
+  // copies), and an opaque draw lets a tiling GPU shade only the front sheet's fragments, where a blended one shades
+  // every sheet's, each the colour's whole chain
+  function carryDraw(k, depth, draw) {
+    gl.disable(gl.BLEND);
+    try {
+      if (!k) { draw(); return; }
+      const depthMode = depth || 'only', first = depthMode === 'only' || depthMode === 'first', last = depthMode === 'only' || depthMode === 'last';
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
+      if (first) { gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); }
+      draw();
+      if (last) carryDepthEnd();
+    } finally { gl.enable(gl.BLEND); }
+  }
+  // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
+  //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
+  // Identity maps draw without the chain, in coordinates relative to the mesh origin.
+  // (st.carry: drawRegionCarry)
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
     if (st.carry) return drawRegionCarry(res, st);

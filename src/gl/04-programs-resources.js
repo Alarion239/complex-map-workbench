@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -76,29 +76,41 @@
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
-  // (#584) the region program's carried colour (drawRegion with st.carry): each fragment of a region's tessellated
+  // the region program's carried colour (drawRegion with st.carry): each fragment of a region's tessellated
   // mesh, wherever the map takes it, is coloured with the colour plane's colour of its source point z,
   // dcolor(f_T ∘ … ∘ f_{s+1}(z)) (uGs, uGt; the same z the region's patterns read, made absolute: vSrc + uQ), so the
   // colour travels with the region's points as its patterns do
-  // (#584) the steps view's carried colour on a region's tessellated mesh: the region tiling's vertex stage (its places,
+  // the steps view's carried colour on a region's tessellated mesh: the region tiling's vertex stage (its places,
   // from the chain, the map cache or each triangle's own sheet) with its carry option (REGION_VS), and the carried
   // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
-  // region's patterns (their whole chain per fragment was most of a glide frame: perf on #587); the vertex stage's
+  // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
-  const REGION_K_VS = (fetch, sheet) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet });
-  const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false, false);
+  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip });
+  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
     regionC: { chain: false, vs: () => FIN + REGION_VS(false, 'tex'), fs: () => F_UTIL + REGION_FS(false) },
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
-    // (#584: the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
+    // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
     // triangle's own sheet)
-    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS },
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS() },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
-    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS },
-    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
+    // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
+    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS() },
+    // (regionKS and regionKSC for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
+    regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
+    regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
+    // (regionKSC and regionKSCclip with the fill's values from its point pass, fillPts: drawRegionCarry, fillPoints)
+    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true }), fs: REGION_K_FS() },
+    regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
+    fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
+    // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
+    // its depth the sheet key)
+    regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -749,6 +761,10 @@ float wabs(vec2 w) {
       for (let k = 0; k < 3; k++) data.push(b[0][0], b[0][1], b[1][0], b[1][1], b[2][0], b[2][1], k, 0, id[0], id[1], id[2], V + ti);
     });
     const t = { buf: makeBuf(new Float32Array(data)), count: data.length / 12, P: pts.length / 2, pts: makeBuf(new Float32Array(pts)) };
+    // (for the fill's point pass, FILL_PTS_VS: each sub-triangle's three corners (uSub), and their places in the map
+    // cache with its centroid's (uSubI))
+    t.subs = new Float32Array(tris.flatMap((tr) => tr.flatMap(([i, j]) => [i / L, j / L])));
+    t.subI = new Float32Array(tris.flatMap((tr, ti) => tr.map(([i, j]) => idx.get(i * (L + 1) + j)).concat([V + ti])));
     tplCache.set(key, t);
     return t;
   }
@@ -808,13 +824,17 @@ float wabs(vec2 w) {
     gl.bindVertexArray(v);
     gl.bindBuffer(gl.ARRAY_BUFFER, tpl.buf);
     attrib(0, 4, 48, 0, 0); attrib(1, 4, 48, 16, 0); attrib(6, 4, 48, 32, 0);
+    instanceAttribs(res, skip);
+    gl.bindVertexArray(null);
+    res.vaos.set(key, v);
+    return v;
+  }
+  // a mesh's per-instance attributes in the bound VAO: its base triangle (aAB, aC) and skip flag (aSkip)
+  function instanceAttribs(res, skip) {
     gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
     attrib(2, 4, 24, 0, 1); attrib(3, 2, 24, 16, 1);
     gl.bindBuffer(gl.ARRAY_BUFFER, skip.buf);
     attrib(4, 1, 4, 0, 1);
-    gl.bindVertexArray(null);
-    res.vaos.set(key, v);
-    return v;
   }
   function meshTFVAO(res, L) {
     const key = 't' + L;
@@ -962,13 +982,17 @@ float wabs(vec2 w) {
   // the leaf order draws after a nearer one (only where the leaf order and the key disagree) is left out (alpha < 1).
   // (A depth-only pre-pass and separate passes for the layers behind and the front, which keep those layers, drew the
   // mesh three times: gl_FragDepth turns early depth tests off, and exp(exp z)(H)'s settle frames jank by 20 ms.)
+  // st.carry (flat only, the steps view's carried colour): each fragment the colour plane's colour of its source point
+  // (regionPK), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source
+  // point itself (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
   function drawPreMapped(res, st) {
-    if (!ok || !res || !res.n) return;
-    const sph = !!st.sphere;
-    const P = program(sph ? 'regionSP' : 'regionP');
-    if (!P) return;
+    if (!ok || !res || !res.n) return false;
+    const sph = !!st.sphere, carry = !!st.carry && !sph;
+    const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    if (!P) return false;
+    // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
-    use(P);
+    if (carry) use(P, st.map); else use(P);
     if (sph) {
       uM4(P, 'uMVP', st.sphere.MVP);
       u3(P, 'uEye', st.sphere.eye);
@@ -979,25 +1003,22 @@ float wabs(vec2 w) {
       u2f(P, 'uScale', 2 * v.s * dpr / fw, 2 * v.s * dpr / fh);
     }
     // (origin [0, 0]: uQ = 0, the attributes are already reduced; the pattern origin is 0)
-    regionUniforms(P, Object.assign({}, st, { fade: null }), [0, 0]);
+    if (carry) { u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); dcUniforms(P, st.carry, st.dpr || 1); u1i(P, 'uPreZ', st.preZ ? 1 : 0); }
+    else regionUniforms(P, Object.assign({}, st, { fade: null }), [0, 0]);
     const sc = st.scissor;
     const scOn = sc ? gl.isEnabled(gl.SCISSOR_TEST) : false, prevSc = sc && scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
     if (sc) {
       let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
       if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
-      if (x1 <= x0 || y1 <= y0) return;
+      if (x1 <= x0 || y1 <= y0) return true;
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
     const k = !sph && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    u1i(P, 'uKeyOn', k ? 1 : 0);
+    keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
-    if (k) {
-      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
-      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
-      u1i(P, 'uKSingN', sing.length);
+    if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
+    else if (k) {
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
       gl.drawArrays(gl.TRIANGLES, 0, res.count);
@@ -1006,6 +1027,7 @@ float wabs(vec2 w) {
     } else gl.drawArrays(gl.TRIANGLES, 0, res.count);
     gl.bindVertexArray(null);
     if (sc) { if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST); }
+    return true;
   }
   function destroy(res) {
     if (!res || !gl) return;
@@ -1024,6 +1046,7 @@ float wabs(vec2 w) {
     for (const b of (res.arcs || new Map()).values()) gl.deleteBuffer(b);
     if (res.arcs) res.arcs.clear();
     res.vaos.clear();
+    if (res.fillPts) { gl.deleteTexture(res.fillPts.tex); res.fillPts = null; }
     res.n = 0;
   }
 
@@ -1088,9 +1111,10 @@ float wabs(vec2 w) {
   // alloc false: tex already has W x H RG32F storage (a reused scratch texture)
   // (maskRGB, maskA: the frame's write mask (writeMask); the pass writes its texel's RG whatever it is, #440)
   let rtFbo = null, maskRGB = true, maskA = true;
-  function runRT(P, vao, count, instances, tex, W, H, alloc = true) {
+  // (rgba: RGBA32F storage)
+  function runRT(P, vao, count, instances, tex, W, H, alloc = true, rgba = false) {
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    if (alloc) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
+    if (alloc) gl.texImage2D(gl.TEXTURE_2D, 0, rgba ? gl.RGBA32F : gl.RG32F, W, H, 0, rgba ? gl.RGBA : gl.RG, gl.FLOAT, null);
     if (!rtFbo) rtFbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, rtFbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
@@ -1196,6 +1220,46 @@ float wabs(vec2 w) {
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
     return e;
   }
+  // The fill's point pass (fillPts, FILL_PTS_VS) of mesh res at template size L (at most 2: uSub's size) under map,
+  // after its map cache pass: gate {e, skip, kpx, lim} is the cache entry, the skip buffer and the uKPx, uKLim the fill
+  // draws with. -> {tex, W, P} for the fill's uFT (unit 12), uFTW, uFTP; or null (fillPts compiling, no float target,
+  // too many points for one texture), and the fill evaluates its points itself
+  function fillPoints(res, L, map, gate) {
+    if (L > 2 || !rtOK) return null;
+    const P = program('fillPts', map);
+    if (!P) return null;
+    const tpl = regionTemplate(L), per = 4 * (tpl.count / 3), count = per * res.n;
+    const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(count / W));
+    if (H > maxTex) return null;
+    let f = res.fillPts;
+    const unit = gl.getParameter(gl.ACTIVE_TEXTURE);
+    const alloc = !f || f.W !== W || f.H !== H;
+    if (!f) f = res.fillPts = { tex: floatTex(), W: 0, H: 0, P: per };
+    f.W = W; f.H = H; f.P = per;
+    const skip = gate.skip || res.skip0, vk = 'fillPts|' + skip.id;
+    let vao = res.vaos.get(vk);
+    if (!vao) {
+      vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      instanceAttribs(res, skip);
+      gl.bindVertexArray(null);
+      res.vaos.set(vk, vao);
+    }
+    use(P, map);
+    originUniforms(P, res.org);
+    if (P.loc.uSub) gl.uniform2fv(P.loc.uSub, tpl.subs);
+    if (P.loc.uSubI) gl.uniform4fv(P.loc.uSubI, tpl.subI);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gate.e.tex);
+    u1i(P, 'uCW', gate.e.W); u1i(P, 'uCP', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
+    gl.activeTexture(gl.TEXTURE12);
+    runRT(P, vao, per, res.n, f.tex, W, H, alloc, true);
+    gl.activeTexture(unit);
+    fillPtsRuns++;
+    return f;
+  }
+  // (how many point passes have run: the tests' proof that the fill took its values from one)
+  let fillPtsRuns = 0;
+  const fillPointsRuns = () => fillPtsRuns;
   function bindCache(P, e) {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, e.tex);

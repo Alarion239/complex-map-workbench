@@ -12,7 +12,9 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value), `nav(url)`,
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt)`,
-   `clickSel(css)`, `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app), `logs()` (console + exceptions
+   `clickSel(css)`, `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
+   `loadView(view, ns, state, { lang })` (the same, with the app's first load in 'classic' or 'steps' whatever the pin is),
+   `logs()` (console + exceptions
    since the last call), `send(method, params)` (raw CDP), `sleep(ms)`.
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
    alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that); `settled({ until, floor,

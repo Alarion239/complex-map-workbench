@@ -123,7 +123,7 @@ function makeColorErr(colors, kind) {
   };
 }
 
-// SPEC 5.1 sheet order (#584: as Inverse.sheetKey). win: the meshing window clipWin {x0, x1, y0, y1}; P: the key's
+// SPEC 5.1 sheet order (as Inverse.sheetKey). win: the meshing window clipWin {x0, x1, y0, y1}; P: the key's
 // points (points {re, im}). D(z) = log2(1 + |z - c| / R) + sum over p in P of max(0, log2(rs / |z - p|)), c the centre
 // of W, R = half-diagonal of W, rs = R / 8.
 function sheetKey(win, P = []) {
@@ -134,10 +134,12 @@ function sheetKey(win, P = []) {
     return D;
   };
 }
-// members in front-to-back order: key D ascending; ties (equal D): larger Im z, then larger Re z in front (SPEC 5.2)
+// the tie step of the sheet key, in octaves: keys in one step of it tie (Inverse.front's own)
+const { TIE_D } = require('../../../src/inverse.js');
+// members in front-to-back order: key D ascending; ties (keys in one TIE_D step): larger Im z, then larger Re z in front
+// (SPEC 5.2)
 function frontOrder(cands, key) {
-  // (keys in the same step of 2^-8 octave tie: Inverse.front's TIE_D)
-  const q = (D) => (D === Infinity ? Infinity : Math.round(D * 256));
+  const q = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
   const dk = (a, b) => (q(a.D) !== q(b.D) ? a.D - b.D : 0);
   return cands.map((z) => ({ z, D: key(z) })).sort((a, b) => dk(a, b) || (b.z.im - a.z.im) || (b.z.re - a.z.re));
 }
