@@ -81,7 +81,7 @@ const VIEWS = {
   'param_planes_cmd.js': port('interact'),
   'phase_key_cmd.js': steps({ pin: true }),
   'phase_style_cmd.js': steps({ pin: true }),
-  'repeat_cmd.js': port('interact'),
+  'repeat_cmd.js': classic('the bracket under the cards and its N chip, in the pipeline row the steps view hides; steps_repeat_cmd is the steps view\'s N row'),
   'repeat_settle_cmd.js': steps({ pin: true }),
   'series_edit_cmd.js': steps({ pin: true }),
   'series_params_cmd.js': steps({ pin: true }),
