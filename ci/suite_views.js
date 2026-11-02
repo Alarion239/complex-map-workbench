@@ -135,22 +135,23 @@ const VIEWS = {
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
-  'tour_auto_cmd.js': classic('every chapter\'s tasks with real input; the Views chapter\'s door is the classic view switch,'
-    + ' which the steps view lacks (chapters not yet retargeted, #620 item 11)'),
+  'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (outline on #34):'
+    + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
   'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
-  'tour_it360_cmd.js': classic('walks every step of every chapter and expects at least 40; the steps view\'s tour walks 38'
-    + ' (chapters not yet retargeted, #620 item 11)'),
+  'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
+    + ' chapters (outline on #34), whose tour walks 38'),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
   'tour_perf_cmd.js': steps({ pin: true }),
-  'tour_phone_cmd.js': classic('walks every step of every chapter and expects at least 40 (the steps view\'s tour walks 38); the'
-    + ' strip row, the X box and the pan task in X are the classic views\' (chapters not yet retargeted, #620 item 11)'),
+  'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour walks 38), and'
+    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (outline on #34)'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': port('words', 'the F tile and card tasks: after the F tile is settled and the chapters are retargeted'),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
-  'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour does not have (chapter retargeting, #620 item 11); the steps view\'s own is tour_words_cmd'),
+  'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
+    + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the retargeted tour chapters and the F chip'),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
