@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Windows laptop and Mac ([RUNNERS.md](RUNNERS.md)) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -104,7 +104,7 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
-| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build; their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
+| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build, at most 8 shards of a run at a time (`max-parallel`: the runners are shared by every open pull request); their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
 | **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
@@ -130,7 +130,8 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate (`gpu-gate.yml`, our machines). Its Windows laptop compiles on one core (FXC): the glsl page alone took
+The GPU gate (`gpu-gate.yml`, our machines; the Windows laptop's runner was removed on 2026-11-01, #169, so its column
+below applies once a Windows runner is back). Its Windows laptop compiles on one core (FXC): the glsl page alone took
 over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
 runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
 
@@ -246,7 +247,8 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets.
+  sheets; and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
 boxes' structure rather than their words, with the number of points it was seen at, where, and a marked screenshot of
@@ -282,6 +284,17 @@ npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head 
 # --full for every language and size; --sizes 390,1280 --states 'start,sheet edit' --langs ru to narrow it
 # the gallery: .ci/inspect/<base>-<head>/index.html (publish it as a private Artifact; never commit the pictures)
 ```
+
+### Standards check
+
+`node ci/standards.js --ref REV` (the Plan job runs it against the paired gates' reference) reads the lines a change
+adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and reports what CONTRIBUTING.md's Code rules
+let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
+item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it
+adds (`asserts`). It reports in the job summary and as warning annotations on the lines, and never fails the job; with
+`--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
+test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
+The word lists are `HISTORY` and `PLAN` in the script.
 
 ## Reading the results
 
@@ -322,7 +335,9 @@ node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and mai
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
-node ci/browser_shards.js check                    # every browser suite in exactly one shard
+CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
+node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (report only)
+node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```
@@ -400,6 +415,7 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
@@ -415,4 +431,4 @@ Settings (environment variables):
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
-| `ci/RUNNERS.md` | setting up our Windows laptop and Mac as runners |
+| `ci/RUNNERS.md` | setting up our Mac (and, again, a Windows laptop: #169) as runners |

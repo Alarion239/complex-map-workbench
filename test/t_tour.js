@@ -31,8 +31,8 @@ function namesIn(section) {
   return out;
 }
 // (v15: the names the new layout adds are in their own tables, so the v14 gate's copy of this test still passes)
-const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
-const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
+const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added for the steps view (#442)'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
+const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added for the steps view (#442)'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
 // (v16.4: the events the tour reads outside a Try it, its own table: not required to be used by one)
 const DOC_EVENTS_OUT = namesIn('### Events the tour reads outside a Try it');
 ok('INTEGRATION.md lists the events read outside a Try it', DOC_EVENTS_OUT.has('listen-started'), [...DOC_EVENTS_OUT]);
@@ -159,6 +159,8 @@ for (const s of steps) {
   }
   if (s.needs) ok(`${id}: needs is a feature name`, typeof s.needs === 'string' || Array.isArray(s.needs));
 }
+// (#442: the steps view's chapter, which only a page with ?view=steps has among its chapters)
+for (const s of T.PLANES.steps) for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`planes/${s.id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
 for (const e of DOC_EVENTS) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
 // (v16.4: a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
@@ -490,6 +492,34 @@ ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
       if (typeof tab[t] === 'string') ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}" keeps the maths and the key tokens`, tokens(tab[t]) === tokens(t), [tokens(t), tokens(tab[t])]);
     }
   }
+}
+
+// ---- (#480 follow-up, ux's review of #510) the tour's words match the UI's labels where they name one: each control the
+// tour quotes by name is a real UI string, and every Russian and Italian copy that names it says what the interface says
+{
+  // the names of controls the tour quotes (not the panels or words that happen to read alike: Phase, Display, Snap)
+  const NAMED = ['Add function', 'Show alone', 'Circle through 3 points', 'Replace with the inverse'];
+  const APP = ['app.js', 'construct.js', 'figure.js'].map((f) => require('./src_text').source(f)).join('\n');   // (where the interface's strings are written)
+  const plain = (t) => String(t).replace(/­/g, '').toLowerCase();
+  const fieldsOf = (s) => [s.body, s.narrow, s.touch, s.deskTouch, s.phoneFine, s.lead, s.leadTouch, s.leadDeskTouch, s.leadPhoneFine, ...Object.values(s.byScene || {}), ...Object.values(s.touchByScene || {}), ...Object.values(s.deskTouchByScene || {}), ...Object.values(s.phoneFineByScene || {}), ...(s.try ? [s.try.text, s.try.touch, s.try.deskTouch, s.try.phoneFine] : [])].filter(Boolean);
+  for (const label of NAMED) {
+    ok(`UI label "${label}": a string the interface has`, APP.includes(`'${label}'`) || APP.includes(`"${label}"`), label);
+    ok(`UI label "${label}": translated in Russian and Italian`, typeof RU[label] === 'string' && typeof IT[label] === 'string', [RU[label], IT[label]]);
+  }
+  let named = 0;
+  for (const c of CH) for (const s of c.steps) for (const t of fieldsOf(s)) for (const label of NAMED) {
+    if (!t.includes(label)) continue;
+    named++;
+    for (const [lang, tab] of [['Russian', RU], ['Italian', IT]]) {
+      const tr = tab[t], ui = tab[label];
+      if (typeof tr !== 'string' || typeof ui !== 'string') continue;
+      ok(`${c.id}/${s.id}: ${lang} of "${t.slice(0, 40)}" names "${label}" as the interface does ("${ui}")`, plain(tr).includes(plain(ui)), tr);
+    }
+  }
+  ok('some tour copies name a control the check knows', named >= 6, named);
+  // a touch screen's add step task names the control as the card is labelled ("Add function"), not "the add card"
+  const add = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'add');
+  ok('basics/add: the desk-layout touch task names Add function', /Add function/.test(add.try.deskTouch) && !/add card/i.test(add.try.deskTouch), add.try.deskTouch);
 }
 
 console.log(`${n - fails}/${n} passed`);

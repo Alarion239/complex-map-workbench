@@ -6,13 +6,20 @@ quality and GLSL conformance on our **Windows laptop** and our **Mac**, with the
 *self-hosted runner*: GitHub's small runner program, installed on the machine. It connects out to GitHub (no ports
 are opened), waits for jobs labelled for it, runs them in a folder on the machine and reports back.
 
+> **The Windows laptop's runner was removed on 2026-11-01 (#169), because it slowed the laptop.** The GPU gate runs on
+> the Mac alone until a Windows GPU machine is back: the default and every event (a push to `main`, the nightly run,
+> the label `gpu-gate`) run `machines` mac; `windows` fails at once and `both` runs the Mac with a warning, so no job
+> waits for a runner that is not there. No check or doc requires a Windows GPU result meanwhile; GitHub's own Windows
+> machines (WARP) still run the Gate's Windows jobs. Section 3 stays for when a Windows runner is set up again
+> (Pietro's call, #169).
+
 This guide sets up both machines, once. Allow about 20 minutes per machine.
 
 What you end up with:
 
 | machine | runner name | labels (the gate picks a machine by these) |
 |---|---|---|
-| Windows laptop | `windows-gpu` | `self-hosted`, `Windows`, `X64`, **`gpu`** |
+| Windows laptop (removed 2026-11-01, #169) | `windows-gpu` | `self-hosted`, `Windows`, `X64`, **`gpu`** |
 | Mac | `mac-gpu` | `self-hosted`, `macOS`, `ARM64` (Apple silicon) or `X64`, **`gpu`** |
 
 ## 1. Repository settings (once, by the owner)
@@ -70,6 +77,8 @@ reaches our machines.
   Deleting it is safe; the next run compiles everything again, which on the Windows laptop takes hours.
 
 ## 3. The Windows laptop
+
+(Its runner was removed on 2026-11-01, #169: these steps are for setting one up again.)
 
 1. On GitHub: *Settings → Actions → Runners → New self-hosted runner* → **Windows**, architecture **x64**. The page
    shows commands with a one-time token (valid for one hour). Keep it open.

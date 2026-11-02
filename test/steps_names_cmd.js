@@ -16,7 +16,7 @@ const txt = (sel) => ev(`(() => { const e = document.querySelector(${JSON.string
 const num = (s) => parseFloat(String(s).replace(',', '.').replace('−', '-'));
 const NUM = '(\\d+[.,]\\d+)';
 // the expected title role by language and colour plane: [en, ru] per (T, plane)
-const WORD = { en: { phase: 'phase of', carried: 'colour of', plane: 'colour plane' }, ru: { phase: 'фаза функции', carried: 'цвет, перенесённый из', plane: 'плоскость цвета' } };
+const WORD = { en: { phase: 'phase of', carried: 'colour carried from', plane: 'colour plane' }, ru: { phase: 'фаза функции', carried: 'цвет, перенесённый из', plane: 'плоскость цвета' } };
 // [colour plane T][plane k] -> [role kind, the map's name]
 const WANT = [
   [['plane', 'z'], ['carried', 'z'], ['carried', 'z']],

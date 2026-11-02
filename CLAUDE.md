@@ -75,7 +75,9 @@ Each team has the same hierarchy.
   chains go at the end of their list, so no other chain changes part.
 
 ## 3. Check it yourself, then mark it ready
-- Run what your change touches, as `CONTRIBUTING.md` and `ci/README.md` describe:
+- Run what your change touches, as `CONTRIBUTING.md` and `ci/README.md` describe. Follow `CONTRIBUTING.md`'s Code
+  rules (comments describe the code as it is now, never its history) and its Review checklist; the standards and
+  reuse reviewers check every PR against them:
   - `node ci/unit.js`;
   - the lint ratchet: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`. It must not go up;
   - `ruff check`;

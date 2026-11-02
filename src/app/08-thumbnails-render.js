@@ -13,7 +13,7 @@
           let changed = false;
           for (const e of es) {
             const o = thumbSize.get(e.target), w = e.contentRect.width, hh = e.contentRect.height;
-            if (!o || o[0] !== w || o[1] !== hh) { thumbSize.set(e.target, [w, hh]); changed = true; }
+            if (!o || o[0] !== w || o[1] !== hh) { thumbSize.set(e.target, [w, hh]); changed = true; e.target.classList.add('rz'); }   // (#530: its picture is the old size's until the redraw)
           }
           if (changed) requestRender('T');
         });
@@ -89,7 +89,7 @@
     pane.setView(cardZView(pane));
     pane.begin(TH.plane);
     GLR.begin(pane.pw, pane.ph);
-    GLR.drawColorPlot({ map: stageMap(k), view: pane.view, dpr: pane.dpr, style: S.dc === 'cauchy' ? 'enhanced' : S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
+    GLR.drawColorPlot({ map: stageMap(k), view: pane.view, dpr: pane.dpr, style: S.dc === 'cauchy' ? 'enhanced' : S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
     if (S.outline) {
       const map = stageMap(0);
       for (const o of shapeOutlines(map)) {
@@ -230,7 +230,7 @@
     thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
     for (const [, p] of want) thumbDims(p.canvas);   // (all reads before any canvas resize)
     for (const [, p] of want) p.resize(...thumbDims(p.canvas));   // (#511: every card takes its box's size before the first is drawn)
-    for (const [k] of want) { try { renderThumb(k); } catch (e) { console.error(e); } }
+    for (const [k] of want) { try { renderThumb(k); } catch (e) { console.error(e); } thumbFresh(k); }
   }
   function renderThumbs() {
     // wait for a quiet moment: never during drags, pans or a playing morph
@@ -248,8 +248,10 @@
     // first picture, a program that links in seconds on software GL, left the cards after it at the canvas's default
     // 300 x 150 until its turn. A size that changed clears the canvas, and renderThumb's signature holds the size, so it redraws)
     for (const p of thumbs.values()) if (p.canvas.isConnected) p.resize(...thumbDims(p.canvas));
-    for (const k of thumbs.keys()) { try { renderThumb(k); } catch (e) { console.error(e); } }
+    for (const k of thumbs.keys()) { try { renderThumb(k); } catch (e) { console.error(e); } thumbFresh(k); }
   }
+  // (#530) a card's canvas is marked `rz` while its box has a size its picture was not drawn for: the redraw clears it
+  function thumbFresh(k) { const p = thumbs.get(k); if (p && p.canvas.isConnected && p.canvas.width === Math.round(p.w * p.dpr) && p.canvas.height === Math.round(p.h * p.dpr)) p.canvas.classList.remove('rz'); }
 
   // ---------------- render scheduling ----------------
   const dirty = { L: false, R: false, OL: false, OR: false, T: false, P: false, G: false }; // G: the legend chip
@@ -261,7 +263,7 @@
   let thumbT = 0, lastInputT = 0, motionInT = 0;
   // motionInT: the last CONTINUOUS input (a wheel, a pointer moved with a button down, a range slider's input, a held
   // key); a hover or a single click is not motion (interacting(): a ready inverse program is not held back for it)
-  for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'input']) window.addEventListener(ev, (e) => {
+  for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'input']) window.addEventListener(ev, (/** @type {any} */ e) => {
     const t = performance.now();
     lastInputT = t;
     if (ev === 'wheel' || (ev === 'pointermove' && e.buttons) || (ev === 'input' && e.target && e.target.type === 'range') || (ev === 'keydown' && e.repeat)) motionInT = t;
@@ -432,7 +434,7 @@
     // (the landscape and the z-globe orbit in X, the w-globe in Y)
     const c3 = rGlobe() ? camS : null;
     const cL = lLand() ? cam : lGlobe() ? leftCam() : null;
-    for (const [cc, side] of [[c3, 'R'], [cL, 'L']]) {
+    for (const [cc, side] of /** @type {[any, string][]} */ ([[c3, 'R'], [cL, 'L']])) {
       if (!cc || drag || !(Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) continue;
       cc.yaw += cc.vyaw;
       cc.pitch = Math.max(pitchMin(cc), Math.min(88 * DEG, cc.pitch + cc.vpitch));
