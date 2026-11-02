@@ -1,5 +1,5 @@
-// The colour key in the classic X → Y view, where X's key is hidden as before (#365). The steps view has one plane and
-// shows its key, which phase_key_cmd.js covers. On a laptop: en, ru and it at 1440 px, ru at 1100 px.
+// The colour key in the classic X → Y view: X's key is hidden. The steps view has one plane and shows its key, which
+// phase_key_cmd.js covers. On a laptop: en, ru and it at 1440 px, ru at 1100 px.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails}.
 const fails = [];
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
