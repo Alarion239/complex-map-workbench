@@ -8,19 +8,8 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
-const STATE = (o) => Object.assign({ v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 80 } }, o);
-// the app with a saved state written straight to its storage (not the kit's load(), which sets a seeded pattern
-// through the test hook): what a user's own saved work does
-const openSaved = async (ns, st) => {
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await nav(`${U}/test.html?ns=${ns}`);
-  for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
-  await settle(800);
-};
-
+const settle = (ms = 400) => settled({ floor: ms });
+const { DISC, STATE, openSaved } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
 await view(1440, 900, false, false);
 // ---- 1. a saved state with an old pattern opens with the phase; its grid step and grid lines stay
 for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch', 0.5, true], ['sphere', 4, false], ['solid', 1, true], ['polar', 0.25, true]]) {

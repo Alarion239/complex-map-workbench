@@ -1,27 +1,13 @@
-// The regions' display in the classic X → Y view (the steps view's is regions_phase_cmd.js): the Regions pop-up in Y's head, the phone's
-// Display sheet, the tour's Views chapter. The regions' one fill (#363): the region patterns (Checker, Log-polar, Tiles, Square grid, Polar grid, Arg z, Stretch,
-// Sphere checker, Solid) are gone and every region is filled by the phase of z carried by the map. A saved state or a
-// link with any old pattern opens with the phase and keeps its grid step and grid lines; the Regions pop-up (Y's head in
-// the X → Y view) and the phone's Display sheet hold the grid lines, their step, the chevrons and the opacity with no
-// pattern swatch; Y's key chip names the grid's cell while the lines are drawn, else the phase; the tour has no Patterns
-// step. A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
+// The regions' display in the classic X → Y view (the steps view's is regions_phase_cmd.js): the Regions pop-up in Y's head
+// (grid lines, their step, chevrons, opacity, no pattern swatch) and Y's key chip, the phone's Display sheet, the tour's Views
+// chapter without a Patterns step, and the pop-up fitting its box in en, ru and it. A command file for a CDP daemon
+// (test/cdp_kit README); prints {pass, fails, info}.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
-const STATE = (o) => Object.assign({ v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 80 } }, o);
-// the app with a saved state written straight to its storage (not the kit's load(), which sets a seeded pattern
-// through the test hook): what a user's own saved work does
-const openSaved = async (ns, st) => {
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await nav(`${U}/test.html?ns=${ns}`);
-  for (let i = 0; i < 200 && !(await ev(`typeof __cmwRegions === 'function'`)); i++) await sleep(100);
-  await settle(800);
-};
-
+const settle = (ms = 400) => settled({ floor: ms });
+const { DISC, STATE, openSaved } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
 await view(1440, 900, false, false);
 await view(1440, 900, false, false);
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
