@@ -64,8 +64,7 @@ ruff check
 - **Prefer clear code to a comment that explains it.** If a block needs a comment to be followed, simplify it first.
   Maths, numerics and regular expressions are the exception: there a comment saying what is computed helps.
 - **Search before you write.** Before writing a new function, `git grep` its verb (draw, mask, solve, read,
-  compare, key, …) and the names around it, and extend what you find with a parameter. A second copy of an existing
-  engine is the most common reason a PR is sent back (#588).
+  compare, key, …) and the names around it, and extend what you find with a parameter.
 - **Solve today's problem.** No options, parameters, flags or generality that nothing uses yet, and no unused
   exports.
 - **Names say what a thing is or does:** long enough to be clear, short enough to read, no abbreviation a newcomer
