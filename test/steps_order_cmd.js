@@ -128,4 +128,19 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`1024 ${lang}: the strip's controls sit inside it, on one row, overlapping nothing, the select's text uncut`, inside && oneRow && clear && box.scroll <= 0 && box.order <= 1, box);
   ok(`1024 ${lang}: the rail keeps room for the thread (at least 160 px, what the F chip's strip keeps)`, rail.w >= 160, rail);
 }
+// a scrub across the thread and back: the strip is read again before the way back, because the rail follows the plane
+// the scrub arrived on (with the order beside the speed the rail is narrower than the thread, so it scrolls), and the
+// way back from the last plane moves the thread to the first and draws
+await view(1024, 768, false, false);
+await open(base([step('exp'), step('pown', { n: 2 }), step('sin')]), ns + 'scrub');
+await ctl({ scope: 'all', go: 0, now: true }); await settled({});
+const stripAt = () => ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { n: ps.length, x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2, scroll: document.querySelector('.sv-rail').scrollLeft }; })()`);
+const d0 = await stripAt();
+await drag(d0.x0, d0.y, d0.x1, d0.y, 30, 16); await settled({});
+const there = await S(), d1 = await stripAt();
+await drag(d1.x1, d1.y, d1.x0, d1.y, 30, 16); await settled({});
+const back = await S();
+info.scrub = { n: d0.n, scrolled: d1.scroll, there: there.x, back: back.x };
+ok('a scrub from the first plane to the last reaches it', there.i === d0.n - 1, there);
+ok('a scrub back from the last plane (where the rail has put it) reaches the first', back.i === 0 && !back.anim, { back, d1 });
 return { pass: fails.length === 0, fails, info };
