@@ -245,11 +245,13 @@
     const n = piecesOf(s).length;
     return n > 1 ? $t('side {n} of {x}', { n: ref.part + 1, x: shapeLabel(s) }) : shapeLabel(s);
   }
+  // the primes of an image point after n steps: z′, z″, z‴, then z″ again
+  const primes = (n) => (n < 4 ? ['', '′', '″', '‴'][n] : '″');
   function refName(ref, cs) {
     if (!ref) return '?';
     if (ref.inf) return '∞';
     if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
-    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + (((n) => (n < 4 ? ['', '′', '″', '‴'][n] : '″'))(A.yWhole() ? S().steps.length : A.leftStage() || S().steps.length)) : '?'; }
+    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes(A.yWhole() ? S().steps.length : A.leftStage() || S().steps.length) : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
     const s = find(ref.s);

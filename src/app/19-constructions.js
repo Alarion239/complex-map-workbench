@@ -8,12 +8,14 @@
   // the values Constr reads: f1's zeros and poles (parsed like the marks), F(z0) of the whole chain, traced curves
   function cmEnv() {
     const val = (raw) => { let v = null; try { v = typeof zpParse === 'function' ? zpParse(raw) : Expr.constValue(raw); } catch (e) { v = null; } return v && CX.isFin(v) ? [v.re, v.im] : null; };
+    // the map that carries a z-plane point to plane k (the steps up to k)
+    const Fk = (k) => (z) => { if (z === Constr.INF) return null; try { const w = stageF(k)(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } };
     return {
       zp: (st, kind, i) => val(Funcs.splitList(st.params[kind])[i] || ''),
       zpAll: (st, kind) => Funcs.splitList(st.params[kind]).map(val),
-      F: (z) => { if (z === Constr.INF) return null; try { const w = stageF(nSteps())(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } },
-      // the map that carries a z-plane point to plane k (the steps up to k)
-      Fk: (k) => (z) => { if (z === Constr.INF) return null; try { const w = stageF(k)(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } },
+      // F(z0) of the whole chain: the map to the last plane
+      F: (z) => Fk(nSteps())(z),
+      Fk,
       // (review math-11: one component per traced branch, each with its level function for the float64 Newton step,
       // traced on the z-plane's window plus a margin, never joined into one polyline)
       trace: (s) => {

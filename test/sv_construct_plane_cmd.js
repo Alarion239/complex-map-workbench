@@ -29,17 +29,17 @@ const c1 = await chip();
 ok('a 3-point circle on plane 1: the chip names the plane while picks are under way', /on w₁/.test(c1), c1);
 for (const q of P.slice(1)) { const s = await at(q[0], q[1]); await move(s[0], s[1]); await settle(150); await click(s[0], s[1]); await settle(300); }
 await quiet();
-const S1 = await shapes(), K = S1.find((s) => s.def && s.def.op === 'circle3');
-ok('a 3-point circle on plane 1: the circle is made', !!K && S1.length === n0 + 4, S1);
-ok('a 3-point circle on plane 1: it and its three points belong to plane 1', !!K && S1.slice(n0).every((s) => s.stage === 1), S1.slice(n0));
-ok('a 3-point circle on plane 1: its points are plane 1\'s own (no reference to plane z)', !!K && K.def.args.every((r) => { const t = S1.find((s) => s.id === r.s); return !!t && t.stage === 1; }), K && K.def);
+const S1 = await shapes(), circle = S1.find((s) => s.def && s.def.op === 'circle3');
+ok('a 3-point circle on plane 1: the circle is made', !!circle && S1.length === n0 + 4, S1);
+ok('a 3-point circle on plane 1: it and its three points belong to plane 1', !!circle && S1.slice(n0).every((s) => s.stage === 1), S1.slice(n0));
+ok('a 3-point circle on plane 1: its points are plane 1\'s own (no reference to plane z)', !!circle && circle.def.args.every((r) => { const t = S1.find((s) => s.id === r.s); return !!t && t.stage === 1; }), circle && circle.def);
 await key('z', 4); await quiet();
 ok('a 3-point circle on plane 1: one Undo takes the circle and its points', (await shapes()).length === n0, (await shapes()).length);
 // a point of plane z carried to plane 1 is an input: two plane-1 points and z₀′
-const w = await ev(`__cmwPlaneMenu().stage(1, 0.5, 0.5)`), ws = await at(w[0], w[1]);
-const A = await at(0.35, 0.45), B = await at(0.7, -0.35);
-for (const s of [A, B, ws]) { await move(s[0], s[1]); await settle(150); await click(s[0], s[1]); await settle(300); }
+const carriedPt = await ev(`__cmwPlaneMenu().stage(1, 0.5, 0.5)`), carriedAt = await at(carriedPt[0], carriedPt[1]);
+const pickA = await at(0.35, 0.45), pickB = await at(0.7, -0.35);
+for (const s of [pickA, pickB, carriedAt]) { await move(s[0], s[1]); await settle(150); await click(s[0], s[1]); await settle(300); }
 await quiet();
-const S2 = await shapes(), K2 = S2.find((s) => s.def && s.def.op === 'circle3');
-ok('a 3-point circle on plane 1 through a carried point: its third input is the image of z₀', !!K2 && K2.stage === 1 && K2.def.args.some((r) => r.img === 'z0'), K2 && K2.def);
+const S2 = await shapes(), carriedCircle = S2.find((s) => s.def && s.def.op === 'circle3');
+ok('a 3-point circle on plane 1 through a carried point: its third input is the image of z₀', !!carriedCircle && carriedCircle.stage === 1 && carriedCircle.def.args.some((r) => r.img === 'z0'), carriedCircle && carriedCircle.def);
 return { pass: fails.length === 0, fails, info };

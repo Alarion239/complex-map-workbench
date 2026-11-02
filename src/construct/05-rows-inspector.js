@@ -224,7 +224,7 @@
         const c = snapAt(side, ctx.x, ctx.y, { points: false, cross: false, curves: true, disp: true, touch, exclude: ex });
         // ([v16.5 rail] a display curve too: its fixed shape is made, or the plane's reused, in the same undo step)
         if (c) items.push({ label: $t('Put on this curve'), run: () => {
-          const pre = [], list = listOf(side);
+          const pre = [], list = isT(p) ? S().targets : S().shapes;   // the owning array: listOf() is a plane's filtered copy
           const def = { op: 'glider', args: [c.disp ? dispRef(c.disp, side, null, pre) : c.ref] };
           if (c.seed) def.seed = c.seed;
           for (const x of pre) list.splice(list.indexOf(p), 0, x);

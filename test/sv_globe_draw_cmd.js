@@ -1,6 +1,6 @@
 // The steps view's globe takes drawing on any plane: on plane k > 0 with the Sphere surface, a Disc drag makes a shape
-// of that plane (stage = k); a press on the shape just drawn moves it there,
-// still a shape of plane k. On plane 0 the shape has no stage. A command file for a CDP daemon (test/cdp_kit README).
+// of that plane (stage = k) and #viewAllBtn never gets the pulse class; a press on the shape just drawn moves it
+// there, still a shape of plane k. On plane 0 the shape has no stage. A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
@@ -25,10 +25,12 @@ for (const k of [0, 1]) {
   await ev(`document.querySelector('#tools .tool[data-tool="disc"]').click(); 1`); await quiet();
   const a = await at(0.3, 0.3), b = await at(0.8, 0.3);
   if (!a || !b) { ok(`${where}: the globe answers a pick`, false, [a, b]); continue; }
+  await ev(`window.__pulse = 0; (() => { const b = document.getElementById('viewAllBtn'); if (b) new MutationObserver(() => { if (b.classList.contains('pulse')) window.__pulse++; }).observe(b, { attributes: true, attributeFilter: ['class'] }); })(); 1`);
   await drag(a[0], a[1], b[0], b[1], 10, 16); await quiet();
   const S1 = await shapes(), d = S1.shapes[0];
   ok(`${where}: a Disc drag draws one shape`, S1.shapes.length === 1 && S1.targets.length === 0 && d && d.kind === 'disc', S1);
   ok(`${where}: the shape belongs to the plane it was drawn on`, d && (k === 0 ? !('stage' in d) : d.stage === k), d);
+  ok(`${where}: #viewAllBtn never gets the pulse class`, (await ev('window.__pulse')) === 0, await ev('window.__pulse'));
   // a press on the shape just drawn (on its rim) moves it on that plane
   if (d) {
     const c0 = d.c.slice(), rim = await at(c0[0] + d.r, c0[1]), to = await at(c0[0] + d.r + 0.3, c0[1] + 0.2);
