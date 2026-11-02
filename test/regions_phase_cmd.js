@@ -1,9 +1,9 @@
-// The regions' one fill and its display in the steps view (the classic X → Y view's is regions_phase_classic_cmd.js). The one fill (#363): the region patterns (Checker, Log-polar, Tiles, Square grid, Polar grid, Arg z, Stretch,
-// Sphere checker, Solid) are gone and every region is filled by the phase of z carried by the map. A saved state or a
-// link with any old pattern opens with the phase and keeps its grid step and grid lines; the Regions pop-up (Y's head in
-// the X → Y view) and the phone's Display sheet hold the grid lines, their step, the chevrons and the opacity with no
-// pattern swatch; Y's key chip names the grid's cell while the lines are drawn, else the phase; the tour has no Patterns
-// step. A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
+// The regions' one fill and its display in the steps view (the classic X → Y view's is regions_phase_classic_cmd.js).
+// The region patterns (Checker, Log-polar, Tiles, Square grid, Polar grid, Arg z, Stretch, Sphere checker, Solid) are
+// gone and every region is filled by the phase of z carried by the map (#363). A saved state or a link with any old
+// pattern opens with the phase and keeps its grid step and grid lines; the steps head's ⋯ pop-up and the phone's Display
+// sheet hold the grid lines, their step, the chevrons and the opacity with no pattern swatch, and the pop-up fits its
+// box in en, ru and it. A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}`;
 const fails = [], info = {};

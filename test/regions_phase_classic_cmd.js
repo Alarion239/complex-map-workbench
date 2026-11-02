@@ -1,14 +1,13 @@
-// The regions' display in the classic X → Y view (the steps view's is regions_phase_cmd.js): the Regions pop-up in Y's head
-// (grid lines, their step, chevrons, opacity, no pattern swatch) and Y's key chip, the phone's Display sheet, the tour's Views
-// chapter without a Patterns step, and the pop-up fitting its box in en, ru and it. A command file for a CDP daemon
-// (test/cdp_kit README); prints {pass, fails, info}.
+// The regions' display in the classic X → Y view (the steps view's is regions_phase_cmd.js): the Regions pop-up in Y's
+// head (grid lines, their step, chevrons, opacity, no pattern swatch) and Y's key chip, the phone's Display sheet, the
+// tour's Views chapter without a Patterns step, and the pop-up fitting its box in en, ru and it. A command file for a
+// CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
 const { DISC, STATE, openSaved } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
-await view(1440, 900, false, false);
 await view(1440, 900, false, false);
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
 // ---- 4. the laptop's Regions button and its pop-up: no pattern swatch anywhere in the page

@@ -1,8 +1,8 @@
-// The phone's sheets in English, Russian and Italian at 360, 390 and 412 px (#251): a sheet's title is whole (it wraps to a
-// second line before it is cut), the Tools sheet's grabber lies clear of its Snap pill, the Numbers sheet says its title once
-// with its Tip in view, the planes' readouts are not cut (Russian's "w 2 / дел." in the right plane), and the Display
-// sheet's regions show no pattern swatches and no cut label, in the steps view and the classic one. A command file for a CDP daemon (test/cdp_kit README); prints
-// { pass, fails, info }.
+// The phone's sheets in English, Russian and Italian at 360, 390 and 412 px (#251): a sheet's title is whole (it wraps
+// to a second line before it is cut), the Tools sheet's grabber lies clear of its Snap pill, the Numbers sheet says its
+// title once with its Tip in view, the planes' readouts are not cut (Russian's "w 2 / дел." in the right plane), and the
+// Display sheet's regions show no pattern swatches and no cut label, in the steps view and the classic one. A command
+// file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
