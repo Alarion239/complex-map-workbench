@@ -25,8 +25,9 @@ const lang = async (l) => { await ev(`I18N.setPref('${l}'), 1`); await settle(15
 await view(1440, 900, false, false);
 await load(NS, STATE);
 await settle(1200);
-// open step 1 in the Inspector so its numbers line is built
-await clickSel('#pipeline .card[data-k="1"]');
+// the steps view; its strip's f₁ chip opens step 1 in the Inspector, which builds the step's numbers line
+ok('the page is the steps view', await ev('!!window.__cmwSteps && __cmwSteps().on'), null);
+await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip');
 await settle(500);
 const en0 = await pics();
 let s = await P();
@@ -35,7 +36,7 @@ ok('en: the numbers line shows the complex value', /a = 0\.5 \+ 0\.3i/.test(awai
 ok('en: the row holds the value as text', (await rowValue()).replace('−', '-') === '0.5+0.3i', await rowValue());
 for (const l of ['ru', 'it']) {
   await lang(l);
-  await clickSel('#pipeline .card[data-k="1"]');
+  await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip');
   await settle(500);
   s = await P();
   ok(`${l}: no step error`, s.errors.every((e) => !e), s.errors);
