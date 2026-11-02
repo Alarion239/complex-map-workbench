@@ -87,7 +87,7 @@ const VIEWS = {
   'series_params_cmd.js': steps({ pin: true }),
   'shape_rows_cmd.js': port('interact'),
   'stage_shapes_cmd.js': port('interact'),
-  'top_bar_focus_cmd.js': port('interact', 'without the view switch and Deformation in the bar'),
+  'top_bar_focus_cmd.js': classic('the top bar\'s view switch and Deformation button and their tab order, which K3 deletes; the steps view\'s top bar has the menu buttons only'),
   'ux165_fix_cmd.js': port('interact'),
   'ux165_merge_cmd.js': port('interact'),
   'ux165_plane_cmd.js': port('interact'),
