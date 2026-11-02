@@ -418,10 +418,8 @@
   // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
   // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape draws so
-  // (a region's mesh split as the tiling's, MESH_L^2 per base triangle: the places come from the map cache, and the
-  // tiling's own draw of that mesh under the same map has evaluated them in this frame, so the carry evaluates nothing
-  // more (the map over a mesh's lattice is most of a scrub frame's cost); the whole plane's mesh, which only the carry
-  // draws, in SV_CARRY_L^2: each fragment's colour is its own point's exactly, the subdivision only places it)
+  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
+  // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
   // F (at rest or parked: the map's CPU function): the tiling's fix-up job is asked for the shapes under map
   // (svWantFix), and each mesh is drawn with its fix-up once it lands (carryFix: the cells the map bends too much
   // refined, drawn as an extra mesh of their own, their base cells skipped)
@@ -444,7 +442,7 @@
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: x === SV_ALL ? SV_CARRY_L : MESH_L, skip: fx ? fx.skip : null });
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
       if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
     }
     if (F && fixed.length) svWantFix(F, map, fixed);

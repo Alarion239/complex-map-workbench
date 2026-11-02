@@ -351,7 +351,7 @@
     const probe0 = globalThis.__svCarryProbe || {};
     if (globalThis.__svCarryProbe) probe0.draws = (probe0.draws || 0) + 1;
     if (probe0.noCarry) return true;
-    let e = probe0.noTF && res.__probeE ? res.__probeE : rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    let e = probe0.uncached ? null : probe0.noTF && res.__probeE ? res.__probeE : rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     if (e && !probe0.noTF) res.__probeE = e;
     if (e && probe0.noTF) e.t = performance.now();   // (kept from the sweep of stale scratch textures)
@@ -361,7 +361,7 @@
     const probe = globalThis.__svCarryProbe || {};
     const fill = cuts && P && !probe.noKSC ? program(clip ? 'regionKSCX' : 'regionKSC', st.map) : null;
     let full = null;
-    if (cuts && !fill) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
+    if (cuts && !fill && !probe0.uncached) { P = full = program(clip ? 'regionKSX' : 'regionKS', st.map); if (P) e = null; }
     if (!P) { e = null; P = program('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
