@@ -104,7 +104,7 @@ const VIEWS = {
   'phone_fwell_cmd.js': port('phone', 'F\'s well: after K1 item 9'),
   'phone_sheet_target_cmd.js': steps({ pin: true }),
   'phone_sheets_cmd.js': port('phone'),
-  'phone_toast_chain_cmd.js': port('phone'),
+  'phone_toast_chain_cmd.js': steps({ pin: true }),
   'ux165_phone_cmd.js': port('phone'),
 
   // to port: words (the tour after #620 items 3 and 11, the chapters' retargeting)
