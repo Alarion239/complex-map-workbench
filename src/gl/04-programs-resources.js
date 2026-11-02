@@ -85,7 +85,7 @@
   // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
   // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
-  const REGION_K_VS = (fetch, sheet) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet });
+  const REGION_K_VS = (fetch, sheet, fill) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, fill: !!fill });
   const REGION_K_FS = () => UTIL + DCOLOR + CARRY_FS(false, false);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
@@ -101,6 +101,8 @@
     regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS },
     // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
     regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS },
+    // (and the fill after regionK: the same, the places from the chain at every vertex)
+    regionKSF: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
