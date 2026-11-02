@@ -34,7 +34,7 @@ const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got })
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e * Math.max(1, Math.abs(a), Math.abs(b));
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
-const dragH = async (x0, y0, x1, y1, n, dt) => { await move(x0, y0); await settle(80); return drag(x0, y0, x1, y1, n, dt); };
+const dragH = async (x0, y0, x1, y1, n, dt) => { await move(x0, y0); await settle(150); return drag(x0, y0, x1, y1, n, dt); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -396,7 +396,9 @@ await section('C', async () => {
   ok('RU row', info.ruRow === 'круг, ограниченный окружностью через z₀, z₁ и ζ₁', info.ruRow);
   await shot('cm-d1440-ru-done');
   await tool('select');
-  await click(b[0], b[1]); await settle(150);
+  const bSel = await W(0.5, -1);   // (read again: the plane re-fits when the tool's chip row closes)
+  await move(bSel[0], bSel[1]); await settle(80);
+  await click(bSel[0], bSel[1]); await settle(150);
   await key('Delete'); await settle(300);
   info.ruToast = await toastText();
   ok('RU delete toast', info.ruToast === 'Удалено: z₁ и зависимые фигуры (1).', info.ruToast);
