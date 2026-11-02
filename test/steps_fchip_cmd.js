@@ -52,7 +52,8 @@ await key('Enter');
 await settled({});
 ok('Enter on the focused chip selects F too', (await S()).sel === 'F' && (await whole()).pressed === 'true', await S());
 // the plane stays where it was: F is no plane and no step
-ok('F is not a step: the chain and the place on the thread are as they were', (await S()).planes.length === 4 && (await S()).x === 0, await S());
+const PLANES = 4;   // (z and the three steps' images)
+ok('F is not a step: the chain and the place on the thread are as they were', (await S()).planes.length === PLANES && (await S()).x === 0, await S());
 
 // a saved page that had F selected opens with the chip pressed
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
