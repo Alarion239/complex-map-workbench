@@ -109,7 +109,7 @@ const VIEWS = {
 
   // to port: words (the tour after #620 items 3 and 11, the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
-  'example_params_cmd.js': port('words'),
+  'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': port('words', 'the Try lines left: K1 item 11'),
   'fix152_cmd.js': port('words'),
   'guide_nav_cmd.js': port('words'),
