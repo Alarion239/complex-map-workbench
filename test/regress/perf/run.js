@@ -912,10 +912,9 @@ async function svFirstGlideUnit() {
 const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
 async function svInteractUnit(scene) {
-  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
-  // Mountain King's programs alone take minutes: skipped there, said in the details; CMW_SV_SOFT=1 runs them anyway)
-  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.interact.${scene}`, 'skipped: a software renderer (one rep outlasts the unit\'s time limit there)'); return; }
+  // Mountain King's programs alone take minutes)
+  if (await svSoftSkip(`sv.interact.${scene}`, 'one rep outlasts the unit\'s time limit there')) return;
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
   // a timed window around fn, then its settle (as dragLeg)
   const leg = async (fn) => {
@@ -985,11 +984,18 @@ async function svInteractUnit(scene) {
 // copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
 const SV_GLIDE_JANK_MS = 25;
-// (#551) the landing of a glide: its frame, the first at rest, at most this (as A2's first glide)
+// the landing of a glide: its frame, the first at rest, at most this (as the first glide's)
 const SV_LANDING_LIMIT = 50;
+// the steps view's GPU units on a software renderer (SwiftShader, llvmpipe, WARP): skipped with the reason said in the
+// unit's details, unless CMW_SV_SOFT=1 runs them anyway. -> true when the unit is skipped
+async function svSoftSkip(id, why) {
+  const r = await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`);
+  if (!/swiftshader|llvmpipe|software|basic render|warp/i.test(String(r)) || process.env.CMW_SV_SOFT === '1') return false;
+  detail(id, 'skipped: a software renderer' + (why ? ` (${why})` : ''));
+  return true;
+}
 async function svGlideUnit(scene) {
-  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
-  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.glide.${scene}`, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
+  if (await svSoftSkip(`sv.glide.${scene}`, 'the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes')) return;
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
   const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.glide.${scene}`)) * 1000;
   // one glide from where the view rests to plane `to`, its window from the call to the landing
@@ -999,7 +1005,7 @@ async function svGlideUnit(scene) {
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
     const w = await windowStats(a, b);
-    // (#551) the landing: the longest frame within 400 ms of it (the first frame at rest, and any drawn as its programs
+    // the landing: the longest frame within 400 ms of it (the first frame at rest, and any drawn as its programs
     // link)
     await sleep(400);
     const land = await B.ev(`__perf.framesSince(${b - 50}, ${b + 400})`);
@@ -1052,14 +1058,13 @@ async function svGlideUnit(scene) {
     put(`${pre}.landing_ms`, 'limit', 'ms', [Math.max(0, ...landing)], { limit: SV_LANDING_LIMIT, samples: landing.map(r3) });
   }
 }
-// (#551) the worst case of the colour at rest past the colour plane (the carry's, or the exact pass that
-// takes its place at rest, #584): a plane parked half-way, settled, at dpr 2, on the zeros of
+// the worst case of the colour at rest past the colour plane (the carry's, or the exact pass that
+// takes its place at rest): a plane parked half-way, settled, at dpr 2, on the zeros of
 // zeta and the Mountain King (their long chains): frames drawn one after another with nothing moving (each one the rest
 // frame's, as a parked pan's frame after it stops). Measures frame_p95_ms and longest_ms (kind limit, the watchdog's side)
 const SV_PARKED_LONGEST = 250;
 async function svParkedUnit(scene) {
-  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
-  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.parked.${scene}`, 'skipped: a software renderer'); return; }
+  if (await svSoftSkip(`sv.parked.${scene}`)) return;
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
   const pre = `sv.parked.${scene}`, frames = [], longest = [];
   await setDpr(2);
@@ -1858,8 +1863,8 @@ unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, 
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
 unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
-unit('sv.parked.zeta', 'the steps view (#551, on a GPU), the zeros of zeta parked half-way at dpr 2, settled: the colour past the colour plane at rest, frame p95 and the longest frame', () => svParkedUnit('zeta'));
-unit('sv.parked.king', 'the steps view (#551, on a GPU), the Mountain King parked half-way at dpr 2, settled: the colour past the colour plane at rest, frame p95 and the longest frame', () => svParkedUnit('king'), { timeoutS: 600 });
+unit('sv.parked.zeta', 'the steps view (on a GPU), the zeros of zeta parked half-way at dpr 2, settled: the colour past the colour plane at rest, frame p95 and the longest frame', () => svParkedUnit('zeta'));
+unit('sv.parked.king', 'the steps view (on a GPU), the Mountain King parked half-way at dpr 2, settled: the colour past the colour plane at rest, frame p95 and the longest frame', () => svParkedUnit('king'), { timeoutS: 600 });
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
