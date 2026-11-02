@@ -44,14 +44,12 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   await closeAll();
   const [x1, y1] = await at(0, 1.1);
   const hit = await under(x1, y1);
-  // (the events the plane gets from the right-click, in order, with the app's drag at each: what a failure reports)
-  await ev(`(() => { const t = document.getElementById('overlayL'), log = window.__rcLog = []; for (const ty of ['pointerdown', 'mousedown', 'pointermove', 'pointerup', 'mouseup', 'pointercancel', 'lostpointercapture', 'contextmenu']) t.addEventListener(ty, (e) => log.push([ty, e.button, e.buttons, Math.round(e.timeStamp), __cmwPlaneMenu().drag()]), true); return 1; })()`);
   await rclick(x1, y1);
   const on = await menu();
   // (when no menu opened: the page's state at the click, and whether a contextmenu event sent to the plane itself opens it)
   let why = null;
   if (!on) {
-    why = await ev(`(() => { const st = __cmwState(); return { events: window.__rcLog, now: Math.round(performance.now()), z: __cmwPlaneMenu().s2w('L', ${x1}, ${y1}), view: st.view, focus: st.focus, morph: st.morph, layout: __cmwLayout(), drag: __cmwPlaneMenu().drag() }; })()`);
+    why = await ev(`(() => { const st = __cmwState(); return { now: Math.round(performance.now()), z: __cmwPlaneMenu().s2w('L', ${x1}, ${y1}), view: st.view, focus: st.focus, morph: st.morph, layout: __cmwLayout(), drag: __cmwPlaneMenu().drag() }; })()`);
     await ev(`document.getElementById('overlayL').dispatchEvent(new MouseEvent('contextmenu', { clientX: ${x1}, clientY: ${y1}, button: 2, bubbles: true, cancelable: true })), 1`);
     await settled({ max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
     why.viaEvent = await menu();
