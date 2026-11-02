@@ -176,7 +176,7 @@ const VIEWS = {
   'deform_dirichlet_cmd.js': port('render', 'the glide on a Dirichlet series instead of the Deformation click'),
   'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
   'link_standin_cmd.js': port('render'),
-  'overlay_ghost_cmd.js': port('render'),
+  'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': port('render'),
