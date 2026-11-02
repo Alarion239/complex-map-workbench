@@ -388,7 +388,7 @@
       setCursor(pane, side);
       return;
     }
-    // left pane: the globe takes the shapes of the plane it shows (P3b); the landscape only turns
+    // left pane: the globe takes the shapes of the plane it shows; the landscape only turns
     if (lGlobe() && globeEdit('L')) { globeDown(pane, side, e, x, y); gestureProbeOff(); setCursor(pane, side); return; }
     if (!lFlat()) {
       const c = camOf('L');
