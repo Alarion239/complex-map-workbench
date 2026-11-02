@@ -30,7 +30,16 @@ const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warning') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
-const W = (re, im, side = 'L') => ev(`__cmwW2S('${side}', ${re}, ${im})`);
+// (a world point on a pane: X is the classic left pane, Y the classic right pane; the steps view has one plane, X on its
+// first step and Y on its last)
+const W = async (re, im, side = 'L') => {
+  if (await ev(`document.documentElement.classList.contains('sv')`)) {
+    const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;
+    if ((await ev(`__cmwSteps().i`)) !== to) { await ev(`__cmwSteps({ go: ${to}, now: true })`); await sleep(900); }
+    side = 'L';
+  }
+  return ev(`__cmwW2S('${side}', ${re}, ${im})`);
+};
 const CI = (o) => ev(`__cmwCI(${JSON.stringify(o || null)})`);
 const ST = () => CI({ shapes: true });
 const FORMS = () => ev(`__cmwC().forms`);
