@@ -933,6 +933,10 @@
   // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
   // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
   // or a new title, button or surface), and never while the view moves (#320)
+  // svFitHead's chip fit: the head is one row while it is under SV_HEAD_ROW px tall (its 40 px minimum height, with 4 px for
+  // the border and rounding), and a chip's label gives up its width in SV_CHIP_STEP px steps (a few letters each, so the
+  // fit takes few layouts) down to SV_CHIP_MIN px (an ellipsis and the Stop button, the least that still reads as a chip)
+  const SV_HEAD_ROW = 44, SV_CHIP_STEP = 16, SV_CHIP_MIN = 72;
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
@@ -983,9 +987,9 @@
     // width that would wrap the head onto a second row (a row is the head's 40 px minimum), down to a few letters: the
     // plane never moves for a chip)
     if (mc && !mc.hidden) {
-      const wraps = () => head.getBoundingClientRect().height > 44;
+      const wraps = () => head.getBoundingClientRect().height > SV_HEAD_ROW;
       let w = Math.ceil(mc.getBoundingClientRect().width);
-      while (wraps() && w > 72) { w -= 16; mc.style.setProperty('--mc-max', w + 'px'); }
+      while (wraps() && w > SV_CHIP_MIN) { w -= SV_CHIP_STEP; mc.style.setProperty('--mc-max', w + 'px'); }
     }
     // (the strip in the head fits its controls to the room the bar now leaves)
     if (typeof layoutFoot === 'function') layoutFoot(true);
