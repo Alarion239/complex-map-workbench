@@ -172,7 +172,7 @@ const VIEWS = {
   'ux165_rail_cmd.js': port('geometry'),
 
   // to port: render
-  'cauchy_residue_cmd.js': port('render'),
+  'cauchy_residue_cmd.js': steps({ pin: true }),
   'deform_dirichlet_cmd.js': port('render', 'the glide on a Dirichlet series instead of the Deformation click'),
   'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
   'link_standin_cmd.js': port('render'),

@@ -79,10 +79,13 @@ info.A2 = A2;
 ok('A2 with a pole inside the curve there is a Both | Inside | Outside choice, Both on', A2.seg && A2.seg.join() === 'Both*,Inside,Outside', A2);
 ok('A2 the note says f₊ inside and f₋ outside', /f₊ inside, f₋ outside/.test(A2.text.replace(/\s+/g, ' ')), A2.text);
 await settle(400);
-await ev(`(() => { const seg = document.getElementById('cauchySeg'); const b = seg ? seg.querySelector('[data-v="in"]') : null; if (b) b.click(); return !!b; })()`);
+// (the options pop-up is opened again in the same step: the steps view closes it when the page head loses the pointer)
+await ev(`(() => { if (!document.querySelector('.opts-pop')) { const o = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (o) o.click(); } const seg = document.getElementById('cauchySeg'); const b = seg ? seg.querySelector('[data-v="in"]') : null; if (b) b.click(); return !!b; })()`);
 await settle(800);
 const inCap = await ev(`Export.figCapParts().cauchy`);
 ok('A2 clicking Inside sets the part shown; the caption data follows', inCap && inCap.kind === 'split' && inCap.show === 'in' && inCap.poles === 1, inCap);
+// (the options pop-up is closed again: the next read opens it by the same button)
+await ev(`(() => { const o = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (document.querySelector('.opts-pop') && o) o.click(); return 1; })()`);
 await ev('__cmwCauchyOpt("both", false)'); await settle(400);
 await open(CIRCLE, custom('z^{2}'));
 const A3 = await optsText();
