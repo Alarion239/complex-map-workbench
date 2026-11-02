@@ -38,8 +38,17 @@ await ctl({ go: 0, now: true }); await arrived();
 for (const o of ['steps', 'all']) { await ctl({ order: o }); await ctl({ go: 3 }); await arrived(); await ctl({ go: 0 }); await arrived(); }
 await ctl({ order: 'steps' });
 // the select: after the speed, before Loop, two names, off at Step by step
-const sel = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'), kids = [...document.getElementById('svStrip').children].map((c) => c.className.split(' ').find((x) => /^sv-(speed|order|loop)$/.test(x)) || ''); return e ? { opts: [...e.options].map((o) => [o.value, o.textContent]), value: e.value, disabled: e.disabled, name: e.getAttribute('aria-label'), order: kids.filter(Boolean) } : null; })()`);
-ok('the strip has the order select, after the speed and before Loop', sel && sel.order.join() === 'sv-speed,sv-order,sv-loop', sel);
+const sel = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'), kids = [...document.getElementById('svStrip').children].map((c) => c.className.split(' ').find((x) => /^sv-(speed|loop|playmore)$/.test(x)) || ''); return e ? { opts: [...e.options].map((o) => [o.value, o.textContent]), value: e.value, disabled: e.disabled, name: e.getAttribute('aria-label'), order: kids.filter(Boolean) } : null; })()`);
+ok('the strip keeps Speed and Loop and ends with the ⋯ Playback button; the order select is in its dialog', sel && sel.order.join() === 'sv-speed,sv-loop,sv-playmore', sel);
+// the dialog: opened by the ⋯, focus inside, Esc returns it to the ⋯
+{ const dlg = () => ev(`(() => { const d = document.querySelector('#svStrip .sv-playpop'), b = document.querySelector('#svStrip .sv-playmore'), a = document.activeElement; return { hidden: d.hidden, role: d.getAttribute('role'), name: d.getAttribute('aria-label'), expanded: b.getAttribute('aria-expanded'), inside: d.contains(a), onMore: a === b, haspopup: b.getAttribute('aria-haspopup') }; })()`);
+  const closed = await dlg();
+  await ev(`document.querySelector('#svStrip .sv-playmore').click(), 1`); await settled({});
+  const open1 = await dlg();
+  ok('the ⋯ opens a dialog named Playback with the focus inside it', closed.hidden && closed.expanded === 'false' && !open1.hidden && open1.expanded === 'true' && open1.role === 'dialog' && open1.name === 'Playback' && open1.inside && open1.haspopup === 'dialog', { closed, open1 });
+  await key('Escape'); await settled({});
+  const shut = await dlg();
+  ok('Esc closes it and returns the focus to the ⋯', shut.hidden && shut.expanded === 'false' && shut.onMore, shut); }
 ok('it names the two orders and starts at Step by step', sel && JSON.stringify(sel.opts) === JSON.stringify([['steps', 'Step by step'], ['all', 'All at once']]) && sel.value === 'steps' && !sel.disabled && sel.name === 'Glide order', sel);
 // plane by plane: a click on a plane two on glides through the planes between
 // (a first glide compiles its shader and stalls frames: one warm-up glide, then back)
@@ -104,6 +113,10 @@ ok('a saved page keeps All at once (S.homAll)', kept.homAll === true && kept.val
 await open(base([step('exp')]), ns + 'a');
 const one = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'); return { disabled: e.disabled, tip: e.dataset.tip }; })()`);
 ok('one step: the select is off and says why', one.disabled && /two steps or more/.test(one.tip), one);
+{ await ev(`document.querySelector('#svStrip .sv-playmore').click(), 1`); await settled({});
+  const why = await ev(`(() => { const w = document.querySelector('#svStrip .sv-playpop-why'), d = document.querySelector('#svStrip .sv-playpop'); return { shown: !w.hidden && w.getClientRects().length > 0, text: w.textContent, inside: d.contains(document.activeElement) || document.activeElement === d }; })()`);
+  ok('with the select off, the dialog says why in muted text and still holds the focus', why.shown && /two steps or more/.test(why.text) && why.inside, why);
+  await key('Escape'); await settled({}); }
 await open(base([step('pown', { n: 2 }), step('deriv'), step('exp')]), ns + 'b');
 const dz = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'); return { disabled: e.disabled, tip: e.dataset.tip }; })()`);
 ok('a d/dz in the chain: the select is off and says why', dz.disabled && /d\/dz is not a map/.test(dz.tip), dz);
@@ -116,20 +129,21 @@ for (const lang of ['en', 'ru', 'it']) {
   await settled({});
   const box = await ev(`(() => {
     const strip = document.getElementById('svStrip'), sb = strip.getBoundingClientRect();
-    const items = ['.sv-play', '.sv-prev', '.sv-rail', '.sv-add', '.sv-next', '.sv-speed', '.sv-order', '.sv-loop'].map((q) => { const e = strip.querySelector(q), r = e.getBoundingClientRect(); return { q, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width }; });
-    return { strip: [sb.left, sb.right, sb.top, sb.bottom], items, scroll: strip.scrollWidth - strip.clientWidth, order: strip.querySelector('.sv-order').scrollWidth - strip.querySelector('.sv-order').clientWidth };
+    const items = ['.sv-play', '.sv-prev', '.sv-rail', '.sv-add', '.sv-next', '.sv-speed', '.sv-loop', '.sv-playmore'].map((q) => { const e = strip.querySelector(q), r = e.getBoundingClientRect(); return { q, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width }; });
+    return { strip: [sb.left, sb.right, sb.top, sb.bottom], items, scroll: strip.scrollWidth - strip.clientWidth, dlg: (() => { const b = strip.querySelector('.sv-playmore'); b.click(); const d = strip.querySelector('.sv-playpop').getBoundingClientRect(); b.click(); return [d.left, d.right, d.top, d.bottom]; })() };
   })()`);
   const inside = box.items.every((i) => i.l >= box.strip[0] - 0.5 && i.r <= box.strip[1] + 0.5);
   const oneRow = box.items.every((i) => i.t >= box.strip[2] - 0.5 && i.b <= box.strip[3] + 0.5);
   const rail = box.items.find((i) => i.q === '.sv-rail');
   const sorted = box.items.slice().sort((p, q) => p.l - q.l);
   const clear = sorted.every((i, k) => !k || i.l >= sorted[k - 1].r - 0.5);
-  info[`1024 ${lang}`] = { strip: box.strip.map(Math.round), rail: Math.round(rail.w), order: Math.round(box.items.find((i) => i.q === '.sv-order').w) };
-  ok(`1024 ${lang}: the strip's controls sit inside it, on one row, overlapping nothing, the select's text uncut`, inside && oneRow && clear && box.scroll <= 0 && box.order <= 1, box);
+  info[`1024 ${lang}`] = { strip: box.strip.map(Math.round), rail: Math.round(rail.w), dlg: box.dlg.map(Math.round) };
+  ok(`1024 ${lang}: the strip's controls sit inside it, on one row, overlapping nothing`, inside && oneRow && clear && box.scroll <= 0, box);
+  ok(`1024 ${lang}: the Playback dialog opens inside the window, above the strip`, box.dlg[0] >= 0 && box.dlg[1] <= 1024 && box.dlg[2] >= 0 && box.dlg[3] <= box.strip[2] + 0.5, box.dlg);
   ok(`1024 ${lang}: the rail keeps room for the thread (at least 160 px, what the F chip's strip keeps)`, rail.w >= 160, rail);
 }
 // a scrub across the thread and back: the strip is read again before the way back, because the rail follows the plane
-// the scrub arrived on (with the order beside the speed the rail is narrower than the thread, so it scrolls), and the
+// the scrub arrived on (at this width the rail is narrower than the thread, so it scrolls), and the
 // way back from the last plane moves the thread to the first and draws
 await view(1024, 768, false, false);
 await open(base([step('exp'), step('pown', { n: 2 }), step('sin')]), ns + 'scrub');

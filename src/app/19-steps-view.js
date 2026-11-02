@@ -612,7 +612,7 @@
   // the order select says why it is off: a chain of fewer than two steps has nothing to take together, a d/dz is no map to deform
   function svOrderSync() {
     const E = SV.els, P = svPlanes(), deriv = P.some((k, i) => i > 0 && isDeriv(k)), ok = P.length > 2 && !deriv;
-    // (read and written only when what it says changes: the play calls it every frame)
+    // (read and written only when what it says changes)
     const key = `${ok ? 1 : 0}|${deriv ? 1 : 0}|${S.homAll ? 1 : 0}|${I18N.lang}|${E.sheetOrder ? 1 : 0}`;
     if (key === E.orderKey) return;
     E.orderKey = key;
@@ -626,7 +626,26 @@
       sel.title = tip;
       sel.setAttribute('aria-description', ok ? '' : tip);
     }
+    E.orderWhy.textContent = ok ? '' : tip;
+    E.orderWhy.hidden = ok;
     if (E.play) E.play.setAttribute('aria-description', ok ? `${$t('Hold for speed and loop')}. ${$t('Glide order')}: ${S.homAll ? $t('All at once') : $t('Step by step')}` : $t('Hold for speed and loop'));
+  }
+  // the Playback dialog: the glide order, with its reason when it is off (muted); focus goes in, Esc returns it to the ⋯, a press
+  // outside or Tab out closes it
+  function svPlayPop(show) {
+    const E = SV.els;
+    if (show === undefined) show = E.pop.hidden;
+    if (show === !E.pop.hidden) return;
+    E.pop.hidden = !show;
+    E.playMore.setAttribute('aria-expanded', String(show));
+    if (!E.popOff) {
+      const close = (back) => { svPlayPop(false); if (back) E.playMore.focus(); };
+      E.pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); } });
+      E.pop.addEventListener('focusout', (e) => { const to = e.relatedTarget; if (to && !E.pop.contains(to) && to !== E.playMore) close(false); });
+      E.popOff = (e) => { if (!E.pop.hidden && !E.pop.contains(e.target) && !E.playMore.contains(e.target)) close(false); };
+    }
+    if (show) { svOrderSync(); document.addEventListener('pointerdown', E.popOff, true); (E.order.disabled ? E.pop : E.order).focus(); }
+    else document.removeEventListener('pointerdown', E.popOff, true);
   }
   function svBuild() {
     const head = document.querySelector('#paneL .pane-head');
@@ -648,13 +667,19 @@
     const thumb = h('div', { class: 'sv-thumb', 'aria-hidden': 'true' });
     const speed = svSpeedSel($t('Glide speed'));
     const order = svOrderSel($t('Glide order'));
+    // (the order lives in a small dialog at the strip's end, opened by its ⋯: Speed and Loop stay on the strip; a phone has the Playback sheet)
+    const orderWhy = h('p', { class: 'sv-playpop-why' });
+    const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy);
+    pop.hidden = true;
+    const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
     const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
     // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it (#501), and inside the band it lay under the plane buttons)
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
-    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), add, next, speed, order, loop, bandx);
+    const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), add, next, speed, loop, playMore, pop, bandx);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
     head.after(strip);
@@ -677,7 +702,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, empty, rail, play, loop, band, bandx, speed, order, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, empty, rail, play, loop, band, bandx, speed, order, orderWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svPlayHold();
     // (the other way to the sheet, for a screen reader's user who cannot hold: the header's ⋯ menu, which a phone shows)
