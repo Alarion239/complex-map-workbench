@@ -42,26 +42,7 @@ await ev(`I18N.setPref('en'), 1`); await settle(1500);
 
 // what the fixes keep: the card's Bypass and More are for the mouse, and Clear sits in the Shapes header
 await ev(`__cmwExample(${idx(/^Strip to disk/)}); 1`); await settle(1500);
-// (the chain cards are the classic view's: the steps view has the thread, whose chips hold their ⋯ as ordinary controls)
-if (!(await ev(`document.documentElement.classList.contains('sv')`))) {
-const st0 = await ev(`(() => { const a = document.querySelector('#pipeline .card[data-k="1"] .acts'); return { inert: a.inert, hidden: a.getAttribute('aria-hidden') }; })()`);
-ok('a card\'s actions are inert at rest and hidden from a screen reader', st0.inert === true && st0.hidden === 'true', st0);
-const box = await ev(`(() => { const b = document.querySelector('#pipeline .card[data-k="1"]').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: box[0], y: box[1] }); await settle(300);
-const st1 = await ev(`document.querySelector('#pipeline .card[data-k="1"] .acts').inert`);
-ok('a pointer over the card makes its actions usable', st1 === false, st1);
-const ab = await ev(`(() => { const b = document.querySelector('#pipeline .card[data-k="1"] .acts .bypass').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: ab[0], y: ab[1] }); await sleep(100);
-await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: ab[0], y: ab[1], button: 'left', clickCount: 1 });
-await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: ab[0], y: ab[1], button: 'left', clickCount: 1 });
-await settle(600);
-const off = await ev('__cmwP().steps[0].on');
-ok('a mouse click on the card\'s Bypass bypasses the step', off === false, off);
-await ev('document.querySelector(\'#pipeline .card[data-k="1"] .acts .bypass\') && 1');
-await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 }); await settle(300);
-const st2 = await ev(`document.querySelector('#pipeline .card[data-k="1"] .acts').inert`);
-ok('a pointer leaving the card makes them inert again', st2 === true, st2);
-}
+// (the chain cards' inert actions are the classic view's: a11y_axe_cards_cmd.js, a classic-view suite)
 const g = await ev(`(() => { const s = document.querySelector('#secShapes > summary').getBoundingClientRect(), c = document.getElementById('clearShapes').getBoundingClientRect(), d = document.getElementById('secShapes').getBoundingClientRect(); return { sTop: s.top, cTop: c.top, cH: c.height, cRight: c.right, dRight: d.right, inSummary: !!document.querySelector('#secShapes > summary #clearShapes') }; })()`);
 ok('Clear is not in the summary, and sits at the header\'s top, inside the section', !g.inSummary && Math.abs(g.sTop - g.cTop) < 1 && g.cRight <= g.dRight, g);
 return { pass: fails.length === 0, fails };

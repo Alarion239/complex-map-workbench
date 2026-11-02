@@ -68,6 +68,7 @@ const VIEWS = {
 
   // to port: interact
   'a11y_axe_cmd.js': steps({ pin: true }),
+  'a11y_axe_cards_cmd.js': classic('the classic chain cards\' inert actions and the mouse click on Bypass: the steps view has the thread, whose chips hold their ⋯ as ordinary controls'),
   'chip_clamp_cmd.js': port('interact'),
   'complex_point_cmd.js': port('interact'),
   'complex_params_cmd.js': port('interact'),
