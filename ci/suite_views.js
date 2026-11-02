@@ -136,7 +136,7 @@ const VIEWS = {
   'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
   'tour_audit_cmd.js': port('words', 'every chapter: after the chapters are retargeted'),
   'tour_auto_cmd.js': port('words'),
-  'tour_chapters_cmd.js': port('words'),
+  'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
   'tour_it360_cmd.js': port('words'),
   'tour_lane_cmd.js': port('words'),
