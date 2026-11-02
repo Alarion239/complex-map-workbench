@@ -384,6 +384,7 @@ await ev(`document.querySelector('.ph-ctx .ph-cb').click()`); await settle();
 ok('D3 Last takes the last point back', (await ctxInfo()).btn[1].dis === true, await ctxInfo());
 await touch(pc[0] + 20, pc[1] + 30);
 await settled({ until: `(() => { const b = [...document.querySelectorAll('.ph-ctx .ph-cb')].find((x) => /Done/.test(x.textContent)); return !!b && !b.disabled; })()` });
+await settle();   // (Done turns on under the finger; the lift commits the point a frame later)
 const sh0 = await ev(`__cmwShapes().shapes.length`);
 await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Done/.test(b.textContent)).click()`); await settled({ until: `__cmwShapes().shapes.length === ${sh0 + 1}` });
 ok('D3 Done makes the polygon', (await ev(`__cmwShapes().shapes.length`)) === sh0 + 1, [sh0, await ev(`__cmwShapes().shapes.length`)]);
