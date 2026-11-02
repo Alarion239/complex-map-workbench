@@ -2,6 +2,8 @@
 // the tool's idle hints and cursors, draft handles, the probe during a gesture, list rows that follow kind changes,
 // unit-direction half-planes, the Space-held orbit the perf units use.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p3bfix_cmd.js
+// It runs in the steps view (ci/suite_views.js: steps({ pin: true })): the X Sphere is plane z's Sphere surface
+// (Plane ▾ → Sphere), and the Landscape is that surface switch's Landscape.
 // Prints {pass, fails, results}; pass is true when every check holds.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -27,6 +29,8 @@ const cam = { pitch: 0.55, yaw: -1.0 };
 const az = -2.2;   // an azimuth that faces the camera from (yaw -1.0, pitch 0.55) (checked below: on screen)
 // (capShape runs the app's Region: open the app first, as a fresh daemon's Chrome is on about:blank)
 await load('p3bfix0' + Date.now(), { shapes: [], steps: [] });
+await settled({ until: 'typeof __cmwSteps === "function" && typeof Region === "object"', max: 30000 });
+if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: [{ name: 'the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)' }], results: R };
 const capD = await capShape(sph(100 * DEG, az), 0.5);
 await load('p3bfix1' + Date.now(), { shapes: [Object.assign({ id: 's1', ci: 0 }, capD)], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: false, nextId: 2 });
 await ev('__cmwSteps({ go: 0, now: true, surf: "sphere" }); 1'); await settle(1500);

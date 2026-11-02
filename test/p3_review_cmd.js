@@ -1,7 +1,9 @@
 // P3 review checks (notes/sphere-design/SPEC.md 13.16): what p3_accept_cmd.js does not look at. Strokes on a globe are
 // continuous (on screen size and at 300 dpi), the patterns on the globes and on the left plane at a focused stage
-// against the truth, a two-globe 300 dpi export against the truth, and the main thread during a two-globe export and
-// the first switch to X Sphere at dpr 2. A command file for a CDP daemon (test/cdp_kit README):
+// against the truth, and the main thread during the first switch to the Sphere surface at dpr 2. It runs in the steps
+// view (ci/suite_views.js: steps({ pin: true })): the z-globe is plane z on the Sphere surface, the w-globe the last
+// plane on it, and the left plane at a focused stage that plane on the Plane surface. The two-globe export checks are
+// p3_review_classic_cmd.js. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/p3_review_cmd.js
 // Prints {pass, fails, results}; pass is true when every check holds.
 // (the daemon's port, as its load() opens it)
@@ -24,6 +26,8 @@ const RV = `window.__rv = {
 }; 1`;
 // (the helpers live in the page: defined again after every load)
 const load0 = load;
+// a plane of the steps view on a surface: plane k ('sphere' or 'plane'), shown at once
+const plane = (k, surf) => ev(`__cmwSteps({ go: ${k}, now: true, surf: '${surf}' }); 1`);
 load = async (...a) => { const r = await load0(...a); await ev(RV); return r; };
 
 // ---- 1. strokes on a globe are continuous: z^i of the disc |z - (0.3+0.8i)| < 0.3 on the w-globe, its rim seen near
@@ -48,10 +52,11 @@ load = async (...a) => { const r = await load0(...a); await ev(RV); return r; };
 // The figure p3rv_stroke_dpr1 (shots/) shows the dpr-1 render 8x with both masks.
 const DZI = `(w) => { const a = Math.hypot(w[0], w[1]), L = -Math.log(a); if (!(L > -Math.PI && L <= Math.PI)) return -1; const m = Math.exp(Math.atan2(w[1], w[0])), zx = m * Math.cos(-Math.log(a)), zy = m * Math.sin(-Math.log(a)); return Math.hypot(zx - 0.3, zy - 0.8) < 0.3 ? 1 : -1; }`;
 await load('p3rvS' + Date.now(), { shapes: [H, { id: 's2', kind: 'disc', c: [0.3, 0.8], r: 0.3 }], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 }, pattern: 'sphere', alpha: 0.9, lines: true, unit: false });
-await ev('__cmwSetView("R", "sphere"); __cmwSetView("L", "sphere"); 1'); await settle(3000);
-await ev('__cmwCam("R", { pitch: -0.9, yaw: -1.2 }); 1'); await settle(1200);
+if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: [{ name: 'the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)' }], results: R };
+await plane(1, 'sphere'); await settle(3000);
+await ev('__cmwCam("L", { pitch: -0.9, yaw: -1.2 }); 1'); await settle(1200);
 R.stroke = await ev(`await (async () => {
-  const cls = ${DZI}, look = __cmwLook('s2', 'R'), lookH = __cmwLook('s1', 'R'), edge = __rv.hex(look.edge), G = __rv.picks('R'), { P, Wd, Hd } = G;
+  const cls = ${DZI}, look = __cmwLook('s2', 'L'), lookH = __cmwLook('s1', 'L'), edge = __rv.hex(look.edge), G = __rv.picks('L'), { P, Wd, Hd } = G;
   const css = getComputedStyle(document.documentElement).getPropertyValue('--halo').trim();
   const halo = /^#[0-9a-f]{6}$/i.test(css) ? __rv.hex(css) : __rv.hex(look.plane);
   const Ks = [look.color, look.color2, lookH.color, lookH.color2, look.plane].map(__rv.hex).map((U) => U.map((u, j) => 0.85 * halo[j] + 0.15 * u));
@@ -77,9 +82,9 @@ R.stroke = await ev(`await (async () => {
   for (let y = 1; y < Hd - 1; y++) for (let x = 1; x < Wd - 1; x++) { const k = y * Wd + x; if (C[k] !== 1) continue; if ([k - 1, k + 1, k - Wd, k + Wd].some((q) => C[q] === -1)) rim.push([x + 0.5, y + 0.5]); }
   const out = { rimPts: rim.length, runs: [] };
   for (const d of [1, 2, 300 / 96]) {
-    const E = await __rv.off('R', d), W = E.W, Hh = E.H, D = E.D;
+    const E = await __rv.off('L', d), W = E.W, Hh = E.H, D = E.D;
     // the same frame without the strokes: the pixels inside what the stroke drew (its casing included)
-    __cmwHideStrokes(true); const D0 = (await __rv.off('R', d)).D; __cmwHideStrokes(false);
+    __cmwHideStrokes(true); const D0 = (await __rv.off('L', d)).D; __cmwHideStrokes(false);
     const chg = new Uint8Array(W * Hh), drew = new Uint8Array(W * Hh);
     for (let k = 0; k < W * Hh; k++) chg[k] = Math.max(Math.abs(D[4 * k] - D0[4 * k]), Math.abs(D[4 * k + 1] - D0[4 * k + 1]), Math.abs(D[4 * k + 2] - D0[4 * k + 2]));
     for (let y = 1; y < Hh - 1; y++) for (let x = 1; x < W - 1; x++) {
@@ -183,21 +188,21 @@ const sphereCheck = async (side, zOf, cls) => ev(`await (async () => {
 })()`, 120000);
 const base1 = { pattern: 'sphere', alpha: 1, lines: false, unit: false };
 await load('p3rvC0' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6, complement: true }], steps: [ZI], srcView: { cx: 0, cy: 0, s: 60 } }, base1));
-await ev('__cmwSetView("L", "sphere"); 1'); await settle();
+await plane(0, 'sphere'); await settle();
 await ev('__cmwCam("L", { pitch: 0.9, yaw: -1.0, dist: 3.4 }); 1'); await settle(900);
 R.chkL0 = await sphereCheck('L', '(w) => w', '(w) => (Math.hypot(w[0], w[1]) > 0.6 ? 1 : -1)');
 ok('Sphere checker on the z-globe at stage 0 = the cells of z (around infinity)', R.chkL0.c0 >= 300 && R.chkL0.c1 >= 300 && R.chkL0.bad0 === 0 && R.chkL0.bad1 === 0, R.chkL0);
 await shot('p3rv_chk_L0');
 await load('p3rvCc' + Date.now(), Object.assign({ shapes: [H], steps: [CAY], srcView: { cx: 0, cy: 1, s: 60 } }, base1));
-await ev('__cmwSetView("R", "sphere"); 1'); await settle();
-await ev('__cmwCam("R", { pitch: 0.35, yaw: -0.4, dist: 3.4 }); 1'); await settle(900);
-R.chkCay = await sphereCheck('R', '(w) => { const dx = 1 - w[0], dy = -w[1], q = dx * dx + dy * dy; if (q < 1e-24) return null; const nx = 1 + w[0], ny = w[1]; const ux = (nx * dx + ny * dy) / q, uy = (ny * dx - nx * dy) / q; return [-uy, ux]; }', '(w) => (Math.hypot(w[0], w[1]) < 1 ? 1 : -1)');
+await plane(1, 'sphere'); await settle();
+await ev('__cmwCam("L", { pitch: 0.35, yaw: -0.4, dist: 3.4 }); 1'); await settle(900);
+R.chkCay = await sphereCheck('L', '(w) => { const dx = 1 - w[0], dy = -w[1], q = dx * dx + dy * dy; if (q < 1e-24) return null; const nx = 1 + w[0], ny = w[1]; const ux = (nx * dx + ny * dy) / q, uy = (ny * dx - nx * dy) / q; return [-uy, ux]; }', '(w) => (Math.hypot(w[0], w[1]) < 1 ? 1 : -1)');
 ok('Sphere checker on the w-globe of Cayley(H) = the cells of z = i(1 + w)/(1 - w)', R.chkCay.c0 >= 300 && R.chkCay.c1 >= 300 && R.chkCay.bad0 === 0 && R.chkCay.bad1 === 0, R.chkCay);
 await shot('p3rv_chk_cay');
 
 // ---- 3. the left plane at stage 1 of [z^i, z^2] with the Checker against Inverse.renderCPU with the same pattern:
 // colours away from the rims and the cell edges (where anti-aliasing differs) agree within 40/255
-await load('p3rvG' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base1, { pattern: 'checker' }));
+await load('p3rvG' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }], sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 1, s: 60 } }, base1, { pattern: 'checker' }));
 await settle(3000);
 R.gChk = await ev(`(() => {
   const lk = __cmwLook('s1', 'L');
@@ -225,63 +230,22 @@ R.gChk = await ev(`(() => {
 })()`, 120000);
 ok('left plane at stage 1, Checker = renderCPU (colours within 40/255 off the rims and cell edges)', R.gChk.n > 20000 && R.gChk.c0 > 1000 && R.gChk.c1 > 1000 && R.gChk.frac <= 1e-3 && R.gChk.paths.includes('inverse'), R.gChk);
 
-// ---- 4. a two-globe export at 300 dpi against the truth: z^i(H) on the w-globe (the annulus) and H on the z-globe at
-// stage 0; fill = the panel rendered at alpha 1 minus the same at alpha 0, sampled at the pane's CSS pixel centres
-await load('p3rvE' + Date.now(), Object.assign({ shapes: [H], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 } }, { pattern: 'solid', alpha: 1, lines: true, unit: false }));
-await ev('__cmwSetView("R", "sphere"); __cmwSetView("L", "sphere"); 1'); await settle(3000);
-await ev('__cmwCam("R", { pitch: -0.35, yaw: -0.9 }); __cmwCam("L", { pitch: 0.6, yaw: -1.0 }); 1'); await settle(1200);
-const EPI = Math.exp(-Math.PI);
-R.exp2 = await ev(`await (async () => {
-  const d = 300 / 96, res = {};
-  const truth = { R: (w) => { const a = Math.hypot(w[0], w[1]); return a > ${EPI} && a < 1 ? 1 : -1; }, L: (w) => (w[1] > 0 ? 1 : -1) };
-  const E1 = { L: await __rv.off('L', d), R: await __rv.off('R', d) };
-  __cmwSet('alpha', 0); await new Promise((r) => setTimeout(r, 600));
-  const E0 = { L: await __rv.off('L', d), R: await __rv.off('R', d) };
-  __cmwSet('alpha', 1); await new Promise((r) => setTimeout(r, 400));
-  for (const side of ['L', 'R']) {
-    const G = __rv.picks(side), { P, Wd, Hd } = G, onLabel = __rv.labels(side), cls = truth[side];
-    const C = new Int8Array(Wd * Hd); for (let k = 0; k < Wd * Hd; k++) C[k] = P[k] ? (Math.hypot(P[k][0], P[k][1]) > 1e4 ? 0 : cls(P[k])) : 3;
-    const a = E1[side], b = E0[side], W = a.W;
-    const o = { EW: a.W, EH: a.H, dpiOk: Math.abs(a.W / G.cw - d) < 0.01, inN: 0, inBad: 0, outN: 0, outBad: 0 };
-    for (let y = 4; y < Hd - 4; y += 2) for (let x = 4; x < Wd - 4; x += 2) {
-      const c = C[y * Wd + x]; if (c !== 1 && c !== -1) continue;
-      let near = false; for (let dy = -4; dy <= 4 && !near; dy++) for (let dx = -4; dx <= 4; dx++) if (dx * dx + dy * dy <= 16 && C[(y + dy) * Wd + x + dx] !== c) { near = true; break; }
-      if (near || onLabel(x, y)) continue;
-      const i = 4 * (Math.floor((y + 0.5) * d) * W + Math.floor((x + 0.5) * d));
-      const fill = Math.abs(a.D[i] - b.D[i]) + Math.abs(a.D[i + 1] - b.D[i + 1]) + Math.abs(a.D[i + 2] - b.D[i + 2]) > 24;
-      if (c > 0) { o.inN++; if (!fill) o.inBad++; } else { o.outN++; if (fill) o.outBad++; }
-    }
-    res[side] = o;
-  }
-  return res;
-})()`, 180000);
-for (const side of ['L', 'R']) { const o = R.exp2[side] || {}; ok(`two-globe export at 300 dpi (${side}): exact fill`, o.dpiOk && o.inN >= 400 && o.outN >= 400 && o.inBad === 0 && o.outBad === 0, R.exp2); }
-
-// ---- 5. the main thread at dpr 2: a two-globe 300 dpi export (example 1 with X Sphere and Y Sphere, three fresh
-// pages), and the first switch to X Sphere (fresh pages): no task over 50 ms
+// ---- 4. the main thread at dpr 2: the first switch to the Sphere surface (Plane ▾ → Sphere) on example 1, 4 and 1
+// again, each a fresh page: no task over 50 ms
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
-R.exp2long = []; R.xswitch = [];
+R.xswitch = [];
 for (const ex of [1, 4, 1]) {
   await nav(`http://localhost:${PORT}/test.html?ns=p3rvX` + Date.now()); await sleep(1200);
   await ev(`__cmwExample(${ex}); 1`); await sleep(2500);
   R.xswitch.push(await ev(`await (async () => {
     const long = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); });
     po.observe({ type: 'longtask' }); await new Promise((r) => setTimeout(r, 30));
-    __cmwSetView('L', 'sphere'); await new Promise((r) => setTimeout(r, 2500)); po.disconnect();
+    __cmwSteps({ surf: 'sphere' }); await new Promise((r) => setTimeout(r, 2500)); po.disconnect();
     return { ex: ${ex}, long };
   })()`, 30000));
-  await ev('__cmwSetView("R", "sphere"); 1'); await sleep(3000);
-  R.exp2long.push(await ev(`await (async () => {
-    const long = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); });
-    po.observe({ type: 'longtask' }); await new Promise((r) => setTimeout(r, 30));
-    const t0 = performance.now(); const f = await __cmwBuildFigure({ widthIn: 7, caption: false }); const t1 = performance.now();
-    await new Promise((r) => setTimeout(r, 120)); po.disconnect();
-    return { ex: ${ex}, ms: Math.round(t1 - t0), long, ok: !!(f && f.svg && f.svg.length > 1000), paths: __cmwPaths().map((p) => p.role + p.viewKind + ':' + p.path) };
-  })()`, 60000));
 }
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-ok('two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms', R.exp2long.every((r) => r.ok && r.long.every((d) => d <= 50) && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')), R.exp2long);
-ok('first switch to X Sphere at dpr 2: no main-thread task over 50 ms', R.xswitch.every((r) => r.long.every((d) => d <= 50)), R.xswitch);
+ok('first switch to the Sphere surface at dpr 2: no main-thread task over 50 ms', R.xswitch.every((r) => r.long.every((d) => d <= 50)), R.xswitch);
 
 // (6., the Sphere checker swatch's tooltip, went with the region patterns' menu, #363: the spherical checker drawn
 // through the test hook above is the renderer's, which stays)
