@@ -418,27 +418,41 @@
   // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
   // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape draws so
-  // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
-  // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
+  // (a region's mesh split as the tiling's, MESH_L^2 per base triangle, so the carry and the tiling's own draw of that
+  // mesh under the same map read one evaluation of the map cache; the whole plane's mesh, which only the carry draws, in
+  // SV_CARRY_L^2: each fragment's colour is its own point's exactly, the subdivision only places it)
   // F (at rest or parked: the map's CPU function): the tiling's fix-up job is asked for the shapes under map
   // (svWantFix), and each mesh is drawn with its fix-up once it lands (carryFix: the cells the map bends too much
   // refined, drawn as an extra mesh of their own, their base cells skipped)
   const SV_CARRY_L = 2;
+  // the meshes svCarryRegions draws under map ([{res, L, skip}]), or null where it cannot draw
+  function svCarryDraws(map, T, F) {
+    const list = svCarryShapes();
+    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return null;
+    const draws = [];
+    for (const x of list) {
+      // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
+      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+      if (!r || !r.meshRes) return null;
+      const fx = F ? carryFix(x, map) : null;
+      draws.push({ res: r.meshRes, L: x === SV_ALL ? SV_CARRY_L : MESH_L, skip: fx ? fx.skip : null });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
+    }
+    return draws;
+  }
+  // the map cache of each mesh svCarryRegions will draw under map, evaluated before the frame begins (GLR.prepRegion)
+  function svCarryPrep(map, T, F) {
+    const draws = GLR.prepRegion ? svCarryDraws(map, T, F) : null;
+    for (const d of draws || []) GLR.prepRegion(d.res, d.L, map);
+  }
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
     const key = svSheetKey(b);
     const carry = svCarryStyle(T);
     if (F) svWantFix(F, map, list);
-    const draws = [];
-    for (const x of list) {
-      // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
-      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
-      if (!r || !r.meshRes) return false;
-      const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
-      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
-    }
+    const draws = svCarryDraws(map, T, F);
+    if (!draws) return false;
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
@@ -469,6 +483,8 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
+    // (gliding or parked: the carried meshes' map cache evaluated before anything opens this frame)
+    if (!still && !isDeriv(b) && map.mode === 1) svCarryPrep(map, T, rest ? F : null);
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false, cc: false };
