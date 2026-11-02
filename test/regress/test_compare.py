@@ -13,6 +13,9 @@ where it matters, its verdict per run or metric). The cases cover the review fin
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
            [#413] the dpr-2 opacity zooms' fps and latency are reported (INFO) either way, never gated; their frame
            times, and the same metrics of every other unit, stay gated
+  merge    a unit that errored in the full run (suite.no_errors false, an error recorded) and was not re-run keeps the
+           merged suite.no_errors false under --checks majority, and the paired gate fails on it; other checks still
+           merge by majority
 """
 import contextlib
 import io
@@ -27,6 +30,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import compare_perf  # noqa: E402
 import compare_quality  # noqa: E402
+sys.path.insert(0, os.path.join(HERE, 'perf'))
+import merge_runs  # noqa: E402
 
 TOL = os.path.join(HERE, 'quality', 'tolerances.json')
 
@@ -252,6 +257,41 @@ class Perf(unittest.TestCase):
         # without the mark the same numbers are compared, and fail
         rc, out, st = self.gate({k: dict(v, ref_unsupported=None) for k, v in b.items()}, {k: v for k, v in r.items() if k != 'm.moved'}, '--paired')
         self.assertEqual((rc, st['m.fps'], st['m.mem']), (1, 'FAIL', 'FAIL'), out)
+
+
+class Merge(unittest.TestCase):
+    """merge_runs.py as perf_shard.js uses it: the full run, then confirmation re-runs of the units with failing metrics"""
+
+    def run_(self, metrics, errors=()):
+        return {'meta': PMETA, 'metrics': metrics, 'errors': list(errors)}
+
+    def test_error_in_first_run_holds_red(self):
+        err = {'where': 'sv.interact.king', 'error': 'Error: the Everywhere scrub drew no frames (42 + 0)'}
+        full = self.run_({'suite.no_errors': pm(False, 'check', unit_id='*'), 'g.frame': pm(12.0, 'frame_ms', unit_id='g'),
+                          'g.ok': pm(False, 'check', unit_id='g')}, [err])
+        again = self.run_({'suite.no_errors': pm(True, 'check', unit_id='*'), 'g.frame': pm(11.0, 'frame_ms', unit_id='g'),
+                           'g.ok': pm(True, 'check', unit_id='g')})
+        m = merge_runs.merge([full, again, dict(again)], checks='majority')
+        self.assertIs(m['metrics']['suite.no_errors']['value'], False)
+        self.assertEqual(m['errors'], [err])
+        self.assertIs(m['metrics']['g.ok']['value'], True)          # (any other check: still the majority)
+        # and the paired gate on the merged files fails on it
+        d = tempfile.mkdtemp(prefix='cmw-merge-')
+        try:
+            ref = merge_runs.merge([self.run_({'suite.no_errors': pm(True, 'check', unit_id='*'), 'g.frame': pm(12.0, 'frame_ms', unit_id='g')})] * 3, checks='majority')
+            b, r, j = (os.path.join(d, n) for n in ('b.json', 'r.json', 'v.json'))
+            wj(b, ref)
+            wj(r, m)
+            rc, out = run_quiet(compare_perf.main, ['--baseline', b, '--results', r, '--json', j, '--paired'])
+            self.assertEqual(rc, 1, out)
+            self.assertEqual({row['metric']: row['status'] for row in rj(j)['rows']}['suite.no_errors'], 'FAIL')
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_no_error_merges_true(self):
+        ok = self.run_({'suite.no_errors': pm(True, 'check', unit_id='*')})
+        m = merge_runs.merge([ok, dict(ok), dict(ok)], checks='majority')
+        self.assertIs(m['metrics']['suite.no_errors']['value'], True)
 
 
 if __name__ == '__main__':
