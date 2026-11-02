@@ -640,8 +640,11 @@
       // last complete pair while the current one's is on its way (never an unfixed mesh in motion)
       if (live && role) liveFix(s, r);
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
-      // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
-      const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
+      // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built;
+      // opt.sm, the role of a draw with no pane role of its own: the steps view's region mask, 'SV', asks for its jobs)
+      const smRole = role || opt.sm || null, smLive = live || (!!opt.sm && !offRender);
+      const smd = (smLive || offRender) && smRole
+        ? smFor(s, r, smRole, 'flat', map, pane, 0, smLive && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
         if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
