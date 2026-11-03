@@ -1015,6 +1015,31 @@ const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl 
 // slow block on arriving spans about five frames) and 'other'. SV_ATTR_MS is about the row's limit on a quiet
 // reference (max(1.15 x 14.7, 14.7 + 2) ms).
 const SV_ATTR_MS = 17, SV_ATTR_ARRIVE = 0.1;
+// CMW_SV_PROFILE=1: a CPU profile (100 µs sampling) of the King's scrub legs; each frame of svAttrFrames gets its top
+// self-time functions (svProfileTop) in the details and the log line. Info only: the sampler's own cost slows the frames
+const SV_PROFILE = process.env.CMW_SV_PROFILE === '1';
+// the top self-time functions in one frame (f: windowStats' [t0, cpu, gpu, draws, n, ts, t1]) of a profile stopped at
+// page time nowAtStop: [[name@line, ms], ...], most first, at most 10; the page clock is mapped to the profile's by its end
+function svProfileTop(profile, nowAtStop, f) {
+  if (!f) return [];
+  const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map();
+  for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  const off = profile.endTime / 1000 - nowAtStop, t0 = (f[0] + off) * 1000, t1 = (f[6] + off) * 1000;
+  const self = new Map(), incl = new Map();
+  let t = profile.startTime;
+  profile.samples.forEach((id, i) => {
+    t += profile.timeDeltas[i] || 0;
+    if (t < t0 || t > t1) return;
+    const d = (profile.timeDeltas[i + 1] || 0) / 1000;
+    const name = (n) => `${n.callFrame.functionName || '(anon)'}@${n.callFrame.lineNumber + 1}`;
+    const n = byId.get(id);
+    self.set(name(n), (self.get(name(n)) || 0) + d);
+    const seen = new Set();
+    for (let p = id; p != null; p = parent.get(p)) { const k = name(byId.get(p)); if (!seen.has(k)) { seen.add(k); incl.set(k, (incl.get(k) || 0) + d); } }
+  });
+  const top = (m, n) => [...m].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [k, +v.toFixed(2)]);
+  return top(self, 10).concat([['| incl'], ...top(incl, 12)]);
+}
 const SV_ATTR_GL = ['useProgram', 'bindFramebuffer', 'drawArrays', 'drawArraysInstanced', 'clear', 'readPixels', 'createTexture',
   'createBuffer', 'createVertexArray', 'texImage2D', 'bufferData', 'getProgramParameter', 'linkProgram'];
 // (counts WebGL2 calls by name while __svAttr.on; one snapshot per animation frame, its counts since the one before and
@@ -1060,21 +1085,26 @@ async function svInteractUnit(scene) {
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
   // a timed window around fn, then its settle (as dragLeg)
   const attr = scene === 'king';
+  const prof = rec0 => rec0 && SV_PROFILE;
   const leg = async (fn, rec) => {
     if (rec) await B.ev('(__svAttr.snaps = [], __svAttr.gl = {}, __svAttr.on = true, 1)');
+    if (prof(rec)) await B.send('Profiler.start');
     const bl0 = await B.ev('__svBl.n'), a = await pageNow();
     await fn();
     const b = await pageNow(), bl1 = await B.ev('__svBl.n');
+    const profile = prof(rec) ? (await B.send('Profiler.stop')).profile : null;
     const w = await windowStats(a, b);
     if (rec) {
       const snaps = JSON.parse(await B.ev('(__svAttr.on = false, JSON.stringify(__svAttr.snaps))'));
       const before = await B.ev(`__perf.framesSince(${a - 2000}, ${a}).filter((f) => f[4] > 0).pop() || null`);
       w.attr = svAttrFrames(w.drawn, before, snaps);
+      if (profile) for (const f of w.attr) f.top = svProfileTop(profile, b, w.drawn[f.i]);
     }
     const st = await settle(b);
     return Object.assign(w, { blits: bl1 - bl0, settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now), a, b });
   };
   const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
+  if (attr && SV_PROFILE) { await B.send('Profiler.enable'); await B.send('Profiler.setSamplingInterval', { interval: 100 }); }
   {
     const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] }, orbitPoles = [];
     // (per rep, per leg: the frames at or over SV_ATTR_MS, svAttrFrames)
@@ -1148,7 +1178,7 @@ async function svInteractUnit(scene) {
         for (const cls of ['start', 'arrival', 'other']) put(`${pre}_${cls}`, 'info', 'frames', reps.map((legs) => legs.flat().filter((f) => f.cls === cls).length));
         detail(`${pre}_frames`, { limit_ms: SV_ATTR_MS, reps: reps.map((legs) => legs.map((fs, k) => ({ leg: k ? 'back' : 'out', frames: fs }))) });
         reps.forEach((legs, r) => legs.forEach((fs, k) => {
-          for (const f of fs) log(`${pre} rep ${r + 1} ${k ? 'back' : 'out'} #${f.i}/${f.of} ${f.cls}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}, gap ${f.gap}), x ${f.x}; gl ${JSON.stringify(f.gl)}`);
+          for (const f of fs) log(`${pre} rep ${r + 1} ${k ? 'back' : 'out'} #${f.i}/${f.of} ${f.cls}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}, gap ${f.gap}), x ${f.x}; gl ${JSON.stringify(f.gl)}${f.top ? `; top ${f.top.map((q) => `${q[0]} ${q[1]}`).join(', ')}` : ''}`);
         }));
       }
     }
