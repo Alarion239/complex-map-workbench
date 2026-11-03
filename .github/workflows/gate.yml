@@ -79,6 +79,11 @@ jobs:
       mirror_pr: ${{ steps.look.outputs.mirror && github.event.pull_request.number || steps.cover.outputs.mirror_pr }}
       mirror_sha: ${{ steps.look.outputs.mirror && github.event.pull_request.head.sha || steps.cover.outputs.mirror_sha }}
     steps:
+      # (ci/gate_run_of.sh)
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: ci/gate_run_of.sh
+          sparse-checkout-cone-mode: false
       - id: look
         if: github.event.action == 'ready_for_review' && github.event.pull_request.base.ref != 'main'
         shell: bash
@@ -89,18 +94,19 @@ jobs:
         run: |
           set -eu
           [[ "$PR" =~ ^[0-9]+$ ]] || { echo "mirror=" >> "$GITHUB_OUTPUT"; exit 0; }
-          other=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/gate.yml/runs?head_sha=$HEAD_SHA&per_page=100" \
-            --jq "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID and ((.pull_requests // []) | any(.number == $PR)))] | sort_by(.created_at) | last | if . == null then \"none\" else \"\\(.id) \\(.status) \\(.conclusion // \"\")\" end") || other="error (the look-up failed)"
+          other=$(ci/gate_run_of.sh "$HEAD_SHA" "$PR") && found=1 || found=0
           echo "the newest other Gate run of #$PR on $HEAD_SHA: $other"
-          case "$other" in
-            *" completed success") echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
-                                   echo "Gated by run ${other%% *} of this PR on this commit (it passed): nothing runs again." >> "$GITHUB_STEP_SUMMARY" ;;
-            *" queued "|*" in_progress "|*" waiting "|*" requested "|*" pending ")
-               echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
-               echo "Run ${other%% *} of this PR is gating this commit ($other): nothing runs again; the Gate job waits for it and carries its verdict." >> "$GITHUB_STEP_SUMMARY" ;;
-            *) echo "mirror=" >> "$GITHUB_OUTPUT"
-               echo "No passing Gate run of this PR on this commit yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY" ;;
-          esac
+          if [ "$found" = 1 ]; then
+            case "$other" in
+              *" completed success") echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
+                                     echo "Gated by run ${other%% *} of this PR on this commit (it passed): nothing runs again." >> "$GITHUB_STEP_SUMMARY" ;;
+              *) echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
+                 echo "Run ${other%% *} of this PR is gating this commit ($other): nothing runs again; the Gate job waits for it and carries its verdict." >> "$GITHUB_STEP_SUMMARY" ;;
+            esac
+          else
+            echo "mirror=" >> "$GITHUB_OUTPUT"
+            echo "No passing Gate run of this PR on this commit yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"
+          fi
       # (#787) a pull request into another branch than main whose head another open pull request into the same branch
       # contains (a stack: each head holds the lower ones): the top of the stack gates all of them, so this one carries
       # that run's verdict instead of running its own tier. The compare API says which open PRs contain this head; the
@@ -123,16 +129,15 @@ jobs:
             [ "$n" = "$PR" ] && continue
             st=$(gh api "repos/$GITHUB_REPOSITORY/compare/$HEAD_SHA...$sha" --jq '"\(.status) \(.ahead_by)"') || continue
             case "$st" in "ahead "*) a=${st#ahead }; if [ "$a" -gt "$ahead" ]; then ahead=$a; top="$n $sha"; fi ;; esac
-          done < <(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&base=$BASE&per_page=100" --jq '.[] | "\(.number) \(.head.sha)"' || true)
+          done < <(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&base=$BASE&per_page=100" --paginate --jq '.[] | "\(.number) \(.head.sha)"' || true)
           if [ -z "$top" ]; then echo "No open pull request into $BASE contains this head: this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           tn=${top%% *}; ts=${top##* }
-          other=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/gate.yml/runs?head_sha=$ts&per_page=100" \
-            --jq "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID and ((.pull_requests // []) | any(.number == $tn)))] | sort_by(.created_at) | last | if . == null then \"none\" else \"\(.id) \(.status) \(.conclusion // \"\")\" end") || other="error (the look-up failed)"
+          other=$(ci/gate_run_of.sh "$ts" "$tn") && found=1 || found=0
           echo "#$tn ($ts) contains this head; its newest Gate run on it: $other"
-          case "$other" in
-            *" completed success"|*" queued "|*" in_progress "|*" waiting "|*" requested "|*" pending ") run=${other%% *} ;;
-            *) echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
-          esac
+          if [ "$found" != 1 ]; then
+            echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          run=${other%% *}
           if [ "$SWITCH" != on ]; then
             echo "Report only (GATE_STACK_SKIP is not on): #$tn contains this head and run $run gates it ($other); with the switch on, this run would carry that verdict and run nothing. It runs its own tier." >> "$GITHUB_STEP_SUMMARY"; exit 0
           fi
