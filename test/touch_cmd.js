@@ -521,7 +521,7 @@ await section('C', async () => {
   info.ruReason = await rowD(L.id);
   ok('C RU reason (inside)', info.ruReason === 'Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности', info.ruReason);
   await key('z', 4); await settle(300);
-  const capRu = await ev(`await (async () => { const keep = setInterval(() => __cmwSetMain('xy'), 150); await new Promise((r) => setTimeout(r, 1800)); const f = await __cmwFig.build({ for: 'article', cols: 1 }); clearInterval(keep); return f ? f.captionTex : null; })()`);
+  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' }); return f ? f.captionTex : null; })()`);
   info.capRu = capRu;
   ok('C RU caption: «окружность, проходящая через … и касающаяся окружности … в точке …»', /окружность, проходящая через .+ и[ ~]касающаяся окружности .+ в[ ~]точке/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -633,7 +633,7 @@ await section('D', async () => {
 await section('E', async () => {
   // the six captions, EN and RU (SB: K, the line case, the disc, the outside, the tangent at T, the tangent from P)
   await view(1440, 900, false, false);
-  const cap = () => ev(`await (async () => { const keep = setInterval(() => __cmwSetMain('xy'), 150); await new Promise((r) => setTimeout(r, 1800)); const f = await __cmwFig.build({ for: 'article', cols: 1 }); clearInterval(keep); return f ? f.captionTex : null; })()`);
+  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' }); return f ? f.captionTex : null; })()`);
   await load(NS + 'e1', SB); await settle(900);
   info.capEn = await cap();
   const en = info.capEn || '';
