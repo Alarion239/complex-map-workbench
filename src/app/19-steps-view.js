@@ -695,8 +695,11 @@
       sel.title = tip;
       sel.setAttribute('aria-description', ok ? '' : tip);
     }
-    E.orderWhy.textContent = ok ? '' : tip;
-    E.orderWhy.hidden = ok;
+    for (const why of [E.orderWhy, E.sheetOrderWhy]) {
+      if (!why) continue;
+      why.textContent = ok ? '' : tip;
+      why.hidden = ok;
+    }
     if (E.play) E.play.setAttribute('aria-description', ok ? `${$t('Hold for speed and loop')}. ${$t('Glide order')}: ${S.homAll ? $t('All at once') : $t('Step by step')}` : $t('Hold for speed and loop'));
   }
   // the Playback dialog: the glide order, with its reason when it is off (muted); focus goes in, Esc returns it to the ⋯, a press
@@ -738,9 +741,11 @@
     const order = svOrderSel($t('Glide order'));
     // (the order lives in a small dialog at the strip's end, opened by its ⋯: Speed and Loop stay on the strip; a phone has the Playback sheet)
     const orderWhy = h('p', { class: 'sv-playpop-why' });
+    const pathsWhy = h('p', { class: 'sv-playpop-why', hidden: '' });
     const paths = svPathsBtn('btn small sv-paths', true);
     const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
-      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy, h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths));
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy,
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths), pathsWhy);
     pop.hidden = true;
     const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
@@ -775,7 +780,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1407,6 +1412,11 @@
     const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]);
     for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); if (b === E.paths) b.textContent = S.morphPaths !== false && !noPaths ? $t('On') : $t('Off');
     }
+    for (const [b, why] of [[E.paths, E.pathsWhy], [E.sheetPaths, E.sheetPathsWhy]]) {
+      if (!b || !why) continue;
+      why.textContent = noPaths ? b.dataset.tip || '' : '';
+      why.hidden = !noPaths;
+    }
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
@@ -1495,9 +1505,14 @@
       const ord = svOrderSel($t('Glide order'));
       const lp = svLoopBtn('btn sv-loop');
       const pa = svPathsBtn('btn sv-paths');
+      // (a disabled control's reason is on the sheet, where a touch can read it)
+      const ordWhy = h('p', { class: 'sv-sheet-why', hidden: '' });
+      const paWhy = h('p', { class: 'sv-sheet-why', hidden: '' });
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
-        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), h('div', { class: 'sv-sheet-r' }, lp), h('div', { class: 'sv-sheet-r' }, pa));
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel),
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), ordWhy,
+        h('div', { class: 'sv-sheet-r' }, lp), h('div', { class: 'sv-sheet-r' }, pa), paWhy);
       sh.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); return; }
         // (modal: Tab stays in the sheet)
@@ -1507,7 +1522,10 @@
       });
       scrim.hidden = true;
       document.body.append(scrim, sh);
-      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp, sheetPaths: pa });
+      Object.assign(E, {
+        sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp, sheetPaths: pa,
+        sheetOrderWhy: ordWhy, sheetPathsWhy: paWhy,
+      });
     }
     E.sheetSpeed.value = SV.speed;
     E.sheet.hidden = false; E.scrim.hidden = false;
