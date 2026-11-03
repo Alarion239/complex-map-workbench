@@ -70,8 +70,8 @@ const SUITES = {
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
   // on lavapipe, so it runs in two halves)
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a-fig', '4a-vid', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
-  // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
-  // repository: work/xv16-merged-snap; v16's own build differs from it by design)
+  // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
+  // repository: work/xv16-merged-snap; the released build differs from it by design)
   'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
   // (its default is 7 sizes × 2 themes × 2 languages × 2 inputs, about 2 hours on a Mac GPU: here a phone and a desktop,
   // both themes and languages, each with its own input)
@@ -88,11 +88,11 @@ const SUITES = {
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
   // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
-  // baseline and does not now; the rest go to its result's report)
+  // baseline and does not; the rest go to its result's report)
   'layout_invariants_cmd.js': {
     keepShots: true,
     // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
-    // (the rows this run no longer sees: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
+    // (the rows this run does not see: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
     note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
     logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
@@ -101,7 +101,7 @@ const SUITES = {
 };
 
 const t = (re, measured) => ({ re, measured });
-// (tour_auto: the step advanced, i.e. a time was measured: its detail is that time, or an array that starts with it)
+// (tour_auto: the step advanced, i.e. a time is measured: its detail is that time, or an array that starts with it)
 const advanced = (d) => typeof (Array.isArray(d) ? d[0] : d) === 'number';
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
@@ -153,7 +153,7 @@ const SOFTWARE = {
   'sound_cmd.js': [s(/^deformation: (A Phase, still pointer, M|A Phase, Play|D merged plane): a voice update in every frame t moved$|^deformation: B the tone follows every frame$|^deformation: D merged plane: a hear update in every frame t moved$/,
     'every frame in which t moved had its voice update (none missed); only the number of frames is short at a few frames a second',
     (d) => d && d.missed === 0 && d.moved > 0),
-    // (v16.5, Hear the function: the Landscape is heard as the planes are, its Height voice and contour ticks retired.
+    // (Hear the function: the Landscape is heard as the planes are, with no Height voice or contour ticks.
     // Or, right after Landscape's first open of the deformation, 3 frames or fewer in the 2.6 s, too few for t to move:
     // the first frame's step is 0)
     s(/^deformation: E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved$/, 'every frame in which t moved had its hear update (none missed); only the number of frames is short',
@@ -218,8 +218,8 @@ const PAGES = {
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)
   'favicon.ico': (dist, name) => fs.writeFileSync(path.join(dist, name), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')),
-  'v162-test.html': old('d07ae97'),   // v16.2
-  'v163-test.html': old('c8221ff'),   // v16.3
+  'v162-test.html': old('d07ae97'),   // standards-ok: the snapshot's version name
+  'v163-test.html': old('c8221ff'),   // standards-ok: the snapshot's version name
   // the published page as a host serves it: a UTF-8 doctype and a viewport meta around it (the release smokes)
   'smk_pub.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>\n'
     + fs.readFileSync(path.join(dist, 'complex-map-workbench.html'), 'utf8') + '</body></html>\n'),

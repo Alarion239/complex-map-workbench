@@ -139,7 +139,7 @@ async function probe(base, page, scenes, top) {
     await B.addInit(INIT);
     await B.nav(base + page);
     // started: the document loaded and the chain drew its cards (a fixed wait let the published page, 4.9 MB, be
-    // measured before its app had run now and then: no globals, no worklet, another picture); then a moment to settle
+    // measured before its app had run, at times: no globals, no worklet, another picture); then a moment to settle
     let started = false;
     for (let t = Date.now(); !started && Date.now() - t < 30000; await sleep(250)) {
       try { started = await B.ev(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
@@ -224,7 +224,7 @@ async function behaviour(refDist, curDist) {
     const pa = await probe(sa.base, 'complex-map-workbench.html', pubScenes, pubTop), pb = await probe(sb.base, 'complex-map-workbench.html', pubScenes, pubTop);
     const extra = pb.globals.filter((n) => !pa.globals.includes(n));
     check('published page: no global the reference lacks', extra.length === 0, extra.slice(0, 10).join(', '));
-    // (a name the reference's script declared at its top is a global only because the script was classic; the bundle
+    // (a name the reference's script declares at its top is a global only because the script is classic; the bundle
     // keeps it in its scope. Any other name, one the page sets on window, must stay)
     const lost = pa.own.filter((n) => !pb.own.includes(n) && !pubTop.includes(n));
     check('published page: every global the page sets on window is still there', lost.length === 0, lost.length ? lost.slice(0, 10).join(', ') : `${pa.own.filter((n) => !pubTop.includes(n)).length} names`);
