@@ -12,12 +12,40 @@ const URL0 = `http://localhost:${PORT}/test.html?ns=v15ph`;
 const fails = [], info = { taps: {}, audit: {}, scroll: {} };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// a wait on a real condition (an expression); a timeout fails the check that asked
+const until = async (expr, max = 8000) => { const r = await settled({ until: expr, max }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
+// a tap on it would reach it and stay on it: it is inside the open sheet (the app scrolls the card it added into view
+// with a smooth scroll, which the page cannot list as an animation, and until then the card can lie below the sheet),
+// it is the element at its own centre, and neither it nor anything the sheet scrolls has moved for `hold` ms; false if
+// that has not come by `max` ms
+const reachable = async (sel, hold = 400, max = 8000) => {
+  const probe = `(() => {
+    const e = document.querySelector(${JSON.stringify(sel)}), sh = document.querySelector('.ph-sheet');
+    const b = e && e.getClientRects().length ? e.getBoundingClientRect() : null, v = sh && sh.getBoundingClientRect();
+    const hit = b && document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return hit && e.contains(hit) && b.top >= v.top - 0.5 && b.bottom <= v.bottom + 0.5
+      ? [b.left, b.top, ...[...sh.querySelectorAll('*')].map((x) => x.scrollTop).filter(Boolean)].join() : '';
+  })()`;
+  const t0 = Date.now();
+  let last = '', since = t0;
+  while (Date.now() - t0 < max) {
+    const k = await ev(probe), now = Date.now();
+    if (!k || k !== last) since = now;
+    last = k;
+    if (k && now - since >= hold) return true;
+    await sleep(30);
+  }
+  return false;
+};
+// the sheet of this kind is open and has finished sliding; `split`: the planes have been resized above it
+const sheetSettled = (kind, split) => `(() => { const sh = document.querySelector('.ph-sheet'); const r = document.documentElement; return Phone._state().kind === '${kind}' && Phone._state().split === ${!!split} && !!sh && !sh.hidden && sh.classList.contains('open') && !r.classList.contains('ph-ride') && sh.getAnimations().length === 0; })()`;
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const CHAIN3 = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }, { type: 'zp', params: { a: '1', zeros: '0.5, -0.5i', poles: '-0.8+0.75i' }, on: true }];
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-3.2, -1.5], b: [3.2, 1.5] }];
 let taps = 0;
-const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; e.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+// (the scroll is instant: a smooth one would still be moving the element when its place is read)
+const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const touch = async (x, y, ms = 60) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
   await sleep(ms);
@@ -28,7 +56,7 @@ const touch = async (x, y, ms = 60) => {
 const CHAIN = /#pipeline|#addStepBtn|\.ph-nums/;
 const tap = async (sel, wait = 380) => {
   let c = await center(sel);
-  if (!c && CHAIN.test(sel) && (await center('.ph-csteps'))) { const o = await center('.ph-csteps'); taps++; await touch(o[0], o[1]); await settle(500); c = await center(sel); }
+  if (!c && CHAIN.test(sel) && (await center('.ph-csteps'))) { const o = await center('.ph-csteps'); taps++; await touch(o[0], o[1]); await until(`!!document.querySelector(${JSON.stringify(sel)}) && ` + sheetSettled('chain')); c = await center(sel); }
   if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; }
   taps++; await touch(c[0], c[1]); await settle(wait); return true;
 };
@@ -132,7 +160,25 @@ await T('Undo (bottom row)', 1, async () => { const n0 = (await st()).shapes; aw
 await T('Draw a disc and watch its image', 1, async () => { const n0 = (await st()).shapes; await tap('#secDraw .tool[data-tool="disc"]'); const L = await panes(); await drag(L.L.l + 200, L.L.t + 160, L.L.l + 240, L.L.t + 190, 8, 16); await settle(400); const s = await st(); const ins = await ev(`!!document.querySelector('#paneR.ph-inset') && document.getElementById('paneR').getBoundingClientRect().width > 100`); await ev(`document.querySelector('#tools .tool[data-tool="select"]').click()`); return (s.shapes === n0 + 1 && ins) || { s, ins }; });
 // (#246: one tap more than v15's: the chain sheet opens first, then the step)
 await T('Change a parameter of an existing step', 3, async () => { await tap('#pipeline .card[data-k="2"]', 500); const f = await center('#propsPanel input[id^="i2_"]'); if (!f) return 'no field'; taps++; await touch(f[0], f[1]); await settle(200); await ev(`(() => { const e = document.activeElement; e.select && e.select(); })()`); await type('2'); await key('Enter'); await settle(400); const p = await panes(); const v = (await st()).params[1]; return (p.L && p.R && p.L.w > 150 && p.R.w > 150 && p.L.b <= p.sheetTop && Object.values(v).includes('2')) || { p, v }; });
-await T('Add a step and change its parameter', 4, async () => { const n0 = (await st()).steps; await tap('#addStepBtn', 600); await type('sin'); await settle(300); await key('Enter'); await settle(700); const n1 = (await st()).steps; await tap(`#pipeline .card[data-k="${n1}"]`, 500); const f = await center('#propsPanel input'); const p = await panes(); if (f) { taps++; await touch(f[0], f[1]); await settle(200); } return (n1 === n0 + 1 && p.L && p.R && p.L.w > 150 && p.L.b <= p.sheetTop) || { n0, n1, p, f }; });
+await T('Add a step and change its parameter', 4, async () => {
+  const n0 = (await st()).steps;
+  await tap('#addStepBtn', 0);
+  await until(`document.activeElement && document.activeElement.id === 'palInput'`);
+  await type('sin');
+  await until(`/sin/i.test((document.querySelector('#palList .pal-item.sel') || {}).textContent || '')`);
+  await key('Enter');
+  // the step is in the chain, the palette has closed (a tap while it closes lands on it), the "Added" message has taken
+  // its row from the sheet (the sheet's bottom edge has stopped moving) and the sheet takes taps again
+  await until(`__tourApi.snapshot().state.steps.length === ${n0 + 1} && !document.getElementById('palInput') && !!document.querySelector('#pipeline .card[data-k="${n0 + 1}"]') && !!document.querySelector('#toastHost > *') && document.documentElement.classList.contains('ph-toast-on') && document.querySelector('.ph-sheet').getAnimations().length === 0 && !document.querySelector('.ph-sheet').dataset.guard`);
+  const n1 = (await st()).steps;
+  ok('the new card can be tapped', await reachable(`#pipeline .card[data-k="${n1}"]`), n1);
+  await tap(`#pipeline .card[data-k="${n1}"]`, 0);
+  // the Edit sheet is open and its planes have taken their size above it
+  await until(sheetSettled('edit', true));
+  const f = await center('#propsPanel input'); const p = await panes();
+  if (f) { taps++; await touch(f[0], f[1]); await settle(200); }
+  return (n1 === n0 + 1 && p.L && p.R && p.L.w > 150 && p.L.b <= p.sheetTop) || { n0, n1, p, f };
+});
 await ev(`document.getElementById('undoBtn').click()`); await settle(400);
 // (#363: the regions' fill is the phase, no pattern to choose; their grid lines are the Display sheet's region option)
 await T('Turn the grid lines on regions off', 2, async () => { const l0 = (await st()).lines; await tap('#plotL .ph-dsp', 500); const t = await center(`.ph-sheet label:has(#linesChk)`); if (!t) return 'no Grid lines check'; taps++; await touch(t[0], t[1]); await settle(400); const s1 = await st(); const pn = await panes(); return (s1.lines === !l0 && s1.pattern === 'phase' && pn.L.b <= pn.sheetTop && pn.R && pn.R.w > 150) || { l0, s1, pn }; });
