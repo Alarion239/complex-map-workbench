@@ -165,7 +165,7 @@ const VIEWS = {
   'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
   'export_cmd.js': port('export', 'the shown plane and the filmstrip'),
   'export_fit_cmd.js': port('export'),
-  'export_sheet_cmd.js': port('export'),
+  'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': port('export', 'the shown plane\'s export'),
   'figure_wait_cmd.js': port('export'),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
