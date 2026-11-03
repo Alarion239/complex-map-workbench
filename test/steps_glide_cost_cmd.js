@@ -221,7 +221,8 @@ async function hold(x, links = true) {
   })()`);
   // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there; it answers once let go. The
   // promise is awaited in the page: ev evaluates in REPL mode, which hands a returned promise back unresolved)
-  const scrub = async (from, to) => ok(`a scrub from plane ${from} to ${to} is let go`, await ev(`await new Promise((done) => {
+  let scrubs = 0;
+  const scrub = async (from, to) => ok(`scrub ${++scrubs} (plane ${from} to ${to}) is let go`, await ev(`await new Promise((done) => {
     const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
     const x0 = ns[${from} < 0 ? ns.length - 1 : ${from}][0], x1 = ns[${to} < 0 ? ns.length - 1 : ${to}][0], cy = ns[0][1];
     const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 74, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
