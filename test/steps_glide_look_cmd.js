@@ -33,8 +33,8 @@ const CASES = [
   { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', scope: 'in' },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
 ];
-for (const c of CASES) {
-  const r = info[c.tag] = {};
+// one case: its frames read and its checks made, its findings in r
+async function look(c, r) {
   await go(`http://localhost:${PORT}/test.html?ns=look${Date.now()}`);
   await ready();
   if (c.example) {
@@ -87,5 +87,10 @@ for (const c of CASES) {
   r.mesh = { meshN, held, still: a && b, diff: await compare('H', 'Hhalf') };
   ok(`${c.tag}: no mesh: the frame held half-way is the same with meshes of half the resolution (at most ${SAME_FRAC * 100} % of pixels > ${DIFF_TOL}/255 apart)`, held && a && b && r.mesh.diff && r.mesh.diff.frac <= SAME_FRAC, r.mesh);
   await letGo();
+}
+// (a case that throws, its page lost or a read that never answers, fails as such; the next case runs in a fresh page)
+for (const c of CASES) {
+  const r = info[c.tag] = {};
+  try { await look(c, r); } catch (e) { ok(`${c.tag}: the case runs to its end`, false, String(e && e.message || e).slice(0, 300)); }
 }
 return { pass: fails.length === 0, fails, info };
