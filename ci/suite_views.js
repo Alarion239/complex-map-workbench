@@ -160,7 +160,7 @@ const VIEWS = {
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
-  'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
+  'complex_lang_export_cmd.js': steps({ pin: true }),
   'export_cmd.js': steps({ pin: true }),
   'export_fit_cmd.js': port('export'),
   'export_sheet_cmd.js': port('export'),
