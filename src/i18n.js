@@ -96,10 +96,11 @@ const I18N = (() => {
   // with "l'asse reale" "all'asse reale". Only a value that starts with a definite article (the reference forms of the
   // unit circle and the axes, ctx 'ref'), right after a whole-word a / da / di / in / su; a template with TeX is filled
   // as it is
-  const IT_MARK = '\u0001';
+  // (a private-use character: the figure's captions pass '\u0001' and '\u0002' through as their own placeholders)
+  const IT_MARK = '\uE001';
   const IT_PRE = { a: 'a', da: 'da', di: 'de', in: 'ne', su: 'su' };
   const IT_ART = { il: 'l', lo: 'llo', la: 'lla', le: 'lle', gli: 'gli', "l'": "ll'" };
-  const IT_JOIN = /(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \u0001(il|lo|la|le|gli) |(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \u0001l['’]/g;
+  const IT_JOIN = /(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \uE001(il|lo|la|le|gli) |(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \uE001l['’]/g;
   function fillIt(s, p) {
     if (!p || hasTeX(s)) return fill(s, p);
     const out = s.replace(PH_ANY, (m, safe, plain) => {

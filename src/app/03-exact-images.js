@@ -5,7 +5,7 @@
   // stage (role L, flat). Thumbnails (role null) draw like the right plane.
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
-  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat and on the globes (the crack test reads the fill under them, p3_review the stroke's own pixels)
+  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes and in the steps view (the crack test and sv_globe_mask read the fill under them, p3_review the stroke's own pixels)
   // the figure export's art layer (figure.js, artRender): fills only (no grid, axes, strokes, points, cuts, rulers,
   // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
   // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
@@ -92,7 +92,7 @@
     const k = plan._ck + '|' + winKey();
     let v = invSings.get(k);
     if (!v) {
-      try { v = Inverse.accumulation(plan, clipWin); } catch (e) { v = []; }
+      try { v = Inverse.keySing(plan, clipWin); } catch (e) { v = []; }
       if (invSings.size >= 32) invSings.clear();
       invSings.set(k, v);
     }
@@ -456,6 +456,26 @@
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
   }
+  // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
+  // them (the steps view's whole-plane region)
+  function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
+  // the visible area shapes, in list order
+  const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
+  // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
+  // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
+  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin
+  function shapeStroke(s, dpr, opt = {}) {
+    const ink = shapeInk(s);
+    const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
+    const area = kindType(s) === 'area';
+    let width = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
+    let casingWidth = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
+    if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { width += 0.75; casingWidth += 0.75; }
+    if (!opt.thin && s.id === hoverShape) { width += 0.5; casingWidth += 0.5; }
+    const st = { width: width * dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1 };
+    if (casingWidth) st.casing = { color: GLR.hexRGB(TH.halo), alpha: TH.haloA, width: casingWidth * dpr };
+    return st;
+  }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
   // fills (the fills alone, no strokes: a mask of the regions, #440)}
@@ -471,9 +491,10 @@
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
-      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
+      recs = packRecs();
       if (!sideDraw) lastRecs = recs;
-      if (live && guard) {
+      // (a region mask, opt.fills, is not a frame of the pane's picture: the cost guard neither measures nor demotes it)
+      if (live && guard && !opt.fills) {
         const info = GLR.inverseInfo;
         // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1, P2 review)
         // (no predicted floor: motion stays at full resolution unless the measured frames leave the 60 fps budget;
@@ -621,7 +642,7 @@
       if (live && role) liveFix(s, r);
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
-      const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
+      const smd = (live || offRender) && role && !opt.fills ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
         if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
@@ -671,7 +692,6 @@
     }
     // a bounded shape whose preparation waited (frame budget) is drawn inverse on the next frame
     if (live && prepDeferred) { prepDeferred = false; requestRender(role); }
-    const halo = GLR.hexRGB(TH.halo);
     for (const s of hideStrokes || artMode || opt.fills ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
@@ -680,15 +700,8 @@
       // the strokes that go with the fill drawn (a hold's own strokes while it stands in for the current mesh)
       const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
-      const ink = shapeInk(s);
-      const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const area = kindType(s) === 'area';
-      let w = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
-      let cw = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-      if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { w += 0.75; cw += 0.75; }
-      if (!opt.thin && s.id === hoverShape) { w += 0.5; cw += 0.5; }
-      const st = { map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, width: w * pane.dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null };
-      if (cw) st.casing = { color: halo, alpha: TH.haloA, width: cw * pane.dpr };
+      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
       if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);

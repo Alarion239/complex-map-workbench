@@ -391,6 +391,17 @@ const Phone = (() => {
   // The planes give a message its row only while no finger is down: a plane that shrinks under a
   // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
   let fingers = 0, layoutT = 0;
+  // the sheet's bottom edge moves up to make room for the message (phone.css, a 220 ms transition): the card the app scrolled
+  // into view for the step just added is scrolled into view again once the edge has stopped. With no transition (reduced
+  // motion, or the edge already there) that is at once
+  function scrollNewCardAfterResize(sheet) {
+    void sheet.offsetHeight;   // (a style flush: it starts the transition that is to be waited for)
+    const moving = sheet.getAnimations().filter((a) => a.transitionProperty === 'bottom');
+    Promise.all(moving.map((a) => a.finished.catch(() => null))).then(() => {
+      const card = els.sheet === sheet && sheet.querySelector('#pipeline .card[aria-selected="true"]');
+      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
   function barLayout() {
     if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
     clearTimeout(layoutT);
@@ -400,7 +411,7 @@ const Phone = (() => {
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
     // (#464) a sheet gives up the message's row (phone.css): the card the app scrolled into view for the step just added (bornCards,
     // before the message and the sheet's new edge) is scrolled into view again once the sheet has its new size
-    if (wantToast && els.sheet && c.contains('ph-sheet-on')) setTimeout(() => { const card = els.sheet && els.sheet.querySelector('#pipeline .card[aria-selected="true"]'); if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 260);
+    if (wantToast && els.sheet && c.contains('ph-sheet-on')) scrollNewCardAfterResize(els.sheet);
     syncPanes(); A.resize();
   }
   function ctx(force) {
@@ -552,7 +563,11 @@ const Phone = (() => {
   function geometry() {
     // (v16.4: less the guided tour's strip under the header, --ph-tour, while it shows)
     const H = window.innerHeight - (parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-tour')) || 0);
-    const hp = Math.round(Math.max(180, Math.min(340, H * 0.36)));
+    // (the Edit sheet's head is a 44 px strip, and the planes give 26 px of it, so the Inspector's scroller keeps the room a tour
+    // step's anchor needs. On a short phone that would leave the planes under 200 px, too small to watch respond, so there the
+    // Inspector scrolls instead)
+    const base = Math.round(Math.max(180, Math.min(340, H * 0.36)));
+    const hp = kind === 'edit' && !nums && base - 26 >= 200 ? base - 26 : base;
     rootEl.style.setProperty('--ph-hp', hp + 'px');
     // the sheet's height less the tool row's: how far the chain bar rides up with it
     const row = ($('secDraw') && $('secDraw').getBoundingClientRect().height) || 56;
@@ -616,6 +631,7 @@ const Phone = (() => {
   function setNums(v) {
     nums = !!v;
     els.sheet.classList.toggle('nums', nums);
+    if (on && kind) geometry();   // (the planes' height follows: the Edit sheet gives them less room than its Numbers mode)
     if (kind === 'edit') {
       els.title.textContent = nums ? $t('Numbers') : '';
       els.sheet.setAttribute('aria-label', nums ? $t('Numbers') : TITLES().edit);
@@ -766,7 +782,7 @@ const Phone = (() => {
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
-    const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
+    const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
     if (reg) els.regions.append(reg);

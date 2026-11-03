@@ -12,10 +12,16 @@
   // the caption language (DESIGN.md 12, i18n-22): the dialog offers it only when the interface is not English, so an
   // English interface keeps its dialog and its captions as they were
   const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
+  // the steps view keeps its own crop, As on screen until changed there: its figure is the stage's picture
+  const cropOf = (s) => (A.svOn() ? s.svCrop || 'screen' : s.crop);
   // the build options from the remembered settings
   function optsOf(s, extra) {
     const sk = sizeKey(s);
-    return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: s.crop, axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
+    return Object.assign({
+      for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
+      ink: s.ink, crop: cropOf(s), svPic: s.svPic, axes: s.axes[s.for] || null, deform: s.deform,
+      panels: s.panels || 'both', lang: capLangOf(s),
+    }, extra || {});
   }
   const ICON = {
     article: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>',
@@ -46,7 +52,7 @@
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
   const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
-.xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10.5px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
+.xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .xf-prog{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}.xf-prog[hidden]{display:none}.xf-warn{color:var(--warn);margin-top:4px}.xf-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.xf-meter{flex:1 1 auto;height:6px;border-radius:3px;background:var(--well);border:1px solid var(--line);overflow:hidden}.xf-meter>i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s linear}.xf-progtxt{font:var(--t-readout);color:var(--ink-2);white-space:nowrap}
@@ -188,6 +194,12 @@
     const deformOf = () => (dOpts.some((q) => q[0] === set.deform) ? set.deform : 'film');
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
+    // the steps view's picture: the shown plane, or the filmstrip of the whole thread
+    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]];
+    const svPicRow = A.svOn()
+      ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
+      : null;
+    if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
@@ -243,7 +255,7 @@
     const ftBtn = h('button', { type: 'button', class: 'xf-disc', 'aria-expanded': String(!!set.fine), onclick: () => { set.fine = !set.fine; ftBody.hidden = !set.fine; ftBtn.setAttribute('aria-expanded', String(set.fine)); ftBtn.querySelector('.xf-chev').innerHTML = set.fine ? ICON.down : ICON.right; saveSet(set); } });
     ftBtn.append(h('span', { class: 'xf-chev', html: set.fine ? ICON.down : ICON.right }), h('span', null, $t('Fine-tune')), h('small', null, view === 'xy' ? $t('Crop · Axes · Panels') : view === 'land' ? $t('Crop') : $t('Crop · Axes')));
     const fr = (label, el) => h('div', { class: 'xf-fr' }, h('span', null, label), el);
-    ftBody.append(fr($t('Crop'), segB('xfCrop', set.crop, [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { set.crop = v; changed(); }, $t('Crop'))));
+    ftBody.append(fr($t('Crop'), segB('xfCrop', cropOf(set), [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { if (A.svOn()) set.svCrop = v; else set.crop = v; changed(); }, $t('Crop'))));
     const axesSeg = () => segB('xfAxes', set.axes[set.for] || PRESET[set.for].axes, [['box', $t('Box')], ['cross', $t('Cross')], ['none', $t('None')]], (v) => { set.axes[set.for] = v; changed(); }, $t('Axes'));
     let axesEl = axesSeg();
     const axesRow = fr($t('Axes'), axesEl);
@@ -255,7 +267,7 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
@@ -420,7 +432,7 @@
       const f = fmtOf(), vid = f === 'video';
       for (const b of fmtSeg.children) b.setAttribute('aria-checked', String(b.dataset.v === f));
       dpiSel.hidden = f !== 'png';
-      for (const r of [forRow, sizeRow, inkRow, capLangRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
+      for (const r of [forRow, sizeRow, inkRow, capLangRow, svPicRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
       greyBtn.hidden = vid; loupeBtn.hidden = vid; facts.hidden = vid;

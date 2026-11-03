@@ -14,6 +14,9 @@ for (const lang of ['en', 'ru', 'it']) {
   const has = await ev(`!!document.querySelector('#pipeline .ftile') && !!document.getElementById('clearChain') && !document.getElementById('clearChain').hidden`);
   ok(`${lang}: the start chain has a step and a Clear chain button`, has, has);
   if (!has) continue;
+  // (a word button in the chain head, with no ⋯ beside it: the word is the English one in English, a translation otherwise)
+  const word = await ev(`(() => ({ text: document.getElementById('clearChain').textContent.trim(), more: !!document.getElementById('chainMoreBtn') }))()`);
+  ok(`${lang}: Clear chain is a word button in the chain head, with no ⋯ beside it`, (lang === 'en' ? word.text === 'Clear chain' : word.text.length > 0) && !word.more, word);
   // (the sampler: from the click, every frame for 2 s)
   await ev(`window.__cc = null; (() => {
     const out = [], t0 = performance.now(), head = document.querySelector('.pipe-head'), btn = document.getElementById('clearChain');
@@ -41,4 +44,8 @@ for (const lang of ['en', 'ru', 'it']) {
   const t = await ev(`(() => { const h = document.querySelector('.pipe-head'), t = h.querySelector(':scope > h2'), r = t.getBoundingClientRect(); return { hidden: h.classList.contains('notitle'), cut: t.scrollWidth - t.clientWidth, w: Math.round(r.width) }; })()`);
   ok(`${lang}: the heading is whole or hidden at the end`, t.hidden || t.cut <= 1, t);
 }
+// the head's button clears the chain and hides itself
+await ev(`document.getElementById('clearChain').click()`); await settled({});
+const cleared = { steps: await ev('__cmwP().steps.length'), hidden: await ev(`document.getElementById('clearChain').hidden`) };
+ok('Clear chain (the classic head\'s button) empties the chain and hides itself', cleared.steps === 0 && cleared.hidden, cleared);
 return { pass: fails.length === 0, fails, info };

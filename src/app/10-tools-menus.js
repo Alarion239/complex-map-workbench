@@ -77,9 +77,6 @@
     draft = null;
     Construct.toolChanged();   // (v16)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
-    // plane at any focus)
-    if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
     if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
@@ -100,8 +97,8 @@
   function newShape(kind, params, target) {
     const ci = target ? TARGET_CI[S.targets.length % TARGET_CI.length] : S.shapes.length % 8;
     const s = Object.assign({ id: 's' + takeId(), kind, ci, visible: true }, params);
-    // [#253] a shape drawn while X shows an intermediate plane belongs to it
-    if (!target && leftStage() > 0 && lFlat() && !('stage' in s)) s.stage = leftStage();
+    // a shape drawn while X shows an intermediate plane, flat or on its globe, belongs to it
+    if (!target && leftStage() > 0 && !('stage' in s)) s.stage = leftStage();
     return s;
   }
   // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
@@ -110,6 +107,8 @@
   function addShape(s, target) {
     if (!target && !cellSaid && kindType(s) === 'area') cellSay = true;
     (target ? S.targets : S.shapes).push(s);
+    // (a shape added here is an edit of the chain shown, not another chain: the steps view stays on its plane)
+    if (SV.on && SV.sig != null) SV.sig = svSigNow();
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();

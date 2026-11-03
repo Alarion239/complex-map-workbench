@@ -180,6 +180,7 @@
       const sel = (b.dataset.mode ?? b.dataset.v) === String(value);
       b.classList.toggle('on', sel);
       b.setAttribute('aria-checked', String(sel));
+      b.tabIndex = sel ? 0 : -1;   // (one Tab stop: the checked one, as roveRadios keeps every radio group)
       if (sel) on = b;
     }
     if (on) {
@@ -187,23 +188,33 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  function seg(id, value, options, onchange, label) {
-    const el = h('div', { class: 'seg small', id, role: 'radiogroup', 'aria-label': label });
+  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
+  // view's scope switch does; without it ← → stop at the ends)
+  function seg(id, value, options, onchange, label, opt) {
+    const o = opt || {};
+    const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title] of options) {
-      el.append(h('button', { 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
+      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
-    requestAnimationFrame(() => setSeg(el, value));
     setSeg(el, value);
+    // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
+    // have changed)
+    requestAnimationFrame(() => {
+      const on = el.querySelector('.on');
+      if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
+    });
     el.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const bs = [...el.children], i = bs.findIndex((b) => b.classList.contains('on'));
-      const j = Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+      const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
+      if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
+      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      if (i < 0) return;
+      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
       bs[j].click(); bs[j].focus(); e.preventDefault();
     });
     return el;
   }
-  function selectEl(id, value, options, onchange, title) {
-    const sel = h('select', { class: 'sel', id, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
+  function selectEl(id, value, options, onchange, title, cls) {
+    const sel = h('select', { class: 'sel' + (cls ? ' ' + cls : ''), id: id || null, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
     sel.value = value;
     return sel;
   }
@@ -299,6 +310,8 @@
   // (#247) on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
   // X's; a phone's Display sheet lends it itself
   const unitSide = () => (S.view.main === 'xy' ? 'R' : 'L');
+  // the regions' display (page.html's #regionsBox): the X → Y view's Regions pop-up, the steps view's ⋯ pop-up
+  const stepsRegions = () => SV.on && S.view.main !== 'xy';
   // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
   function unitHome(f) {
     const u = $('unitBox'), home = $('regionsHome');
@@ -448,7 +461,7 @@
     // into the Regions pop-up above the regions' options: one button, as narrow as the Display button was)
     const merged = !!pat && n === 0 && rest.length > 0;
     ft.merged = merged;
-    if (rest.length && !merged) {
+    if ((rest.length || (inHead && stepsRegions())) && !merged) {
       // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
@@ -491,8 +504,11 @@
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
-    const regions = regionsOnly ? $('regionsBox') : null;
-    const kids = regionsOnly ? [...rest, ...(regions ? [regions] : [])] : rest;
+    const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
+    // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
+    const regionsHead = regions && !regionsOnly && rest.length
+      ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
+    const kids = regions ? [...rest, ...regionsHead, regions] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
@@ -823,16 +839,24 @@
   // t -> H_t(z) on the merged plane and globe, remembered in the saved state, and the figure's default
   // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
   function pathsToggle(hasD = morphHasDeriv()) {
-    const on = S.morphPaths !== false;
-    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P'), html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
-    if (hasD) { b.disabled = true; b.dataset.tip = $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw'); }
+    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
+    syncPathsBtn(b, S.morphPaths !== false, hasD);
     return b;
+  }
+  // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
+  // press does; off, with the reason, when there are no paths to draw (noPaths: a d/dz)
+  function syncPathsBtn(b, on, noPaths) {
+    const pressed = String(on && !noPaths);
+    const tip = noPaths ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P');
+    if (b.getAttribute('aria-pressed') !== pressed) b.setAttribute('aria-pressed', pressed);
+    if (b.disabled !== !!noPaths) b.disabled = !!noPaths;
+    if (b.dataset.tip !== tip) b.dataset.tip = tip;
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
     setOpt('morphPaths', !!on);
     const b = $('pathsBtn');
-    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = on ? $t('Hide the paths t ↦ Hₜ(z)  P') : $t('Show the paths t ↦ Hₜ(z)  P'); }
+    if (b) syncPathsBtn(b, !!on, b.disabled);
     requestRender('R'); drawLegend(); save();
     tourEmit('paths-toggled', { on: !!on });
   }

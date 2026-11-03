@@ -66,7 +66,7 @@
     const pane = A.setView(side), zc = pane.s2w(x, y), Z = [zc.re, zc.im];
     if (!(pieceDist(pc, Z) * pane.view.s <= radii(touchNow()).c)) return null;
     let pr = null;
-    try { pr = Constr.projectPiece(pc, Z, pc.c3 && c.ref ? pts3Of(find(c.ref.s), side === 'R' ? 1 : 0) : null); } catch (e) { pr = null; }
+    try { pr = Constr.projectPiece(pc, Z, pc.c3 && c.ref ? pts3Of(find(c.ref.s), planeOf(find(c.ref.s))) : null); } catch (e) { pr = null; }
     if (!pr || !isXY(pr.z)) return null;
     const t = { cls: 'curve', ref: c.ref || null, z: pr.z.slice(), t: pr.t, seed: pr.seed, pc };
     if (!c.ref) Object.assign(t, { onMake: true, label: c.label });
@@ -334,7 +334,7 @@
         vs.forEach((z, i) => { const id = f1.zpIds[kind] && f1.zpIds[kind][i]; if (z && id) out.push({ z, ref: { zp: f1.uid, kind, id, i, step: 0 } }); });
       }
     }
-    if (side === 'R') { const F = env().F; for (const s of st.shapes) if (s.kind === 'point' && s.visible !== false && !s.helper && !s._atInf && F) { const w = F(s.p); if (w) out.push({ z: w, ref: { img: s.id } }); } }
+    { const F = carriedF(side); if (F) for (const s of st.shapes) if (s.kind === 'point' && planeOf(s) === 0 && s.visible !== false && !s.helper && !s._atInf) { const w = F(s.p); if (w) out.push({ z: w, ref: { img: s.id } }); } }
     return out;
   }
   function globeClick(side, x, y) {

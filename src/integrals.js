@@ -8,7 +8,7 @@ const Integrals = (() => {
   let A = null;
   let C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
     integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage,
-    requestRender, rightStage, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
+    requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
     sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed;
   // ---------------- integrals: ∫γ F dz along a curve, on a right click ----------------
   // The curve: a shape's curve, or an area's boundary oriented with the area on its left, taken in the left plane
@@ -109,19 +109,21 @@ const Integrals = (() => {
     }
     return out;
   }
-  // one shape's curves in the left plane (stage leftStage()): {s, name, comps: [{flat, closed, part}], closed, box, bad}
+  // one shape's curves in the left plane (stage leftStage()), mapped there from the shape's own plane: {s, name, comps:
+  // [{flat, closed, part}], closed, box, bad}; null for a shape not drawn in that plane
   function shapeGeom(s, dense, names) {
     if (!s || kindType(s) === 'point') return null;
+    const lk = leftStage(), G = shapeF(s, stageF(lk), lk);
+    if (!G) return null;
     const pieces = curvePieces(s, dense);
     if (!pieces.length) return null;
-    const lk = leftStage(), G = stageF(lk);
     const comps = [];
     let bad = false;
     const box = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
     for (const c of pieces) {
       const flat = new Float64Array(2 * c.pts.length);
       c.pts.forEach((p, i) => {
-        const w = lk ? G(C(p[0], p[1])) : C(p[0], p[1]);
+        const w = G(C(p[0], p[1]));
         if (!CX.isFin(w)) bad = true;
         flat[2 * i] = w.re; flat[2 * i + 1] = w.im;
         if (CX.isFin(w)) { box.x0 = Math.min(box.x0, w.re); box.x1 = Math.max(box.x1, w.re); box.y0 = Math.min(box.y0, w.im); box.y1 = Math.max(box.y1, w.im); }
@@ -290,23 +292,27 @@ const Integrals = (() => {
     ctx.restore();
   }
   // the shapes whose curves pass within reach of pane pixel (x, y): [{s, d}], nearest first. The left plane and the
-  // Phase portrait show them in the left plane's coordinates; the image plane of Image shows their images.
+  // Phase portrait show them in the left plane's coordinates; the image plane of Image shows their images. Each shape
+  // is mapped from its own plane (shapeF); a shape not drawn in the pane's plane is not found there.
   function curvesNear(pane, side, x, y) {
-    let F = null, view;
-    if (side === 'L') { if (!lFlat()) return []; view = leftView(); F = leftStage() ? stageF(leftStage()) : null; }
-    else if (rImage() && !morphOn() && !trans.k) { view = V.right; F = stageF(rightStage()); }
+    let k, view;
+    if (side === 'L') { if (!lFlat()) return []; view = leftView(); k = leftStage(); }
+    else if (rImage() && !morphOn() && !trans.k) { view = V.right; k = rightStage(); }
     else return [];
+    const F = stageF(k);
     pane.setView(view);
     const W = pane.w, H = pane.h, out = [];
     for (const s of A.S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || s.kind === 'cgrid' || s.kind === 'pgrid') continue;
+      const G = shapeF(s, F, k);
+      if (!G) continue;
       const r = shapeGPU(s);
       let best = Infinity;
       for (const p of r.polys || []) {
         const n = p.length / 2, stride = Math.max(1, Math.floor(n / 1500));
         let px = NaN, py = NaN;
         for (let i = 0; i < n + stride - 1; i += stride) {
-          const j = Math.min(i, n - 1), z = C(p[2 * j], p[2 * j + 1]), w = F ? F(z) : z;
+          const j = Math.min(i, n - 1), w = G(C(p[2 * j], p[2 * j + 1]));
           if (!CX.isFin(w)) { px = NaN; continue; }
           const [qx, qy] = pane.w2s(w);
           if (Number.isFinite(px) && Math.hypot(qx - px, qy - py) < W + H) {
@@ -627,9 +633,9 @@ const Integrals = (() => {
 
   function init(api) {
     A = api;
-    ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
+    ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
-  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
+  return { init, curvePieces, shapeGeom, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();
 import { $, TAU, h } from './util.js';
 import { CX } from './cx.js';
