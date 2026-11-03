@@ -29,7 +29,7 @@
   // U-b: the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
   // (U-b's calls: X's surface 'land' is the Landscape view now; Plane or Sphere on X from the Landscape opens X → Y)
-  window.__cmwSetView = (side, surf) => { if (side === 'L' && surf === 'land') return setMain('land'); if (side === 'L' && lLand()) setMain('xy'); return setView(side, surf); };
+  window.__cmwSetView = (side, surf) => { if (side === 'L' && surf === 'land') return setMain('land'); if (side === 'L' && SV.on) return window.__cmwSteps({ surf }); if (side === 'L' && lLand()) setMain('xy'); return setView(side, surf); };
   window.__cmwSetPhase = (on) => setPhase(on);
   // merged views (merged-views.md): the top bar's view ('xy' | 'phase' | 'land') and the layout the panes are in
   window.__cmwSetMain = (m) => setMain(m);
