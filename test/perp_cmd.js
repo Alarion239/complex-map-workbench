@@ -479,7 +479,7 @@ await section('C', async () => {
   await shot('perp-d1440-ru-made');
   // the caption (the pencil circle removed first: an undefined shape has no phrase)
   await key('z', 4); await settle(250);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const capRu = await ev(`await (async () => { __cmwSetMain('xy'); await new Promise((r) => setTimeout(r, 600)); const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
   info.capRuC = capRu;
   ok('C RU caption: «окружность, проходящая через … и ортогональная окружности …»', /окружност[ьи], проходящ(ая|ей) через .* и[ ~]ортогональн(ая|ой) окружности/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -588,7 +588,7 @@ await section('E', async () => {
     ],
     steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 120 }, nextId: 50,
   };
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const cap = () => ev(`await (async () => { __cmwSetMain('xy'); await new Promise((r) => setTimeout(r, 600)); const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
   await load(NS + 'e1', SE); await settle(900);
   info.capC = await cap();
   ok('E EN caption, circle C: "the circle through z₀ = … and z₁ = … perpendicular to the circle |z| = 1"', /the circle through .+ and .+ perpendicular to the circle/.test(info.capC || ''), info.capC);
@@ -882,7 +882,7 @@ await section('I', async () => {
   info.yOpen = { n: ypts.length, drawn: yDiff, kind: kY.kind, ink };
   ok('I4 Y under 1/z: the image is the open arc only (nothing on the image of K outside the disc)', kY.kind === 'arc' && ypts.length > 20 && yDiff === 0, info.yOpen);
   // ---- I5 export captions, EN and RU (through z₀ and z₁; and on K when z₁ is outside the disc)
-  const capF = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const capF = () => ev(`await (async () => { __cmwSetMain('xy'); await new Promise((r) => setTimeout(r, 600)); const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
   info.segCap = await capF();
   ok('I5 EN caption: "the hyperbolic line through z₀ … and z₁ … in the domain |z|<1"', /the hyperbolic line through .+ and .+ in the domain \$\|z\|<1\$/.test(info.segCap || ''), info.segCap);
   await ev(`__cmwC({ call: 'moved', args: [{ all: true }] }) && 1`);
@@ -899,7 +899,7 @@ await section('I', async () => {
   ok('I5 RU caption, z₁ outside: «… лежащая на окружности, проходящей через …»', /гиперболическая прямая в[ ~]области \$\|z\|<1\$, лежащая на[ ~]окружности, проходящей через/.test(info.segCapOnRu || ''), info.segCapOnRu);
   // the SVG: K's path from e_start to e_end, butt caps
   await nav(`${U}?ns=${NS}i4`); await settle(1500);
-  info.segSvg = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); const svg = f && (f.svg || (f.panels && f.panels[0] && f.panels[0].svg)) || ''; const caps = (svg.match(/stroke-linecap="[a-z]+"/g) || []).slice(0, 8); return { has: !!svg, len: svg.length, caps, keys: f ? Object.keys(f).slice(0, 20) : null }; })()`);
+  info.segSvg = await ev(`await (async () => { __cmwSetMain('xy'); await new Promise((r) => setTimeout(r, 600)); const f = await __cmwFig.build({ for: 'article', cols: 1 }); const svg = f && (f.svg || (f.panels && f.panels[0] && f.panels[0].svg)) || ''; const caps = (svg.match(/stroke-linecap="[a-z]+"/g) || []).slice(0, 8); return { has: !!svg, len: svg.length, caps, keys: f ? Object.keys(f).slice(0, 20) : null }; })()`);
   // ---- I6 links: reload bitwise; the v16.3 page (whole circles); the v16.2 page (plain arcs)
   const snapS = (s2) => s2.list.map((s) => JSON.stringify([s.id, s.kind, s.def, s.c, s.r, s.a, s.b, s.m, s.p]));
   st = await ST();
@@ -993,7 +993,7 @@ await section('J', async () => {
   // v16.4 review fixes (notes/orthogonal-circle/segments/ledger.json): captions close their phrase (user-2, user-3), the
   // outside's domain on the sphere (math-3), through only for points of the domain (math-7), the row off the arc
   // (user-6), the ⋯ item's words (math-6), the chip's words by its free width (user-4), the phone's hit area (user-5)
-  const capF = (o) => ev(`await (async () => { const f = await __cmwFig.build(${JSON.stringify(o || { for: 'article', cols: 1 })}); return f ? f.captionTex : null; })()`);
+  const capF = (o) => ev(`await (async () => { __cmwSetMain('xy'); await new Promise((r) => setTimeout(r, 600)); const f = await __cmwFig.build(${JSON.stringify(o || { for: 'article', cols: 1 })}); return f ? f.captionTex : null; })()`);
   const Kd = (id, a, b, seg, c = 'c') => ({ id, kind: 'arc', a: [1, 0], m: [0, 1], b: [-1, 0], visible: true, def: Object.assign({ op: 'perp', args: [{ s: c, part: 0 }, { s: a }, { s: b }], fill: 'none', nk: 'arc' }, seg ? { seg } : {}) });
   const pt = (id, p) => ({ id, kind: 'point', p, visible: true });
   const scene = (shapes) => ({ shapes, steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 150 }, nextId: 50 });
