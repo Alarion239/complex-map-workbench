@@ -26,6 +26,14 @@ const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
+// (waits for the page to be quiet and `cond` true, in short waits: a navigation that ends one wait ends only that one.
+// With only, just `cond`, which is also true of a page still loading)
+const calm = async (cond, ms, only = false) => {
+  for (let t = 0; t < ms; t += 1000) {
+    try { if ((await settled({ only, max: 1000, until: cond })).ok) return true; } catch (e) { await sleep(250); }
+  }
+  return false;
+};
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warning') && !/Failed to load resource|favicon/.test(x.m || ''))); };
@@ -38,7 +46,7 @@ const W = async (re, im, side = 'L') => {
     const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;
     if ((await ev(`__cmwSteps().i`)) !== to) {
       await ev(`__cmwSteps({ go: ${to}, now: true })`);
-      await settled({ max: 5000, until: `__cmwSteps().i === ${to} && !__cmwSteps().moving` });
+      await calm(`__cmwSteps().i === ${to} && !__cmwSteps().moving`, 5000);
     }
     side = 'L';
   }
@@ -53,7 +61,7 @@ const last = (st) => st.list[st.list.length - 1];
 // stopped moving)
 const planeRest = async () => {
   if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
-  await settled({ max: 4000, until: '!__cmwSteps().moving' });
+  await calm('!__cmwSteps().moving', 4000);
 };
 const tool = async (id) => {
   const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
@@ -134,10 +142,8 @@ const SF = {
 };
 
 // (an old page is read once its hooks exist: it takes longer to open when the machine is busy)
-const oldReady = async (id, ms = 20000) => (await settled({
-  only: true, max: ms,
-  until: `typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.some((s) => s.id === '${id}')`,
-})).ok;
+const oldReady = (id, ms = 20000) => calm(
+  `typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.some((s) => s.id === '${id}')`, ms, true);
 
 await section('A', async () => {
   await view(1440, 900, false, false);

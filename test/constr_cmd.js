@@ -32,6 +32,14 @@ const chipLabel = async (c) => {
 };
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e * Math.max(1, Math.abs(a), Math.abs(b));
+// (waits for the page to be quiet and `cond` true, in short waits: a navigation that ends one wait ends only that one.
+// With only, just `cond`, which is also true of a page still loading)
+const calm = async (cond, ms, only = false) => {
+  for (let t = 0; t < ms; t += 1000) {
+    try { if ((await settled({ only, max: 1000, until: cond })).ok) return true; } catch (e) { await sleep(250); }
+  }
+  return false;
+};
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
 const dragH = async (x0, y0, x1, y1, n, dt) => { await move(x0, y0); await settle(150); return drag(x0, y0, x1, y1, n, dt); };
@@ -48,7 +56,7 @@ const last = (st) => st.list[st.list.length - 1];
 // stopped moving)
 const planeRest = async () => {
   if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
-  await settled({ max: 4000, until: '!__cmwSteps().moving' });
+  await calm('!__cmwSteps().moving', 4000);
 };
 const tool = async (id) => {
   const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
