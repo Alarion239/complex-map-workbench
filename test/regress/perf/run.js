@@ -1194,12 +1194,12 @@ function svqProfile(profile, windows, nowAtStop) {
 }
 // a Chrome trace's events inside the windows marked svq:a .. svq:b: self ms by event name on the renderer main
 // thread (the renderer with the most events there) and on the GPU process' threads
-function svqTrace(events) {
+function svqTrace(events, wins) {
   const tn = new Map();   // pid:tid -> thread name
   for (const e of events) if (e.ph === 'M' && e.name === 'thread_name') tn.set(`${e.pid}:${e.tid}`, e.args.name);
   const marks = events.filter((e) => e.name === 'svq:a' || e.name === 'svq:b').sort((x, y) => x.ts - y.ts);
-  const win = [];
-  for (let i = 0; i < marks.length; i++) if (marks[i].name === 'svq:a' && marks[i + 1] && marks[i + 1].name === 'svq:b') win.push([marks[i].ts, marks[i + 1].ts]);
+  const win = wins || [];
+  if (!wins) for (let i = 0; i < marks.length; i++) if (marks[i].name === 'svq:a' && marks[i + 1] && marks[i + 1].name === 'svq:b') win.push([marks[i].ts, marks[i + 1].ts]);
   const inWin = (ts) => win.some(([a, b]) => ts >= a && ts <= b);
   // self time per complete event on each thread: duration minus its nested children's
   const byThread = new Map();
@@ -1365,6 +1365,161 @@ async function svqZetaUnit(o = {}) {
 // hooks). Per setting and leg: frame p95, cpu p95 and rAF intervals over 25 ms (info), a summary line in the log, and
 // each setting's frame p95 less noCarry's. Info only: a probe, never a gate
 const SVQ_SETTINGS = { base: {}, reuse: { reuse: true }, onePass: { reuse: true, onePass: true }, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };
+// svq.kingslow, a probe (#714): what the slowest frames of the Mountain King's Everywhere scrub (sv.interact.king's
+// scrub.all, set up the same way) contain. Each frame's main-thread time (cpu) and GPU wait (gpu, the readPixels sync),
+// the GL calls the page made in it (WebGL2 methods counted by name) and the steps view's own counters (__svPathStats)
+// in it; the slow frames (the pooled frame time's top 5 %) against the median ones. Then the same scrubs under the JS
+// profiler, its samples inside the slow frames only, and under a Chrome trace, its renderer-main and GPU-thread events
+// inside the slow frames only. Info only.
+const SVQ_GL_COUNT = ['texImage2D', 'texSubImage2D', 'texStorage2D', 'bufferData', 'bufferSubData', 'createTexture', 'createBuffer',
+  'createVertexArray', 'createFramebuffer', 'deleteTexture', 'deleteBuffer', 'readPixels', 'getParameter', 'getError', 'finish',
+  'flush', 'fenceSync', 'clientWaitSync', 'getBufferSubData', 'linkProgram', 'useProgram', 'drawArrays', 'drawArraysInstanced',
+  'drawElements', 'drawElementsInstanced', 'clear', 'bindFramebuffer', 'scissor', 'copyTexSubImage2D', 'blitFramebuffer',
+  'checkFramebufferStatus', 'getProgramParameter', 'getShaderParameter', 'uniform1i', 'uniform1f', 'uniform2f', 'uniform4fv'];
+const SVQ_REC = `(() => {
+  if (window.__svqRec) return 1;
+  const R = window.__svqRec = { on: false, gl: {}, frames: [] }, P = WebGL2RenderingContext.prototype;
+  for (const k of ${JSON.stringify(SVQ_GL_COUNT)}) {
+    const f = P[k];
+    if (typeof f !== 'function') continue;
+    P[k] = function (...a) { if (R.on) R.gl[k] = (R.gl[k] || 0) + 1; return f.apply(this, a); };
+  }
+  // (one snapshot per animation frame, taken in a callback queued at the end of the frame before: the counts since it)
+  const snap = () => {
+    if (R.on) {
+      const ps = globalThis.__svPathStats || {}, c = {};
+      for (const k of Object.keys(ps)) if (typeof ps[k] === 'number') c[k] = ps[k];
+      R.frames.push([performance.now(), R.gl, c]);
+      R.gl = {};
+    }
+    requestAnimationFrame(snap);
+  };
+  requestAnimationFrame(snap);
+  return 1;
+})()`;
+async function svqKingSlowUnit() {
+  const id = 'svq.kingslow';
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (CMW_SV_SOFT=1 runs it)'); return; }
+  const side = (RES.meta && RES.meta.paired) || 'single';
+  const ROUNDS = Number(process.env.SVQ_ROUNDS) || 4;
+  await B.nav(`${BASE}test.html?ns=perfsvqk${process.pid}_${++nsCounter}&view=steps`);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await B.ev(`__cmwExample(${exampleIndex('In the Hall of the Mountain King')}), 1`);
+  await settle(await pageNow());
+  await sleep(SV_IDLE_MS);
+  for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+  await settle(await pageNow());
+  await B.ev(`__cmwSteps({ scope: 'all', go: 0, now: true }), 1`);
+  await settle(await pageNow());
+  await B.ev(SVQ_REC);
+  const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+  // one round: the scrub there and back (sv.interact.king's two legs), each settled after; per drawn frame
+  // {t0, t1, cpu, gpu, leg, i (its index in the leg), gl {name: calls}, ps {counter: delta}}
+  const round = async (r) => {
+    const out = [];
+    for (const back of [false, true]) {
+      const s = await stripAt();
+      await B.ev('(globalThis.__svPathStats = {}, __svqRec.frames = [], __svqRec.gl = {}, __svqRec.on = true, 1)');
+      const a = await pageNow();
+      if (back) await B.drag(s.x1, s.y, s.x0, s.y, { n: 40, dt: 16 }); else await B.drag(s.x0, s.y, s.x1, s.y, { n: 40, dt: 16 });
+      const b = await pageNow();
+      await sleep(100);
+      const rec = await B.ev('(__svqRec.on = false, JSON.stringify(__svqRec.frames))');
+      await B.ev('(globalThis.__svPathStats = null, 1)');
+      const snaps = JSON.parse(rec);
+      const w = await windowStats(a, b);
+      w.drawn.forEach((f, i) => {
+        // (the snapshot that ends this frame: the first taken after its end; the counters since the one before)
+        const k = snaps.findIndex((q) => q[0] >= f[6]);
+        const sn = k >= 0 ? snaps[k] : null, prev = k > 0 ? snaps[k - 1] : null;
+        const ps = {};
+        if (sn) for (const key of Object.keys(sn[2])) { const d = sn[2][key] - ((prev && prev[2][key]) || 0); if (d) ps[key] = +d.toFixed(2); }
+        out.push({ t0: f[0], t1: f[6], cpu: f[1], gpu: f[2], frame: f[1] + f[2], leg: `${r}${back ? 'b' : 'a'}`, i, n: w.drawn.length, gl: sn ? sn[1] : {}, ps });
+      });
+      await settle(b);
+    }
+    return out;
+  };
+  const sumOf = (fs, pick) => { const m = {}; for (const f of fs) for (const [k, v] of Object.entries(pick(f))) m[k] = (m[k] || 0) + v; for (const k of Object.keys(m)) m[k] = +(m[k] / Math.max(1, fs.length)).toFixed(2); return m; };
+  const groups = (F) => {
+    const p95 = quant(F.map((f) => f.frame), 0.95), p50 = quant(F.map((f) => f.frame), 0.5);
+    const slow = F.filter((f) => f.frame >= p95), mid = F.filter((f) => Math.abs(f.frame - p50) <= 1.5);
+    return { p95, p50, slow, mid };
+  };
+  const describe = (g) => ({
+    n: g.length,
+    cpu: +(g.reduce((s, f) => s + f.cpu, 0) / Math.max(1, g.length)).toFixed(2),
+    gpu: +(g.reduce((s, f) => s + f.gpu, 0) / Math.max(1, g.length)).toFixed(2),
+    gl: sumOf(g, (f) => f.gl), ps: sumOf(g, (f) => f.ps),
+  });
+  // 1. timed rounds: the frames, the slow ones listed one by one
+  const F = [];
+  for (let r = 0; r < ROUNDS; r++) F.push(...await round(r));
+  const G = groups(F);
+  const out = { frames: F.length, p50: +G.p50.toFixed(2), p95: +G.p95.toFixed(2), slow: describe(G.slow), median: describe(G.mid),
+    slowFrames: G.slow.map((f) => ({ leg: f.leg, i: f.i, of: f.n, frame: +f.frame.toFixed(2), cpu: +f.cpu.toFixed(2), gpu: +f.gpu.toFixed(2), gl: f.gl, ps: f.ps })) };
+  detail(`${id}.frames`, out);
+  put(`${id}.frame_p95_ms`, 'info', 'ms', [out.p95]);
+  log(`${id} [${side}] ${F.length} frames: p50 ${out.p50} ms, p95 ${out.p95} ms`);
+  log(`${id} [${side}]   slow (${out.slow.n}): cpu ${out.slow.cpu} gpu ${out.slow.gpu} ms; gl ${JSON.stringify(out.slow.gl)}; ps ${JSON.stringify(out.slow.ps)}`);
+  log(`${id} [${side}]   median (${out.median.n}): cpu ${out.median.cpu} gpu ${out.median.gpu} ms; gl ${JSON.stringify(out.median.gl)}; ps ${JSON.stringify(out.median.ps)}`);
+  for (const f of out.slowFrames) log(`${id} [${side}]   slow frame leg ${f.leg} #${f.i}/${f.of}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}); gl ${JSON.stringify(f.gl)}; ps ${JSON.stringify(f.ps)}`);
+  // 2. profiled rounds: JS samples inside the slow frames, and inside the median ones for contrast
+  {
+    await B.send('Profiler.enable');
+    await B.send('Profiler.setSamplingInterval', { interval: 200 });
+    await B.send('Profiler.start');
+    const P = [];
+    try { for (let r = 0; r < 2; r++) P.push(...await round(`p${r}`)); } catch (e) { await B.send('Profiler.stop'); throw e; }
+    const nowAtStop = await pageNow();
+    const { profile } = await B.send('Profiler.stop');
+    await B.send('Profiler.disable');
+    const g = groups(P);
+    for (const [k, fs] of [['slow', g.slow], ['median', g.mid]]) {
+      const p = svqProfile(profile, fs.map((f) => [f.t0, f.t1]), nowAtStop);
+      detail(`${id}.profile.${k}`, Object.assign({ frames: fs.length }, p));
+      log(`${id} [${side}] profile, ${k} frames (${fs.length}, ${p.sampled_ms} ms sampled)`);
+      log(`${id} [${side}]   self: ${p.self.map(([n, v]) => `${n} ${v}`).join(' | ')}`);
+      log(`${id} [${side}]   inclusive: ${p.inclusive.map(([n, v]) => `${n} ${v}`).join(' | ')}`);
+      log(`${id} [${side}]   gl sync: ${p.gl_sync.map(([n, v]) => `${n} ${v}`).join(' | ') || 'none'}`);
+    }
+  }
+  // 3. traced rounds: renderer-main and GPU-thread events inside the slow frames and the median ones
+  {
+    const events = [];
+    let done;
+    const complete = new Promise((res) => { done = res; });
+    const off = B.on((m) => {
+      if (m.method === 'Tracing.dataCollected') for (const e of m.params.value) events.push(e);
+      else if (m.method === 'Tracing.tracingComplete') done();
+    });
+    let T = [], sync = 0;
+    try {
+      await B.send('Tracing.start', { categories: SVQ_TRACE_CATS, transferMode: 'ReportEvents' });
+      await sleep(300);
+      try {
+        sync = await B.ev(`performance.mark('svq:sync').startTime`);
+        for (let r = 0; r < 2; r++) T.push(...await round(`t${r}`));
+      } finally { await B.send('Tracing.end'); }
+      await Promise.race([complete, sleep(60000)]);
+    } finally { off(); }
+    const m = events.find((e) => e.name === 'svq:sync');
+    const f = path.join(path.dirname(OUT), `svq-trace-${side}-kingslow.json`);
+    fs.writeFileSync(f, JSON.stringify({ traceEvents: events }));
+    if (!m) { log(`${id} [${side}] trace: no svq:sync mark, not read (${events.length} events, ${path.basename(f)})`); return; }
+    const offUs = m.ts - sync * 1000;
+    const g = groups(T);
+    for (const [k, fs0] of [['slow', g.slow], ['median', g.mid]]) {
+      const t = svqTrace(events, fs0.map((q) => [q.t0 * 1000 + offUs, q.t1 * 1000 + offUs]));
+      detail(`${id}.trace.${k}`, Object.assign({ frames: fs0.length, file: path.basename(f) }, t));
+      log(`${id} [${side}] trace, ${k} frames (${fs0.length}, ${t.windows_ms} ms)`);
+      if (t.renderer) log(`${id} [${side}]   renderer main (${t.renderer.events} events): ${t.renderer.self.map(([n, v]) => `${n} ${v}`).join(' | ')}`);
+      for (const q of Object.values(t.gpu)) if (q.events) log(`${id} [${side}]   ${q.thread} (${q.events} events): ${q.self.map(([n, v]) => `${n} ${v}`).join(' | ')}`);
+    }
+  }
+}
 async function svqVariantUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`svq.${scene}v`, 'skipped: a software renderer (CMW_SV_SOFT=1 runs it)'); return; }
@@ -2226,6 +2381,7 @@ unit('svq.zeta', 'a probe (#714): where the zeros of zeta spend main-thread time
 unit('svq.zetaog', 'a probe (#714): svq.zeta under the carry setting oldGrid (the reference as it is), dpr 1, timed runs and a JS profile, no trace; info only', () => svqZetaUnit({ id: 'svq.zetaog', setting: 'oldGrid', dprs: [1], trace: false }), { timeoutS: 900 });
 unit('svq.zetav', 'a probe (#714): the carry\'s settings (globalThis.__svCarryProbe: base, reuse, onePass, cacheOnly, noCarry, or the page\'s own list) on the zeros of zeta, scrub and glide, the order rotating; info only', () => svqVariantUnit('zeta'), { timeoutS: 900 });
 unit('svq.kingv', 'a probe (#714): the carry\'s settings (as svq.zetav) on the Mountain King, scrub and glide, the order rotating; info only', () => svqVariantUnit('king'), { timeoutS: 1200 });
+unit('svq.kingslow', 'a probe (#714): the Mountain King\'s slowest Everywhere-scrub frames (sv.interact.king\'s scrub.all): main thread vs GPU, GL calls and the view\'s counters per frame, JS profile and Chrome trace inside the slow frames; info only', svqKingSlowUnit, { timeoutS: 1500 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
