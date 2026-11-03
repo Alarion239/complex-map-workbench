@@ -224,7 +224,7 @@ async function dragLeg(side, dx, dy, button, n = 40, dt = 16, space = false) {
   if (space) await B.key('keyUp');
   const w = await windowStats(a, b);
   const s = await settle(b);
-  return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b });
+  return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b, until: s.now });
 }
 // a wheel gesture: `steps` wheel events of deltaY 50 (x1.083 zoom each) every `gap` ms at a point near the centre.
 // delta: the deltaY sent over CDP (with a device scale factor of 2 the page receives half of it, so dpr-2 units send
@@ -902,10 +902,11 @@ async function svFirstGlideUnit() {
   }
 }
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
-// idle SV_IDLE_MS, then the first glide to plane 1 (cold: its pole tracks made whole at its first frame,
-// __svPathStats.poleSyncMs), and back; then a step added (the same function again, __cmwAddStep) and a glide to plane 1
-// at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness). Per glide: its longest frame (CPU),
-// frames over 33 ms (jank), frame p95 and the poles' synchronous ms. Info rows
+// idle SV_IDLE_MS, then the first glide to plane 1, and back; then a step added (the same function again,
+// __cmwAddStep) and a glide to plane 1 at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness).
+// Per glide: its longest frame (CPU), frames over 33 ms (jank), frame p95, the poles' searches in its frames
+// (__svPathStats.poleSyncMs, while a glide's tracks are not whole) and the idle job's longest slice of the tracks
+// (poleIdleMax). Info rows
 async function svColdGlideUnit() {
   for (const scene of ['default', 'king']) {
     const R = { first: [], edit: [] };
@@ -925,7 +926,7 @@ async function svColdGlideUnit() {
         const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
         const fr = (await B.ev(`__perf.framesSince(${a}, ${b + 20})`)).filter((f) => f[4] > 0);
         const frame = fr.map((f) => f[1] + f[2]);
-        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), jank: frame.filter((x) => x > 33).length, p95: quant(frame, 0.95), poleMs: ps.poleSyncMs || 0, poleN: ps.poleSync || 0 };
+        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), jank: frame.filter((x) => x > 33).length, p95: quant(frame, 0.95), poleMs: ps.poleSyncMs || 0, poleN: ps.poleSync || 0, idleMax: ps.poleIdleMax || 0, idleSteps: ps.poleIdleSteps || 0 };
       };
       R.first.push(await glide(1));
       await settle(await pageNow());
@@ -943,7 +944,8 @@ async function svColdGlideUnit() {
       put(`${pre}.jank_frames`, 'info', 'frames', reps.map((r) => r.jank));
       put(`${pre}.frame_p95_ms`, 'info', 'ms', reps.map((r) => r.p95));
       put(`${pre}.pole_sync_ms`, 'info', 'ms', reps.map((r) => r.poleMs));
-      log(`${pre}: longest ${reps.map((r) => r.cpuMax.toFixed(1)).join(' / ')} ms; jank ${reps.map((r) => r.jank).join(' / ')}; p95 ${reps.map((r) => (r.p95 || 0).toFixed(1)).join(' / ')} ms; poles ${reps.map((r) => r.poleMs.toFixed(1) + ' ms x' + r.poleN).join(' / ')}`);
+      put(`${pre}.pole_idle_max_ms`, 'info', 'ms', reps.map((r) => r.idleMax));
+      log(`${pre}: longest ${reps.map((r) => r.cpuMax.toFixed(1)).join(' / ')} ms; jank ${reps.map((r) => r.jank).join(' / ')}; p95 ${reps.map((r) => (r.p95 || 0).toFixed(1)).join(' / ')} ms; poles ${reps.map((r) => r.poleMs.toFixed(1) + ' ms x' + r.poleN).join(' / ')}; idle slices of the tracks ${reps.map((r) => r.idleSteps + ' steps, longest ' + r.idleMax.toFixed(1) + ' ms').join(' / ')}`);
     }
   }
 }
@@ -1019,7 +1021,7 @@ async function svInteractUnit(scene) {
   };
   const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
   {
-    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] };
+    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] }, orbitPoles = [];
     // (the reps stop early, said in the details, when the next one would pass 75% of the unit's time limit: fewer reps,
     // not a timeout, which aborts the whole run)
     const t0 = Date.now(), budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.interact.${scene}`)) * 1000;
@@ -1056,8 +1058,20 @@ async function svInteractUnit(scene) {
       // the globe, parked: an orbit (Space held: a plain left drag on a region would move it, P3b)
       await B.ev(`__cmwSteps({ scope: 'all', surf: 'sphere' }), 1`);
       await park();
-      R.orbit.push(legSummary([await dragLeg('L', 160, 60, 'left', 40, 16, true), await dragLeg('L', -160, -60, 'left', 40, 16, true)], 'pointermove'));
+      // (with the glides' pole work counted, __svPathStats, and the long tasks of each leg's settle, their start after
+      // the leg's end: a settle's jank that is a slice of the idle job shows as one)
+      await B.ev('globalThis.__svPathStats = {}, 1');
+      const o1 = await dragLeg('L', 160, 60, 'left', 40, 16, true), o2 = await dragLeg('L', -160, -60, 'left', 40, 16, true);
+      const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
+      const long = [];
+      for (const l of [o1, o2]) long.push(...(await B.ev(`__perf.longSince(${l.b + 1}, ${l.until})`)).map((t) => [+(t[0] - l.b).toFixed(1), t[1]]));
+      R.orbit.push(legSummary([o1, o2], 'pointermove'));
+      orbitPoles.push({ steps: ps.poleIdleSteps || 0, max: ps.poleIdleMax || 0, frame: (ps.poleFrameSteps || 0) + (ps.poleSync || 0), long });
     }
+    put(`sv.orbit.${scene}.pole_idle_steps`, 'info', '', orbitPoles.map((r) => r.steps));
+    put(`sv.orbit.${scene}.pole_idle_max_ms`, 'info', 'ms', orbitPoles.map((r) => r.max));
+    put(`sv.orbit.${scene}.pole_frame_work`, 'info', '', orbitPoles.map((r) => r.frame));
+    detail(`sv.orbit.${scene}.settle_long_tasks`, orbitPoles.map((r) => r.long));
     for (const [k, reps] of Object.entries(R)) {
       const id = `sv.${k}.${scene}`;
       putPooled(`${id}.frame_p95_ms`, 'frame_ms', 'ms', reps, 'frame', 0.95, 'frame_p95');
