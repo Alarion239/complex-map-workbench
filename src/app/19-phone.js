@@ -29,7 +29,7 @@
       prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
       moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
-      xyView: () => S.view.main === 'xy',   // ([v17 D5] the regions' display is the X → Y view's)
+      regionsView: () => S.view.main === 'xy' || SV.on,   // the views that hold the regions' display
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },

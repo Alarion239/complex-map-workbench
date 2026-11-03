@@ -206,8 +206,9 @@ const Inspector = (() => {
       // v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps shows how it is built, after
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true }) : null;
-      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, split, note, nums);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, typing: false };
+      const rep = buildRepeat(k);
+      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, rep.root, det, split, note, nums);
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, rep, typing: false };
       if (split) {
         split.open = foldOpen();
         // (the tour's unfolding, below, is not the viewer's fold)
@@ -224,6 +225,35 @@ const Inspector = (() => {
         }
       }
       return E;
+    }
+    // the steps view's Repeat row (the classic view has the bracket under the cards): "Repeat − N +" and End the repeat, for the
+    // block this step is in. N changes through the same field and step the bracket uses (11-pipeline.js), each change one undo
+    function buildRepeat(k) {
+      if (!A.repeatOf) return { root: null };
+      const block = () => { const r = A.repeatOf(k); return r && A.S().steps[r.b - 1] && A.S().steps[r.b - 1].repeat ? r : null; };
+      // (the bracket's own field: its typing, arrow keys and shared-number case are one builder, in 11-pipeline.js)
+      const field = A.repeatField(() => { const r = block(); return r ? r.b : 0; });
+      const less = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time fewer'), 'data-tip': $t('One time fewer'), onclick: () => { const r = block(); if (r) A.repeatStep(r.b, -1); } }, '−');
+      const more = h('button', { type: 'button', class: 'icon-btn small rep-step', 'aria-label': $t('One time more'), 'data-tip': $t('One time more'), onclick: () => { const r = block(); if (r) A.repeatStep(r.b, 1); } }, '+');
+      const off = h('button', { type: 'button', class: 'btn small rep-end', onclick: () => { const r = A.repeatOf(k); if (r) { A.setRepeat(r.b, null); A.focusStep(r.b); } } }, $t('End the repeat'));
+      const range = h('span', { class: 'rep-range' });
+      const root = h('div', { class: 'insp-repeat', role: 'group', 'aria-label': $t('Repeat'), hidden: true },
+        h('span', { class: 'rep-name' }, $t('Repeat'), range), h('span', { class: 'rep-ctl' }, less, field, more), off);
+      return { root, field, less, more, range };
+    }
+    // what the row says: shown for a step in a block, in the steps view only; the field is left alone while it has the focus
+    function fillRepeat(E, k) {
+      const R = E.rep;
+      if (!R || !R.root) return;
+      const r = A.stepsView && A.stepsView() ? A.repeatOf(k) : null;
+      R.root.hidden = !r;
+      if (!r) return;
+      const lab = r.a === r.b ? $t('Repeat f{k}: times', { k: sub(r.b) }) : $t('Repeat f{a}–f{b}: times', { a: sub(r.a), b: sub(r.b) });
+      R.field.setAttribute('aria-label', lab);
+      R.range.textContent = r.a === r.b ? '' : ` f${sub(r.a)}–f${sub(r.b)}`;
+      if (!R.field.dataset.typing) R.field.value = r.by ? A.Params.display(r.by) : String(r.n);
+      R.less.disabled = !!r.by || r.n <= 1;
+      R.more.disabled = !!r.by || r.n >= A.Funcs.REPEAT_MAX;
     }
     // the fold of the split offer is remembered for this viewer (folding it is the dismissal); open without storage. The
     // key is the app's (lsk: namespaced on a ?ns= page, as every other setting: review regress-2)
@@ -290,15 +320,22 @@ const Inspector = (() => {
       if (btn && btn.disabled !== !!sp.blocked) btn.disabled = !!sp.blocked;
       return true;
     }
-    // after a split, the keyboard goes to the first new card, the chain's option (the button and its Inspector are
-    // rebuilt: the card is looked up again while the chain is drawn; review steps-11)
+    // after a split, the keyboard goes to the first new step: its card in the classic view, its chip on the steps view's
+    // thread (the button and its Inspector are rebuilt: the element is looked up again while the chain is drawn)
+    // The focus has to survive the redraw that follows a split. The classic card is drawn once, but on the steps view's
+    // thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
+    // frames) after the click; what takes it back there is not known (nothing calls blur(), the chip is not replaced). So
+    // the focus is put on the chip again each frame until it has stayed FOCUS_STAYS frames; FOCUS_TRIES frames (10 s at
+    // 60 Hz) bounds the wait. (A user who moves the focus elsewhere in that time has it taken back.)
+    const FOCUS_STAYS = 8, FOCUS_TRIES = 600;
     function focusCard(k) {
-      let n = 0;
+      let n = 0, held = 0;
       const go = () => {
-        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k}"]`));
-        if (c && c.isConnected && document.activeElement !== c) c.focus({ preventScroll: true });
-        // (held for 12 frames: the chain and the Inspector are drawn again after the split)
-        if (++n < 12) requestAnimationFrame(go);
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(A.svOn && A.svOn() ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`));
+        if (c && c.isConnected) {
+          if (document.activeElement !== c) { c.focus({ preventScroll: true }); held = 0; } else held++;
+        }
+        if (held < FOCUS_STAYS && ++n < FOCUS_TRIES) requestAnimationFrame(go);
       };
       go();
     }
@@ -474,6 +511,7 @@ const Inspector = (() => {
       const nt = A.numbersOf ? A.numbersOf(k) : '';
       if (E.nums.textContent !== nt) E.nums.textContent = nt;
       E.nums.hidden = !nt;
+      fillRepeat(E, k);
     }
     // ---- F ----
     function buildF() {

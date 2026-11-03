@@ -91,8 +91,10 @@
     const pane = paneL;
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
+    // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
+    if (SV.on) mfDrawn = null;
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
-    if (SV.on) { svCheck(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
+    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
@@ -158,7 +160,7 @@
     }
     Construct.syncChip();
     // P3b: the globes take drawing (panels.md 9). What still draws nothing says so: the landscape, a planar-centred
-    // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane'), the z-globe at a focused stage (P4)
+    // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
       const drawing = tool !== 'select' && solo() !== 'R';
@@ -167,7 +169,6 @@
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
-      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('On the globe, shapes are drawn in the z-plane: choose Plane to draw in this plane, or Show F.');
       // (v16.5 UX71) listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
       if (!msg) { msg = listenChipMsg(); if (msg) act = { stop: true }; }
@@ -482,10 +483,11 @@
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
-    if (S.outline && !artMode && !hideStrokes) {
+    // (with Outlines off the plane draws no curves but the selected shape's)
+    if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
       for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) === 'point') continue;
+        if (s.visible === false || kindType(s) === 'point' || (!S.outline && s.id !== selected)) continue;
         const map = shapeMap(s, map0);
         if (!map) continue;
         const r = shapeGPU(s);
@@ -519,6 +521,8 @@
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
     const handles = drawCuts(pane, k, true, false);
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
+    // (the points of later planes, by their preimages here, as in X Plane)
+    if (pane === paneL) { updatePre('L', pane, k); drawPre(pane, 'L', k); }
     if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');

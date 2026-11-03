@@ -160,16 +160,19 @@ async function sceneHealth() {
   })()`).catch((e) => ({ stepErrors: [], drawn: [], hookError: String(e) }));
 }
 // why the reference cannot run a unit that the current build runs, or null: per scene opened (in order), a step that
-// errs only on the reference, a shape that draws only on the current build (both settled: a mesh still being built is
-// not a shape that cannot draw), or an exception only the reference threw; or the unit itself failed only on the
-// reference
+// errs only on the reference, a user's shape that draws only on the current build (both settled: a mesh still being
+// built is not a shape that cannot draw), or an exception only the reference threw; or the unit itself failed only on
+// the reference. The steps view's own shapes (ids '__sv…': the whole plane, the outer rings, the warm-up disc) are
+// made by the view as it needs them, not by the scene: one drawn only on the current build is no feature the reference
+// lacks
+const viewShape = (id) => String(id).startsWith('__sv');
 function refCannot(ref, cur, refErr, curErr) {
   if (refErr && !curErr) return `the unit failed on the reference: ${String(refErr).split('\n')[0].slice(0, 160)}`;
   for (let i = 0; i < Math.min(ref.length, cur.length); i++) {
     const a = ref[i], b = cur[i];
     const k = a.stepErrors.findIndex((e, j) => e && !b.stepErrors[j]);
     if (k >= 0) return `step f${k + 1} does not build there: ${a.stepErrors[k]}`;
-    const gone = a.settled && b.settled ? b.drawn.filter((id) => !a.drawn.includes(id)) : [];
+    const gone = a.settled && b.settled ? b.drawn.filter((id) => !a.drawn.includes(id) && !viewShape(id)) : [];
     if (gone.length) return `shape ${gone.join(', ')} draws nothing there`;
     if (a.exc.length && !b.exc.length) return `the scene throws there: ${a.exc[0]}`;
   }
@@ -224,7 +227,7 @@ async function dragLeg(side, dx, dy, button, n = 40, dt = 16, space = false) {
   if (space) await B.key('keyUp');
   const w = await windowStats(a, b);
   const s = await settle(b);
-  return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b });
+  return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b, until: s.now });
 }
 // a wheel gesture: `steps` wheel events of deltaY 50 (x1.083 zoom each) every `gap` ms at a point near the centre.
 // delta: the deltaY sent over CDP (with a device scale factor of 2 the page receives half of it, so dpr-2 units send
@@ -902,10 +905,11 @@ async function svFirstGlideUnit() {
   }
 }
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
-// idle SV_IDLE_MS, then the first glide to plane 1 (cold: its pole tracks made whole at its first frame,
-// __svPathStats.poleSyncMs), and back; then a step added (the same function again, __cmwAddStep) and a glide to plane 1
-// at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness). Per glide: its longest frame (CPU),
-// frames over 33 ms (jank), frame p95 and the poles' synchronous ms. Info rows
+// idle SV_IDLE_MS, then the first glide to plane 1, and back; then a step added (the same function again,
+// __cmwAddStep) and a glide to plane 1 at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness).
+// Per glide: its longest frame (CPU), frames over 33 ms (jank), frame p95, the poles' searches in its frames
+// (__svPathStats.poleSyncMs, while a glide's tracks are not whole) and the idle job's longest slice of the tracks
+// (poleIdleMax). Info rows
 async function svColdGlideUnit() {
   for (const scene of ['default', 'king']) {
     const R = { first: [], edit: [] };
@@ -925,7 +929,7 @@ async function svColdGlideUnit() {
         const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
         const fr = (await B.ev(`__perf.framesSince(${a}, ${b + 20})`)).filter((f) => f[4] > 0);
         const frame = fr.map((f) => f[1] + f[2]);
-        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), jank: frame.filter((x) => x > 33).length, p95: quant(frame, 0.95), poleMs: ps.poleSyncMs || 0, poleN: ps.poleSync || 0 };
+        return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), jank: frame.filter((x) => x > 33).length, p95: quant(frame, 0.95), poleMs: ps.poleSyncMs || 0, poleN: ps.poleSync || 0, idleMax: ps.poleIdleMax || 0, idleSteps: ps.poleIdleSteps || 0 };
       };
       R.first.push(await glide(1));
       await settle(await pageNow());
@@ -943,7 +947,8 @@ async function svColdGlideUnit() {
       put(`${pre}.jank_frames`, 'info', 'frames', reps.map((r) => r.jank));
       put(`${pre}.frame_p95_ms`, 'info', 'ms', reps.map((r) => r.p95));
       put(`${pre}.pole_sync_ms`, 'info', 'ms', reps.map((r) => r.poleMs));
-      log(`${pre}: longest ${reps.map((r) => r.cpuMax.toFixed(1)).join(' / ')} ms; jank ${reps.map((r) => r.jank).join(' / ')}; p95 ${reps.map((r) => (r.p95 || 0).toFixed(1)).join(' / ')} ms; poles ${reps.map((r) => r.poleMs.toFixed(1) + ' ms x' + r.poleN).join(' / ')}`);
+      put(`${pre}.pole_idle_max_ms`, 'info', 'ms', reps.map((r) => r.idleMax));
+      log(`${pre}: longest ${reps.map((r) => r.cpuMax.toFixed(1)).join(' / ')} ms; jank ${reps.map((r) => r.jank).join(' / ')}; p95 ${reps.map((r) => (r.p95 || 0).toFixed(1)).join(' / ')} ms; poles ${reps.map((r) => r.poleMs.toFixed(1) + ' ms x' + r.poleN).join(' / ')}; idle slices of the tracks ${reps.map((r) => r.idleSteps + ' steps, longest ' + r.idleMax.toFixed(1) + ' ms').join(' / ')}`);
     }
   }
 }
@@ -1002,6 +1007,51 @@ const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
 // sampling returns
 const SV_LABEL_MS_LIMIT = 2;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
+// Per-frame attribution of the King's scrub frames (info only, #714): each frame at or over SV_ATTR_MS with its index in
+// the leg, cpu, gpu, the rAF gap before it (its t0 less the previous frame's t1), the WebGL calls the page made in it
+// and the thread's place (__cmwSvX); and the count of such frames by class: 'start' (the leg's first two moving
+// frames: the first two whose place differs from the leg's first snapshot's; a return leg's first frame is still drawn
+// at the plane it leaves), 'arrival' (the thread within SV_ATTR_ARRIVE of a plane: x moves about 0.04 a frame, and the
+// slow block on arriving spans about five frames) and 'other'. SV_ATTR_MS is about the row's limit on a quiet
+// reference (max(1.15 x 14.7, 14.7 + 2) ms).
+const SV_ATTR_MS = 17, SV_ATTR_ARRIVE = 0.1;
+const SV_ATTR_GL = ['useProgram', 'bindFramebuffer', 'drawArrays', 'drawArraysInstanced', 'clear', 'readPixels', 'createTexture',
+  'createBuffer', 'createVertexArray', 'texImage2D', 'bufferData', 'getProgramParameter', 'linkProgram'];
+// (counts WebGL2 calls by name while __svAttr.on; one snapshot per animation frame, its counts since the one before and
+// the thread's place)
+const SV_ATTR_REC = `(() => {
+  if (window.__svAttr) return 1;
+  const R = window.__svAttr = { on: false, gl: {}, snaps: [] }, P = WebGL2RenderingContext.prototype;
+  for (const k of ${JSON.stringify(SV_ATTR_GL)}) {
+    const f = P[k];
+    if (typeof f === 'function') P[k] = function (...a) { if (R.on) R.gl[k] = (R.gl[k] || 0) + 1; return f.apply(this, a); };
+  }
+  const snap = () => {
+    if (R.on) { R.snaps.push([performance.now(), R.gl, typeof __cmwSvX === 'function' ? __cmwSvX() : null]); R.gl = {}; }
+    requestAnimationFrame(snap);
+  };
+  requestAnimationFrame(snap);
+  return 1;
+})()`;
+// the frames of one leg (windowStats' drawn, prev: the frame drawn before the leg or null) at or over SV_ATTR_MS, each
+// with its class, from the leg's snapshots ([t, gl, x], in time order)
+function svAttrFrames(drawn, prev, snaps) {
+  const out = [], x0 = snaps.length ? snaps[0][2] : null;
+  let moved = 0;
+  drawn.forEach((f, i) => {
+    const frame = f[1] + f[2];
+    const before = i > 0 ? drawn[i - 1] : prev;
+    // (the snapshot taken after the frame's end holds its counts and the place the frame drew)
+    const sn = snaps.find((q) => q[0] >= f[6]) || null;
+    const x = sn ? sn[2] : null;
+    // (without places, the leg's first two frames)
+    const start = x0 == null || x == null ? i < 2 : x !== x0 && moved++ < 2;
+    if (frame < SV_ATTR_MS) return;
+    const cls = start ? 'start' : x != null && Math.abs(x - Math.round(x)) <= SV_ATTR_ARRIVE ? 'arrival' : 'other';
+    out.push({ i, of: drawn.length, frame: +frame.toFixed(2), cpu: +f[1].toFixed(2), gpu: +f[2].toFixed(2), gap: before ? +(f[0] - before[6]).toFixed(2) : null, x: x == null ? null : +x.toFixed(3), gl: sn ? sn[1] : {}, cls });
+  });
+  return out;
+}
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
@@ -1009,17 +1059,26 @@ async function svInteractUnit(scene) {
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.interact.${scene}`, 'skipped: a software renderer (one rep outlasts the unit\'s time limit there)'); return; }
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
   // a timed window around fn, then its settle (as dragLeg)
-  const leg = async (fn) => {
+  const attr = scene === 'king';
+  const leg = async (fn, rec) => {
+    if (rec) await B.ev('(__svAttr.snaps = [], __svAttr.gl = {}, __svAttr.on = true, 1)');
     const bl0 = await B.ev('__svBl.n'), a = await pageNow();
     await fn();
     const b = await pageNow(), bl1 = await B.ev('__svBl.n');
     const w = await windowStats(a, b);
+    if (rec) {
+      const snaps = JSON.parse(await B.ev('(__svAttr.on = false, JSON.stringify(__svAttr.snaps))'));
+      const before = await B.ev(`__perf.framesSince(${a - 2000}, ${a}).filter((f) => f[4] > 0).pop() || null`);
+      w.attr = svAttrFrames(w.drawn, before, snaps);
+    }
     const st = await settle(b);
     return Object.assign(w, { blits: bl1 - bl0, settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now), a, b });
   };
   const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
   {
-    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] };
+    const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] }, orbitPoles = [];
+    // (per rep, per leg: the frames at or over SV_ATTR_MS, svAttrFrames)
+    const slow = { all: [], in: [] };
     // (the reps stop early, said in the details, when the next one would pass 75% of the unit's time limit: fewer reps,
     // not a timeout, which aborts the whole run)
     const t0 = Date.now(), budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.interact.${scene}`)) * 1000;
@@ -1033,6 +1092,7 @@ async function svInteractUnit(scene) {
       if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
       await sleep(SV_IDLE_MS);
       await B.ev(SV_GLCOUNT);
+      if (attr) await B.ev(SV_ATTR_REC);
       // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
       for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
       await settle(await pageNow());
@@ -1042,9 +1102,10 @@ async function svInteractUnit(scene) {
         // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
         const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
         const r1 = await stripAt();
-        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }));
+        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }), attr);
         const r2 = await stripAt();
-        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }));
+        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }), attr);
+        if (attr) slow[scope].push([l1, l2].map((l) => l.attr));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
@@ -1056,8 +1117,20 @@ async function svInteractUnit(scene) {
       // the globe, parked: an orbit (Space held: a plain left drag on a region would move it, P3b)
       await B.ev(`__cmwSteps({ scope: 'all', surf: 'sphere' }), 1`);
       await park();
-      R.orbit.push(legSummary([await dragLeg('L', 160, 60, 'left', 40, 16, true), await dragLeg('L', -160, -60, 'left', 40, 16, true)], 'pointermove'));
+      // (with the glides' pole work counted, __svPathStats, and the long tasks of each leg's settle, their start after
+      // the leg's end: a settle's jank that is a slice of the idle job shows as one)
+      await B.ev('globalThis.__svPathStats = {}, 1');
+      const o1 = await dragLeg('L', 160, 60, 'left', 40, 16, true), o2 = await dragLeg('L', -160, -60, 'left', 40, 16, true);
+      const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
+      const long = [];
+      for (const l of [o1, o2]) long.push(...(await B.ev(`__perf.longSince(${l.b + 1}, ${l.until})`)).map((t) => [+(t[0] - l.b).toFixed(1), t[1]]));
+      R.orbit.push(legSummary([o1, o2], 'pointermove'));
+      orbitPoles.push({ steps: ps.poleIdleSteps || 0, max: ps.poleIdleMax || 0, frame: (ps.poleFrameSteps || 0) + (ps.poleSync || 0), long });
     }
+    put(`sv.orbit.${scene}.pole_idle_steps`, 'info', '', orbitPoles.map((r) => r.steps));
+    put(`sv.orbit.${scene}.pole_idle_max_ms`, 'info', 'ms', orbitPoles.map((r) => r.max));
+    put(`sv.orbit.${scene}.pole_frame_work`, 'info', '', orbitPoles.map((r) => r.frame));
+    detail(`sv.orbit.${scene}.settle_long_tasks`, orbitPoles.map((r) => r.long));
     for (const [k, reps] of Object.entries(R)) {
       const id = `sv.${k}.${scene}`;
       putPooled(`${id}.frame_p95_ms`, 'frame_ms', 'ms', reps, 'frame', 0.95, 'frame_p95');
@@ -1068,6 +1141,17 @@ async function svInteractUnit(scene) {
     }
     put(`sv.interact.${scene}.reps`, 'info', '', [R.orbit.length]);
     put(`sv.scrub.all.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.all)], { limit: SV_COPIES_LIMIT, samples: copies.all.map(r3) });
+    // (the King's frames at or over SV_ATTR_MS by class, per rep: info rows, and each frame in the details and the log)
+    if (attr) {
+      for (const scope of ['all', 'in']) {
+        const reps = slow[scope], pre = `sv.scrub.${scope}.${scene}.slow`;
+        for (const cls of ['start', 'arrival', 'other']) put(`${pre}_${cls}`, 'info', 'frames', reps.map((legs) => legs.flat().filter((f) => f.cls === cls).length));
+        detail(`${pre}_frames`, { limit_ms: SV_ATTR_MS, reps: reps.map((legs) => legs.map((fs, k) => ({ leg: k ? 'back' : 'out', frames: fs }))) });
+        reps.forEach((legs, r) => legs.forEach((fs, k) => {
+          for (const f of fs) log(`${pre} rep ${r + 1} ${k ? 'back' : 'out'} #${f.i}/${f.of} ${f.cls}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}, gap ${f.gap}), x ${f.x}; gl ${JSON.stringify(f.gl)}`);
+        }));
+      }
+    }
     put(`sv.scrub.in.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.in)], { limit: SV_COPIES_IN_LIMIT, samples: copies.in.map(r3) });
   }
 }
@@ -2168,8 +2252,9 @@ if (require.main === module) {
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { try { if (B) await B.close(); } catch (e) { /* ignore */ } process.exit(130); });
   main().catch(async (e) => { console.error(e); try { if (B) await B.close(); } catch (x) { /* ignore */ } process.exit(2); });
 }
-// for perf/selftest.js: the runner's own helpers, driven against a browser it launched
+// for perf/selftest.js (the runner's own helpers, driven against a browser it launched), test/t_perf_refcannot.js and
+// test/t_perf_attr.js
 module.exports = {
   use(browser, base) { B = browser; if (base) BASE = base.endsWith('/') ? base : base + '/'; },
-  RES, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
+  RES, refCannot, svAttrFrames, SV_ATTR_MS, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
 };

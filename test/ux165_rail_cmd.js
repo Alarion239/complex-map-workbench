@@ -315,7 +315,10 @@ await section('D', async () => {
   await settle(300);
   const sm = await ST(), uu = byId(sm, 'u'), uc = sm.list.find((x) => x.fixed === 'unit');
   info.Dmenu = { mi, uu, uc: uc && uc.id, n: sm.n, m0 };
-  ok('D ⋯ Put on this curve on the unit circle: the point on it, the fixed unit circle made, one undo step', uu.def && uu.def.op === 'glider' && uc && uu.def.args[0].s === uc.id && Math.abs(Math.hypot(uu.p[0], uu.p[1]) - 1) < 1e-15 && sm.n === m0 + 1, info.Dmenu);
+  ok('D ⋯ Put on this curve on the unit circle: the point on it, the unit circle before it, one undo step',
+    uu.def && uu.def.op === 'glider' && uc && uu.def.args[0].s === uc.id &&
+    Math.abs(Math.hypot(uu.p[0], uu.p[1]) - 1) < 1e-15 && sm.n === m0 + 1 &&
+    sm.list.indexOf(uc) < sm.list.indexOf(uu), info.Dmenu);
 });
 
 // ---------------------------------------------------------------- E
@@ -587,7 +590,9 @@ await section('K', async () => {
   await view(1366, 768, false, false);
   await load(NS + 'k', U0({ unit: false, shapes: [Object.assign({}, C1, { r: 0.8 }), gl('g', 0.1)], nextId: 30 }));
   await settle(900);
-  await ev(`__cmwSetView('L', 'sphere'), 1`); await settle(1200);
+  // (the globe: the classic left pane's Sphere view, or the steps view's surface switch)
+  if (await ev(`document.documentElement.classList.contains('sv')`)) await ev(`__cmwSteps({ surf: 'sphere' }), 1`); else await ev(`__cmwSetView('L', 'sphere'), 1`);
+  await settle(1200);
   await tool('select');
   const GS = (re, im) => ev(`(() => { const P = Region.Globe.lift(${re}, ${im}); return __cmwCI({ gs: ['L', P] }); })()`);
   const pt = (deg) => GS(0.8 * Math.cos(deg * Math.PI / 180), 0.8 * Math.sin(deg * Math.PI / 180));
@@ -613,12 +618,18 @@ await section('K', async () => {
   await tool('point');
   const n1 = (await ST()).n, Q = await pt(70), Qo = await GS(1.2 * Math.cos(70 * Math.PI / 180), 1.2 * Math.sin(70 * Math.PI / 180));
   const ql = Math.hypot(Qo[0] - Q[0], Qo[1] - Q[1]);
-  await click(Q[0] + 3 * (Qo[0] - Q[0]) / ql, Q[1] + 3 * (Qo[1] - Q[1]) / ql); await settle(300);
+  // (a double press: both presses are sent before the page has handled the first. Sent one after the other, each
+  // awaited, the page's slow frames (a software renderer) come between them, and the second press arrives after the
+  // 600 ms window the page ignores a repeated press in)
+  const len1 = (await ST()).list.length;
+  const Pq = [Q[0] + 3 * (Qo[0] - Q[0]) / ql, Q[1] + 3 * (Qo[1] - Q[1]) / ql];
+  const mouse = (type, x, y) => send('Input.dispatchMouseEvent', type === 'mouseMoved' ? { type, x, y } : { type, x, y, button: 'left', clickCount: 1 });
+  await Promise.all([[Pq[0], Pq[1]], [Pq[0] + 1, Pq[1] + 1]].flatMap(([x, y]) => ['mouseMoved', 'mousePressed', 'mouseReleased'].map((type) => mouse(type, x, y))));
+  await settle(700);
   let st = await ST(); const k2 = last(st);
   info.K2 = { k2, n1, n: st.n };
   ok('K the Point tool on the globe: a point on the drawn circle (|p| = 0.8), one undo step', k2.kind === 'point' && k2.def && k2.def.op === 'glider' && k2.def.args[0].s === 'C' && Math.abs(Math.hypot(k2.p[0], k2.p[1]) - 0.8) < 1e-12 && st.n === n1 + 1, info.K2);
-  await click(Q[0] + 3 * (Qo[0] - Q[0]) / ql + 1, Q[1] + 3 * (Qo[1] - Q[1]) / ql + 1); await settle(700);
-  ok('K a double press places no second point', (await ST()).list.length === st.list.length, (await ST()).list.length);
+  ok('K a double press places no second point', st.list.length === len1 + 1, [len1, st.list.length]);
   const F2 = await GS(0.45 * Math.cos(70 * Math.PI / 180), 0.45 * Math.sin(70 * Math.PI / 180));
   await click(F2[0], F2[1]); await settle(300);
   st = await ST(); const k3 = last(st);

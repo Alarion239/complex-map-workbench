@@ -2,6 +2,7 @@
 // the view, and the sheet key at t (the glide map's poles at t beside plane b's points, __cmwSvKey(b, t)), against the
 // exact colour pulled back pixel by pixel as steps_carry_inregion_cmd.js reads it, the reference zoomed out for points
 // past the camera.
+// Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
 // - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (the outer ring of carried points,
 //   svRingFor; the front point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
 // - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered.
@@ -168,6 +169,9 @@ async function farFrames(P0, J) {
 // here); and at 40 points w across the pane, in steps of 0.01, the front point changes with t only once at a time,
 // never back on the next step
 async function keyAlongT(P0, J) {
+  // (the key reads the glide's pole tracks once the idle moments have made them whole; until then it reads a fallback)
+  const whole = await settled({ max: 30000, until: '(() => { const k = __cmwSvKey(1, 0.5); return !!k.tracks && k.tracks.k === k.tracks.of; })()' });
+  ok("Joukowski key along t: the idle moments make plane w1's pole tracks whole", whole.ok, whole);
   const keyOff = [];
   for (let s = 30; s <= 70; s += 5) {
     const got = (await ev(`__cmwSvKey(1, ${s / 100})`)).sing, want = J.poleAt(s / 100);
@@ -198,6 +202,7 @@ const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=cfar${Date.now()}`);
 await ready();
+await ev("__cmwSet('morphPaths', false), 1");
 await ev(`__cmwExample(${EX}); 1`);
 await wait();
 {
@@ -221,6 +226,7 @@ await wait();
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
+  await ev("__cmwSet('morphPaths', false), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = [];
   for (let j = 0; j < 30; j++) for (let i = 0; i < 44; i++) pts.push([P.v.cx + (i / 43 - 0.5) * 0.9 * P.w / P.v.s, P.v.cy + (j / 29 - 0.5) * 0.9 * P.h / P.v.s]);
