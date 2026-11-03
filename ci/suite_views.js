@@ -205,6 +205,7 @@ const VIEWS = {
   'sound_v152_cmd.js': port('sound'),
 
   // to port: engine (no view of its own)
+  'kit_seed_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),
   'line_slice_cmd.js': steps({ pin: true }),
   'mj_ranges_cmd.js': steps({ pin: true }),
