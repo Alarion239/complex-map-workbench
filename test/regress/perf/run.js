@@ -1329,6 +1329,94 @@ async function svqZetaUnit() {
     } finally { if (dpr !== 1) await setDpr(1); }
   }
 }
+// [#714 probe] the carry's settings, side by side on one warm page per scene (zeta, the Mountain King): each setting is
+// globalThis.__svCarryProbe = flags (the app's test hooks), its programs linked by one unmeasured scrub there and back,
+// then the Everywhere scrub there and back and a glide to plane 1 and back, timed. REPS reps, the settings' order
+// rotating by one each rep (so drift falls on all alike). The settings are the page's globalThis.__svCarryProbeSettings
+// ({name: flags}) when it has one; else SVQ_SETTINGS on the current side and base alone on the reference (it has no
+// hooks). Per setting and leg: frame p95, cpu p95 and rAF intervals over 25 ms (info), a summary line in the log, and
+// each setting's frame p95 less noCarry's. Info only: a probe, never a gate
+const SVQ_SETTINGS = { base: {}, reuse: { reuse: true }, onePass: { reuse: true, onePass: true }, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };
+async function svqVariantUnit(scene) {
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`svq.${scene}v`, 'skipped: a software renderer (CMW_SV_SOFT=1 runs it)'); return; }
+  const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
+  const side = (RES.meta && RES.meta.paired) || 'single';
+  await B.nav(`${BASE}test.html?ns=perfsvqv${process.pid}_${++nsCounter}&view=steps`);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
+  await settle(await pageNow());
+  await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
+  await sleep(SV_IDLE_MS);
+  for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+  await settle(await pageNow());
+  const pageSet = await B.ev('JSON.stringify(globalThis.__svCarryProbeSettings || null)');
+  const SET = JSON.parse(pageSet) || (side === 'reference' ? { base: {} } : SVQ_SETTINGS);
+  const names = Object.keys(SET);
+  detail(`svq.${scene}v.settings`, SET);
+  log(`svq.${scene}v [${side}] settings: ${names.map((k) => `${k} ${JSON.stringify(SET[k])}`).join(' | ')}`);
+  const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+  const scrub = async (timed) => {
+    const out = [];
+    for (const back of [false, true]) {
+      const r = await stripAt(), a = await pageNow();
+      if (back) await B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }); else await B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 });
+      const b = await pageNow();
+      if (timed) out.push(await windowStats(a, b));
+      await settle(b);
+    }
+    return out;
+  };
+  const glide = async () => {
+    const out = [];
+    for (const to of [1, 0]) {
+      const a = await pageNow();
+      await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+      await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+      const b = await pageNow();
+      out.push(await windowStats(a, b));
+      await settle(b);
+    }
+    return out;
+  };
+  const R = {};
+  for (const k of names) R[k] = { scrub: [], glide: [], longS: [], longG: [] };
+  for (let i = 0; i < REPS; i++) {
+    for (let j = 0; j < names.length; j++) {
+      const k = names[(i + j) % names.length];
+      await B.ev(`globalThis.__svCarryProbe = ${JSON.stringify(SET[k])}, 1`);
+      await B.ev(`__cmwSteps({ scope: 'all', go: 0, now: true }), 1`);
+      await settle(await pageNow());
+      await scrub(false);   // (unmeasured: the setting's programs linked)
+      const s = await scrub(true);
+      const g = await glide();
+      if (!s.every((l) => l.drawn.length) || !g.every((l) => l.drawn.length)) throw new Error(`svq.${scene}v.${k}: a window drew no frames`);
+      R[k].scrub.push(legSummary(s, 'pointermove')); R[k].glide.push(legSummary(g, 'none'));
+      R[k].longS.push(s.flatMap((l) => l.ints).filter((d) => d > SV_GLIDE_JANK_MS).length);
+      R[k].longG.push(g.flatMap((l) => l.ints).filter((d) => d > SV_GLIDE_JANK_MS).length);
+    }
+  }
+  await B.ev('globalThis.__svCarryProbe = null, 1');
+  const p95 = {};
+  for (const k of names) {
+    for (const leg of ['scrub', 'glide']) {
+      const pre = `svq.${scene}v.${k}.${leg}`, reps = R[k][leg];
+      putPooled(`${pre}.frame_p95_ms`, 'info', 'ms', reps, 'frame', 0.95, 'frame_p95');
+      putPooled(`${pre}.cpu_p95_ms`, 'info', 'ms', reps, 'cpu', 0.95, 'cpu_p95');
+      put(`${pre}.long_intervals`, 'info', 'intervals > 25 ms', leg === 'scrub' ? R[k].longS : R[k].longG);
+      (p95[leg] || (p95[leg] = {}))[k] = quant(reps.flatMap((r) => r.pool.frame), 0.95);
+      log(`svq.${scene}v.${k}.${leg} [${side}]: frame p95 ${reps.map((r) => r.frame_p95.toFixed(1)).join(' / ')} (pooled ${p95[leg][k].toFixed(1)}) ms; cpu p95 ${reps.map((r) => r.cpu_p95.toFixed(1)).join(' / ')} ms; intervals > 25 ms ${(leg === 'scrub' ? R[k].longS : R[k].longG).join(' / ')}`);
+    }
+  }
+  if (names.includes('noCarry')) {
+    for (const leg of ['scrub', 'glide']) {
+      const n = p95[leg].noCarry;
+      log(`svq.${scene}v ${leg} [${side}] frame p95 less noCarry's: ${names.filter((k) => k !== 'noCarry').map((k) => `${k} ${(p95[leg][k] - n).toFixed(2)}`).join(' | ')} ms`);
+      for (const k of names) if (k !== 'noCarry') put(`svq.${scene}v.${k}.${leg}.over_nocarry_ms`, 'info', 'ms', [p95[leg][k] - n]);
+    }
+  }
+}
 async function cardsStartupUnit() {
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -2107,6 +2195,8 @@ unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default p
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('svq.zeta', 'a probe (#714): where the zeros of zeta spend main-thread time gliding (dpr 1 and 2) and scrubbing: timed runs, a JS profile and a Chrome trace per leg; info only', svqZetaUnit, { timeoutS: 900 });
+unit('svq.zetav', 'a probe (#714): the carry\'s settings (globalThis.__svCarryProbe: base, reuse, onePass, cacheOnly, noCarry, or the page\'s own list) on the zeros of zeta, scrub and glide, the order rotating; info only', () => svqVariantUnit('zeta'), { timeoutS: 900 });
+unit('svq.kingv', 'a probe (#714): the carry\'s settings (as svq.zetav) on the Mountain King, scrub and glide, the order rotating; info only', () => svqVariantUnit('king'), { timeoutS: 1200 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
