@@ -486,8 +486,10 @@
     const m0 = normalizeMap(map);
     const live = (role === 'R' || role === 'L') && !offRender && !opt.thin;
     // (opt.sm: the SphereMesh role of a draw with no pane role of its own, the steps view's region mask 'SV': its
-    // meshes are asked for and its paths noted as a live pane's)
+    // meshes are asked for and its paths noted as a live pane's; its meshes, drawn solid, have a slot of their own,
+    // kind 'mask', apart from the carried colour's flat meshes of the same role, whose look is the user's pattern)
     const smRole = role || opt.sm || null, smLive = live || (!!opt.sm && !offRender);
+    const smKind = opt.sm && !role ? 'mask' : 'flat';
     let recs = null, gf = null, timing = false, invN = 0;
     const halfDraws0 = GLR.inverseHalfDraws || 0;
     if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
@@ -645,7 +647,7 @@
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
       const smd = (smLive || offRender) && smRole
-        ? smFor(s, r, smRole, 'flat', map, pane, 0, smLive && lp !== 'pending') : null;
+        ? smFor(s, r, smRole, smKind, map, pane, 0, smLive && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
         if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();

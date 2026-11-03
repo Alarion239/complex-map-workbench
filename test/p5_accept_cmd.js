@@ -1,6 +1,7 @@
 // P5 acceptance in the browser (notes/sphere-design/SPEC.md 8, 12.3, 12.4 (k)): the forward fallback SphereMesh, in the
 // steps view. Each page shows the chain's last plane with the colour plane z (T = 0) on Inside regions, in the Phase
-// colouring: the regions' mask on that plane is drawn from the steps view's SphereMesh slot 'SV' (drawScene's opt.sm).
+// colouring: the regions' mask on that plane is drawn from the steps view's SphereMeshes (role 'SV', kind 'mask':
+// drawScene's opt.sm).
 // One camera shows every plane (S.srcView): the scenes' views of the image are their srcView.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
