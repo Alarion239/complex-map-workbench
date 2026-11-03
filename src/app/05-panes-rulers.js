@@ -1071,7 +1071,7 @@
           }
           // (o.carry: the steps view's carried colour, svCarryStyle: each point of the region its own colour, opaque; drawn
           // cold, as svCarryExact draws it on the flat plane: the warm-up (GLR.warmInverse) knows the plain programs only)
-          const look = o.carry ? { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }
+          const look = o.carry ? SV_CARRY_LOOK
             : { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch };
           regions.push({
             inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender || !!o.carry, globeBox: gbox, look, carry: o.carry ? o.carry.style : undefined },

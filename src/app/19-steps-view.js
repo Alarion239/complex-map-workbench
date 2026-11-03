@@ -514,6 +514,8 @@
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
     return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
   }
+  // the look of a region pass that draws the carried colour: opaque, each point its own colour, no lines
+  const SV_CARRY_LOOK = Object.freeze({ alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false });
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
