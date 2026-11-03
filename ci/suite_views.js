@@ -183,6 +183,7 @@ const VIEWS = {
   'p3_accept_cmd.js': steps({ pin: true }),
   'p3_accept_classic_cmd.js': classic('the spherical checker pattern: the steps view has no region pattern (ux on #719)'),
   'p3_review_cmd.js': steps({ pin: true }),
+  'p3_review_classic_cmd.js': classic('the Sphere checker and the Checker patterns: the steps view has no region pattern (ux on #719)'),
   'p3b_accept_cmd.js': port('render'),
   'p3bfix_cmd.js': port('render'),
   'p5_accept_cmd.js': port('render'),
