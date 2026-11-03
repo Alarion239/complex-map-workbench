@@ -1007,9 +1007,11 @@ const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl 
 // Per-frame attribution of the King's scrub frames (info only, #714): each frame at or over SV_ATTR_MS with its index in
 // the leg, cpu, gpu, the rAF gap before it (its t0 less the previous frame's t1), the WebGL calls the page made in it
 // and the thread's place (__cmwSvX); and the count of such frames by class: 'start' (the leg's first two moving
-// frames), 'arrival' (the thread within 0.05 of a plane) and 'other'. SV_ATTR_MS is about the row's limit on a quiet
+// frames: the first two whose place differs from the leg's first snapshot's; a return leg's first frame is still drawn
+// at the plane it leaves), 'arrival' (the thread within SV_ATTR_ARRIVE of a plane: x moves about 0.04 a frame, and the
+// slow block on arriving spans about five frames) and 'other'. SV_ATTR_MS is about the row's limit on a quiet
 // reference (max(1.15 x 14.7, 14.7 + 2) ms).
-const SV_ATTR_MS = 17;
+const SV_ATTR_MS = 17, SV_ATTR_ARRIVE = 0.1;
 const SV_ATTR_GL = ['useProgram', 'bindFramebuffer', 'drawArrays', 'drawArraysInstanced', 'clear', 'readPixels', 'createTexture',
   'createBuffer', 'createVertexArray', 'texImage2D', 'bufferData', 'getProgramParameter', 'linkProgram'];
 // (counts WebGL2 calls by name while __svAttr.on; one snapshot per animation frame, its counts since the one before and
@@ -1031,15 +1033,18 @@ const SV_ATTR_REC = `(() => {
 // the frames of one leg (windowStats' drawn, prev: the frame drawn before the leg or null) at or over SV_ATTR_MS, each
 // with its class, from the leg's snapshots ([t, gl, x], in time order)
 function svAttrFrames(drawn, prev, snaps) {
-  const out = [];
+  const out = [], x0 = snaps.length ? snaps[0][2] : null;
+  let moved = 0;
   drawn.forEach((f, i) => {
     const frame = f[1] + f[2];
-    if (frame < SV_ATTR_MS) return;
     const before = i > 0 ? drawn[i - 1] : prev;
     // (the snapshot taken after the frame's end holds its counts and the place the frame drew)
     const sn = snaps.find((q) => q[0] >= f[6]) || null;
     const x = sn ? sn[2] : null;
-    const cls = i < 2 ? 'start' : x != null && Math.abs(x - Math.round(x)) <= 0.05 ? 'arrival' : 'other';
+    // (without places, the leg's first two frames)
+    const start = x0 == null || x == null ? i < 2 : x !== x0 && moved++ < 2;
+    if (frame < SV_ATTR_MS) return;
+    const cls = start ? 'start' : x != null && Math.abs(x - Math.round(x)) <= SV_ATTR_ARRIVE ? 'arrival' : 'other';
     out.push({ i, of: drawn.length, frame: +frame.toFixed(2), cpu: +f[1].toFixed(2), gpu: +f[2].toFixed(2), gap: before ? +(f[0] - before[6]).toFixed(2) : null, x: x == null ? null : +x.toFixed(3), gl: sn ? sn[1] : {}, cls });
   });
   return out;
