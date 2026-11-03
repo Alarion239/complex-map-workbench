@@ -36,7 +36,10 @@ const U = `http://localhost:${PORT}/test.html`;
 const W = async (re, im, side = 'L') => {
   if (await ev(`document.documentElement.classList.contains('sv')`)) {
     const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;
-    if ((await ev(`__cmwSteps().i`)) !== to) { await ev(`__cmwSteps({ go: ${to}, now: true })`); await sleep(900); }
+    if ((await ev(`__cmwSteps().i`)) !== to) {
+      await ev(`__cmwSteps({ go: ${to}, now: true })`);
+      await settled({ max: 5000, until: `__cmwSteps().i === ${to} && !__cmwSteps().moving` });
+    }
     side = 'L';
   }
   return ev(`__cmwW2S('${side}', ${re}, ${im})`);
@@ -50,8 +53,7 @@ const last = (st) => st.list[st.list.length - 1];
 // stopped moving)
 const planeRest = async () => {
   if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
-  let p = await W(0, 0), still = 0;
-  for (let i = 0; i < 40 && still < 5; i++) { await sleep(100); const q = await W(0, 0); still = q[0] === p[0] && q[1] === p[1] ? still + 1 : 0; p = q; }
+  await settled({ max: 4000, until: '!__cmwSteps().moving' });
 };
 const tool = async (id) => {
   const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
@@ -132,7 +134,10 @@ const SF = {
 };
 
 // (an old page is read once its hooks exist: it takes longer to open when the machine is busy)
-const oldReady = async (id, ms = 20000) => { for (let t = 0; t < ms; t += 250) { if (await ev(`typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.some((s) => s.id === '${id}')`).catch(() => false)) return true; await sleep(250); } return false; };
+const oldReady = async (id, ms = 20000) => (await settled({
+  only: true, max: ms,
+  until: `typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.some((s) => s.id === '${id}')`,
+})).ok;
 
 await section('A', async () => {
   await view(1440, 900, false, false);
