@@ -1,6 +1,6 @@
-// Unit checks of the notes in ci/suite_views.js (standards' rule 5a): the note of every suite tagged port(area, note) says
-// what the suite still waits on, in words: it is not empty, and it carries no issue number and no plan label ("K1 item
-// 11", "#620 item 2").
+// Unit checks of the notes in ci/suite_views.js: the note of every suite tagged port(area, note) says in words what the
+// suite still waits on. It is not empty, and it names no issue number and carries no plan label (an issue's item or step
+// number): such a note goes stale, and standards' rule 5a rejects it.
 //   node test/t_suite_views.js
 const { VIEWS } = require('../ci/suite_views.js');
 let n = 0, fails = 0;
