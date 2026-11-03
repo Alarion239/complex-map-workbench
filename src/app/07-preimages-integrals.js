@@ -105,12 +105,10 @@
         for (let i = 0; i + 1 < p.length; i += 2) { const [x, y] = pane.w2sxy(p[i], p[i + 1]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
         if (c.closed) ctx.closePath();
       }
-      let w = area ? 1.5 : 2;
-      if (s.id === selected) w += 0.75;
-      if (s.id === hoverShape) w += 0.5;
+      const sk = shapeStroke(s, 1, { domain: true });   // (the width and the halo's, in CSS px)
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.globalAlpha = TH.haloA; ctx.strokeStyle = TH.halo; ctx.lineWidth = w + 2; ctx.stroke();
-      ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = w;
+      ctx.globalAlpha = sk.casing.alpha; ctx.strokeStyle = TH.halo; ctx.lineWidth = sk.casing.width; ctx.stroke();
+      ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = sk.width;
       if (area && Region.isOpen(s)) ctx.setLineDash([5, 3.5]);
       ctx.stroke();
       ctx.restore();
