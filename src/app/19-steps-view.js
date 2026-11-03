@@ -754,7 +754,7 @@
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
   const svRingSizes = new Map();
-  let svRingMemo = null, svRingPane = null, svRingJob = null;
+  let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
   const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
@@ -788,7 +788,6 @@
   }
   function svRingFor(pane, map) {
     const g = svBetween(), v = pane.view, q = Math.round(g.u * 20), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
-    svRingPane = { w: pane.w, h: pane.h };
     if (svRingMemo && svRingMemo.key === key) return svRingMemo.ring;
     let m = svRingSizes.get(sk);
     if (m === undefined) {
@@ -807,18 +806,20 @@
     return ring;
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
-  // the pane the ring is drawn in: {g, q, key, v}, or null
+  // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
+  // first glide finds them made)
   function svRingNext() {
-    if (!SV.on || !svRingPane) return null;
+    if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
     if (!L || !L.includes(SV_ALL)) return null;
-    const P = svPlanes(), i = Math.round(SV.g.x), v = paneL.view;
+    // (the view the frames between planes draw in: svRenderMoving sets the pane's view to S.srcView)
+    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView;
     for (const j of [i - 1, i]) {
       if (j < 0 || j + 1 >= P.length) continue;
       const g = svBetween(j + 0.5, null);
       for (let q = 0; q <= 20; q++) {
-        const key = svRingKey(g, q, v, svRingPane.w, svRingPane.h);
-        if (!svRingSizes.has(key)) return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s } };
+        const key = svRingKey(g, q, v, paneL.w, paneL.h);
+        if (!svRingSizes.has(key)) return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s }, w: paneL.w, h: paneL.h };
       }
     }
     return null;
@@ -830,7 +831,7 @@
     if (!svRingJob) {
       const n = svRingNext();
       if (!n) return false;
-      svRingJob = { key: n.key, gen: svRingSize(n.g, n.q, n.v, svRingPane.w, svRingPane.h) };
+      svRingJob = { key: n.key, gen: svRingSize(n.g, n.q, n.v, n.w, n.h) };
     }
     for (;;) {
       const r = svRingJob.gen.next();
