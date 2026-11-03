@@ -219,8 +219,9 @@ async function hold(x, links = true) {
     }
     return 1;
   })()`);
-  // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there)
-  const scrub = (from, to) => ev(`new Promise((done) => {
+  // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there; it answers once let go. The
+  // promise is awaited in the page: ev evaluates in REPL mode, which hands a returned promise back unresolved)
+  const scrub = async (from, to) => ok(`a scrub from plane ${from} to ${to} is let go`, await ev(`await new Promise((done) => {
     const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
     const x0 = ns[${from} < 0 ? ns.length - 1 : ${from}][0], x1 = ns[${to} < 0 ? ns.length - 1 : ${to}][0], cy = ns[0][1];
     const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 74, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
@@ -228,7 +229,7 @@ async function hold(x, links = true) {
     let i = 0;
     const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / 40); if (i < 40) setTimeout(step, 16); else { ev('pointerup', x1); done(1); } };
     setTimeout(step, 16);
-  })`);
+  })`, 120000) === 1);
   // (at rest: 2 s, and the idle job's work for the plane the thread is at done)
   const rest = async () => {
     await settled({ max: 60000, until: '!__cmwSteps().moving' });
