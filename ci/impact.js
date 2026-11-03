@@ -256,23 +256,24 @@ function hooksOfDiff(from, head, f) {
 function linesOfDiff(from, head, f) {
   try { return git('diff', '-U0', '--no-renames', from, head, '--', f).split('\n').filter((l) => /^[-+](?![-+]{2} )/.test(l)).map((l) => l.slice(1)); } catch (e) { return null; }
 }
-// [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits (an added or removed
-// run included); null when either side cannot be read or parsed
-function runsOfDiff(from, head, f) {
-  const runs = (rev) => { try { return JSON.parse(showAt(rev, f)).runs || {}; } catch (e) { return null; } };
-  const a = runs(from), b = runs(head);
+// the keys whose entry differs between two commits (an added or removed key included) in the object load(rev) reads
+// from f; null when either side cannot be read
+function changedEntries(from, head, f, load) {
+  const a = load(from), b = load(head);
   if (!a || !b) return null;
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
-// the suites whose entry of VIEWS in ci/suite_views.js differs between two commits (an added or removed suite included, a
-// note too: it can hide a tag change); null when either side cannot be loaded
+// [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits; null when either side
+// cannot be read or parsed
+function runsOfDiff(from, head, f) {
+  return changedEntries(from, head, f, (rev) => { try { return JSON.parse(showAt(rev, f)).runs || {}; } catch (e) { return null; } });
+}
+// the suites whose entry of VIEWS in ci/suite_views.js differs between two commits (a note too: it can hide a tag
+// change); null when either side cannot be loaded
 function suitesOfDiff(from, head, f) {
-  const views = (rev) => {
+  return changedEntries(from, head, f, (rev) => {
     try { const m = { exports: {} }; new Function('module', 'exports', 'require', showAt(rev, f))(m, m.exports, (id) => require(id)); return m.exports.VIEWS; } catch (e) { return null; }
-  };
-  const a = views(from), b = views(head);
-  if (!a || !b) return null;
-  return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+  });
 }
 // files: the changed paths; opts: { full: reason, glslDeep: reason (every GLSL chain on Windows too), sameBuild: true |
 // false | null (not checked), hooksOf: (path) -> the test hooks its diff changes, or null (the CLI's, from the diff),
