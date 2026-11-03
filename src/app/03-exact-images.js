@@ -458,10 +458,10 @@
   }
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
   // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
-  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin; opt.still: neither emphasis (the globes' lines)
+  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin; opt.still: the globes' lines, with neither emphasis and a grid drawn as any curve
   function shapeStroke(s, dpr, opt = {}) {
     const ink = shapeInk(s);
-    const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
+    const grid = !opt.still && (s.kind === 'cgrid' || s.kind === 'pgrid');
     const area = kindType(s) === 'area';
     let width = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
     let casingWidth = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
