@@ -12,10 +12,12 @@
   // the caption language (DESIGN.md 12, i18n-22): the dialog offers it only when the interface is not English, so an
   // English interface keeps its dialog and its captions as they were
   const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
+  // the steps view keeps its own crop, As on screen until changed there: its figure is the stage's picture
+  const cropOf = (s) => (A.svOn() ? s.svCrop || 'screen' : s.crop);
   // the build options from the remembered settings
   function optsOf(s, extra) {
     const sk = sizeKey(s);
-    return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: s.crop, axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
+    return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: cropOf(s), axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
   }
   const ICON = {
     article: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>',
@@ -243,7 +245,7 @@
     const ftBtn = h('button', { type: 'button', class: 'xf-disc', 'aria-expanded': String(!!set.fine), onclick: () => { set.fine = !set.fine; ftBody.hidden = !set.fine; ftBtn.setAttribute('aria-expanded', String(set.fine)); ftBtn.querySelector('.xf-chev').innerHTML = set.fine ? ICON.down : ICON.right; saveSet(set); } });
     ftBtn.append(h('span', { class: 'xf-chev', html: set.fine ? ICON.down : ICON.right }), h('span', null, $t('Fine-tune')), h('small', null, view === 'xy' ? $t('Crop · Axes · Panels') : view === 'land' ? $t('Crop') : $t('Crop · Axes')));
     const fr = (label, el) => h('div', { class: 'xf-fr' }, h('span', null, label), el);
-    ftBody.append(fr($t('Crop'), segB('xfCrop', set.crop, [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { set.crop = v; changed(); }, $t('Crop'))));
+    ftBody.append(fr($t('Crop'), segB('xfCrop', cropOf(set), [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { if (A.svOn()) set.svCrop = v; else set.crop = v; changed(); }, $t('Crop'))));
     const axesSeg = () => segB('xfAxes', set.axes[set.for] || PRESET[set.for].axes, [['box', $t('Box')], ['cross', $t('Cross')], ['none', $t('None')]], (v) => { set.axes[set.for] = v; changed(); }, $t('Axes'));
     let axesEl = axesSeg();
     const axesRow = fr($t('Axes'), axesEl);
