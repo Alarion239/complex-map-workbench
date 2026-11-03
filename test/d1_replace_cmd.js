@@ -1,4 +1,4 @@
-// D1, issue #23: the function search replaces as well as inserts. A chip in the search row says where the function
+// D1, issue #23: the function search can replace as well as insert. A chip in the search row says where the function
 // goes (Insert, Replace F, Replace f_k; Tab or a click changes it, and it is remembered); the best match is listed all
 // three ways; "Replace…" is the first item of a card's ⋯; the Inspector's title opens the search ready to replace its
 // step; Clear chain is a word button in the classic chain head (clear_chain_open_cmd.js clicks it) and the palette's command in the steps view. On a laptop (1366×768), a phone (412×860) and in Russian.
@@ -96,7 +96,7 @@ ok('the title opens the search on Replace f₂', p && /^Replace f₂/.test(p.whe
 await palQ('sinh');
 await key('Enter'); await settle(900);
 ok('the title\'s replace: exp, sinh', (await types()).join() === 'exp,sinh', await types());
-// a connector's + always inserts, whatever was remembered
+// a connector's + always inserts, whatever mode is remembered
 await ev(`document.querySelector('#pipeline .conn-add').click()`); await settle(400);
 p = await pal();
 ok('a connector\'s + inserts (at the start)', p && /^Insert at the start/.test(p.where), p);

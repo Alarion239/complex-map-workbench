@@ -4,7 +4,7 @@
 //      scrolls sideways, the top bar fits, and no element is clipped in Russian that is not clipped in English.
 //   2. No English left in the first screen and the header's menus at every width (test/i18n_scan.js). The full walk of
 //      every view, dialog and tour step is test/i18n_walk_cmd.js.
-//   3. The globe: in the bar at 768 px and up (v15.1, frame f6; before, folded into More below 1024); its menu Auto (resolved), English, Русский,
+//   3. The globe: in the bar at 768 px and up; its menu Auto (resolved), English, Русский,
 //      Italiano (bd48ab3 added Italian); the same rows in the palette ("язык", "language"). The secondary buttons are in the bar from 768 too.
 //   4. Switching round-trips: work, view, undo history and open panels come back, in both directions, through the UI.
 //   5. ЙЦУКЕН shortcuts through e.code; typing in a text field is never taken.
@@ -74,7 +74,7 @@ for (const dark of [false, true]) {
     }
   }
 }
-// ---- 1b: Italian against English (issue #61: wave 1's fitting rules are Russian-only; Italian gets the overflow checks too,
+// ---- 1b: Italian against English (issue #61: Italian gets the overflow checks of the Russian fitting rules too,
 // from a phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
 for (const dark of [false, true]) {
   for (const w of [...WIDTHS, 1600, 1920]) {
@@ -87,7 +87,7 @@ for (const dark of [false, true]) {
   }
 }
 // ---- 3: Language in Settings, the tablet bar, the palette rows ----
-// ([v17 D5, the owner's decision of 2026-10-28, notes/i18n/USER-DECISIONS.md] the header's globe went: Language is a
+// (the header has no globe: Language is a
 // four-way switch in ⚙ Settings, and in the phone's More sheet)
 const setLang = async (v) => { await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(400); return ev(`(() => { const b = document.querySelector('.set-pop #setLang [data-v="${v}"]'); if (!b) return false; b.click(); return true; })()`); };
 await open('ru', 1440, false);
@@ -104,12 +104,12 @@ for (const q of ['язык', 'language']) {
   check(`palette "${q}": the four Language rows`, rows.length === 4, rows);
   await key('Escape'); await settle(200);
 }
-// (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are
+// (from 768 to 1023 the bar is as from 1024: no More button; the secondary buttons are
 // in the bar, inside the window, and Settings, with Language, opens there)
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
   const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-    // ([v17 D5] Theme and the panel buttons are in Settings: the bar has Share and Settings instead)
+    // (Theme and the panel buttons are in Settings: the bar has Share and Settings instead)
     const ids = ['examplesBtn', 'cmdBtn', 'exportBtn', 'shareBtn', 'soundBtn', 'settingsBtn', 'helpBtn'];
     const inBar = ids.filter((id) => { const e = document.getElementById(id), r = e && e.getBoundingClientRect(); return vis(e) && r.top < 60 && r.right <= innerWidth - 4 && r.left >= 0; });
     return { more: vis(document.getElementById('hdrMoreBtn')), inBar, over: document.documentElement.scrollWidth - innerWidth }; })()`);
@@ -134,7 +134,7 @@ for (const w of [1024, 1440]) {
   await ev(`__cmwMorph({ open: true }), 1`); await settle(600); await ev(`__cmwMorph({ T: 0.5 }), 1`); await settle(300);
   await ev(`document.getElementById('toggleRight').click(), 1`); await settle(400);
   const snapOf = `JSON.stringify({ st: __cmwState(), hist: document.getElementById('undoBtn').disabled, cards: document.querySelectorAll('#pipeline .card').length, morph: !!document.getElementById('morphPlay'), right: document.getElementById('toggleRight').getAttribute('aria-pressed'), view: (() => { const o = JSON.parse(localStorage.getItem(__qa.key()) || 'null'); return o && JSON.stringify({ view: o.view, rightView: o.rightView, l: o.leftView || o.lview || null, shapes: o.shapes, steps: o.steps }); })() })`;
-  // the saved work is written now (the switch writes it too); the same JSON must come back
+  // the saved work is written here (the switch writes it too); the same JSON must come back
   await ev(`document.getElementById('undoBtn').disabled, 1`);
   // (reads it once the page has booted: after a load or a language switch, fixed sleeps ran out on a machine that draws
   // in software, and the snapshot threw)
@@ -156,7 +156,7 @@ for (const w of [1024, 1440]) {
   await sleep(4500); await settle(1500);
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.cards === before2.cards && after2.morph === before2.morph);
-  // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
+  // the phone (phone layout: More is a sheet, Language a four-way switch in it): More → Русский
   await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
@@ -233,7 +233,7 @@ for (const w of [1024, 1440]) {
   const e = await ev(`(() => { try { Expr.parse('0,5'); return null; } catch (e) { return e.message; } })()`);
   check('en: "0,5" keeps its English message', e === "Unexpected ','", e);
 }
-// ---- 8 (v16.1 user-5): the logarithm's example and its Landscape title say which sheets, in Russian ----
+// ---- 8: the logarithm's example and its Landscape title say which sheets, in Russian ----
 {
   await open('ru', 1440, false);
   // (the example picked from the Examples list by its Russian name)

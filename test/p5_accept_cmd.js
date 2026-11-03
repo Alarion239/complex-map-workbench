@@ -55,7 +55,7 @@ const loadReady = async (ns, st, ms = 120000) => {
 };
 // The app draws at requestAnimationFrame, and on a slow renderer (SwiftShader, a busy machine) a frame comes seconds after
 // the state it shows, so the canvas a moment after settle() can be an older frame: the GPU stand-in drawn before the
-// SphereMesh was published, or the frame before an alpha change (#301). This hook counts the app's frames (GLR.begin) and the
+// SphereMesh is published, or the frame before an alpha change (#301). This hook counts the app's frames (GLR.begin) and the
 // SphereMeshes it draws (GLR.drawPreMapped, with the alpha); meshDrawn() waits for a draw after a change.
 const watchDraws = () => ev(`(() => { if (window.__p5w) return 1; const w = window.__p5w = { frames: 0, pm: 0, alpha: null }; const wrap = (k, f) => { const g = GLR[k]; GLR[k] = function (...a) { f(...a); return g.apply(this, a); }; }; wrap('begin', () => { w.frames++; }); wrap('drawPreMapped', (res, st) => { if (res && res.n) { w.pm++; w.alpha = st.alpha; } }); return 1; })()`);
 // run `trigger` (a statement that makes the app redraw), then wait until the app has drawn a SphereMesh (at `alpha`, when

@@ -39,7 +39,7 @@ ok('Phase is full width', Lp.wL > 2 * split, { wL: Lp.wL, split });
 const chrome = await ev(`({ paneR: getComputedStyle(document.getElementById('paneR')).display, gutter: getComputedStyle(document.getElementById('gutterCol')).display, leftSolo: document.getElementById('leftSolo').hidden, title: document.getElementById('leftTitle').textContent })`);
 ok('Phase: no second pane, no gutter, no expand button', chrome.paneR === 'none' && chrome.gutter === 'none' && chrome.leftSolo === true, chrome);
 ok('Phase title', /z-plane\s*phase of F/.test(chrome.title), chrome.title);
-// (v16.5 UX20: on a desktop the plane's option bar left the picture: #247: its controls are in the pane head, those that
+// (on a desktop the plane's option bar is off the picture (#247): its controls are in the pane head, those that
 // do not fit behind the head's ⋯ button; a real click opens that, and it is closed again after the checks)
 const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
 const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn:not(.pat-btn)').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
@@ -129,7 +129,7 @@ await shot('mv_xy_deform');
   ok('a pan keeps the kept start points', c1.ready && JSON.stringify(c1.zs) === JSON.stringify(z0), { n0: z0 && z0.length, c1: c1.zs && c1.zs.length });
   await drag(pr[0] + 60, pr[1] + 10, pr[0], pr[1], 8, 16); await settle(500);
 }
-// the legend's rows say what grey and the lines are (review: the chip's lower half was blank)
+// the legend's rows say what grey and the lines are (the chip's lower half is not blank)
 ok('deformation legend: X and the paths', await ev(`(() => { const c = document.getElementById('legendCanvas'), x = c.getContext('2d'), d = x.getImageData(0, 96, c.width, 48).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++; return n > 200; })()`), null);
 // draw tools are dimmed and say why (review: a drag drew nothing, silently)
 ok('draw tools dimmed in the merged plane', await ev(`(() => { const b = document.querySelector('.tool[data-tool="disc"]'); return b.classList.contains('globe-off') && /Turn off Deformation/.test(b.dataset.tip); })()`), null);
@@ -243,7 +243,7 @@ ok('__cmwSet rightMode image: X → Y split', (await vw()).main === 'xy' && (awa
 const tm = await ev('__cmwTime(1)');
 ok('__cmwTime times both panes in X → Y', tm.left > 0 && tm.right > 0, tm);
 
-// 7. every example opens in the view it was made for (the old rightMode, migrated)
+// 7. every example opens in the view made for it (its stored rightMode, migrated)
 const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Cauchy: a simple pole': 'phase', 'Cauchy: a regular part and a pole': 'phase', 'Cauchy: an essential singularity': 'phase', 'Sheets of the logarithm': 'land' };
 const exs = [];
 for (let i = 0; i < 17; i++) {

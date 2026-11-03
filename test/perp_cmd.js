@@ -1,4 +1,4 @@
-// v16.3 the Perpendicular circle (notes/orthogonal-circle/SPEC.md 7, "test/perp_cmd.js"). In the real app, with real
+// The Perpendicular circle (notes/orthogonal-circle/SPEC.md 7, "test/perp_cmd.js"). In the real app, with real
 // pointer events (mouse; touch on the phone):
 //   A (desktop 1440, light, English): the fifth Construct tile and its tooltip; the shown unit circle picked as the curve
 //     (Circle 1 appears only with K, one undo step for all); K's colour; the row and the Inspector; |cos| at rest and over
@@ -6,7 +6,7 @@
 //     axis (Line 1, the half-plane model); P on a disc's centre handle (a line); the pencil (the reason, the eye) and
 //     back; C a polygon side and a 3-point circle; refusals (empty space, a freehand curve), Esc; the plane menu;
 //     ⋯ Region, Use complement, the family as C's centre crosses PQ; Delete C with the cascade toast, then Undo.
-//   B reload (bitwise), a link in a fresh namespace, the v16.2 test page on the same link (the cached circle, one toast).
+//   B reload (bitwise), a link in a fresh namespace, an earlier build's test page on the same link (the cached circle, one toast).
 //   C Russian: the tiles fit (EN and RU), the chip, the row, the reason, the caption.
 //   D dark at 1440; 1024 × 768 and 768 × 1024 (the rail fits; fitRail drops Grid and Polar grid first); the phone
 //     390 × 844 (Android Chrome, touch): five Construct tiles in More, a tile closes the sheet, a curve pick within
@@ -15,11 +15,11 @@
 //   F BUDGET60: P dragged with 1 and 10 dependent perpendicular circles (curves and regions), 1/z in Y.
 //   G Y: a perpendicular circle in Y through z₀″, C a target circle.
 //   H screenshots (perp-*.png; copied to notes/orthogonal-circle/shots/perp/).
-//   I v16.4 Inside C only (notes/orthogonal-circle/segments/SPEC.md 11): the chip, the disc model, Intersect bitwise, no
-//     pixel outside, the Inspector and ⋯, the half-plane, Y, export captions, links (v16.3 and v16.2 pages: copy their
+//   I Inside C only (notes/orthogonal-circle/segments/SPEC.md 11): the chip, the disc model, Intersect bitwise, no
+//     pixel outside, the Inspector and ⋯, the half-plane, Y, export captions, links (two earlier builds' pages: copy their
 //     dist/test.html to dist/v163-test.html and dist/v162-test.html first), layouts, BUDGET60, screenshots (seg-*.png).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/perp_cmd.js
-// For B's v16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
+// For B's earlier-build page, copy that build's candidate dist/test.html to dist/v162-test.html first (removed afterwards).
 // (CMW_ONLY=A,G runs those sections alone)
 const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
@@ -182,7 +182,7 @@ await section('A', async () => {
   const nA = (await ST()).list.length;
   const em = await W(-0.5, -1.2);
   await click(em[0], em[1]); await settle(150);
-  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (v16.5 UX52: a refusal is said in the chip)
+  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (a refusal is said in the chip)
   const t1s = await chipWarn();
   const fz = await W(-0.5, -1.9);
   await click(fz[0], fz[1] + 1); await settle(150);
@@ -199,7 +199,7 @@ await section('A', async () => {
   await click(u[0] + 3, u[1] - 2); await settle(150);
   let d = (await CI()).draft;
   st = await ST();
-  // (v16.5 fix user-6: after the curve the chip says a point on it will do, "Pick a point (on {c} or anywhere)")
+  // (after the curve the chip says a point on it will do, "Pick a point (on {c} or anywhere)")
   const chipA2 = await chipT();
   ok('A2 the unit circle is picked; no shape yet', d && d.tool === 'perp' && d.curve1 === null && st.list.length === n0 && chipA2.startsWith('Pick a point (on the unit circle or anywhere) · 1 of 2'), { d, n: st.list.length, chip: chipA2 });
   // 3. z₀ (snapped 0.3 + 0.2i), then an empty spot: K
@@ -219,7 +219,7 @@ await section('A', async () => {
   const nm = (id) => (names.find((x) => x.id === id) || {}).name;
   info.rowK1 = await rowD(K1.id);
   info.namesK1 = [nm(P1.id), nm(Q1.id), nm(C1.id)];
-  // (v16.5 fix rail-4: the unit circle made a shape is "the unit circle" and takes no number; the state's own circle
+  // (the unit circle made a shape is "the unit circle" and takes no number; the state's own circle
   // stays Circle 1)
   ok('A3 the row: through z₃ and z₄, perpendicular to the unit circle (v16.5 rail-4; the state has z₀–z₂ and Circle 1)', info.rowK1 === `perpendicular to ${nm(C1.id)}, through ${nm(P1.id)} and ${nm(Q1.id)}` && nm(C1.id) === 'the unit circle', [info.rowK1, info.namesK1]);
   info.inspK1 = await ev(`(document.querySelector('.cm-idef') || {}).textContent`);
@@ -431,7 +431,7 @@ await section('A', async () => {
 });
 
 await section('B', async () => {
-  // reload: bitwise; a link in a fresh namespace; the v16.2 page on the same link
+  // reload: bitwise; a link in a fresh namespace; an earlier build's page on the same link
   await view(1440, 900, false, false);
   await load(NS + 'b', SF); await settle(800);
   const snap = (st) => st.list.map((s) => JSON.stringify([s.id, s.kind, s.def, s.c, s.r, s.a, s.b, s.p, s.complement]));
@@ -454,8 +454,8 @@ await section('B', async () => {
     const old = await ev(`__cmwCI({shapes:true}).list.find((s) => s.id === 'fk')`);
     info.v162 = { old, linkToasts: await toasts() };
     ok('B the v16.2 page opens the link: K is the cached circle (no definition)', old && !old.def && old.kind === 'circle' && Math.abs(old.r - byId(st, 'fk').r) < 1e-12 && Math.abs(old.c[1] - byId(st, 'fk').c[1]) < 1e-12, info.v162);
-    // the same state saved by v16.3, opened by v16.2 from storage: validate frees K (one loadFreed), its circle kept.
-    // (v16.2 records the event but shows no toast at startup: Construct.on runs before the app's adapter exists)
+    // the same state saved by this build, opened by an earlier build from storage: validate frees K (one loadFreed), its circle kept.
+    // (the earlier build records the event but shows no toast at startup: Construct.on runs before the app's adapter exists)
     await nav(`${U}?ns=${NS}b`); await settle(1200);
     const saved = await ev(`localStorage.getItem(__qa.key())`);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${NS}old2', localStorage.getItem(__qa.key())); 1`);
@@ -470,16 +470,16 @@ await section('B', async () => {
 });
 
 await section('C', async () => {
-  // Russian: the tiles fit (EN at 1440 was A1), the chip, the row, the reason, the caption
+  // Russian: the tiles fit (EN at 1440 is A1), the chip, the row, the reason, the caption
   await view(1440, 900, false, false);
   await load(NS + 'ru', SA);
   await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
   info.ruTile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { label: s.textContent.replace(/\\u00ad/g, '-'), w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, tip: b.dataset.tip, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('C RU tile «Ортого­нальная» fits on two lines at most', info.ruTile.label === 'Ортого-нальная' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Ортогональная окружность  W', info.ruTile);
   await tool('perp');
-  // (at 1440 the chip with «Esc — отмена» took two lines in X's 427 px; it now keeps one line without it.
-  // with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
-  // keeps the whole text on two lines, not cut, as v16.4 showed it)
+  // (at 1440 the chip with «Esc — отмена» takes two lines in X's 427 px; the rule drops the tail when one line is left.
+  // with the Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
+  // keeps the whole text on two lines, not cut)
   const ruChip = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t');
     if (!t) return null;
     const r = document.createRange();
@@ -512,7 +512,7 @@ await section('C', async () => {
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
   await click(u[0] + 3, u[1] - 2); await settle(100);
-  // (v16.5 fix user-6: «Выберите точку (на кривой: … или в любом месте)»; v16.3.1/v16.5: a chip that would wrap with its
+  // («Выберите точку (на кривой: … или в любом месте)»: a chip that would wrap with its
   // keyboard tail drops it when it then fits one line, as touch_cmd A5 accepts)
   const ruChip2 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t');
     if (!t) return null;
@@ -521,7 +521,7 @@ await section('C', async () => {
     return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size };
     })()`));
   const ruBase2 = 'Выберите точку (на кривой: единичная окружность или в любом месте) · 1 из 2 · Ортогональная';
-  // (construct.js syncChip, v16.3.1: without the tail when that is one line, or when the whole text would be cut at
+  // (construct.js syncChip: without the tail when that is one line, or when the whole text would be cut at
   // the lines its place allows: then the shorter text, on two lines)
   ok(
     'C RU chip after the curve',
@@ -539,7 +539,7 @@ await section('C', async () => {
   let st = await ST();
   const K = last(st);
   info.ruRow = await rowD(K.id);
-  // (v16.5 fix rail-4: the unit circle made a shape is «единичная окружность», no number)
+  // (the unit circle made a shape is «единичная окружность», no number)
   ok('C RU row: через z₃ и z₄, ортогонально кривой: единичная окружность', info.ruRow === 'ортогональна кривой: единичная окружность; через z₃ и z₄', info.ruRow);
   // the pencil's reason
   const m1 = await W(0.5, 0.5), m2 = await W(1, 1);
@@ -610,7 +610,7 @@ await section('D', async () => {
   let d = (await CI()).draft;
   ok('D phone: a tap 8 px off the circle picks it', d && d.curve1 && d.curve1.s === 'pc', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  // (v16.5 fix user-6: "Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
+  // ("Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
   ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Perpendicular/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   const pp = await W(0.4, 0.3);
   await touch(pp[0] + 12, pp[1] - 9); await settle(200);
@@ -632,7 +632,7 @@ await section('D', async () => {
   await touch(more2[0], more2[1]); await settle(500);
   await ev(`Phone.tab('construct')`); await settle(200);
   info.phTileRu = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="perp"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent.replace(/\\u00ad/g, '-'), sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh }; })()`);
-  // (v16.5 UX93: a phone tile shows a whole short form on one line, never a hyphenated word)
+  // (a phone tile shows a whole short form on one line, never a hyphenated word)
   ok('D phone RU: the tile reads «Ортогон.», whole, on one line', info.phTileRu && info.phTileRu.text === 'Ортогон.' && info.phTileRu.sw <= info.phTileRu.w + 1 && info.phTileRu.h <= info.phTileRu.lh + 1, info.phTileRu);
   await shot('perp-p390-more-ru');
   await view(390, 844, true, true); await settle(600);
@@ -774,10 +774,10 @@ await section('G', async () => {
 });
 
 await section('I', async () => {
-  // v16.4 Inside C only (notes/orthogonal-circle/segments/SPEC.md 11 I): the disc model made with the chip, the hooks' ends
+  // Inside C only (notes/orthogonal-circle/segments/SPEC.md 11 I): the disc model made with the chip, the hooks' ends
   // and Intersect bitwise, no K pixel outside the disc, the rows, a drag through the diameter; the Inspector and ⋯ (one
   // undo step each), Region, a glider stopped at an end, a crossing that goes undefined; the half-plane (a semicircle, the
-  // vertical ray); Y under 1/z (an open arc); export captions EN and RU; reload, v16.3 and v16.2 pages; layouts (dark,
+  // vertical ray); Y under 1/z (an open arc); export captions EN and RU; reload, earlier builds' pages; layouts (dark,
   // Russian, phone, tablet); BUDGET60 with 10 seg dependents; screenshots (seg-*.png)
   const PNG = process.mainModule.require(path.join(DIR, 'png.js'));   // (the daemon's own require)
   const img = async (name) => PNG(fs.readFileSync(await shot(name)));
@@ -839,7 +839,7 @@ await section('I', async () => {
   let st = await ST();
   const Ks = st.list.filter((s) => s.def && s.def.op === 'perp'), C1 = byId(st, Ks[0].def.args[0].s);
   const names = await CI({ names: true }), nm = (id) => (names.find((x) => x.id === id) || {}).name;
-  // (v16.5 fix rail-4: the shown unit circle made the shape C is "the unit circle", no number)
+  // (the shown unit circle made the shape C is "the unit circle", no number)
   ok('I1 three geodesics, each an arc with seg 1 and nk hyper, named Hyperbolic line 1–3 (v16.5 UX55); C is the unit circle (v16.5 rail-4)', Ks.length === 3 && Ks.every((k, i) => k.kind === 'arc' && k.def.seg === 1 && k.def.nk === 'hyper' && nm(k.id) === `Hyperbolic line ${i + 1}`) && nm(C1.id) === 'the unit circle', Ks.map((k) => [k.kind, k.def.seg, k.def.nk, nm(k.id)]).concat([['C', nm(C1.id)]]));
   const rows = [];
   for (const k of Ks) rows.push(await rowD(k.id));
@@ -936,7 +936,7 @@ await section('I', async () => {
   // a glider on the arc stops at the ends
   await ev(`__cmwC({ call: 'create', args: [[{ id: 'ig', kind: 'point', p: [0, 0], t: 0.5, visible: true, def: { op: 'glider', args: [{ s: '${K1}', part: 0 }] } }]] })`); await settle(300);
   st = await ST();
-  // ([v16.5 rail SPEC 2.3] 30 px past the end: the stretch zone, so it stays on its arc; a pull of 40 px held frees it)
+  // (30 px past the end: the stretch zone, so it stays on its arc; a pull of 40 px held frees it)
   const sI = (await W(1, 0))[0] - (await W(0, 0))[0];
   const kk = byId(st, K1), g0 = byId(st, 'ig').p, kEnd = 1 + 30 / (sI * Math.hypot(kk.a[0], kk.a[1])), gEnd = await W(kk.a[0] * kEnd, kk.a[1] * kEnd);
   const gs = await W(g0[0], g0[1]);
@@ -945,7 +945,7 @@ await section('I', async () => {
   const gl = byId(st, 'ig');
   info.glider = { t: gl.t, p: gl.p, a: byId(st, K1).a };
   ok('I2 a glider dragged past an end stops there (t 0, the end bitwise)', (gl.t === 0 || gl.t === 1) && Object.is(gl.p[0], (gl.t === 0 ? byId(st, K1).a : byId(st, K1).b)[0]) && Object.is(gl.p[1], (gl.t === 0 ? byId(st, K1).a : byId(st, K1).b)[1]), info.glider);
-  // Intersect on two crossing geodesics (Arc 1 and Arc 3): a point; move Arc 3's z₄ so they no longer cross: undefined
+  // Intersect on two crossing geodesics (Arc 1 and Arc 3): a point; move Arc 3's z₄ so they stop crossing: undefined
   await tool('meet');
   const fm2 = await FORMS();
   let X = null;
@@ -1038,7 +1038,7 @@ await section('I', async () => {
     const caps = (svg.match(/stroke-linecap="[a-z]+"/g) || []).slice(0, 8);
     return { has: !!svg, len: svg.length, caps, keys: f ? Object.keys(f).slice(0, 20) : null };
     })()`);
-  // ---- I6 links: reload bitwise; the v16.3 page (whole circles); the v16.2 page (plain arcs)
+  // ---- I6 links: reload bitwise; the page of an earlier build (whole circles); the page of one before it (plain arcs)
   const snapS = (s2) => s2.list.map((s) => JSON.stringify([s.id, s.kind, s.def, s.c, s.r, s.a, s.b, s.m, s.p]));
   st = await ST();
   const bef = snapS(st), fb = JSON.stringify((await FORMS()).k);
@@ -1075,7 +1075,7 @@ await section('I', async () => {
   await rowMenuOf(KR[0].id);
   info.ruMenu = await menuItems();
   await key('Escape');
-  // (v16.5 fix rail-4: C, the shown unit circle made a shape, is «единичная окружность» in the row, no number)
+  // (C, the shown unit circle made a shape, is «единичная окружность» in the row, no number)
   ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри","Снаружи","Между"]' && /^гиперболическая прямая внутри кривой: единичная окружность; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи","Между"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
   await shot('seg-d1440-light-ru');
   await view(1440, 900, true, false); await settle(500);
@@ -1130,7 +1130,7 @@ await section('I', async () => {
 });
 
 await section('J', async () => {
-  // v16.4 review fixes (notes/orthogonal-circle/segments/ledger.json): captions close their phrase (user-2, user-3), the
+  // Review fixes: captions close their phrase (user-2, user-3), the
   // outside's domain on the sphere (math-3), through only for points of the domain (math-7), the row off the arc
   // (user-6), the ⋯ item's words (math-6), the chip's words by its free width (user-4), the phone's hit area (user-5)
   const capF = (o) => ev(`await (async () => {

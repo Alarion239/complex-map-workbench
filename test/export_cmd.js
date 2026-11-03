@@ -612,7 +612,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await ev('__cmwMorph({ playing: false, T: 1.2 }); 1');
   await key('2'); await settle(1500);
   await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; s.video = { size: '1280x720', fps: 30, secs: 2, ends: 'once', paths: true, tlabel: true, look: 'light', win: 'screen' }; __cmwFig.saveSettings(s); return 1; })()`);
-  // long tasks, and the animation frames (performance.now() in each callback), from the moment the dialog opens
+  // long tasks, and the animation frames (the performance clock read in each callback), from the moment the dialog opens
   await ev(`(() => { window.__lt = []; window.__po = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }); window.__po.observe({ entryTypes: ['longtask'] }); window.__rf = []; window.__rfOn = true; (function f() { window.__rf.push(performance.now()); if (window.__rfOn) requestAnimationFrame(f); })(); return 1; })()`);
   const t0 = Date.now();
   await key('e', 4);
@@ -798,7 +798,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   const c2 = await pvState();
   R.pv2.restart = { c0, c1, c2 };
   ok('preview (vp-2): during a restart the bar is cleared and the button shows the wish; Play there is kept', c0.id === 0 && c0.btn === 'Play' && c0.seek[1] === 0 && c0.time === '' && /drawing the frames, 0 %/.test(c0.note) && c1.btn === 'Pause' && c2.id > id1 && c2.playing && c2.btn === 'Pause', R.pv2.restart);
-  // (vp-1/vp-2 residual, review-video-preview-verify; v15.1 assembly) a restart while paused shows the new run's own
+  // a restart while paused shows the new run's own
   // frames, not the 960 px poster, and stays paused; then Play again for (vp-6)
   await clickSel('#xfPvPlay'); await sleep(100);
   const id2 = (await pvState()).id;
@@ -853,7 +853,7 @@ if (!['user5', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.
   await view(1440, 900, false, false);
 }
 
-// 6. (the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
+// 6. (CMW_ONLY=user5 runs it alone)
 // (a) the Landscape with All sheets says exactly which sheets it draws, in the LaTeX caption (English and Russian),
 // the figure's own caption and the pane title: both / all n sheets for a finite covering, the window of infinitely
 // many (log, z^i) or of N (a 30th root), n of the infinitely many for several pieces, K of the total combinations when
@@ -897,7 +897,7 @@ if (!['preview', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.en
     ['logsqrt', [CU('\\log(z)+\\sqrt{z}')], /; 10 of the infinitely many sheets are shown \(the window \$k=-2,\\dots,2\$\)\./, /; показаны листы: 10 из бесконечного множества \(окно \$k=-2,\\dots,2\$\)\./, /, 10 sheets, k = −2…2$/],
     ['root30', [RT(30)], /; the sheets \$k=-2,\\dots,2\$ of 30 are shown\./, /; показаны листы \$k=-2,\\dots,2\$ \(всего листов: 30\)\./, /, sheets k = −2…2$/],
     ['powi', [CU('z^{i}')], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
-    // (v16.1 review math-7: a typed near-fraction is not 1/3: a window of its infinitely many sheets)
+    // (a typed near-fraction is not 1/3: a window of its infinitely many sheets)
     ['nearthird', [{ type: 'powa', params: { alpha: '0.333333333', cut: 180, k: 0 } }], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
   ];
   const disc = [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }];
@@ -930,27 +930,27 @@ if (!['preview', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.en
   const mc = await build('u5-sheets-morph-article1', { for: 'article', deform: 'frame' }, []);
   const mr = await build('u5-sheets-ru-morph-article1', { for: 'article', deform: 'frame', lang: 'ru' }, []);
   R.u5.caps.morph = { title: mt, en: mc && mc.cap.slice(-260), ru: mr && mr.cap.slice(-260) };
-  // (v16.1 review user-1, user-2, math-2: one surface of H_t per sheet of F, the deformed root's path on its sheet, and
+  // (one surface of H_t per sheet of F, the deformed root's path on its sheet, and
   // the homotopy not called the principal branch)
   const homEN = /; \$H_t\$ is drawn on 2 surfaces, one for each sheet of \$F\$\. Each deformed root or power \$z\^\{\\alpha\}\$ runs along \$z\^\{\\sigma\}e\^\{2\\pi ik\\sigma\}\$, \$\\sigma=1\+\(\\alpha-1\)t\$, where \$k\$ is its branch number on that surface\./;
   const homRU = /; деформация \$H_t\$ показана на 2 поверхностях, по одной для каждого листа \$F\$\. Каждый деформируемый корень и[~ ]каждая степень/;
   ok('sheets, deformation on: the English caption: one surface per sheet of F, the path on a sheet', mc && homEN.test(mc.cap) && !OLD.test(mc.cap) && !/\\operatorname\{Ln\}/.test(mc.cap) && !/principal branch/.test(mc.cap) && /\(on every sheet\)/.test(mc.cap), mc && mc.cap.slice(-700));
   ok('sheets, deformation on: the Russian caption names them', mr && homRU.test(mr.cap) && !OLD.test(mr.cap) && !/главная ветвь/.test(mr.cap) && /\(на каждом листе\)/.test(mr.cap), mr && mr.cap.slice(-700));
   ok('sheets, deformation on: the title says on both sheets of F', /, on both sheets of F$/.test(mt || ''), mt);
-  // (v16.1 review user-1) the default figure while deforming is the four-panel film: its caption has the same clause
+  // the default figure while deforming is the four-panel film: its caption has the same clause
   const fe = await build('u5-sheets-film-article1', { for: 'article' }, []), fr = await build('u5-sheets-ru-film-article1', { for: 'article', lang: 'ru' }, []);
   R.u5.caps.film = { en: fe && fe.cap.slice(-900), ru: fr && fr.cap.slice(-900), view: fe && fe.view };
   ok('sheets, film: the English caption has the sheets clause and no principal branch', fe && /Landscapes of \$H_t\$/.test(fe.cap) && homEN.test(fe.cap) && !/principal branch/.test(fe.cap) && /\(on every sheet\)/.test(fe.cap), fe && fe.cap.slice(0, 900));
   ok('sheets, film: the Russian caption too', fr && homRU.test(fr.cap) && !/главная ветвь/.test(fr.cap) && /\(на каждом листе\)/.test(fr.cap), fr && fr.cap.slice(0, 900));
   await key('m'); await settle(600);
-  // (v16.1 review user-1) the user's case: sin √z, √ bracketed; the film and the single frame
+  // the user's case: sin √z, √ bracketed; the film and the single frame
   await loadSt(`u5susr${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 }, T: 0.5 })'); await settle(2000);
   const ue = await build('u5-sheets-user-film', { for: 'article' }, ['tex']), ur = await build('u5-sheets-ru-user-film', { for: 'article', lang: 'ru' }, []);
   R.u5.caps.user = { en: ue && ue.cap, ru: ur && ur.cap };
   ok('sheets, the user\'s case: the film caption names the sheets and G_t on every sheet', ue && homEN.test(ue.cap) && !/principal branch/.test(ue.cap) && /G_t/.test(ue.cap), ue && ue.cap.slice(0, 1200));
   ok('sheets, the user\'s case: Russian', ur && homRU.test(ur.cap) && !/главная ветвь/.test(ur.cap) && /G_t/.test(ur.cap), ur && ur.cap.slice(0, 1200));
-  // (v16.1 verify-1) the whole chain, √ then sin in turn (0 <= t <= 2): the path is written in the step's own time s,
+  // the whole chain, √ then sin in turn (0 <= t <= 2): the path is written in the step's own time s,
   // with sigma the exponent, not in the global t
   await ev('__cmwMorph({ open: true, playing: false, range: null, T: 1.5 })'); await settle(2000);
   const we = await build('u5-sheets-whole-film', { for: 'article' }, []), wr = await build('u5-sheets-ru-whole-film', { for: 'article', lang: 'ru' }, []);
@@ -959,7 +959,7 @@ if (!['preview', '1-3', '4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.en
   ok('sheets, whole chain in turn: the path in the step\'s own time s', we && turnEN.test(we.cap) && !/\(\\alpha-1\)t\$/.test(we.cap) && /runs the steps in turn/.test(we.cap), we && we.cap.slice(0, 1400));
   ok('sheets, whole chain in turn: Russian', wr && /\\sigma=1\+\(\\alpha-1\)s\$, где \$s\$ \(\$0\\le s\\le 1\$\)(?:~---|\s—) время соответствующего шага/.test(wr.cap) && !/\(\\alpha-1\)t\$/.test(wr.cap), wr && wr.cap.slice(0, 1400));
   await ev('__cmwMorph({ open: false })'); await settle(600);
-  // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
+  // √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
   await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   const sv = await ev('__cmwLandSheets()'), se = await build('u5-sheets-single-article1', { for: 'article' }, []);
   R.u5.caps.single = { ls: sv, en: se && se.cap.slice(-300) };
