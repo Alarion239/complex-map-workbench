@@ -158,7 +158,8 @@ const VIEWS = {
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
-  'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the retargeted tour chapters and the F chip'),
+  'ux165_learn_cmd.js': port('words', 'what is left after the sound checks moved to ux165_learn_sound_cmd.js: it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the retargeted tour chapters and the F chip'),
+  'ux165_learn_sound_cmd.js': steps({ pin: true }),
   'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
