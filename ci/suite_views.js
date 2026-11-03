@@ -157,6 +157,8 @@ const VIEWS = {
   'figure_wait_cmd.js': port('export'),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
   'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
+  'p3_accept_export_cmd.js': port('export', 'the figure export of z^i(H) at 300 dpi, its cancel and its dialog'),
+  'p3_review_export_cmd.js': port('export', 'the two-globe 300 dpi export: the shown plane\'s export at 300 dpi'),
 
   // to port: geometry
   'between_cmd.js': port('geometry'),
@@ -178,8 +180,10 @@ const VIEWS = {
   'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
   'link_standin_cmd.js': port('render'),
   'overlay_ghost_cmd.js': port('render'),
-  'p3_accept_cmd.js': port('render'),
-  'p3_review_cmd.js': port('render'),
+  'p3_accept_cmd.js': steps({ pin: true }),
+  'p3_accept_classic_cmd.js': classic('the spherical checker pattern: the steps view has no region pattern (ux on #719)'),
+  'p3_review_cmd.js': steps({ pin: true }),
+  'p3_review_classic_cmd.js': classic('the Sphere checker and the Checker patterns: the steps view has no region pattern (ux on #719)'),
   'p3b_accept_cmd.js': port('render'),
   'p3bfix_cmd.js': port('render'),
   'p5_accept_cmd.js': port('render'),

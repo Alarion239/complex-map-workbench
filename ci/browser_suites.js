@@ -113,10 +113,11 @@ const TIMING = {
     t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, (d) => Array.isArray(d) && [/^The cut/, /^Each turn is/, /^The ending/].every((re) => d.some((c) => re.test(c[1]))))],
   'morphfig_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/), t(/^12 sines, the deformation playing: p95/)],
-  'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
+  'p3_accept_export_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   // (the export completed with both globes inverse; only its long tasks missed)
-  'p3_review_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
+  'p3_review_cmd.js': [t(/^first switch to the Sphere surface at dpr 2: no main-thread task/)],
+  'p3_review_export_cmd.js': [
     t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
   'v15_desktop_cmd.js': [t(/^dragging a (zero|shape): p95 frame/, (d) => d && d.n > 20)],
   'zp_cmd.js': [t(/^drag at 60 fps/)],
@@ -162,15 +163,18 @@ const SOFTWARE = {
   // (a 1280 x 720 Bounce of 2 s on the globe fills its preview frame by frame: more than the suite's 60 s here)
   'export_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
     (d) => d && d.filledMs === -1 && d.frames === d.n && typeof d.entry === 'number' && d.madVideo < 4 && d.madExact < 2 && d.range > 100)],
-  'p3_accept_cmd.js': [
-    s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
-      (d) => Array.isArray(d) && d.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'pending' && p.reason === 'compiling')),
+  'p3_accept_export_cmd.js': [
     s(/^\(h\) the dialog: the last option wins$/, 'the last option is the one checked, but the figure is still being rebuilt when the suite\'s 10 s wait ends (a figure takes 25-40 s to build here); a finished figure with other columns still fails',
       (d) => d && d.checked === '1' && (d.cols === null || d.building === true)),
   ],
 };
 
 const KNOWN = {
+  'p3_review_cmd.js': [
+    s(/^the w-globe of Cayley\(H\) with the colour plane z shows the colour carried from z$/,
+      'a later plane on the Sphere surface draws no carried colour: the w-globe shows the bare paper where H\'s image is; open on #729 (the carried colour on a later plane\'s globe, which gates this check)',
+      (d) => d && d.paper > 0.5 * d.considered && d.unlisted === 0),
+  ],
   'steps_carry_exact_cmd.js': [
     s(/^Joukowski, enhanced, colour plane w1, mid-glide at 0\.25, along the cut's image: /, 'gliding, the fill pass interpolates source points across triangles the map bends near the cut\'s continuation pole: the enhanced style\'s modulus bands shift a few px (phase right, gone at rest); open on #651 (a finer fill template, which gates this check)',
       (d) => d && d.rate < 0.05 && d.paper <= 2),

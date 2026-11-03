@@ -568,17 +568,36 @@ const Inverse = (() => {
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
   // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out. opts.fam = K: a periodic
   // family (exp, the trig functions: type 'add') gives its members m = -K … K of each base, and the result says
-  // truncated (its zs are those members' preimages, not all of them)
+  // truncated (its zs are those members' preimages, not all of them). A power's log family (type 'log') gives every
+  // member in its argument range when they are finitely many, else, with opts.fam, the 2K + 1 about its centre
+  // (truncated)
+  // a log family's members over w (pullFinite's range): every m with its argument in (lo, hi], or of an infinite family
+  // m = c - K … c + K about its centre c
+  function logMembers(F, w, K) {
+    const l0 = F.L0(w);
+    if (!isFin(l0)) return [];
+    let m0, m1;
+    if (!F.inf) {
+      const xa = (F.lo - l0.im) / F.S.im, xb = (F.hi - l0.im) / F.S.im;
+      m0 = Math.ceil(Math.min(xa, xb)) - 1; m1 = Math.floor(Math.max(xa, xb)) + 1;
+    } else { const c = logCentre(F, null, l0); m0 = c - K; m1 = c + K; }
+    const out = [];
+    for (let m = m0; m <= m1; m++) out.push(F.member(w, m, l0));
+    return out;
+  }
   function pointPre(plan, p, cap = LEAF_CAP, opts = {}) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     const K = opts.fam;
     let total = 1, truncated = false;
+    // (a log family: its finitely many members in (lo, hi] all, or of an infinite one the 2K + 1 about its centre)
+    const logFam = (o) => o.fam && o.fam.type === 'log' && (!o.fam.inf || K != null);
     for (const o of plan.ops) {
-      const fam = o.fam && o.fam.type === 'add' && K != null;
-      if (!fam && (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin'))) return { exact: false, reason: 'a step with infinitely many branches' };
+      const fam = o.fam && o.fam.type === 'add' && K != null, lf = logFam(o);
+      const other = typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin');
+      if (!fam && !lf && other) return { exact: false, reason: 'a step with infinitely many branches' };
       if (o.lattice) return { exact: false, reason: 'a step with infinitely many branches' };
-      total *= fam ? (2 * K + 1) * o.fam.nb : o.fam ? o.fam.count : 1;
-      truncated = truncated || fam;
+      total *= fam ? (2 * K + 1) * o.fam.nb : lf ? (o.fam.inf ? 2 * K + 1 : o.fam.count) : o.fam ? o.fam.count : 1;
+      truncated = truncated || fam || (lf && o.fam.inf);
       if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
     }
     let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
@@ -587,7 +606,8 @@ const Inverse = (() => {
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
       const members = o.fam && o.fam.type === 'add' && K != null
         ? (w) => o.fam.bases(w).filter(Boolean).flatMap((b) => Array.from({ length: 2 * K + 1 }, (_, i) => ({ u: add(b, scale(o.fam.p, i - K)), lvl: 0 })))
-        : (w) => o.pre(w);
+        : logFam(o) ? (w) => logMembers(o.fam, w, K)
+          : (w) => o.pre(w);
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
         for (const mem of members(w)) {
