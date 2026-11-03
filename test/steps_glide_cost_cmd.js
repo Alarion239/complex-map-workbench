@@ -8,7 +8,8 @@
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
 //   others), in slices that pause every 16 evaluations of the map;
 // - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
-//   outer ring's sizes are made by the idle job, in no frame, and each size's mesh is built at most once;
+//   outer ring's sizes are made by the idle job (those of the page's first glide before it), in no frame, and each
+//   size's mesh is built at most once;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -107,25 +108,29 @@ async function hold(x, links = true) {
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
   await settled({ max: 20000 });
+  // (from here, the work counted: the idle job's after the page settles on plane 0, before any frame between planes)
+  await ev('globalThis.__svPathStats = {}, 1');
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
-  await settled({ max: 20000 });
+  await settled({ max: 20000, until: '!__cmwSvKey().busy' });
   // (parked at x: the glide's map at t = x; inside (1/8, 7/8), where a thread let go stays)
   const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }), 1`); await settled({ max: 20000, until: `Math.abs(__cmwSvX() - ${x}) < 1e-6` }); };
   const xs = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8];
-  // (parked once at each, then the idle job left to make the glide's ring sizes)
-  await ev('globalThis.__svPathStats = {}, 1');
+  // (the page's first glide, to plane 1: its frames' sizes made by the idle job before it)
+  await ev('__cmwSteps({ go: 1 }), 1');
+  await settled({ max: 30000, until: '!__cmwSteps().moving && Math.abs(__cmwSvX() - 1) < 1e-6' });
+  const ahead = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
+  // (then parked once at each, and the idle job left to finish)
   for (const x of xs) await park(x);
   await settled({ max: 20000, until: '!__cmwSvKey().busy' });
-  const ahead = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
   // (then two scrubs there and back: the ring's sizes made in no frame, and its meshes built once for each size)
   const r0 = await ev('__cmwSvRing(true)');
   const ms = [];
   for (let k = 0; k < 2; k++) for (const x of xs.concat(xs.slice().reverse())) { await park(x); ms.push((await ev('__cmwSvRing()') || { m: null }).m); }
   const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   const builds = (await ev('__cmwSvRing(true)')) - r0, sizes = new Set(ms.filter((m) => m != null)).size;
-  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, ringFrame: ps.ringFrame || 0 };
+  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, firstFrames: ahead.ringFrame || 0, ringFrame: ps.ringFrame || 0 };
   ok('the ring: the scrubs draw a ring', sizes > 0, info['the ring']);
-  ok('the ring: the idle job makes the glide\'s ring sizes', ahead.ringIdle > 0, info['the ring']);
+  ok('the ring: the idle job makes the glide\'s ring sizes, those of the page\'s first glide too', ahead.ringIdle > 0 && !(ahead.ringFrame > 0), info['the ring']);
   ok('the ring: no frame of the scrubs makes its size (the idle job made them)', !(ps.ringFrame > 0), info['the ring']);
   ok('the ring: each of its sizes\' meshes is built once at most over two scrubs', builds <= sizes, info['the ring']);
 }
