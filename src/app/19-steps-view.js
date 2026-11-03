@@ -802,11 +802,23 @@
       const ps = globalThis.__svPathStats;
       if (ps) ps.ringFrame = (ps.ringFrame || 0) + 1;
     }
-    // (a shape of its own for each m: the rings of a glide's sizes keep their meshes, not one rebuilt at each change)
-    const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2;
-    const ring = m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * Math.hypot(ax, ay) }) : null;
+    const ring = svRingShape(m);
     svRingMemo = { key, ring, m };
     return ring;
+  }
+  // the outer ring of size m about clipWin, null for 0 (a shape of its own for each m: the rings of a glide's sizes keep
+  // their meshes, not one rebuilt at each change)
+  function svRingShape(m) {
+    const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2;
+    return m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * Math.hypot(ax, ay) }) : null;
+  }
+  // the ring's mesh (shapeGPU at the ring's base, over its own box)
+  const svRingGPU = (ring) => shapeGPU(ring, { base: SV_RING_BASE, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } });
+  // a ring size's mesh and its carried colour's textures, made in the idle moment that made the size, so the frame that
+  // first draws the ring builds and allocates nothing
+  function svRingWarm(m) {
+    const ring = svRingShape(m), r = ring ? svRingGPU(ring) : null;
+    if (r && r.meshRes && GLR.carryReserve) GLR.carryReserve(r.meshRes, SV_CARRY_L);
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
@@ -841,6 +853,7 @@
       if (r.done) {
         svRingSet(svRingJob.key, r.value);
         svRingJob = null;
+        svRingWarm(r.value);
         const ps = globalThis.__svPathStats;
         if (ps) ps.ringIdle = (ps.ringIdle || 0) + 1;
         return true;
@@ -870,7 +883,7 @@
     const draws = [], fixed = [], still = F && !(map.mode || 0);
     for (const x of shapes) {
       // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
-      const r = shapeGPU(x, x === SV_ALL ? { base: 80 } : x === ring ? { base: SV_RING_BASE, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } } : undefined);
+      const r = x === ring ? svRingGPU(ring) : shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
       if (!r || !r.meshRes) return false;
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
