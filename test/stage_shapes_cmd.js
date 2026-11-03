@@ -22,7 +22,7 @@ async function openApp(st) {
   await settle(800);
 }
 // the plane shown, by its place in the chain (0 is z, 1 is w₁ …)
-const atPlane = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true })`); await settle(900); };
+const atPlane = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return s.x === ${i} && !s.anim && !s.moving; })()` }); };
 // a hash of the plane's canvas pixels (a screenshot of it)
 const picture = async () => {
   const r = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return { x: c.left, y: c.top, width: c.width, height: c.height }; })()`);
@@ -79,6 +79,7 @@ const same = (a, b) => Array.isArray(a) && Array.isArray(b) && a.every((x, i) =>
 const px = (a) => Array.isArray(a) && a.length === 3;
 const pixel = (re, im) => ev(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), p = __cmwPlaneMenu().w2s('L', ${re}, ${im}), k = c.width / r.width;
   return [...c.getContext('2d').getImageData(Math.round((p[0] - r.left) * k), Math.round((p[1] - r.top) * k), 1, 1).data].slice(0, 3); })()`);
+// (the five pixels are read until each is a pixel of the drawn plane, at most 40 rounds of 300 ms: the plane draws a frame or two after the page opens)
 const probe = async () => { for (let i = 0; i < 40; i++) { const q = { p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), far: await pixel(0, 1.2), hy: await pixel(Math.SQRT2, 1) }; if (Object.values(q).every(px)) return q; await sleep(300); } return {}; };
 const two = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }];
 await openApp({ srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [] });
@@ -108,8 +109,8 @@ const gpix = (re, im) => ev(`(() => { const c = document.getElementById('canvasL
   return q ? [...c.getContext('2d').getImageData(Math.round(q[0] * k), Math.round(q[1] * k), 1, 1).data].slice(0, 3) : null; })()`);
 const globe = async (shapes) => {
   await openApp({ srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes });
-  await ev(`__cmwSteps({ surf: 'sphere' })`); await settle(600);
-  await ev('__cmwCam("L", { pitch: 0.2, yaw: 0 }); 1'); await settle(1500);
+  await ev(`__cmwSteps({ surf: 'sphere' }), 1`); await settled({ max: 20000, until: `__cmwSteps().surf === 'sphere'` });
+  await ev('__cmwCam("L", { pitch: 0.2, yaw: 0 }); 1'); await settled({ max: 20000 });
   return { p1: await gpix(1, 0), o: await gpix(0.5, 0), far: await gpix(0.25, 0) };
 };
 const gBare = await globe([]), gPulled = await globe([{ id: 's2', kind: 'disc', c: [1, 0], r: 0.5, ci: 1, visible: true, stage: 1 }]);
@@ -122,7 +123,8 @@ ok('on the z-globe the disc of w₁ is pulled back to z = 1, not to 0.5', [gBare
 // ---- the steps change: the shape follows its plane; a saved stage loads
 await openApp(Object.assign({}, base, { shapes: base.shapes.concat([{ id: 's2', kind: 'disc', c: [0.3, 0.2], r: 0.1, ci: 1, visible: true, stage: 1 }]) }));
 ok('a saved stage loads', (await shapes()).find((s) => s.id === 's2').stage === 1, await shapes());
-await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-more').click()`); await settle(300);
+await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-more').click()`);
+await settled({ panes: false, until: `!!document.querySelector('#popHost .mi')` });
 info.menu = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .mi')].find((e) => e.querySelector('.mi-label').textContent === 'Remove'); if (!b) return [...document.querySelectorAll('#popHost .mi .mi-label')].map((e) => e.textContent); b.click(); return true; })()`);
 await settle(900);
 ok('removing f₁ moves the shape of w₁ to f₁\'s input plane, the z-plane', info.menu === true && !(await shapes()).find((s) => s.id === 's2').stage, [info.menu, await shapes()]);
