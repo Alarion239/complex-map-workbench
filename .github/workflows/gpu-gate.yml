@@ -329,7 +329,9 @@ jobs:
         with:
           pattern: gpu-perf-*
           path: .ci/perf-all
-      - run: node ci/perf_verdicts.js .ci/perf-all
+      - env:
+          SHARDS: ${{ needs.plan.outputs.shards }}
+        run: node ci/perf_verdicts.js .ci/perf-all --expect "$SHARDS"
         continue-on-error: true
       - run: echo "plan ${{ needs.plan.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
       # (with glsl skip the GLSL and quality jobs were left out on purpose: only perf is judged then)

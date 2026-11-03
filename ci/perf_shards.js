@@ -84,19 +84,22 @@ function check() {
 // is an error
 function matrix(only, skip, { leaves = false } = {}) {
   const named = only && only.length ? only : ['all'];
-  const unknown = named.filter((id) => id !== 'all' && id !== 'classic' && !find(id));
-  if (unknown.length) throw new Error(`no shard or part ${unknown.join(', ')}; ids: all, classic, ${[...SHARDS, ...PARTS].map((s) => s.id).join(', ')}`);
   const expand = (sh) => (leaves && sh.split ? PARTS.filter((p) => p.of === sh.id).map((p) => p.id) : [sh.id]);
-  const ids = [];
-  for (const id of named) {
-    if (id === 'all') ids.push(...SHARDS.flatMap(expand));
-    else if (id === 'classic') ids.push(...SHARDS.filter((sh) => !sh.split).map((sh) => sh.id));
-    else if (SHARDS.some((sh) => sh.id === id)) ids.push(...expand(SHARDS.find((sh) => sh.id === id)));
-    else ids.push(id);
-  }
+  // the ids one name stands for (a part's own id, a split shard's parts with leaves)
+  const resolve = (id) => {
+    if (id === 'all') return SHARDS.flatMap(expand);
+    if (id === 'classic') return SHARDS.filter((sh) => !sh.split).map((sh) => sh.id);
+    const sh = SHARDS.find((x) => x.id === id);
+    if (sh) return expand(sh);
+    if (find(id)) return [id];
+    throw new Error(`no shard or part ${id}; ids: all, classic, ${[...SHARDS, ...PARTS].map((x) => x.id).join(', ')}`);
+  };
+  const ids = named.flatMap(resolve);
   // (a part named beside its own shard is covered by the shard; each id runs once)
   const uniq = [...new Set(ids)];
-  return uniq.filter((id) => !PARTS.some((p) => p.id === id && uniq.includes(p.of))).filter((id) => !(skip && skip.includes(id)));
+  // --skip names the same way: a shard's id leaves out the shard and, with it, its parts
+  const skipped = new Set((skip || []).flatMap((id) => [...resolve(id), ...(SHARDS.some((sh) => sh.id === id) ? PARTS.filter((p) => p.of === id).map((p) => p.id) : [])]));
+  return uniq.filter((id) => !PARTS.some((p) => p.id === id && uniq.includes(p.of))).filter((id) => !skipped.has(id));
 }
 
 if (require.main === module) {

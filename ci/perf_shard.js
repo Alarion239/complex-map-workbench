@@ -44,16 +44,32 @@ const MEASURED = new Set(['frame_ms', 'cpu_ms', 'latency_ms', 'jank_ms', 'settle
 const PERF = path.join(ROOT, 'test', 'regress', 'perf');
 const CMP = path.join(ROOT, 'test', 'regress', 'compare_perf.py');
 
+// the shard's verdict as the one log line and verdict.json in its output directory (ci/perf_verdicts.js collects them)
+const T0 = Date.now();
+function record(rec) {
+  const r = Object.assign({ leaf: shard ? shard.id : '?', head: '?', ref: '?', exit: 2, fail: 0, both: 0, pass: 0, passes: 0, seconds: Math.round((Date.now() - T0) / 1000), failing: [] }, rec);
+  try {
+    const out = path.join(ROOT, '.ci', 'perf', r.leaf);
+    fs.mkdirSync(out, { recursive: true });
+    fs.writeFileSync(path.join(out, 'verdict.json'), JSON.stringify(r, null, 2));
+  } catch (e) { /* the line below still says it */ }
+  console.log(`PERF ${r.leaf} ${r.head} vs ${r.ref}: ${r.verdict} (exit ${r.exit}), FAIL ${r.fail} BOTH ${r.both} PASS ${r.pass}, passes ${r.passes}, ${r.seconds} s`);
+}
+let HEAD8 = '?';
+try { HEAD8 = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().slice(0, 8); } catch (e) { /* the line says ? */ }
+let REF8 = '?';
+
 async function main() {
-  const started = Date.now();
   if (!shard) { console.error(`--shard must be one of: ${[...SHARDS, ...PARTS].map((s) => s.id).join(', ')}`); return 2; }
   const title = `Perf ${shard.id} (${process.platform}${process.env.RUNNER_NAME ? ', ' + process.env.RUNNER_NAME : ''})`;
   if (!argv.includes('--force') && sameApp(ref)) {
     summary(`### ${title}\n\nNo change to the app (src/, build.py) since \`${ref}\`: nothing to compare.\n`);
+    record({ verdict: 'SKIPPED', head: HEAD8, exit: 0, passes: 0 });
     return 0;
   }
   if (!argv.includes('--no-build') && run(PY, ['build.py']) !== 0) throw new Error('build failed');
   const R = buildReference(ref);
+  REF8 = R.sha.slice(0, 8);
   const OUT = path.join(ROOT, '.ci', 'perf', shard.id);
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
@@ -144,15 +160,14 @@ async function main() {
   if (fresh.size) lines.push(`<details><summary>${fresh.size} new unit(s), reported and not compared</summary>\n\n${[...fresh].slice(0, 60).map(([u, e]) => `- \`${u}\` (${e.n} metric(s)): ${esc(e.why ? `the reference cannot run it: ${e.why}` : 'not in the reference')}`).join('\n')}\n</details>`, '');
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));
-  // the one line a reader of the log (or the collected table, ci/perf_verdicts.js) needs: the shard's verdict, and a record of it
   const exit = shardExit(fails.length, busy.length);
-  const verdictWord = fails.length ? 'FAIL' : busy.length ? 'INVALID' : both.length ? 'BOTH' : 'PASS';
-  let head8 = '?';
-  try { head8 = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().slice(0, 8); } catch (e) { /* the line says ? */ }
-  const record = { leaf: shard.id, head: head8, ref: R.sha.slice(0, 8), verdict: verdictWord, exit, fail: fails.length, both: both.length, pass: counts.PASS || 0, passes: confirmed ? attempts : 1, seconds: Math.round((Date.now() - started) / 1000), failing: fails.slice(0, 20).map((r) => r.metric) };
-  fs.writeFileSync(f('verdict.json'), JSON.stringify(record, null, 2));
-  console.log(`PERF ${record.leaf} ${record.head} vs ${record.ref}: ${record.verdict} (exit ${exit}), FAIL ${record.fail} BOTH ${record.both} PASS ${record.pass}, passes ${record.passes}, ${record.seconds} s`);
+  record({ verdict: fails.length ? 'FAIL' : busy.length ? 'INVALID' : both.length ? 'BOTH' : 'PASS', head: HEAD8, ref: REF8, exit, fail: fails.length, both: both.length, pass: counts.PASS || 0, passes: confirmed ? attempts : 1, failing: fails.slice(0, 20).map((r) => r.metric) });
   for (const r of warned.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
   return exit;
 }
-main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### Perf ${shard ? shard.id : '?'}: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });
+main().then((rc) => process.exit(rc), (e) => {
+  console.error(e);
+  summary(`### Perf ${shard ? shard.id : '?'}: setup problem\n\n\`${esc(String(e.message || e))}\`\n`);
+  record({ verdict: 'INVALID', head: HEAD8, ref: REF8, exit: 2, error: String(e.message || e).slice(0, 300) });
+  process.exit(2);
+});

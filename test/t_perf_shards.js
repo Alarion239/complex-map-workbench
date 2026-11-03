@@ -27,7 +27,9 @@ ok('leaves: classic is the shards that are not split', leaves(['classic']).join(
 ok('leaves: a part is one job, a shard that is not split runs whole', leaves(['steps-king']).join() === 'steps-king' && leaves(['pointer']).join() === 'pointer');
 ok('leaves: a part beside its own whole shard runs once', leaves(['pointer', 'pointer-drag', 'steps', 'steps-king']).join() === 'pointer,' + steps4);
 ok('leaves: skip removes a leaf', !leaves(null, ['steps-king']).includes('steps-king') && leaves(null, ['steps-king']).includes('steps-zeta'));
-ok('an unknown id is an error', throws(() => matrix(['steps-kng'], null)) && throws(() => leaves(['nope'])));
+ok('skip expands a split shard as only does: its id leaves out its parts, a part leaves out itself', leaves(null, ['steps']).join() === ids.filter((i) => i !== 'steps').join() && matrix(null, ['steps']).join() === ids.filter((i) => i !== 'steps').join() && leaves(['steps'], ['steps-king']).join() === 'steps-first,steps-default,steps-zeta');
+ok('skip: a whole shard named beside its parts takes them with it', matrix(['steps', 'phone-open'], ['steps']).join() === 'phone-open' && leaves(['pointer-drag', 'phone'], ['pointer']).join() === 'phone');
+ok('an unknown id is an error', throws(() => matrix(null, ['steps-kng'])) &&  throws(() => matrix(['steps-kng'], null)) && throws(() => leaves(['nope'])));
 // the steps leaves select exactly the units `^sv\.` does (run.js --list), each once
 const units = execFileSync(process.execPath, [path.join(__dirname, '..', 'test', 'regress', 'perf', 'run.js'), '--list'], { encoding: 'utf8' }).split('\n').map((l) => l.split(/\s+/)[0]).filter(Boolean);
 const sv = units.filter((u) => /^sv\./.test(u));
