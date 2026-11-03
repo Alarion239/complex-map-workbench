@@ -613,5 +613,18 @@
  "Each plane is shown in its own window where it fits.": "Каждая плоскость показана в своём окне, где она помещается.",
  "On": "Вкл",
  "Off": "Выкл",
- "Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.": "Попробуйте: у шага d/dz ⋯ → «Сдвинуть влево» (Alt+←): картина изменится."
+ "Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.": "Попробуйте: у шага d/dz ⋯ → «Сдвинуть влево» (Alt+←): картина изменится.",
+ "Click + Add function.": "Нажмите «+ Добавить функцию».",
+ "Tap + Add function.": "Нажмите «+ Добавить функцию».",
+ "Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. A chip's ⋯ menu moves it, bypasses it or removes it.": "«Добавить функцию» на нити добавляет шаг: выберите его в каталоге или введите формулу, например $\\sin(z^2)$. Меню ⋯ метки сдвигает шаг, отключает или удаляет его.",
+ "Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. A chip's menu, opened by a long press or a right-click, moves it, bypasses it or removes it.": "«Добавить функцию» на нити добавляет шаг: выберите его в каталоге или введите формулу, например $\\sin(z^2)$. Меню метки, которое открывается долгим нажатием или правой кнопкой, сдвигает шаг, отключает или удаляет его.",
+ "Reorder steps": "Порядок шагов",
+ "A step's place in the chain decides what every plane after it shows. Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.": "Место шага в цепочке определяет, что показывает каждая плоскость после него. Сдвиньте шаг через его меню ⋯ или клавишами Alt+← и Alt+→ на выбранной метке.",
+ "A step's place in the chain decides what every plane after it shows. Move one with its ⋯ menu.": "Место шага в цепочке определяет, что показывает каждая плоскость после него. Сдвиньте шаг через его меню ⋯.",
+ "A step's place in the chain decides what every plane after it shows. Move one from its menu: hold the chip.": "Место шага в цепочке определяет, что показывает каждая плоскость после него. Сдвиньте шаг через его меню: удерживайте метку.",
+ "A step's place in the chain decides what every plane after it shows. Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.": "Место шага в цепочке определяет, что показывает каждая плоскость после него. Сдвиньте шаг через его меню (правая кнопка на метке) или клавишами Alt+← и Alt+→ на выбранной метке.",
+ "In the ⋯ menu of $f_2$, choose Move left.": "В меню ⋯ метки $f_2$ выберите «Сдвинуть влево».",
+ "Hold the chip $f_2$, then choose Move left.": "Удерживайте метку $f_2$ и выберите «Сдвинуть влево».",
+ "Right-click the chip $f_2$, then choose Move left.": "Щёлкните метку $f_2$ правой кнопкой и выберите «Сдвинуть влево».",
+ "The planes after this step changed with the order.": "Плоскости после этого шага изменились вместе с порядком."
 }

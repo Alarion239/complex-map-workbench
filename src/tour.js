@@ -432,6 +432,21 @@ const Tour = (() => {
   };
   if (SV_ON) {
     const chs = /** @type {any[]} */ (CHAPTERS);
+    // the thread's Add function button and a reorder step, in place of the classic chain's add card and "Cards follow the view"
+    const svStep = (/** @type {string} */ ch, /** @type {string} */ id) => chs.find((/** @type {any} */ c) => c.id === ch).steps.find((/** @type {any} */ st) => st.id === id);
+    const addBody = 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.';
+    const addMenuTouch = addBody + ' A chip\'s menu, opened by a long press or a right-click, moves it, bypasses it or removes it.';
+    Object.assign(svStep('basics', 'add'), { anchor: 'svAdd', also: ['svStrip'],
+      body: addBody + ' A chip\'s ⋯ menu moves it, bypasses it or removes it.', deskTouch: undefined, touch: addMenuTouch, phoneFine: addMenuTouch,
+      try: { text: 'Click + Add function.', touch: 'Tap + Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
+    const reorderBody = 'A step\'s place in the chain decides what every plane after it shows.';
+    const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
+    const reorderStep = { id: 'reorder', anchor: 'svMenu2', also: ['svStrip'], title: 'Reorder steps', before: [['svPlace', { i: 0, surf: 'plane' }]],
+      body: reorderBody + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: reorderBody + ' Move one with its ⋯ menu.',
+      touch: reorderBody + ' Move one from its menu: hold the chip.', phoneFine: reorderBody + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
+      try: { text: reorderMenu, deskTouch: reorderMenu, touch: 'Hold the chip $f_2$, then choose Move left.', phoneFine: 'Right-click the chip $f_2$, then choose Move left.', on: 'step-moved', test: (/** @type {any} */ e) => !e || e.from === 2, ctl: ['svMenu2'], then: 'The planes after this step changed with the order.' } };
+    const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
+    edit[edit.findIndex((/** @type {any} */ st) => st.id === 'cards')] = reorderStep;
     const bi = CHAPTERS.findIndex((c) => c.id === 'basics'), di = CHAPTERS.findIndex((c) => c.id === 'deform');
     if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
     if (di >= 0) chs.splice(di, 1);
@@ -468,6 +483,8 @@ const Tour = (() => {
     // button that steps through them) and the first function chip)
     svStrip: '#svStrip', svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
     svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svF: () => vis1('#svStrip .sv-wholemap'),
+    // (the thread's Add function button, in either form; the second chip's ⋯ menu, or on a phone, where chips have none, the chip)
+    svAdd: () => vis1('#svStrip .sv-add'), svMenu2: () => vis1('#svStrip .sv-step[data-k="2"] .sv-more') || vis1('#svStrip .sv-step[data-k="2"] .sv-fchip'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
