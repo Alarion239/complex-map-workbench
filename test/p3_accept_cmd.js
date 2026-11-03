@@ -23,7 +23,9 @@ const drawn = (id) => ev(`__cmwDrawn()['L|${id}'] || null`);
 // a pixel is fill (page code FILL(A, B, i), A the frame Inside regions, B the same frame coloured Everywhere, i the
 // pixel's offset) where A shows B's colour: within 24/255 summed over the channels, or A not grey (its channels spread
 // by 24/255 or more) with B's hue (each channel's share of the sum within 0.03; a line of the globe's net drawn over
-// one frame and not the other darkens a pixel without changing its hue). Outside a region A shows the bare globe, grey
+// one frame and not the other darkens a pixel without changing its hue). Outside a region A shows the bare globe, grey,
+// which neither clause takes. What the hue clause lets through is a fill of B's hue at another brightness: these checks
+// ask where the fill is; its colour is judged by p3_review_cmd.js's carryCompare rows
 const FILL = `((A, B, i) => {
   if (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) <= 24) return true;
   if (Math.max(A[i], A[i + 1], A[i + 2]) - Math.min(A[i], A[i + 1], A[i + 2]) < 24) return false;

@@ -155,6 +155,9 @@ await shot('p3rv_stroke');
 // back from w1, around infinity; and the w-globe of Cayley(H) with the colour plane z, z's colour carried to w1. Each
 // is judged as the steps view's flat planes are (H.carryCompare on the Sphere surface: each pixel's globe point, its
 // points of plane z ranked by the sheet key, and the front point's colour), at most MAX_BAD of the samples wrong
+// (MAX_BAD: the bound steps_carry_exact_cmd.js and steps_carry_far_cmd.js judge with, for antialiased seams and the
+// probe's rounding. Measured here: 0 of 1133 samples wrong on the z-globe and 0 of 938 on the plane at stage 1 of
+// [z^i, z^2]; the Cayley w-globe, which draws no carried colour (#729), has 913 of 1113 wrong)
 const MAX_BAD = 0.01;
 // (each page is in the Tiles colouring, 'enhanced', set in its state)
 const DC = 'enhanced';
