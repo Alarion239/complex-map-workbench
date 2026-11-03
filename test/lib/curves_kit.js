@@ -21,10 +21,20 @@ const addFormula = async (t) => {
   return r;
 };
 const shapes = () => ev('__cmwShapes()');
-// the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden
+// (a target's stroke has a halo that lightens what is under it towards the paper: over a coloured plane that changes the
+// colour too, but it is not ink. A pixel whose change is only a blend towards white, within 32 levels, is halo)
+const isHalo = (on, off, j) => {
+  let dot = 0, nn = 0, res = 0;
+  for (let c = 0; c < 3; c++) { const o = off[j + c]; dot += (on[j + c] - o) * (255 - o); nn += (255 - o) * (255 - o); }
+  const a = nn > 0 ? dot / nn : 0;
+  for (let c = 0; c < 3; c++) { const o = off[j + c]; res = Math.max(res, Math.abs(on[j + c] - o - a * (255 - o))); }
+  return a > 0 && res < 32;
+};
+// the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden (skipHalo: not the
+// target stroke's halo)
 // (the steps view has one plane: the source plane is step 0, the right pane's plane is the chain's last step)
 // (a later plane takes the shared view of the steps view, so the right pane's pinned view `rv` is set as that view first)
-const inkOf = async (side, id, isTarget, nSteps, rv) => {
+const inkOf = async (side, id, isTarget, nSteps, rv, skipHalo) => {
   if (await ev(`document.documentElement.classList.contains('sv')`)) {
     if (side === 'R') await ev(`__cmwSet('srcView', ${JSON.stringify(rv)}); 1`);
     await ev(`__cmwSteps({ go: ${side === 'R' ? nSteps : 0}, now: true })`);
@@ -45,7 +55,9 @@ const inkOf = async (side, id, isTarget, nSteps, rv) => {
   const W = geo.w, H = geo.h, ink = [];
   for (let i = 0; i < W * H; i++) {
     const d = Math.abs(on[4 * i] - off[4 * i]) + Math.abs(on[4 * i + 1] - off[4 * i + 1]) + Math.abs(on[4 * i + 2] - off[4 * i + 2]);
-    if (d > 90) ink.push([i % W + 0.5, Math.floor(i / W) + 0.5]);
+    if (d <= 90) continue;
+    if (skipHalo && isHalo(on, off, 4 * i)) continue;
+    ink.push([i % W + 0.5, Math.floor(i / W) + 0.5]);
   }
   // world -> canvas px (dpr 1: CSS px relative to the canvas)
   const sx = geo.x1[0] - geo.o[0], sy = geo.y1[1] - geo.o[1];
@@ -110,7 +122,9 @@ const SC = [
     for (let k = 0; k < 4; k++) out.push(Array.from({ length: 8001 }, (_, i) => { const t = k * Math.PI / 2 + (-Math.PI / 8 + 1e-6 + (Math.PI / 4 - 2e-6) * i / 8000); const r = Math.pow(Math.cos(4 * t), -0.25); return [r * Math.cos(t), r * Math.sin(t)]; }));
     return out;
   } },
-  { name: 'pre_target_lemniscate_exp', target: '|w^2-1| = 1', steps: [{ type: 'exp', params: {} }], side: 'L', srcView: { cx: -1, cy: 0, s: 60 }, rv: { cx: 0, cy: 0, s: 120 }, truth: () => {
+  { name: 'pre_target_lemniscate_exp', target: '|w^2-1| = 1', steps: [{ type: 'exp', params: {} }], side: 'L', srcView: { cx: 1.5, cy: 0, s: 60 }, rv: { cx: 0, cy: 0, s: 120 }, truth: () => {
+    // (the pane's left edge stays right of Re z = -5.7: the curve's two arms meet the node w = 0 as Re z -> -inf, where the level
+    // function |w^2 - 1| - 1 loses its digits in float32 and no stroke can be placed within a pixel)
     // e^{2z} = 1 + e^{i phi}: z = log(1 + e^{i phi}) / 2 + k pi i
     const out = [];
     for (let k = -4; k <= 4; k++) out.push(Array.from({ length: 20001 }, (_, i) => { const ph = -Math.PI + 1e-9 + (2 * Math.PI - 2e-9) * i / 20000; const a = 1 + Math.cos(ph), b = Math.sin(ph); return [0.5 * Math.log(Math.hypot(a, b)), 0.5 * Math.atan2(b, a) + k * Math.PI]; }));
@@ -157,7 +171,7 @@ const runScene = async (sc) => {
   await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle();
   // (the steps view draws a shape's curve on its colour plane only while Outlines is on; the classic right pane's image always does)
   if (await ev(`document.documentElement.classList.contains('sv')`)) { await ev(`__cmwSet('outline', true); 1`); await settle(); }
-  const I = await inkOf(sc.side || 'R', id, !!sc.target, sc.steps.length, sc.rv);
+  const I = await inkOf(sc.side || 'R', id, !!sc.target, sc.steps.length, sc.rv, !!sc.target);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
   await shot('curves-' + sc.name, sc.side === 'L' ? { x: 268, y: 44, width: 432, height: 570 } : { x: 706, y: 44, width: 432, height: 570 });
 };
