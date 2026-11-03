@@ -95,7 +95,8 @@ const VIEWS = {
   'phase_key_cmd.js': steps({ pin: true }),
   'phase_key_classic_cmd.js': classic('X → Y\'s hidden X key: the steps view has one plane and shows its key (phase_key_cmd)'),
   'phase_style_cmd.js': steps({ pin: true }),
-  'repeat_cmd.js': port('interact', 'the cards\' ⋯ and the bracket\'s N chip drive its cases; steps_repeat_cmd covers N in the steps view, and its engine cases (F\'s degree, undo, insert, remove, examples, Write by zeros and poles) need steps equivalents'),
+  'repeat_cmd.js': steps({ pin: true }),
+  'repeat_classic_cmd.js': classic('the classic card row\'s ⋯ menu and its bracket under the cards (the bracket\'s N chip, its × and its spans), and F read from the classic F tile: the steps view has no card row, and its Repeat is a chip menu and an Inspector row (repeat_cmd, steps_repeat_cmd)'),
   'repeat_settle_cmd.js': steps({ pin: true }),
   'series_edit_cmd.js': steps({ pin: true }),
   'series_params_cmd.js': steps({ pin: true }),
@@ -115,7 +116,8 @@ const VIEWS = {
   'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree, the frame held mid-drag and the deformation: the steps view shows one plane, with no right pane and no deformation transport'),
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
-  'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once, which the steps view does not have yet'),
+  'deform_nat_cmd.js': steps({ pin: true }),
+  'deform_nat_classic_cmd.js': classic('the classic Deformation dock: its Paths button, key P and palette entry, the figure export with paths, the order select and all at once as one homotopy with its scrubber, caption and play loop, Phase beside the deformation, and the 60 fps check of the paths: the steps view has no dock, draws a glide over several steps as one run of them, and keeps its own Paths and order controls (steps_paths_cmd, steps_order_cmd)'),
 
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
