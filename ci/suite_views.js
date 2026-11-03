@@ -157,6 +157,7 @@ const VIEWS = {
   'figure_wait_cmd.js': port('export'),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
   'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
+  'p3_accept_export_cmd.js': port('export', 'the figure export of z^i(H) at 300 dpi, its cancel and its dialog'),
   'p3_review_export_cmd.js': port('export', 'the two-globe 300 dpi export: the shown plane\'s export at 300 dpi'),
 
   // to port: geometry
