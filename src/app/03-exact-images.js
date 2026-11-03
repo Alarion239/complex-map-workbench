@@ -650,8 +650,10 @@
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
       const smd = (smLive || offRender) && smRole
         ? smFor(s, r, smRole, 'flat', map, pane, 0, smLive && lp !== 'pending') : null;
-      if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
-        if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
+      // (n 0: nothing of it shows; but a formula area's level is only sampled, at the meshing window's feature
+      // resolution, so its empty mesh proves nothing and the GPU draws it)
+      if (smd && smd.e && (smd.e.data.n ? smRes(smd.e) : s.kind !== 'formula')) {
+        if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
         continue;
       }
