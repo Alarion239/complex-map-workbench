@@ -12,15 +12,20 @@ const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
 const CAY = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true };
-const settle = async (ms = 2500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 await view(1440, 900, false);
-await load('svgc' + Date.now(), { dc: 'enhanced', shapes: [H], steps: [CAY], exactImages: false, lines: false, unit: false,
-  sv: { at: 1, T: 0, scope: 'all' }, srcView: { cx: 0, cy: 1, s: 60 } });
+await load('svgc' + Date.now(), { dc: 'enhanced', shapes: [H], steps: [CAY], exactImages: false, lines: false,
+  unit: false, sv: { at: 1, T: 0, scope: 'all' }, srcView: { cx: 0, cy: 1, s: 60 } });
 if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) {
-  return { pass: false, fails: [{ name: 'the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)' }], results: R };
+  const name = 'the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)';
+  return { pass: false, fails: [{ name }], results: R };
 }
-await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere' }); 1`); await settle(3000);
-await ev('__cmwCam("L", { pitch: 0.35, yaw: -0.4, dist: 3.4 }); 1'); await settle(1200);
+await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere' }); 1`);
+await settled({ until: `(() => { const s = __cmwSteps(); return s.i === 1 && !s.moving && s.surf === 'sphere'; })()` });
+// (the camera's pose, then the page quiet: the frame of that pose drawn)
+const CAM = { pitch: 0.35, yaw: -0.4, dist: 3.4 };
+await ev(`__cmwCam('L', ${JSON.stringify(CAM)}); 1`);
+await settled({ until: `(() => { const c = __cmwCam('L'), o = ${JSON.stringify(CAM)};
+  return ['pitch', 'yaw', 'dist'].every((k) => Math.abs(c[k] - o[k]) < 1e-6); })()` });
 R.state = await ev(`(() => { const s = __cmwSteps(); return { at: s.i, T: s.T, scope: s.scope, surf: s.surf }; })()`);
 ok('the scene: plane w1 on the Sphere surface, colour plane z, Everywhere', R.state.at === 1 && R.state.T === 0
   && R.state.scope === 'all' && R.state.surf === 'sphere', R.state);
@@ -33,7 +38,8 @@ R.globe = await ev(`(() => {
     if (!__cmwSphereWL(xx + 0.5, y + 0.5)) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * cv.width + Math.floor((xx + 0.5) * dpr));
     n++;
-    if (Math.max(D[i], D[i + 1], D[i + 2]) - Math.min(D[i], D[i + 1], D[i + 2]) >= 24) { col++; if (ex.length < 4) ex.push([xx, y, D[i], D[i + 1], D[i + 2]]); }
+    if (Math.max(D[i], D[i + 1], D[i + 2]) - Math.min(D[i], D[i + 1], D[i + 2]) < 24) continue;
+    col++; if (ex.length < 4) ex.push([xx, y, D[i], D[i + 1], D[i + 2]]);
   }
   return { n, col, frac: n ? +(col / n).toFixed(4) : null, ex };
 })()`, 60000);

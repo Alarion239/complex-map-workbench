@@ -1057,7 +1057,9 @@
           ? smFor(s, r, role, 'globe', map, pane, smR, live && pth === 'forward') : null;
         const sme = smd && (smd.e || smd.old);
         if (o.carry || (sme && !sme.data.n)) { /* no forward fill: the carry, or nothing of it shows on the globe */ }
-        else if (sme && smRes(sme)) fwd.push({ pre: sme.res, st: Object.assign(smLook(s, pane, S.alpha), { view: null }) });
+        else if (sme && smRes(sme)) {
+          fwd.push({ pre: sme.res, st: Object.assign(smLook(s, pane, S.alpha), { view: null }) });
+        }
         else if (pf.p.meshRes) {
           const fx = pf.fx, pm = pf.p;
           const st = { map, dpr: pane.dpr, L: MESH_L, color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), skip: fx ? fx.skip : null, stretch,
