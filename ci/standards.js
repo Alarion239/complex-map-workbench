@@ -4,8 +4,8 @@
 //   history   a comment that tells the code's history: the words, version and wave labels and changelog issue numbers
 //             of HISTORY below
 //   plan      a plan label in a comment: the labels of PLAN below
-//   asserts   a diff that removes more assertions (check/ok/assert calls) than it adds over its test files
-//             (test/t_*.js, test/*_cmd.js); the files that lose some are named
+//   asserts   a test file (test/t_*.js, test/*_cmd.js) whose diff removes more assertions (check/ok/assert calls) than it
+//             adds, unless the diff creates a test file that takes them over (a split)
 // Only comments on added lines of src/, ci/, test/ and tools/ are read, and not the generated files. An added line
 // opts out with `standards-ok: <reason>` in its own comment; a test file opts out of the assertion count with the
 // same marker on any line it adds. A marker with no reason is itself a finding.
@@ -92,7 +92,7 @@ function parseDiff(text) {
     if (raw.startsWith('--- ')) { from = raw === '--- /dev/null' ? null : raw.slice(4).replace(/^a\//, ''); continue; }
     if (raw.startsWith('+++ ')) {
       const to = raw === '+++ /dev/null' ? null : raw.slice(4).replace(/^b\//, '');
-      cur = { file: to || from, deleted: !to, added: [], removed: [] };
+      cur = { file: to || from, deleted: !to, created: !from, added: [], removed: [] };
       out.push(cur);
       continue;
     }
@@ -130,12 +130,14 @@ function check(files) {
       counted.push({ f, before: count(f.removed), after: count(f.added.map((a) => a.text)) });
     }
   }
-  // a drop is judged over the whole diff: assertions moved from one test file to another (a split) are not dropped
-  const before = counted.reduce((s, x) => s + x.before, 0), after = counted.reduce((s, x) => s + x.after, 0);
-  if (after < before) {
-    for (const { f, before: b, after: a } of counted) {
-      if (a < b) found.push({ file: f.file, line: f.added.length ? f.added[0].n : 1, rule: 'asserts', text: '', why: `${b} assertions removed, ${a} added${f.deleted ? ' (file deleted)' : ''}; ${before} removed and ${after} added over all test files` });
-    }
+  // assertions moved into a file the diff creates (a split) are not dropped; a gain in a file that already existed does not
+  // make up for a loss elsewhere
+  let moved = counted.filter((x) => x.f.created).reduce((s, x) => s + x.after, 0);
+  for (const { f, before: b, after: a } of counted) {
+    if (a >= b || f.created) continue;
+    const lost = b - a, covered = Math.min(lost, moved);
+    moved -= covered;
+    if (covered < lost) found.push({ file: f.file, line: f.added.length ? f.added[0].n : 1, rule: 'asserts', text: '', why: `${b} assertions removed, ${a} added${f.deleted ? ' (file deleted)' : ''}${covered ? `; ${covered} of them moved to a new file` : ''}` });
   }
   return found;
 }

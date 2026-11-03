@@ -290,8 +290,8 @@ npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head 
 `node ci/standards.js --ref REV` (the Plan job runs it against the paired gates' reference) reads the lines a change
 adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and reports what CONTRIBUTING.md's Code rules
 let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
-item of an issue (`plan`), and a diff that removes more assertions than it adds over its test files (`test/t_*.js`,
-`test/*_cmd.js`; a split that moves assertions to another file nets zero) (`asserts`). The words `was`, `now` and
+item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it adds
+(`asserts`; assertions moved into a test file the diff creates, a split, are not counted as dropped). The words `was`, `now` and
 `no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines, and never fails the job; with
 `--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.

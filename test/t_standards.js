@@ -41,20 +41,31 @@ ok('plan: K1 item is a plan label', rules('ci/x.js', ['// K1 item 3']).join() ==
 ok('plan: a single cite of a decision issue is fine', rules('src/x.js', ['// see #620 for the decision', '// the chain limit (issue #234)']).length === 0);
 
 // dropped assertions
-ok('asserts: fewer assertions in a test file', rules('test/t_a.js', ['ok(1);'], ['ok(1);', 'ok(2);', 'check(3);']).join() === 'asserts:3 assertions removed, 1 added; 3 removed and 1 added over all test files');
+ok('asserts: fewer assertions in a test file', rules('test/t_a.js', ['ok(1);'], ['ok(1);', 'ok(2);', 'check(3);']).join() === 'asserts:3 assertions removed, 1 added');
 ok('asserts: the same or more is fine', rules('test/t_a.js', ['ok(1);', 'ok(2);'], ['ok(1);']).length === 0);
-ok('asserts: a browser suite counts too', rules('test/x_cmd.js', [], ['check("a", 1);']).join() === 'asserts:1 assertions removed, 0 added; 1 removed and 0 added over all test files');
+ok('asserts: a browser suite counts too', rules('test/x_cmd.js', [], ['check("a", 1);']).join() === 'asserts:1 assertions removed, 0 added');
 ok('asserts: a moved assertion nets zero', rules('test/t_a.js', ['ok(1);'], ['ok(1);']).length === 0);
 ok('asserts: other files are not counted', rules('test/lib/x.js', [], ['ok(1);']).length === 0 && rules('src/x.js', [], ['ok(1);']).length === 0);
 ok('asserts: a deleted test file', (() => {
   const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ /dev/null', '@@ -1,2 +0,0 @@', '-ok(1);', '-ok(2);'].join('\n'));
-  return check(f).map((x) => x.why).join() === '2 assertions removed, 0 added (file deleted); 2 removed and 0 added over all test files';
+  return check(f).map((x) => x.why).join() === '2 assertions removed, 0 added (file deleted)';
 })());
 
 ok('asserts: a split moves assertions to a new file', (() => {
   const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ b/test/t_a.js', '@@ -1,2 +1,0 @@', '-ok(1);', '-ok(2);',
     'diff --git a/test/t_b.js b/test/t_b.js', '--- /dev/null', '+++ b/test/t_b.js', '@@ -0,0 +1,2 @@', '+ok(1);', '+ok(2);'].join('\n'));
   return check(f).length === 0;
+})());
+
+ok('asserts: a gain in an existing file does not hide a loss', (() => {
+  const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ b/test/t_a.js', '@@ -1 +0,0 @@', '-ok(1);',
+    'diff --git a/test/t_b.js b/test/t_b.js', '--- a/test/t_b.js', '+++ b/test/t_b.js', '@@ -0,0 +1 @@', '+ok(1);'].join('\n'));
+  return check(f).map((x) => x.file).join() === 'test/t_a.js';
+})());
+ok('asserts: a partly moved split names the rest', (() => {
+  const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ b/test/t_a.js', '@@ -1,2 +0,0 @@', '-ok(1);', '-ok(2);',
+    'diff --git a/test/t_b.js b/test/t_b.js', '--- /dev/null', '+++ b/test/t_b.js', '@@ -0,0 +1 @@', '+ok(1);'].join('\n'));
+  return check(f).map((x) => x.why).join() === '2 assertions removed, 0 added; 1 of them moved to a new file';
 })());
 
 // opt-out, scope, generated files
