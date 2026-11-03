@@ -115,7 +115,8 @@ const VIEWS = {
   'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree, the frame held mid-drag and the deformation: the steps view shows one plane, with no right pane and no deformation transport'),
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
-  'deform_nat_cmd.js': port('interact', 'the Paths switch and all at once, which the steps view does not have yet'),
+  'deform_nat_cmd.js': steps({ pin: true }),
+  'deform_nat_classic_cmd.js': classic('the classic Deformation dock: its Paths button, key P and palette entry, the figure export with paths, the order select and all at once as one homotopy with its scrubber, caption and play loop, Phase beside the deformation, and the 60 fps check of the paths: the steps view has no dock, draws a glide over several steps as one run of them, and keeps its own Paths and order controls (steps_paths_cmd, steps_order_cmd)'),
 
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
