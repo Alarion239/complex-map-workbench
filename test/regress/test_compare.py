@@ -13,7 +13,7 @@ where it matters, its verdict per run or metric). The cases cover the review fin
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
            [#413] the dpr-2 opacity zooms' fps and latency are reported (INFO) either way, never gated; their frame
            times, and the same metrics of every other unit, stay gated
-  busy     [#738] a FAIL of a unit that started on a busy machine is BUSY and not counted: exit 3 (invalid: machine busy)
+  busy     a FAIL of a unit that started on a busy machine is BUSY and not counted: exit 3 (invalid: machine busy)
            when nothing else failed, 1 when a clean unit failed too; merged passes (meta.passBusy / passUnits) count a
            unit that started busy as red only with 2 passes that started quiet; --busy-units lists the BUSY units
   merge    a unit that errored in the full run (suite.no_errors false, an error recorded) and was not re-run keeps the
@@ -263,7 +263,7 @@ class Perf(unittest.TestCase):
 
 
 class Busy(unittest.TestCase):
-    """[#738] the loaded-machine guard in compare_perf.py: a reading taken on a busy machine is not a verdict"""
+    """the loaded-machine guard in compare_perf.py: a reading taken on a busy machine is not a verdict"""
 
     def setUp(self):
         self.d = tempfile.mkdtemp(prefix='cmw-busy-')

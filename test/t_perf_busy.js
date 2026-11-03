@@ -20,7 +20,8 @@ function machine(loads) {
   return m;
 }
 const wait = (m, extra) => quietWait(Object.assign(
-  { load: m.load, clock: m.clock, sleep: m.sleep, top: m.top, log: m.log, limit: 4.5, pollMs: 1000, maxWaitMs: 10000 }, extra));
+  { load: m.load, clock: m.clock, sleep: m.sleep, top: m.top, log: m.log, limit: 4.5, pollMs: 1000, maxWaitMs: 10000 },
+  extra));
 
 (async () => {
   ok('defaultLoadMax: max(4, 0.45 x cores): 4.5 on the 10-core Mac, 4 on 4 cores',
@@ -40,8 +41,8 @@ const wait = (m, extra) => quietWait(Object.assign(
   ok('busy then quiet: waits until the load is under the limit',
     r.quiet && r.before === 75.8 && r.after === 3.1 && m.slept.length === 3, { r, slept: m.slept });
   ok('busy then quiet: logs before, the busiest processes and after',
-    /before the pass: 75\.8/.test(m.logs[0]) && /busiest processes/.test(m.logs[1]) && m.logs[1].includes('com.example.build') &&
-    /after waiting 3 s: 3\.1/.test(m.logs[2]) && m.logs.length === 3, m.logs);
+    /before the pass: 75\.8/.test(m.logs[0]) && /busiest processes/.test(m.logs[1]) &&
+    m.logs[1].includes('com.example.build') && /after waiting 3 s: 3\.1/.test(m.logs[2]) && m.logs.length === 3, m.logs);
 
   // a machine that never calms down: gives up after maxWaitMs, says so, and lists the processes again
   m = machine([30]);
