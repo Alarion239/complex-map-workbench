@@ -155,10 +155,17 @@
   // the landscape's clause on its sheets (app's sheetsClause, 'tex'): the window k and H, F as math, then the sentence on
   // the deformed pieces' paths on a sheet (v16.1 review math-2), if any
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
+  // the thread of a steps-view filmstrip, z → w₁ → w₂ with each step's name over its arrow, in TeX
+  const svChain = (frames) => `$${frames.map((f) => (f.f ? `\\xrightarrow{${f.f}} ${f.name}` : f.name)).join(' ')}$`;
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
   function captionFor(o, view, body) {
     const ru = capRu();
     const fi = body.info || {};
+    if (fi.svFilm) {
+      const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
+      const own = fi.ownWin ? ' ' + note : '';
+      return $t('The planes along %{chain}.', { chain: svChain(fi.frames) }) + own;
+    }
     // (export review r3, verify2-new-1: a globe figure's points on the far side are not in its list of what it shows)
     const c = A.capParts({ letters: !!PRESET[o.for].named, skip: (fi.globePaths || fi.film === 'globe') && fi.hidden && fi.hidden.length ? fi.hidden.map((x) => x.z) : null });
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
@@ -289,7 +296,7 @@
       if (o.for === 'slides') return '';
       const wmap = c.raw ? MAPTOK : c.formula ? `$${A.panelVar('R')}=${c.formula}$` : map;
       let s = list ? (many ? $t('Left: %{list}. Right: their images under %{wmap}.', { list, wmap }) : $t('Left: %{list}. Right: its image under %{wmap}.', { list, wmap })) : $t('The map %{wmap}.', { wmap });
-      if (!two) s = list ? (i.panels[0] === 'L' ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' })) : $t('The map %{wmap}.', { wmap });
+      if (!two) s = list ? (i.panels[0] === 'L' && !c.carried ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' })) : $t('The map %{wmap}.', { wmap });
       if (i.named && two) { const n = c.nPoints; const L = (k) => String.fromCharCode(65 + k); s += n === 1 ? $t(" The point $A$ goes to $A'$.") : $t(" The points $%{first}$--$%{n}$ go to $%{first}'$--$%{n}'$.", { first: L(0), n: L(n - 1) }); }
       if (i.open && PRESET[o.for].dashOpen) s += $t(' Dashed: boundary not included.');
       if (i.chevrons) s += $t(' Arrowheads: orientation.');
@@ -299,7 +306,8 @@
     // (a) and (b): in Russian «а — круг …; б — образ …», the list in lower case after the dash
     const head = ru ? list : cap1;
     if (two) return list ? (many ? $t('(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}', { head, lvar, map, pat }) : $t('(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}', { head, lvar, map, pat })) : $t('(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}', { lvar, map, pat });
-    if (i.panels[0] === 'L') return list ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : $t('The $%{lvar}$-plane.', { lvar });
+    // (the steps view past its colour plane: the left panel shows the shapes carried there, their images)
+    if (i.panels[0] === 'L' && !c.carried) return list ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : $t('The $%{lvar}$-plane.', { lvar });
     return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat })) : $t('The image under %{map}.%{pat}', { map, pat });
   }
   // a Russian caption as LaTeX: Russian notation (tg, sh, ln), no-break spaces (GLOSSARY 3.6) written as ~
@@ -333,7 +341,8 @@
   }
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
   const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
-  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: 'fit', axes: null, panels: 'both', deform: 'film' });
+  // (the steps view: the stage's window, As on screen, unless a crop is asked for)
+  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // (export review r3, editor-2) the default file name and \label: the scene, the view and the kind of figure, so two
   // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
   // name stays the same for the same figure, so a new export replaces only its own file
@@ -344,6 +353,7 @@
     const defo = defoOf(view), tag = { plane: 'deformation', deriv: 'deformation', globe: 'globe', phase: 'phase', phaseGlobe: 'phase-sphere', land: 'landscape' }[defo];
     if (fmt === 'video') return defo ? `${base}-${tag}-video` : base;
     if (defo) return `${base}-${tag}-${deform === 'paths' && PATHS_OK.has(defo) ? 'paths' : deform === 'frame' && defo !== 'plane' ? 'frame' : 'film'}`;
+    if (view === 'svFilm') return `${base}-filmstrip`;
     if (view === 'phase') return `${base}-phase`;
     if (view === 'land') return `${base}-landscape`;
     if (view === 'xyL' && A.state().main === 'phase') return `${base}-phase-sphere`;
@@ -353,6 +363,7 @@
   // about 100 characters; null: the text before the display (shortCaption). Called inside using(lang)
   function shortFor(view, body) {
     const fi = body.info || {}, c = A.capParts(), ts = fi.labs ? `$t=${fi.labs.join(',\\,')}$` : '';
+    if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) });
     const at = c.hom ? `$t=${tnum(c.hom.T.toFixed(2))}$` : '';
     if (fi.globePaths) return $t('Paths of the deformation $H_t$ on the Riemann sphere.');
     if (fi.film === 'globe') return $t('The deformation $H_t$ on the Riemann sphere at %{ts}.', { ts });
@@ -397,7 +408,7 @@
     if (o.axes) P.axes = o.axes;
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
-    const view = o.view || A.viewKind();
+    const view = o.view || (o.svPic === 'film' && A.svOn() ? 'svFilm' : A.viewKind());
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
@@ -408,6 +419,7 @@
     // or the frame at the current t (o.deform 'frame', the earlier one-panel figure)
     const defo = defoOf(view);
     if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
+    else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
     else if (view === 'phase') body = await figPhase(o, P, W, T);
     else if (view === 'land') body = await figLand(o, P, W, T);
     if (body) { /* made */ }
@@ -433,7 +445,8 @@
     }
     const meta = { app: 'Complex Map Workbench', name, preset: o.for, ink: o.ink, view, width: `${Wtex}pt`, scene: A.sceneMeta() };
     const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta });
-    return Object.assign(fig, { name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
+    // (box: the picture's world window, a plane panel's, for a check against the screen)
+    return Object.assign(fig, { box: (body.info && (body.info.box || (body.info.boxes && body.info.boxes.L))) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
   }
   // the caption typeset alone, as LaTeX would set it under the figure ("Figure 1." in bold), for the paper preview
   // (round 3) a caption's words typeset ahead, in slices with a yield once 8 ms have passed: the cache then serves

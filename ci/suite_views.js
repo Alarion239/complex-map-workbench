@@ -25,6 +25,7 @@ const VIEWS = {
   'example_lane_cut_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
+  'export_steps_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps(),
@@ -86,7 +87,7 @@ const VIEWS = {
   'chip_clamp_cmd.js': steps({ pin: true }),
   'complex_point_cmd.js': steps({ pin: true }),
   'complex_params_cmd.js': steps({ pin: true }),
-  'custom_show_cmd.js': port('interact', 'F\'s well: after the F tile is settled in the steps view (the F chip)'),
+  'custom_show_cmd.js': port('interact', 'its select(k) clicks the classic card row, which the steps view hides: it needs the step chip on the thread, with the selected step asserted'),
   'd1_replace_cmd.js': steps({ pin: true }),
   'display_inline_cmd.js': classic('the classic pane heads\' Display, Regions and title toggles at each width: the steps view\'s head is layout_invariants_cmd\'s and steps_head_cmd\'s'),
   'field_settle_cmd.js': steps({ pin: true }),
@@ -124,7 +125,7 @@ const VIEWS = {
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
   'phone_focus_margin_cmd.js': steps({ pin: true }),
-  'phone_fwell_cmd.js': port('phone', 'F\'s well: after the F tile is settled in the steps view'),
+  'phone_fwell_cmd.js': steps({ pin: true }),
   'phone_sheet_target_cmd.js': steps({ pin: true }),
   'phone_sheets_cmd.js': steps({ pin: true }),
   'phone_toast_chain_cmd.js': steps({ pin: true }),
@@ -175,17 +176,20 @@ const VIEWS = {
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
-  'constr_cmd.js': port('geometry', 'constr G (drawing on the chain\'s last plane, #692/#693) and R picture-1 (a plain plane under the stroke)'),
+  'constr_cmd.js': steps({ pin: true }),
   'curves_cmd.js': steps({ pin: true }),
-  'curves_target_cmd.js': port('geometry', 'the preimages of five targets on the source plane (the steps view draws them with ink up to 3.1 px from the curve, or 8 to 14 % of it far from the curve, where the tolerance is 2.5 px), the target legend and the formula areas\' renderer paths (both read the classic right pane): #699'),
+  'curves_target_cmd.js': steps({ pin: true }),
+  'curves_outline_off_cmd.js': steps({ pin: true }),
+  'curves_target_legend_cmd.js': classic('the target legend is the classic right pane\'s head note (#rightNote), which the steps view\'s one plane does not have'),
+  'curves_target_areas_cmd.js': port('geometry', 'the inverse renderer\'s formula areas on the last plane: the steps view keeps them on the forward stand-in and __cmwPaths() reports nothing there: #758'),
   'dh_cmd.js': steps({ pin: true }),
   'fix163_cmd.js': steps({ pin: true }),
   'meetnear_coincide_cmd.js': steps({ pin: true }),
-  'perp_cmd.js': port('geometry', 'G and the Y-plane picks: drawing on the chain\'s last plane (#692/#693)'),
+  'perp_cmd.js': steps({ pin: true }),
   'poly_verts_cmd.js': steps({ pin: true }),
   'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
   'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
-  'touch_cmd.js': port('geometry', 'G and the Y-plane picks: drawing on the chain\'s last plane (#692/#693)'),
+  'touch_cmd.js': steps({ pin: true }),
   'ux165_rail_cmd.js': steps({ pin: true }),
 
   // to port: render
