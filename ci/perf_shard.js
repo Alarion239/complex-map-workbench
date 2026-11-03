@@ -10,6 +10,7 @@
 // --advisory (GitHub's machines, whose timings swing both ways by more than any tolerance): a timing or memory metric
 // that got worse is reported (the summary, a warning annotation each) and does not fail the job; a check that fails, a
 // value that is missing or null (a timeout) and an error of the suite still do.
+//   (ID: a shard or a part of one, ci/perf_shards.js)
 //   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--advisory] [--table] [--settle-timeout MS] [--force] [--no-build]
 // A loaded machine measures nothing worth gating (ci/perf_busy.js): unless --advisory (GitHub's machines are never idle),
 // each pass first waits up to 5 minutes for a quiet machine and logs the load and the busiest processes; run.js records
@@ -18,18 +19,20 @@
 // Exit 0 pass (or advisory warnings only), 1 regression, 2 setup problem (a unit that stalls, a build that fails),
 // 3 invalid: machine busy (a metric failed only on passes that started busy: no verdict either way).
 const fs = require('fs');
+const { execFileSync } = require('child_process');
 const os = require('os');
 const path = require('path');
 const { ROOT, PY, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
-const { SHARDS } = require('./perf_shards');
+const { SHARDS, PARTS, find } = require('./perf_shards');
 const { defaultLoadMax, quietWait, attemptTally, shardExit } = require('./perf_busy');
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
-const shard = SHARDS.find((s) => s.id === opt('--shard'));
+const shard = find(opt('--shard'));
 const ref = opt('--ref', 'origin/main');
 const REPS = opt('--reps', '3');
+if (!/^[1-9]\d?$/.test(REPS)) { console.error(`--reps must be a whole number from 1 to 99, not '${REPS}'`); process.exit(2); }
 const CONFIRM = Number(opt('--confirm', '2'));
 const SCALE = opt('--tol-scale', '1');
 const ADVISORY = argv.includes('--advisory');
@@ -42,7 +45,8 @@ const PERF = path.join(ROOT, 'test', 'regress', 'perf');
 const CMP = path.join(ROOT, 'test', 'regress', 'compare_perf.py');
 
 async function main() {
-  if (!shard) { console.error(`--shard must be one of: ${SHARDS.map((s) => s.id).join(', ')}`); return 2; }
+  const started = Date.now();
+  if (!shard) { console.error(`--shard must be one of: ${[...SHARDS, ...PARTS].map((s) => s.id).join(', ')}`); return 2; }
   const title = `Perf ${shard.id} (${process.platform}${process.env.RUNNER_NAME ? ', ' + process.env.RUNNER_NAME : ''})`;
   if (!argv.includes('--force') && sameApp(ref)) {
     summary(`### ${title}\n\nNo change to the app (src/, build.py) since \`${ref}\`: nothing to compare.\n`);
@@ -140,7 +144,15 @@ async function main() {
   if (fresh.size) lines.push(`<details><summary>${fresh.size} new unit(s), reported and not compared</summary>\n\n${[...fresh].slice(0, 60).map(([u, e]) => `- \`${u}\` (${e.n} metric(s)): ${esc(e.why ? `the reference cannot run it: ${e.why}` : 'not in the reference')}`).join('\n')}\n</details>`, '');
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));
+  // the one line a reader of the log (or the collected table, ci/perf_verdicts.js) needs: the shard's verdict, and a record of it
+  const exit = shardExit(fails.length, busy.length);
+  const verdictWord = fails.length ? 'FAIL' : busy.length ? 'INVALID' : both.length ? 'BOTH' : 'PASS';
+  let head8 = '?';
+  try { head8 = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().slice(0, 8); } catch (e) { /* the line says ? */ }
+  const record = { leaf: shard.id, head: head8, ref: R.sha.slice(0, 8), verdict: verdictWord, exit, fail: fails.length, both: both.length, pass: counts.PASS || 0, passes: confirmed ? attempts : 1, seconds: Math.round((Date.now() - started) / 1000), failing: fails.slice(0, 20).map((r) => r.metric) };
+  fs.writeFileSync(f('verdict.json'), JSON.stringify(record, null, 2));
+  console.log(`PERF ${record.leaf} ${record.head} vs ${record.ref}: ${record.verdict} (exit ${exit}), FAIL ${record.fail} BOTH ${record.both} PASS ${record.pass}, passes ${record.passes}, ${record.seconds} s`);
   for (const r of warned.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
-  return shardExit(fails.length, busy.length);
+  return exit;
 }
 main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### Perf ${shard ? shard.id : '?'}: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });

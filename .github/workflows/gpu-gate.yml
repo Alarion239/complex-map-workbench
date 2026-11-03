@@ -37,7 +37,11 @@ on:
         options: [mac, both, windows, windows-hosted]
         default: mac
       shards:
-        description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
+        description: 'Only these perf shards (comma-separated ids of ci/perf_shards.js; empty or all = every shard; classic = the shards that are not split; steps = its parts steps-first, steps-default, steps-zeta, steps-king, one job each; another part, e.g. pointer-drag, is its own job)'
+        required: false
+        default: ''
+      reps:
+        description: 'Perf: repetitions of each unit (empty = 3; a probe of one scene, e.g. shards steps-king, uses 6)'
         required: false
         default: ''
       force:
@@ -123,7 +127,7 @@ jobs:
         shell: bash
         run: |
           node ci/perf_shards.js check
-          if [ -n "${{ inputs.shards }}" ]; then s=$(node ci/perf_shards.js matrix --only "${{ inputs.shards }}"); else s=$(node ci/perf_shards.js matrix); fi
+          if [ -n "${{ inputs.shards }}" ]; then s=$(node ci/perf_shards.js matrix --leaves --only "${{ inputs.shards }}"); else s=$(node ci/perf_shards.js matrix --leaves); fi
           echo "shards=$s" >> "$GITHUB_OUTPUT"
       - id: machines
         shell: bash
@@ -296,7 +300,10 @@ jobs:
       # (--table: every metric's reference -> this change in the job log, which agents can read; the artifact they cannot)
       # (the Mac's display asleep slows every frame to its own cadence, ~45-50 ms (runs 41264000039, 41268369131): caffeinate
       # keeps the display, the system and the disks awake while the shard runs; run.js fails a throttled run, --raf-max)
-      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --table ${{ env.FORCE }}
+      - shell: bash
+        env:
+          REPS: ${{ inputs.reps }}
+        run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --table ${REPS:+--reps "$REPS"} ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -312,6 +319,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # (the perf shards' verdicts in one table: each shard job uploads its verdict.json, ci/perf_verdicts.js; it never fails the gate)
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v6
+        continue-on-error: true
+        with:
+          pattern: gpu-perf-*
+          path: .ci/perf-all
+      - run: node ci/perf_verdicts.js .ci/perf-all
+        continue-on-error: true
       - run: echo "plan ${{ needs.plan.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
       # (with glsl skip the GLSL and quality jobs were left out on purpose: only perf is judged then)
       - if: >-

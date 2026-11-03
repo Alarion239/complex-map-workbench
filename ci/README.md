@@ -330,10 +330,19 @@ worse (reference → this change, with the rule it broke), what improved, and th
 - To make the gate binding: *Settings → Branches → Add branch ruleset* (or *Add rule*) for `main` → *Require status
   checks to pass* → add **Gate**.
 
+## Perf shards and their parts
+
+The perf suite's units (`node test/regress/perf/run.js --list`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`; `pointer-hover`, `pointer-drag`, `pointer-morph`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-morph`, `interaction-hover`, `interaction-cards`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
+
+- **On GitHub's machines** (the Gate) every shard is one job, as before the parts; a by-hand run's *shards* input also takes part ids.
+- **On the GPU gate** (`gpu-gate.yml`, `--leaves`) the `steps` shard stands for its four parts, one job each (its *leaves*): a run is about 3 minutes for `steps-first`, 4 for `steps-default` and `steps-zeta`, 5–6 for `steps-king`, plus about a minute a job for the build and the quiet wait. The *shards* input takes shard ids, part ids and two groups: `all` (or nothing) is every shard (the wave sweep), `classic` the shards that are not split; `steps` is its four parts. A part named beside its own whole shard is covered by it; an unknown id fails the plan. The loaded-Mac guard runs once per job, and a unit's reference and current runs are in the same job.
+- **A probe** has no units of its own: it is a dispatch of one part (e.g. `steps-king`) with the *reps* input (default 3; a probe uses 6).
+- **The verdict of each shard** is one log line, `PERF <leaf> <head8> vs <ref8>: PASS|FAIL|BOTH|INVALID (exit n), FAIL k BOTH k PASS k, passes n, <s> s`, and `verdict.json` in the shard's artifact; the run's final job collects them into one table (`ci/perf_verdicts.js`): shard, verdict, failing rows. `node ci/perf_shard.js --shard steps-king` runs one part locally.
+
 ## Running a job by hand
 
 *Actions → Gate (or GPU gate) → Run workflow*: choose the branch, optionally the reference (a commit or branch), only
-some perf shards (e.g. `views,phone`), and *force* to run the paired gates when the app did not change (an A/A run of
+some perf shards or parts of them (e.g. `views,phone` or `steps-king,pointer-drag`; [Perf shards and their parts](#perf-shards-and-their-parts)), the GPU gate also how many *reps*, and *force* to run the paired gates when the app did not change (an A/A run of
 the same app on both sides shows the noise). The GPU gate's *glsl* input, `skip`, leaves out the GLSL and quality jobs
 so that the perf shards start at once: by hand the Windows GLSL tier is ten jobs, about 7 hours, ahead of perf (a
 measurement then, not the full gate). The Gate's *perf* box runs the perf suite on GitHub's machines (Windows,
@@ -440,7 +449,7 @@ Settings (environment variables):
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
-| `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js` | one paired perf shard; the shards; its loaded-machine guard (Perf on a loaded machine); `test/t_perf_busy.js` tests it |
+| `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
