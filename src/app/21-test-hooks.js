@@ -57,25 +57,19 @@
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   window.__cmwPaths = () => {
-    const views = [];
-    // (the steps view has one plane, the shown one: its role is L)
-    if (SV.on) views.push(['L', 'flat', stageMap(leftStage())]);
+    const views = [], out = [];
+    if (SV.on) views.push(['L', 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L)
     else if (solo() !== 'L') {
       if (rImage()) views.push(['R', 'flat', trans.k ? transState().map : morphOn() ? morphState(false).map : stageMap(rightStage())]);
       else { const hv = homView(); views.push(['R', 'globe', hv ? (hv.imageMap || hv.map) : stageMap(rightStage())]); }
     }
     // (X draws the shapes' areas in its plane and on its globe; the portrait, the phase globe and the landscape outline them)
     if (!SV.on && solo() !== 'R' && (lPlain() || (lGlobe() && !lPhase()))) views.push(['L', lGlobe() ? 'globe' : 'flat', stageMap(leftStage())]);
-    const out = [];
-    const collect = () => {
-      for (const [role, viewKind, map] of views) for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) !== 'area') continue;
-        const p = pathOf(s, map, role, viewKind, { status: true });
-        out.push({ id: s.id, role, viewKind, path: p.path, reason: p.reason || null });
-      }
-    };
     // (the steps view draws its regions solid, at full opacity: the program it needs is that one's)
-    if (SV.on) withSolidRegions(collect); else collect();
+    (SV.on ? withSolidRegions : (f) => f())(() => { for (const [role, viewKind, map] of views) for (const s of S.shapes) {
+      if (s.visible === false || kindType(s) !== 'area') continue;
+      const p = pathOf(s, map, role, viewKind, { status: true }); out.push({ id: s.id, role, viewKind, path: p.path, reason: p.reason || null });
+    } });
     return out;
   };
   // shape ids that draw forward whatever their eligibility (mixed-path tests); [] clears
