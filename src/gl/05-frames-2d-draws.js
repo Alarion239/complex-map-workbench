@@ -141,6 +141,8 @@
       }
       cur = ch;
     } else if (info.key !== cur.key) {
+      // (the steps view's carried colour's scratch entries, kept between its glides: another chain's draws make their own)
+      for (const e of [...tmpAll]) if (e.carry) freeTmp(e);
       if (cur.info) hist.unshift(cur);
       const j = hist.findIndex((h) => h.key === info.key);
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
@@ -310,9 +312,13 @@
   }
   // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended); the
   // steps view's carried colour's (e.carry) after CARRY_TMP_MS, since its next glide or scrub, after a rest, draws them
-  // again: freed in the rest, the scrub's first frame would allocate them again
+  // again: freed in the rest, the scrub's first frame would allocate them again. With need more bytes over the budget,
+  // those go after a second too
   const CARRY_TMP_MS = 30000;
-  function freeStaleTmp(now) { for (const e of [...tmpAll]) if (now - e.t > (e.carry ? CARRY_TMP_MS : 1000)) freeTmp(e); }
+  function freeStaleTmp(now, need = 0) {
+    const keep = cacheBytes + need > CACHE_BYTES ? 1000 : CARRY_TMP_MS;
+    for (const e of [...tmpAll]) if (now - e.t > (e.carry ? keep : 1000)) freeTmp(e);
+  }
   // and once the drawing that used them has been idle that long, whatever the budget: a scratch evaluation is only
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
   // so after the step-card thumbnails or a finished homotopy it held its texture for nothing (U-b gate: the idle app
@@ -367,7 +373,11 @@
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
   // program compiles
-  function drawRegionCarry(res, st) {
+  // The carried colour of mesh res in two steps: carryPrep runs its off-screen passes (its map cache's, its fill's point
+  // pass) and picks its programs; drawRegionCarry draws it on the frame's framebuffer. A frame of several meshes
+  // (svCarryRegions) prepares them all before it draws any, so its framebuffer is left once, not once a mesh.
+  // -> {L, e, P, fill, fp, full, clip}; true: nothing to draw (the probes' noCarry); false: nothing can draw
+  function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
@@ -386,8 +396,6 @@
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     if (e) e.carry = true;
-    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
     // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
     // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
@@ -403,7 +411,15 @@
       if (P) e = null;
     }
     if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
-    if (!P) return false;
+    return P ? { L, e, P, fill, fp, full, clip } : false;
+  }
+  // (prep: carryPrep's for res and st, made here when not given)
+  function drawRegionCarry(res, st, prep) {
+    if (prep == null) prep = carryPrep(res, st);
+    if (typeof prep === 'boolean') return prep;
+    const { L, e, P, fill, fp, full, clip } = prep;
+    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     const set = (Q) => {
       use(Q, st.map);
       if (e) bindCache(Q, e);
@@ -459,10 +475,10 @@
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
-  // (st.carry: drawRegionCarry)
+  // (st.carry: drawRegionCarry, with st.prep from GLR.carryPrep when the caller made it)
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
-    if (st.carry) return drawRegionCarry(res, st);
+    if (st.carry) return drawRegionCarry(res, st, st.prep);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
     try {
