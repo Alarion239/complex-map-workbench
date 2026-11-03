@@ -47,6 +47,12 @@ const calm = async (cond, ms, only = false) => {
   }
   return false;
 };
+// (the same wait, as a check: a wait that gives up fails the suite, naming the condition)
+const must = async (cond, ms, only = false) => {
+  const r = await calm(cond, ms, only);
+  ok('waited: ' + cond, r, { ms });
+  return r;
+};
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
 const dragH = async (x0, y0, x1, y1, n, dt) => {
@@ -67,7 +73,7 @@ const last = (st) => st.list[st.list.length - 1];
 // stopped moving)
 const planeRest = async () => {
   if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
-  await calm('!__cmwSteps().moving', 4000);
+  await must('!__cmwSteps().moving', 4000);
 };
 const tool = async (id) => {
   const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);

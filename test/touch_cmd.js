@@ -33,6 +33,12 @@ const calm = async (cond, ms, only = false) => {
   }
   return false;
 };
+// (the same wait, as a check: a wait that gives up fails the suite, naming the condition)
+const must = async (cond, ms, only = false) => {
+  const r = await calm(cond, ms, only);
+  ok('waited: ' + cond, r, { ms });
+  return r;
+};
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warning') && !/Failed to load resource|favicon/.test(x.m || ''))); };
@@ -45,7 +51,7 @@ const W = async (re, im, side = 'L') => {
     const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;
     if ((await ev(`__cmwSteps().i`)) !== to) {
       await ev(`__cmwSteps({ go: ${to}, now: true })`);
-      await calm(`__cmwSteps().i === ${to} && !__cmwSteps().moving`, 5000);
+      await must(`__cmwSteps().i === ${to} && !__cmwSteps().moving`, 5000);
     }
     side = 'L';
   }
@@ -60,7 +66,7 @@ const last = (st) => st.list[st.list.length - 1];
 // stopped moving)
 const planeRest = async () => {
   if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
-  await calm('!__cmwSteps().moving', 4000);
+  await must('!__cmwSteps().moving', 4000);
 };
 const tool = async (id) => {
   const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
