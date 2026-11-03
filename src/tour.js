@@ -437,12 +437,8 @@ const Tour = (() => {
     if (di >= 0) chs.splice(di, 1);
     chs.splice(bi + 1, 0, PLANES);
     // (the derivative step's chip, in place of the card the classic chain shows)
-    const bri = CHAPTERS.findIndex((c) => c.id === 'branches');
-    if (bri >= 0) {
-      const dv = chs[bri].steps.findIndex((/** @type {any} */ st) => st.id === 'deriv');
-      if (dv >= 0) chs[bri].steps[dv] = Object.assign({}, chs[bri].steps[dv], { also: ['svStrip'],
-        try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } });
-    }
+    Object.assign(chs.find((/** @type {any} */ c) => c.id === 'branches').steps.find((/** @type {any} */ st) => st.id === 'deriv'), { also: ['svStrip'],
+      try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } });
   }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
   // point gave which
