@@ -490,6 +490,9 @@
     // kind 'mask', apart from the carried colour's flat meshes of the same role, whose look is the user's pattern)
     const smRole = role || opt.sm || null, smLive = live || (!!opt.sm && !offRender);
     const smKind = opt.sm && !role ? 'mask' : 'flat';
+    // (the pane redrawn when an inverse program it waits on lands: a live pane's own role; the steps view's mask is
+    // drawn in the left pane)
+    const waitRole = live ? role : opt.sm && !offRender ? 'L' : null;
     let recs = null, gf = null, timing = false, invN = 0;
     const halfDraws0 = GLR.inverseHalfDraws || 0;
     if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
@@ -512,7 +515,7 @@
     // forward programs have landed). Thumbnails and gallery images only use a program that is already ready: a
     // thumbnail compile during a playing deformation stalled it, and compiled programs that no pane needed
     let invGate = null;
-    if (recs && !live && !offRender) {
+    if (recs && !smLive && !offRender) {
       const st0 = GLR.inverseStatus(S.alpha, 'flat');
       if (st0 !== 'ready') invGate = st0 === 'pending' ? 'pending' : 'forward';
     }
@@ -609,7 +612,7 @@
         lp = p.path;
         if (p.path === 'inverse' && invGate) {
           lp = invGate === 'pending' ? 'pending' : 'forward';
-          if (invGate === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
+          if (invGate === 'pending') { if (waitRole) { invWaiting.add(waitRole); invPendN++; } else thumbNotFinal = true; }
         } else if (p.path === 'inverse') {
           const box = invBox(p.e, p.plan, s, live);
           const sc = box ? GLR.scissorOf(box, pane.view, pane.dpr, 4) : null;
@@ -628,11 +631,11 @@
             if (smLive) notePath(smRole, s.id, 'inverse');
             // the program landed (possibly inside this very call, without GLR.onReady): redraw the other panes that drew
             // a stand-in, and the thumbnails (one drawn forward meanwhile has a stale signature)
-            if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
+            if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== waitRole); invWaiting.clear(); requestRender(...w, 'T'); }
             continue;
           }
           lp = res === 'pending' ? 'pending' : 'forward';
-          if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
+          if (res === 'pending') { if (waitRole) { invWaiting.add(waitRole); invPendN++; } else thumbNotFinal = true; }
           // a failed compile (silent: console only) draws forward from now on, with its fix-ups (SPEC 4.4, 10.4)
           if (res === 'error' && GLR.inverseStatus(S.alpha, 'flat') === 'error') {
             const k = (GLR.inverseInfo || {}).key || '';
