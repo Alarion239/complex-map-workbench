@@ -703,9 +703,13 @@
     return null;
   }
   // the content of a mesh (everything but the view); with win false, without the meshing window (the stand-in rule)
+  // the look a mesh is built for: the steps view's (role 'SV') is the regions' own, regionLook, also while its mask
+  // draws them solid, so its carried colour and its mask share one mesh per region
+  const smLookOf = (role) => (role === 'SV' ? regionLook() : S);
   function smContent(s, role, kind, m, win = true) {
-    const pid = (GLR.PATTERNS || {})[S.pattern] ?? 1;
-    return `${s.id}|${shapeKey(s)}|${role}|${kind}|${mapKeyOf(m)}|K${SphereMesh.kOf(S.alpha)}|p${pid}|${patternCell()}|${S.lines ? 1 : 0}` + (win ? `|${winKey()}` : '');
+    const lk = smLookOf(role), pid = (GLR.PATTERNS || {})[lk.pattern] ?? 1, K = SphereMesh.kOf(lk.alpha);
+    return `${s.id}|${shapeKey(s)}|${role}|${kind}|${mapKeyOf(m)}|K${K}|p${pid}|${patternCell()}|${lk.lines ? 1 : 0}`
+      + (win ? `|${winKey()}` : '');
   }
   // the meshing window as the mesher's source view: clipWin at a nominal SM_WIN_PX px across (it is the left pane's box
   // when it was last re-centred), so the source metric depends on clipWin alone (an export's scaled views share it)
@@ -801,12 +805,12 @@
       const F = cpuMap(m), steps = smSteps(m);
       // (the steps view's carried colour is opaque and orders its fragments by the sheet key: the mesher keeps the two
       // layers that key puts in front)
-      const kp = role === 'SV' ? smKeyOf(m) : null;
+      const kp = role === 'SV' ? smKeyOf(m) : null, lk = smLookOf(role);
       const cfg = {
         steps, F, injective: smInjective(m), shape: JSON.parse(JSON.stringify(s)),
         left: smLeft(),
-        view: v, Kmax: kp ? 2 : SphereMesh.kOf(S.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
-        pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
+        view: v, Kmax: kp ? 2 : SphereMesh.kOf(lk.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
+        pattern: { id: (GLR.PATTERNS || {})[lk.pattern] ?? 1, cell: patternCell(), lines: !!lk.lines },
         maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
       sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });

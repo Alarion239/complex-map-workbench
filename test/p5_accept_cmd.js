@@ -1,7 +1,7 @@
 // P5 acceptance in the browser (notes/sphere-design/SPEC.md 8, 12.3, 12.4 (k)): the forward fallback SphereMesh, in the
 // steps view. Each page shows the chain's last plane with the colour plane z (T = 0) on Inside regions, in the Phase
-// colouring: the regions' mask on that plane is drawn from the steps view's SphereMeshes (role 'SV', kind 'mask':
-// drawScene's opt.sm).
+// colouring: the regions' mask on that plane is drawn from the steps view's SphereMeshes (role 'SV', drawScene's
+// opt.sm), one per region, shared with the carried colour.
 // One camera shows every plane (S.srcView): the scenes' views of the image are their srcView.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
@@ -299,6 +299,17 @@ const stC = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
 const nGpu = await drawnBytes();
 R.contextLoss = { preBytes: stC.preBytes, before: stM.preBytes, entriesOnGpu: nGpu, entries: stC.entries.length };
 ok('context loss: the pre-mapped bytes count only the meshes uploaded after the restore', stC.preBytes <= stM.preBytes + 1 && (nGpu > 0 ? stC.preBytes > 0 : stC.preBytes === 0), R.contextLoss);
+// ---- at rest with four unbounded regions (four meshes, mask and carried colour sharing each): no mesh is rebuilt
+// over 2 s, so none evicts another under the budgets ----
+{
+  const hs = [0, 1, 2, 3].map((k) => ({ id: 'h' + k, kind: 'halfplane', a: [0, 0.4 * k], b: [1, 0.4 * k + 0.3 * (k % 2)] }));
+  await loadReady('p5rest' + Date.now(), Object.assign({ shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+  const s0 = await settle(120000, { entries: 4, built: 4 });
+  await sleep(2000);
+  const s1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+  R.rest4 = { built: [s0.stats.built, s1.stats.built], entries: s1.entries.length, preBytes: s1.preBytes, cpuBytes: s1.cpuBytes };
+  ok('memory: at rest with four unbounded regions, no mesh is rebuilt over 2 s', s1.entries.length >= 4 && s1.stats.built === s0.stats.built && !s1.jobs.length, R.rest4);
+}
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
 return { pass: fails.length === 0, fails, results: R };
