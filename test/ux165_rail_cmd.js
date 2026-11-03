@@ -240,7 +240,7 @@ await section('C', async () => {
   g = byId(await ST(), 'g');
   ok('C Undo: back on the circle at its t', g.def && g.def.op === 'glider' && g.t === 0 && g.p[0] === 1 && g.p[1] === 0, g);
   // a 45 px sweep lasting 60 ms does not free it
-  const sweep = [P0, [P0[0] + 20, P0[1]], [P0[0] + 45, P0[1]], [P0[0] + 45, P0[1] + 1], [P0[0] + 10, P0[1] + 2], [P0[0] + 2, P0[1]]];
+  const sweep = [P0, [P0[0] + 20, P0[1]], [P0[0] + 45, P0[1]], [P0[0] + 45, P0[1] + 1], [P0[0] + 10, P0[1] + 2], [P0[0] + 2, P0[1] + 14]];
   await mdrag(sweep, { dt: 20 });
   await settle();
   g = byId(await ST(), 'g');
