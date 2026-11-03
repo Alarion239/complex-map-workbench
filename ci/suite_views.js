@@ -174,6 +174,7 @@ const VIEWS = {
   'constr_cmd.js': steps({ pin: true }),
   'curves_cmd.js': steps({ pin: true }),
   'curves_target_cmd.js': steps({ pin: true }),
+  'curves_outline_off_cmd.js': steps({ pin: true }),
   'curves_target_legend_cmd.js': classic('the target legend is the classic right pane\'s head note (#rightNote), which the steps view\'s one plane does not have'),
   'curves_target_areas_cmd.js': steps({ pin: true }),
   'curves_areas_guard_cmd.js': steps({ pin: true }),
