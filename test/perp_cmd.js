@@ -131,6 +131,9 @@ const SF = {
   steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 120 }, snap: true, nextId: 50,
 };
 
+// (an old page is read once its hooks exist: it takes longer to open when the machine is busy)
+const oldReady = async (ms = 20000) => { for (let t = 0; t < ms; t += 250) { if (await ev(`typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.length > 0`).catch(() => false)) return true; await sleep(250); } return false; };
+
 await section('A', async () => {
   await view(1440, 900, false, false);
   await load(NS, SA);
@@ -416,7 +419,7 @@ await section('B', async () => {
   const has162 = fs.existsSync(path.join(DIR, '..', '..', 'dist', 'v162-test.html'));
   info.v162 = has162;
   if (has162) {
-    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await settle(2200);
+    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await oldReady(); await settle(500);
     const old = await ev(`__cmwCI({shapes:true}).list.find((s) => s.id === 'fk')`);
     info.v162 = { old, linkToasts: await toasts() };
     ok('B the v16.2 page opens the link: K is the cached circle (no definition)', old && !old.def && old.kind === 'circle' && Math.abs(old.r - byId(st, 'fk').r) < 1e-12 && Math.abs(old.c[1] - byId(st, 'fk').c[1]) < 1e-12, info.v162);
@@ -460,7 +463,7 @@ await section('C', async () => {
   const ruBase2 = 'Выберите точку (на кривой: единичная окружность или в любом месте) · 1 из 2 · Ортогональная';
   // (construct.js syncChip, v16.3.1: without the tail when that is one line, or when the whole text would be cut at
   // the lines its place allows: then the shorter text, on two lines)
-  ok('C RU chip after the curve', !!ruChip2 && (ruChip2.text === ruBase2 + ' · ⌫\u00a0— отменить выбор · Esc' || (ruChip2.text === ruBase2 && ruChip2.lines <= 2)), ruChip2);
+  ok('C RU chip after the curve', !!ruChip2 && (ruChip2.text === ruBase2 + ' · ⌫\u00a0— отменить выбор · Esc' || (await ev(`document.documentElement.classList.contains('sv')`)) && ruChip2.text === ruBase2.replace(' · Ортогональная', '') + ' · ⌫\u00a0— отменить выбор · Esc' || (ruChip2.text === ruBase2 && ruChip2.lines <= 2)), ruChip2);
   const a = await W(0.3, 0.2), b = await W(-0.6, 0.5);
   await click(a[0], a[1]); await settle(80); await move(b[0], b[1]); await settle(100);
   await shot('perp-d1440-ru-preview');
@@ -653,18 +656,22 @@ await section('F', async () => {
 await section('G', async () => {
   // Y: a perpendicular circle in Y through z₀″ (the image of X's point), C a target circle
   await view(1440, 900, false, false);
+  await load(NS + 'g0', { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50 }); await settle(600);
+  const SV = await ev(`document.documentElement.classList.contains('sv')`);
   const SG = {
     shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }],
-    targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }],
+    // (the classic Y pane holds the target circle; the steps view's last plane holds a circle of its own)
+    ...(SV ? { shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }, { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }] } : { targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }] }),
     steps: [{ type: 'zp', params: { a: '1', zeros: '1.5-1i', poles: '' }, on: true }],
     srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50,
   };
   await load(NS + 'g', SG); await settle(900);
+  await W(0, 0, 'R');   // (the steps view goes to Y's plane before the tool opens: moving to it afterwards would drop the pick)
   await tool('perp');
   const tcs = await W(1.1 * Math.cos(3.6), 0.3 + 1.1 * Math.sin(3.6), 'R');   // (clear of the pane's legend notes)
   await click(tcs[0] + 1, tcs[1]); await settle(120);
   let d = (await CI()).draft;
-  ok('G Y: the target circle is picked as the curve', d && d.side === 'R' && d.curve1 && d.curve1.s === 'tc', d);
+  ok('G Y: the target circle is picked as the curve', d && d.side === (SV ? 'L' : 'R') && d.curve1 && d.curve1.s === 'tc', d);
   const w0 = [-1 - 1.5, -1.5 + 1];   // f₁(z) = z − 1.5 + i
   const y0 = await W(w0[0], w0[1], 'R'), y1 = await W(0.8, -0.9, 'R');
   await move(y0[0] + 2, y0[1] + 2); await settle(100);
@@ -911,7 +918,7 @@ await section('I', async () => {
     const has = fs.existsSync(path.join(DIR, '..', '..', 'dist', `v${v}-test.html`));
     if (!has) { info['v' + v] = 'no page'; continue; }
     await logs();
-    await nav(`http://localhost:${PORT}/v${v}-test.html?ns=${NS}o${v}#cmw=${payload}`); await settle(2200);
+    await nav(`http://localhost:${PORT}/v${v}-test.html?ns=${NS}o${v}#cmw=${payload}`); await oldReady(); await settle(500);
     const old = await ev(`__cmwCI({shapes:true}).list.find((s) => s.id === 'k')`);
     const lg = (await logs()).filter((x) => x.t === 'EXC' || x.t === 'error');
     info['v' + v] = { kind: old && old.kind, seg: old && old.def && old.def.seg, def: !!(old && old.def), errs: lg.slice(0, 3) };
