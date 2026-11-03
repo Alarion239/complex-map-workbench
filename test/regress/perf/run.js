@@ -1141,6 +1141,194 @@ async function svGlideUnit(scene) {
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
   }
 }
+// [#714 probe] where the zeros of zeta spend main-thread time while gliding (dpr 1 and 2) and scrubbing (Everywhere),
+// on one warm page per dpr. Per leg: REPS timed runs (frame and cpu p95, label ms per frame: the gate's numbers, here
+// on one page), one run under the JS sampling profiler (self and inclusive ms by function inside the leg's windows, and
+// the ms whose stack holds a synchronous GL call) and one run under a Chrome trace (self ms by event on the renderer's
+// main thread and on the GPU process inside the windows, between performance marks svq:a and svq:b; the raw trace is
+// written next to --out). Info only: a probe, never a gate. On a software renderer it runs only with CMW_SV_SOFT=1.
+const SVQ_GL_SYNC = /^(readPixels|getParameter|getError|getProgramParameter|getShaderParameter|getProgramInfoLog|getShaderInfoLog|clientWaitSync|getSyncParameter|getBufferSubData|finish|flush|getUniformLocation|getAttribLocation|getActiveUniform|checkFramebufferStatus|getExtension|getQueryParameter|getContextAttributes|isContextLost)$/;
+const SVQ_TRACE_CATS = 'devtools.timeline,v8,v8.execute,blink.user_timing,gpu,toplevel,disabled-by-default-devtools.timeline.frame';
+const svqTop = (m, n) => [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [k, +v.toFixed(2)]);
+// samples of a CPU profile inside the windows [[a, b], ...] (page clock): self and inclusive ms by function, and the
+// ms under each synchronous GL call
+function svqProfile(profile, windows, nowAtStop) {
+  const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map();
+  for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  const name = (n) => { const f = n.callFrame; return `${f.functionName || '(anon)'} ${(f.url || '').split('/').pop()}:${f.lineNumber + 1}`.trim(); };
+  const off = profile.endTime / 1000 - nowAtStop;
+  const self = new Map(), incl = new Map(), sync = new Map();
+  let total = 0, t = profile.startTime;
+  profile.samples.forEach((id, i) => {
+    t += profile.timeDeltas[i] || 0;
+    const d = (profile.timeDeltas[i + 1] || 0) / 1000, pt = t / 1000 - off;
+    if (!windows.some(([a, b]) => pt >= a && pt <= b)) return;
+    total += d;
+    const n0 = byId.get(id);
+    self.set(name(n0), (self.get(name(n0)) || 0) + d);
+    const seen = new Set();
+    for (let p = id; p != null; p = parent.get(p)) {
+      const n = byId.get(p), k = name(n);
+      if (!seen.has(k)) { seen.add(k); incl.set(k, (incl.get(k) || 0) + d); }
+      if (SVQ_GL_SYNC.test(n.callFrame.functionName)) { const g = n.callFrame.functionName; if (!seen.has('gl:' + g)) { seen.add('gl:' + g); sync.set(g, (sync.get(g) || 0) + d); } }
+    }
+  });
+  incl.delete('(root)');
+  return { sampled_ms: +total.toFixed(1), self: svqTop(self, 15), inclusive: svqTop(incl, 20), gl_sync: svqTop(sync, 12) };
+}
+// a Chrome trace's events inside the windows marked svq:a .. svq:b: self ms by event name on the renderer main
+// thread (the renderer with the most events there) and on the GPU process' threads
+function svqTrace(events) {
+  const tn = new Map();   // pid:tid -> thread name
+  for (const e of events) if (e.ph === 'M' && e.name === 'thread_name') tn.set(`${e.pid}:${e.tid}`, e.args.name);
+  const marks = events.filter((e) => e.name === 'svq:a' || e.name === 'svq:b').sort((x, y) => x.ts - y.ts);
+  const win = [];
+  for (let i = 0; i < marks.length; i++) if (marks[i].name === 'svq:a' && marks[i + 1] && marks[i + 1].name === 'svq:b') win.push([marks[i].ts, marks[i + 1].ts]);
+  const inWin = (ts) => win.some(([a, b]) => ts >= a && ts <= b);
+  // self time per complete event on each thread: duration minus its nested children's
+  const byThread = new Map();
+  for (const e of events) if (e.ph === 'X' && e.dur != null) { const k = `${e.pid}:${e.tid}`; (byThread.get(k) || byThread.set(k, []).get(k)).push(e); }
+  const res = { windows_ms: +win.reduce((s, [a, b]) => s + (b - a) / 1000, 0).toFixed(1), renderer: null, gpu: {} };
+  let best = null;
+  for (const [k, es] of byThread) {
+    const th = tn.get(k) || k;
+    if (th !== 'CrRendererMain' && !/^CrGpuMain|^VizCompositorThread|GpuMain|CrGpu/.test(th)) continue;
+    es.sort((x, y) => x.ts - y.ts || y.dur - x.dur);
+    const self = new Map(), stack = [];
+    let n = 0;
+    for (const e of es) {
+      while (stack.length && stack[stack.length - 1].end <= e.ts) stack.pop();
+      const rec = { e, end: e.ts + e.dur, kids: 0 };
+      if (stack.length) stack[stack.length - 1].kids += e.dur;
+      stack.push(rec);
+      e._rec = rec;
+    }
+    for (const e of es) {
+      if (!inWin(e.ts)) continue;
+      n++;
+      const s = Math.max(0, e.dur - e._rec.kids) / 1000;
+      self.set(e.name, (self.get(e.name) || 0) + s);
+    }
+    const summary = { thread: th, events: n, self: svqTop(self, 18) };
+    if (th === 'CrRendererMain') { if (!best || n > best.events) best = summary; } else res.gpu[th] = summary;
+  }
+  res.renderer = best;
+  return res;
+}
+async function svqZetaUnit() {
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail('svq.zeta', 'skipped: a software renderer (CMW_SV_SOFT=1 runs it)'); return; }
+  const side = (RES.meta && RES.meta.paired) || 'single';
+  const mark = (m) => B.ev(`performance.mark('${m}'), 1`);
+  const glideTo = async (to) => {
+    const a = await pageNow();
+    await B.ev('(__cmwLabelStats.n = 0, __cmwLabelStats.ms = 0, __cmwLabelStats.list = [], 1)');
+    await mark('svq:a');
+    await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+    await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    await mark('svq:b');
+    const lbl = (await B.ev('__cmwLabelStats.list')).slice(0, -1);
+    const b = await pageNow();
+    return Object.assign(await windowStats(a, b), { labels: lbl.map((p) => p.ms), a, b });
+  };
+  const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+  const scrubOne = async (back) => {
+    const r = await stripAt(), a = await pageNow();
+    await B.ev('(__cmwLabelStats.n = 0, __cmwLabelStats.ms = 0, __cmwLabelStats.list = [], 1)');
+    await mark('svq:a');
+    if (back) await B.drag(r.x1, r.y, r.x0, r.y, { n: 40, dt: 16 }); else await B.drag(r.x0, r.y, r.x1, r.y, { n: 40, dt: 16 });
+    await mark('svq:b');
+    const b = await pageNow();
+    const lbl = await B.ev('__cmwLabelStats.list');
+    const w = Object.assign(await windowStats(a, b), { labels: lbl.map((p) => p.ms), a, b });
+    await settle(b);
+    return w;
+  };
+  // one run of a leg: two windows (there and back), settled between
+  const legs = {
+    glide: async () => { const l1 = await glideTo(1); await settle(await pageNow()); const l2 = await glideTo(0); await settle(await pageNow()); return [l1, l2]; },
+    scrub: async () => [await scrubOne(false), await scrubOne(true)],
+  };
+  const timed = async (pre, fn) => {
+    const R = [], lab = [];
+    for (let i = 0; i < REPS; i++) {
+      const ls = await fn();
+      if (!ls.every((l) => l.drawn.length)) throw new Error(`${pre}: a window drew no frames`);
+      R.push(legSummary(ls, 'none'));
+      const ms = ls.flatMap((l) => l.labels);
+      lab.push(ms.length ? ms.reduce((x, y) => x + y, 0) / ms.length : 0);
+    }
+    putPooled(`${pre}.frame_p95_ms`, 'info', 'ms', R, 'frame', 0.95, 'frame_p95');
+    putPooled(`${pre}.cpu_p95_ms`, 'info', 'ms', R, 'cpu', 0.95, 'cpu_p95');
+    put(`${pre}.label_ms`, 'info', 'ms/frame', lab);
+    const cpu = R.flatMap((r) => r.pool.cpu);
+    log(`${pre} [${side}] timed: frame p95 ${R.map((r) => r.frame_p95.toFixed(1)).join(' / ')} ms; cpu p95 ${R.map((r) => r.cpu_p95.toFixed(1)).join(' / ')} ms; label ${lab.map((x) => x.toFixed(2)).join(' / ')} ms/frame; cpu frames over 16 ms ${cpu.filter((c) => c > 16).length} of ${cpu.length}`);
+  };
+  const profiled = async (pre, fn) => {
+    await B.send('Profiler.enable');
+    await B.send('Profiler.setSamplingInterval', { interval: 200 });
+    await B.send('Profiler.start');
+    let ls;
+    try { ls = await fn(); } catch (e) { await B.send('Profiler.stop'); throw e; }
+    const nowAtStop = await pageNow();
+    const { profile } = await B.send('Profiler.stop');
+    await B.send('Profiler.disable');
+    const p = svqProfile(profile, ls.map((l) => [l.a, l.b]), nowAtStop);
+    detail(`${pre}.profile`, p);
+    log(`${pre} [${side}] profile: ${p.sampled_ms} ms sampled in the windows`);
+    log(`${pre} [${side}]   self: ${p.self.map(([k, v]) => `${k} ${v}`).join(' | ')}`);
+    log(`${pre} [${side}]   inclusive: ${p.inclusive.map(([k, v]) => `${k} ${v}`).join(' | ')}`);
+    log(`${pre} [${side}]   gl sync: ${p.gl_sync.map(([k, v]) => `${k} ${v}`).join(' | ') || 'none'}`);
+  };
+  const traced = async (pre, fn) => {
+    const events = [];
+    let done;
+    const complete = new Promise((res) => { done = res; });
+    const off = B.on((m) => {
+      if (m.method === 'Tracing.dataCollected') for (const e of m.params.value) events.push(e);
+      else if (m.method === 'Tracing.tracingComplete') done();
+    });
+    try {
+      await B.send('Tracing.start', { categories: SVQ_TRACE_CATS, transferMode: 'ReportEvents' });
+      await sleep(300);
+      try { await fn(); } finally { await B.send('Tracing.end'); }
+      await Promise.race([complete, sleep(60000)]);
+    } finally { off(); }
+    const f = path.join(path.dirname(OUT), `svq-trace-${side}-${pre.replace(/[^a-z0-9.]+/gi, '_')}.json`);
+    fs.writeFileSync(f, JSON.stringify({ traceEvents: events }));
+    const t = svqTrace(events);
+    detail(`${pre}.trace`, Object.assign({ file: path.basename(f), events: events.length }, t));
+    log(`${pre} [${side}] trace: ${events.length} events, ${t.windows_ms} ms in the windows, written to ${path.basename(f)}`);
+    if (t.renderer) log(`${pre} [${side}]   renderer main (${t.renderer.events} events): ${t.renderer.self.map(([k, v]) => `${k} ${v}`).join(' | ')}`);
+    for (const g of Object.values(t.gpu)) if (g.events) log(`${pre} [${side}]   ${g.thread} (${g.events} events): ${g.self.map(([k, v]) => `${k} ${v}`).join(' | ')}`);
+  };
+  for (const dpr of [1, 2]) {
+    if (dpr !== 1) await setDpr(dpr);
+    try {
+      await B.nav(`${BASE}test.html?ns=perfsvq${process.pid}_${++nsCounter}&view=steps`);
+      await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+      await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
+      await settle(await pageNow());
+      await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
+      await sleep(SV_IDLE_MS);
+      // (a warm glide there and back first, as sv.glide)
+      for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+      await settle(await pageNow());
+      const g = `svq.zeta.glide${dpr === 2 ? '.dpr2' : ''}`;
+      await timed(g, legs.glide);
+      await profiled(g, legs.glide);
+      await traced(g, legs.glide);
+      if (dpr === 1) {
+        await B.ev(`__cmwSteps({ scope: 'all', go: 0, now: true }), 1`);
+        await settle(await pageNow());
+        await timed('svq.zeta.scrub_all', legs.scrub);
+        await profiled('svq.zeta.scrub_all', legs.scrub);
+        await traced('svq.zeta.scrub_all', legs.scrub);
+      }
+    } finally { if (dpr !== 1) await setDpr(1); }
+  }
+}
 async function cardsStartupUnit() {
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -1918,6 +2106,7 @@ unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, 
 unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
+unit('svq.zeta', 'a probe (#714): where the zeros of zeta spend main-thread time gliding (dpr 1 and 2) and scrubbing: timed runs, a JS profile and a Chrome trace per leg; info only', svqZetaUnit, { timeoutS: 900 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));

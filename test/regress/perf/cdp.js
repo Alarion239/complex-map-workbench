@@ -110,6 +110,8 @@ async function launch(opts = {}) {
   // (SystemInfo.getProcessInfo: the CPU time of the GPU and renderer processes)
   H_.browser = (m, p) => sendRaw(m, p);
   H_.sleep = sleep;
+  // a listener for every CDP message (events included: Tracing.dataCollected); returns its remover
+  H_.on = (f) => { listeners.push(f); return () => { const i = listeners.indexOf(f); if (i >= 0) listeners.splice(i, 1); }; };
   // evaluate an expression in the page; returns its value (no promise awaiting: start async work in the page,
   // store the result on window and poll it)
   H_.ev = async (expr) => {
