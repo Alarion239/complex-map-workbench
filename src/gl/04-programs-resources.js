@@ -537,9 +537,20 @@ float wabs(vec2 w) {
   // starts with it on (a cold load: no earlier version of the chain)
   let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
   function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
+  // (tests) the names of the programs started for the current chain (of any map mode), each once
+  function chainProgs() {
+    const out = new Set();
+    for (const e of progs.values()) if (e.chain && e.key === cur.key) out.add(e.name);
+    return [...out];
+  }
   function holdLinks(on) {
     held = !!on;
-    if (!held && api.onReady) api.onReady({ main: true, side: false });
+    if (held) return;
+    // (released: the programs held finish as they would have, linked at once where links are synchronous (no parallel
+    // compile), polled where they run in the background; a program no frame asks for again would stay pending)
+    if (pcExt) schedulePoll();
+    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv) finishLink(e);
+    if (api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
@@ -555,6 +566,15 @@ float wabs(vec2 w) {
     framePending = true;
     if (e && e.state === 'pending') standIn(e.id);
     if (sideMode) return null;   // a side chain draws only with its own programs
+    for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
+    return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
+  }
+  // program's stand-ins without its own compile: the program `name` for the current chain when it is linked, else the
+  // newest earlier chain version's that is, as program() draws while its own compiles; null when none is (nothing is
+  // started)
+  function programLinked(name, map) {
+    const P = getProg(name, cur, false, map);
+    if (P || !DEFS[name].chain || !cur.info || sideMode) return P;
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
@@ -1260,6 +1280,10 @@ float wabs(vec2 w) {
   // (how many point passes have run: the tests' proof that the fill took its values from one)
   let fillPtsRuns = 0;
   const fillPointsRuns = () => fillPtsRuns;
+  // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
+  // noCarry, noKCDraw, noFill (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  let carryProbe = {};
+  function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, e.tex);

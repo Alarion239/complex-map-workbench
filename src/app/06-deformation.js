@@ -141,11 +141,24 @@
     if (mfCache.sel && !pane.globeSel) for (const k of mfCache.sel.kept) { const p = pane.w2s(k.sp.z); if (!(p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false; }
     return true;
   }
-  function mfScreenKey(pane) {
+  // A deformation source: what the paths draw, whichever view shows the deformation. { Fat(T): H_T as a function of z;
+  // T: the time drawn to; Tend: the end of the range; seq: steps one after another (a bar where they meet); startId: H_0
+  // is the identity; key: what the selection depends on besides the shapes and the view; alive(): still shown; side: the
+  // pane to redraw; nogo(pane): px rectangles to keep clear; win(pane): the z-window the seeds' outline is taken in }.
+  // The classic transport's (the Image plane with the Deformation bar); the steps view builds its own (svPathsSource).
+  function classicSource() {
     const m = morphLen();
-    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, m, S.shapes.filter((s) => s.visible !== false), pane.globeSel ? `globe${mfGlobe.epoch}` : '']) + rangeKey();
+    return {
+      Fat: morphAt, T: morph.T, Tend: m, seq: !allAtOnce() && morphRange().steps.length >= 2,
+      startId: !(S.focus > 1 || (S.focus === 0 && !!homRangeOk())),
+      key: JSON.stringify(['classic', chainSig[nSteps()], S.focus, !!S.homAll, m]) + rangeKey(),
+      alive: () => morph.open, side: 'R', nogo: mfNogo, win: (pane) => pane.box(),
+    };
+  }
+  function mfScreenKey(pane, src = classicSource()) {
+    const key = JSON.stringify([src.key, S.shapes.filter((s) => s.visible !== false), pane.globeSel ? `globe${mfGlobe.epoch}` : '']);
     const v = pane.view, vkey = [v.cx, v.cy, v.s, pane.w, pane.h].join('|');
-    return { key, vkey, m };
+    return { key, vkey, m: src.Tend };
   }
   // no-go rectangles on the right plane (px of its overlay): the transport bar and the Pattern legend
   function mfNogo(pane) {
@@ -164,7 +177,8 @@
     } catch (e) { /* no layout: no rectangles */ }
     return out;
   }
-  function mfStartJob(pane, key, vkey, m) {
+  function mfStartJob(pane, key, vkey, src) {
+    const m = src.Tend;
     const want = key + '\n' + vkey;
     if (mfCache.job && mfCache.job.want === want) return;
     const job = { want, alive: true };
@@ -175,12 +189,12 @@
     // more than 70 degrees from the camera counts as not shown, so the limb's foreshortened scratches are never chosen)
     const cam = pane.globeSel && mfGlobe.cam ? { MVP: mfGlobe.cam.MVP.slice(), eye: mfGlobe.cam.eye.slice() } : null;
     const P = cam ? globeSelP(cam, W, Hh, PATHS.globeFace) : (w) => [W / 2 + (w.re - v.cx) * v.s, Hh / 2 - (w.im - v.cy) * v.s];
-    const win = pane.box();
-    const alive = () => job.alive && morph.open;
+    const win = src.win(pane);
+    const alive = () => job.alive && src.alive();
     // (nothing of it runs in the frame that asked: the first slice, the layout read of the no-go boxes included, is a
     // task of its own)
     const globe = !!pane.globeSel;
-    job.run = nextMacrotask().then(() => (alive() ? runGenSliced(pathsGen(P, { x: 0, y: 0, w: W, h: Hh }, win, m, globe ? { globe, maxN: PATHS.globeMax } : { footPx: 8, nogo: mfNogo(pane) }), alive) : null)).then((sel) => {
+    job.run = nextMacrotask().then(() => (alive() ? runGenSliced(pathsGen(P, { x: 0, y: 0, w: W, h: Hh }, win, m, globe ? { globe, maxN: PATHS.globeMax, src } : { footPx: 8, nogo: src.nogo(pane), src }), alive) : null)).then((sel) => {
       if (mfCache.job === job) mfCache.job = null;
       if (!sel || !job.alive) return;
       if (cam) sel.cam = cam;
@@ -188,11 +202,12 @@
       const base = (q) => q.replace(/"globe\d+"\]$/, '"globe"]');
       mfCache.prev = mfCache.sel && mfCache.key && base(mfCache.key) === base(key) && !!mfCache.sel.globe === globe ? { sel: mfCache.sel, next: sel, t0: performance.now() } : null;
       mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.rkey = ''; mfCache.rsel = null;
-      requestRender('R');
+      requestRender(src.side);
     }).catch((e) => { if (mfCache.job === job) mfCache.job = null; console.error('deformation paths', e); });
   }
-  function morphSelScreen(pane) {
-    const { key, vkey, m } = mfScreenKey(pane);
+  // src: the deformation source (default the classic transport's)
+  function morphSelScreen(pane, src = classicSource()) {
+    const { key, vkey, m } = mfScreenKey(pane, src);
     if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane))) {
       // (a pending re-choice for a view that has come back within reach is dropped)
       if (mfCache.timer) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
@@ -204,14 +219,14 @@
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
       // (review v16 regress-5: a bracket drag's snaps never start a selection; the release does, setHomRange's force)
       if (brDragging()) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
-      else if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, m); }
+      else if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, src); }
       // the 150 ms of stillness count from the last change of what is wanted, not from the last frame: a frame that
       // wants the same (a settle redraw after a scrub or a pan) must not restart the wait (it did: a scrub's settle
       // frames at +90 / +145 ms pushed the paths job, and the scene's settle, from ~150 to ~300 ms)
       else if (!(mfCache.timer && mfCache.want === want)) {
         clearTimeout(mfCache.timer);
         mfCache.want = want;
-        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane); if (!brDragging() && k2.key === key && k2.vkey === vkey && morphOn() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, m); }, 150);
+        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (!brDragging() && k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
       }
     }
     if (!mfCache.sel) return null;
@@ -219,11 +234,11 @@
     // the chain or the shapes changed: the kept start points, re-traced under the current homotopy (cheap)
     if (mfCache.rkey !== key) {
       const Fc = new Map();
-      const Fat = (T) => { let f = Fc.get(T); if (!f) { f = morphAt(T); Fc.set(T, f); } return f; };
+      const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
       const P = (w) => pane.w2s(w);
       const N = Math.max(24, 24 * Math.ceil(m));
       const kept = [];
-      for (const k of mfCache.sel.kept) { const r = pathRetrace(k, Fat, m, P, N); if (r) kept.push(r); }
+      for (const k of mfCache.sel.kept) { const r = pathRetrace(k, Fat, m, P, N, src.seq); if (r) kept.push(r); }
       mfCache.rkey = key; mfCache.rsel = Object.assign({}, mfCache.sel, { kept, Tend: m });
     }
     return mfCache.rsel;
@@ -236,7 +251,7 @@
   const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
   function morphSelGlobe(pane, cam) {
     if (cam) mfGlobe.cam = cam;
-    const k = mfScreenKey(pane).key + `|${pane.w}x${pane.h}`;
+    const k = mfScreenKey(pane, classicSource()).key + `|${pane.w}x${pane.h}`;
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
       vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
@@ -244,7 +259,7 @@
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp);
-    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp).key) {
+    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, classicSource()).key) {
       const P = globeSelP(cam, pane.w, pane.h, 0.2);
       const off = sel.kept.filter((q) => !P(q.sp.z)).length;
       if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
@@ -265,10 +280,10 @@
   // the screen's selection, finished now (a test hook): waits for (or starts) the job
   async function morphSelScreenNow(pane, force) {
     if (force) { mfCache.sel = null; mfCache.key = ''; if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; } }
-    const { key, vkey, m } = mfScreenKey(pane);
+    const src = classicSource(), { key, vkey } = mfScreenKey(pane, src);
     if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane))) return mfCache.sel;
     clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = '';
-    mfStartJob(pane, key, vkey, m);
+    mfStartJob(pane, key, vkey, src);
     await mfCache.job.run;
     return mfCache.sel;
   }
@@ -296,7 +311,7 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor,
+      C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, classicSource, cmFormAnchor,
       compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
       drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
       lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,

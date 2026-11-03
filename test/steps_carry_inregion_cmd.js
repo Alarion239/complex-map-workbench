@@ -6,6 +6,7 @@
 // camera. A point counts as wrong when its pixel differs by more than 14 in a channel from all 9 pixels around z's (a
 // phase edge or a contour between two pixels is not an error). Left out: points whose front point jumps when w is
 // moved 1.5 px (a seam of that choice), and points near outlines, cuts and labels.
+// Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
 // - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside
 //   regions (and every region point coloured, past the window too) and Everywhere; Everywhere held mid-glide at 0.25.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
@@ -104,6 +105,7 @@ const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
 await ready();
+await ev("__cmwSet('morphPaths', false), 1");
 await ev(`__cmwExample(${EX}); 1`);
 await wait();
 {
@@ -179,6 +181,7 @@ for (const n of [2, 3]) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
+  await ev("__cmwSet('morphPaths', false), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 44, 30);
   const inA = (z) => { const m = Math.hypot(z[0], z[1]); return m > 0.6 && m < 1.6; };
@@ -211,6 +214,7 @@ for (const n of [2, 3]) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
+  await ev("__cmwSet('morphPaths', false), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 36, 24);
   const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]], add = (a, b) => [a[0] + b[0], a[1] + b[1]], sub = (a, b) => [a[0] - b[0], a[1] - b[1]];

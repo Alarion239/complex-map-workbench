@@ -339,6 +339,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
    while it shows (it covers no control), and < > and the speed beside it stay live */
 #toastHost[data-placed="rail"] .toast { height: auto; min-height: 36px; white-space: normal; box-shadow: none; }
 .sv-strip.sv-toast .sv-rail > *, .sv-strip.sv-toast .sv-wholemap, .sv-strip.sv-toast .sv-add { visibility: hidden; }
+/* (while the message covers it the rail has nothing to show, so it does not scroll: a scroll region with no control left in it is what a screen reader tool reports) */
+.sv-strip.sv-toast .sv-rail { overflow-x: hidden; }
 /* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
    once wrapped to four lines and cut its longest word (ru, 1024) */
 #toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
@@ -347,6 +349,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
 #toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
 #toastHost[data-placed="head"] .toast .toast-act { height: 24px; }
+/* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
+:root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
 /* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
 .pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
 .pane-head > .empty-chip[hidden] { display: none; }
@@ -371,7 +375,13 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* a long Russian or Italian pick sentence may take a third line on a laptop before it is cut (the chip is one of the plane's, over the picture) */
 @media (min-width: 1280px) and (max-width: 1440px) { :root:is([data-lang="ru"], [data-lang="it"]) .cm-chip > .cm-t { -webkit-line-clamp: 3; } }
 .mc-stop { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0 8px; height: 22px; cursor: pointer; }
+
 .mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
+.mode-chip .mc-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mode-chip > :not(.mc-t) { flex: 0 0 auto; }
+.mode-chip.mc-bare .mc-t, .mode-chip.mc-bare .mc-sep { display: none; }
+.mode-chip.mc-bare { padding-left: 0; }
+.mode-chip.mc-nokey .kbd { display: none; }
 .mode-chips[hidden] { display: none; }
 .mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip .kbd, .mode-chip .kbd { font-size: 10px; padding: 0 4px; }
@@ -705,6 +715,20 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-more svg { width: 16px; height: 16px; }
 .sv-more:hover { background: var(--hover, rgb(127 127 127 / .16)); color: var(--ink); }
 .sv-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* a repeated block: its chips carry an accent rule under them, the last one the count */
+.sv-fwrap.rep { box-shadow: 0 3px 0 -1px var(--accent); }
+.sv-fwrap.rep:not(.rep-a) { margin-left: -4px; }
+.sv-rep { flex: 0 0 auto; font: 600 12px/1 var(--f-ui, sans-serif); color: var(--accent); padding: 0 2px 0 0; font-variant-numeric: tabular-nums; }
+/* the Inspector's Repeat row: the name, "− N +", End the repeat */
+.insp-repeat { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 0 2px; }
+.insp-repeat[hidden] { display: none; }
+.insp-repeat .rep-name { font-weight: 600; margin-right: auto; }
+.insp-repeat .rep-range { font-weight: 400; color: var(--ink-2); }
+.insp-repeat .rep-ctl { display: inline-flex; align-items: center; gap: 4px; }
+.insp-repeat .rep-n { width: 64px; height: 30px; text-align: center; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); font: inherit; color: var(--ink); }
+.insp-repeat .rep-step { width: 30px; height: 30px; font-size: 15px; line-height: 1; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
+.insp-repeat .rep-step:hover:not(:disabled) { border-color: var(--accent); }
+@media (pointer: coarse) { .insp-repeat .rep-n, .insp-repeat .rep-step { height: 44px; } .insp-repeat .rep-step { width: 44px; } .insp-repeat .rep-n { width: 72px; } .insp-repeat .rep-end { min-height: 44px; } }
 .sv-fwrap.off { border-style: dashed; color: var(--ink-2); }
 .sv-fwrap.off .sv-fn { text-decoration: line-through; }
 .sv-fwrap.off .sv-fk { color: var(--ink-2); }
@@ -732,9 +756,9 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-play { font-size: 19px; }
 .sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
-.sv-strip .sv-loop { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
+.sv-strip .sv-loop, .sv-strip .sv-paths { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
 :root:not(.ph) .sv-playback { display: none; }
-.sv-loop.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sv-loop.on, .sv-paths.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .sv-rail.hold .sv-thumb { background: color-mix(in srgb, var(--accent) 25%, transparent); transition: background .45s linear; }
 .sv-rail.arm .sv-thumb { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sv-rail.hold .sv-thumb { transition: none; } }
@@ -744,7 +768,7 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-sheet-h { display: flex; align-items: center; justify-content: space-between; font: 600 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet select.sel.sv-speed, .sv-sheet select.sel.sv-order { display: block; height: 44px; min-width: 140px; font-size: 15px; }
-.sv-sheet .sv-loop { height: 44px; min-width: 96px; }
+.sv-sheet .sv-loop, .sv-sheet .sv-paths { height: 44px; min-width: 96px; }
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
 .pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
