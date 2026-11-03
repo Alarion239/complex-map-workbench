@@ -1,4 +1,4 @@
-// The steps view's carried colour ends exactly at the image of a path's cut, with no streaks inside (#691): the
+// The steps view's carried colour ends exactly at the image of a path's cut, with no streaks inside: the
 // Joukowski airfoil, Everywhere, the colour on w₁, parked at x = 1/4, once the tiling's fix-up has landed. The path
 // tears along the lower unit semicircle, and the points just inside it land on the lower lobe's rim. Two measures of the
 // left pane's pixels, at dpr 1 and 2, the outlines and labels hidden:
@@ -45,17 +45,8 @@ const measure = (dpr) => ev(`(() => {
   }
   return { rim, streaks, w: c.width, h: c.height };
 })()`);
-// the left pane's pixels once two reads 200 ms apart agree
-const still = async () => {
-  let prev = null;
-  for (let n = 0; n < 150; n++) {
-    const h = await ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + 7 * d[i + 1] + 13 * d[i + 2]) | 0; return h; })()`);
-    if (prev === h) return true;
-    prev = h;
-    await sleep(200);
-  }
-  return false;
-};
+// whether the left pane's pixels are those of the read before (a hash of them, kept on the page): true once still
+const SAME = `(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + 7 * d[i + 1] + 13 * d[i + 2]) | 0; const same = window.__rimHash === h; window.__rimHash = h; return same; })()`;
 if (ex >= 0) {
   for (const dpr of [1, 2]) {
     await send('Emulation.setDeviceMetricsOverride', { width: 1200, height: 800, deviceScaleFactor: dpr, mobile: false });
@@ -69,7 +60,9 @@ if (ex >= 0) {
     await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', park: 0.25, T: 1 })}); 1`);
     await settled({ max: 30000, until: '__cmwSvFixed()' });
     const fixed = await ev('__cmwSvFixed()');
-    const st = await still();
+    await ev('window.__rimHash = null, 1');
+    await settled({ max: 30000, until: SAME });
+    const st = await ev(SAME);
     const m = await measure(dpr);
     info[`dpr ${dpr}`] = m;
     ok(`dpr ${dpr}: the fix-up landed and the pane settled`, fixed && st, { fixed, st });
