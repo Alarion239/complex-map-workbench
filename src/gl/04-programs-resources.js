@@ -537,6 +537,12 @@ float wabs(vec2 w) {
   // starts with it on (a cold load: no earlier version of the chain)
   let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
   function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
+  // (tests) the names of the programs started for the current chain (of any map mode), each once
+  function chainProgs() {
+    const out = new Set();
+    for (const e of progs.values()) if (e.chain && e.key === cur.key) out.add(e.name);
+    return [...out];
+  }
   function holdLinks(on) {
     held = !!on;
     if (!held && api.onReady) api.onReady({ main: true, side: false });
@@ -555,6 +561,15 @@ float wabs(vec2 w) {
     framePending = true;
     if (e && e.state === 'pending') standIn(e.id);
     if (sideMode) return null;   // a side chain draws only with its own programs
+    for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
+    return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
+  }
+  // program's stand-ins without its own compile: the program `name` for the current chain when it is linked, else the
+  // newest earlier chain version's that is, as program() draws while its own compiles; null when none is (nothing is
+  // started)
+  function programLinked(name, map) {
+    const P = getProg(name, cur, false, map);
+    if (P || !DEFS[name].chain || !cur.info || sideMode) return P;
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
