@@ -412,10 +412,10 @@ const showRun = (r) => (r.forward ? `${r.name.padEnd(46)} -> forward (${r.forwar
   check('exp∘Cayley of H: exact Möbius image box (bounded)', ecH.ok && ecH.rspec[1].kind === 'box' && ecH.rspec[1].exact && Number.isFinite(ecH.need[1]), JSON.stringify(ecH.rspec[1]));
 }
 
-// (c) termination and cost (review P1, findings 1 and 5). Lattice and member indices beyond 2^53 used to stall
+// (c) termination and cost. Lattice and member indices beyond 2^53 must not stall
 // `n++` loops in singular() / prepare() (out of memory); each case runs in a child process with a 400 MB heap and a
 // 10 s timeout, so a regression fails here instead of hanging the suite. Then prepare() of shapes whose image boxes
-// used to cost 10^7 evaluations: <= IMAGEBOX_CAP evaluations per box and well under the 4 ms frame budget class.
+// could cost 10^7 evaluations: <= IMAGEBOX_CAP evaluations per box and well under the 4 ms frame budget class.
 section('(c) termination and cost');
 {
   const { spawnSync } = require('child_process');

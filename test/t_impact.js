@@ -186,8 +186,8 @@ const lab = select(['README.md'], { full: 'the label full-gate' });
 ok('T3: the label full-gate (or a push, the nightly run, a run by hand) forces everything', lab.tier === 'T3' && same(lab.browser, ALL) && lab.why.includes('the label full-gate') && !lab.skipped.length, lab);
 ok('T3: one unknown path among known ones still forces everything', select(['src/tour.js', 'Makefile']).tier === 'T3');
 
-// [#385] the recent merges the analysis named, on the new rows: #370's desk.css diff now runs the phone shards; #375's,
-// #349's and #342's hunks were in init(), and since step 3 their wiring is in the chain head's, the shell's and the
+// [#385] the merged PRs the analysis named, on the new rows: #370's desk.css diff runs the phone shards; #375's,
+// #349's and #342's hunks are wired in the chain head's, the shell's and the
 // view controls' parts: their areas, not everything
 {
   const d370 = select(['src/desk.css', 'test/dh_cmd.js']);

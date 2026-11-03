@@ -255,7 +255,7 @@ P._local(list);
     try { P.readScene(bad); } catch (e) { msg = e.message; }
     ok(re.test(msg), `bad scene ${bad}: ${msg}`);
   }
-  // an example's number keeps the user's number it stands in for (ex.was), in the saved state
+  // an example's number keeps the user's number it stands in for (ex.was), in the saved state   // standards-ok: ex.was is a field name
   const sx = P.sanitize([{ name: 'N', value: 8, min: 1, max: 30, step: 1, ex: { was: { name: 'N', value: 3, min: 1, max: 9, step: 1, ex: true } } }, { name: 'M', value: 2, ex: true }, { name: 'K', value: 1, ex: { was: 7 } }]);
   eq(sx[0].ex, { was: { name: 'N', value: 3, min: 1, max: 9, step: 1 } }, 'sanitize keeps ex.was, as a plain number');
   eq(sx[1].ex, true, 'ex: true stays');

@@ -1,5 +1,5 @@
 // The guided tour (notes/tour/DESIGN.md): its content against the integration contract (notes/tour/INTEGRATION.md),
-// the copy markup, the countdown (v16.4, notes/tour-r3/SPEC.md: the callout and its placement are gone) and the lit areas, the persisted record through a fake localStorage, the
+// the copy markup, the countdown (notes/tour-r3/SPEC.md; the tour has no callout placement) and the lit areas, the persisted record through a fake localStorage, the
 // first-run rules and the step order. DOM-free; the browser side is test/tour_cmd.js. Run: node test/t_tour.js
 const fs = require('fs');
 const path = require('path');
@@ -14,8 +14,8 @@ function check(name, got, want) {
 const ok = (name, cond, info) => { n++; if (!cond) { fails++; console.log('FAIL', name, info !== undefined ? JSON.stringify(info) : ''); } };
 
 // ---- the contract: the anchor and event names documented in INTEGRATION.md
-// (v16.2: the user-5 addendum, notes/v16-user5/INTEGRATION-v161-tour.md, is merged into INTEGRATION.md, section 8)
-// (v16.4: tour r3's addendum, notes/tour-r3/INTEGRATION-v164.md, section 9, read after it until the merge folds it in)
+// (the user-5 addendum is part of INTEGRATION.md, section 8)
+// (tour r3's addendum, notes/tour-r3/INTEGRATION-v164.md, section 9, is read after it)
 const DOC = fs.readFileSync(path.join(__dirname, '../notes/tour/INTEGRATION.md'), 'utf8') + '\n' + (() => { try { return fs.readFileSync(path.join(__dirname, '../notes/tour-r3/INTEGRATION-v164.md'), 'utf8'); } catch (e) { return ''; } })();
 function namesIn(section) {
   const i = DOC.indexOf(section);
@@ -30,10 +30,10 @@ function namesIn(section) {
   }
   return out;
 }
-// (v15: the names the new layout adds are in their own tables, so the v14 gate's copy of this test still passes)
+// (the names the layout adds are in their own tables)
 const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added for the steps view (#442)'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
 const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added for the steps view (#442)'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)'), ...namesIn('### Events added in v16.4')]);
-// (v16.4: the events the tour reads outside a Try it, its own table: not required to be used by one)
+// (the events the tour reads outside a Try it, its own table: not required to be used by one)
 const DOC_EVENTS_OUT = namesIn('### Events the tour reads outside a Try it');
 ok('INTEGRATION.md lists the events read outside a Try it', DOC_EVENTS_OUT.has('listen-started'), [...DOC_EVENTS_OUT]);
 ok('INTEGRATION.md lists anchors', DOC_ANCHORS.size >= 20, [...DOC_ANCHORS]);
@@ -46,24 +46,24 @@ for (const k of ['examples', 'tool:disc', 'formula', 'shapes', 'chain', 'paneL',
 for (const m of ['anchor(name)', 'has(feature)', 'snapshot()', 'restore(snap', 'loadScene(spec)', 'sandbox(on)', 'setView(main)', 'setSurface(pane, surf)', 'setDeformation(on)', 'setTool(id)', 'setLook(look)', 'busy()', 'hasWork()', 'on(event, fn)', 'tex(src)', 'storageKey(k)'])
   ok(`INTEGRATION.md documents api.${m}`, DOC.includes(m));
 for (const m of ['Tour.init', 'Tour.start', 'Tour.suggest', 'Tour.isSeen', 'Tour.openHelpMenu', 'Tour.auto']) ok(`INTEGRATION.md documents ${m}`, DOC.includes(m));
-// (v16.4: the strip's slot, the Grieg example's scene, the sound of the Sound chapter)
+// (the strip's slot, the Grieg example's scene, the sound of the Sound chapter)
 for (const m of ['slot(where)', 'sceneSpec(name)', 'listen()', 'soundHold(prefs', 'soundStop()', 'soundReady()', 'soundState()']) ok(`INTEGRATION.md documents api.${m}`, DOC.includes(m));
 
 // ---- content
 const CH = T.CHAPTERS;
-// (v16.1) the anchors that are themselves the control a Try it needs: a tool, a toggle, the bracket, the palette's key,
+// the anchors that are themselves the control a Try it needs: a tool, a toggle, the bracket, the palette's key,
 // the plane that is hovered, held or right-clicked
-// (v16.4: also the planes together, where an orbit or the harp's laps happen, and the formula section with its field and Add)
+// (also the planes together, where an orbit or the harp's laps happen, and the formula section with its field and Add)
 const CONTROL_ANCHORS = new Set(['tool:disc', 'tool:circle3', 'deformToggle', 'paths', 'bracketL', 'palette', 'paneL', 'paneR', 'panes', 'formula']);
 const steps = CH.flatMap((c) => c.steps.map((s) => Object.assign({ ch: c.id }, s)));
-// (v15: an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
-// (v16: a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
-// (v16.4: a tenth chapter, Sound, of 4 steps, its settings step moved in from Palette and keys)
+// (an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
+// (a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
+// (a tenth chapter, Sound, of 4 steps)
 ok('5 to 10 chapters', CH.length >= 5 && CH.length <= 10, CH.length);
-ok('20 to 48 steps', steps.length >= 20 && steps.length <= 48, steps.length);   // (v16: + the deformation range's stop; v16.4: + Sound)
-check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (v16: Constructions; v16.4: Sound)
+ok('20 to 48 steps', steps.length >= 20 && steps.length <= 48, steps.length);   // (with the deformation range's stop and the Sound chapter)
+check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (with Constructions and Sound)
 ok('basics: 8 to 10 steps (about two minutes)', CH[0].steps.length >= 8 && CH[0].steps.length <= 10, CH[0].steps.length);
-// (v16.4: with the auto-advance a task step takes seconds: at most 7)
+// (with the auto-advance a task step takes seconds: at most 7)
 ok('basics: at most 8 Try its (two minutes, as the suggestion promises; #34 added the Y step\'s, a scroll or a drag)', CH[0].steps.filter((s) => s.try).length <= 8, CH[0].steps.filter((s) => s.try).map((s) => s.id));
 ok('no chapter over 6 steps but Basics', CH.slice(1).every((c) => c.steps.length <= 6), CH.map((c) => c.steps.length));
 ok('chapter ids unique', new Set(CH.map((c) => c.id)).size === CH.length);
@@ -79,7 +79,7 @@ for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/for
   'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
   'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
-// (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
+// the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
 const stepOf0 = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
@@ -95,19 +95,19 @@ for (const s of steps) {
   for (const [sc, b] of Object.entries(s.byScene || {})) ok(`${id}: body for scene ${sc}`, !!T.SCENES[sc] && T.plainCopy(b, 'Ctrl').length <= 240 && sentences(b) <= 3, sc);
   // the panes are X and Y, never left and right (on a phone they stack); a phone shows no hover, no right-click
   for (const b of [s.body, s.narrow, s.touch, ...Object.values(s.byScene || {})].filter(Boolean)) ok(`${id}: no left or right pane`, !/\b(left|right)\s+(pane|plane)|\bon the (left|right)\b/i.test(b), b);
-  // (v16.4: and its lead, result line and captions)
+  // (and its lead, result line and captions)
   const onPhone = T.plainCopy(T.copyFor(s, null, { coarse: true, narrow: true }) + ' ' + (s.try ? T.tryFor(s.try, { coarse: true, phone: true }) + ' ' + (s.try.then || '') : '') + ' ' + (s.lead || '') + ' ' + (s.captions || []).map((c) => c[1]).join(' '), 'Ctrl');
   ok(`${id}: a phone's text has no left, right or hover`, !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(onPhone), onPhone);
   for (const a of s.anchor == null ? [] : [].concat(s.anchor, s.also || [])) ok(`${id}: anchor ${a} is in the contract`, DOC_ANCHORS.has(a) && a in T.ANCHORS, a);
   ok(`${id}: no callout placement (v16.4)`, s.place == null, s.place);
-  // ---- v16.4 (notes/tour-r3/SPEC.md 6.4): the strip's line. A lead on a step with no task, with tryWide or try.after;
+  // ---- (notes/tour-r3/SPEC.md 6.4) the strip's line. A lead on a step with no task, with tryWide or try.after;
   // a lead, a result line and a caption: at most 60 characters as read, one sentence (a caption up to two), a full stop
   const one = (t) => sentences(t) === 1;
   if (!s.try || s.tryWide || s.try.after) ok(`${id}: a lead (read step, tryWide or try.after)`, typeof s.lead === 'string' && s.lead.length > 4, s.lead);
   if (s.lead) ok(`${id}: lead, one sentence, at most 60, a full stop`, one(s.lead) && T.plainCopy(s.lead, 'Ctrl').length <= 60 && /\.$/.test(s.lead), s.lead);
   if (s.try && s.try.then) ok(`${id}: result line, one sentence, at most 60, a full stop`, one(s.try.then) && T.plainCopy(s.try.then, 'Ctrl').length <= 60 && /\.$/.test(s.try.then), s.try.then);
   for (const [sec, c] of s.captions || []) ok(`${id}: caption at ${sec} s, at most two sentences, 60, a full stop`, Number.isFinite(sec) && sentences(c) <= 2 && T.plainCopy(c, 'Ctrl').length <= 60 && /\.$/.test(c), c);
-  // (v16.5: capFrac, the captions of the function's Listen along, at fractions of its duration in [0, 1); else
+  // (capFrac, the captions of the function's Listen along, at fractions of its duration in [0, 1); else
   // seconds within the composition's 22.97 s)
   if (s.captions) ok(`${id}: captions ascending, within the piece (${s.capFrac ? 'fractions of it' : '22.97 s'}), on a listen step`, s.captions.every((c, i) => i === 0 || c[0] > s.captions[i - 1][0]) && s.captions.every((c) => c[0] >= 0 && c[0] < (s.capFrac ? 1 : 22.97)) && s.act === 'listen', s.captions.map((c) => c[0]));
   if (id === 'sound/song') ok(`${id}: the function's Listen along, so its captions are fractions of its duration`, s.capFrac === true, s.capFrac);
@@ -132,7 +132,7 @@ for (const s of steps) {
     if (a[0] === 'view') ok(`${id}: view value`, ['xy', 'phase', 'land'].includes(a[1]), a);
     if (a[0] === 'surface') ok(`${id}: surface value`, ['L', 'R'].includes(a[1]) && ['plane', 'sphere'].includes(a[2]), a);
     if (a[0] === 'deform') ok(`${id}: deform value`, typeof a[1] === 'boolean', a);
-    // (v15: 'sheet', a phone's sheet only; a third value names the phone's sheet: tools, display)
+    // ('sheet', a phone's sheet only; a third value names the phone's sheet: tools, display)
     if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || /^(tools|display|steps)(:(draw|construct|shapes))?$/.test(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
   }
   // TeX: balanced braces and dollars, nothing the plain reading leaves as a command
@@ -145,14 +145,14 @@ for (const s of steps) {
   ok(`${id}: dollars paired`, ((s.body.match(/\$/g) || []).length % 2) === 0);
   if (s.try) {
     for (const t of [s.try.text, s.try.touch].filter((x) => x != null)) ok(`${id}: try text, at most 60 as read`, typeof t === 'string' && t.length > 4 && T.plainCopy(t, 'Ctrl').length <= 60, t);
-    // (v16.4: a step whose control is the strip's own act button lights the planes it plays on)
+    // (a step whose control is the strip's own act button lights the planes it plays on)
     if (s.act) ok(`${id}: an act step's task presses it`, /Listen|sound/i.test(s.try.text) || s.act === 'sound', s.try.text);
     if (s.try.count) ok(`${id}: try count`, Number.isInteger(s.try.count) && s.try.count >= 1);
     ok(`${id}: try has an event`, [].concat(s.try.on || []).length > 0);
     for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`${id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
     if (s.try.test) ok(`${id}: try test tolerates a bare event`, s.try.test(undefined) === true);
     ok(`${id}: a Try it lights what it asks for`, s.anchor != null);
-    // (v16.1, user 5: the control that completes it is lit, exactly: the anchor is that control (a tool, a toggle, the
+    // (the control that completes it is lit, exactly: the anchor is that control (a tool, a toggle, the
     // plane the task happens in) or try.ctl names it; its names are in the contract)
     for (const a of [].concat(s.try.ctl || [], s.try.work || [])) ok(`${id}: try control ${a} is in the contract`, DOC_ANCHORS.has(a) && a in T.ANCHORS, a);
     ok(`${id}: the Try it's control is lit (the anchor or try.ctl, or the strip's act button)`, [].concat(s.try.ctl || []).length > 0 || CONTROL_ANCHORS.has([].concat(s.anchor)[0]) || s.act === 'listen', s.anchor);
@@ -166,8 +166,8 @@ for (const s of T.PLANES.steps) for (const e of [].concat(s.try.on || [])) { EVE
 const EXAMPLE_ONLY = ['step-moved'];
 for (const e of EXAMPLE_ONLY) ok(`${e} is waited for by an example's Try line`, new RegExp(`tryDoneSv: .*on: '${e}'`).test(fs.readFileSync(path.join(__dirname, '../src/app/15-examples-guide.js'), 'utf8')), e);
 for (const e of DOC_EVENTS) if (!EXAMPLE_ONLY.includes(e)) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
-// (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
-// (v16.4: a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
+// every task with a drag asks for the Select tool, which it switches on first and lights
+// (a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
 for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.id !== 'targets')) {   // (draw and targets choose the Disc tool first, which they light)
   ok(`${s.ch}/${s.id}: a drag lights the Select tool`, [].concat(s.try.ctl || []).includes('tool:select'), s.try.ctl);
   ok(`${s.ch}/${s.id}: a drag switches to Select first`, (s.before || []).some((a) => a[0] === 'tool' && a[1] === 'select'), s.before);
@@ -176,7 +176,7 @@ ok('the first step is the centred welcome', CH[0].steps[0].anchor === null);
 ok('every other step has an anchor', steps.slice(1).every((s) => s.anchor != null));
 ok('a Try it per chapter at least (except Export)', CH.filter((c) => c.id !== 'export').every((c) => c.steps.some((s) => s.try)));
 ok('scenes: examples format', Object.values(T.SCENES).every((sc) => Array.isArray(sc.shapes) && Array.isArray(sc.steps) && sc.view && typeof sc.name === 'string'));
-// (v16.4: a scene the app holds, app: placeholders; the app's sceneSpec gives the example)
+// (a scene the app holds, app: placeholders; the app's sceneSpec gives the example)
 ok('scenes with app: needs the app feature and no shapes or steps of their own', Object.values(T.SCENES).filter((sc) => sc.app).every((sc) => sc.needs === sc.app && !sc.shapes.length && !sc.steps.length));
 check('the harp scenes: (z - 1)/(z + 1), Tiles with 12 sectors; the loop a circle once round the zero 1', [T.SCENES.harp.steps[0].params, T.SCENES.harp.look.phaseStyle, T.SCENES.harp.look.sectors, T.SCENES.harpLoop.shapes], [{ a: '1', zeros: '1', poles: '-1' }, 'enhanced', 12, [{ kind: 'circle', c: [1, 0], r: 0.6 }]]);
 // every scene sets the whole look the copy assumes (a user's opacity or Re F height never leaks in)
@@ -191,7 +191,7 @@ const stepOf = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i
 ok('Draw a shape lights the Disc tool itself', [].concat(stepOf('basics', 'draw').anchor)[0] === 'tool:disc' && stepOf('basics', 'draw').live === true);
 ok('Circle through three points lights its tool, and opens a phone\'s More tools', [].concat(stepOf('construct', 'c3').anchor)[0] === 'tool:circle3' && stepOf('construct', 'c3').before.some((a) => a[0] === 'panel' && a[1] === 'sheet' && a[2] === 'tools:construct'));   // (on the sheet's Construct tab)
 ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
-// (v15: and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
+// (and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
 ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools:shapes']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
 ok('Phase key starts it off, so Turn on Phase key can always tick', stepOf('views', 'key').before.some((a) => a[0] === 'look' && a[1].phaseKey === false));
 ok('All steps at once starts it off', stepOf('deform', 'order').before.some((a) => a[0] === 'look' && a[1].allAtOnce === false));
@@ -259,7 +259,7 @@ check('tex set braces', T.texPlain('z\\notin\\{i,-i\\}'), 'z∉{i,-i}');
 check('tex inverse', T.texPlain('f^{-1}'), 'f⁻¹');
 ok('every step reads without a backslash', steps.every((s) => !/\\/.test(T.plainCopy(s.body + (s.try ? s.try.text : ''), 'Ctrl'))), steps.map((s) => T.plainCopy(s.body, 'Ctrl')).filter((x) => /\\/.test(x)));
 
-// ---- v16.4: the countdown (SPEC 2, 6.4), a pure reducer on a fake clock
+// ---- the countdown (SPEC 2, 6.4), a pure reducer on a fake clock
 const CD = (evs) => { let st = T.cdInit(); for (const [t, e] of evs) st = T.countdown(st, e, t); return st; };
 // the time the countdown fires: the first t (ms, in 50 ms ticks) at which left() reaches 0, else null within 20 s
 const fireAt = (evs) => { const sorted = evs.slice().sort((a, b) => a[0] - b[0]); let st = T.cdInit(), k = 0; for (let t = 0; t <= 20000; t += 50) { while (k < sorted.length && sorted[k][0] <= t) st = T.countdown(st, sorted[k++][1], sorted[k - 1][0]); const L = T.cdLeft(st, t); if (L === 0) return t; } return null; };
@@ -353,7 +353,7 @@ Tour.init(api);
 Tour.reset();
 check('reset forgets the record', JSON.parse(localStorage.getItem('cmw-tour:ns1')), { v: 0, shown: 0, outcome: null, done: {}, last: null, auto: true, why: null, open: false });
 const lsKept = global.localStorage;
-// (#34, UX76) a tour that was running when the page went away (open, no live heartbeat elsewhere) was cut short: the next
+// a tour that is running when the page goes away (open, no live heartbeat elsewhere) is cut short: the next
 // page's init says so once, and clears the mark; another page's fresh heartbeat means that tour is still running there
 global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }) });
 Tour.init(api);
@@ -448,7 +448,7 @@ Tour.init({});
 
 // ---- review fixes: the copy of a control found in the ⋯ menu; layout-only steps; place()'s near miss is not 'side'
 check('copyFor: the ⋯ menu fallback says "in this menu" first', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true, menu: true }), T.copyFor({ body: 'b', touch: 't' }, null, { coarse: true, menu: true })], ['n', 't']);
-// (v15: no longer wide-only: on a phone Y's options, with the Phase key, are in the Display sheet the step opens)
+// (not wide-only: on a phone Y's options, with the Phase key, are in the Display sheet the step opens)
 ok('views/key opens the Display sheet on a phone (Y large)', !stepOf('views', 'key').wide && JSON.stringify(stepOf('views', 'key').before).includes('["panel","sheet","display"]') && JSON.stringify(stepOf('views', 'key').before).includes('["plane","R"]'));
 ok('basics/shapes asks its Try it on wide screens only', stepOf('basics', 'shapes').tryWide === true);
 // ---- the module without a DOM
