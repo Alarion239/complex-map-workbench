@@ -51,6 +51,8 @@ for (const k of Object.keys(RU)) {
 eq(I18N.t('Saved {file}.', { file: 'a.png' }), 'Saved a.png.', 'en fill');
 eq(I18N.t('\\operatorname{Re} z > %{a}', { a: 2 }), '\\operatorname{Re} z > 2', 'TeX template: %{a} is the placeholder');
 eq(I18N.t('\\operatorname{Re} z > {a}', { a: 2 }), '\\operatorname{Re} z > {a}', 'TeX template: {a} is a TeX group, never filled');
+// the figure captions' placeholders ('\u0001' for the map's name) pass through the Italian fill untouched
+eq(as('it', () => I18N.t('The images of %{list} under %{map}.%{pat}', { list: 'x', map: '\u0001', pat: '' })).includes('\u0001'), true, 'it fill keeps a caption placeholder');
 // i18n-4: a parameter named like a TeX group never fills the group
 eq(I18N.fill('$H_t(%{v})=%{v}^{n}$', { v: 'z', n: 3 }), '$H_t(z)=z^{n}$', 'math template: ^{n} stays a group');
 eq(I18N.fill('$e^{t}$ at t = %{t}', { t: 0.5 }), '$e^{t}$ at t = 0.5', 'math template: e^{t} stays');

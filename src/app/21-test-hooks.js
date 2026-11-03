@@ -262,6 +262,7 @@
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
   // (#366 prototype) the steps view: where it is, what it shows; d moves it (±1, or a plane index with to)
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
+  window.__cmwStageBox = () => paneBox(paneL, leftView());
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
   // and how far in px the farthest is from H_T(z) of its start z), the selection's size and whether it is this source's
   const svPathsHook = () => {
