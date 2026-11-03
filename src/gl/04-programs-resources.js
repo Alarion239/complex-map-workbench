@@ -1076,7 +1076,7 @@ float wabs(vec2 w) {
   let tfObj = null, scratch = null, scratchBytes = 0;
   const CACHE_MAX = 4;                     // entries per resource (2 for entries over BIG_ENTRY: Max meshes)
   const BIG_ENTRY = 48 * 1024 * 1024;      // a Max mesh (480 base cells per side) holds ~115 MB per evaluation
-  const CACHE_BYTES = 256 * 1024 * 1024;   // all entries; ones drawn in the last 250 ms are never evicted
+  let CACHE_BYTES = 256 * 1024 * 1024;     // all entries; ones drawn in the last 250 ms are never evicted
   const cacheAll = new Map();              // entry -> true, least recently used first
   const tmpAll = new Set();                // scratch evaluations (tmpEntry); counted in cacheBytes
   let cacheBytes = 0;
@@ -1182,7 +1182,7 @@ float wabs(vec2 w) {
     const bytes = W * H * 8;
     while (c.size >= (bytes > BIG_ENTRY ? 2 : CACHE_MAX)) freeEntry(c.values().next().value);
     const now = performance.now();
-    if (cacheBytes + bytes > CACHE_BYTES) freeStaleTmp(now);
+    if (cacheBytes + bytes > CACHE_BYTES) freeStaleTmp(now, bytes);
     for (const e0 of [...cacheAll.keys()]) {
       if (cacheBytes + bytes <= CACHE_BYTES) break;
       if (now - e0.t > 250) freeEntry(e0);
@@ -1231,7 +1231,7 @@ float wabs(vec2 w) {
     if (alloc) {
       if (e) freeTmp(e);
       e = { tex: floatTex(), W, H, P: tpl.P, bytes: W * H * 8, res, slot, key: '', t: now };
-      if (cacheBytes + e.bytes > CACHE_BYTES) freeStaleTmp(now);
+      if (cacheBytes + e.bytes > CACHE_BYTES) freeStaleTmp(now, e.bytes);
       res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
     }
     e.key = key;

@@ -160,16 +160,19 @@ async function sceneHealth() {
   })()`).catch((e) => ({ stepErrors: [], drawn: [], hookError: String(e) }));
 }
 // why the reference cannot run a unit that the current build runs, or null: per scene opened (in order), a step that
-// errs only on the reference, a shape that draws only on the current build (both settled: a mesh still being built is
-// not a shape that cannot draw), or an exception only the reference threw; or the unit itself failed only on the
-// reference
+// errs only on the reference, a user's shape that draws only on the current build (both settled: a mesh still being
+// built is not a shape that cannot draw), or an exception only the reference threw; or the unit itself failed only on
+// the reference. The steps view's own shapes (ids '__sv…': the whole plane, the outer rings, the warm-up disc) are
+// made by the view as it needs them, not by the scene: one drawn only on the current build is no feature the reference
+// lacks
+const viewShape = (id) => String(id).startsWith('__sv');
 function refCannot(ref, cur, refErr, curErr) {
   if (refErr && !curErr) return `the unit failed on the reference: ${String(refErr).split('\n')[0].slice(0, 160)}`;
   for (let i = 0; i < Math.min(ref.length, cur.length); i++) {
     const a = ref[i], b = cur[i];
     const k = a.stepErrors.findIndex((e, j) => e && !b.stepErrors[j]);
     if (k >= 0) return `step f${k + 1} does not build there: ${a.stepErrors[k]}`;
-    const gone = a.settled && b.settled ? b.drawn.filter((id) => !a.drawn.includes(id)) : [];
+    const gone = a.settled && b.settled ? b.drawn.filter((id) => !a.drawn.includes(id) && !viewShape(id)) : [];
     if (gone.length) return `shape ${gone.join(', ')} draws nothing there`;
     if (a.exc.length && !b.exc.length) return `the scene throws there: ${a.exc[0]}`;
   }
@@ -2182,8 +2185,8 @@ if (require.main === module) {
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { try { if (B) await B.close(); } catch (e) { /* ignore */ } process.exit(130); });
   main().catch(async (e) => { console.error(e); try { if (B) await B.close(); } catch (x) { /* ignore */ } process.exit(2); });
 }
-// for perf/selftest.js: the runner's own helpers, driven against a browser it launched
+// for perf/selftest.js (the runner's own helpers, driven against a browser it launched) and test/t_perf_refcannot.js
 module.exports = {
   use(browser, base) { B = browser; if (base) BASE = base.endsWith('/') ? base : base + '/'; },
-  RES, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
+  RES, refCannot, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
 };

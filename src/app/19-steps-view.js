@@ -757,7 +757,8 @@
   // is a number, and a full table is dropped whole)
   const SV_RING_SIZES_MAX = 400;
   const svRingSizes = new Map();
-  let svRingMemo = null, svRingJob = null;
+  // (svRingWarmM: a size made whose mesh the idle job builds next, svRingWarm)
+  let svRingMemo = null, svRingJob = null, svRingWarmM = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
   const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
@@ -812,10 +813,10 @@
     const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2;
     return m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * Math.hypot(ax, ay) }) : null;
   }
-  // the ring's mesh (shapeGPU at the ring's base, over its own box)
-  const svRingGPU = (ring) => shapeGPU(ring, { base: SV_RING_BASE, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } });
-  // a ring size's mesh and its carried colour's textures, made in the idle moment that made the size, so the frame that
-  // first draws the ring builds and allocates nothing
+  // the ring's mesh (shapeGPU at the ring's base, over its own box; no strokes: the ring has no edge drawn)
+  const svRingGPU = (ring) => shapeGPU(ring, { base: SV_RING_BASE, lines: false, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } });
+  // a ring size's mesh and its carried colour's textures, made by the idle job once it has made the size, so the frame
+  // that first draws the ring builds and allocates nothing
   function svRingWarm(m) {
     const ring = svRingShape(m), r = ring ? svRingGPU(ring) : null;
     if (r && r.meshRes && GLR.carryReserve) GLR.carryReserve(r.meshRes, SV_CARRY_L);
@@ -839,10 +840,20 @@
     }
     return null;
   }
-  const svRingLeft = () => !!svRingJob || !!svRingNext();
-  // the idle job's share of the ring: an m made for at most ms; false when none is left to make
+  const svRingLeft = () => !!svRingJob || svRingWarmM !== null || !!svRingNext();
+  // the idle job's share of the ring: an m made for at most ms, or the mesh of the last one made (svRingWarm, built whole:
+  // only with at least half a slice's time left); false when this slice's share ends (none left to make, or a mesh to
+  // build and too little time)
   function svRingAhead(ms) {
     const t0 = performance.now();
+    if (svRingWarmM !== null) {
+      if (ms < SV_POLE_BUDGET / 2) return false;
+      const m = svRingWarmM, ps = globalThis.__svPathStats;
+      svRingWarmM = null;
+      if (ps) (ps.ringWarmMs || (ps.ringWarmMs = [])).push(ms);
+      svRingWarm(m);
+      return true;
+    }
     if (!svRingJob) {
       const n = svRingNext();
       if (!n) return false;
@@ -853,7 +864,7 @@
       if (r.done) {
         svRingSet(svRingJob.key, r.value);
         svRingJob = null;
-        svRingWarm(r.value);
+        if (r.value) svRingWarmM = r.value;
         const ps = globalThis.__svPathStats;
         if (ps) ps.ringIdle = (ps.ringIdle || 0) + 1;
         return true;
@@ -897,10 +908,15 @@
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
     // the map sends far, which would cover the pane many times over, so it is left out)
-    for (let i = 0; i < draws.length; i++) {
-      const d = draws[i], depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
+    const sts = draws.map((d, i) => {
+      const depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      const st = { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
+    });
+    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
+    for (let i = 0; i < draws.length; i++) if (!draws[i].pre && (sts[i].prep = GLR.carryPrep(draws[i].res, sts[i])) === false) return false;
+    for (let i = 0; i < draws.length; i++) {
+      const d = draws[i], st = sts[i];
       if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
