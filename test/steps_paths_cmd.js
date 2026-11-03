@@ -47,6 +47,16 @@ const p1 = await parked(0.5);
 info.p1 = p1;
 ok('parked between z and w₁: the run is that step, from the identity', !!p1.src && Math.abs(p1.src.T - 0.5) < 1e-9 && p1.src.Tend === 1 && p1.src.startId === true && p1.src.seq === false, p1.src);
 ok('parked between z and w₁: paths drawn, each moving point at H_T(z) of its start', p1.heads >= 3 && p1.err < 1.5, p1);
+// (the next step's run is re-traced ahead, off the frame: crossing into it re-traces nothing in a frame)
+const ah = await settled({ max: 20000, until: '__cmwSteps().paths.ahead >= 1' });
+ok('parked between z and w₁: the next step\'s run is re-traced ahead', ah.ok, ah);
+await ev(`(() => { const f = MorphPaths.pathRetrace; window.__svRetrace = f; window.__svRetraceIn = 0; MorphPaths.pathRetrace = function (...a) { if ((new Error().stack || '').includes('morphSelScreen')) window.__svRetraceIn++; return f.apply(this, a); }; return 1; })()`);
+await ev(`__cmwSteps({ park: 1.5 }), 1`);
+await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.heads > 0 && !p.src.startId && Math.abs(p.T - 0.5) < 1e-9; })()` });
+const cross = Object.assign(await S().then((s) => s.paths), { inFrame: await ev('window.__svRetraceIn') });
+await ev('MorphPaths.pathRetrace = window.__svRetrace, 1');
+info.cross = cross;
+ok('crossing into the next step: its first frames draw the paths re-traced ahead (none in a frame), each moving point at H_T(z)', cross.inFrame === 0 && cross.heads >= 3 && cross.err < 1.5, cross);
 const p2 = await parked(1.5);
 info.p2 = p2;
 ok('parked between w₁ and w₂: the run is the second step, from plane w₁ (H_0 = z²)', !!p2.src && Math.abs(p2.src.T - 0.5) < 1e-9 && p2.src.Tend === 1 && p2.src.startId === false, p2.src);
