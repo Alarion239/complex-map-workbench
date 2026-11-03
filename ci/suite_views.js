@@ -82,7 +82,7 @@ const VIEWS = {
   'chip_clamp_cmd.js': steps({ pin: true }),
   'complex_point_cmd.js': steps({ pin: true }),
   'complex_params_cmd.js': steps({ pin: true }),
-  'custom_show_cmd.js': port('interact', 'F\'s well: after the F tile is settled in the steps view (the F chip)'),
+  'custom_show_cmd.js': port('interact', 'its select(k) clicks the classic card row, which the steps view hides: it needs the step chip on the thread, with the selected step asserted'),
   'd1_replace_cmd.js': steps({ pin: true }),
   'display_inline_cmd.js': classic('the classic pane heads\' Display, Regions and title toggles at each width: the steps view\'s head is layout_invariants_cmd\'s and steps_head_cmd\'s'),
   'field_settle_cmd.js': steps({ pin: true }),
@@ -120,7 +120,7 @@ const VIEWS = {
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
   'phone_focus_margin_cmd.js': steps({ pin: true }),
-  'phone_fwell_cmd.js': port('phone', 'F\'s well: after the F tile is settled in the steps view'),
+  'phone_fwell_cmd.js': steps({ pin: true }),
   'phone_sheet_target_cmd.js': steps({ pin: true }),
   'phone_sheets_cmd.js': steps({ pin: true }),
   'phone_toast_chain_cmd.js': steps({ pin: true }),
