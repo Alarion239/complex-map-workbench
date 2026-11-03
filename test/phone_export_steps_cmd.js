@@ -8,14 +8,14 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'pse' + Date.now();
 await view(390, 844, false, true);
-await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'k1', kind: 'disc', c: [0.3, 0], r: 0.6, ci: 0, visible: true }],
   steps: [{ type: 'affine', params: { a: '1', b: '0.5' }, on: true }, { type: 'sin', params: {}, on: true }, { type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
 await settled({ until: '!!window.__cmwSteps && !!window.__cmwFig && __cmwSteps().on', max: 30000 });
-const rest = async () => { for (let i = 0; i < 80; i++) { if (!(await ev('__cmwSteps().moving'))) return; await sleep(100); } };
-const park = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true })`); await rest(); await settled({ until: `__cmwSteps().i === ${i} && !__cmwSteps().moving`, max: 10000 }); };
+const until = async (expr, max = 10000) => { const r = await settled({ until: expr, max }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
+const park = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true })`); await until(`__cmwSteps().i === ${i} && !__cmwSteps().moving`); };
 // (the figure's pictures are the data: images embedded in the svg, hashed in the page; the svg's own ids differ from build to build)
 const fig = async () => ev(`await (async () => { try {
   const f = await __cmwFig.build({ for: 'article', cols: 1 }); if (!f) return { none: 1 };
@@ -23,7 +23,9 @@ const fig = async () => ev(`await (async () => { try {
   const imgs = [...f.svg.matchAll(/xlink:href="(data:[^"]*)"/g)].map((m) => m[1].length + ':' + hs(m[1]));
   return { svg: f.svg.replace(/xlink:href="data:[^"]*"/g, ''), imgs: imgs.join(','), n: imgs.length, cap: f.captionTex || '' };
 } catch (e) { return { err: String(e && e.stack || e).slice(0, 400) }; } })()`, 180000);
-const shown = () => ev(`(() => { const s = __cmwSteps(); return { i: s.i, x: s.x, stage: s.stage, moving: s.moving, name: s.names.title.name, role: s.names.title.role, title: document.getElementById('leftTitle').textContent }; })()`);
+const shown = () => ev(`(() => { const s = __cmwSteps();
+  return { i: s.i, x: s.x, stage: s.stage, moving: s.moving, name: s.names.title.name, role: s.names.title.role,
+    title: document.getElementById('leftTitle').textContent }; })()`);
 await park(0);
 const S0 = await shown();
 ok('at rest the shown plane is z: stage 0, the variable z', S0.i === 0 && S0.stage === 0 && S0.name === '<i>z</i>', S0);
