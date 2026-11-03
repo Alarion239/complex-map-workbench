@@ -69,11 +69,16 @@ async function hold(x, links = true) {
   // (the key of a glide's frame at t = 1/2 to plane 1, as the glide's first frame takes it: the Mountain King's whole
   // tracks are many times a frame's share)
   const now = await ev('__cmwSvKey(1, 0.5)'), tr = now.tracks;
+  // (and the searches a glide's frames make while the tracks are not whole: t over (0, 0.3) in 20 frames' steps)
+  const sweep = await ev('(() => { globalThis.__svPathStats = {}; for (let i = 1; i <= 20; i++) __cmwSvKey(1, 0.3 * i / 20); const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   const whole = await ev('__cmwSvKey(1, 0.5, true)');
   const near = (p, L) => L.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-3 * (1 + Math.hypot(q[0], q[1])));
   info['after an edit'] = { tracks: tr, now: now.sing, whole: whole.sing };
   ok('after an edit: a glide frame\'s key does not make the glide\'s pole tracks whole', tr && tr.k < tr.of, tr);
   ok('after an edit: the key has its poles at t', now.sing.length > 0, now.sing);
+  info['after an edit'].sweep = sweep;
+  // (the tracks' seed steps in t <= 0.3: 0, 8 and 16 of 64, the one nearest 0.3 being 24)
+  ok('after an edit: a glide\'s frames search for poles only at the tracks\' seed steps', (sweep.poleSync || 0) <= 4, sweep);
   ok('after an edit: the poles found at t are the whole tracks\' poles', now.sing.every((p) => near(p, whole.sing)) && whole.sing.every((p) => near(p, now.sing)), info['after an edit']);
 }
 return { pass: fails.length === 0, fails, info };
