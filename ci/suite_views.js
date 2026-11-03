@@ -120,7 +120,7 @@ const VIEWS = {
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
   'phone_focus_margin_cmd.js': steps({ pin: true }),
-  'phone_fwell_cmd.js': port('phone', 'F\'s well: after the F tile is settled in the steps view'),
+  'phone_fwell_cmd.js': steps({ pin: true }),
   'phone_sheet_target_cmd.js': steps({ pin: true }),
   'phone_sheets_cmd.js': steps({ pin: true }),
   'phone_toast_chain_cmd.js': steps({ pin: true }),
@@ -174,6 +174,7 @@ const VIEWS = {
   'constr_cmd.js': steps({ pin: true }),
   'curves_cmd.js': steps({ pin: true }),
   'curves_target_cmd.js': steps({ pin: true }),
+  'curves_outline_off_cmd.js': steps({ pin: true }),
   'curves_target_legend_cmd.js': classic('the target legend is the classic right pane\'s head note (#rightNote), which the steps view\'s one plane does not have'),
   'curves_target_areas_cmd.js': port('geometry', 'the inverse renderer\'s formula areas on the last plane: the steps view keeps them on the forward stand-in and __cmwPaths() reports nothing there: #758'),
   'dh_cmd.js': steps({ pin: true }),
