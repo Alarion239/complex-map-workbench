@@ -308,8 +308,11 @@
     if (gl && e.tex) gl.deleteTexture(e.tex);
     if (e.res.tmp && e.res.tmp.get(e.slot) === e) e.res.tmp.delete(e.slot);
   }
-  // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended)
-  function freeStaleTmp(now) { for (const e of [...tmpAll]) if (now - e.t > 1000) freeTmp(e); }
+  // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended); the
+  // steps view's carried colour's (e.carry) after CARRY_TMP_MS, since its next glide or scrub, after a rest, draws them
+  // again: freed in the rest, the scrub's first frame would allocate them again
+  const CARRY_TMP_MS = 30000;
+  function freeStaleTmp(now) { for (const e of [...tmpAll]) if (now - e.t > (e.carry ? CARRY_TMP_MS : 1000)) freeTmp(e); }
   // and once the drawing that used them has been idle that long, whatever the budget: a scratch evaluation is only
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
   // so after the step-card thumbnails or a finished homotopy it held its texture for nothing (U-b gate: the idle app
@@ -382,6 +385,7 @@
     const cache = rtOK && !isIdent(st.map), linked = programLinked;
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
+    if (e) e.carry = true;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
