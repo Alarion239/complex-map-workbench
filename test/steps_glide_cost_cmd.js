@@ -12,7 +12,10 @@
 //   outer ring's sizes are made by the idle job (those of the page's first glide before it), in no frame, and each
 //   size's mesh is built at most once;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
-//   region under zeta) runs no slice until the thread is let go, then runs.
+//   region under zeta) runs no slice until the thread is let go, then runs;
+// - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
+//   rest longer than the scratch sweep's second; the carried colour creates no texture and no buffer in their frames
+//   (the outer ring's meshes and the carry's scratch textures are made in idle moments and kept between scrubs).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -160,5 +163,52 @@ async function hold(x, links = true) {
   const rest = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   info['a scrub'] = { held: held.fixSlices || 0, rest: rest.fixSlices || 0 };
   ok('a scrub: the fix-up asked for runs no slice while the thread is held', !(held.fixSlices > 0) && rest.fixSlices > 0, info['a scrub']);
+}
+// ---- a scrub's frames: no GPU allocation by the carried colour ----
+{
+  const ex = names.indexOf('In the Hall of the Mountain King');
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=ga${Date.now()}`);
+  await ready();
+  await ev(`__cmwExample(${ex}); 1`);
+  await settled({ max: 30000 });
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  await settled({ max: 30000 });
+  for (const to of [1, 0]) {
+    await ev(`__cmwSteps({ go: ${to} }), 1`);
+    await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  }
+  await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  // (each texture or buffer created from the carried colour's draws: its stack passes through svCarryRegions)
+  await ev(`(() => {
+    const P = WebGL2RenderingContext.prototype, A = window.__svAlloc = [];
+    for (const name of ['createTexture', 'createBuffer']) {
+      const f = P[name];
+      P[name] = function (...a) { const st = new Error().stack || ''; if (st.includes('svCarryRegions')) A.push(name + ' ' + st.split('\\n').slice(2, 6).map((l) => l.trim()).join(' < ')); return f.apply(this, a); };
+    }
+    return 1;
+  })()`);
+  // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there)
+  const scrub = (from, to) => ev(`new Promise((done) => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const x0 = ns[${from} < 0 ? ns.length - 1 : ${from}][0], x1 = ns[${to} < 0 ? ns.length - 1 : ${to}][0], cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 74, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', x0);
+    let i = 0;
+    const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / 40); if (i < 40) setTimeout(step, 16); else { ev('pointerup', x1); done(1); } };
+    setTimeout(step, 16);
+  })`);
+  const rest = async () => {
+    await settled({ max: 60000, until: '!__cmwSteps().moving' });
+    await ev('window.__restT = performance.now(), 1');
+    await settled({ max: 20000, panes: false, until: 'performance.now() - window.__restT > 2000' });
+  };
+  await rest();
+  await scrub(0, -1);
+  await rest();
+  await scrub(-1, 0);
+  await rest();
+  const alloc = await ev('window.__svAlloc');
+  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
+  ok('two scrubs of the Mountain King: the carried colour creates no texture or buffer in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
 }
 return { pass: fails.length === 0, fails, info };
