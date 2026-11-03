@@ -19,7 +19,7 @@ const SHARDS = [
   { id: 'pointer', re: '^pointer\\.', what: 'wave 1\'s pointer and per-frame work (#63): snap, detents, gliders, the probe, targets' },
   { id: 'phone', re: '^phone\\.', what: 'the emulated phone (390 x 844 @3x, touch, CPU / 4)' },
   { id: 'steps', re: '^sv\\.(?!cold_glide$|interact\\.king$)', what: 'the steps view (#366): the first glide, a warm glide, the interactions, the glide at 60 fps' },
-  { id: 'probe', re: '^(svq\\.(zetav|kingv)|sv\\.cold_glide|sv\\.interact\\.king)$', what: 'a probe (#714): the carry\'s settings on zeta and the Mountain King, with the King cold glide and interactions' },
+  { id: 'probe', re: '^(svq\\.(zetav|kingv|zetaog)|sv\\.cold_glide|sv\\.interact\\.king)$', what: 'a probe (#714): the carry\'s settings on zeta and the Mountain King, zeta under oldGrid profiled, with the King cold glide and interactions' },
   { id: 'probe-trace', re: '^svq\\.zeta$', what: 'a probe (#714): where the zeta glide and scrub spend main-thread time (JS profile, Chrome trace)' },
 ];
 

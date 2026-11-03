@@ -1161,6 +1161,8 @@ async function svGlideUnit(scene) {
 // the ms whose stack holds a synchronous GL call) and one run under a Chrome trace (self ms by event on the renderer's
 // main thread and on the GPU process inside the windows, between performance marks svq:a and svq:b; the raw trace is
 // written next to --out). Info only: a probe, never a gate. On a software renderer it runs only with CMW_SV_SOFT=1.
+// o: {id (the rows' prefix), setting (a name of the page's __svCarryProbeSettings, applied where the page has it),
+// dprs ([1, 2]), trace (true)}
 const SVQ_GL_SYNC = /^(drawImage|readPixels|getParameter|getError|getProgramParameter|getShaderParameter|getProgramInfoLog|getShaderInfoLog|clientWaitSync|getSyncParameter|getBufferSubData|finish|flush|getUniformLocation|getAttribLocation|getActiveUniform|checkFramebufferStatus|getExtension|getQueryParameter|getContextAttributes|isContextLost)$/;
 const SVQ_TRACE_CATS = 'devtools.timeline,v8,v8.execute,blink.user_timing,gpu,toplevel,disabled-by-default-devtools.timeline.frame';
 const svqTop = (m, n) => [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [k, +v.toFixed(2)]);
@@ -1229,9 +1231,10 @@ function svqTrace(events) {
   res.renderer = best;
   return res;
 }
-async function svqZetaUnit() {
+async function svqZetaUnit(o = {}) {
+  const id = o.id || 'svq.zeta', dprs = o.dprs || [1, 2], trace = o.trace !== false;
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
-  if (soft && process.env.CMW_SV_SOFT !== '1') { detail('svq.zeta', 'skipped: a software renderer (CMW_SV_SOFT=1 runs it)'); return; }
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (CMW_SV_SOFT=1 runs it)'); return; }
   const side = (RES.meta && RES.meta.paired) || 'single';
   const mark = (m) => B.ev(`performance.mark('${m}'), 1`);
   const glideTo = async (to) => {
@@ -1316,7 +1319,7 @@ async function svqZetaUnit() {
     if (t.renderer) log(`${pre} [${side}]   renderer main (${t.renderer.events} events): ${t.renderer.self.map(([k, v]) => `${k} ${v}`).join(' | ')}`);
     for (const g of Object.values(t.gpu)) if (g.events) log(`${pre} [${side}]   ${g.thread} (${g.events} events): ${g.self.map(([k, v]) => `${k} ${v}`).join(' | ')}`);
   };
-  for (const dpr of [1, 2]) {
+  for (const dpr of dprs) {
     if (dpr !== 1) await setDpr(dpr);
     try {
       await B.nav(`${BASE}test.html?ns=perfsvq${process.pid}_${++nsCounter}&view=steps`);
@@ -1329,18 +1332,29 @@ async function svqZetaUnit() {
       // (a warm glide there and back first, as sv.glide)
       for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
       await settle(await pageNow());
-      const g = `svq.zeta.glide${dpr === 2 ? '.dpr2' : ''}`;
+      // o.setting: the page's __svCarryProbeSettings[o.setting] applied (where the page has it: the reference has no
+      // hooks and runs as it is), then a glide there and back again so its programs are linked
+      if (o.setting) {
+        const fl = await B.ev(`JSON.stringify((globalThis.__svCarryProbeSettings || {})[${JSON.stringify(o.setting)}] || null)`);
+        log(`${id} [${side}] setting ${o.setting}: ${fl === 'null' ? 'none on this page (run as it is)' : fl}`);
+        if (fl !== 'null') {
+          await B.ev(`globalThis.__svCarryProbe = ${fl}, 1`);
+          for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+          await settle(await pageNow());
+        }
+      }
+      const g = `${id}.glide${dpr === 2 ? '.dpr2' : ''}`;
       await timed(g, legs.glide);
       await profiled(g, legs.glide);
-      await traced(g, legs.glide);
+      if (trace) await traced(g, legs.glide);
       if (dpr === 1) {
         await B.ev(`__cmwSteps({ scope: 'all', go: 0, now: true }), 1`);
         await settle(await pageNow());
-        await timed('svq.zeta.scrub_all', legs.scrub);
-        await profiled('svq.zeta.scrub_all', legs.scrub);
-        await traced('svq.zeta.scrub_all', legs.scrub);
+        await timed(`${id}.scrub_all`, legs.scrub);
+        await profiled(`${id}.scrub_all`, legs.scrub);
+        if (trace) await traced(`${id}.scrub_all`, legs.scrub);
       }
-    } finally { if (dpr !== 1) await setDpr(1); }
+    } finally { if (dpr !== 1) await setDpr(1); if (o.setting) await B.ev('globalThis.__svCarryProbe = null, 1').catch(() => 0); }
   }
 }
 // [#714 probe] the carry's settings, side by side on one warm page per scene (zeta, the Mountain King): each setting is
@@ -2209,6 +2223,7 @@ unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default p
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('svq.zeta', 'a probe (#714): where the zeros of zeta spend main-thread time gliding (dpr 1 and 2) and scrubbing: timed runs, a JS profile and a Chrome trace per leg; info only', svqZetaUnit, { timeoutS: 900 });
+unit('svq.zetaog', 'a probe (#714): svq.zeta under the carry setting oldGrid (the reference as it is), dpr 1, timed runs and a JS profile, no trace; info only', () => svqZetaUnit({ id: 'svq.zetaog', setting: 'oldGrid', dprs: [1], trace: false }), { timeoutS: 900 });
 unit('svq.zetav', 'a probe (#714): the carry\'s settings (globalThis.__svCarryProbe: base, reuse, onePass, cacheOnly, noCarry, or the page\'s own list) on the zeros of zeta, scrub and glide, the order rotating; info only', () => svqVariantUnit('zeta'), { timeoutS: 900 });
 unit('svq.kingv', 'a probe (#714): the carry\'s settings (as svq.zetav) on the Mountain King, scrub and glide, the order rotating; info only', () => svqVariantUnit('king'), { timeoutS: 1200 });
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
