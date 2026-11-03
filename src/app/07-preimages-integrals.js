@@ -120,7 +120,7 @@
   // can cost hundreds of evaluations (nested d/dz steps use the circle formula), so the cost of a call is measured
   // on a few points of the box first: the budget and the starting grid are scaled to fit ms, and a hard deadline
   // (3 ms + 40) aborts the search. A search cut short finds fewer solutions, never false ones: the result then has
-  // .incomplete (with nothing found when it was aborted, .stopped too), so callers say "at least" or "stopped early".
+  // .incomplete (with nothing found when it is aborted, .stopped too), so callers say "at least" or "stopped early".
   const ZP_STOP = { stop: true };
   function zerosPolesTimed(F, box, opts, ms) {
     const b = box, t0 = performance.now();
@@ -203,7 +203,7 @@
     let sols = [];
     try { sols = zerosPolesTimed(focusF(), box, { target: { re: w.re, im: w.im }, max: 24 }, ms); } catch (e) { sols = []; sols.incomplete = true; }
     const found = sols.filter((r) => r && r.kind !== 'pole' && r.z && CX.isFin(r.z)).map((r) => ({ z: r.z, mult: r.mult || 1 }));
-    // a complete search replaces the in-view roots; the tracked ones outside the view are kept (they may come back)
+    // a complete search supersedes the in-view roots; the tracked ones outside the view are kept (they may come back)
     const kept = (hov.all || []).filter((r) => !inBoxZ(r.z, box, 0) || !!(sols.truncated || sols.incomplete));
     hov.all = dedupeRoots([...found, ...kept], size);
     hov.partial = !!(sols.truncated || sols.incomplete);
@@ -223,7 +223,7 @@
     if (!hov.w || !hasCalc('zerosPoles') || !paneL || !(paneL.w > 0)) { hov.list = null; hov.all = null; hov.wl = null; hoverReadout(); return; }
     const want = hov.w, base = hoverBase();
     if (base !== hov.base || !hov.all || !hov.wl) {
-      // a new map or view: search now (short), then refine when the pointer rests
+      // a new map or view: search at once (short), then refine when the pointer rests
       hov.base = base;
       hoverSearch(want, 30);
     } else if (hov.wl.re !== want.re || hov.wl.im !== want.im) {
@@ -244,11 +244,11 @@
       }
       hov.all = dedupeRoots(next, size);
       hov.wl = want;
-      // a short discovery search now and then while moving (and when a path was lost)
+      // a short discovery search from time to time while moving (and when a path is lost)
       if (performance.now() - hov.lastFull > (lost ? 60 : 150)) hoverSearch(want, 12);
     }
     publishHover();
-    // when the pointer rests: a longer search of the whole view (a longer one still if it was cut short)
+    // when the pointer rests: a longer search of the whole view (a longer one still after one cut short)
     hov.timer = setTimeout(function rest(ms = 70) {
       if (hov.w !== want || (drag && drag.mode !== 'probe')) return;
       hoverSearch(want, ms);
@@ -426,14 +426,14 @@
   // A point of plane s seen in plane j < s: the solutions z of rangeF(j, s)(z) = p over the visible window (as the
   // targets' roots are found). The PRE_SHOW nearest to the view's centre are drawn, hollow and named a₍₁₎, a₍₂₎ …;
   // the others are counted ("+k more"). The search runs once the view and the chain settle; while the point moves
-  // (its drag, a slider, Play) each solution follows by Newton from where it was, within PRE_TRACK_MS a frame, so the
+  // (its drag, a slider, Play) each solution follows by Newton from its last position, within PRE_TRACK_MS a frame, so the
   // dots move with it and no search runs mid-motion. A press on a dot in X drags it: the point goes where the dot's
   // image lands (a point bound to a free number moves the number), unless a step between uses that number
   const PRE_SHOW = 4, PRE_TRACK_MS = 4;
   const preOf = { L: { key: '', want: '', timer: 0, sig: '', list: [], hits: [] }, R: { key: '', want: '', timer: 0, sig: '', list: [], hits: [] } };
   const prePoints = (j) => S.shapes.filter((s) => s.visible !== false && s.kind === 'point' && !s._atInf && shapeStage(s) > j);
   const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
-  // the solutions follow their points' moves (an entry keeps the p it was solved for)
+  // the solutions follow their points' moves (an entry keeps the p of its last solve)
   // ([#291] option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
   // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
   // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
@@ -557,17 +557,17 @@
   // TEMP-DEBUG-HOOK
 
   // the shapes' names as their rows show them ("Circle 1")
-  // ([v16.5 fix regress-10] of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
-  // rows did when it existed)
+  // (of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
+  // rows named it when it existed)
   function shapeNames(list) {
     const counts = {}, names = new Map(), pv = { n: 0 };
     for (const s of list || S.shapes) { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; names.set(s.id, rowName(s, counts, pv, false)); }
     return names;
   }
-  // (v16 review user-4, picture-8) a point's row is named as the plane labels it (z₀, or the user's label), so the names
+  // a point's row is named as the plane labels it (z₀, or the user's label), so the names
   // in the definitions ("midpoint of z₀, z₂") are the names in the list; a helper (no label in the plane) by its
   // meet; a hidden point, which has no plane label, keeps "Point n". pv counts the visible points as drawPoints does
-  // ([v16.5 fix rail-4] the unit circle or an axis made a fixed shape: by that name, "The unit circle" as a row title, and
+  // (the unit circle or an axis made a fixed shape: by that name, "The unit circle" as a row title, and
   // no number, so the user's own circles stay Circle 1, 2, …; Construct.fixedName is the one rule)
   const fixedNm = (s) => (Construct.fixedName ? Construct.fixedName(s) : null);
   const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
@@ -588,7 +588,7 @@
   let intPop = null;   // {id (shape), el, cx, cy (where it opened), it (the integral), x (winding, zeros and poles), timer}
   let lastPan = { t: 0, moved: false };   // a right-button pan just ended: its contextmenu opens nothing
   let holdMenuT = -Infinity;   // when a long press opened the menu: the touch's own contextmenu event opens nothing more
-  // ---- the planes' context menu (v15, src/planemenu.js): what it needs from the app ----
+  // ---- the planes' context menu (src/planemenu.js): what it needs from the app ----
   function planeMenuApi() {
     const paneOf = (side) => (side === 'R' ? paneR : paneL);
     const viewOf = (side) => (side === 'R' ? V.right : leftView());
@@ -645,7 +645,7 @@
         edit(k, kind, i) { inspectStep(k); const el = /** @type {HTMLInputElement | null} */ (this.field(k, kind, i)); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
       },
       cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
-      // step k in the Inspector (v15: a click on its card does the same)
+      // step k in the Inspector (a click on its card does the same)
       inspect: (k) => inspectStep(k),
       resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'T', 'OL'); },
       // the shape under the pointer: X's shapes at stage 0, Y's targets where they are edited
@@ -656,7 +656,7 @@
         pane.setView(viewOf(side));
         // ([#252] X's shapes of the plane it shows)
         const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin;
-        // ([v16.5 UX56] a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
+        // (a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
         // other shapes there are named as where it lies)
         const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
         const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => rank(a) - rank(b));
@@ -719,7 +719,7 @@
   // picks (or its picked curve)
   const drawing = () => !!draft || !!(drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) || Construct.drafting();
   // a right-click (or a long press) while drawing cancels the drawing, as Esc does, and opens no menu (issue #13).
-  // True when there was one
+  // True when there is a drawing to cancel
   function cancelDrawing() {
     if (!drawing()) return false;
     if (drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) {
@@ -728,7 +728,7 @@
       drag = null;
     }
     if (draft && draft.kind === 'lasso' && !draft.target) snd.loop = null;
-    if (draft && draft.pending) dropPending();   // ([UX47] a two-click shape's snapped start binds nothing)
+    if (draft && draft.pending) dropPending();   // (a two-click shape's snapped start binds nothing)
     draft = null;
     Construct.cancel();
     requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
@@ -819,7 +819,7 @@
         if (shown > 6) rows.push($tn('<div class="cm">and {n} more</div>', '<div class="cm">and {n} more</div>', shown - 6));
         if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
       }
-      // (v16.5 UX20, V01: what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
+      // (what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
       // chip, never a row over the plane: targetNote)
       // over the w-globe the chip keeps to its headings, so the scene stays visible
       const compact = rGlobe();
@@ -830,7 +830,7 @@
     if (el.hidden === show) el.hidden = !show;
     targetNote(want);
   }
-  // (v16.5 UX20, V01) the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
+  // the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
   // in X"); on a phone in Y's title chip ("Shaded in X (the inset)", idleRight), and the inset pulses once when a
   // preimage first appears in it
   function targetText(o) {
@@ -842,7 +842,7 @@
     // (a desktop's head note is short, so it keeps its place beside the title: what is shaded or drawn is its tooltip)
     return $t('Preimage in X');
   }
-  // ([v16.5 fix regress-7] it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
+  // (it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
   // it returns at once while that is unchanged)
   let targetNoteKey = '';
   function targetNote(want) {

@@ -34,7 +34,7 @@
     const mode = map.mode || 0;
     if (!mode || morph.playing || trans.k) return map;
     const t = map.t, base = map.base || 0;
-    // (v16: with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
+    // (with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
     // after the running one are inactive: the stages base..post; its start skips the running step but not the post)
     if ((mode === 1 || mode === 3) && (map.post || 0) > (map.b || 0)) {
       if (t !== 1) return map;
@@ -165,8 +165,8 @@
   // Measurement refinements (the policy itself is GLR.CostGuard's): the first GUARD_GRACE motion frames after a pause
   // do not count (an idle Apple GPU runs at a low clock for its first frames: 8 ms readings for a 3 ms pass), and each
   // reading is the median of the pane's last 3 at the same level (one slow frame is not a trend). Each reading carries
-  // the level its frame was drawn at (0 full, 1 half, 2 half and demoted; -1: neither, ignored). A pane whose last
-  // frame was drawn at half resolution is redrawn at full resolution as soon as the input ends (pointer up, or 45 ms
+  // the level its frame is drawn at (0 full, 1 half, 2 half and demoted; -1: neither, ignored). A pane whose last
+  // frame came out at half resolution is redrawn at full resolution as soon as the input ends (pointer up, or 45 ms
   // without input). Without timer queries the guard reads the frame's lag (the time from the request of an animation
   // frame to its start: a GPU behind its frames delays them) instead of the time between two frames of the pane, which
   // for input-driven frames is the input's spacing (a notched wheel, a slow drag: 80 ms intervals demoted cheap scenes,
@@ -245,7 +245,7 @@
     return { motion: counts, half: st.half && motion && contiguous, demoted: st.demote, timed };
   }
   // the view is in continuous motion (a drag, a tween, a transition, a playing morph, a wheel, a slider or a scrub of
-  // changes): an inverse program never drawn yet is not drawn now (its first draw stalls the GPU process), another
+  // changes): an inverse program never drawn yet is not drawn meanwhile (its first draw stalls the GPU process), another
   // ready B class or the forward stand-in takes its place (gl.js drawInverse) and it is warmed at the next quiet
   // moment. A single discrete change (an example, a toggle) or a hover is not motion: its program draws as soon as it
   // is ready (P2 review gate: holding it back added 200-300 ms to every example load)
@@ -254,8 +254,8 @@
     // ([#241] a number's slider held: its frames come further apart than 150 ms when the chain is costly)
     return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
-  // a camera still turning after its drag was let go (its momentum) moves too: those frames were drawn as rest frames,
-  // each at a new distance, and All sheets at the Max mesh rebuilt their refinement in every one (r3 review speed-1)
+  // a camera still turning after its drag is let go (its momentum) moves too: those frames are drawn as rest frames,
+  // each at a new distance, and All sheets at the Max mesh would rebuild their refinement in every one
   function camSpin() {
     try { for (const c of [cam, camL, camS]) if (c && (Math.abs(c.vyaw) > 1e-4 || Math.abs(c.vpitch) > 1e-4)) return true; } catch (e) { /* (before the cameras exist) */ }
     return false;
@@ -306,9 +306,8 @@
     if (path === 'forward' && prev && prev !== 'forward') scheduleFix();
     if (path === 'inverse') dropStandIn(k);
   }
-  // (v16.1) the forward stand-ins a live pane drew for a shape while its inverse program compiled: role|id -> [[res,
-  // cacheKey], ...]. Once that shape draws inverse there, their map-cache evaluations are freed (GLR.dropCached); before
-  // v16 a mesh rebuild soon after the load freed them by chance (gate v16 perf: sphere.logUHP held 1.2 MB more)
+  // the forward stand-ins a live pane draws for a shape while its inverse program compiles: role|id -> [[res,
+  // cacheKey], ...]. Once that shape draws inverse there, their map-cache evaluations are freed (GLR.dropCached).
   const standIns = new Map();
   function noteStandIn(role, id, pairs) {
     const k = role + '|' + id, have = standIns.get(k) || [];
@@ -629,7 +628,7 @@
           }
           lp = res === 'pending' ? 'pending' : 'forward';
           if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
-          // a failed compile (silent: console only) draws forward from now on, with its fix-ups (SPEC 4.4, 10.4)
+          // a failed compile (silent: console only) draws forward afterwards, with its fix-ups (SPEC 4.4, 10.4)
           if (res === 'error' && GLR.inverseStatus(S.alpha, 'flat') === 'error') {
             const k = (GLR.inverseInfo || {}).key || '';
             if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
@@ -640,7 +639,7 @@
       // the dragged shape's fix-up keeps up with the drag; the pair drawn is the current mesh with its fix-up, or the
       // last complete pair while the current one's is on its way (never an unfixed mesh in motion)
       if (live && role) liveFix(s, r);
-      // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
+      // SPEC 8: a published SphereMesh valid for this view takes the place of the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
       const smd = (live || offRender) && role && !opt.fills ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
@@ -743,9 +742,8 @@
   // the other language and a save reopened in the other language read right (review math-5); a user's label is as typed
   const EX_LABELS = new Set(['trailing edge']);
   const exLabel = (l) => (l && EX_LABELS.has(l) ? $t(l) : l);
-  // [UX54] a point keeps its subscript for life (gaps allowed): s.num, stored with the shape. Helpers have none. A save
-  // with no numbers (earlier builds) takes them from the order, as those builds named the points (the visible ones,
-  // then the hidden ones); a point without one (new, pasted, a helper made visible) or with a copy's takes the next
+  // a point keeps its subscript for life (gaps allowed): s.num, stored with the shape. Helpers have none. A save
+  // with no numbers takes them from the order (the visible points, then the hidden ones); a point without one (new, pasted, a helper made visible) or with a copy's takes the next
   // after the largest. renumber: every point by its order again (the command palette's Renumber points)
   const numbered = (s) => !!s && s.kind === 'point' && !s.helper;
   function numberPoints(list = S.shapes, renumber = false) {
@@ -783,7 +781,7 @@
   // the number the next new point takes
   const nextPointNum = () => { let n = -1; for (const s of S.shapes) if (numbered(s) && Number.isInteger(s.num)) n = Math.max(n, s.num); return n + 1; };
   function pointLabel(s, idx, primes) {
-    // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
+    // (a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
     const bn = s.bind ? boundNumber(s) : '';
     const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))

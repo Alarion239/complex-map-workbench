@@ -41,7 +41,7 @@
     fov: svgI('<rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1" stroke-dasharray="2.4 1.7"/>'),
     unit: svgI('<circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2"/><circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/>'),
     sliders: svgI('<path d="M2.5 5h11M2.5 11h11"/><circle cx="6" cy="5" r="1.75" fill="var(--surface)"/><circle cx="10" cy="11" r="1.75" fill="var(--surface)"/>'),
-    // ([v17 D5] the header's Settings and Share; the Language setting's globe, in Settings and the phone's sheet)
+    // (the header's Settings and Share; the Language setting's globe, in Settings and the phone's sheet)
     globe: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M2.25 8h11.5M8 2.25c-2.2 2.9-2.2 8.6 0 11.5M8 2.25c2.2 2.9 2.2 8.6 0 11.5"/>'),
     gear: svgI('<circle cx="8" cy="8" r="2.1"/><path d="M8 1.75v1.6M8 12.65v1.6M14.25 8h-1.6M3.35 8h-1.6M12.42 3.58l-1.13 1.13M4.71 11.29l-1.13 1.13M12.42 12.42l-1.13-1.13M4.71 4.71L3.58 3.58"/><circle cx="8" cy="8" r="4.4"/>'),
     share: svgI('<circle cx="4.25" cy="8" r="1.9"/><circle cx="11.75" cy="3.9" r="1.9"/><circle cx="11.75" cy="12.1" r="1.9"/><path d="M5.9 7.1l4.2-2.3M5.9 8.9l4.2 2.3"/>'),
@@ -67,8 +67,8 @@
   };
 
   // ---------------- TeX via MathJax (falls back to the formula as plain text) ----------------
-  // ([#465] until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
-  // «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)
+  // (until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
+  // «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax typesets it once it is ready)
   const TeX = (() => {
     const cache = new Map();
     let ready = false;
@@ -241,7 +241,7 @@
   const LS_KEY = lsk('complex-map-workbench-v1');
   let S = null;
   // the whole state replaced (a saved session loaded, a reset, the tour's practice, an example's thumbnail drawn in a
-  // scratch state): the one place S itself is reassigned (#20 phase 3, step 5)
+  // scratch state): the one place S itself is reassigned
   function setState(next) { S = next; }
   // a pane hidden or shown: side 'L' (the tools and X) or 'R' (Y and the chain); the caller lays out and saves
   function setHidden(side, on) { if (side === 'L') S.hideLeft = on; else S.hideRight = on; }
@@ -300,7 +300,7 @@
       // exact images (SPEC 10.1): mapped areas drawn per pixel through the inverse of the chain where it has one; an
       // internal switch (no visible option), kept in saved state
       exactImages: true,
-      // v15: the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
+      // the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
       // (S.sv, the steps view's {at, T, scope, surf, speed} (#366): absent until ?view=steps writes it, so the default
       // view's saves are the same bytes as before; sanitizeState repairs it, Views.cleanSv)
@@ -313,7 +313,7 @@
   let selected = null;
   let tool = 'select';
   let draft = null;
-  // [v16.5 UX09, UX14] the last press on a plane was a finger (or a pen): larger handles, grab and close radii
+  // the last press on a plane came from a finger (or a pen): larger handles, grab and close radii
   let ptrTouch = null;
   let probe = null; // {z (in left plane)}
   // the deformation transport (open: the right plane shows the homotopy at T in every view; closed: t = end)
@@ -322,8 +322,8 @@
   // undo history of {s: shapes, steps and nextId as JSON, focus}. The focus of the current entry follows
   // the live focus at the start of every user input (noteFocus), so undo returns to the step focused before the action.
   let hist = [], hi = -1;
-  let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
-  // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
+  let exAt = -1;   // (the history entry an example opened at; the Examples button names it until an edit)
+  // (an entry also holds the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
   // (the steps view's place rides the entry like the focus: moving between planes is not an undo step, undo returns to the place it left)
   const svCopy = () => { if (typeof svStore === 'function') svStore(); return S.sv ? JSON.parse(JSON.stringify(S.sv)) : null; };
@@ -348,7 +348,7 @@
     setParams(Array.isArray(o.params) ? o.params : []);
     bindsAll();
     paramsRestored();
-    // shapes that no longer exist give back their GPU meshes, lines and map caches
+    // shapes absent from the restored state give back their GPU meshes, lines and map caches
     const keep = new Set(S.shapes.map((x) => x.id));
     for (const id of [...gpu.keys()]) if (!keep.has(id)) dropShapeGPU(id);
     if (selected && !keep.has(selected) && !S.targets.some((x) => x.id === selected)) selected = null;
@@ -364,10 +364,10 @@
     HR.resolve(S, true); buildDock(); updateBracket();
     updateUndo(); exLabelSync(); save(); histSay();
   }
-  // [v16.5 UX14, UX15] an open polygon's points and a construction's own picks are undone first, one at a time
+  // an open polygon's points and a construction's own picks are undone first, one at a time
   const polyDraftOpen = () => !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
   const draftUndoable = () => polyDraftOpen() || !!Construct.undoPickable();
-  // ([v16.5 fix regress-7] it runs in every overlay frame (a pick or a polygon point changes Undo): the buttons are
+  // (it runs in every overlay frame (a pick or a polygon point changes Undo): the buttons are
   // touched only when what they show changed)
   let undoKey = '';
   function updateUndo() {
@@ -389,8 +389,8 @@
     return true;
   }
   let saveT = 0, storageWarned = false;
-  let figureSwap = false;   // v15: a link or a scene was written for the reload that opens it (nothing else is saved)
-  // ([v16.5 check app-1, app-2] the header search's words are never cut: where its field is too narrow for them (an
+  let figureSwap = false;   // a link or a scene is written for the reload that opens it (nothing else is saved)
+  // (the header search's words are never cut: where its field is too narrow for them (an
   // example's name beside Examples, Italian's longer label, "Ctrl K"), it shows its short label (Russian, Italian) when
   // that fits, else its icon and shortcut alone (named by its aria-label and tooltip), and the example's name takes the
   // room. Measured in a frame when the header's width, the example's name or the fonts change; a phone has no field)
@@ -407,7 +407,7 @@
       if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
       if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
     }
-    // ([v17 D5] Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
+    // (Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
     const ex = $('examplesBtn');
     const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
     if (tight()) top.classList.add('share-icon');
@@ -421,12 +421,12 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(hdrFitSoon);
     hdrFitSoon();
   }
-  // (v16.5 UX25: the open example's name shows after Examples until the first edit; exAt is the entry it opened at)
+  // (the open example's name shows after Examples until the first edit; exAt is the entry it opened at)
   function exLabelSync() {
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl) xl.classList.toggle('stale', hi !== exAt);
   }
-  // (v16.5 UX79) what one undo step did, in words, from its two snapshots: "add f₃ Sine", "add pole p₂ of f₁",
+  // (what one undo step did, in words, from its two snapshots: "add f₃ Sine", "add pole p₂ of f₁",
   // "delete Disc 1", "change a"; '' when it cannot be said briefly
   function histWhat(a, b) {
     if (!a || !b) return '';
@@ -469,7 +469,7 @@
     for (const key of ['shapes', 'targets']) {
       const ma = new Map((A[key] || []).map((q) => [q.id, q])), mb = new Map((B[key] || []).map((q) => [q.id, q]));
       const nameOf = (q) => namesB.get(q.id) || namesA.get(q.id) || (Region.KINDS[q.kind] ? Region.KINDS[q.kind].label : String(q.kind));
-      // ([v16.5 check app-8] the unit circle or an axis made a shape for a point put on it goes with that point: one
+      // (the unit circle or an axis made a shape for a point put on it goes with that point: one
       // undo step "add z0", not "add 2 shapes")
       const disp = (q) => !!(q && q.fixed && !q.def && !q.at);
       const only = (ids, m) => { const own = ids.filter((id) => !disp(m.get(id))); return own.length && own.length < ids.length ? own : ids; };
@@ -519,19 +519,19 @@
   // the panels the user chose at docked widths; narrow windows close the drawers at run time only
   const dockPref = { L: false, R: false };
   const noRuntime = (k, v) => (typeof k === 'string' && k[0] === '_' ? undefined : v);
-  // (v16 review regress-1) noRuntime, and the uid and zero ids of steps no shape refers to are left out of saves,
-  // links and scene files, so a scene without constructions saves the same bytes as in v15.1
+  // (noRuntime, and the uid and zero ids of steps no shape refers to are left out of saves,
+  // links and scene files, so a scene without constructions carries no construction fields
   const cmSaveReplacer = (o) => (Constr.idReplacer ? Constr.idReplacer(o) : noRuntime);
   function writeState() {
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
-    if (S.homRange) HR.resolve(S, true);   // (v16: the bracket's indices current, SPEC 7)
+    if (S.homRange) HR.resolve(S, true);   // (the bracket's indices current, SPEC 7)
     if (typeof svStore === 'function') svStore();   // (#366: the steps view's place)
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
-    // numbers, so the saved work comes back as it was written)
+    // numbers, so the saved work comes back as written)
     numberPoints();
     const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
-    // (v15.1: the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
+    // (the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
     if (Phone.largeView) {
       const lv = Phone.largeView('L'), rv = Phone.largeView('R');
@@ -550,7 +550,7 @@
   function warnStorage() {
     if (storageWarned) return;
     storageWarned = true;
-    // wait for a toast that offers Undo, so this note never replaces it
+    // wait for a toast that offers Undo, so this note never covers it
     const show = () => { const th = $('toastHost'); if (th && th.querySelector('.toast[data-undo]')) { setTimeout(show, 1500); return; } toast($t('Changes are not being saved: this browser blocks site storage.')); };
     show();
   }
@@ -599,9 +599,9 @@
         if (q.type === 'choice') { if (q.choices.some((c) => c[0] === v)) params[key] = v; } else if (q.type === 'int' || q.type === 'angle') { if (num) params[key] = Number(v); } else if (typeof v === 'string' || isNum(v)) params[key] = String(v);
       }
       steps.push({ type: st.type, params, on: st.on !== false });
-      if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (v16: step uids and zero ids)
+      if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (step uids and zero ids)
       if (st.zpIds && typeof st.zpIds === 'object') steps[steps.length - 1].zpIds = st.zpIds;
-      if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // ([UX54] checked by Constr.syncSteps)
+      if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // (checked by Constr.syncSteps)
       // ([issue #6] a repeat on its block's last step: n passes of len steps that are all in the chain; by: N bound to a
       // shared number)
       const rp = st.repeat;
@@ -624,7 +624,7 @@
         if ('label' in sh && typeof sh.label !== 'string') delete sh.label;
         if ('undef' in sh && typeof sh.undef !== 'string') delete sh.undef;
         if ('undefHid' in sh) { if (sh.undefHid && sh.undef) sh.undefHid = true; else delete sh.undefHid; }
-        // v15: fields written as formulas of the shared numbers (the fields keep their last values)
+        // fields written as formulas of the shared numbers (the fields keep their last values)
         // ([#253] a domain shape drawn in a plane of the chain: its stage, 1 … the steps; else the z-plane)
         if ('stage' in sh && !(out === shapes && Number.isInteger(sh.stage) && sh.stage >= 1 && sh.stage <= steps.length)) delete sh.stage;
         if ('bind' in sh) { const b = sh.bind && typeof sh.bind === 'object' && !Array.isArray(sh.bind) ? sh.bind : {}; sh.bind = {}; for (const [k, v] of Object.entries(b)) if (typeof v === 'string' && v.trim() && (k === 'expr' || k in sh)) sh.bind[k] = v.slice(0, 2000); if (!Object.keys(sh.bind).length) delete sh.bind; }
@@ -632,8 +632,8 @@
       }
     };
     clean(o.shapes, shapes);
-    // earlier builds kept a default target (the point 0, id t0) that only the Preimage view showed; targets now
-    // show their preimages in every view, so that untouched default is dropped
+    // a state saved without v5 may carry an untouched default target (the point 0, id t0): it is dropped, as targets
+    // show their preimages in every view
     if (Array.isArray(o.targets)) {
       if (!o.v5) o.targets = o.targets.filter((t) => !(t && t.id === 't0' && t.kind === 'point' && Array.isArray(t.p) && t.p[0] === 0 && t.p[1] === 0 && !t.label));
       clean(o.targets, targets);
@@ -641,7 +641,7 @@
     let next = Math.max(isNum(o.nextId) ? Math.floor(o.nextId) : 1, maxId + 1);
     for (const sh of shapes.concat(targets)) if (!sh.id) { while (ids.has('s' + next)) next++; sh.id = 's' + next++; ids.add(sh.id); }
     o.shapes = shapes; o.steps = steps; o.nextId = next; o.targets = targets;
-    cmLoad(o);   // (v16 constructions: refs, fallbacks, one recompute)
+    cmLoad(o);   // (constructions: refs, fallbacks, one recompute)
     numberPoints(shapes);
     // the views of earlier builds (rightMode, sphereMode, leftSphere, material, spherePlane) -> o.view (panels.md 10)
     Views.migrate(o);
@@ -649,7 +649,7 @@
     const st = Object.assign(b, o);
     const d0 = blankState();
     st.focus = Number.isInteger(st.focus) ? Math.max(0, Math.min(steps.length, st.focus)) : 0;
-    // (v16 deformation range, SPEC 7) {a, b, ua, ub}: integers 1 <= a <= b <= steps, ua and ub strings or null. The saved
+    // (deformation range, SPEC 7) {a, b, ua, ub}: integers 1 <= a <= b <= steps, ua and ub strings or null. The saved
     // indices are current (writeState resolves first) and a save leaves out the uids of steps no shape refers to, so the
     // ends are taken by index and given the loaded steps' uids; the normal form follows at the first read
     if ('homRange' in st) {
@@ -662,8 +662,8 @@
         st.homRange = o2;
       } else delete st.homRange;
     }
-    // the Morph, Preimage and Integral views of earlier builds are now parts of every view: they open as Image
-    // (F′ is a d/dz step of the chain now, so the old F | F′ switch is dropped)
+    // the Morph, Preimage and Integral views are parts of every view: a saved one opens as Image
+    // (F′ is a d/dz step of the chain, so there is no F | F′ switch)
     st.view = Views.clean(st.view);
     st.v6 = true;
     st.wKey = !!st.wKey;
@@ -693,7 +693,7 @@
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
     if ('fov' in st) st.fov = st.fov !== false;
     for (const k of ['lines', 'unit', 'snap', 'spin', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
-    // v15: the selected step or F (old saves: none, so the step shown alone or the last step)
+    // the selected step or F (a save without one: none, so the step shown alone or the last step)
     if (!(st.sel === 'F' || (Number.isInteger(st.sel) && st.sel >= 0 && st.sel <= st.steps.length))) st.sel = null;
     st.alpha = isNum(st.alpha) ? Math.max(0.2, Math.min(1, st.alpha)) : d0.alpha;
     st.patternScale = isNum(st.patternScale) && st.patternScale > 0 ? 2 ** Math.max(-2, Math.min(2, Math.round(Math.log2(st.patternScale)))) : 1;
