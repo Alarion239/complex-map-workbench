@@ -1,5 +1,5 @@
 // The first-run line and the tour's practice note on a laptop (UX21, #250, UX90): the first visit's one-line invitation in
-// the docked slot, above the planes and clear of the Inspector, with Start the tour and Not now and its words whole;
+// the docked slot, above the planes and clear of the Inspector, with its Start and dismiss buttons and its words whole;
 // Start runs the tour from Basics; no Details sheet at 1366 x 768 or 1440 x 900, no Next key hint and no timer button
 // (Move on by itself is a switch in the Chapters menu), and the welcome lead says what the practice clears. The same in
 // the steps view and the classic view; the phone and landscape legs stay in ux165_learn_cmd.js. A command file for a

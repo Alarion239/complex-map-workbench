@@ -21,12 +21,13 @@ const laptop = async (w = 1366, h = 768, dark = false) => { await send('Emulatio
 const fresh = async (ns, q = '') => { await nav(U + '?ns=ux165clean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
 logs();
 grab();
+let g = null;
 // ---------------------------------------------------------------- UX80: messages clear of the planes' controls
 await laptop();
 await fresh('ux165e'); await settle(1800);
 await ev(`document.querySelector('#clearChain').click()`); await settle(500);
-// (v16.5 fix regress-3, consented by the user 2026-10-27 (W1-MERGE-NOTES.md): a desktop message that fits whole on one
-// line goes in the chain head's free middle (#toastHost data-placed="head"); only a longer one goes above the chain)
+// (a desktop message that fits whole on one line goes in the chain head's free middle (#toastHost data-placed="head"); only a
+// longer one goes above the chain)
 g = await ev(`(() => { const t = document.querySelector('#toastHost .toast').getBoundingClientRect(), r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: { l: t.left, t: t.top, r: t.right, b: t.bottom }, x: r('#paneL .viewstack'), y: r('#paneR .viewstack'), chain: r('.pipe-wrap'), head: r('.pipe-head'), placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
 check('UX80 laptop: the Undo message sits in the chain head (v16.5 regress-3) or above the chain, between X\'s and Y\'s button columns', !meet(g.t, g.x) && !meet(g.t, g.y) && (g.placed === 'head' ? g.t.t >= g.head.t - 1 && g.t.b <= g.head.b + 1 && g.t.l >= g.head.l && g.t.r <= g.head.r : g.t.b <= g.chain.t && g.t.l >= g.x.r && g.t.r <= g.y.l), g);
 await shot('ux165-ux80-laptop');
