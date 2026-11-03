@@ -7,7 +7,7 @@
 const ConstrOrtho = (host) => {
   const {
     FLIPPED, INF, TAU, abs, add, canonKey, decOf, decompose, div, dot, eqP, fOf, flipG, formOfFields, gc, geomOf,
-    handleKeys, handlePos, index, isCurveRef, isInf, isPointRef, isXY, ldexp, lists, mR, makeCtx, meets, mrTaus,
+    handleKeys, handlePos, index, isCurveRef, isInf, isPointRef, isXY, ldexp, listOfPlane, mR, makeCtx, meets, mrTaus,
     onCarrier, onPiece, orientD, projectPiece, pts3In, reanchor, reanchorAt, recompute, resolveIn, scl, sub
   } = host;
 
@@ -149,7 +149,7 @@ const ConstrOrtho = (host) => {
     const was = d.seg === 1 || d.seg === -1 ? d.seg : 0, now = seg === 1 || seg === -1 ? seg : 0;
     if (was === now) return [];
     const info = segSides(state, id, env), Gc = info && info.Gc;
-    const gl = lists(state)[e.plane].filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
+    const gl = listOfPlane(state, e.plane).filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
     // (a glider at infinity is the point infinity: review math-2; f_Gc there has the sign of Gc.A, 0 for a line)
     const want = gl.map((g) => {
       const z = g._atInf ? INF : g.p;
@@ -184,7 +184,7 @@ const ConstrOrtho = (host) => {
     if (!d || d.op !== 'perp') return null;
     const was = d.between === 1, now = !!on;
     if (was === now && !(now && (d.seg === 1 || d.seg === -1))) return [];
-    const gl = lists(state)[e.plane].filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
+    const gl = listOfPlane(state, e.plane).filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
     const want = gl.map((g) => { const z = g._atInf ? INF : g.p; return g.cundef || !(isInf(z) || isXY(z)) ? null : cpz(z); });
     if (now) { d.between = 1; delete d.seg; d.fill = 'none'; } else delete d.between;
     recompute(state, { all: true }, env);

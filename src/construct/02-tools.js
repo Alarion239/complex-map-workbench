@@ -226,7 +226,7 @@
       e = find(s.def.args[0].s);
       pc = e && piecesOf(e)[s.def.args[0].part];
       if (!pc) return true;
-      p3 = pc.c3 ? pts3Of(e, isT(s) ? 1 : 0) : null;
+      p3 = pc.c3 ? pts3Of(e, planeOf(s)) : null;
       try { pr = Constr.projectPiece(pc, Z, p3); } catch (er) { pr = null; }
     }
     if (!pr || !isXY(pr.z)) return true;
@@ -374,7 +374,7 @@
     if (s.bind && s.bind.t) return 'slid';
     const e = find(s.def.args[0].s), pc = e && piecesOf(e)[s.def.args[0].part];
     if (!pc || !g || !g.z) return 'slid';
-    const Z = [g.z.re, g.z.im], p3 = pc.c3 ? pts3Of(e, isT(s) ? 1 : 0) : null;
+    const Z = [g.z.re, g.z.im], p3 = pc.c3 ? pts3Of(e, planeOf(s)) : null;
     let pr = null;
     try { pr = Constr.projectPiece(pc, Z, p3); } catch (er) { pr = null; }
     if (!pr || !isXY(pr.z)) return 'slid';
@@ -412,7 +412,7 @@
       if (e.visible === false || e.kind === 'point' || GRID.has(e.kind) || e.kind === 'formula' || !hit(e, tol)) continue;
       piecesOf(e).forEach((pc, part) => {
         let pr = null, q = null;
-        try { pr = Constr.projectPiece(pc, Z, pc.c3 ? pts3Of(e, target ? 1 : 0) : null); } catch (er) { pr = null; }
+        try { pr = Constr.projectPiece(pc, Z, pc.c3 ? pts3Of(e, planeOf(e)) : null); } catch (er) { pr = null; }
         if (!pr || !isXY(pr.z)) return;
         try { q = A.gScreen(gc, Region.Globe.lift(pr.z[0], pr.z[1])); } catch (er) { q = null; }
         const dd = q ? Math.hypot(q[0] - x, q[1] - y) : Infinity;
@@ -499,7 +499,6 @@
   function click(pane, side, x, y) {
     const tool = A.tool();
     if (!isCTool(tool)) return false;
-    if (side === 'L' && A.leftStage() > 0) return false;
     if (side === 'R' && !A.targetsEditable()) return false;
     // [v16.3 review user-11] the perpendicular or touching circle's draft (its curve, its points) is not dropped by a
     // click in the other plane that picks no curve there: that click does nothing
@@ -518,7 +517,7 @@
       const r = touchTargetC(side, x, y), t = r.t;
       if (r.warn) { pickWarn(r.warn); return true; }
       if (r.restart) { draftC.picks = []; draftC.carried = false; draftC.doneK = null; }
-      if (t.ref && t.ref.img && !A.yWhole()) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+      if (t.ref && t.ref.img && !carriedF(side)) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
       draftC.hoverT = null;
       if (t.cls === 'ring') { finishTouch(side, t); return true; }
       draftC.picks.push(t); pickOk();
@@ -551,7 +550,7 @@
       setRing(side, t, true);   // ([v16.5 fix rail-7] the chip says it now; the ring only warns, without a second label)
       return true;
     }
-    if (t.ref && t.ref.img && !A.yWhole()) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+    if (t.ref && t.ref.img && !carriedF(side)) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
     draftC.picks.push(t); pickOk();
     if (draftC.picks.length >= NEED[tool]) finish(side); else { A.requestRender('OL', 'OR'); }
     return true;

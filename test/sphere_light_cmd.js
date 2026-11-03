@@ -48,8 +48,11 @@ for (const dark of [false, true]) {
   await load(ns, st);
   await nav(`${base}test.html?ns=${ns}&lang=en`);
   await settle(1500);
+  // (the sphere: the Phase view's saved sphere in the classic view, the plane's Sphere surface in the steps view)
+  const sv = await ev(`document.documentElement.classList.contains('sv')`);
+  if (sv) { await ev(`__cmwSteps({ surf: 'sphere' })`); await settle(1200); }
   const v = await ev('__cmwView()');
-  ok(`${theme}: the Phase view shows X's sphere`, v && v.main === 'phase' && v.P && v.P.surf === 'sphere', v);
+  ok(`${theme}: the Phase view shows X's sphere`, v && v.main === 'phase' && (sv ? (await ev('__cmwSteps()')).surf === 'sphere' : v.P && v.P.surf === 'sphere'), v);
   const cam0 = await ev('__cmwCam("L")');
   // the default camera, the camera across the equator (the poles' places swapped), from below and from above
   const poses = [['default', cam0.pitch], ['upside-down', -cam0.pitch], ['below', -80 * DEG], ['above', 80 * DEG]];
