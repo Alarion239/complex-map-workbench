@@ -1,7 +1,7 @@
 // v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
 // of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX60, UX70-UX74, UX87, UX88, UX97, UX99, UX102-UX104 (the
-// laptop's first-run line, UX21 with #250 and UX90, is ux165_learn_first_run_cmd.js, and its messages, UX80 with UX20's
-// Add function, ux165_learn_msg_classic_cmd.js; standards-ok: those checks moved there unchanged), on a
+// laptop's first-run line, UX21 with #250 and UX90, is ux165_learn_first_run_cmd.js, and its Undo message, UX80, is
+// ux165_learn_msg_classic_cmd.js; standards-ok: those checks moved there unchanged), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
@@ -129,6 +129,17 @@ const ro1 = await ev(`__qa.txt('#leftReadout')`);
 check('UX20: with X\'s options in the head, an example\'s fit stays finite (the Sound chapter: "1 / div", not "NaN / div")', /^\d/.test(ro0) && /^\d/.test(ro1) && !/NaN/.test(ro0 + ro1), [ro0, ro1]);
 await ev('Tour.stop()'); await settle(400);
 await laptop();
+
+// ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
+// (the Undo message of the same page is ux165_learn_msg_classic_cmd.js)
+await laptop();
+await fresh('ux165e'); await settle(1800);
+await ev(`document.querySelector('#clearChain').click()`); await settle(500);
+g = await ev(`(() => { const e = document.querySelector('#emptyRight'), b = e.querySelector('.btn'); return { head: e.parentNode.classList.contains('pane-head'), shown: !e.hidden && !!b && b.getClientRects().length > 0, tip: b && b.dataset.tip, tiny: document.querySelector('#paneR').classList.contains('tiny') }; })()`);
+check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not over the picture', g.head && g.shown && /Add a function to map the region/.test(g.tip || '') && !g.tiny, g);
+// (the title is fitted with the button in place: its role is whole, short or gone, never cut by an ellipsis: "imag…")
+g = await ev(`(() => { const t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'), pt = t.querySelector('.ptitle'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { cls: t.className, prCut: vis(pr) && pr.scrollWidth > pr.clientWidth + 1, ptCut: vis(pt) && pt.scrollWidth > pt.clientWidth + 1 }; })()`);
+check('UX20 laptop: with "Add function" in Y\'s head the title and its role are not cut', !g.prCut && !g.ptCut, g);
 
 await phone(412, 860);
 await fresh('ux165f'); await settle(2200);

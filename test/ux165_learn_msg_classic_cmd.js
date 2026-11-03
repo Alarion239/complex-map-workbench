@@ -1,9 +1,7 @@
-// The messages on a laptop clear of the planes' controls, in the classic view (UX80, UX20): the Undo message after
-// Clear chain sits in the chain head or above the chain, between X's and Y's button columns, and the empty chain's "Add
-// function" is in Y's pane head, not over the picture, with the title and its role not cut. The steps view has no chain
-// head and no Y pane head: its messages and its + Add function are asked in toasts_515_cmd.js, ux165_fix_cmd.js and
-// steps_chain_cmd.js. A command file for a CDP daemon (test/cdp_kit README):
-// python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_msg_classic_cmd.js
+// The Undo message on a laptop clear of the planes' controls, in the classic view (UX80): after Clear chain the message
+// sits in the chain head or above the chain, between X's and Y's button columns. The steps view has no chain head: its
+// messages are asked in toasts_515_cmd.js (the message over the rail, inside the strip) and ux165_fix_cmd.js. A command
+// file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_msg_classic_cmd.js
 // Prints { pass, of, fails: [[name, false, detail]], exc }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -31,11 +29,6 @@ await ev(`document.querySelector('#clearChain').click()`); await settle(500);
 g = await ev(`(() => { const t = document.querySelector('#toastHost .toast').getBoundingClientRect(), r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: { l: t.left, t: t.top, r: t.right, b: t.bottom }, x: r('#paneL .viewstack'), y: r('#paneR .viewstack'), chain: r('.pipe-wrap'), head: r('.pipe-head'), placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
 check('UX80 laptop: the Undo message sits in the chain head (v16.5 regress-3) or above the chain, between X\'s and Y\'s button columns', !meet(g.t, g.x) && !meet(g.t, g.y) && (g.placed === 'head' ? g.t.t >= g.head.t - 1 && g.t.b <= g.head.b + 1 && g.t.l >= g.head.l && g.t.r <= g.head.r : g.t.b <= g.chain.t && g.t.l >= g.x.r && g.t.r <= g.y.l), g);
 await shot('ux165-ux80-laptop');
-g = await ev(`(() => { const e = document.querySelector('#emptyRight'), b = e.querySelector('.btn'); return { head: e.parentNode.classList.contains('pane-head'), shown: !e.hidden && !!b && b.getClientRects().length > 0, tip: b && b.dataset.tip, tiny: document.querySelector('#paneR').classList.contains('tiny') }; })()`);
-check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not over the picture', g.head && g.shown && /Add a function to map the region/.test(g.tip || '') && !g.tiny, g);
-// (the title is fitted with the button in place: its role is whole, short or gone, never cut by an ellipsis: "imag…")
-g = await ev(`(() => { const t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'), pt = t.querySelector('.ptitle'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { cls: t.className, prCut: vis(pr) && pr.scrollWidth > pr.clientWidth + 1, ptCut: vis(pt) && pt.scrollWidth > pt.clientWidth + 1 }; })()`);
-check('UX20 laptop: with "Add function" in Y\'s head the title and its role are not cut', !g.prCut && !g.ptCut, g);
 await laptop(1440, 900, false);
 await send('Emulation.setUserAgentOverride', { userAgent: UA0 });
 const fails = R.filter((r) => !r[1]);
