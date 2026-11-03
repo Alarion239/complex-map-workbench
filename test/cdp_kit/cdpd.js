@@ -148,14 +148,22 @@ H.clickSel = async (sel) => {
   await H.click(r[0], r[1]); return r;
 };
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
-// loadView(view, ns, state, { lang }): like load(), but the app's first load is in `view` ('classic' or 'steps') whatever the
-// kit's pin is (load() opens the pinned view, and a page loaded there first saves that view's state under ns); waits for
-// the page's load event, and the caller waits for the app with settled({ until })
-H.loadView = async (view, ns, st, o = {}) => {
+// seed(ns, state): the saved state the app reads under ns on its first load, written from the helper page (a page of the same
+// origin that starts no app); waits for the helper page's load event
+H.seed = async (ns, st) => {
   await H.go('http://localhost:8793/gl-helpers.html');
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(st)))}); 1`);
-  await H.go(`http://localhost:8793/test.html?ns=${ns}${o.lang ? '&lang=' + o.lang : ''}&view=${view}`);
 };
+// loadView(view, ns, state, { lang }): like load(), but the app's first load is in `view` ('classic' or 'steps') whatever the
+// kit's pin is (load() opens the pinned view, and a page loaded there first saves that view's state under ns); with no view the
+// page opens in the kit's pinned view (a suite tagged steps({ pin: true }) in ci/suite_views.js gets the steps view, and with
+// another tag the classic one). Waits for the page's load event, and the caller waits for the app with settled({ until })
+H.loadView = async (view, ns, st, o = {}) => {
+  await H.seed(ns, st);
+  await H.go(`http://localhost:8793/test.html?ns=${ns}${o.lang ? '&lang=' + o.lang : ''}${view ? '&view=' + view : ''}`);
+};
+// isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
+H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 H.load = async (ns, st, extra) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);

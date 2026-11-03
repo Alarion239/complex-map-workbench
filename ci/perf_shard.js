@@ -11,12 +11,19 @@
 // that got worse is reported (the summary, a warning annotation each) and does not fail the job; a check that fails, a
 // value that is missing or null (a timeout) and an error of the suite still do.
 //   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--advisory] [--table] [--settle-timeout MS] [--force] [--no-build]
-// Exit 0 pass (or advisory warnings only), 1 regression, 2 setup problem (a unit that stalls, a build that fails).
+// A loaded machine measures nothing worth gating (ci/perf_busy.js): unless --advisory (GitHub's machines are never idle),
+// each pass first waits up to 5 minutes for a quiet machine and logs the load and the busiest processes; run.js records
+// the units that started busy, a FAIL of such a unit is BUSY (not counted) and the unit is run again; it counts as red
+// only with 2 passes that started quiet.
+// Exit 0 pass (or advisory warnings only), 1 regression, 2 setup problem (a unit that stalls, a build that fails),
+// 3 invalid: machine busy (a metric failed only on passes that started busy: no verdict either way).
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { ROOT, PY, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const { SHARDS } = require('./perf_shards');
+const { defaultLoadMax, quietWait, attemptTally, shardExit } = require('./perf_busy');
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
@@ -47,32 +54,41 @@ async function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   const f = (n) => path.join(OUT, n);
-  // CI machines are never idle: no waiting for a quiet machine (both sides of a pair see the same load); a unit may
-  // take long on software rendering
-  const common = ['--reps', REPS, '--load-wait', '0', '--load-max', '100000', '--unit-timeout', opt('--unit-timeout', '1800'), '--settle-timeout', opt('--settle-timeout', '20000'), '--raf-max', opt('--raf-max', '20')];
-  const paired = (only, k, flip) => {
+  // GitHub's machines (--advisory) are never idle: no waiting for a quiet machine (both sides of a pair see the same
+  // load); a unit may take long on software rendering. Our own machines wait before each pass (quietWait) and run.js
+  // waits again before each unit and records the units that started busy (meta.busyUnits): the pair still runs, since
+  // both halves see the same machine, and compare_perf.py marks a FAIL of such a unit BUSY
+  const GUARD = !ADVISORY;
+  const LOAD_MAX = defaultLoadMax(os.cpus().length);
+  const load = GUARD ? ['--load-wait', '60', '--load-max', String(LOAD_MAX)] : ['--load-wait', '0', '--load-max', '100000'];
+  const common = ['--reps', REPS, ...load, '--unit-timeout', opt('--unit-timeout', '1800'), '--settle-timeout', opt('--settle-timeout', '20000'), '--raf-max', opt('--raf-max', '20')];
+  const paired = async (only, k, flip) => {
+    if (GUARD) await quietWait({ limit: LOAD_MAX });
     const rc = run(process.execPath, [path.join(PERF, 'run.js'), '--ab', R.dist, '--out', f(`cur-${k}.json`), '--ab-out', f(`ref-${k}.json`), '--only', only, ...common, ...(flip ? ['--ab-flip'] : [])]);
     if (rc !== 0) throw new Error(rc === 4 ? 'a unit stalled (run.js exit 4): see the log' : rc === 5 ? 'the machine is throttled (run.js exit 5: an idle page\'s rAF median over --raf-max; the display asleep?): no numbers; see the log' : `run.js exited ${rc}`);
   };
-  const compare = (b, c, json, fu, table) => {
+  const compare = (b, c, json, fu, table, bu) => {
     const a = [CMP, '--baseline', b, '--results', c, '--json', json, '--paired', '--tol-scale', SCALE];
     if (fu) a.push('--failing-units', fu);
+    if (bu) a.push('--busy-units', bu);
     if (table && TABLE) a.push('--table');
     const rc = run(PY, a);
-    if (rc >= 2) throw new Error(`compare_perf.py exited ${rc}`);
+    if (rc === 2 || rc > 3) throw new Error(`compare_perf.py exited ${rc}`);   // (3: only BUSY failures: the rows say so)
     return JSON.parse(fs.readFileSync(json, 'utf8'));
   };
   console.log(`shard ${shard.id}: ${shard.re}; reference ${R.sha.slice(0, 12)} (${ref})`);
-  paired(shard.re, 1);
-  let v = compare(f('ref-1.json'), f('cur-1.json'), f('compare-1.json'), f('failing-units.txt'), true);
+  await paired(shard.re, 1);
+  let v = compare(f('ref-1.json'), f('cur-1.json'), f('compare-1.json'), f('failing-units.txt'), true, f('busy-units.txt'));
   let confirmed = false, attempts = null;
-  if (v.failed && CONFIRM > 0) {
-    // ('*': a metric of no unit, suite.no_errors: a page exception, never noise)
-    const units = fs.readFileSync(f('failing-units.txt'), 'utf8').split('\n').map((s) => s.trim()).filter((u) => u && u !== '*');
+  if ((v.failed || v.busy) && CONFIRM > 0) {
+    // (the units that failed, and the units with a BUSY FAIL, which need a pass that starts quiet; '*': a metric of no
+    // unit, suite.no_errors: a page exception, never noise)
+    const listed = (n) => fs.readFileSync(f(n), 'utf8').split('\n').map((s) => s.trim());
+    const units = [...new Set([...listed('failing-units.txt'), ...listed('busy-units.txt')])].filter((u) => u && u !== '*');
     if (units.length) {
       console.log(`confirming ${units.join(', ')}: ${CONFIRM} more paired attempt(s), the sides in the opposite order`);
       const re = `^(${units.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
-      for (let k = 2; k <= CONFIRM + 1; k++) paired(re, k, true);
+      for (let k = 2; k <= CONFIRM + 1; k++) await paired(re, k, true);
       const ks = Array.from({ length: CONFIRM + 1 }, (_, i) => i + 1);
       for (const side of ['cur', 'ref']) {
         if (run(PY, [path.join(PERF, 'merge_runs.py'), '--checks', 'majority', ...ks.map((k) => f(`${side}-${k}.json`)), '-o', f(`${side}.json`)]) !== 0) throw new Error('merge_runs.py failed');
@@ -81,12 +97,13 @@ async function main() {
       // each attempt against its own reference (attempt 1: compare-1.json)
       const per = [JSON.parse(fs.readFileSync(f('compare-1.json'), 'utf8')), ...ks.slice(1).map((k) => compare(f(`ref-${k}.json`), f(`cur-${k}.json`), f(`compare-${k}.json`)))];
       attempts = ks.length;
-      const failsIn = (m) => per.filter((x) => x.rows.some((r) => r.metric === m && r.status === 'FAIL')).length;
+      // (a pass that started busy is no attempt: its FAIL is BUSY)
       for (const r of v.rows) {
         if (r.status !== 'FAIL' || r.metric.startsWith('suite.')) continue;   // (an error of the suite is never noise)
-        r.attempts = failsIn(r.metric);
-        if (r.attempts * 2 <= attempts) { r.status = 'NOISE'; r.text += ` (failed in ${r.attempts} of ${attempts} attempts: noise)`; }
-        else r.text += ` (failed in ${r.attempts} of ${attempts} attempts)`;
+        const { n, fails: failed } = attemptTally(per.map((x) => x.rows), r.metric);
+        r.attempts = failed;
+        if (failed * 2 <= n) { r.status = 'NOISE'; r.text += ` (failed in ${failed} of ${n} attempts: noise)`; }
+        else r.text += ` (failed in ${failed} of ${n} attempts)`;
       }
       confirmed = true;
     }
@@ -94,6 +111,7 @@ async function main() {
   const meta = JSON.parse(fs.readFileSync(f('cur-1.json'), 'utf8')).meta || {};
   for (const r of v.rows) if (ADVISORY && r.status === 'FAIL' && MEASURED.has(r.kind) && typeof r.new === 'number') r.status = 'WARN';
   const fails = v.rows.filter((r) => r.status === 'FAIL');
+  const busy = v.rows.filter((r) => r.status === 'BUSY');
   const warned = v.rows.filter((r) => r.status === 'WARN');
   const improved = v.rows.filter((r) => r.status === 'IMPROVED');
   const both = v.rows.filter((r) => r.status === 'BOTH');
@@ -101,11 +119,13 @@ async function main() {
   const counts = {};
   for (const r of v.rows) counts[r.status] = (counts[r.status] || 0) + 1;
   const verdict = fails.length ? `❌ ${fails.length} metric(s) worse than the reference`
+    : busy.length ? `⚠️ invalid: machine busy (${busy.length} metric(s) failed only where a pass started on a busy machine: no verdict either way; run again on a quiet one)`
     : warned.length ? `⚠️ ${warned.length} timing(s) worse than the reference (advisory: timings are not gated on this machine)` : '✅ not slower than the reference';
   const lines = [`### ${title}: ${verdict}`, '',
     `${shard.what}. Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`); GPU: ${esc(meta.browser && meta.browser.gpu || '?')}; ${meta.seconds || '?'} s` +
     `${SCALE !== '1' ? `; timing allowances x ${SCALE}` : ''}${confirmed ? `; failing units re-run with the sides swapped, medians of ${attempts} attempts` : ''}. ${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
   if (fails.length) lines.push('| metric | reference → this change |', '|---|---|', ...fails.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
+  if (busy.length) lines.push('Failed, but started on a busy machine (not counted; a unit needs 2 passes that started quiet):', '', '| metric | reference → this change |', '|---|---|', ...busy.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
   if (warned.length) lines.push('Advisory (timings and memory are not gated here):', '', '| metric | reference → this change |', '|---|---|', ...warned.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
   if (noise.length) lines.push(`<details><summary>${noise.length} failed once, not confirmed (noise)</summary>\n\n${noise.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (both.length) lines.push(`<details><summary>${both.length} fail on the reference too (this machine; not this change's)</summary>\n\n${both.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
@@ -121,6 +141,6 @@ async function main() {
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));
   for (const r of warned.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
-  return fails.length ? 1 : 0;
+  return shardExit(fails.length, busy.length);
 }
 main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### Perf ${shard ? shard.id : '?'}: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });
