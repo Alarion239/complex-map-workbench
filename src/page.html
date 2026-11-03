@@ -250,8 +250,8 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .pop.opts-pop.set-pop { width: 320px; align-items: stretch; white-space: normal; max-height: calc(100vh - 64px); overflow-y: auto; }
 .set-pop > .seg { align-self: flex-start; }
 .set-pop .check .kbd { margin-left: 6px; }
-.set-pop .opts-h { font: 600 12px/16px var(--f-ui); color: var(--ink-2); margin: 2px 0 4px; }
-.set-pop .opts-h.opts-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.opts-pop .opts-h { font: 600 12px/16px var(--f-ui); color: var(--ink-2); margin: 2px 0 4px; }
+.opts-pop .opts-h.opts-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .set-pop .set-row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
 .set-pop .set-row > .fl { flex: 1 1 auto; font: var(--t-label); }
 .set-pop .set-link { border: 0; background: none; padding: 4px 0; color: var(--accent); font: var(--t-label); cursor: pointer; text-align: left; }
@@ -1271,6 +1271,8 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px; grid-template-areas: "fl fv" "rng rng"; align-items: center; column-gap: 8px; row-gap: 2px; min-width: 0; }
 .fader-row > .fl { grid-area: fl; font: var(--t-label); color: var(--ink-2); white-space: nowrap; }
 .fader-row > input[type="range"] { grid-area: rng; }
+/* a slider with stops under it is a 24 px target (WCAG 2.5.8), so the stops are not within reach of it */
+.fader-row:has(+ .fader-stops) > input[type="range"] { height: var(--h-sm); }
 .fader-row > .fval { grid-area: fv; font: var(--t-readout); color: var(--ink); text-align: right; white-space: nowrap; overflow: hidden; }
 .fader-row:not(:has(> .fval)) { grid-template-areas: "fl fl" "rng rng"; }
 .fader-stops { position: relative; display: flex; justify-content: space-between; margin-top: 0; min-height: 24px; }

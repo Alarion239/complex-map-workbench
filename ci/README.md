@@ -104,7 +104,7 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
-| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build; their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
+| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build, at most 8 shards of a run at a time (`max-parallel`: the runners are shared by every open pull request); their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
 | **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
@@ -285,6 +285,35 @@ npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head 
 # the gallery: .ci/inspect/<base>-<head>/index.html (publish it as a private Artifact; never commit the pictures)
 ```
 
+### Standards check
+
+`node ci/standards.js --ref REV` (the Plan job runs it against the paired gates' reference) reads the lines a change
+adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and reports what CONTRIBUTING.md's Code rules
+let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
+item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it
+adds (`asserts`). It reports in the job summary and as warning annotations on the lines, and never fails the job; with
+`--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
+test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
+The word lists are `HISTORY` and `PLAN` in the script.
+
+### Perf on a loaded machine
+
+A reading taken while something else runs on the machine says nothing about the code. The paired perf shards on our own
+machines (`ci/perf_shard.js` without `--advisory`; GitHub's machines are never idle and are not guarded) therefore:
+1. wait, before each measured pass, up to 5 minutes for the 1-minute load to fall under `max(4, 0.45 x cores)` (4.5 on
+   `mac-gpu`), and log the load before and after and the busiest processes (`ci/perf_busy.js`), so the log shows whether
+   the load is ours (the two `build.py` runs) or not;
+2. pass that limit and `--load-wait 60` to `run.js`, whose `meta.busyUnits` then lists every unit that started busy (the pair
+   still runs: both halves see the same machine);
+3. mark a FAIL of such a unit **BUSY** in `compare_perf.py`: reported, never counted, and the unit is run again with the
+   units that failed. A unit that started busy in any pass counts as red only with 2 passes that started quiet
+   (`merge_runs.py` records `meta.passBusy` and `meta.passUnits` per pass). When no metric counts as failed but some FAIL was
+   BUSY, `compare_perf.py` and the shard exit **3**, "invalid: machine busy": no verdict either way; run again on a
+   quiet machine.
+
+`test/t_perf_busy.js` (the wait, with a fake load source) and `test/regress/test_compare.py` (BUSY, the two clean
+passes, exit 3) test it.
+
 ## Reading the results
 
 Open the run (*Actions*, or the checks of a pull request), then a job: its **summary** lists every metric that got
@@ -325,6 +354,7 @@ node ci/perf_shards.js matrix                      # the shards; check: every pe
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
+node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (report only)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
@@ -395,7 +425,7 @@ Settings (environment variables):
 | `CMW_GLSL_CACHE` | a folder kept between runs for `ci/glsl.js`'s Chrome profile, with the GPU program cache on: a shader program compiled before (same source) is not compiled again. The GPU gate sets it on its machines ([RUNNERS.md](RUNNERS.md)); delete the folder to start cold |
 | `CMW_GLSL_STALL_MIN` | minutes without CPU in the browser after which `ci/glsl.js` closes it and reports the page as stalled (default: never; the GPU gate sets 20) |
 | `CMW_GLSL_PROGRESS_S` | seconds between `ci/glsl.js`'s progress lines while a page runs (default 60): the minutes so far, and how busy the GPU process and the page were |
-| `CMW_SPEED_SCALE` | scales the construction tests' absolute speed limits (set on the development Mac); CI uses 3 |
+| `CMW_SPEED_SCALE` | scales the construction tests' remaining absolute speed limits (the four in `t_constr.js`; set on the development Mac); CI uses 3. The other construction limits (`constr_perp_tests.js`, `constr_touch_tests.js`, `constr_seg_tests.js`, the 50-dependent drag of `constr_core_tests.js`) are ratios to a reference operation measured in the same run (`test/lib/speed_ref.js`), so they need no scale |
 | `CMW_PORT`, `CMW_BASE` | the server some browser suites open (`ci/browser.js` sets both to its own) |
 | `PYTHON` | the Python the scripts call (default `python3`; `python` on Windows) |
 
@@ -403,13 +433,14 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
-| `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |
+| `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js` | one paired perf shard; the shards; its loaded-machine guard (Perf on a loaded machine); `test/t_perf_busy.js` tests it |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |

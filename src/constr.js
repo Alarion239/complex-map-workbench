@@ -131,9 +131,19 @@ const Constr = (function (factory) {
     return r.h ? `s:${r.s}:${r.h}` : `s:${r.s}`;
   }
   const lists = (state) => [Array.isArray(state.shapes) ? state.shapes : [], Array.isArray(state.targets) ? state.targets : []];
+  // the plane an object lives in: 'T' for a target (the w-plane's Preimage list), else its stage (0 is the z-plane, k the
+  // plane after step k); a reference only reaches an object of its own plane
+  // (the app's shapeStage is the same test: the engine runs on its own, without the app, so it keeps its own copy)
+  const stageOf = (s) => (s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0);
+  const planeOfList = (li, s) => (li === 1 ? 'T' : stageOf(s));
+  // the objects of one plane
+  const listOfPlane = (state, plane) => (plane === 'T' ? lists(state)[1] : lists(state)[0].filter((s) => stageOf(s) === plane));
+  // (a plane key from a caller: 'T', or a stage; anything else is the z-plane)
+  const planeArg = (plane) => (plane === 'T' ? 'T' : plane | 0);
+  const isCarriedPlane = (plane) => plane === 'T' || (Number.isInteger(plane) && plane > 0);
   function index(state) {
     const m = new Map();
-    lists(state).forEach((L, plane) => L.forEach((s, i) => { if (s && s.id) m.set(s.id, { s, plane, i }); }));
+    lists(state).forEach((L, li) => L.forEach((s, i) => { if (s && s.id) m.set(s.id, { s, plane: planeOfList(li, s), i }); }));
     return m;
   }
   // the position handles of a shape (Region.handlesOf when the app's Region is loaded; the same keys otherwise)
@@ -332,10 +342,13 @@ const Constr = (function (factory) {
     }
     if (typeof ref.img === 'string') {
       const e = ctx.idx.get(ref.img);
-      if (!e || e.plane !== 0 || e.s.kind !== 'point') return U('argUndef', { x: ref.img });
+      if (!e || e.plane !== 0 || e.s.kind !== 'point' || !isCarriedPlane(plane)) return U('argUndef', { x: ref.img });
       if (e.s.cundef || e.s.undef) return U('argUndef', { x: ref.img });
-      if (e.s._atInf) return ctx.env && ctx.env.F ? norm(ctx.env.F(INF)) : U('argUndef', { x: ref.img });
-      const w = ctx.env && ctx.env.F ? ctx.env.F(e.s.p) : null;
+      // (a point of the z-plane carried to the plane the reference is read on: the whole chain's map for the targets,
+      // the steps up to plane k for a stage-k object)
+      const F = ctx.env && (plane === 'T' ? ctx.env.F : ctx.env.Fk ? ctx.env.Fk(plane) : null);
+      if (e.s._atInf) return F ? norm(F(INF)) : U('argUndef', { x: ref.img });
+      const w = F ? F(e.s.p) : null;
       return norm(w, ref.img);
     }
     const e = ctx.idx.get(ref.s);
@@ -357,7 +370,7 @@ const Constr = (function (factory) {
     return U('argUndef', { x: id || null });
   }
   // Constr.resolve(state, ref, plane, env)
-  function resolve(state, ref, plane, env) { return resolveIn({ state, idx: index(state), env: env || {} }, ref, plane | 0); }
+  function resolve(state, ref, plane, env) { return resolveIn({ state, idx: index(state), env: env || {} }, ref, planeArg(plane)); }
 
   // ---------------------------------------------------------------- pieces of a shape's curves (SPEC 2.4, 2.5)
   // {part, kind: 'line'|'circle'|'traced', G, a, b, lo, hi (line: z = a + t (b - a), t in [lo, hi]), c, r, a0, span
@@ -1294,7 +1307,7 @@ const Constr = (function (factory) {
     setBetween, segCurves, perpForm, touchForm, tangentNear, tangentForm, touchAt, segAt, segParallel, onCurveByRefs
   } = ConstrOrtho({
     FLIPPED, INF, TAU, abs, add, canonKey, decOf, decompose, div, dot, eqP, fOf, flipG, formOfFields, gc, geomOf,
-    handleKeys, handlePos, index, isCurveRef, isInf, isPointRef, isXY, ldexp, lists, mR, makeCtx, meets, mrTaus,
+    handleKeys, handlePos, index, isCurveRef, isInf, isPointRef, isXY, ldexp, listOfPlane, mR, makeCtx, meets, mrTaus,
     onCarrier, onPiece, orientD, projectPiece, pts3In, reanchor, reanchorAt, recompute, resolveIn, scl, sub
   });
 
@@ -1382,7 +1395,7 @@ const Constr = (function (factory) {
   }
   // Constr.pts3(state, shape, plane, env): the same, for the interface's projections
   function pts3(state, s, plane, env) {
-    const r = pts3In({ state, idx: index(state), env: env || {} }, s, plane | 0);
+    const r = pts3In({ state, idx: index(state), env: env || {} }, s, planeArg(plane));
     return r === 'inf' ? null : r;
   }
 
@@ -1420,7 +1433,7 @@ const Constr = (function (factory) {
         }
         return true;
       }
-      if (typeof r.img === 'string') { const e = idx.get(r.img); return plane === 1 && !!e && e.plane === 0; }
+      if (typeof r.img === 'string') { const e = idx.get(r.img); return isCarriedPlane(plane) && !!e && e.plane === 0; }
       const e = idx.get(r.s);
       if (!e || e.plane !== plane) return false;
       if (r.h) return handleKeys(e.s).includes(r.h);
@@ -1432,9 +1445,10 @@ const Constr = (function (factory) {
       if (!e || e.plane !== plane) return false;
       return true;              // the piece count may follow the shape's kind (checked at recompute: undefined)
     };
-    lists(state).forEach((L, plane) => {
+    lists(state).forEach((L, li) => {
       for (const s of L) {
         if (!s || !isNode(s)) continue;
+        const plane = planeOfList(li, s);
         let ok = true;
         if (s.at != null) {
           if (typeof s.at !== 'object' || Array.isArray(s.at)) ok = false;
@@ -1655,7 +1669,7 @@ const Constr = (function (factory) {
     // v16 CORE (SPEC 20.2)
     formOf, formOfFields, level, reanchor, mob3: mob3obj, mR, sampleMR,
     pieces, meets: (a, b) => (a && a.G ? meetsPieces(a, b) : meets(a, b)), meetNear, project2: projectPiece, projectPiece, glide, onPiece, tRange,
-    resolve, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
+    resolve, planeOf: (state, s) => (lists(state)[1].includes(s) ? 'T' : stageOf(s)), listOfPlane, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
     syncSteps, zpRemoveId, zpNum, zpRenumber, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
     // v16.5 rail (notes/ux-build/rail/SPEC.md)
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
