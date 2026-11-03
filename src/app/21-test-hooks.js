@@ -275,9 +275,9 @@
   };
   // the steps view's outer ring of carried points, Everywhere (svRingFor): {m, c, r1, r2} or null
   /** @type {any} */ (window).__cmwSvRing = () => (svRingMemo && svRingMemo.ring ? { m: svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null);
-  // the sheet key the steps view orders its points by, for the image on plane b (default: the plane shown):
-  // {win, R, rs, sing}, as svSheetKey; with t, the key of the glide's frame at t to plane b (svSheetKeyAt)
-  /** @type {any} */ (window).__cmwSvKey = (b, t) => { const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }; };
+  // the steps view's sheet key for plane b (default: shown), {win, R, rs, sing}, as svSheetKey; with t, the glide's at
+  // t (svSheetKeyAt), tracks {k, of}: its pole tracks' next step of t to make (whole: made whole first, as idle does)
+  /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) while (P.k <= SV_POLE_K) svPoleStep(P); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1 } : null }; };
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone();   // (the carried colour has the tiling's fix-up under its parked map; true with none asked)
   /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] });   // (svWarmCarry: the chain its warm draw was last made for, and when)
   /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)

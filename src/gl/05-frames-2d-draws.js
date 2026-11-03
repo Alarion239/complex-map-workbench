@@ -360,22 +360,30 @@
     // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
     const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
-    let e = rtOK && !isIdent(st.map) ? cached(res, true, L, st.map, null) : null;
+    // (the programs of the way it draws are started when they are not ready (program); one that only stands in while
+    // they link is used when it, or an earlier chain version's, is linked, and not started (programLinked): a frame
+    // after an edit would otherwise start every stand-in of a heavy chain at once, each a compile the GPU process makes
+    // the frames wait behind)
+    const cache = rtOK && !isIdent(st.map), linked = programLinked;
+    let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     let P = e ? program('regionKC', st.map) : null;
     // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
-    // pass cannot run, the fill evaluates its own)
+    // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
     let fill = null, fp = null;
     if (cuts && P) {
       const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
       fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
-      fill = fp ? Q : program(clip ? 'regionKSCclip' : 'regionKSC', st.map);
+      fill = fp ? Q : (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
     }
     let full = null;
-    if (cuts && !fill) { P = full = program(clip ? 'regionKSclip' : 'regionKS', st.map); if (P) e = null; }
-    if (!P) { e = null; P = program('regionK', st.map); }
+    if (cuts && !fill) {
+      P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
+      if (P) e = null;
+    }
+    if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
     if (!P) return false;
     const set = (Q) => {
       use(Q, st.map);
