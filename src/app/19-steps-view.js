@@ -1042,6 +1042,8 @@
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
     if (rest) drawRulers(pane, 'L');
+    // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
+    glStatusNote(pane);
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
