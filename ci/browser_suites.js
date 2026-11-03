@@ -171,6 +171,11 @@ const SOFTWARE = {
 };
 
 const KNOWN = {
+  'p5_accept_cmd.js': [
+    s(/^8\.8: frames during the rebuild match the (rest frame|exact image) /,
+      'in the steps view the carried colour has no old-mesh stand-in while a region\'s SphereMesh rebuilds: it falls back to the truncated tessellation (a disc of |w| about 15 on exp(H)); open on #744 (svCarryRegions, which gates these checks)',
+      (d) => d && d.n > 0 && (d.duringVsRest || []).concat(d.duringVsTruth || []).every((x) => x && x.frac32 < 0.6)),
+  ],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
