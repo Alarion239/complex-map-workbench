@@ -85,6 +85,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   Failed, cancelled or none: the run is the usual one, so a green Gate never stands on a commit before a gate passed
   there. Either way it has a concurrency group of its own and never cancels the push's run (#379,
   `test/t_gate_ready.js`).
+- **A stack** (#787): PRs into the integration branch are often stacked, each head holding the lower PRs, so every
+  push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
+  request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
+  takes the one furthest ahead, the top. When the newest Gate run of that PR on its head passed or is still going, this
+  PR gets tier `none` like a ready-for-review mirror: nothing runs, and its Gate check waits for the top's run and carries
+  its verdict (so it is never green before that run passed). A failed, cancelled or missing run of the top means this PR
+  runs its own tier. A push to the top cancels its run, so the Gate checks that carried it fail: re-run them (or push)
+  once the top's new run is going. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
+  summary says which run would have gated this head, and every PR still runs its tier.
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the

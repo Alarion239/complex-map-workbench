@@ -65,13 +65,53 @@ ok('ready: a failed look-up gives no mirror (the usual run)', broken.status === 
 // the plan's tier step: a mirror writes the empty plan and stops before ci/impact.js; none plans as usual
 const tier = script(job('plan'), 'tier').replace(/\$\{\{ github\.event_name \}\}/g, 'pull_request');
 ok('the tier step is found', /impact\.js/.test(tier));
-const tenv = { BASE: 'claude/x', DRAFT: 'false', REF: 'abc', FULL_LABEL: 'false', DEEP_LABEL: 'false', GLSL_INPUT: '' };
+const tenv = { BASE: 'claude/x', DRAFT: 'false', REF: 'abc', FULL_LABEL: 'false', DEEP_LABEL: 'false', GLSL_INPUT: '', MIRROR_PR: '7', PR: '7' };
 const a = bash(`node() { echo IMPACT; }; ${tier}`, Object.assign({ MIRROR: '5' }, tenv));
 ok('mirror: the step succeeds without ci/impact.js', a.status === 0 && !a.stdout.includes('IMPACT'), a);
 ok('mirror: tier none, no job selected', a.out.tier === 'none' && a.out.glsl === '[]' && a.out.quality === '[]' && a.out.browser === '[]' && a.out.perf === 'false', a.out);
 ok('mirror: the summary names the run', /run 5 .*nothing to re-run/.test(a.sum), a.sum);
 const b = bash(`node() { echo IMPACT; }; ${tier}`, Object.assign({ MIRROR: '' }, tenv));
 ok('no mirror: the step plans with ci/impact.js', b.stdout.includes('IMPACT') && b.out.tier !== 'none', b);
+
+const st = bash(`node() { echo IMPACT; }; ${tier}`, Object.assign({}, tenv, { MIRROR: '9', MIRROR_PR: '12' }));
+ok('stacked: the summary names the PR above', st.out.tier === 'none' && /stacked under #12: run 9 of #12/.test(st.sum), st);
+
+// the job ready's cover step (#787): the top of a stack, by the compare API; the switch GATE_STACK_SKIP
+const cover = script(ready, 'cover');
+ok('the cover step is found and runs on a pull request into another branch only', /compare\//.test(cover) && /id: cover\n\s+if: github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.ref != 'main'/.test(ready));
+// (open PRs: [number, head sha, compare of this head to it: [status, ahead_by]]; runs: by head sha -> run list)
+const stack = (prs, runsBySha, env = {}) => {
+  const d = path.join(dir, 'k' + ++n); fs.mkdirSync(d);
+  fs.writeFileSync(path.join(d, 'pulls.json'), JSON.stringify(prs.map(([number, sha]) => ({ number, head: { sha } }))));
+  for (const [, sha, status, ahead] of prs) fs.writeFileSync(path.join(d, 'cmp_' + sha + '.json'), JSON.stringify({ status, ahead_by: ahead }));
+  for (const [sha, runs] of Object.entries(runsBySha)) fs.writeFileSync(path.join(d, 'runs_' + sha + '.json'), JSON.stringify({ workflow_runs: runs }));
+  const stub = 'gh() { local p= q=; while [ $# -gt 0 ]; do case "$1" in --jq) q="$2"; shift;; api) ;; *) [ -z "$p" ] && p="$1";; esac; shift; done; ' +
+    'case "$p" in *compare/*) f="$D/cmp_${p##*...}.json";; *pulls\\?*) f="$D/pulls.json";; *head_sha=*) s="${p#*head_sha=}"; f="$D/runs_${s%%&*}.json";; *) return 1;; esac; [ -f "$f" ] || return 1; jq -r "$q" "$f"; }; ';
+  return bash(stub + cover, Object.assign({ D: d, GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r', HEAD_SHA: 'low', PR: '7', BASE: 'integ', SWITCH: 'on' }, env));
+};
+const prs = [[7, 'low', 'identical', 0], [8, 'mid', 'ahead', 2], [9, 'top', 'ahead', 5], [10, 'side', 'diverged', 0]];
+const run2 = (id, status, conclusion, t = 1) => run(id, status, conclusion, t, [9]);
+let c = stack(prs, { top: [run2(50, 'in_progress', null)] });
+ok('cover: the top of the stack gates it; mirror, its PR and head', c.status === 0 && c.out.mirror === '50' && c.out.mirror_pr === '9' && c.out.mirror_sha === 'top', c);
+c = stack(prs, { top: [run2(50, 'completed', 'success')] });
+ok('cover: a passing run of the top is carried', c.out.mirror === '50', c);
+c = stack(prs, { top: [run2(50, 'completed', 'failure')] });
+ok('cover: a failed run of the top: the usual run', c.status === 0 && !c.out.mirror, c);
+c = stack(prs, { top: [run2(50, 'completed', 'cancelled')] });
+ok('cover: a cancelled run of the top: the usual run', !c.out.mirror, c);
+c = stack(prs, {});
+ok('cover: no run of the top yet: the usual run', !c.out.mirror && /no passing or running Gate run/.test(c.sum), c);
+c = stack(prs, { top: [run(50, 'in_progress', null, 1, [4])] });
+ok('cover: a run of another PR on that commit does not count', !c.out.mirror, c);
+c = stack([[7, 'low', 'identical', 0], [10, 'side', 'diverged', 0], [11, 'behind', 'behind', 0]], { side: [run2(50, 'completed', 'success')] });
+ok('cover: no open PR contains this head: the usual run', !c.out.mirror && /No open pull request/.test(c.sum), c);
+c = stack(prs, { top: [run2(50, 'in_progress', null)] }, { SWITCH: '' });
+ok('cover: the switch off only reports', c.status === 0 && !c.out.mirror && /Report only .*#9 contains this head and run 50/.test(c.sum), c);
+c = stack(prs, { top: [run2(50, 'in_progress', null)] }, { PR: 'x' });
+ok('cover: a bad PR number does nothing', c.status === 0 && !c.out.mirror, c);
+const brokenCover = bash(`gh() { return 1; }; ${cover}`, { GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r', HEAD_SHA: 'low', PR: '7', BASE: 'integ', SWITCH: 'on' });
+ok('cover: failed look-ups give the usual run', brokenCover.status === 0 && !brokenCover.out.mirror, brokenCover);
+ok('the ready job passes the mirrored PR and head on', /mirror_pr:/.test(ready) && /mirror_sha:/.test(ready) && /mirror_pr: \$\{\{ needs\.ready\.outputs\.mirror_pr \}\}/.test(job('plan')));
 
 // the Gate job: tier none checks the mirrored run again
 const gate = job('gate');
