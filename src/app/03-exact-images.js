@@ -598,7 +598,7 @@
       // drawn in the half-resolution pre-pass: its layer is upsampled here, at the run's first shape
       if (preIds && preIds.has(s.id)) {
         if (!preDone) { GLR.compositeHalf(); preDone = true; }
-        if (live) notePath(role, s.id, 'inverse');
+        if (smLive) notePath(smRole, s.id, 'inverse');
         continue;
       }
       let lp = 'forward';
@@ -612,7 +612,7 @@
           const box = invBox(p.e, p.plan, s, live);
           const sc = box ? GLR.scissorOf(box, pane.view, pane.dpr, 4) : null;
           // an image that misses the pane draws nothing (counted as drawn)
-          if (sc && !sc[2]) { if (live) notePath(role, s.id, 'inverse'); continue; }
+          if (sc && !sc[2]) { if (smLive) notePath(smRole, s.id, 'inverse'); continue; }
           let res = 'error';
           try {
             res = GLR.drawInverse({
@@ -623,7 +623,7 @@
           } catch (err) { if (!invThrew) { invThrew = true; console.error('exact images: inverse pass failed; drawing forward', err); } }
           if (res === 'drawn') {
             invN++;
-            if (live) notePath(role, s.id, 'inverse');
+            if (smLive) notePath(smRole, s.id, 'inverse');
             // the program landed (possibly inside this very call, without GLR.onReady): redraw the other panes that drew
             // a stand-in, and the thumbnails (one drawn forward meanwhile has a stale signature)
             if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
