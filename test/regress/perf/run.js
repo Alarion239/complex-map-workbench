@@ -1147,15 +1147,15 @@ async function svGlideUnit(scene) {
 // the ms whose stack holds a synchronous GL call) and one run under a Chrome trace (self ms by event on the renderer's
 // main thread and on the GPU process inside the windows, between performance marks svq:a and svq:b; the raw trace is
 // written next to --out). Info only: a probe, never a gate. On a software renderer it runs only with CMW_SV_SOFT=1.
-const SVQ_GL_SYNC = /^(readPixels|getParameter|getError|getProgramParameter|getShaderParameter|getProgramInfoLog|getShaderInfoLog|clientWaitSync|getSyncParameter|getBufferSubData|finish|flush|getUniformLocation|getAttribLocation|getActiveUniform|checkFramebufferStatus|getExtension|getQueryParameter|getContextAttributes|isContextLost)$/;
+const SVQ_GL_SYNC = /^(drawImage|readPixels|getParameter|getError|getProgramParameter|getShaderParameter|getProgramInfoLog|getShaderInfoLog|clientWaitSync|getSyncParameter|getBufferSubData|finish|flush|getUniformLocation|getAttribLocation|getActiveUniform|checkFramebufferStatus|getExtension|getQueryParameter|getContextAttributes|isContextLost)$/;
 const SVQ_TRACE_CATS = 'devtools.timeline,v8,v8.execute,blink.user_timing,gpu,toplevel,disabled-by-default-devtools.timeline.frame';
 const svqTop = (m, n) => [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [k, +v.toFixed(2)]);
 // samples of a CPU profile inside the windows [[a, b], ...] (page clock): self and inclusive ms by function, and the
-// ms under each synchronous GL call
+// ms under each call that waits on the GPU (a GL query or readback; drawImage of the WebGL canvas into a 2D one)
 function svqProfile(profile, windows, nowAtStop) {
   const byId = new Map(profile.nodes.map((n) => [n.id, n])), parent = new Map();
   for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
-  const name = (n) => { const f = n.callFrame; return `${f.functionName || '(anon)'} ${(f.url || '').split('/').pop()}:${f.lineNumber + 1}`.trim(); };
+  const name = (n) => { const f = n.callFrame; return `${f.functionName || '(anon)'} ${(f.url || '').split('/').pop().split('?')[0]}:${f.lineNumber + 1}`.trim(); };
   const off = profile.endTime / 1000 - nowAtStop;
   const self = new Map(), incl = new Map(), sync = new Map();
   let total = 0, t = profile.startTime;
@@ -1173,7 +1173,7 @@ function svqProfile(profile, windows, nowAtStop) {
       if (SVQ_GL_SYNC.test(n.callFrame.functionName)) { const g = n.callFrame.functionName; if (!seen.has('gl:' + g)) { seen.add('gl:' + g); sync.set(g, (sync.get(g) || 0) + d); } }
     }
   });
-  incl.delete('(root)');
+  for (const k of [...incl.keys()]) if (k.startsWith('(root)')) incl.delete(k);
   return { sampled_ms: +total.toFixed(1), self: svqTop(self, 15), inclusive: svqTop(incl, 20), gl_sync: svqTop(sync, 12) };
 }
 // a Chrome trace's events inside the windows marked svq:a .. svq:b: self ms by event name on the renderer main
