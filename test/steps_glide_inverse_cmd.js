@@ -7,9 +7,9 @@
 //   channel on at most 0.2 % of the pixels (the exact images' tolerance, steps_carry_cmd);
 // - at u = 0.001 and 0.999 the frame is the parked plane's: within the same tolerance away from the lines, and on the
 //   whole frame a mean within 1.5 levels (the colour lines move by a fraction of a pixel there);
-// - the fallback, per step: the Mountain King's glide from z to u takes the inverse pass (its homotopy runs a Möbius
-//   path, then a power path), its glide from u to F the carried mesh (its formula has no inverse); a step whose
-//   homotopy is the straight line (a non-analytic formula) takes the carried mesh too.
+// - the fallback, per step: a step whose homotopy is the straight line (a non-analytic formula, added after the
+//   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
+//   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -66,13 +66,16 @@ window.__giRef = (P, F) => {
 };
 1`;
 // the frame at thread place x, once a frame there was drawn (by either path), and its record
-const at = async (x, want) => {
+// (max: a software renderer takes minutes over a frame of the Mountain King's plane F; ms: until that frame)
+const at = async (x, want, max = 60000) => {
+  const t0 = Date.now();
   await ev(`__cmwSteps({ x: ${x} }), 1`);
   const until = `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < 1e-9 && ${want ? `g.path === '${want}'` : 'true'}; })()`;
-  await settled({ max: 60000, until });
+  await settled({ max, until });
+  const ms = Date.now() - t0;
   await ev('await new Promise((r) => setTimeout(r, 1500)), 1');
   const g = await ev('(() => { const g = __cmwSteps().glide; return g ? { b: g.b, u: g.u, path: g.path, reason: g.reason } : null; })()');
-  return g;
+  return g && Object.assign(g, { ms });
 };
 const park = async (k) => {
   await ev(`__cmwSteps({ park: ${k} }), 1`);
@@ -103,6 +106,16 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   ok(`default at x = ${x}: the parked plane's frame (away from the lines > 6 on <= 0.2 %; mean <= 1.5 on the whole frame)`, r.smooth.n > 10000 && r.smooth.over <= 0.002 && r.all.mean <= 1.5, r);
 }
 
+// a step whose homotopy is the straight line (a formula that is not analytic) put after the Möbius map: its glide
+// takes the carried mesh
+{
+  await ev(`__cmwAddStep('custom', { expr: 'z+0.2*conj(z)', cut: 180 }), 1`);
+  await ev('await new Promise((r) => setTimeout(r, 2000)), 1');
+  const g = await at(2.5, 'mesh');
+  info.lin = g;
+  ok('a non-analytic formula after the Möbius map: its straight-line glide takes the carried mesh', !!g && g.b === 3 && g.path === 'mesh', g);
+}
+
 // ---- the fallback, per step ----
 {
   const ex = names.indexOf('In the Hall of the Mountain King');
@@ -112,21 +125,9 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   await ev(`__cmwExample(${ex}), 1`);
   await ev('await new Promise((r) => setTimeout(r, 3000)), 1');
   for (const [x, want] of [[0.3, 'inverse'], [0.7, 'inverse'], [1.5, 'mesh']]) {
-    const g = await at(x, want);
+    const g = await at(x, want, x > 1 ? 300000 : 60000);
     info[`king x ${x}`] = g;
     ok(`Mountain King at x = ${x}: ${want === 'inverse' ? 'the inverse pass' : 'the carried mesh (no inverse of the step)'}`, !!g && g.path === want, g);
   }
-  // a straight-line homotopy (a formula that is not analytic) after exp
-  const ns = 'gl' + Date.now();
-  const st = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [],
-    steps: [{ type: 'exp', params: {}, on: true }, { type: 'custom', params: { expr: 'z+0.2*conj(z)', cut: 180 }, on: true }] };
-  await go(`${BASE}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
-  await ready();
-  const g1 = await at(0.5, 'inverse'), g2 = await at(1.5, 'mesh');
-  info.lin = { g1, g2 };
-  ok('exp then a non-analytic formula: the glide to plane w₁ takes the inverse pass', !!g1 && g1.path === 'inverse', g1);
-  ok('exp then a non-analytic formula: the straight-line glide to plane w₂ takes the carried mesh', !!g2 && g2.path === 'mesh', g2);
 }
 return { pass: fails.length === 0, fails, info };
