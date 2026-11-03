@@ -240,8 +240,13 @@ await section('C', async () => {
   g = byId(await ST(), 'g');
   ok('C Undo: back on the circle at its t', g.def && g.def.op === 'glider' && g.t === 0 && g.p[0] === 1 && g.p[1] === 0, g);
   // a 45 px sweep lasting 60 ms does not free it
-  const sweep = [P0, [P0[0] + 20, P0[1]], [P0[0] + 45, P0[1]], [P0[0] + 45, P0[1] + 1], [P0[0] + 10, P0[1] + 2], [P0[0] + 2, P0[1] + 14]];
-  await mdrag(sweep, { dt: 20 });
+  const sweep = [P0, [P0[0] + 20, P0[1]], [P0[0] + 45, P0[1]], [P0[0] + 45, P0[1] + 1], [P0[0] + 10, P0[1] + 2], [P0[0] + 2, P0[1]]];
+  // (sent as one burst, before the page has handled the first event: the pull frees the point after 200 ms out, and
+  // awaiting each event on a page with slow frames takes longer than that, so the point would be freed in the sweep and,
+  // dropped on the crossing it starts from, become that meet point (2.5))
+  const mv = (type, x, y) => send('Input.dispatchMouseEvent', type === 'mouseMoved' ? { type, x, y, button: 'left', buttons: 1 } : { type, x, y, button: 'left', clickCount: 1 });
+  const end = sweep[sweep.length - 1];
+  await Promise.all([mv('mouseMoved', P0[0], P0[1]), mv('mousePressed', P0[0], P0[1]), ...sweep.slice(1).map(([x, y]) => mv('mouseMoved', x, y)), mv('mouseReleased', end[0], end[1])]);
   await settle();
   g = byId(await ST(), 'g');
   ok('C a 45 px sweep for 60 ms: still on the circle', g.def && g.def.op === 'glider', g);
