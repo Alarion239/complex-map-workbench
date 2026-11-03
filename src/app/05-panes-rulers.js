@@ -1047,13 +1047,13 @@
       const smk = sm === map ? mk : mapKeyOf(sm), recsOf = shapeStage(s) ? null : recs;   // (the packed records hold the z-plane's shapes only)
       const r = shapeGPU(s);
       const ink = shapeInk(s);
-      const pf = regionsOn && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
+      const pf = regionsOn && kindType(s) === 'area' && !hom && !shapeStage(s) ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map (a later plane's shape: its bare mesh)
       if (regionsOn && kindType(s) === 'area') {
         const fwd = [];
         // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) replaces the lifted
         // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere)
         const pth = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live, status: true }).path : 'forward';
-        const smd = !hom && (live || offRender) ? smFor(s, r, role, 'globe', sm, pane, smR, live && pth === 'forward') : null;
+        const smd = !hom && !shapeStage(s) && (live || offRender) ? smFor(s, r, role, 'globe', sm, pane, smR, live && pth === 'forward') : null;
         const sme = smd && (smd.e || smd.old);
         if (sme && !sme.data.n) { /* nothing of it shows on the globe */ } else if (sme && smRes(sme)) fwd.push({ pre: sme.res, st: Object.assign(smLook(s, pane, S.alpha), { view: null }) });
         else if (pf.p.meshRes) {
