@@ -8,7 +8,6 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
 const stepAt = (chapter, id) => ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`);
-const steps = () => ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 const rgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
 const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
@@ -19,7 +18,7 @@ for (const lang of ['en', 'ru']) {
   await view(390, 844, false, true);
   await go(`http://localhost:${PORT}/test.html?ns=sk${lang}${Date.now()}&lang=${lang}`);
   await settled({ until: `${TOUR} && I18N.lang === '${lang}'` });
-  if (!(await steps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
+  if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.auto(false); 1');
   const draw = await stepAt('basics', 'draw');
   await ev(`Tour.start({ chapter: 'basics', step: ${draw - 1} })`); await settled({ until: `Tour.isActive()` });

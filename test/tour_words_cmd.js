@@ -10,5 +10,5 @@
 // test/tour_words_cmd.js
 const WORDS = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'tour_words_kit.js'), 'utf8'));
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-return WORDS.run({ ev, go, settled, view, logs, base: `http://localhost:${PORT}`, wantSteps: true,
+return WORDS.run({ ev, go, settled, isSteps, view, logs, base: `http://localhost:${PORT}`, wantSteps: true,
   steps: [['basics', 'add'], ['edit', 'inspector'], ['analysis', 'domain'], ['views', 'switch']], fourCopies: ['basics/add', 'analysis/domain', 'views/switch'] });
