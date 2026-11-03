@@ -8,6 +8,8 @@
 // Writes every file to test/regress/export/out/ (<name>.pdf|.svg|.png|.tex and <name>-boxes.json for the preflight)
 // and the dialog screenshots to <daemon>/shots/export-dlg-*.png. Prints {pass, fails, ...}.
 // CMW_ONLY=1-3 runs sections 1 to 3 alone and CMW_ONLY=user5 section 6 (the CI runs these parts: ci/browser_suites.js).
+// CMW_ONLY=user5-classic and user5-deform are the parts of section 6 that only the classic views have: the Landscape's pane
+// title naming the sheets, and the Deformation's film on them; the CI runs each on the classic views (CMW_VIEW empty).
 const BASE = process.env.CMW_BASE || 'http://localhost:8793/'; // (a daemon of your own: CMW_BASE=http://localhost:<port>/)
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -27,7 +29,8 @@ const open = async (ns, w = 1440, h = 900, dark = false, view0 = null) => {
 };
 const b64of = (expr) => `await (async () => { const b = await (${expr}); const u8 = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); })()`;
 
-if (process.env.CMW_ONLY !== 'user5') { // (CMW_ONLY=user5: section 6 only)
+const USER5_CLASSIC = process.env.CMW_ONLY === 'user5-classic', USER5_DEFORM = process.env.CMW_ONLY === 'user5-deform';
+if (!/^user5/.test(process.env.CMW_ONLY || '')) { // (CMW_ONLY=user5, user5-classic, user5-deform: section 6 only)
 // 1. every view x preset x ink, in every format
 const PRESETS = {
   article1: { for: 'article', cols: 1 },
@@ -235,7 +238,7 @@ ok('the dialog opens with storage blocked', await dlgReady(), null);
 await key('Escape'); await settle(300);
 await ev(`(() => { const p = Storage.prototype; [p.getItem, p.setItem] = window.__ls; return 1; })()`);
 
-} // (CMW_ONLY=user5 skips sections 1 to 3)
+} // (CMW_ONLY=user5, user5-classic and user5-deform skip sections 1 to 3)
 // 6. (the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
 // (a) the Landscape with All sheets says exactly which sheets it draws, in the LaTeX caption (English and Russian),
 // the figure's own caption and the pane title: both / all n sheets for a finite covering, the window of infinitely
@@ -285,9 +288,15 @@ if (process.env.CMW_ONLY !== '1-3') {
   ];
   const disc = [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }];
   const OLD = /all sheets of the Riemann surface|все листы римановой поверхности/;
-  for (const [nm, steps, en, ru, title] of CASES) {
+  for (const [nm, steps, en, ru, title] of USER5_DEFORM ? [] : CASES) {
     await loadSt(`u5s${nm}${Date.now()}`, { steps, rightMode: '3d', sheets: true, height: 'im', shapes: disc });
     const t = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
+    if (USER5_CLASSIC) {
+      let tt = t;   // (the title is set after the page settles: the builds below gave the steps part that time)
+      for (let i = 0; i < 20 && !title.test(tt || ''); i++) { await settle(300); tt = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`); }
+      ok(`sheets ${nm}: the Landscape title says which sheets`, title.test(tt || ''), tt);
+      continue;
+    }
     const fmts = nm === 'log' || nm === 'capped' || nm === 'logsqrt' ? ['pdf', 'tex'] : [];
     const e = await build(`u5-sheets-${nm}-article1`, { for: 'article' }, fmts);
     const r = await build(`u5-sheets-ru-${nm}-article1`, { for: 'article', lang: 'ru' }, fmts);
@@ -296,7 +305,6 @@ if (process.env.CMW_ONLY !== '1-3') {
     R.u5.caps[nm] = { title: t, en: e && e.cap.slice(-200), ru: r && r.cap.slice(-200) };
     ok(`sheets ${nm}: the English caption says which sheets`, e && en.test(e.cap) && !OLD.test(e.cap), e && e.cap.slice(-260));
     ok(`sheets ${nm}: the Russian caption says which sheets`, r && ru.test(r.cap) && !OLD.test(r.cap), r && r.cap.slice(-260));
-    ok(`sheets ${nm}: the Landscape title says which sheets`, title.test(t || ''), t);
     ok(`sheets ${nm}: the figure's own caption has no "all sheets"`, own != null && !OLD.test(own), own && own.slice(-200));
     if (nm === 'log') {
       ok('sheets log: the Russian display writes the multivalued Ln (GLOSSARY 2.2)', r && /\\operatorname\{Ln\} z/.test(r.cap) && !/\\ln z/.test(r.cap), r && r.cap.slice(0, 260));
@@ -305,6 +313,7 @@ if (process.env.CMW_ONLY !== '1-3') {
       await build('u5-sheets-ru-log-homework', { for: 'homework', lang: 'ru' }, ['pdf', 'tex']);
     }
   }
+  if (USER5_DEFORM) {
   // the deformation on: the landscape draws H_t on the sheets that become F's (work/xvsh), so the clause names them
   // (both of √z's), with no Ln (the map is H_t) and never "all sheets of the Riemann surface"
   await loadSt(`u5smorph${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
@@ -342,6 +351,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   ok('sheets, whole chain in turn: the path in the step\'s own time s', we && turnEN.test(we.cap) && !/\(\\alpha-1\)t\$/.test(we.cap) && /runs the steps in turn/.test(we.cap), we && we.cap.slice(0, 1400));
   ok('sheets, whole chain in turn: Russian', wr && /\\sigma=1\+\(\\alpha-1\)s\$, где \$s\$ \(\$0\\le s\\le 1\$\)(?:~---|\s—) время соответствующего шага/.test(wr.cap) && !/\(\\alpha-1\)t\$/.test(wr.cap), wr && wr.cap.slice(0, 1400));
   await ev('__cmwMorph({ open: false })'); await settle(600);
+  } else if (!USER5_CLASSIC) {
   // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
   await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   const sv = await ev('__cmwLandSheets()'), se = await build('u5-sheets-single-article1', { for: 'article' }, []);
@@ -397,6 +407,7 @@ if (process.env.CMW_ONLY !== '1-3') {
       await key('Escape'); await settle(300);
       ok(`menus ${tag}: Esc closes the dialog afterwards`, await ev('!document.querySelector(".modal.xf")'), null);
     }
+  }
   }
   await view(1440, 900, false, false);
 }
