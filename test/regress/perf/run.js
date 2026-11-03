@@ -1370,7 +1370,8 @@ const SVQ_SETTINGS = { base: {}, reuse: { reuse: true }, onePass: { reuse: true,
 // the GL calls the page made in it (WebGL2 methods counted by name) and the steps view's own counters (__svPathStats)
 // in it; the slow frames (the pooled frame time's top 5 %) against the median ones. Then the same scrubs under the JS
 // profiler, its samples inside the slow frames only, and under a Chrome trace, its renderer-main and GPU-thread events
-// inside the slow frames only. Info only.
+// inside the slow frames only. The frame's cpu includes GLR.blit's drawImage of the WebGL canvas, which waits for the
+// GPU: the profile's gl sync row tells that wait apart. Info only.
 const SVQ_GL_COUNT = ['texImage2D', 'texSubImage2D', 'texStorage2D', 'bufferData', 'bufferSubData', 'createTexture', 'createBuffer',
   'createVertexArray', 'createFramebuffer', 'deleteTexture', 'deleteBuffer', 'readPixels', 'getParameter', 'getError', 'finish',
   'flush', 'fenceSync', 'clientWaitSync', 'getBufferSubData', 'linkProgram', 'useProgram', 'drawArrays', 'drawArraysInstanced',
@@ -1445,7 +1446,7 @@ async function svqKingSlowUnit() {
   const sumOf = (fs, pick) => { const m = {}; for (const f of fs) for (const [k, v] of Object.entries(pick(f))) m[k] = (m[k] || 0) + v; for (const k of Object.keys(m)) m[k] = +(m[k] / Math.max(1, fs.length)).toFixed(2); return m; };
   const groups = (F) => {
     const p95 = quant(F.map((f) => f.frame), 0.95), p50 = quant(F.map((f) => f.frame), 0.5);
-    const slow = F.filter((f) => f.frame >= p95), mid = F.filter((f) => Math.abs(f.frame - p50) <= 1.5);
+    const slow = F.filter((f) => f.frame >= p95), mid = F.filter((f) => Math.abs(f.frame - p50) <= Math.max(1.5, 0.1 * p50));
     return { p95, p50, slow, mid };
   };
   const describe = (g) => ({
@@ -1497,7 +1498,8 @@ async function svqKingSlowUnit() {
     });
     let T = [], sync = 0;
     try {
-      await B.send('Tracing.start', { categories: SVQ_TRACE_CATS, transferMode: 'ReportEvents' });
+      // (with the GPU process' command decoder: each GL command it ran, by name, on CrGpuMain)
+      await B.send('Tracing.start', { categories: SVQ_TRACE_CATS + ',disabled-by-default-gpu.decoder,disabled-by-default-gpu.service,gpu.angle', transferMode: 'ReportEvents' });
       await sleep(300);
       try {
         sync = await B.ev(`performance.mark('svq:sync').startTime`);
