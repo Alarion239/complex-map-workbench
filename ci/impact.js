@@ -142,7 +142,7 @@ const MAP = [
   ['ci/impact.js', HARNESS],                                                  // (test/t_impact.js covers it)
   ['ci/reference.js', { glsl: 'all', quality: true, perf: true }],            // the paired gates' reference build
   ['ci/quality.js', { quality: true }],
-  ['ci/perf_shard{,s}.js', { perf: true }],
+  ['ci/perf_{shard,shards,busy}.js', { perf: true }],
   ['ci/**', HARNESS],                                                         // (ci/glsl.js: an input of every page)
   ['.github/**', HARNESS],
   // the development tools and the docs
