@@ -11,10 +11,8 @@
 // steps_repeat_cmd's. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {}, errs = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
-const press = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); e.click(); return true; })()`);
 const labelsOf = () => ev(`[...document.querySelectorAll('#popHost .menu .mi .mi-label')].map((e) => e.textContent)`);
-const pickItem = (label) => ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`);
-const chain = async () => (await ev('__cmwP()')).steps.map((s) => s.type + (s.repeat ? `[${s.repeat.n}/${s.repeat.len}]` : '')).join(',');
+const { press, pickItem, typeN, chain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'repeat_kit.js'), 'utf8'))({ ev, settled });
 const open = async (st) => {
   await view(1366, 768, false, false);
   await loadView('steps', 'svrep' + Date.now(), Object.assign({ v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1, visible: true }], steps: [], nextId: 50, focus: 0 }, st), { lang: 'en' });
@@ -36,8 +34,6 @@ const selectStep = async (k) => {
   await press(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`);
   await settled({ until: `__cmwSteps().sel === ${k}` });
 };
-// (the row's N field: typed and changed, as a user does; the row shows for a step of the block that is selected)
-const typeN = async (text) => { await ev(`(() => { const f = document.querySelector('.insp-repeat .rep-n'); f.focus(); f.value = ${JSON.stringify(text)}; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`); await settled({}); };
 // F's guarantees in the Inspector: the polynomial's degree
 const fDeg = async () => {
   await press('#svStrip .sv-wholemap');

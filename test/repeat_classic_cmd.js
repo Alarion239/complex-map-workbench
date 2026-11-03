@@ -20,7 +20,7 @@ async function openApp(st) {
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
   await settle(600);
 }
-const chain = async () => (await ev('__cmwP()')).steps.map((s) => s.type + (s.repeat ? `[${s.repeat.n}/${s.repeat.len}]` : '')).join(',');
+const { chain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'repeat_kit.js'), 'utf8'))({ ev, settled });
 const menu = async (k, ...labels) => {
   await ev(`document.querySelector('#pipeline .card[data-k="${k}"] .more').click()`); await settle(300);
   for (const l of labels) {
