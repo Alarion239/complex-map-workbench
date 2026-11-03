@@ -26,7 +26,7 @@
   // formulas go through TeX.set, which skips unchanged nodes and, during a scrub or drag, waits for input to
   // pause (TeX.hush). A hidden panel costs nothing: only the rail lamps update, and the panel catches up when shown.
   const PROPS = { sig: null, stale: false, texF: '', rail: '', ro: null, el: null };
-  // ---- v15: the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
+  // ---- the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
   // S.sel: the selected object, a step k (0: the region) or 'F'; null follows the step shown alone, else the last step.
   // Selecting is not focusing: the planes keep what they show; Show alone (S.focus) is its own action.
   function selOf() {
@@ -149,11 +149,11 @@
   let tempInsp = false;
   function selectStep(k) {
     setSel(k);
-    // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
+    // (the Inspector edits the latest selection: a step chosen in the chain takes the place of the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     syncSel();
     svFSync();
-    if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
+    if (Params.syncUnused) Params.syncUnused();   // (Use in names the selected step)
     if (S.hideRight) {
       if (underChain()) setPanels(S.hideLeft, false);
       else if (window.innerWidth >= 1024) openTemp();
@@ -163,7 +163,7 @@
     tourEmit('step-selected', { k });
   }
   // open step k in the Inspector: select it, show the Inspector (docked, or the temporary one over the stage) and draw
-  // it now, so its fields exist
+  // it at once, so its fields exist
   function inspectStep(k) {
     selectStep(k);
     if (S.hideRight && !tempInsp) setPanels(S.hideLeft, false);
@@ -227,7 +227,7 @@
       h, $t, $tx, $tn, ICONS, TeX, sub, fsub, wvar, Funcs, Expr, CX, BADGES, CHIP_DEFS,
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, replacePalette: (el, k) => openPalette(el, null, { fnOnly: true, replace: k }), toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
-      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
+      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
       svOn: () => SV.on, regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
@@ -265,7 +265,7 @@
     return `F(z)=${arg.s}` + (notes.length ? `\\quad(${notes.join(',\\ ')})` : '');
   }
   // the whole figure as an SVG document; opt: {panels: ['L'] | ['R'] | ['L', 'R'], widthIn, caption, morph, upTo}
-  // opt.alive(): false once the figure is no longer wanted (the dialog's token moved on): -> null, nothing drawn after
+  // opt.alive(): false once the figure is unwanted (the dialog's token has moved on): -> null, nothing drawn after
   // opt.morph (the deformation open, morph-figure.md 5): the right panel is the deformation, one plane with X, its
   // image and the paths, for 0 <= t <= end (or up to the current t with opt.upTo), whatever the scrubber shows
   const mfFigCache = { key: '', sel: null };
@@ -291,7 +291,7 @@
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
-    // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
+    // Video in the export dialog turns the deformation on, where there is one
     canDeform: () => morphRange().steps.length > 0,
     deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
     soundDone: () => sndExportDone(), soundError: () => sndError(),
@@ -335,7 +335,7 @@
     formulaTex: () => svCapParts().formula,
     formulaRaw: () => svCapParts().raw,
     capParts: svCapParts,
-    sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
+    sheetsClause,   // (the caption's clause on what All sheets draws, from capParts().sheets)
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
     sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)

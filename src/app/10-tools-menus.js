@@ -30,7 +30,7 @@
     ['line', $t('Line'), 'L', $t('Drag through two points, or click one and then the other; the line extends to infinity.')],
     ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray, or click the start and then a point on the ray.')],
     ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward, or click the center and then a point on the circle.')],
-    ['arc', $t('Arc'), 'A', $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.')],   // (v16 [C24])
+    ['arc', $t('Arc'), 'A', $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.')],   
     ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
     ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],
     ['rect', $tx('tool', 'Rectangle'), 'B', $t('Drag between opposite corners.')],
@@ -40,16 +40,16 @@
     ['annulus', $t('Annulus'), 'N', $t('Drag from the center to the outer radius.')],
     ['sector', $t('Sector'), 'K', $t('Drag from the vertex; edit the angles in the shape list.')],
     ['formula', $t('Formula'), 'T', $t('Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.')],
-    // ([v16.5 UX86] one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
+    // (one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
     ['cgrid', $t('Line grid'), '', $t('Drag a rectangle to fill with grid lines.')],
     ['pgrid', $t('Polar grid'), '', $t('Drag from the center to set the radius.')],
-  ].concat(Construct.toolRows());   // (v16: the Construct group, construct.js)
+  ].concat(Construct.toolRows());   // (the Construct group, construct.js)
   Object.assign(ICON, Construct.ICON);
   function buildTools() {
     const host = $('tools'), rail = $('railTools');
     host.innerHTML = '';
     if (rail) rail.innerHTML = '';
-    const cmGrid = Construct.buildGrid();   // (v16: the Construct grid under Draw)
+    const cmGrid = Construct.buildGrid();   // (the Construct grid under Draw)
     if (cmGrid) cmGrid.innerHTML = '';
     for (const [id, label, key, desc, group, tile] of TOOLS) {
       const tip = key ? `${label}  ${key}` : label;
@@ -58,12 +58,12 @@
       if (rail && group === 'construct' && id === 'circle3') rail.append(h('span', { class: 'rail-sep', 'aria-hidden': 'true' }));
       if (rail) rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
     }
-    // (v16.5 UX93) a phone's tool tile (58 px) shows the name on one line: in Russian a short form where the full name,
+    // a phone's tool tile (58 px) shows the name on one line: in Russian a short form where the full name,
     // which the desktop grid hyphenates, is wider than the tile (phone.js reads data-phl)
     if (I18N.lang !== 'en') {
       const PHL = { circle: $tx('phone tile', 'Circle'), rect: $tx('phone tile', 'Rectangle'), polygon: $tx('phone tile', 'Polygon'), halfplane: $tx('phone tile', 'Half-plane'),
         meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Perpendicular'),
-        hyper: $tx('phone tile', 'Hyperbolic') };   // (wave 1 merge: the plane piece's seventh Construct tool, UX55)
+        hyper: $tx('phone tile', 'Hyperbolic') };
       for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
@@ -75,7 +75,7 @@
     if (id === 'formula') { setPanels(false, S.hideRight); const f = $('formulaInput'); f.focus(); f.select(); return; }
     tool = id;
     draft = null;
-    Construct.toolChanged();   // (v16)
+    Construct.toolChanged();   
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
@@ -101,7 +101,7 @@
     if (!target && leftStage() > 0 && !('stage' in s)) s.stage = leftStage();
     return s;
   }
-  // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
+  // how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
   // else 'menu'; set around the call by the path that adds it (the tour's Sets from formulas task)
   let shapeVia = null;
   function addShape(s, target) {
@@ -112,7 +112,7 @@
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
-    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
+    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (bound, a snapped end)
   }
   // [issue #260] an external ray (theta: '1/3') or an equipotential (r > 1) of step k's set: M for Φ_M, the Julia set of
   // z² + c for φ_c (its c, by name when it is a shared number), as a shape of the plane the step reads (stage k − 1)
@@ -157,8 +157,8 @@
     }));
   }
   function deleteShape(id) {
-    const cmMsg = Construct.deleteMessage(id);   // (v16: the cascade's toast)
-    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); setShapes(S.shapes.filter((s) => !del.has(s.id) || s.id === id)); setTargets(S.targets.filter((s) => !del.has(s.id) || s.id === id)); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
+    const cmMsg = Construct.deleteMessage(id);   // (the cascade's toast)
+    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); setShapes(S.shapes.filter((s) => !del.has(s.id) || s.id === id)); setTargets(S.targets.filter((s) => !del.has(s.id) || s.id === id)); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   
     const target = S.targets.some((s) => s.id === id);
     if (target) setTargets(S.targets.filter((s) => s.id !== id));
     else { setShapes(S.shapes.filter((s) => s.id !== id)); dropShapeGPU(id); }
@@ -169,7 +169,7 @@
   }
   // targets change only the preimages and the right plane's targets: no meshes, no refit
   function targetsChanged(structural) {
-    if (cmShapes()) structural = true;   // (v16 constructions)
+    if (cmShapes()) structural = true;   
     noteChange();
     if (structural) { buildShapeList(); updateFocusUI(); } else updateShapeList();
     requestRender('L', 'R');
@@ -187,7 +187,7 @@
     closePalette();
     const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : items.menuLabel || null });
     pop._opener = opener;
-    // (v16.1 user-5) a menu opened from a dialog (Export figure's Size and More formats) is drawn over the dialog: the
+    // a menu opened from a dialog (Export figure's Size and More formats) is drawn over the dialog: the
     // popovers' layer (30) is under the modal's (50), so it opened behind the dialog and its scrim, out of sight
     if (opener && opener.closest && opener.closest('.modal-bg')) pop.classList.add('over-modal');
     const add = (host, list) => {
@@ -211,7 +211,7 @@
     $('popHost').append(pop);
     popEl = pop;
     if (sub) {
-      // (review v16 user-6) in the parent's place, its top at the item that opened it: the submenu replaces the parent
+      // in the parent's place, its top at the item that opened it: the submenu opens over the parent
       // where the pointer already is, rather than jumping beside it (and onto whatever lies there, a divider's tooltip)
       const pw = pop.offsetWidth, ph = pop.offsetHeight;
       let x = sub.at ? sub.at.left : ar.right + 2;
@@ -278,10 +278,10 @@
     const nk = nameKind(s);
     return $t('{kind} {n}', { kind: kindLabel(nk), n: counts[nk] });
   }
-  // (v16.3 review user-9) a perpendicular or touching circle is numbered once, by the kind it was made as (def.nk): a
+  // a perpendicular or touching circle is numbered once, by the kind it is made as (def.nk): a
   // drag that turns it into a line for a moment renames neither it nor the shapes after it
-  // ([v16.4 segments] Inside C only renames nothing: its arc or ray keeps nk; one made with the chip on Inside: nk 'arc')
-  // ([v16.5 UX55] made as a hyperbolic line, def.nk 'hyper': numbered and named as one, 'Hyperbolic line 1')
+  // (Inside C only renames nothing: its arc or ray keeps nk; one made with the chip on Inside: nk 'arc')
+  // (made as a hyperbolic line, def.nk 'hyper': numbered and named as one, 'Hyperbolic line 1')
   const colorName = (i) => [$tx('color', 'Blue'), $tx('color', 'Orange'), $tx('color', 'Teal'), $tx('color', 'Pink'), $tx('color', 'Green'), $tx('color', 'Purple'), $tx('color', 'Olive'), $tx('color', 'Slate')][i] || $t('Preset {x}', { x: i + 1 });
   const kindLabel = (nk) => (nk === 'hyper' ? $t('Hyperbolic line') : Region.KINDS[nk].label);
   function nameKind(s) {
@@ -293,8 +293,7 @@
     if (s.kind === 'arc' || s.kind === 'ray') return nk;
     return nk === 'circle' ? (region ? 'disc' : 'circle') : (region ? 'halfplane' : 'line');
   }
-  // (v16.5 UX97) a menu's key for ⌘ or Ctrl with k (wave 1 merge: none on a touch screen, the phone piece's UX17 rule
-  // that touch words name no keys)
+  // a menu's key for ⌘ or Ctrl with k (none on a touch screen: touch words name no keys)
   const modK = (k) => (touchUI() ? '' : (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl ') + k);
   // a copy of s beside it, selected (the row menu's Duplicate, ⌘D)
   function duplicateShape(s) {
@@ -303,7 +302,7 @@
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }
-  // (v16.5 UX97) the arrows move the selected shape by one step of the drawn grid (Shift: ten), as a drag would
+  // the arrows move the selected shape by one step of the drawn grid (Shift: ten), as a drag would
   // A closed polygon gains a vertex by a double-click on an edge and loses one from its menu or its vertex list. A bound
   // vertex (a construction's point) moves its binding with its index; a derived or fixed polygon is left as it is.
   const polyEditable = (s) => !!s && s.kind === 'polygon' && !s.def && !s.fixed;
@@ -360,7 +359,7 @@
   function nudgeShape(s, dx, dy, big) {
     const pane = isTarget(s) ? paneR : paneL;
     if (!pane || s.def) return false;
-    // (wave 1 merge: the step of the grid as drawn, halves included, the rail piece's Constr.gridStep, as snapping uses)
+    // (the step of the grid as drawn, halves included: Constr.gridStep, as snapping uses)
     const sc = pane.view.s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
@@ -410,7 +409,7 @@
     }
     // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
     // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
-    // ([v16.5 UX27] the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
+    // (the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
     // (the steps view has no X or Y: the shapes are grouped by the plane they are in, "In z", "In w₁", …)
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(0) }) : $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
     const counts = {}, pv = { n: 0 };
@@ -432,14 +431,14 @@
         const nk = nameKind(s), fx = fixedNm(s);
         if (!fx) tc[nk] = (tc[nk] || 0) + 1;
         // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
-        // ([v16.5 fix rail-4] the unit circle or an axis of Y: by that name)
+        // (the unit circle or an axis of Y: by that name)
         const label = s.name && s.kind !== 'point' ? s.name : fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] });
         host.append(shapeRow(s, label, true));
       });
     }
     updateShapeList();
     ctxChanged();
-    Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
+    Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');
   }
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
   function ctxChanged() { if (Phone.isOn && Phone.isOn()) Phone.ctx(); }
@@ -458,21 +457,21 @@
         // a curve of the domain: its line integral (as a right click on the curve opens it)
         if (!target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid') {
           items.push({ label: $t('Integrate {x} along it', { x: fnText() }), run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } });
-          // (v16.5 UX72: Listen along, as in the plane's menu, with the same verb; sound off: it offers to turn it on)
+          // (Listen along, as in the plane's menu, with the same verb; sound off: it offers to turn it on)
           if (SND) items.push({ label: snd.play ? $t('Stop listening') : $t('Listen along it'), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
           items.push('sep');
         }
         items.push({ label: $t('Rename'), run: () => startRename(s) });
         if (kindType(s) === 'area') items.push({ label: s.complement ? $t('Use the set itself') : $t('Use complement'), run: () => { s.complement = !s.complement; changed(); commit(); } });
         items.push({ label: $t('Duplicate'), key: modK('D'), run: () => duplicateShape(s) });
-        // ([v16.5 UX95] the colours by their names, not "Preset 1"–"Preset 8")
+        // (the colours by their names, not "Preset 1"–"Preset 8")
         items.push({ label: $t('Color'), kids: [...TH.c.map((cc, i) => ({ label: colorName(i), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom color…'), run: () => pickColor(s) }] });
         items.push({ label: $t('Bring forward'), key: modK(']'), disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
         items.push({ label: $t('Send backward'), key: modK('['), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
         items.push('sep');
-        // ([v16.5 UX95] Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
+        // (Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
         items.push({ label: $t('Delete'), icon: 'trash', key: touchUI() ? '' : '⌫', danger: true, run: () => deleteShape(s.id) });
-        Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
+        Construct.rowMenu(s, items);   // (Make free, Other point, …)
         openMenu(anchor, items);
     };
     const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
@@ -493,7 +492,7 @@
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
     const box = h('div', { class: 'shape' + (selected === s.id ? ' sel' : '') + (hidden ? ' hidden-shape' : ''), 'data-id': s.id }, row);
-    // (v16: a construction's fields are its definition: the Inspector, ⋯. [v17 D4] on the laptop the Inspector edits a free
+    // (a construction's fields are its definition: the Inspector, ⋯. On the laptop the Inspector edits a free
     // shape; the row keeps its editor on a phone, with the panel hidden, and for a shape with bound handles, whose
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
@@ -510,7 +509,7 @@
     }
     return box;
   }
-  // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc leaves it as it was, and an empty name
+  // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc keeps the old name, and an empty name
   // goes back to the automatic one ("Circle 1"). A point's name is its label (it names the point in the plane too)
   let lastNameClick = { id: null, t: 0 };
   function startRename(s) {
@@ -544,7 +543,7 @@
     inp.addEventListener('change', () => { commit(); inp.remove(); });
     inp.click();
   }
-  // the kind a row was built for: a shape slid over ∞ on a globe changes kind (panels.md 9.4), and its row's name and
+  // the kind a row is built for: a shape slid over ∞ on a globe changes kind (panels.md 9.4), and its row's name and
   // editor fields follow
   const rowKind = (s) => s.kind + (s.complement ? '~' : '');
   function updateShapeList() {
@@ -566,7 +565,7 @@
       // ([#253] a shape of a plane of the chain, in that plane's variable)
       else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
-      if (Construct.row(s, r)) continue;   // (v16: definitions, reasons)
+      if (Construct.row(s, r)) continue;   // (definitions, reasons)
       const er = s.undef || s._err;
       if (er) { r.d.innerHTML = ''; r.d.dataset.tex = ''; r.d.append(h('span', { class: 'err-msg' }, er)); } else TeX.set(r.d, tex);
       const eye = r.row && r.row.querySelector('.eye');
@@ -594,7 +593,7 @@
       try { t = text(); } catch (e) { return; }
       if (t != null && inp.value !== t) inp.value = t;
     });
-    // (v16 review user-3) a handle bound to a point is not typed into: its field reads "= z₀" (read-only, with the link
+    // a handle bound to a point is not typed into: its field reads "= z₀" (read-only, with the link
     // glyph) and offers Make free, which unbinds that handle only (one undo step)
     const boundField = (key, label) => {
       if (!(s.at && s.at[key])) return null;
@@ -606,8 +605,8 @@
     const ptField = (key, label) => {
       const bf = boundField(key, label);
       if (bf) return bf;
-      // (v15: a field may hold a formula of the shared numbers, kept in s.bind)
-      // ([v16.5 UX44] a point takes the full row and reads 4 significant digits until it is clicked into, then 6)
+      // (a field may hold a formula of the shared numbers, kept in s.bind)
+      // (a point takes the full row and reads 4 significant digits until it is clicked into, then 6)
       const sig4 = (x) => +(+x).toPrecision(4);
       const ptText = (dp = 6) => (s.bind && s.bind[key]) || (dp === 4 ? CX.fmt(C(sig4(s[key][0]), sig4(s[key][1])), 6) : CX.fmt(C(s[key][0], s[key][1]), dp));
       const inp = h('input', { class: 'inp mono', value: ptText(4), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
@@ -635,7 +634,7 @@
     const numField = (key, label, step = /** @type {string | number} */ ('any')) => {
       const bf = boundField(key, label);
       if (bf) return bf;
-      // (v15: a text field, so that it takes formulas of the shared numbers: 2a, ρ/2)
+      // (a text field, so that it takes formulas of the shared numbers: 2a, ρ/2)
       const numText = (sig) => (s.bind && s.bind[key]) || (sig ? String(+(+s[key]).toPrecision(sig)) : fmtNumIn(s[key]));
       const inp = h('input', { class: 'inp mono', type: 'text', step, value: numText(4), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
       follow(inp, () => (s[key] != null ? numText(4) : null));
@@ -753,9 +752,9 @@
     if (kindType(s) === 'area') box.append(checkEl('cmp_' + s.id, s.complement, $t('Use complement'), (v) => { s.complement = v; shapesChanged(true); commit(); }));
     let unb = false;
     try { unb = kindType(s) === 'area' && !Region.bboxOf(s) && !formulaBounded(s); } catch (e) { unb = true; }
-    // ([v16.5 UX92] only for a region that goes on forever; UX95 in plain words)
+    // (only for a region that goes on forever, in plain words)
     if (unb) box.append(h('div', { class: 'lbl note', 'data-unb': '' }, $t('Goes on forever; drawn faded towards the edge.')));
-    // (v16.5 UX72) Listen along from the selected curve's editor too, as in its ⋯ (sound off: it offers to turn it on);
+    // Listen along from the selected curve's editor too, as in its ⋯ (sound off: it offers to turn it on);
     // on a phone this is the way in without a long press on a thin line
     if (SND && !target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid')
       box.append(h('div', { class: 'row snd-edit' }, h('button', { type: 'button', class: 'btn', 'data-act': 'listen-along',
@@ -769,12 +768,12 @@
     return box;
   }
   let fieldLabelSeq = 0;
-  // ---------------- [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4, issue #26) ----------------
+  // ---------------- the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4, issue #26) ----------------
   // On the laptop the selected free shape is edited in the Inspector, with full-width fields, its Used by list and a way
   // back to the step it replaced there; a construction keeps its own view (construct.js). The Shapes list keeps the
   // editor under the row on a phone (its sheets) and while the Inspector panel is hidden.
   const inspEditsShapes = () => !S.hideRight && !document.documentElement.classList.contains('ph');
-  let shapeEdWhere = null;   // (applyLayout: where the editor was last built)
+  let shapeEdWhere = null;   // (applyLayout: the place of the editor's latest build)
   function shapeInspSel() {
     if (selected == null || !inspEditsShapes()) return null;
     const s = findShape(selected);
@@ -785,7 +784,7 @@
     const s = shapeInspSel();
     const label = Construct.shapeLabel(s);
     const back = selOf();
-    // (‹ Back to f₂: the step, or F, the Inspector showed before the shape was selected)
+    // (‹ Back to f₂: the step, or F, that the Inspector showed before this shape took over)
     const backBtn = back ? h('button', { type: 'button', class: 'linkbtn sh-back', onclick: () => { selected = null; buildShapeList(); requestRender('L', 'R', 'P'); },
       html: '‹ ' + (back === 'F' ? $t('Back to {f}', { f: '<i>F</i>' }) : $t('Back to {f}', { f: fsub(back) })) }) : null;
     const crumbs = h('div', { class: 'sh-crumbs' }, h('span', { class: 'sh-path' }, isTarget(s) ? $t('Targets') : $t('Shapes'), ' › ', label), backBtn);
@@ -939,10 +938,10 @@
       }
     };
     const add = () => {
-      // (v16.5 UX32: Add on an empty field puts the cursor there and says what to type)
+      // (Add on an empty field puts the cursor there and says what to type)
       if (!inp.value.trim()) { inp.focus(); setNote($t('Type a set, such as |z − 1| < 2, or a curve, such as Re z = 0.')); return; }
       let v = check();
-      // v15: one new name in the formula (Re z = a) adds the number, then the shape
+      // one new name in the formula (Re z = a) adds the number, then the shape
       if (!v) { const u = Params.unknownIn(inp.value); if (u.length === 1 && !Params.check(u[0]).error) { Params.add(u[0]); v = check(); } }
       if (!v) return;
       const w = plane() === 'w';
@@ -970,7 +969,7 @@
   // (#385) the Draw panel's controls: Snap, the tools' More sheet, Clear in the Shapes heading
   function setupDrawControls() {
     // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
-    // ([v16.5 rail SPEC 4.3] the button was "Snap while drawing": it now names what it snaps to, the grid and figures)
+    // (the button names what it snaps to, the grid and figures)
     $('snapBtn').addEventListener('click', () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); });
     // on phones the More sheet of tools closes once a tool is picked
     $('tools').addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); const tm = $('toolMore'); if (tm && tm.open && tg.closest('.tool')) tm.open = false; });

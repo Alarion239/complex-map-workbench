@@ -192,7 +192,7 @@
     },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
-  // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
+  // centred on the box, for the X pane's current size; exFitKey: the view it gave (a view seen first after it fits again).
   // The plane's style bar floats over its bottom on a desktop (a 32 px row 8 px in, more rows on a narrow plane) and
   // does not scale with the view: it is kept clear in pixels, the box fitted and centred above it (notes/sea-song/r2
   // review picture-2); a phone has no bar on the plane
@@ -388,7 +388,7 @@
     placeKeys();
     if (oneDock() && !S.hideLeft && !S.hideRight) setHidden('L', true);   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
-    // ([v17 D4] the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
+    // (the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
     if (shapeEdWhere !== inspEditsShapes()) { shapeEdWhere = inspEditsShapes(); if (selected != null) buildShapeList(); }
     lay.classList.toggle('hide-left', !!S.hideLeft);
     lay.classList.toggle('hide-right', !!S.hideRight);
@@ -492,7 +492,7 @@
   // Each view keeps its own plane view and cameras (merged-views.md): X → Y and Phase both show X's plane and globe,
   // so the plane view (S.srcView, and V.left at a focused stage) and the z-globe's camera are swapped on a switch; the
   // landscape (cam) and the w-globe (camS) belong to one view each already. A view seen for the first time starts from
-  // the one it was switched from.
+  // the view it is switched from.
   const viewMem = {};
   const camKeys = (c) => ({ yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov });
   function setMain(main) {
@@ -531,13 +531,13 @@
     if (side === 'R') {
       // targets are drawn and edited in Y Plane; a target draft and a target selection end with it (the transport
       // stays open)
-      // targets are drawn in Y Plane and on the w-globe (P3b): a target draft ends with the view it was drawn in
+      // targets are drawn in Y Plane and on the w-globe (P3b): a target draft ends with the view it is drawn in
       if (draft && draft.target) draft = null;
       rHover = null; setHoverW(null);
       if (autoFit()) { rightAuto = true; fitRight(); }
       buildShapeList();
     } else {
-      // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes
+      // a shape draft ends with the view it is drawn in (the plane or the z-globe); the flat probe goes
       draft = draft && draft.target ? draft : null;
       if (!lFlat()) { probe = null; hoverCut = 0; setReadouts(null); }
     }
@@ -583,9 +583,9 @@
     const read = (k) => { try { return localStorage.getItem(lsk(k)); } catch (e) { return null; } };
     // (the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
     const ch = +read('cmw-chain-h2'); if (ch) document.documentElement.style.setProperty('--chain-h', ch + 'px');
-    else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names, saved before v15)
+    else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names)
     // TEMP-DEBUG-HOOK (removed before publishing)
-    // the quality and perf suites render their scenes at the v14 pane geometry (a 272 px chain), so their golden images
+    // the quality and perf suites render their scenes at a fixed pane geometry (a 272 px chain), so their golden images
     // and baselines stay valid (test/regress/quality/run_quality.js, test/regress/perf/run.js set window.__cmwChainH)
     if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
     const sp = +read('cmw-split'); if (sp) panes.style.setProperty('--split', String(sp));
@@ -619,7 +619,7 @@
     const tip = $('tip');
     if (!tip) return;
     let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
-    // (v16.5 UX17) the tool descriptions that say click, in touch words (the others drag, hold or pick)
+    // the tool descriptions that say click, in touch words (the others drag, hold or pick)
     const TOUCH_DESC = {
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
       polygon: () => $t('Tap the vertices; tap the first one to close.'),
@@ -632,10 +632,10 @@
     };
     const show = (el) => {
       const text = el.getAttribute('data-tip');
-      // (v16.5 UX34: never for an element that went away, or one the mouse already left)
+      // (never for an element that went away, or one the mouse already left)
       if (!text || !el.isConnected || (el !== lpShown && el !== kbdTip && !el.matches(':hover'))) return;
       const [label, key] = text.split(/\s{2,}/);
-      // (v16.5 UX17: a long-press tip on touch names no key and says tap, not click)
+      // (a long-press tip on touch names no key and says tap, not click)
       const byTouch = el === lpShown;
       tip.innerHTML = '';
       tip.append(document.createTextNode(label));
@@ -664,15 +664,15 @@
     document.addEventListener('pointerout', (e) => { if (cur && !lpShown && (!e.relatedTarget || !cur.contains(e.relatedTarget))) hide(); });
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('keydown', hide, true);
-    // v16.5 UX34 (restores 'tooltips never stick'): a tip shows on hover only, never after a focus (a focus the app
-    // moves, after a palette or a dialog closes, left the tip over the planes); it goes when its element goes, on a
+    // ('tooltips never stick') a tip shows on hover only, never after a focus (a focus the app
+    // moves, after a palette or a dialog closes, leaves the tip over the planes); it goes when its element goes, on a
     // scroll and when the window loses the pointer
     document.addEventListener('pointermove', () => { if (cur && !cur.isConnected) hide(); }, { passive: true, capture: true });
     document.addEventListener('scroll', (e) => { if (!tip.hidden && cur && (e.target === document || (e.target instanceof Element && e.target.contains(cur)))) { lpShown = null; hide(); } }, { passive: true, capture: true });
     window.addEventListener('blur', () => { lpCancel(); lpShown = null; hide(); });
-    // ([v16.5 fix regress-9] a keyboard user's Tab still names an icon and its key: a tip after a focus that Tab, Shift+Tab
+    // (a keyboard user's Tab still names an icon and its key: a tip after a focus that Tab, Shift+Tab
     // or an arrow key moved, on :focus-visible; a focus the app moves itself (after a click, a palette, a dialog, Enter or
-    // Esc) shows none, as UX34 asks. It goes with the focus, on any key and on any press)
+    // Esc) shows none. It goes with the focus, on any key and on any press)
     document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || /^Arrow/.test(e.key)) navKeyAt = performance.now(); }, true);
     document.addEventListener('focusin', (e) => {
       const tg = /** @type {HTMLElement} */ (e.target);
@@ -690,8 +690,8 @@
     const LP_SEL = '.tool[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
-    // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
-    // and its click was swallowed. The release decides by the events' times instead)
+    // page (one still settling) runs late: a quick tap whose release waits behind a long task would look like a long-press
+    // and its click be swallowed. The release decides by the events' times instead)
     let lp = null, lpShown = null, lpDown = null;
     const lpCancel = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
     document.addEventListener('pointerdown', (e) => {
@@ -714,7 +714,7 @@
       if (!lpShown) return;
       // a release less than 450 ms after the press, by the events' times, is a tap: the tip goes, the click goes through
       if (down && e.pointerId === down.id && e.timeStamp - down.t < 450) { lpShown = null; hide(); return; }
-      // (v16.5 UX34) the tip goes when the finger lifts; the click that follows the release is swallowed
+      // the tip goes when the finger lifts; the click that follows the release is swallowed
       const el = lpShown;
       const swallow = (ev) => { if (el.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); } };
       document.addEventListener('click', swallow, { capture: true, once: true });
@@ -764,7 +764,7 @@
     return same || other; // same row with a changed label (Hide → Show), else the same control in another row
   }
   // after a menu, palette or dialog closes: back to its opener, the opener's rebuilt twin, or the phone's ⋯ button
-  // when the opener sat in that (now closed) menu
+  // when the opener sat in that (closed) menu
   function focusBack(anchor, key) {
     const a = document.activeElement;
     if (a && a !== document.body) return;
@@ -895,7 +895,7 @@
   function undoToast(msg, also) {
     const at = hi;
     const t = toast(msg, $t('Undo'), () => { if (hi === at) $('undoBtn').click(); }, true);
-    // (v16.5 UX01: a second action before Undo, "Added f₃ Sine · Show alone · Undo")
+    // (a second action before Undo, "Added f₃ Sine · Show alone · Undo")
     if (t && also) { const u = t.querySelector('.toast-act'); u.before(h('button', { class: 'toast-act', onclick: () => { t.remove(); also[1](); } }, also[0])); }
     return t;
   }
@@ -903,7 +903,7 @@
     const host = $('toastHost');
     if (host) for (const t of host.querySelectorAll('.toast[data-undo]')) t.remove();
   }
-  // (v16.5 UX80, restores "nothing covers uninvited": a message never lands on a control) A desktop's messages sit
+  // (restores "nothing covers uninvited": a message never lands on a control) A desktop's messages sit
   // above the chain, centred between X's and Y's button columns (and above the deformation's transport), as wide as
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
@@ -957,9 +957,9 @@
         for (const r of keys) if (r.bottom > top - 80) hi = Math.min(hi, r.left - 8);
       }
     } else {
-      // ([v16.5 fix regress-3, the user's rule "nothing covers the work area uninvited"] a desktop's message goes in the
+      // (the rule "nothing covers the work area uninvited") a desktop's message goes in the
       // chain head's free middle, between its title and Pictures | Names, when it fits there whole on one line: it then
-      // covers neither a plane nor a control. Only a message too long for it goes above the chain, as UX80 placed it)
+      // covers neither a plane nor a control. Only a message too long for it goes above the chain)
       const hd = document.querySelector('.pipe-head'), grow = hd && hd.querySelector(':scope > .grow'), hb = box(hd);
       if (hb && grow && hb.height > 0 && hb.height < 60 && host.children.length === 1) {
         away(true);
@@ -989,7 +989,7 @@
     st.bottom = Math.round(H - top + 8) + 'px';
     st.maxWidth = Math.round(hi - lo) + 'px';
   }
-  // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
+  // (o.sticky: it stays until its action or its close button is used, or another toast takes its place;
   // o.ms: how long an ordinary one stays)
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
