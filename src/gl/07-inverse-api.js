@@ -195,8 +195,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the inverse program for the current chain, B and view kind with the current formula bundle. start: begin its
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile).
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
-  function invProgram(B, globe, start, extra) {
-    const info = cur.info, inv = info && info.inverse;
+  function invProgram(B, globe, start, extra, invOv) {
+    // (SPIKE: invOv, an inverse op list of its own, GLChain.buildInverse of a chain with a step's homotopy at t)
+    const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
@@ -437,7 +438,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
     const extra = st.carry && !globe ? INV_CARRY : st.extra;
-    let pr = /** @type {any} */ (invProgram(B, globe, true, extra));
+    let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
     // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
@@ -445,13 +446,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
     const defer = st.motion || st.coldOk === false;
     if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
-      const alt = invAltProgram(B, globe, extra, true);
+      const alt = st.inv ? null : invAltProgram(B, globe, extra, true);
       if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
       else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
     }
     if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
     if (pr.state !== 'ready') return 'error';
-    const P = pr.P, inv = cur.info.inverse;
+    const P = pr.P, inv = st.inv || cur.info.inverse;
     P.warm = true;
     const d = passData(inv, st.plan, st.prep);
     if (!d.ok) return 'error';

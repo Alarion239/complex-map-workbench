@@ -368,6 +368,40 @@
     }
     return out;
   }
+  // SPIKE (glide inverse): the inverse path of area shape s under the glide's map H_t o F_{k-1} (mode 1, hi k): the
+  // plan of stages (a, k] with step k standing for its homotopy at t (Inverse.homBuilt), its own inverse op list
+  // (GLChain.buildInverse: another program, the op values its uniforms) and the shape's preparation. Same answer as
+  // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}
+  const invHoms = new Map();
+  function invHomPath(s, a, k, t) {
+    const F = (reason) => ({ path: 'forward', reason });
+    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
+    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    let h = invHoms.get(ck);
+    if (!h) {
+      const bh = built.slice();
+      bh[k - 1] = Inverse.homBuilt(built[k - 1], t);
+      let plan, inv;
+      try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
+      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
+      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
+      h = { plan, inv, preps: new Map(), sing: null };
+      if (invHoms.size >= 8) invHoms.clear();
+      invHoms.set(ck, h);
+    }
+    if (!h.plan.ok) return F(h.plan.reason);
+    const wk = winKey() + '|' + shapeKey(s);
+    let prep = h.preps.get(wk);
+    if (!prep) {
+      try {
+        if (!h.sing || h.sing.k !== winKey()) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin) };
+        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: h.sing.v });
+      } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
+      h.preps.set(wk, prep);
+    }
+    if (!prep.ok) return F(prep.reason || 'shape not eligible');
+    return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
+  }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
     if (!GLR.inverseRequest || !GLR.packShapes || S.exactImages === false || !PHASE.R.flat) return;

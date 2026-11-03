@@ -754,6 +754,30 @@
     }
     return true;
   }
+  // SPIKE (glide inverse, window.__svInvGlide): a glide's frame between planes as svCarryExact draws a plane: per
+  // pixel, the front point z of plane 0 with H_u(F_{b-1}(z)) = w (invHomPath), in the colour of dcolor(F_T(z)).
+  // window.__svInvGlideHalf: at half resolution. False (nothing more drawn) unless every shape takes that path
+  function svCarryExactHom(pane, b, u, T, frame) {
+    const list = svCarryShapes();
+    if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || derivIn(0, b)) return false;
+    packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
+    const paths = list.map((x) => invHomPath(x, 0, b, u));
+    /** @type {any} */ (window).__svInvGlideWhy = paths.map((p) => p.reason);
+    if (paths.some((p) => p.path !== 'inverse')) return false;
+    const carry = svCarryStyle(T), half = !!(/** @type {any} */ (window).__svInvGlideHalf);
+    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    for (let i = 0; i < list.length; i++) {
+      const p = paths[i];
+      let res = 'error';
+      try {
+        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half, motion: false, coldOk: true });
+      } catch (e) { console.error('steps view glide colour', e); }
+      /** @type {any} */ (window).__svInvGlideRes = res;
+      if (res !== 'drawn') return false;
+    }
+    return true;
+  }
   const SV_CARRY_L = 2;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
   // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
@@ -971,7 +995,8 @@
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     paper(pane);
-    const grid = (under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
+    const bare = !!(/** @type {any} */ (window).__svBare);   // SPIKE: the colour layer alone (no grid, outlines, points)
+    const grid = (under) => !bare && GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
@@ -984,6 +1009,8 @@
       GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al });
     };
     const colour = () => {
+      // (SPIKE: the glide drawn per pixel through the inverse path, no blends)
+      if (/** @type {any} */ (window).__svInvGlide && !still && map.mode === 1 && !isDeriv(b) && svCarryExactHom(pane, b, u, T, frame)) { /** @type {any} */ (window).__svInvGlideDrew = (/** @type {any} */ (window).__svInvGlideDrew || 0) + 1; return; }
       // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
       // the window would, the picture is not left blank)
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
@@ -1023,7 +1050,7 @@
       if (!svMaskOn() && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        svOutlines(pane, map, frame);
+        if (!bare) svOutlines(pane, map, frame);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
@@ -1035,6 +1062,7 @@
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (bare) return;
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
     const paths = svPathsSource();
