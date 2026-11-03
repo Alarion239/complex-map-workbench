@@ -626,5 +626,8 @@
  "In the ⋯ menu of $f_2$, choose Move left.": "В меню ⋯ метки $f_2$ выберите «Сдвинуть влево».",
  "Hold the chip $f_2$, then choose Move left.": "Удерживайте метку $f_2$ и выберите «Сдвинуть влево».",
  "Right-click the chip $f_2$, then choose Move left.": "Щёлкните метку $f_2$ правой кнопкой и выберите «Сдвинуть влево».",
- "The planes after this step changed with the order.": "Плоскости после этого шага изменились вместе с порядком."
+ "The planes after this step changed with the order.": "Плоскости после этого шага изменились вместе с порядком.",
+ "Click the chip $d/dz$.": "Нажмите на метку $d/dz$.",
+ "Tap the chip $d/dz$.": "Нажмите на метку $d/dz$.",
+ "The Inspector shows the step that differentiates the chain so far.": "Инспектор показывает шаг, который дифференцирует цепочку до него."
 }
