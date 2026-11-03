@@ -141,7 +141,7 @@ const VIEWS = {
   'fix152_cmd.js': steps({ pin: true }),
   'fix152_classic_cmd.js': classic('the Split offer in the classic views: focus on a card, f₂ shown alone; fix152_cmd.js runs the offer in the steps view'),
   'guide_nav_cmd.js': steps({ pin: true }),
-  'i18n_cmd.js': port('words', 'in the steps view its header, menu, overflow and palette checks pass; its Deformation round trip, the M and P shortcuts, the X → Y digit and the All sheets title have no steps-view equivalent yet (the Paths and All sheets controls)'),
+  'i18n_cmd.js': steps({ pin: true }),
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
