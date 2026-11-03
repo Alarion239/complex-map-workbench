@@ -341,6 +341,20 @@
     const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
+  // draw() once inside each of the rects (device px of the pane, bottom-left origin; intersected with a scissor already
+  // set, the pane's own), or once with no rects; then the scissor is put back
+  function scissored(rects, draw) {
+    if (!rects) { draw(); return; }
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), prevSc = scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
+    for (const sc of rects) {
+      let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
+      if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
+      if (x1 <= x0 || y1 <= y0) continue;
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
+      draw();
+    }
+    if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
+  }
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
   // the chain's cut kinds (a deformation map's carried colour draws a fill for a path cut the sheets continue, clipped
@@ -421,11 +435,13 @@
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
+    // (st.scissors: only inside these rects, as drawRegion's; the depth's clears stay whole)
+    const drawAll = () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
     carryDraw(k, st.depth, () => {
-      if (!carryProbe.noKCDraw) gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (!carryProbe.noKCDraw) scissored(st.scissors, drawAll);
       const sheet = fill || full;
-      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
-      if (sheet && clip) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      if (fill) { set(fill); scissored(st.scissors, drawAll); }
+      if (sheet && clip) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
     });
     gl.bindVertexArray(null);
     return true;
@@ -484,19 +500,9 @@
       } else view2D(P, st.view, st.dpr || 1, res.org);
       regionUniforms(P, st, res.org);
       gl.bindVertexArray(meshVAO(res, L, st.skip));
-      // st.scissors: draw only inside these rects (device px of the pane, bottom-left origin; SPEC 8.8: the GPU image
-      // around a SphereMesh's guard box while its rebuild runs)
-      if (st.scissors) {
-        const scOn = gl.isEnabled(gl.SCISSOR_TEST), prevSc = scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
-        for (const sc of st.scissors) {
-          let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
-          if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
-          if (x1 <= x0 || y1 <= y0) continue;
-          gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
-          gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n);
-        }
-        if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
-      } else gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n);
+      // st.scissors: draw only inside these rects (SPEC 8.8: the GPU image around a SphereMesh's guard box while its
+      // rebuild runs)
+      scissored(st.scissors, () => gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n));
       gl.bindVertexArray(null);
     } finally { if (st.sync) syncDepth--; }
   }

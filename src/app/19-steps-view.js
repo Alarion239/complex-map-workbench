@@ -43,13 +43,27 @@
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
   // the map from plane k into the colour plane T, by name (#435): F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
-  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html' or 'text'
+  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html', 'text' or 'tex'
   function svMapName(fmt, k = svStage(), T = svT()) {
-    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html';
+    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html', tex = fmt === 'tex';
     if (!ss.length) return null;
     if (k === 0 && T === P[P.length - 1]) return h5 ? '<i>F</i>' : 'F';
-    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : `f${sub(s)}`), q = ss.slice().reverse();
-    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}∘${f(q[1])}` : `${f(q[0])}∘⋯∘${f(q[q.length - 1])}`;
+    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : tex ? `f_{${s}}` : `f${sub(s)}`), q = ss.slice().reverse();
+    const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
+    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
+  }
+  // the longest step formula, in TeX characters, that the export's caption shows in its display: a longer one would
+  // not fit the display's one line, so the caption names the map without it
+  const SV_CAP_TEX_MAX = 240;
+  // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
+  // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is
+  // one step and no longer than SV_CAP_TEX_MAX
+  function svFigParts() {
+    const k = svStage(), T = svT(), coloured = svColoured(k), [a, b] = coloured ? [k, T] : [0, k];
+    const ss = svPlanes().filter((s) => s > a && s <= b), st = ss.length === 1 ? built[ss[0] - 1] : null;
+    const lvar = k === 0 ? 'z' : `w_{${k}}`, arg = a === 0 ? 'z' : `w_{${a}}`;
+    const raw = st && !st.error ? st.tex({ s: arg, p: 4 }).s : null;
+    return { k, coloured, lvar, arg, name: svMapName('tex', a, b), raw: raw && raw.length < SV_CAP_TEX_MAX ? raw : null };
   }
   // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
   const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? (fmt === 'html' ? `${m}<span class="rm">(</span>${v}<span class="rm">)</span>` : `${m}(${v})`) : v; };
@@ -898,30 +912,49 @@
       if (!r || !r.meshRes) return false;
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
+      // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
+      const oldRes = smd && smd.old ? smRes(smd.old) : null, stand = oldRes ? { box: smd.old.guardBox, res: oldRes } : null;
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
-      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null, stand });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null, stand });
     }
     if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    // (a stand-in as drawScene's: the old mesh alone where its guard box covers the pane, else inside the box with the
+    // tessellated meshes, which cover clipWin's window alone, around it; a box off the pane, none. The frame is open:
+    // GLR.scissorOf reads its size)
+    const lay = [];
+    for (let i = 0; i < draws.length; i++) {
+      const d = draws[i], o = d.stand, end = !o || i + 1 >= draws.length || draws[i + 1].stand !== o;
+      if (o && o.sc === undefined) o.sc = GLR.scissorOf(o.box, pane.view, pane.dpr, 0);
+      if (!o || (o.sc && !(o.sc[2] > 0))) { lay.push(d); continue; }
+      if (o.sc === null) { if (end) lay.push({ res: o.res, pre: true }); continue; }
+      const sc = o.sc;
+      lay.push(Object.assign({}, d, { scissors: [[0, 0, pane.pw, sc[1]], [0, sc[1] + sc[3], pane.pw, pane.ph - sc[1] - sc[3]], [0, sc[1], sc[0], sc[3]], [sc[0] + sc[2], sc[1], pane.pw - sc[0] - sc[2], sc[3]]].filter((q) => q[2] > 0 && q[3] > 0) }));
+      if (end) lay.push({ res: o.res, pre: true, scissor: sc });
+    }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
     // the map sends far, which would cover the pane many times over, so it is left out)
-    const sts = draws.map((d, i) => {
-      const depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
+    // (an old mesh drawn inside its guard box never ends the depth: its clear would be scissored too, so the depth is
+    // cleared after it; it is never first, its shape's tessellated mesh comes before it)
+    const n = lay.length, tail = n > 1 && lay[n - 1].scissor;
+    const sts = lay.map((d, i) => {
+      const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
     });
     // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
-    for (let i = 0; i < draws.length; i++) if (!draws[i].pre && (sts[i].prep = GLR.carryPrep(draws[i].res, sts[i])) === false) return false;
-    for (let i = 0; i < draws.length; i++) {
-      const d = draws[i], st = sts[i];
+    for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
+    for (let i = 0; i < n; i++) {
+      const d = lay[i], st = sts[i];
       if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
       }
     }
+    if (tail) GLR.carryDepthEnd();
     return true;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
@@ -1030,7 +1063,7 @@
       mp.begin = () => {};
       try {
         // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
-        withSolidRegions(() => { drawScene(mp, map, null, opt); if (k != null) stagePullbacks(mp, k); });
+        withSolidRegions(() => { drawScene(mp, map, 'L', opt); if (k != null) stagePullbacks(mp, k); });
       } catch (e) { console.error('steps view mask', e); }
       o.cc.save();
       o.cc.setTransform(1, 0, 0, 1, 0, 0);
@@ -1044,7 +1077,7 @@
     const mp = Object.create(pane);
     mp.begin = () => {};
     try {
-      withSolidRegions(() => drawScene(mp, map, null, Object.assign(opt, {
+      withSolidRegions(() => drawScene(mp, map, 'L', Object.assign(opt, {
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);

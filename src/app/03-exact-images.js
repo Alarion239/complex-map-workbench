@@ -499,7 +499,8 @@
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
       recs = packRecs();
       if (!sideDraw) lastRecs = recs;
-      if (live && guard) {
+      // (a region mask, opt.fills, is not a frame of the pane's picture: the cost guard neither measures nor demotes it)
+      if (live && guard && !opt.fills) {
         const info = GLR.inverseInfo;
         // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1, P2 review)
         // (no predicted floor: motion stays at full resolution unless the measured frames leave the 60 fps budget;
