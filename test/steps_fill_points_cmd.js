@@ -40,8 +40,8 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     const tag = `${name} ${scope} ${x}`;
     await steps({ scope, surf: 'plane', go: 0, now: true });
     await steps({ scope, surf: 'plane', park: x });
-    // (parked: the tiling's fix-up lands once and the region mask's SphereMesh after it, each changing the frame, so both
-    // settings are read after them; the redraw between the two waits asks for a mesh the parked frame did not)
+    // (parked: the tiling's fix-up lands once and the region mask's SphereMesh after it, each changing the frame, so
+    // both settings are read after them; the redraw between the two waits asks for a mesh the parked frame did not)
     await settled({ max: 60000, until: rest });
     await redraw();
     await settled({ max: 60000, until: rest });
