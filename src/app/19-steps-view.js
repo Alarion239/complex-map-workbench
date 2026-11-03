@@ -543,11 +543,13 @@
       }
     } catch (e) { tr.length = 0; P.k = SV_POLE_K + 1; }
   }
-  // the poles at t of P's map while its tracks are not whole: a seed step's search at t (svPolesIn over the camera's
-  // window and the coarse box), kept for the step of t it falls in (the time it takes, a frame's synchronous pole work,
-  // counted in __svPathStats.poleSyncMs where a measurement sets that object)
+  // the poles near t of P's map while its tracks are not whole: a seed step's search (svPolesIn over the camera's window
+  // and the coarse box) at the tracks' seed step nearest t, kept while t stays nearest it (the time it takes, a frame's
+  // synchronous pole work, counted in __svPathStats.poleSyncMs where a measurement sets that object)
   function svPolesNow(P, t) {
-    const j = Math.round(t * SV_POLE_K);
+    // (at the tracks' own seed steps only: at most SV_POLE_K / SV_POLE_SEED + 1 searches a glide, those the whole tracks
+    // make anyway)
+    const j = Math.min(SV_POLE_K, Math.round(t * SV_POLE_K / SV_POLE_SEED) * SV_POLE_SEED);
     if (P.now && P.now.j === j) return P.now.poles;
     const t0 = performance.now();
     let poles = [];
@@ -561,11 +563,12 @@
     if (ps) { ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0; ps.poleSync = (ps.poleSync || 0) + 1; }
     return poles;
   }
-  // a frame's share of the tracks ahead, at most SV_POLE_BUDGET ms: the glides on either side of the glide to plane b
+  // a frame's share of the tracks, at most SV_POLE_BUDGET ms: those of the glide to plane b, then of the glides on either
+  // side of it
   const SV_POLE_BUDGET = 2;
   function svPolesBudget(b) {
     const t0 = performance.now(), n = nSteps();
-    for (const c of [b + 1, b - 1]) {
+    for (const c of [b, b + 1, b - 1]) {
       if (c < 1 || c > n || derivIn(c - 1, c)) continue;
       const P = svPoleTracks(c, svSheetKey(c).win);
       while (P.k <= SV_POLE_K) { if (performance.now() - t0 >= SV_POLE_BUDGET) return; svPoleStep(P); }

@@ -2,9 +2,9 @@
 // - while the carried colour's programs link (held: GLR.holdLinks), a glide's frames start only its own programs, no
 //   stand-in for them (each a compile of the chain that the GPU process makes the frames wait behind): the square root
 //   example with a step added, held mid-glide at x = 1/2 (a scrub on the rail not let go);
-// - a glide at once after an edit, before any idle moment made the glide's pole tracks: its frames do not make them
-//   (the tracks of plane 1 are still not begun), and the key's poles there, found at t itself, are the tracks' poles
-//   once the tracks are whole (each within 1e-3 of one of the others).
+// - right after an edit, before any idle moment made the glide's pole tracks (the Mountain King's, many times a
+//   frame's share of them): a glide frame's key does not make them whole, and its poles, found by a seed step's search, are the tracks'
+//   poles once the tracks are whole (each within 1e-3 of one of the others).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -52,28 +52,28 @@ async function hold(x, links = true) {
   ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', !['regionKSC', 'regionKS', 'regionK'].some((n) => started.includes(n)), started);
 }
 
-// ---- a glide at once after an edit ----
+// ---- a glide's key at once after an edit ----
 {
-  const ex = names.indexOf('Joukowski airfoil');
+  const ex = names.indexOf('In the Hall of the Mountain King');
+  ok('the Mountain King example is found', ex >= 0, names.length);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gp${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
-  await settled({ max: 20000 });
+  await settled({ max: 30000, panes: false });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
-  await settled({ max: 20000 });
-  // (no idle moment from here on: the tracks of the edited chain are made by nothing but the glide's own frames)
+  await settled({ max: 30000, panes: false });
+  // (no idle moment from here on: the edited chain's tracks are made by nothing but the key's own frames)
   await ev('window.requestIdleCallback = () => 0, 1');
   await ev(`__cmwAddStep('exp'), 1`);
-  await settled({ max: 20000, until: '!!document.querySelector(".sv-plane")' });
-  await hold(0.5);
+  await settled({ max: 30000, panes: false, until: '!!document.querySelector(".sv-plane")' });
+  // (the key of a glide's frame at t = 1/2 to plane 1, as the glide's first frame takes it: the Mountain King's whole
+  // tracks are many times a frame's share)
   const now = await ev('__cmwSvKey(1, 0.5)'), tr = now.tracks;
-  await ev('window.__svScrubUp(), 1');
-  await settled({ max: 20000 });
   const whole = await ev('__cmwSvKey(1, 0.5, true)');
   const near = (p, L) => L.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-3 * (1 + Math.hypot(q[0], q[1])));
   info['after an edit'] = { tracks: tr, now: now.sing, whole: whole.sing };
-  ok('after an edit, held mid-glide: the glide\'s frames did not make its pole tracks', tr.k === 0, tr);
-  ok('after an edit: the key has its poles at t (the disc formula\'s pole at -0.577i among them)', now.sing.length > 0, now.sing);
+  ok('after an edit: a glide frame\'s key does not make the glide\'s pole tracks whole', tr && tr.k < tr.of, tr);
+  ok('after an edit: the key has its poles at t', now.sing.length > 0, now.sing);
   ok('after an edit: the poles found at t are the whole tracks\' poles', now.sing.every((p) => near(p, whole.sing)) && whole.sing.every((p) => near(p, now.sing)), info['after an edit']);
 }
 return { pass: fails.length === 0, fails, info };
