@@ -39,8 +39,14 @@
         : CURVE1.has(tool) && d && curve1Ok() ? $t('Pick a point (on {c} or anywhere)', { c: curve1Name() }) : $t('Pick a point or an empty spot');
       cnt = of(n, m);
     }
+    // (on a globe the curve tools pick their curve in the plane, as a press there says (globeClick): the chip says so
+    // before the press)
+    const cs = chipSide();
+    if ((tool === 'meet' || CURVE1.has(tool)) && cs && A.globeEdit(cs)) what = $t('Switch to the plane to pick the curve');
     lastCnt = cnt.replace(/^ · /, '');
-    return what + cnt + (noName ? '' : ' · ' + tn) + tail;
+    // (a construction of several picks on a later plane says which plane it lives on)
+    const onPlane = A.leftStage() > 0 && NEED[tool] > 1 && (d ? d.side : hoverSide) === 'L' ? ' · ' + $t('on {x}', { x: 'w' + sub(A.leftStage()) }) : '';
+    return what + cnt + (noName ? '' : ' · ' + tn) + onPlane + tail;
   }
   // the head's chip for the tool in use (the sentence stays on the plane): its name and how far the picks have got
   let lastCnt = '';
@@ -57,7 +63,7 @@
   function chipSide() {
     if (!A || !isCTool(A.tool())) return null;
     const side = draftC ? draftC.side : hoverSide;
-    if (side === 'L' && (A.leftStage() > 0 || !(A.lFlat() || A.globeEdit('L')))) return null;
+    if (side === 'L' && !(A.lFlat() || A.globeEdit('L'))) return null;
     if (side === 'R' && !A.targetsEditable()) return null;
     return side;
   }
@@ -190,7 +196,7 @@
   // [v16.5 UX101] a crossing gone to ∞ (its two lines made parallel) is not lost from the plane: a hollow marker sits at
   // the plane's edge where each line leaves it, toward ∞, with "∞" beside it (its row says why)
   function drawInfMarks(pane, side, ctx, TH) {
-    const list = side === 'R' ? S().targets : S().shapes;
+    const list = listOf(side);
     for (const s of list) {
       if (s.kind !== 'point' || !s._atInf || s.visible === false || !s.def || s.def.op !== 'meet') continue;
       for (const r of s.def.args.slice(0, 2)) {
@@ -307,7 +313,7 @@
   }
   // the defining points (rings) and curves (wide, faint) of a selected construction [user-9]
   function drawSources(pane, side, ctx, sel, TH) {
-    const plane = side === 'R' ? 1 : 0;
+    const plane = planeOfSide(side);
     const refs = sel.def ? sel.def.args : Object.values(sel.at || {});
     ctx.save();
     for (const r of refs) {
@@ -328,7 +334,7 @@
     ctx.restore();
   }
   function drawGhosts(pane, side, ctx) {
-    const list = side === 'R' ? S().targets : S().shapes;
+    const list = listOf(side);
     const box = pane.box();
     for (const s of list) {
       if (!s.cundef || !s.cHid) continue;
@@ -469,7 +475,7 @@
       }
       if (hv && !snapped) {
         let T = ht && ht.role === 'T' ? ht.z : null;
-        if (!T) { try { const pr = Constr.projectPiece(pc, hv, pc.c3 && d.curve1.ref ? pts3Of(find(d.curve1.ref.s), d.side === 'R' ? 1 : 0) : null); T = pr && isXY(pr.z) ? pr.z : null; } catch (e) { T = null; } }
+        if (!T) { try { const pr = Constr.projectPiece(pc, hv, pc.c3 && d.curve1.ref ? pts3Of(find(d.curve1.ref.s), planeOf(find(d.curve1.ref.s))) : null); T = pr && isXY(pr.z) ? pr.z : null; } catch (e) { T = null; } }
         if (T) { try { const r = Constr.touchForm(pc.G, T, P0.z); K = r && r.G; } catch (e) { K = null; } }
       }
     }
@@ -547,7 +553,7 @@
     const tool = A.tool();
     if (isCTool(tool) && hoverSide !== side && !draftC) { hoverSide = side; A.requestRender('OL', 'OR'); }
     if (tool === 'select' || tool === 'formula' || tool === 'curve' || tool === 'lasso' || tool === 'cgrid' || tool === 'pgrid') { if (ring) setRing(null, null); return; }
-    if ((side === 'L' && (A.leftStage() > 0 || !A.lFlat())) || (side === 'R' && !A.targetsEditable())) { if (ring) setRing(null, null); return; }
+    if ((side === 'L' && !A.lFlat()) || (side === 'R' && !A.targetsEditable())) { if (ring) setRing(null, null); return; }
     const cl = classesFor(tool, 'draw');
     let t = cl ? snapAt(side, x, y, cl) : null;
     if (isCTool(tool)) {
@@ -567,7 +573,7 @@
         draftC.hoverT = r && !r.warn && !r.restart ? r.t : null;
         A.requestRender('OL', 'OR');
         if (tt && r.warn) { setRing(side, tt, r.warn); return; }
-        if (tt && tt.ref && tt.ref.img && !A.yWhole()) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
+        if (tt && tt.ref && tt.ref.img && !carriedF(side)) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
         setRing(side, tt);
         return;
       }
@@ -576,7 +582,7 @@
       if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: warnTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
       if (t && tool === 'meet' && t.cls === 'point') t = snapAt(side, x, y, { points: false, cross: true, curves: true });
       if (t && tool === 'meet' && t.cls === 'curve' && !t.ref) t = null;   // ([v16.5 rail] Intersect takes a display curve's crossings, not the curve)
-      if (t && t.ref && t.ref.img && !A.yWhole()) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
+      if (t && t.ref && t.ref.img && !carriedF(side)) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
       A.requestRender('OL', 'OR');
     }
     setRing(side, t);
