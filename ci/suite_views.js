@@ -175,7 +175,7 @@ const VIEWS = {
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
-  'phone_glide_export_cmd.js': steps({ pin: true }),
+  'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
