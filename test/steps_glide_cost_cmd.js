@@ -6,7 +6,7 @@
 //   whole pole tracks. Then one put before them both: before any idle moment, the frames of the Möbius map's glide (to
 //   plane 2) make no step of its tracks (many times a frame's share) and search for its poles only at the tracks'
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
-//   others), in slices that pause every 48 evaluations of the map;
+//   others), in slices that pause every 16 evaluations of the map;
 // - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
 //   outer ring's sizes are made by the idle job, in no frame, and each size's mesh is built at most once.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -93,9 +93,9 @@ async function hold(x, links = true) {
   ok('after an edit: the frames finish the seed step\'s search at t', now.tracks && now.tracks.seed === 32 && now.sing.length > 0, info['after an edit']);
   // (the tracks' seed steps in t <= 0.3: 0, 8 and 16 of 64, the one nearest 0.3 being 24)
   ok('after an edit: a glide\'s frames search for poles only at the tracks\' seed steps', (sweep.poleSync || 0) <= 4, sweep);
-  // (a pause once 48 evaluations ran, checked at least every grid row of 25: the slices stop at their 2 ms, not at a
-  // step of t's end, which takes up to 113k evaluations on the King)
-  ok('after an edit: the idle moments make the tracks whole, in slices of at most 72 evaluations between pauses', whole.tracks.k === whole.tracks.of && idle.poleIdle > 1 && idle.poleChunk > 0 && idle.poleChunk <= 72, idle);
+  // (a pause once 16 evaluations ran, checked at least every 9: the slices stop at their 2 ms, not at a step of t's
+  // end, which takes up to 113k evaluations on the King)
+  ok('after an edit: the idle moments make the tracks whole, in slices of at most 24 evaluations between pauses', whole.tracks.k === whole.tracks.of && idle.poleIdle > 1 && idle.poleChunk > 0 && idle.poleChunk <= 24, idle);
   ok('after an edit: the poles found at t are the whole tracks\' poles', now.sing.every((p) => near(p, whole.sing)) && whole.sing.every((p) => near(p, now.sing)), info['after an edit']);
 }
 // ---- a moving map's frames: the outer ring ----
