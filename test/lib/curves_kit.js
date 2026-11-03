@@ -22,12 +22,17 @@ const addFormula = async (t) => {
 };
 const shapes = () => ev('__cmwShapes()');
 // (a target's stroke has a halo that lightens what is under it towards the paper: over a coloured plane that changes the
-// colour too, but it is not ink. A pixel whose change is only a blend towards white, within 32 levels, is halo)
+// colour too, but it is not ink. A pixel whose change is only a blend towards white, within 32 levels, is halo. This hides
+// a stroke only where it is itself a lightening of what is under it: a coloured stroke changes a pixel in some other
+// direction, so a missing or misplaced preimage still shows as ink missing from the shape's recall and as ink far from it)
 const isHalo = (on, off, j) => {
   let dot = 0, nn = 0, res = 0;
   for (let c = 0; c < 3; c++) { const o = off[j + c]; dot += (on[j + c] - o) * (255 - o); nn += (255 - o) * (255 - o); }
   const a = nn > 0 ? dot / nn : 0;
-  for (let c = 0; c < 3; c++) { const o = off[j + c]; res = Math.max(res, Math.abs(on[j + c] - o - a * (255 - o))); }
+  for (let c = 0; c < 3; c++) {
+    const o = off[j + c];
+    res = Math.max(res, Math.abs(on[j + c] - o - a * (255 - o)));
+  }
   return a > 0 && res < 32;
 };
 // the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden (skipHalo: not the
