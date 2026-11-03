@@ -28,7 +28,7 @@
   // thumbnails are cached by signature (stage, chain prefix, shapes, look), so rebuilding the strip is instant
   const thumbCache = new Map();
   let thumbShapesSig = '';
-  // v15 (DESIGN.md 2.2, 2.3): a card's picture follows the open view and is cumulative: card k shows F_k, the map up to
+  // (DESIGN.md 2.2, 2.3) a card's picture follows the open view and is cumulative: card k shows F_k, the map up to
   // step k. X → Y: the image of the shapes; Phase: arg F_k over the main plane's z-window (cover-fitted); Landscape:
   // log|F_k| at the main camera, without labels; the Deformation (X → Y): step k at its own t over its grey start. The
   // region card shows the shapes in z. Drawn exactly (the main view's programs), cached by signature, when idle.
@@ -40,7 +40,7 @@
   // the time of step k in the deformation: one after another, each its own t; all at once, one t
   function cardT(k) {
     const R = morphRange(), steps = R.steps, j = steps.indexOf(k);
-    if (S.focus === 0 && R.r && (k < R.r.a || k > R.r.b)) return 1;   // (v16: outside the bracket, in full)
+    if (S.focus === 0 && R.r && (k < R.r.a || k > R.r.b)) return 1;   // (outside the bracket, in full)
     if (j < 0) return S.focus > 0 && k < S.focus ? 1 : 0;
     if (allAtOnce()) return Math.max(0, Math.min(1, morph.T));
     return Math.max(0, Math.min(1, morph.T - j));
@@ -129,7 +129,7 @@
   function cardDef(pane, k, t) {
     // (all at once, review math-1: card k is the deformation itself up to step k, h_{k,t} ∘ … ∘ h_{1,t}, over
     // h_{k−1,t} ∘ … ∘ h_{1,t}; so the last card is the main picture at every t)
-    // (v16: with a bracket, all at once runs from its start, stage a − 1; a card outside it shows its stage in full)
+    // (with a bracket, all at once runs from its start, stage a − 1; a card outside it shows its stage in full)
     const R = morphRange(), out = S.focus === 0 && !!R.r && (k < R.r.a || k > R.r.b), lo0 = S.focus === 0 && R.r ? R.lo : 0;
     const all = allAtOnce() && !out;
     const map = out ? stageMap(k) : all ? { mode: 3, a: lo0, b: k, t } : stepActive(k) ? { mode: 1, hi: k, t } : stageMap(k);
@@ -161,7 +161,7 @@
     const vk = kind === 'phase' || landStand ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${S.dc}|${S.sectors || 12}|${S.dcGrid}|${S.outline}`
       : kind === 'land' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${cam.yaw.toFixed(4)},${cam.pitch.toFixed(4)},${(cam.dist / CAM3.dist).toFixed(4)},${cam.tx},${cam.ty}|${S.height}|${S.lscale || 1}|${landMaterial()}|${S.dc}|${S.unitLevel}`
       : kind === 'def' ? `t${t.toFixed(4)}|${S.homAll}` : `${selOf() === k + 1 ? 'cuts' : ''}`;
-    // (with exact images: whether the inverse program is ready, so a thumbnail drawn forward before it was is redrawn)
+    // (with exact images: whether the inverse program is ready, so a thumbnail drawn forward before it is ready is redrawn)
     const sig = `${kind}|${k}|${chainSig[k]}|${thumbShapesSig}|${GLR.palette()}|${S.pattern}|${S.patternScale}|${S.alpha}|${S.lines}|${TH.plane}|${TH.dark}|${pane.pw}x${pane.ph}|${vk}|${S.exactImages !== false && GLR.ok && GLR.inverseStatus ? GLR.inverseStatus(S.alpha, 'flat') === 'ready' : ''}`;
     if (card) { const tl = card.querySelector('.tlab'); if (tl) { const tt = kind === 'def' ? `t = ${I18N.num(t.toFixed(2))}` : ''; if (tl.textContent !== tt) tl.textContent = tt; } }
     if (pane.sig === sig) { if (card) card.classList.remove('stale'); return; }
@@ -218,7 +218,7 @@
     }
   }
   // (issue #49) while the morph plays renderThumbs waits (it is put off past every frame), so a card with no picture
-  // of its own yet, a fresh Landscape's, stayed empty until the pause; such a card draws now, one pass at most every
+  // of its own yet, a fresh Landscape's, would stay empty until the pause; such a card draws at once, one pass at most every
   // 200 ms and only while nothing else moves (outside Deformation, the cards' pictures do not change with t)
   let missT = -1e9;
   function missingCards() {
@@ -250,7 +250,7 @@
     for (const p of thumbs.values()) if (p.canvas.isConnected) p.resize(...thumbDims(p.canvas));
     for (const k of thumbs.keys()) { try { renderThumb(k); } catch (e) { console.error(e); } thumbFresh(k); }
   }
-  // (#530) a card's canvas is marked `rz` while its box has a size its picture was not drawn for: the redraw clears it
+  // (#530) a card's canvas is marked `rz` while its box has a size its picture does not match: the redraw clears it
   function thumbFresh(k) { const p = thumbs.get(k); if (p && p.canvas.isConnected && p.canvas.width === Math.round(p.w * p.dpr) && p.canvas.height === Math.round(p.h * p.dpr)) p.canvas.classList.remove('rz'); }
 
   // ---------------- render scheduling ----------------
@@ -324,10 +324,10 @@
   const camSide = (c) => (c === camS ? 'R' : 'L');
   const camTweens = [];
   // a new fit distance (pane resized, box aspect or height scale changed) rescales the user's zoom with it
-  // v16.5 UX106: the Landscape camera's fitted distance. The block's bounding sphere fits the pane's narrower side; on a
-  // portrait phone that left the surface a small picture in the middle (about 230 × 330 px of a 412 × 680 plane). There
+  // the Landscape camera's fitted distance. The block's bounding sphere fits the pane's narrower side; on a
+  // portrait phone that would leave the surface a small picture in the middle (about 230 × 330 px of a 412 × 680 plane). There
   // the block's own corners, as the default camera sees them, are fitted to the width and to the height, never farther
-  // than the sphere's fit. Every other pane keeps the sphere's fit, and every picture it drew.
+  // than the sphere's fit. Every other pane uses the sphere's fit.
   function landFitDist(geo, pane) {
     const sph = GLR.fitDist(geo.radius, CAM3.fov, pane.w, pane.h, 1.05);
     if (!(Phone.isOn && Phone.isOn()) || !(pane.w > 0 && pane.h > pane.w * 1.05)) return sph;
@@ -393,7 +393,7 @@
       dirty.R = true;
       // X's portrait, landscape or phase globe paint H_t too
       if (lPaintsF()) dirty.L = true;
-      // (review v16 sound-picture-2: the readout and the scrubber follow T here, every frame and when Play stops at the
+      // (the readout and the scrubber follow T here, every frame and when Play stops at the
       // end; renderRight's call does not run while Y's pane is hidden, as in Phase alone)
       syncTransport();
       again = morph.playing;
@@ -408,7 +408,7 @@
     if (glide.moving() && !trans.glide) {
       if (!morph.open || morph.playing || morph.T !== glide.x) glide.set(morph.T);
       else {
-        // (a step removed or turned off while it glides: the target stays inside the chain as it is now)
+        // (a step removed or turned off while it glides: the target stays inside the chain as it stands)
         if (glide.target > morphLen()) glide.to(morphLen(), morphLen());
         const dt = glide.last ? (ts - glide.last) / 1000 : 1 / 60;
         glide.last = ts;
@@ -456,7 +456,7 @@
     const ov = dirty.L || dirty.R || dirty.OL || dirty.OR;
     const leg = dirty.G || dirty.R; // the legend repaints only when its key or the needle changed
     dirty.G = false;
-    // (v15: the cards follow X's z-window and camera in Phase and Landscape, and the time in the deformation)
+    // (the cards follow X's z-window and camera in Phase and Landscape, and the time in the deformation)
     if ((dirty.L && (S.view.main === 'phase' || S.view.main === 'land')) || (dirty.R && morph.open && S.view.main === 'xy')) dirty.T = true;
     if (dirty.L) { dirty.L = false; if (solo() !== 'R') try { renderLeft(); } catch (e) { console.error(e); } }
     if (dirty.R) { dirty.R = false; if (solo() !== 'L') try { renderRight(); } catch (e) { console.error(e); } }
@@ -494,7 +494,7 @@
     const r = morphRange();
     return all.length && !allAtOnce() && r.steps.length === all.length && r.steps.every((k, i) => k === all[i]) ? all : null;
   }
-  // the glide ends: Y rests on F again, fitted as it was
+  // the glide ends: Y rests on F again, fitted as before the glide
   function endPeek() {
     if (!trans.glide) return;
     trans.glide = false; trans.k = 0; trans.at = -1; glide.set(0);
@@ -596,7 +596,7 @@
     const t0 = performance.now();
     noteChange();
     rebuild();
-    cmChain();   // (v16: step uids, zero ids, constructions on f1's zeros and F(z0))
+    cmChain();   // (step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
     if (structural) buildPipeline(); else updateCards();
     const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !morphOn() && !hasTargets(), tf = performance.now();
@@ -611,13 +611,13 @@
     scheduleFix();
     updateLeds();
     refreshIntPop();
-    if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
+    if (Params.syncUnused) Params.syncUnused();   // ("Not used yet" follows the chain)
     requestRender('L', 'R', 'T', 'P');
     chainMs = performance.now() - t0;
   }
   function shapesChangedAll(structural) { shapesChanged(structural); }
   function shapesChanged(structural) {
-    if (cmShapes()) structural = true;   // (v16 constructions)
+    if (cmShapes()) structural = true;   // (constructions)
     if (numberPoints()) structural = true;
     noteChange();
     if (structural) {
@@ -625,7 +625,7 @@
       buildShapeList();
       updateRegionCard();
     } else { updateShapeList(); updateRegionCard(); }
-    // (v16 [C3a]: not while a pointer gesture moves shapes, points or zeros: onUp fits Y once at the gesture's end)
+    // (not while a pointer gesture moves shapes, points or zeros: onUp fits Y once at the gesture's end)
     if (rightAuto && autoFit() && !(!structural && drag && /^(move|handle|zp)$/.test(drag.mode))) fitRight();
     scheduleFix();
     refreshIntPop();
@@ -653,7 +653,7 @@
       const xs = [], ys = [], bx = [], by = [];
       stageSamples(stageF(end), xs, ys, end);
       if (withT && morph.T > 0 && morph.T < m) stageSamples(morphAt(morph.T), xs, ys);
-      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by, homRangeOk() ? undefined : base);   // (v16: the bracket's start)
+      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by, homRangeOk() ? undefined : base);   // (the bracket's start)
       const U = robustBox(xs, ys), B = robustBox(bx, by);
       const area = (b) => (b.x1 - b.x0) * (b.y1 - b.y0);
       if (U && B && area(B) > 9 * Math.max(area(U), 1e-12)) {
@@ -729,7 +729,7 @@
     phHold();
     endPeek();
     setFocusStep(k);
-    if (k > 0) setSel(k);   // (v15: showing a step alone selects it)
+    if (k > 0) setSel(k);   // (showing a step alone selects it)
     leftAuto = true; rightAuto = true;
     // (Y's split view, put aside by the deformation, is fitted again for the new focus when the deformation closes)
     if (defMem.y) defMem.y.auto = true;

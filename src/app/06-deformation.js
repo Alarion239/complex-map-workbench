@@ -128,7 +128,7 @@
   const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
   // The kept start points are points of the plane, not of the screen (merged-views review: a 60 px pan swapped the
   // whole set once the job ran, and during play the paths popped between sets): a selection stays while the view is
-  // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
+  // within a pan of 30 % of the panel and a zoom of 1.5x of the view where it is chosen, at the same panel size; the
   // frame re-projects its paths. A larger pan or zoom chooses again.
   function mfViewOk(pane) {
     const a = mfCache.v0, v = pane.view;
@@ -169,7 +169,7 @@
         const el = $(id);
         if (!el || el.hidden || el.offsetParent === null) continue;
         const q = el.getBoundingClientRect();
-        // ([v16.5 fix regress-8] only where it lies over the plane: since UX20 a desktop's legend and options sit in the
+        // (only where it lies over the plane: a desktop's legend and options sit in the
         // pane head, above the overlay, and a rectangle outside it rules out nothing)
         const b = { x0: q.left - r.left - 4, x1: q.right - r.left + 4, y0: q.top - r.top - 4, y1: q.bottom - r.top + 4 };
         if (q.width > 0 && q.height > 0 && b.x1 > 0 && b.y1 > 0 && b.x0 < r.width && b.y0 < r.height) out.push(b);
@@ -217,7 +217,7 @@
     const want = key + '\n' + vkey;
     if (!(mfCache.job && mfCache.job.want === want)) {
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
-      // (review v16 regress-5: a bracket drag's snaps never start a selection; the release does, setHomRange's force)
+      // (a bracket drag's snaps never start a selection; the release does, setHomRange's force)
       if (brDragging()) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
       else if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, src); }
       // the 150 ms of stillness count from the last change of what is wanted, not from the last frame: a frame that
@@ -277,7 +277,7 @@
       return project(pane, cam.MVP, p.map((x) => x * 1.01));
     };
   }
-  // the screen's selection, finished now (a test hook): waits for (or starts) the job
+  // the screen's selection, finished at once (a test hook): waits for (or starts) the job
   async function morphSelScreenNow(pane, force) {
     if (force) { mfCache.sel = null; mfCache.key = ''; if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; } }
     const src = classicSource(), { key, vkey } = mfScreenKey(pane, src);

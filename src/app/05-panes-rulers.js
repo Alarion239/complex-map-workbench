@@ -32,7 +32,7 @@
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
-      // ([v16.5 fix user-3] the curves and points of a construction, and the unit circle or an axis made a shape, are
+      // (the curves and points of a construction, and the unit circle or an axis made a shape, are
       // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
       const F = shapeF(s, F0, k);
@@ -75,7 +75,7 @@
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
   let zpHandlesL = [], zpHover = null, zpSel = null;
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
-  // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
+  // (build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
   function phHold() { if (Phone.hold) Phone.hold(); }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
@@ -96,7 +96,7 @@
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
-    // (Landscape is not on this pane now: its refinement's textures go, issue #50)
+    // (Landscape is not on this pane: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
     // X Plane + Phase: the phase portrait of the map in focus (U-b; earlier the right pane's Phase view)
     // (its shapes outlined, the target preimages, the points and the editable cuts drawn over it, as in X Plane)
@@ -149,10 +149,10 @@
     syncModeChips();
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
     const cl = $('draftChipL'), cr = $('draftChipR');
-    const cmSide = Construct.chipSide();   // (v16: a construction tool's chip)
+    const cmSide = Construct.chipSide();   // (a construction tool's chip)
     if (cl) { const on = (poly && !draft.target) || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
     if (cr) { const on = (poly && !!draft.target) || cmSide === 'R'; if (cr.hidden === on) cr.hidden = !on; }
-    // [v16.5 UX14, UX95] how to close and back up, in the words of the pointer in use (a finger has no Enter)
+    // how to close and back up, in the words of the pointer in use (a finger has no Enter)
     if (poly) {
       const sp = (draft.target ? cr : cl) && (draft.target ? cr : cl).firstElementChild;
       const txt = fingerNow() ? $t('Tap the first point to close · Undo removes the last point') : $t('Click the first point or press Enter to close · ⌫ removes the last point');
@@ -169,10 +169,10 @@
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
-      // (v16.5 UX71) listening: the chip says what plays, and its Stop button ends it (Esc too)
+      // listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
       if (!msg) { msg = listenChipMsg(); if (msg) act = { stop: true }; }
-      // (review v16 verify-7: the Mountain King's hint, with its Listen button, in X's title row, over no plane; only
+      // (the Mountain King's hint, with its Listen button, in X's title row, over no plane; only
       // where that row is not shown, here, while nothing else is said here)
       const q = pieceHint(), inHead = syncPieceHint(q);
       if (!msg && q && !inHead) { act = q; msg = q.msg; }
@@ -196,7 +196,7 @@
       const on = tool !== 'select' && solo() !== 'L' && (morphOn() || (rGlobe() && GLOBE_OFF.has(tool)));
       const msg = !on ? '' : morphOn() ? $t('Drawing is off in the deformation (M).') : $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName });
       if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
-      // (v16.5 UX102) the way out is a button: the deformation turns off and the chosen tool stays
+      // the way out is a button: the deformation turns off and the chosen tool stays
       const want = on && morphOn();
       let ab = sr.querySelector('.chip-act');
       if (want && !ab) { ab = h('button', { class: 'toast-act chip-act chip-draw', type: 'button', 'data-tip': $t('Turn the deformation off and draw  M'), onclick: () => { const tl = tool; closeTransport(); if (tool !== tl) setTool(tl); updateDraftChips(); } }, $t('Turn off and draw')); sr.append(ab); }
@@ -218,7 +218,7 @@
       if (b.dataset.tool === 'select') continue;
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
-      // (dimmed, it says so: a press still explains, so it stays focusable; ux's wave 12 sweep, axe's contrast)
+      // (dimmed, it says so: a press still explains, so it stays focusable)
       if (g) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
       b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
@@ -260,7 +260,7 @@
       paneR.setView(V.right);
       drawHandles(paneR, S.targets);
       if (draft && draft.target) drawDraft(paneR);
-      Construct.drawOverlay(paneR, 'R');   // (v16)
+      Construct.drawOverlay(paneR, 'R');
       if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
     }
     if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
@@ -350,7 +350,7 @@
       const len = horiz ? W : Hh;
       const toPx = (val) => (horiz ? pane.w / 2 + (val - v.cx) * v.s : pane.h / 2 - (val - v.cy) * v.s);
       const lo = horiz ? v.cx - pane.w / 2 / v.s : v.cy - pane.h / 2 / v.s, hi = horiz ? v.cx + pane.w / 2 / v.s : v.cy + pane.h / 2 / v.s;
-      // ([v16.5 UX105] the UI face: "0.5", as the old mono face (B612 Mono) could not set it: "0. 5"; an imaginary label's i in the maths italic, so the
+      // (the UI face, not the mono one (B612 Mono), which cannot set "0.5": "0. 5"; an imaginary label's i in the maths italic, so the
       // turned label "2i" never reads "21")
       ctx.font = `${small ? 9 : 10}px ${TH.ui}`;
       // labels at the 1-2-5 step that keeps them >= 72px (bottom) or 48px (left) apart, rounded up, and further up
@@ -547,7 +547,7 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights)
+  // median |F| over the box (it scales |F|, Re F and Im F heights)
   let muCache = { key: '', mu: 1 };
   function medianAbs(box) {
     const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}`;
@@ -580,9 +580,9 @@
     const box = landBox();
     // the Morph transport (homView): the surface of H_t; All sheets (S.sheets, window S.sheetW): the whole covering
     // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
-    // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
+    // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)   standards-ok: the note's path
     const hv = typeof homView === 'function' ? homView() : null;
-    // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
+    // (while deforming, F's digits, given F's last step; a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
@@ -593,8 +593,8 @@
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
     render3D.linear = false;
-    // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
-    // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
+    // (while deforming with sheets: the same block as F's static All sheets, and a scale that ends
+    // at F's (below: it follows H_t), so the end frame is the static one; the linear height then has a
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
     // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
     // and a log window keeps its pitch instead of the compressed height's plates)
@@ -624,16 +624,15 @@
         c.boost = lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1;
       }
       mu = c.mu;
-      // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
-      // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
-      // follows H_t: the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
+      // (F's scale for every t would flatten H_t where F's sheets are much taller, as log then sin, where H_t would
+      // look like one flat sheet, and wall it where they are much lower, as sin √z near t = 0. The scale follows H_t:
+      // the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
       // first needed), interpolated in log between them; the last is F's own (at the end the surfaces are F's, bit for
-      // bit), so the end frame is still the static one. The block (boost) stays F's.)
-      // (v16.2, review rv162-1: with many sheets one time's scale is K x 144 evaluations, about 8 ms at K = 24 on the
-      // Mac, so computing each inside the frame that first needs it dropped frames on the first play. The 8 times are
-      // now filled in idle time, one row of 12 points at a time, from the frame that opens the key on, ahead of t; a
-      // frame that needs a time not yet filled finishes it from where the idle work stopped. Same points, same values,
-      // same percentile: the scale is unchanged, only when it is computed moves.)
+      // bit), so the end frame is the static one. The block (boost) is F's.)
+      // (with many sheets one time's scale is K x 144 evaluations, about 8 ms at K = 24 on the
+      // Mac, so computing each inside the frame that first needs it would drop frames on the first play. The 8 times are
+      // filled in idle time, one row of 12 points at a time, from the frame that opens the key on, ahead of t; a
+      // frame that needs a time not yet filled finishes it from where the idle work stopped.)
       if (hv && c.mu > 0 && typeof Funcs.sheetMapEval === 'function') {
         const L = morphLen(), N = 8, T = Math.max(0, Math.min(L, +hv.t || 0));
         const hk = `${key}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${L}|${leftStage()}|${sheets.end}`;
@@ -641,7 +640,7 @@
         let h = render3D.muH && render3D.muH.key === hk ? render3D.muH : null;
         if (!h) {
           // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
-          // stops when this no longer matches, so a value is only ever computed for the state of its key
+          // stops when this changes, so a value is only ever computed for the state of its key
           const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
           const cmu = c.mu, K = si.K, W = sheets.W, end = sheets.end, s0 = sig();
           h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
@@ -1046,7 +1045,7 @@
       const pf = regionsOn && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
       if (regionsOn && kindType(s) === 'area') {
         const fwd = [];
-        // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) replaces the lifted
+        // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) takes the place of the lifted
         // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere)
         const pth = recs ? pathOf(s, map, role, 'globe', { recs, budget: live, status: true }).path : 'forward';
         const smd = !hom && (live || offRender) ? smFor(s, r, role, 'globe', map, pane, smR, live && pth === 'forward') : null;
@@ -1086,7 +1085,7 @@
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
     // (at a focused step, the image of X at the step's input stage)
     if (hom && imageMode && role === 'R') {
-      // (v16: with a bracket, H_0(∂X) = Q o P(∂X) through H0Map, SPEC 5.3)
+      // (with a bracket, H_0(∂X) = Q o P(∂X) through H0Map, SPEC 5.3)
       const base = S.focus > 0 ? S.focus - 1 : 0, bm = hom.range && hom.H0Map ? hom.H0Map : stageMap(base), bk = mapKeyOf(bm);
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;

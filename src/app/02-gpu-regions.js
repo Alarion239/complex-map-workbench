@@ -32,8 +32,8 @@
   //   of a newer mesh whose fix-up for that role has not landed yet, when it shows the same shape (a re-centred clipWin,
   //   another base resolution) or the shape is being dragged (its live fix-up then lands within a frame or two).
   // - the strokes go with the fill drawn: a pair (the hold, a live job's mesh) names in lref the lineKey of the strokes
-  //   it was drawn with; when the strokes are rebuilt (a drag move, a re-centre) the old ones are kept in r.lpool while
-  //   a pair names them, and a hold is drawn with them (U-a review: the fill one position behind its outline in a drag).
+  //   it is drawn with; when the strokes are rebuilt (a drag move, a re-centre) the old ones are kept in r.lpool while
+  //   a pair names them, and a hold is drawn with them (so the fill is never one position behind its outline in a drag).
   //   The new strokes are drawn once the current mesh is (fill and outline trail together, never apart).
   // - r.live: the dragged shape's fix-up job, advanced inside the motion frames (LIVE_SLICE ms per frame) instead of
   //   waiting for the pointer-up; a newer mesh does not cancel it: it finishes its own mesh, which becomes the hold,
@@ -42,7 +42,7 @@
   // budget), so a fix-up that fits lands in the frame that built its mesh and no hold frame is drawn (U-a review)
   const LIVE_SLICE = 4, LIVE_FRAME_MS = 9;
   let liveMsUsed = 0;   // the live fix-up time spent in this animation frame (frame() resets it)
-  let frameStartT = -1e9;   // performance.now() at the start of the current animation frame
+  let frameStartT = -1e9;   // the performance clock's reading (ms) at the start of the current animation frame
   const dragsShape = (s) => !!(drag && drag.shape === s && !drag.target && (drag.mode === 'move' || drag.mode === 'handle'));
   const liveOn = (s, r) => !!(r && (r.live || r.liveTail)) || dragsShape(s);
   function freePair(p) {
@@ -58,7 +58,7 @@
       GLR.destroy(L.lineRes); r.lpool.delete(k);
     }
   }
-  // the strokes to draw with the pair pm (from pairFor): the current ones, or the kept ones a hold was drawn with
+  // the strokes to draw with the pair pm (from pairFor): the current ones, or the kept ones a hold is drawn with
   function linesOf(r, pm) {
     if (pm === r || !pm || pm.lref === undefined || pm.lref === r.lineKey) return r;
     const L = r.lpool && r.lpool.get(pm.lref);
@@ -114,13 +114,13 @@
     if (!job.owned && job.meshKey === r.meshKey) {
       const old = r.fix[job.role];
       r.fix[job.role] = make(old && old.meshKey === r.meshKey ? old : null);
-      // a hold that the current mesh now covers in every role it was drawn for is no longer needed
+      // a hold that the current mesh covers in every role it is drawn for is not needed
       if (r.hold && holdCovered(r)) dropHold(r);
     } else if (r.fix[job.role] && r.fix[job.role].meshKey === r.meshKey) {
       // the newest mesh already has its own fix-up for this role: the finished older pair is not needed
       freePair({ meshRes: job.meshRes, fix: job.fixDone });
     } else {
-      // the job's mesh was replaced while it ran: the finished pair becomes the hold until the newest mesh has its own
+      // the job's mesh is replaced while it runs: the finished pair becomes the hold until the newest mesh has its own
       const fix = job.fixDone || {};
       const old = fix[job.role];
       fix[job.role] = make(old && old.meshKey === job.meshKey ? old : null);
@@ -226,16 +226,16 @@
       // a hold of another geometry is shown only while the shape's live fix-up runs
       if (r.hold && r.hold.skey !== sk && !liveOn(s, r)) dropHold(r);
     } else if (r.meshRes || r.mesh) {
-      // a shape that is no longer an area (its id reused) gives back its mesh and map caches
+      // a shape that is not an area (its id reused) gives back its mesh and map caches
       destroyFix(r); dropHold(r); dropLive(r); GLR.destroy(r.meshRes);
       r.meshRes = r.mesh = r.meshKey = null;
     }
-    // a curve formula that no longer classifies as a curve (old saved state, a newer parser) says why in its row
+    // a curve formula that does not classify as a curve (a saved state, a newer parser) says why in its row
     if (s.kind === 'fcurve') { try { Region.curveDesc(s); s._err = null; } catch (e) { s._err = e.message; } }
     if (t !== 'point' && !(o && o.lines === false)) {
       const lkey = sk + '|' + JSON.stringify(win) + (s.kind === 'formula' ? '|' + r.meshKey : '');
       if (r.lineKey !== lkey) {
-        // a pair still on screen (the hold) or on its way to it (the live job's mesh) keeps the strokes it was drawn
+        // a pair still on screen (the hold) or on its way to it (the live job's mesh) keeps the strokes it is drawn
         // with: fill and strokes then change together, when the new mesh's fix-up lands (a re-centred clipWin, a drag)
         if (r.lineKey !== undefined && ((r.hold && r.hold.lref === r.lineKey) || (r.live && r.live.lref === r.lineKey)) && !(r.lpool && r.lpool.has(r.lineKey))) {
           (r.lpool || (r.lpool = new Map())).set(r.lineKey, { lineRes: r.lineRes, lineKey: r.lineKey, open: r.open, lpolys: r.lpolys, lorigin: r.lorigin, arcs: r.arcs });
@@ -333,7 +333,7 @@
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
-  // (v16 deformation range, notes/deform-range/SPEC.md 3: the arithmetic is src/homrange.js; these keep their names)
+  // (deformation range, notes/deform-range/SPEC.md 3: the arithmetic is src/homrange.js)
   const HR = HomRange.make({ n: () => S.steps.length, stepFn, isDeriv, stepActive, stageF, rangeF, built: () => built, C, sig: () => chainSig[nSteps()] + '|' + S.steps.map((st) => st.uid || '').join(',') });
   // the bracket a…b (S.homRange) in its normal form, or null (absent, focus k, or no step outside it)
   const homRangeOk = () => HR.resolve(S);
@@ -364,7 +364,7 @@
   const morphLen = () => (allAtOnce() ? 1 : morphRange().steps.length);
   // the primes of a point's label under the deformation: the stages before the bracket, the bracketed steps begun (all
   // of them at once for t > 0) and the post (SPEC 3.2; at focus k and with no bracket, as before)
-  // (review v16 math-4: with a bracket the count is the stage reached, bypassed steps included, so the end reads n
+  // (with a bracket the count is the stage reached, bypassed steps included, so the end reads n
   // primes as the static F-image does; with a live post the moving point Q(G_t(P(z₀))) is no stage of the chain
   // (H_0(z₀) = f_3(z₀) in a pullback is not w_1(z₀) = z₀′), so it reads Hₜ(z₀): -1, pointLabel)
   const morphPrimes = () => {
@@ -375,7 +375,7 @@
     const m = R.steps.length, j = allAtOnce() ? (morph.T > 0 ? m : 0) : Math.min(m, Math.ceil(morph.T));
     return j >= m ? R.p1 : j > 0 ? R.steps[j - 1] : R.lo;
   };
-  // (exact ends, as homrange.js lerpE and gl.js MAP_STAGE: review v16 math-2)
+  // (exact ends, as homrange.js lerpE and gl.js MAP_STAGE)
   const lerpF = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); });
   // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
   // or a formula that is not recognisably a catalog map, funcs.js); the identity at t <= 0 and f at t >= 1 (D3)
@@ -484,8 +484,8 @@
       if (token !== fixJob.token) return null;
     }
   }
-  // The fix-up computation as a generator: it yields (to its driver) whenever it has run for slice ms since it was
-  // last resumed, and returns {flags, extra}. Two drivers: computeFix (the idle job above) and liveFix (the shape
+  // The fix-up computation as a generator: it yields (to its driver) whenever it has run for slice ms since it last
+  // resumed, and returns {flags, extra}. Two drivers: computeFix (the idle job above) and liveFix (the shape
   // being dragged, advanced inside its motion frames, so its fix-up keeps up with the drag).
   function* fixGen(mesh, F, slice) {
     const SRC = mesh.src, T = mesh.tri, nv = SRC.length / 2, nt = T.length / 3;
@@ -591,7 +591,7 @@
     if (!svFixWant || !SV.on) return true;
     return svFixWant.shapes.every((x) => { const r = gpu.get(x.id), f = r && r.fix.SV; return !r || !r.meshRes || (f && f.meshKey === r.meshKey && f.mapKey === svFixWant.key); });
   }
-  // every role a hold was drawn for has its own fix-up of the current mesh (the steps view's role is not one a hold
+  // every role a hold is drawn for has its own fix-up of the current mesh (the steps view's role is not one a hold
   // stands in for)
   const holdCovered = (r) => Object.keys(r.hold.fix).every((k) => k === 'SV' || (r.fix[k] && r.fix[k].meshKey === r.meshKey));
   async function runFix() {
@@ -636,7 +636,7 @@
   // Jobs: one per key (shape, role, view kind, map, window, K, pattern; view), run one at a time in SM_SLICE ms idle
   // slices that wait out any motion (fixBusy, interacting), with their own keys: scheduleFix's token does not cancel
   // them; LED busy. A job is built for the view where the interaction settled. A flat mesh stays valid while the view
-  // lies inside its guard box (the view it was built for, enlarged SM_GUARD times) and its zoom within 2x; a globe mesh
+  // lies inside its guard box (its build view, enlarged SM_GUARD times) and its zoom within 2x; a globe mesh
   // while the globe's radius is within 2x. While a rebuild runs, the old mesh of the same content is drawn inside its
   // guard box and today's GPU image (with its fix-ups) around it (8.8). K is that of the shape's alpha (not 8.8's
   // hover-dimmed alpha / 2: at alpha 0.85 that is K = 11 against 3, and exp(H) took 3.5x the work, 2.6 s against 0.74 s
@@ -715,7 +715,7 @@
     return `${s.id}|${shapeKey(s)}|${role}|${kind}|${mapKeyOf(m)}|K${SphereMesh.kOf(S.alpha)}|p${pid}|${patternCell()}|${S.lines ? 1 : 0}` + (win ? `|${winKey()}` : '');
   }
   // the meshing window as the mesher's source view: clipWin at a nominal SM_WIN_PX px across (it is the left pane's box
-  // when it was last re-centred), so the source metric depends on clipWin alone (an export's scaled views share it)
+  // at its last re-centring), so the source metric depends on clipWin alone (an export's scaled views share it)
   const SM_WIN_PX = 480;
   function smLeft() {
     const w = clipWin.x1 - clipWin.x0, h = clipWin.y1 - clipWin.y0, sv = SM_WIN_PX / Math.max(w, h);
@@ -871,7 +871,7 @@
     const e = { key: job.key, ck: job.ck, ck0: job.ck0, slot: job.slot, role: job.role, kind: job.kind, view: job.view, guardBox: data.guardBox, data, res: null, t: performance.now(), bytes, why: job.why, exp: !!job.exp, expGen: job.expGen || 0,
       info: { n: data.n, partial: !!data.partial, nodes: stats.nodes, work: stats.work, ms: +job.ms.toFixed(1), slices: job.slices, settleMs: +(performance.now() - job.t0).toFixed(0), budgetWhy: stats.budgetWhy } };
     // one mesh per slot: the slot's older meshes (another content: pattern, alpha, lines, a paused T, the map; or
-    // another view) go now; the new one is the stand-in of the slot's next rebuild
+    // another view) are dropped here; the new one is the stand-in of the slot's next rebuild
     for (const x of [...sm.entries.values()]) if (x.slot === e.slot) smDrop(x);
     sm.entries.set(e.key, e); sm.cpuBytes += bytes;
     sm.stats.built++; if (data.partial) sm.stats.partial++;
@@ -1030,7 +1030,7 @@
   }
   // the figure export (prepareExport): every visible shape's lines refined for the current spec, one shape at a time,
   // yielding to the page between shapes once 8 ms have passed (SPEC 10.6: the export never blocks the dialog); alive():
-  // false when the export was cancelled (an option changed, the dialog closed) -> false then
+  // false once the export is cancelled (an option changed, the dialog closed), and the call then returns false
   async function refineAllNow(alive = () => true) {
     if (!GLR.ok || !Region.Lines) return true;
     let t0 = performance.now();
@@ -1119,13 +1119,13 @@
   // ---------------- drawing ----------------
   // Pattern cell size depends on the shapes (not the view), so it stays put while panning and zooming.
   let cellBase = 0, cellKey = '';
-  let cellSay = false, cellSaid = false;   // [v16.5 UX91] an added shape may refit the cell: said once a session
-  // (v16 review picture-2) a constructed region far larger than the window (a 3-point disc near collinear) counts as
+  let cellSay = false, cellSaid = false;   // an added shape may refit the cell: said once a session
+  // (a constructed region far larger than the window (a 3-point disc near collinear) counts as
   // unbounded, as its limit the half-plane does: the cell then stays continuous through the collinear case, never
   // "cell 1×10⁶" (the threshold is the M(R) one, Region.MR_RATIO window diagonals)
   const cmHuge = (s, b) => !!(s._g && b && Math.max(b.x1 - b.x0, b.y1 - b.y0) > (Region.MR_RATIO || 50) * Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0));
   function patternCell() {
-    // ([v16.5 fix user-3] keyed on the regions alone, which are all it is fitted to: a curve, a point or a construction
+    // (keyed on the regions alone, which are all it is fitted to: a curve, a point or a construction
     // added never refits it, which with no bounded region read the window of that moment)
     const key = S.shapes.filter((s) => kindType(s) === 'area').map((s) => { if (!s._g) return shapeKey(s); let b = null; try { b = Region.bboxOf(s); } catch (e) { b = null; } return shapeKey(s) + (cmHuge(s, b) ? '~' : ''); }).join('|');
     if (key !== cellKey || !cellBase) {
@@ -1140,7 +1140,7 @@
       if (!size) size = Math.max(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
       const was = cellBase;
       cellBase = Axes.niceStep(size / 10);
-      // [v16.5 UX91] a shape the user just added refits the grid on everything: said once, with where to change it
+      // a shape the user just added refits the grid on everything: said once, with where to change it
       // (#363: while the regions' grid lines are drawn, the one thing the cell changes)
       if (cellSay && was && was !== cellBase && S.lines) {
         const x = I18N.num(CX.fmtNum(cellBase * (S.patternScale || 1), 4).replace('-', '−'));
@@ -1152,7 +1152,7 @@
     return cellBase * (S.patternScale || 1);
   }
   let hoverShape = null;
-  // the strength of shape s's fill: v15 dims the others to 50 % while a row is hovered; (v16 review user-9, SPEC 10)
+  // the strength of shape s's fill: the others dim to 50 % while a row is hovered (SPEC 10);
   // a construction hovered (or, on touch, selected) keeps it, what it is built from and what is built on it, and
   // dims every other shape to 30 %
   let dimMemo = { id: null, t: -1, set: null };
