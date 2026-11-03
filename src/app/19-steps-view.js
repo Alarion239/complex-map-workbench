@@ -837,7 +837,7 @@
       mp.begin = () => {};
       try {
         // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
-        withSolidRegions(() => { drawScene(mp, map, null, opt); if (k != null) stagePullbacks(mp, k); });
+        withSolidRegions(() => { drawScene(mp, map, 'L', opt); if (k != null) stagePullbacks(mp, k); });
       } catch (e) { console.error('steps view mask', e); }
       o.cc.save();
       o.cc.setTransform(1, 0, 0, 1, 0, 0);
@@ -851,7 +851,7 @@
     const mp = Object.create(pane);
     mp.begin = () => {};
     try {
-      withSolidRegions(() => drawScene(mp, map, null, Object.assign(opt, {
+      withSolidRegions(() => drawScene(mp, map, 'L', Object.assign(opt, {
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
