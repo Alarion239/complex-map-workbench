@@ -781,7 +781,9 @@
   }
   function svSphereMoving(pane) {
     const { a, b, u, map, F, near } = svBetween();
-    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L', colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F }, carry: svGlobeCarry(k) });
+    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L',
+      colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F },
+      carry: svGlobeCarry(k) });
     const info = sphereView(pane, camL, CAML, look(a));
     // (plane b's globe fades in when it has its own paint: coloured, or the shapes on paper past the colour plane)
     if (u > 0.01 && b !== a && (svColoured(b) || !svColoured(near))) {

@@ -1023,8 +1023,8 @@
     // the globe's own triangles (every fragment exact, the poles ordinary pixels) or the lifted mesh; the frame's shape
     // records are packed once. o.role: 'R' the w-globe (Y Sphere), 'L' the z-globe (X Sphere, at stage 0 too)
     const role = o.role === 'L' ? 'L' : 'R', live = !offRender;
-    // (the shapes whose areas are filled: the shapes' own, or with o.carry the steps view's carry shapes, o.carry.shapes,
-    // which may hold a pseudo-shape of its own (the whole plane), filled and never outlined)
+    // (the shapes whose areas are filled: the shapes' own, or with o.carry the steps view's carry shapes,
+    // o.carry.shapes, which may hold a pseudo-shape of its own (the whole plane), filled and never outlined)
     const fillList = o.carry && o.carry.shapes ? o.carry.shapes : S.shapes;
     const fillExtra = fillList.filter((x) => !S.shapes.includes(x));
     const stretch = { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) };
@@ -1069,12 +1069,15 @@
             if (p.plan.ops.length) gbox = invBox(p.e, p.plan, s, live);
             else { try { gbox = Region.bboxOf(s); } catch (err) { gbox = null; } }
           }
-          // (o.carry: the steps view's carried colour, svCarryStyle: each point of the region its own colour, opaque; drawn
-          // cold, as svCarryExact draws it on the flat plane: the warm-up (GLR.warmInverse) knows the plain programs only)
+          // (o.carry: the steps view's carried colour, svCarryStyle: each point of the region its own colour,
+          // opaque; drawn cold, as svCarryExact draws it on the flat plane: the warm-up (GLR.warmInverse) knows the
+          // plain programs only)
           const look = o.carry ? SV_CARRY_LOOK
-            : { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch };
+            : { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB,
+              alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch };
           regions.push({
-            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender || !!o.carry, globeBox: gbox, look, carry: o.carry ? o.carry.style : undefined },
+            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(),
+              coldOk: offRender || !!o.carry, globeBox: gbox, look, carry: o.carry ? o.carry.style : undefined },
             fwd, onResult: (res) => globeResult(role, s, res, live, fwd),
           });
         } else {
@@ -1219,7 +1222,9 @@
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
     // drawn on the globe (P3b) over the shapes
     // (the steps view at rest past its colour plane: the plane's regions carry its colour, svGlobeCarry)
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain',
+    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq,
+      probeW: probe || null,
+      pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain',
       carry: SV.on ? svGlobeCarry(svStage()) : null });
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
