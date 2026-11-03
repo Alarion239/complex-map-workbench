@@ -159,7 +159,8 @@ const VIEWS = {
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': port('words', 'it measures classic-view controls (the Phase key behind the pane head, the card row, the Deformation bar): it throws in the steps view at its first box; a rewrite with the retargeted tour chapters and the F chip'),
-  'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
+  'v151_cmd.js': steps({ pin: true }),
+  'v151_alone_classic_cmd.js': classic('the language switch with a step shown alone (v15.1 verify-8): "Show alone" is the classic view\'s; v151_cmd has the steps view\'s equivalent'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
