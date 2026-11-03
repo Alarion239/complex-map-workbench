@@ -94,7 +94,7 @@
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
     if (SV.on) mfDrawn = null;
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
-    if (SV.on) { svCheck(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
+    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
