@@ -56,8 +56,17 @@ const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
 // (the pages and the runs of both raw-TeX suites: one language per run, MathJax's page where the language has it)
 const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 'ru', 'it'].map((l) => ({ label: l, preamble: `globalThis.LANG = '${l}'; globalThis.MJ = ${l !== 'it'};` })) };
 const SUITES = {
+  // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
+  // suite run too)
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
-  'touch_cmd.js': { pages: ['v162-test.html'] },
+  'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
   // on lavapipe, so it runs in two halves)
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a-fig', '4a-vid', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
@@ -104,7 +113,7 @@ const TIMING = {
     t(/^preview: no main-thread task/), t(/^preview: the animation frames keep time/), t(/^preview DPR 2: plays at 30 fps/), t(/^preview 60 fps Loop/),
     t(/^dark theme: a video and a filmstrip flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^video in a hidden page: made at a pace close to a visible one/, (d) => d && d.hv && d.vv && d.hv.frames === d.vv.frames)],
-  'deform_nat_cmd.js': [t(/: 60 fps while playing \(p95 under 20 ms\)$/)],
+  'deform_nat_classic_cmd.js': [t(/: 60 fps while playing \(p95 under 20 ms\)$/)],
   'deform_dirichlet_cmd.js': [t(/^timing: /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],

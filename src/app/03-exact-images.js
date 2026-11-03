@@ -493,7 +493,8 @@
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
       recs = packRecs();
       if (!sideDraw) lastRecs = recs;
-      if (live && guard) {
+      // (a region mask, opt.fills, is not a frame of the pane's picture: the cost guard neither measures nor demotes it)
+      if (live && guard && !opt.fills) {
         const info = GLR.inverseInfo;
         // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1, P2 review)
         // (no predicted floor: motion stays at full resolution unless the measured frames leave the 60 fps budget;
@@ -641,7 +642,7 @@
       if (live && role) liveFix(s, r);
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
-      const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
+      const smd = (live || offRender) && role && !opt.fills ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
         if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();

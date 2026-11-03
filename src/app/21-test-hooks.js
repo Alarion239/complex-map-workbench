@@ -36,8 +36,7 @@
   // a shape's own colour as its curve is drawn (its ink's edge), as a hex string
   /** @type {any} */ (window).__cmwInk = (id) => { const s = S.shapes.find((x) => x.id === id); return s ? shapeInk(s).edge : null; };
   // (walls tests, #168 review) a step's parameter set as its field sets it (live, chainChanged(false)): a log's cut
-  // (#464) a step added as the palette adds it: its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are
-  /** @type {any} */ (window).__cmwAddStep = (type, params) => { addStep(type, params); return S.steps.length; };
+  /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
   /** @type {any} */ (window).__cmwStepParam = (k, key, v) => { const st = S.steps[k]; if (!st) return false; st.params[key] = v; chainChanged(false); return true; };
   // the label pass's count and time, and what the last pass of the left plane placed
   /** @type {any} */ (window).__cmwLabelStats = { n: 0, ms: 0 };
@@ -57,19 +56,19 @@
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   window.__cmwPaths = () => {
-    const views = [];
-    if (solo() !== 'L') {
+    const views = [], out = [];
+    if (SV.on) views.push(['L', 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L)
+    else if (solo() !== 'L') {
       if (rImage()) views.push(['R', 'flat', trans.k ? transState().map : morphOn() ? morphState(false).map : stageMap(rightStage())]);
       else { const hv = homView(); views.push(['R', 'globe', hv ? (hv.imageMap || hv.map) : stageMap(rightStage())]); }
     }
     // (X draws the shapes' areas in its plane and on its globe; the portrait, the phase globe and the landscape outline them)
-    if (solo() !== 'R' && (lPlain() || (lGlobe() && !lPhase()))) views.push(['L', lGlobe() ? 'globe' : 'flat', stageMap(leftStage())]);
-    const out = [];
-    for (const [role, viewKind, map] of views) for (const s of S.shapes) {
+    if (!SV.on && solo() !== 'R' && (lPlain() || (lGlobe() && !lPhase()))) views.push(['L', lGlobe() ? 'globe' : 'flat', stageMap(leftStage())]);
+    // (the steps view draws its regions solid, at full opacity: the program it needs is that one's)
+    (SV.on ? withSolidRegions : (f) => f())(() => { for (const [role, viewKind, map] of views) for (const s of S.shapes) {
       if (s.visible === false || kindType(s) !== 'area') continue;
-      const p = pathOf(s, map, role, viewKind, { status: true });
-      out.push({ id: s.id, role, viewKind, path: p.path, reason: p.reason || null });
-    }
+      const p = pathOf(s, map, role, viewKind, { status: true }); out.push({ id: s.id, role, viewKind, path: p.path, reason: p.reason || null });
+    } });
     return out;
   };
   // shape ids that draw forward whatever their eligibility (mixed-path tests); [] clears
@@ -260,29 +259,36 @@
   window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
-  // the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it ([r, g, b,
-  // a] each, row by row), or null off the pane; and the view they were read in
-  /** @type {any} */ (window).__cmwLPx = (pts) => {
-    const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, c = paneL.canvas.getContext('2d'), img = c.getImageData(0, 0, W, H).data;
-    const px = pts.map(([x, y]) => {
-      const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
-      if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
-      const out = [];
-      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
-      return out;
-    });
-    return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a second block, as t_publish caps a block's length)
+  /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
+  /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), 0) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m, c, r1, r2} or null; builds: its meshes' builds in all. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
+  /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
+  /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
+  window.__cmwStageBox = () => paneBox(paneL, leftView());
+  // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
+  // and how far in px the farthest is from H_T(z) of its start z), the selection's size and whether it is this source's
+  const svPathsHook = () => {
+    const src = svPathsSource(), d = mfDrawn;
+    let err = 0;
+    // (in the plane's own view, the one the paths are drawn in; the pane's view is put back as it was)
+    if (src && d) {
+      const v0 = paneL.view;
+      paneL.setView(S.srcView);
+      try {
+        for (const q of d.heads) err = Math.max(err, mDist(paneL.w2s(src.Fat(d.T)(C(q[2], q[3]))), q));
+      } finally { paneL.setView(v0); }
+    }
+    const src1 = src ? { T: src.T, Tend: src.Tend, startId: src.startId, seq: src.seq } : null;
+    const ready = !!(src && mfCache.sel && mfCache.key === mfScreenKey(paneL, src).key);
+    const kept = mfCache.sel ? mfCache.sel.kept.length : 0;
+    const heads = d ? d.heads.length : 0;
+    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, err, kept, ready };
   };
-  // the steps view's outer ring of carried points, Everywhere (svRingFor): {m, c, r1, r2} or null
-  /** @type {any} */ (window).__cmwSvRing = () => (svRingMemo && svRingMemo.ring ? { m: svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null);
-  // the steps view's sheet key for plane b (default: shown), {win, R, rs, sing}, as svSheetKey; with t, the glide's at
-  // t (svSheetKeyAt), tracks {k, of}: its pole tracks' next step of t to make (whole: made whole first, as idle does)
-  /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) while (P.k <= SV_POLE_K) svPoleStep(P); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1 } : null }; };
-  /** @type {any} */ (window).__cmwSvFixed = () => svFixDone();   // (the carried colour has the tiling's fix-up under its parked map; true with none asked)
-  /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] });   // (svWarmCarry: the chain its warm draw was last made for, and when)
-  /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (the thread's place alone: cheap enough for a per-frame poll)
   // the steps view: where it is, what it shows; o moves it (go, park, T, scope, surf, play, loop, order, span, range)
-  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && o.span) SV.span = svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1 } : null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() } }; };
+  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && o.span) SV.span = svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1 } : null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook() }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK

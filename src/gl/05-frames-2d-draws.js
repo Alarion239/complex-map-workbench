@@ -141,6 +141,8 @@
       }
       cur = ch;
     } else if (info.key !== cur.key) {
+      // (the steps view's carried colour's scratch entries, kept between its glides: another chain's draws make their own)
+      for (const e of [...tmpAll]) if (e.carry) freeTmp(e);
       if (cur.info) hist.unshift(cur);
       const j = hist.findIndex((h) => h.key === info.key);
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
@@ -308,8 +310,15 @@
     if (gl && e.tex) gl.deleteTexture(e.tex);
     if (e.res.tmp && e.res.tmp.get(e.slot) === e) e.res.tmp.delete(e.slot);
   }
-  // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended)
-  function freeStaleTmp(now) { for (const e of [...tmpAll]) if (now - e.t > 1000) freeTmp(e); }
+  // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended); the
+  // steps view's carried colour's (e.carry) after CARRY_TMP_MS, since its next glide or scrub, after a rest, draws them
+  // again: freed in the rest, the scrub's first frame would allocate them again. With need more bytes over the budget,
+  // those go after a second too
+  const CARRY_TMP_MS = 30000;
+  function freeStaleTmp(now, need = 0) {
+    const keep = cacheBytes + need > CACHE_BYTES ? 1000 : CARRY_TMP_MS;
+    for (const e of [...tmpAll]) if (now - e.t > (e.carry ? keep : 1000)) freeTmp(e);
+  }
   // and once the drawing that used them has been idle that long, whatever the budget: a scratch evaluation is only
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
   // so after the step-card thumbnails or a finished homotopy it held its texture for nothing (U-b gate: the idle app
@@ -332,6 +341,20 @@
     const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
+  // draw() once inside each of the rects (device px of the pane, bottom-left origin; intersected with a scissor already
+  // set, the pane's own), or once with no rects; then the scissor is put back
+  function scissored(rects, draw) {
+    if (!rects) { draw(); return; }
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), prevSc = scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
+    for (const sc of rects) {
+      let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
+      if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
+      if (x1 <= x0 || y1 <= y0) continue;
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
+      draw();
+    }
+    if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
+  }
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
   // the chain's cut kinds (a deformation map's carried colour draws a fill for a path cut the sheets continue, clipped
@@ -350,7 +373,11 @@
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
   // program compiles
-  function drawRegionCarry(res, st) {
+  // The carried colour of mesh res in two steps: carryPrep runs its off-screen passes (its map cache's, its fill's point
+  // pass) and picks its programs; drawRegionCarry draws it on the frame's framebuffer. A frame of several meshes
+  // (svCarryRegions) prepares them all before it draws any, so its framebuffer is left once, not once a mesh.
+  // -> {L, e, P, fill, fp, full, clip}; true: nothing to draw (the probes' noCarry); false: nothing can draw
+  function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
@@ -364,27 +391,35 @@
     // they link is used when it, or an earlier chain version's, is linked, and not started (programLinked): a frame
     // after an edit would otherwise start every stand-in of a heavy chain at once, each a compile the GPU process makes
     // the frames wait behind)
+    if (carryProbe.noCarry) return true;
     const cache = rtOK && !isIdent(st.map), linked = programLinked;
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
-    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    if (e) e.carry = true;
     let P = e ? program('regionKC', st.map) : null;
     // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
     // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
     let fill = null, fp = null;
-    if (cuts && P) {
+    if (cuts && P && !carryProbe.noFill) {
       const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
       fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
       fill = fp ? Q : (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
     }
     let full = null;
-    if (cuts && !fill) {
+    if (cuts && !fill && !carryProbe.noFill) {
       P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
       if (P) e = null;
     }
     if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
-    if (!P) return false;
+    return P ? { L, e, P, fill, fp, full, clip } : false;
+  }
+  // (prep: carryPrep's for res and st, made here when not given)
+  function drawRegionCarry(res, st, prep) {
+    if (prep == null) prep = carryPrep(res, st);
+    if (typeof prep === 'boolean') return prep;
+    const { L, e, P, fill, fp, full, clip } = prep;
+    // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     const set = (Q) => {
       use(Q, st.map);
       if (e) bindCache(Q, e);
@@ -400,11 +435,13 @@
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
+    // (st.scissors: only inside these rects, as drawRegion's; the depth's clears stay whole)
+    const drawAll = () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
     carryDraw(k, st.depth, () => {
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (!carryProbe.noKCDraw) scissored(st.scissors, drawAll);
       const sheet = fill || full;
-      if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
-      if (sheet && clip) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
+      if (fill) { set(fill); scissored(st.scissors, drawAll); }
+      if (sheet && clip) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
     });
     gl.bindVertexArray(null);
     return true;
@@ -438,10 +475,10 @@
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
   //   skip, stretch:{shrink,grow,mid}, fade, origin, cacheKey, sphere:{MVP, eye}, sync (wait for compiles)}
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
-  // (st.carry: drawRegionCarry)
+  // (st.carry: drawRegionCarry, with st.prep from GLR.carryPrep when the caller made it)
   function drawRegion(res, st) {
     if (!ok || !res || !res.n) return;
-    if (st.carry) return drawRegionCarry(res, st);
+    if (st.carry) return drawRegionCarry(res, st, st.prep);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
     try {
@@ -463,19 +500,9 @@
       } else view2D(P, st.view, st.dpr || 1, res.org);
       regionUniforms(P, st, res.org);
       gl.bindVertexArray(meshVAO(res, L, st.skip));
-      // st.scissors: draw only inside these rects (device px of the pane, bottom-left origin; SPEC 8.8: the GPU image
-      // around a SphereMesh's guard box while its rebuild runs)
-      if (st.scissors) {
-        const scOn = gl.isEnabled(gl.SCISSOR_TEST), prevSc = scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
-        for (const sc of st.scissors) {
-          let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
-          if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
-          if (x1 <= x0 || y1 <= y0) continue;
-          gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
-          gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n);
-        }
-        if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
-      } else gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n);
+      // st.scissors: draw only inside these rects (SPEC 8.8: the GPU image around a SphereMesh's guard box while its
+      // rebuild runs)
+      scissored(st.scissors, () => gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n));
       gl.bindVertexArray(null);
     } finally { if (st.sync) syncDepth--; }
   }

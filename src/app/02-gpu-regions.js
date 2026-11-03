@@ -21,7 +21,7 @@
     // (only the dragged shape: the others keep their meshes, and their looks, through the drag)
     return drag.capMesh && drag.shape === s ? cap : full;
   }
-  const gpu = new Map(); // shape id -> {meshKey, mesh, meshRes, lineKey, lineRes, polys, refKey, fix: {L, R}, hold, live}
+  const gpu = new Map(); // shape id -> {meshKey, mesh, meshRes, builds (of its mesh), lineKey, lineRes, polys, refKey, fix: {L, R}, hold, live}
   function destroyFix(r) {
     for (const k of Object.keys(r.fix || {})) { const f = r.fix[k]; if (f && f.extraRes) GLR.destroy(f.extraRes); }
     r.fix = {};
@@ -192,7 +192,8 @@
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
   // (o.base: the mesh's base resolution, overriding the drawing's: the steps view's whole-plane carry mesh, which has
   // no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it; o.win: the window its
-  // mesh is cut to, overriding winOf(s): the steps view's outer ring of carried points, past clipWin)
+  // mesh is cut to, overriding winOf(s): the steps view's outer ring of carried points, past clipWin; o.lines false: no
+  // strokes, for a mesh only the carried colour draws: that ring)
   function shapeGPU(s, o) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
     const win = (o && o.win) || winOf(s);
@@ -214,6 +215,7 @@
         // (the build time at each resolution: the drag-time cap reads the full-resolution one)
         (r.buildMs || (r.buildMs = {}))[base] = performance.now() - tb;
         retireMesh(r);
+        r.builds = (r.builds || 0) + 1;
         r.mesh = mesh;
         r.meshKey = key;
         r.skey = sk;
@@ -230,7 +232,7 @@
     }
     // a curve formula that no longer classifies as a curve (old saved state, a newer parser) says why in its row
     if (s.kind === 'fcurve') { try { Region.curveDesc(s); s._err = null; } catch (e) { s._err = e.message; } }
-    if (t !== 'point') {
+    if (t !== 'point' && !(o && o.lines === false)) {
       const lkey = sk + '|' + JSON.stringify(win) + (s.kind === 'formula' ? '|' + r.meshKey : '');
       if (r.lineKey !== lkey) {
         // a pair still on screen (the hold) or on its way to it (the live job's mesh) keeps the strokes it was drawn
@@ -462,18 +464,23 @@
   const yieldTask = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.postTask === 'function'
     ? scheduler.postTask(() => {}, { priority: 'background' })
     : new Promise((r) => { yieldQ.push(r); yieldCh.port2.postMessage(0); }));
-  // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag or a playing morph
-  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open));
+  // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag, a playing morph, or the steps view's
+  // glide, scrub or play (svGliding: the left pane's plane follows the thread, and a fix-up of the plane it passes
+  // would run its slices between the scrub's frames)
+  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open) || (SV.on && svGliding()));
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
-  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (busy: fixBusy,
-  // or the caller's wider test); null when the job went stale (fixJob.token moved on)
-  async function computeFix(mesh, F, token, busy = fixBusy) {
+  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (fixBusy); null
+  // when the job went stale (fixJob.token moved on)
+  async function computeFix(mesh, F, token) {
     const g = fixGen(mesh, F, { ms: FIX_SLICE });
     for (;;) {
       const st = g.next();
       if (st.done) return st.value;
+      // (the slices run, counted where a measurement sets __svPathStats)
+      const ps = globalThis.__svPathStats;
+      if (ps) ps.fixSlices = (ps.fixSlices || 0) + 1;
       await yieldNow();
-      while (busy() && token === fixJob.token) await yieldNow(60);
+      while (fixBusy() && token === fixJob.token) await yieldNow(60);
       if (token !== fixJob.token) return null;
     }
   }
@@ -571,7 +578,7 @@
   function svWantFix(F, map, shapes) {
     const key = mapKeyOf(map), ids = shapes.map((x) => x.id).join(',');
     if (svFixWant && svFixWant.key === key && svFixWant.ids === ids) return;
-    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes, busy: () => fixBusy() || (SV.on && svGliding()) };
+    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes };
     scheduleFix();
   }
   // shape s's steps-view fix-up under map for its current mesh, or null while it has none
@@ -609,7 +616,7 @@
         // the other plane may already have refined this mesh for the same map (after adding a step, the left
         // plane shows the stage the right one just refined)
         const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey);
-        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token, tg.busy);
+        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token);
         if (!res || token !== fixJob.token || r.meshKey === undefined || !r.meshRes) return;
         installFix(r, tg.role, tg.key, res);
         if (r.hold && holdCovered(r)) dropHold(r);
