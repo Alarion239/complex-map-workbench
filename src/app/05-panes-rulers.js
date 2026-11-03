@@ -1198,7 +1198,7 @@
   }
   function renderSphereLeft(pane) {
     // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
-    // of this globe draws it, the steps view's Inside regions too (ux on #748: the net belongs to the surface)
+    // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
     const net = globeEdit('L') ? globeNet() : 'plain';
     // ((#366 prototype) the steps view's Inside regions on the globe, 19)
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', net });
