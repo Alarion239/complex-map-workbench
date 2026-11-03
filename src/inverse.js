@@ -1565,8 +1565,8 @@ const Inverse = (() => {
 
   // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
   // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
-  // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, the generic zoom
-  // for t >= t0), and a recognised chain's sub-steps in turn. {ok, ops} | {ok: false, reason}
+  // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
+  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn. {ok, ops} | {ok: false, reason}
   function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
@@ -1608,7 +1608,7 @@ const Inverse = (() => {
     if (nat && nat.kind === 'zoom' && ['sin', 'sinh', 'tan', 'tanh', 'arcsin', 'arsinh', 'arctan', 'artanh'].includes(nat.fn)) {
       return { ok: true, ops: [aff(T, ZERO), ...own.ops, aff(C(1 / t, 0), ZERO)] };
     }
-    if (nat && nat.kind === 'gzoom' && nd && t >= nd.t0) {
+    if (nat && nd && ((nat.kind === 'gzoom' && t >= nd.t0) || nat.kind === 'ratzoom')) {
       const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);
       return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
     }
