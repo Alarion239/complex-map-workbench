@@ -364,6 +364,7 @@
     // they link is used when it, or an earlier chain version's, is linked, and not started (programLinked): a frame
     // after an edit would otherwise start every stand-in of a heavy chain at once, each a compile the GPU process makes
     // the frames wait behind)
+    if (carryProbe.noCarry) return true;
     const cache = rtOK && !isIdent(st.map), linked = programLinked;
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
@@ -373,13 +374,13 @@
     // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
     // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
     let fill = null, fp = null;
-    if (cuts && P) {
+    if (cuts && P && !carryProbe.noFill) {
       const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
       fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
       fill = fp ? Q : (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
     }
     let full = null;
-    if (cuts && !fill) {
+    if (cuts && !fill && !carryProbe.noFill) {
       P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
       if (P) e = null;
     }
@@ -401,7 +402,7 @@
     const n = regionTemplate(L).count;
     set(P);
     carryDraw(k, st.depth, () => {
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+      if (!carryProbe.noKCDraw) gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
       const sheet = fill || full;
       if (fill) { set(fill); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }
       if (sheet && clip) { u1i(sheet, 'uKPass', 1); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n); }

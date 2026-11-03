@@ -770,9 +770,12 @@
       do r = gen.next(); while (!r.done);
       m = r.value;
       svRingSet(sk, m);
+      const ps = globalThis.__svPathStats;
+      if (ps) ps.ringFrame = (ps.ringFrame || 0) + 1;
     }
+    // (a shape of its own for each m: the rings of a glide's sizes keep their meshes, not one rebuilt at each change)
     const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2;
-    const ring = m ? Object.assign({}, SV_RING, { c: [cx, cy], r1: Math.min(ax, ay), r2: m * Math.hypot(ax, ay) }) : null;
+    const ring = m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * Math.hypot(ax, ay) }) : null;
     svRingMemo = { key, ring, m };
     return ring;
   }
@@ -804,7 +807,13 @@
     }
     for (;;) {
       const r = svRingJob.gen.next();
-      if (r.done) { svRingSet(svRingJob.key, r.value); svRingJob = null; return true; }
+      if (r.done) {
+        svRingSet(svRingJob.key, r.value);
+        svRingJob = null;
+        const ps = globalThis.__svPathStats;
+        if (ps) ps.ringIdle = (ps.ringIdle || 0) + 1;
+        return true;
+      }
       if (performance.now() - t0 >= ms) return true;
     }
   }
@@ -823,7 +832,7 @@
   // in while the mesher's job runs
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T)) return false;
+    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T) || GLR.carryProbes().oldGrid) return false;
     const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
