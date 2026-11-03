@@ -47,10 +47,7 @@
       }
     }
     // (As on screen: the screen's window, widened to the frame's aspect, so all of it shows)
-    const b = cb || scr, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-    let w = b.x1 - b.x0, h = b.y1 - b.y0;
-    if (w / h > asp) h = w / asp; else w = h * asp;
-    return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 };
+    return widenTo(cb || scr, asp);
   }
   // (export review r3, verify-editor-8) the sphere's labels in a video: 0, infinity, 1, i, -1, -i wherever their point
   // faces the camera (n.v > 0.05), at full ink (the screen fades them near the rim, which left infinity nearly white);

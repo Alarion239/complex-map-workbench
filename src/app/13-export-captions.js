@@ -299,6 +299,24 @@
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
     viewKind: svFigView,
     svOn: () => SV.on,
+    // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it, in o.box when one is
+    // given (the stage is moved to it for the one render and back)
+    svFrames: () => svPlanes().map((k, i, P) => {
+      const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
+      return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
+    }),
+    svArt: async (i, o) => {
+      const keep = SV.i;
+      svGo(i, true);
+      const at = SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
+        : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
+      try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
+    },
+    // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
+    // i of the thread, which places the shapes' images there
+    svBox: () => paneBox(paneL, leftView()),
+    svSurf: () => SV.surf,
+    svFrameF: (i) => rangeF(0, svPlanes()[i]),
     shapes: () => S.shapes.filter((s) => s.visible !== false),
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },

@@ -10,6 +10,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // a cell agrees when every channel is within TOL of the stage (on the sphere: its hue within HUE degrees); a case passes when AGREE of its coloured cells agree
 // (the figure is drawn on white paper in the light theme, the stage in the light theme: the colours are the same map's)
 const TOL = 40, HUE = 25, AGREE = 0.85, GRID = [40, 28];
+// the width the figure's raster is read back at: 240 px gives each of the 40 grid columns 6 samples, enough for a 3 x 3 median
+const RASTER_W = 240;
 await view(1440, 900, false);
 await load('xsv' + Date.now(), {});
 const base = await ev('location.origin');
@@ -23,18 +25,8 @@ const CASES = [
   { ex: 18, go: 0, surf: 'sphere', cap: /\$F\$/ },
   { ex: 18, go: 0, surf: 'land', cap: /\$F\$/ },
 ];
-let ns = 0;
-for (const c of CASES) {
-  const tag = `ex ${c.ex} plane ${c.go} ${c.surf}${c.T != null ? ' T ' + c.T : ''}`;
-  await go(`${base}/test.html?view=steps&ns=xsv${Date.now() % 1e7}${ns++}`);
-  await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
-  await ev(`(__cmwExample(${c.ex}), 1)`);
-  await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
-  await ev(`(__cmwSteps({ surf: '${c.surf}' }), ${c.T != null ? `__cmwSteps({ T: ${c.T} }),` : ''} __cmwSteps({ go: ${c.go}, now: true }), 1)`);
-  // (the key drawn on the plane is a screen aid the figure leaves out)
-  await ev(`(__cmwSet('wKey', false), 1)`);
-  await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
-  // the stage: the cells the left pane's canvas shows (not covered by the plane's controls or its key)
+// the stage as the screen shows it: its pixels, and which cells of the grid the plane's canvas shows uncovered
+async function stageShot() {
   const BIG = `[...document.querySelectorAll('#plotL canvas')].map((e) => [e, e.getBoundingClientRect()]).sort((p, q) => q[1].width * q[1].height - p[1].width * p[1].height)[0]`;
   const pane = await ev(`(() => { const r = ${BIG}[1]; return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
   const free = await ev(`(() => { const p = ${JSON.stringify(pane)}, G = ${JSON.stringify(GRID)}, out = [];
@@ -50,14 +42,36 @@ for (const c of CASES) {
     }
     return out; })()`);
   const shotImg = await img({ x: pane.x, y: pane.y, width: pane.w, height: pane.h });
-  const scr = { w: shotImg.w, h: shotImg.h, ch: shotImg.ch, data: shotImg.data };
+  return { scr: shotImg, free };
+}
+// pixels: an image's RGB at (x, y); the median of 3 x 3 samples r apart (a line or a label does not decide it)
+const px = (im, x, y) => { const i = (Math.min(im.h - 1, Math.max(0, Math.round(y))) * im.w + Math.min(im.w - 1, Math.max(0, Math.round(x)))) * (im.ch || 3); return [im.data[i], im.data[i + 1], im.data[i + 2]]; };
+const med = (im, x, y, r) => { const s = [[], [], []]; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const q = px(im, x + a * r, y + b * r); for (let k = 0; k < 3; k++) s[k].push(q[k]); } return s.map((v) => v.sort((p, q) => p - q)[4]); };
+const chroma = (q) => Math.max(...q) - Math.min(...q);
+// a pixel whose channels spread by less than INK is grey: paper, a grid or axis line, a label, never the plane's colour
+const INK = 50;
+const hueOf = (q) => { const [r, g, b] = q.map((v) => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn); return ((h * 60) + 360) % 360; };
+const hueDiff = (a, b) => { const d = Math.abs(hueOf(a) - hueOf(b)) % 360; return Math.min(d, 360 - d); };
+let ns = 0;
+for (const c of CASES) {
+  const tag = `ex ${c.ex} plane ${c.go} ${c.surf}${c.T != null ? ' T ' + c.T : ''}`;
+  await go(`${base}/test.html?view=steps&ns=xsv${Date.now() % 1e7}${ns++}`);
+  await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+  await ev(`(__cmwExample(${c.ex}), 1)`);
+  await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
+  await ev(`(__cmwSteps({ surf: '${c.surf}' }), ${c.T != null ? `__cmwSteps({ T: ${c.T} }),` : ''} __cmwSteps({ go: ${c.go}, now: true }), 1)`);
+  // (the key drawn on the plane is a screen aid the figure leaves out)
+  await ev(`(__cmwSet('wKey', false), 1)`);
+  await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
+  // the stage: the cells the left pane's canvas shows (not covered by the plane's controls or its key)
+  const { scr, free } = await stageShot();
   // the figure: its raster (the first image) as a downsampled RGB array, its window, its caption
   // (built in the page, the result kept on window: a figure can take longer than one evaluation's timeout)
   await ev(`window.__xsv = null; (async () => {
     const f = await Figure.build({}); if (!f) return { none: true };
     const m = /<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/.exec(f.svg); if (!m) return { cap: String(f.captionTex || ''), view: f.view, box: f.box, art: null };
     const im = new Image(); im.src = m[1]; await im.decode();
-    const W = Math.min(240, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const W = Math.min(${RASTER_W}, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
     let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]);
     return { cap: String(f.captionTex || ''), view: f.view, box: f.box, art: { w: W, h: H, b64: btoa(bin) } };
@@ -67,13 +81,6 @@ for (const c of CASES) {
   ok(`${tag}: a figure builds`, !!fig && !!fig.art, fig && (fig.__exc || fig.err || { view: fig.view, cap: String(fig.cap).slice(0, 80) }));
   if (!fig || !fig.art) continue;
   ok(`${tag}: the caption names the plane's map`, c.cap.test(fig.cap), fig.cap.slice(0, 160));
-  const px = (im, x, y) => { const i = (Math.min(im.h - 1, Math.max(0, Math.round(y))) * im.w + Math.min(im.w - 1, Math.max(0, Math.round(x)))) * (im.ch || 3); return [im.data[i], im.data[i + 1], im.data[i + 2]]; };
-  const med = (im, x, y, r) => { const s = [[], [], []]; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const q = px(im, x + a * r, y + b * r); for (let k = 0; k < 3; k++) s[k].push(q[k]); } return s.map((v) => v.sort((p, q) => p - q)[4]); };
-  const chroma = (q) => Math.max(...q) - Math.min(...q);
-// a pixel whose channels spread by less than INK is grey: paper, a grid or axis line, a label, never the plane's colour
-const INK = 50;
-  const hueOf = (q) => { const [r, g, b] = q.map((v) => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn); return ((h * 60) + 360) % 360; };
-  const hueDiff = (a, b) => { const d = Math.abs(hueOf(a) - hueOf(b)) % 360; return Math.min(d, 360 - d); };
   const art = { w: fig.art.w, h: fig.art.h, data: Buffer.from(fig.art.b64, 'base64'), ch: 3 };
   if (c.surf === 'land') {
     // the hue shares of the coloured pixels: the figure's crop is the relief's, the stage's the camera's
@@ -137,5 +144,58 @@ for (const [plane, T] of [[1, null], [2, 1]]) for (const lang of ['ru', 'it']) {
   const tag = `${lang}, plane ${plane}${T != null ? ', past the colour plane' : ''}`;
   ok(`${tag}: the caption's formulas parse (no raw TeX)`, r && !r.err && r.bad.length === 0, r);
   ok(`${tag}: the caption names the plane's map and no other`, r && CAPMAP[plane].has.test(r.cap) && !CAPMAP[plane].not.test(r.cap), r && r.cap);
+}
+// the filmstrip: one frame per plane of the thread, each the stage's picture of that plane over its window
+for (const ex of [1, 18]) {
+  await go(`${base}/test.html?view=steps&ns=xsvf${ex}${Date.now() % 1e7}`);
+  await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+  await ev(`(__cmwExample(${ex}), __cmwSet('wKey', false), 1)`);
+  await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
+  const planes = await ev('__cmwSteps().planes');
+  await ev(`window.__xsv = null; Figure.build({ svPic: 'film', crop: 'screen' }).then(async (f) => {
+    const urls = [...f.svg.matchAll(/<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g)].map((m) => m[1]), arts = [];
+    for (const u of urls) { const im = new Image(); im.src = u; await im.decode(); const W = Math.min(${RASTER_W}, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]); arts.push({ w: W, h: H, b64: btoa(bin) }); }
+    window.__xsv = { cap: String(f.captionTex || ''), view: f.view, name: f.name, bytes: f.svg.length, arts }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
+  await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
+  const fig = await ev('window.__xsv');
+  const tag = `filmstrip of example ${ex}`;
+  ok(`${tag}: it builds, one frame per plane`, fig && !fig.err && fig.view === 'svFilm' && fig.arts.length === planes.length, fig && (fig.err || { view: fig.view, frames: fig.arts.length, planes }));
+  if (!fig || fig.err) continue;
+  ok(`${tag}: the caption names the thread`, /xrightarrow\{f_\{1\}\}/.test(fig.cap), fig.cap);
+  info[tag] = { frames: fig.arts.length, svgBytes: fig.bytes, name: fig.name };
+  for (let i = 0; i < Math.min(planes.length, fig.arts.length); i++) {
+    await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
+    await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
+    const { scr, free } = await stageShot(), a = fig.arts[i], art = { w: a.w, h: a.h, ch: 3, data: Buffer.from(a.b64, 'base64') };
+    // (the frame is the stage's window at the pane's aspect: the same place in both pictures)
+    let n = 0, agree = 0;
+    for (let j = 0; j < GRID[1]; j++) for (let k = 0; k < GRID[0]; k++) {
+      if (!free[j * GRID[0] + k]) continue;
+      const q = med(scr, (k + 0.5) * scr.w / GRID[0], (j + 0.5) * scr.h / GRID[1], 2);
+      if (chroma(q) < INK) continue;
+      const f = med(art, (k + 0.5) * art.w / GRID[0], (j + 0.5) * art.h / GRID[1], 1);
+      n++; if (f.every((v, c) => Math.abs(v - q[c]) <= TOL)) agree++;
+    }
+    ok(`${tag}, frame ${i}: the frame is that plane's stage (${Math.round(AGREE * 100)}% of the coloured cells within ${TOL} per channel)`, n >= 12 && agree / n >= AGREE, { cells: n, agree: n ? +(agree / n).toFixed(3) : 0 });
+  }
+}
+// Fit: each frame has a window of its own round the images of the shapes the camera shows in z, with its own ticks,
+// and the caption says so. ζ's w₁ frame lies round ζ's values near 0, far from the camera's window [-10,10]x[12.5,27.5]
+await go(`${base}/test.html?view=steps&ns=xsvfit${Date.now() % 1e7}`);
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+await ev(`(__cmwExample(18), __cmwSet('wKey', false), 1)`);
+await settled({ until: '__cmwSteps().planes.length === 2', max: 15000, floor: 300 });
+const cam = await ev('__cmwStageBox()');
+for (const crop of ['fit', 'screen']) {
+  await ev(`window.__xsv = null; Figure.build({ svPic: 'film', crop: '${crop}' }).then((f) => { window.__xsv = { cap: String(f.captionTex || ''), boxes: f.info.boxes, own: f.info.ownWin, ticks: f.boxes.filter((b) => b.kind === 'tick').length }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
+  await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
+  const r = await ev('window.__xsv');
+  const tag = `filmstrip of example 18, ${crop}`;
+  if (crop === 'fit') {
+    const w1 = r && r.boxes && r.boxes[1], sp = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
+    ok(`${tag}: a window per frame, which the caption names`, r && !r.err && r.own === true && r.boxes.length === 2 && /own window/.test(r.cap), r);
+    ok(`${tag}: w₁'s window lies round ζ's values near 0, under half the camera's size`, !!w1 && w1.x0 < 0 && w1.x1 > 0 && w1.y0 < 0 && w1.y1 > 0 && sp(w1) < sp(cam) / 2, { w1, cam });
+    ok(`${tag}: each frame has its own ticks`, r && r.ticks >= 8, r && r.ticks);
+  } else ok(`${tag}: every frame shows the camera's window, with no note`, r && !r.err && !r.boxes && !r.own && !/own window/.test(r.cap), r);
 }
 return { pass: fails.length === 0, fails, info };
