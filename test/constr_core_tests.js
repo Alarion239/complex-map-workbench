@@ -1,8 +1,9 @@
 // Section C of test/t_constr.js (v16 CORE, notes/constructions-v16/SPEC.md 18): the integration and exactness tests.
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
-// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
-const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
+// the speed limit is in reference operations measured in the same run (test/lib/speed_ref.js), so it holds on any machine
+const { cpuUnitsOf } = require('./lib/speed_ref');
+const DRAG50_UNITS = 8000;
 module.exports = function ({ K, ok, near, nearP, Inverse }) {
   const C = CX.C;
   let seed = 20261024;
@@ -407,9 +408,37 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     for (let i = 0; i < 50; i++) shapes.push(pt('p' + i, [Math.cos(i), Math.sin(i) + 2]), { id: 'k' + i, kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'p' + i }], fill: 'in' } });
     const S = state(shapes);
     rec(S);
-    const c0 = process.cpuUsage();
-    for (let f = 0; f < 600; f++) { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); }
-    const c = process.cpuUsage(c0), ms = (c.user + c.system) / 1000 / 600;
-    ok(ms < 1 * SPEED, `speed: a drag with 50 dependent discs: ${ms.toFixed(3)} ms CPU per recompute`);
+    // (the least CPU time of several short rounds, each followed by a round of the reference; the limit is 1 ms per
+    // recompute in this container's reference operation of about 125 ns)
+    const units = cpuUnitsOf((f) => { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); });
+    ok(units < DRAG50_UNITS, `speed: a drag with 50 dependent discs: ${units.toFixed(0)} reference operations CPU per recompute (limit ${DRAG50_UNITS})`);
+  }
+  // ------------------------------------------------ planes: a construction lives on its own stage, a carried point is an input
+  {
+    // plane 1 = the plane after step 1: its objects carry stage 1; a carried point {img} of a z-point reads through Fk
+    const st1 = (id, p) => pt(id, p, { stage: 1 });
+    const envK = Object.assign({}, env, { Fk: (k) => (k === 1 ? (z) => (z === K.INF ? null : [z[0] * 2, z[1] * 2]) : null) });
+    const recK = (S, ch) => K.recompute(S, ch || { all: true }, envK);
+    const S = state([
+      st1('a', [0, 0]), st1('b', [1, 0]), pt('z0', [0.5, 0.5]),
+      { id: 'c', kind: 'circle', c: [0, 0], r: 1, ci: 1, visible: true, stage: 1, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { img: 'z0' }], fill: 'none' } },
+      { id: 'bad', kind: 'circle', c: [0, 0], r: 1, ci: 1, visible: true, stage: 1, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'z0' }], fill: 'none' } },
+    ]);
+    recK(S);
+    ok(K.planeOf(S, sh(S, 'a')) === 1 && K.planeOf(S, sh(S, 'z0')) === 0, 'planes: a shape of stage 1 is on plane 1, one with no stage on plane 0', [K.planeOf(S, sh(S, 'a')), K.planeOf(S, sh(S, 'z0'))]);
+    ok(!sh(S, 'c').cundef && sh(S, 'c')._g && Math.abs(K.level(sh(S, 'c')._g, [1, 1])[0]) < 1e-12, 'planes: circle(a, b, z0 carried to plane 1) on stage 1 passes through the carried point 2·z0', sh(S, 'c')._g);
+    ok(sh(S, 'bad').cundef, 'planes: a stage-1 construction takes no input from another plane (a plain reference to a stage-0 point is undefined)', sh(S, 'bad'));
+    ok(K.resolve(S, { s: 'a' }, 0, envK).undef && !K.resolve(S, { s: 'a' }, 1, envK).undef, 'planes: resolve reads a plane\'s own objects only', [K.resolve(S, { s: 'a' }, 0, envK), K.resolve(S, { s: 'a' }, 1, envK)]);
+    const g = K.resolve(S, { img: 'z0' }, 1, envK);
+    ok(g.z && Math.abs(g.z[0] - 1) < 1e-12 && Math.abs(g.z[1] - 1) < 1e-12, 'planes: an {img} reference on plane 1 is the point carried by the steps up to plane 1', g);
+    const T = state([pt('z0', [0.5, 0.5])], [], [pt('t', [3, 3])]);
+    ok(K.planeOf(T, T.targets[0]) === 'T', 'planes: a target is on the target plane', K.planeOf(T, T.targets[0]));
+    ok(K.resolve(T, { img: 'z0' }, 'T', Object.assign({}, env, { F: (z) => [z[0] + 1, z[1]] })).z[0] === 1.5, 'planes: an {img} reference on the targets still reads the whole chain F');
+    // a file: a stage-1 construction with a plain reference to a stage-0 point does not validate; with its own plane's points it does
+    const V = state([st1('a', [0, 0]), st1('b', [1, 0]), pt('z0', [0.5, 0.5]),
+      { id: 'ok', kind: 'circle', c: [0, 0], r: 1, ci: 1, visible: true, stage: 1, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { img: 'z0' }], fill: 'none' } },
+      { id: 'mixed', kind: 'circle', c: [0, 0], r: 1, ci: 1, visible: true, stage: 1, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'z0' }], fill: 'none' } }]);
+    K.validate(V, envK);
+    ok(!!sh(V, 'ok').def && !sh(V, 'mixed').def, 'planes: validate keeps a stage-1 construction on stage-1 inputs and a carried point, and frees a mixed-plane one', [!!sh(V, 'ok').def, !!sh(V, 'mixed').def]);
   }
 };

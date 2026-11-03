@@ -545,7 +545,12 @@ float wabs(vec2 w) {
   }
   function holdLinks(on) {
     held = !!on;
-    if (!held && api.onReady) api.onReady({ main: true, side: false });
+    if (held) return;
+    // (released: the programs held finish as they would have, linked at once where links are synchronous (no parallel
+    // compile), polled where they run in the background; a program no frame asks for again would stay pending)
+    if (pcExt) schedulePoll();
+    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv) finishLink(e);
+    if (api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
@@ -1271,6 +1276,31 @@ float wabs(vec2 w) {
     gl.activeTexture(unit);
     fillPtsRuns++;
     return f;
+  }
+  // A mesh's carried-colour textures made before its first draw (the steps view's idle job, for the outer ring's sizes):
+  // its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose cuts the fill draws,
+  // its point pass's (fillPoints), each at the size its draw asks for, so that draw allocates neither
+  function carryReserve(res, L) {
+    if (!ok || !rtOK || !res || !res.n) return false;
+    const tpl = regionTemplate(L), W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(tpl.P * res.n / W));
+    if (H > maxTex) return false;
+    if (!res.tmp) res.tmp = new Map();
+    const slot = 'm' + L;
+    if (!res.tmp.get(slot)) {
+      const e = { tex: floatTex(), W, H, P: tpl.P, bytes: W * H * 8, res, slot, key: '', t: performance.now(), carry: true };
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
+      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
+      sweepTmpLater();
+    }
+    const k = carryKinds();
+    if (L <= 2 && !res.fillPts && k.some((c) => c && (c.clip || c.h === 'sheet'))) {
+      const per = 4 * (tpl.count / 3), FH = Math.max(1, Math.ceil(per * res.n / W));
+      if (FH <= maxTex) {
+        res.fillPts = { tex: floatTex(), W, H: FH, P: per };
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, FH, 0, gl.RGBA, gl.FLOAT, null);
+      }
+    }
+    return true;
   }
   // (how many point passes have run: the tests' proof that the fill took its values from one)
   let fillPtsRuns = 0;

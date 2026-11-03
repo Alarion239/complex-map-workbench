@@ -1,14 +1,21 @@
 // The steps view's glide, its cost without a change of picture, Everywhere:
 // - while the carried colour's programs link (held: GLR.holdLinks), a glide's frames start only its own programs, no
 //   stand-in for them (each a compile of the chain that the GPU process makes the frames wait behind): the square root
-//   example with a step added, held mid-glide at x = 1/2 (a scrub on the rail not let go);
+//   example with a step added, held mid-glide at x = 1/2 (a scrub on the rail not let go); once let go, every held
+//   program links, those no frame asks for again too;
 // - the Mountain King with a step put between its two: the glide to plane 1, whose chain the edit leaves, keeps its
 //   whole pole tracks. Then one put before them both: before any idle moment, the frames of the Möbius map's glide (to
 //   plane 2) make no step of its tracks (many times a frame's share) and search for its poles only at the tracks'
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
 //   others), in slices that pause every 16 evaluations of the map;
 // - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
-//   outer ring's sizes are made by the idle job, in no frame, and each size's mesh is built at most once.
+//   outer ring's sizes are made by the idle job (those of the page's first glide before it), in no frame, and each
+//   size's mesh is built at most once;
+// - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
+//   region under zeta) runs no slice until the thread is let go, then runs;
+// - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
+//   rest longer than the scratch sweep's second; the carried colour creates no texture and no buffer in their frames
+//   (the outer ring's meshes and the carry's scratch textures are made in idle moments and kept between scrubs).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -49,11 +56,14 @@ async function hold(x, links = true) {
   await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
   await ev('window.__svScrubUp(), 1');
+  // (released, the held programs finish linking, those no frame asks for again too)
   await ev('GLR.holdLinks(false), 1');
-  await settled({ max: 30000 });
-  info['while the programs link'] = { started };
-  ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => started.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', !['regionKSC', 'regionKS', 'regionK'].some((n) => started.includes(n)), started);
+  const after = await settled({ max: 10000, panes: false, until: 'GLR.pendingLinks === 0' });
+  info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
+  const list = Array.isArray(started) ? started : [];
+  ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', Array.isArray(started) && !['regionKSC', 'regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
 // ---- the glides' pole tracks after an edit ----
@@ -105,26 +115,100 @@ async function hold(x, links = true) {
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
   await settled({ max: 20000 });
+  // (from here, the work counted: the idle job's after the page settles on plane 0, before any frame between planes)
+  await ev('globalThis.__svPathStats = {}, 1');
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
-  await settled({ max: 20000 });
+  await settled({ max: 20000, until: '!__cmwSvKey().busy' });
   // (parked at x: the glide's map at t = x; inside (1/8, 7/8), where a thread let go stays)
   const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }), 1`); await settled({ max: 20000, until: `Math.abs(__cmwSvX() - ${x}) < 1e-6` }); };
   const xs = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8];
-  // (parked once at each, then the idle job left to make the glide's ring sizes)
-  await ev('globalThis.__svPathStats = {}, 1');
+  // (the page's first glide, to plane 1: its frames' sizes made by the idle job before it)
+  await ev('__cmwSteps({ go: 1 }), 1');
+  await settled({ max: 30000, until: '!__cmwSteps().moving && Math.abs(__cmwSvX() - 1) < 1e-6' });
+  const ahead = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
+  // (then parked once at each, and the idle job left to finish)
   for (const x of xs) await park(x);
   await settled({ max: 20000, until: '!__cmwSvKey().busy' });
-  const ahead = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
   // (then two scrubs there and back: the ring's sizes made in no frame, and its meshes built once for each size)
   const r0 = await ev('__cmwSvRing(true)');
   const ms = [];
   for (let k = 0; k < 2; k++) for (const x of xs.concat(xs.slice().reverse())) { await park(x); ms.push((await ev('__cmwSvRing()') || { m: null }).m); }
   const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   const builds = (await ev('__cmwSvRing(true)')) - r0, sizes = new Set(ms.filter((m) => m != null)).size;
-  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, ringFrame: ps.ringFrame || 0 };
+  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, firstFrames: ahead.ringFrame || 0, ringFrame: ps.ringFrame || 0 };
   ok('the ring: the scrubs draw a ring', sizes > 0, info['the ring']);
-  ok('the ring: the idle job makes the glide\'s ring sizes', ahead.ringIdle > 0, info['the ring']);
+  ok('the ring: the idle job makes the glide\'s ring sizes, those of the page\'s first glide too', ahead.ringIdle > 0 && !(ahead.ringFrame > 0), info['the ring']);
   ok('the ring: no frame of the scrubs makes its size (the idle job made them)', !(ps.ringFrame > 0), info['the ring']);
   ok('the ring: each of its sizes\' meshes is built once at most over two scrubs', builds <= sizes, info['the ring']);
+}
+// ---- the tiling's fix-ups wait out a scrub ----
+{
+  const ex = names.indexOf('Zeros of the zeta function');
+  ok('the zeta example is found', ex >= 0, names.length);
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=gz${Date.now()}`);
+  await ready();
+  await ev(`__cmwExample(${ex}); 1`);
+  await settled({ max: 30000 });
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  await settled({ max: 30000 });
+  // (held mid-scrub by plane 1, whose plane the left pane follows; the meshes rebuilt, so a fix-up is asked for: the
+  // left pane's region under zeta, seconds of CPU work)
+  await hold(0.9, false);
+  await ev(`globalThis.__svPathStats = {}, __cmwSet('meshN', __cmwState().meshN), window.__heldT = performance.now(), 1`);
+  await settled({ max: 20000, panes: false, until: 'performance.now() - window.__heldT > 2000' });
+  const held = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
+  // (let go: at rest on plane 1 the job runs)
+  await ev('window.__svScrubUp(), 1');
+  await settled({ max: 30000, panes: false, until: '(globalThis.__svPathStats.fixSlices || 0) > 0' });
+  const rest = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
+  info['a scrub'] = { held: held.fixSlices || 0, rest: rest.fixSlices || 0 };
+  ok('a scrub: the fix-up asked for runs no slice while the thread is held', !(held.fixSlices > 0) && rest.fixSlices > 0, info['a scrub']);
+}
+// ---- a scrub's frames: no GPU allocation by the carried colour ----
+{
+  const ex = names.indexOf('In the Hall of the Mountain King');
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=ga${Date.now()}`);
+  await ready();
+  await ev(`__cmwExample(${ex}); 1`);
+  await settled({ max: 30000 });
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  await settled({ max: 30000 });
+  for (const to of [1, 0]) {
+    await ev(`__cmwSteps({ go: ${to} }), 1`);
+    await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  }
+  await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  // (each texture or buffer created from the carried colour's draws: its stack passes through svCarryRegions)
+  await ev(`(() => {
+    const P = WebGL2RenderingContext.prototype, A = window.__svAlloc = [];
+    for (const name of ['createTexture', 'createBuffer']) {
+      const f = P[name];
+      P[name] = function (...a) { const st = new Error().stack || ''; if (st.includes('svCarryRegions')) A.push(name + ' ' + st.split('\\n').slice(2, 6).map((l) => l.trim()).join(' < ')); return f.apply(this, a); };
+    }
+    return 1;
+  })()`);
+  // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there)
+  const scrub = (from, to) => ev(`new Promise((done) => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const x0 = ns[${from} < 0 ? ns.length - 1 : ${from}][0], x1 = ns[${to} < 0 ? ns.length - 1 : ${to}][0], cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 74, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', x0);
+    let i = 0;
+    const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / 40); if (i < 40) setTimeout(step, 16); else { ev('pointerup', x1); done(1); } };
+    setTimeout(step, 16);
+  })`);
+  const rest = async () => {
+    await settled({ max: 60000, until: '!__cmwSteps().moving' });
+    await ev('window.__restT = performance.now(), 1');
+    await settled({ max: 20000, panes: false, until: 'performance.now() - window.__restT > 2000' });
+  };
+  await rest();
+  await scrub(0, -1);
+  await rest();
+  await scrub(-1, 0);
+  await rest();
+  const alloc = await ev('window.__svAlloc');
+  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
+  ok('two scrubs of the Mountain King: the carried colour creates no texture or buffer in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
 }
 return { pass: fails.length === 0, fails, info };

@@ -463,18 +463,23 @@
   const yieldTask = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.postTask === 'function'
     ? scheduler.postTask(() => {}, { priority: 'background' })
     : new Promise((r) => { yieldQ.push(r); yieldCh.port2.postMessage(0); }));
-  // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag or a playing morph
-  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open));
+  // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag, a playing morph, or the steps view's
+  // glide, scrub or play (svGliding: the left pane's plane follows the thread, and a fix-up of the plane it passes
+  // would run its slices between the scrub's frames)
+  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open) || (SV.on && svGliding()));
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
-  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (busy: fixBusy,
-  // or the caller's wider test); null when the job went stale (fixJob.token moved on)
-  async function computeFix(mesh, F, token, busy = fixBusy) {
+  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (fixBusy); null
+  // when the job went stale (fixJob.token moved on)
+  async function computeFix(mesh, F, token) {
     const g = fixGen(mesh, F, { ms: FIX_SLICE });
     for (;;) {
       const st = g.next();
       if (st.done) return st.value;
+      // (the slices run, counted where a measurement sets __svPathStats)
+      const ps = globalThis.__svPathStats;
+      if (ps) ps.fixSlices = (ps.fixSlices || 0) + 1;
       await yieldNow();
-      while (busy() && token === fixJob.token) await yieldNow(60);
+      while (fixBusy() && token === fixJob.token) await yieldNow(60);
       if (token !== fixJob.token) return null;
     }
   }
@@ -572,7 +577,7 @@
   function svWantFix(F, map, shapes) {
     const key = mapKeyOf(map), ids = shapes.map((x) => x.id).join(',');
     if (svFixWant && svFixWant.key === key && svFixWant.ids === ids) return;
-    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes, busy: () => fixBusy() || (SV.on && svGliding()) };
+    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes };
     scheduleFix();
   }
   // shape s's steps-view fix-up under map for its current mesh, or null while it has none
@@ -610,7 +615,7 @@
         // the other plane may already have refined this mesh for the same map (after adding a step, the left
         // plane shows the stage the right one just refined)
         const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey);
-        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token, tg.busy);
+        const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token);
         if (!res || token !== fixJob.token || r.meshKey === undefined || !r.meshRes) return;
         installFix(r, tg.role, tg.key, res);
         if (r.hold && holdCovered(r)) dropHold(r);

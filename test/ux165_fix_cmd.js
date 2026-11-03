@@ -66,7 +66,7 @@ const mchip = async () => ev(`(()=>{const e=[...document.querySelectorAll('.cm-c
 const rect = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); })()`);
 const tstxt = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()).join(' | ')`);
 const deg = (p) => +(Math.atan2(p[1], p[0]) * 180 / Math.PI).toFixed(2);
-const isSteps = () => ev(`document.documentElement.classList.contains('sv')`);
+const svClassOn = () => ev(`document.documentElement.classList.contains('sv')`);
 const openEx = async (i) => { await ev(`document.getElementById('examplesBtn').click(), 1`); await settle(500); await ev(`[...document.querySelectorAll('#popHost .examples .ex-item')][${i}].click(), 1`); await settle(2500); };
 const pick = async (d) => { const p = await A(d); await move(p[0], p[1]); await settle(60); await click(p[0], p[1]); await settle(180); };
 
@@ -130,7 +130,7 @@ await tool('perp');
 await view(1366, 768, false, false);
 await load(NS + 'sp', U0({ unit: false, shapes: [{ id: 'C', kind: 'circle', c: [0, 0], r: 0.8, ci: 0, visible: true }], nextId: 30 })); await settle(900);
 // (the globe: the classic left pane's Sphere view, or the steps view's surface switch)
-if (await isSteps()) await ev(`__cmwSteps({ surf: 'sphere' })`); else await ev(`__cmwSetView('L', 'sphere'), 1`);
+if (await svClassOn()) await ev(`__cmwSteps({ surf: 'sphere' })`); else await ev(`__cmwSetView('L', 'sphere'), 1`);
 await settle(1200);
 { const GS = (re, im) => ev(`(() => { const P = Region.Globe.lift(${re}, ${im}); return __cmwCI({ gs: ['L', P] }); })()`);
   const pt = (d) => GS(0.8 * Math.cos(d * Math.PI / 180), 0.8 * Math.sin(d * Math.PI / 180));
@@ -152,7 +152,7 @@ await settle(1200);
 await view(1366, 768, false, false);
 await nav(`${BASE}/test.html?ns=${NS}pal`); await settle(1500);
 await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); await key('Enter'); await settle(800);
-{ const headSel = (await isSteps()) ? '#svStrip' : '.pipe-head', placed = (await isSteps()) ? 'rail' : 'head';   // (the chain's head, or the steps view's thread)
+{ const headSel = (await svClassOn()) ? '#svStrip' : '.pipe-head', placed = (await svClassOn()) ? 'rail' : 'head';   // (the chain's head, or the steps view's thread)
   const t = await ev(`(() => { const e = [...document.querySelectorAll('.prm')].find((x) => x.offsetParent); return e ? e.textContent : ''; })()`);
   ok('user-1: the number just added with its step is not "Not used yet"', !/Not used yet/.test(t), t);
   const add = await rect('.prm-add'), row = await ev(`(() => { const r = [...document.querySelectorAll('.prm-row')].filter((x) => x.offsetParent).pop(); return r ? Math.round(r.getBoundingClientRect().bottom) : null; })()`);
@@ -190,7 +190,7 @@ await ev(`sessionStorage.clear(), localStorage.removeItem('cmw-probe-learned'), 
 await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
 { const c = await ev(`(() => { const e = document.getElementById('leftReadout'); return [e.textContent, e.scrollWidth <= e.clientWidth + 1]; })()`);
   // (the same line, worded for the steps view's one plane)
-  ok('user-4: the Russian line is whole', (await isSteps() ? /Удерживайте и ведите, чтобы прочитать F\(z\)/ : /Удерживайте палец\s— F\(z\)/).test(c[0]) && c[1], c);
+  ok('user-4: the Russian line is whole', (await svClassOn() ? /Удерживайте и ведите, чтобы прочитать F\(z\)/ : /Удерживайте палец\s— F\(z\)/).test(c[0]) && c[1], c);
   await sleep(8500);
   ok('regress-4: the line is gone after 8 s', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`)));
   await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
