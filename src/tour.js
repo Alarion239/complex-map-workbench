@@ -436,6 +436,13 @@ const Tour = (() => {
     if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
     if (di >= 0) chs.splice(di, 1);
     chs.splice(bi + 1, 0, PLANES);
+    // (the derivative step's chip, in place of the card the classic chain shows)
+    const bri = CHAPTERS.findIndex((c) => c.id === 'branches');
+    if (bri >= 0) {
+      const dv = chs[bri].steps.findIndex((/** @type {any} */ st) => st.id === 'deriv');
+      if (dv >= 0) chs[bri].steps[dv] = Object.assign({}, chs[bri].steps[dv], { also: ['svStrip'],
+        try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } });
+    }
   }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
   // point gave which
@@ -467,7 +474,7 @@ const Tour = (() => {
     // (#442: the steps view's thread, its ring, its Colour from here button, its two choices (a segmented control, or on a phone one
     // button that steps through them) and the first function chip)
     svStrip: '#svStrip', svNext: () => vis1('#svStrip .sv-next'), svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
-    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svF: () => vis1('#svStrip .sv-wholemap'),
+    svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svChip2: () => vis1('#svStrip .sv-step[data-k="2"] .sv-fchip'), svF: () => vis1('#svStrip .sv-wholemap'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
