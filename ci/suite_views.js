@@ -180,7 +180,7 @@ const VIEWS = {
   'land_release_cmd.js': port('render', 'the surface switch instead of the left pane\'s view'),
   'link_standin_cmd.js': port('render'),
   'overlay_ghost_cmd.js': port('render'),
-  'p3_accept_cmd.js': port('render'),
+  'p3_accept_cmd.js': steps({ pin: true }),
   'p3_accept_classic_cmd.js': classic('the spherical checker pattern: the steps view has no region pattern (ux on #719)'),
   'p3_review_cmd.js': steps({ pin: true }),
   'p3b_accept_cmd.js': port('render'),
