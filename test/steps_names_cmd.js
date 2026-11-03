@@ -13,7 +13,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (until: wait for one condition, polled, and say which one when it never comes true)
-const until = async (expr, max = 15000) => { const r = await settled({ until: expr, max, only: true }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails, max: 15000, only: true });
 const txt = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); return e ? e.textContent.replace(/\\s+/g, ' ').trim() : null; })()`);
 const num = (s) => parseFloat(String(s).replace(',', '.').replace('−', '-'));
 const NUM = '(\\d+[.,]\\d+)';

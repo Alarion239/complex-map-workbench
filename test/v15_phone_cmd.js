@@ -12,33 +12,7 @@ const URL0 = `http://localhost:${PORT}/test.html?ns=v15ph`;
 const fails = [], info = { taps: {}, audit: {}, scroll: {} };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-// a wait on a real condition (an expression); a timeout fails the check that asked
-const until = async (expr, max = 8000) => { const r = await settled({ until: expr, max }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
-// a tap on it would reach it and stay on it: it is inside the open sheet (the app scrolls the card it added into view
-// with a smooth scroll, which the page cannot list as an animation, and until then the card can lie below the sheet),
-// it is the element at its own centre, and neither it nor anything the sheet scrolls has moved for `hold` ms; false if
-// that has not come by `max` ms
-const reachable = async (sel, hold = 400, max = 8000) => {
-  const probe = `(() => {
-    const e = document.querySelector(${JSON.stringify(sel)}), sh = document.querySelector('.ph-sheet');
-    const b = e && e.getClientRects().length ? e.getBoundingClientRect() : null, v = sh && sh.getBoundingClientRect();
-    const hit = b && document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
-    return hit && e.contains(hit) && b.top >= v.top - 0.5 && b.bottom <= v.bottom + 0.5
-      ? [b.left, b.top, ...[...sh.querySelectorAll('*')].map((x) => x.scrollTop).filter(Boolean)].join() : '';
-  })()`;
-  const t0 = Date.now();
-  let last = '', since = t0;
-  while (Date.now() - t0 < max) {
-    const k = await ev(probe), now = Date.now();
-    if (!k || k !== last) since = now;
-    last = k;
-    if (k && now - since >= hold) return true;
-    await sleep(30);
-  }
-  return false;
-};
-// the sheet of this kind is open and has finished sliding; `split`: the planes have been resized above it
-const sheetSettled = (kind, split) => `(() => { const sh = document.querySelector('.ph-sheet'); const r = document.documentElement; return Phone._state().kind === '${kind}' && Phone._state().split === ${!!split} && !!sh && !sh.hidden && sh.classList.contains('open') && !r.classList.contains('ph-ride') && sh.getAnimations().length === 0; })()`;
+const { until, reachable, sheetSettled } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const CHAIN3 = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }, { type: 'zp', params: { a: '1', zeros: '0.5, -0.5i', poles: '-0.8+0.75i' }, on: true }];
