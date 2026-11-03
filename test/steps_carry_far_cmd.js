@@ -1,7 +1,7 @@
 // The steps view's carried colour mid-glide, Everywhere, where the glide pulls points from past the camera's window into
 // the view, and the sheet key at t (the glide map's poles at t beside plane b's points, __cmwSvKey(b, t)), against the
-// exact colour pulled back pixel by pixel as steps_carry_inregion_cmd.js reads it, the reference zoomed out for points
-// past the camera.
+// exact colour read from plane z's own render at each front point, the reference zoomed out for points past the
+// camera.
 // - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (the outer ring of carried points,
 //   svRingFor; the front point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
 // - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered.

@@ -260,11 +260,12 @@
   window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
-  // the steps view's frame as maps, for test/cdp_kit/carry_compare.js: b and its sheet key; H, the deformation H_u when
+  // the steps view's frame as maps, for test/cdp_kit/carry_compare.js: b and its sheet key (parked, the glide's key at u,
+  // svSheetKeyAt, as the frame orders its points); H, the deformation H_u when
   // parked (else null); pre(v), plane z's points over v in plane b or b - 1 (Inverse.pointPre, family members -K … K;
   // null past 512 or with no inverse); G, the map into the colour plane; poles(F, box, n), polesOf; newton, newtonTo
   /** @type {any} */ (window).__cmwSvFrame = (K = 6) => {
-    const fr = svBetween(), park = !(fr.u <= 1e-6 || fr.b === fr.a) && !isDeriv(fr.b), b = park ? fr.b : svStage(), T = svT(), plan = invPlan(0, park ? b - 1 : b), k = svSheetKey(b);
+    const fr = svBetween(), park = !(fr.u <= 1e-6 || fr.b === fr.a) && !isDeriv(fr.b), b = park ? fr.b : svStage(), T = svT(), plan = invPlan(0, park ? b - 1 : b), k = park ? svSheetKeyAt(b, fr.u) : svSheetKey(b);
     return { b, key: { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) }, H: park ? homF(fr.b, fr.u) : null,
       pre: (v) => { const r = plan.ops && plan.ops.length ? Inverse.pointPre(plan, v, 512, { fam: K }) : { exact: true, zs: [v] }; return r.exact ? r.zs : null; },
       G: T === 0 ? (z) => z : stageF(T), poles: (F, box, n) => polesOf(F, box, n, 128, 80), newton: newtonTo };
