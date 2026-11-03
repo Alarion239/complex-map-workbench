@@ -753,6 +753,9 @@
   // else in the frame. null: none needed
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
+  // (the sizes kept: 21 a glide, two glides beside the plane, so 400 holds those of about nine views or windows; each
+  // is a number, and a full table is dropped whole)
+  const SV_RING_SIZES_MAX = 400;
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
@@ -783,7 +786,7 @@
     return m;
   }
   function svRingSet(key, m) {
-    if (svRingSizes.size >= 400) svRingSizes.clear();
+    if (svRingSizes.size >= SV_RING_SIZES_MAX) svRingSizes.clear();
     svRingSizes.set(key, m);
   }
   function svRingFor(pane, map) {
