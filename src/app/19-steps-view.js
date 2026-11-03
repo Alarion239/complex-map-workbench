@@ -535,7 +535,7 @@
       let res = 'error';
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+          look: SV_CARRY_LOOK, carry, half: false, motion: false, coldOk: true });
       } catch (e) { console.error('steps view exact colour', e); }
       // (a shape drawn already stays: the next path draws over it)
       if (res !== 'drawn') return false;

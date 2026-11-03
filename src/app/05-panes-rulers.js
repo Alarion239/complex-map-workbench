@@ -1049,11 +1049,15 @@
       if (fill) {
         const fwd = [];
         // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) replaces the lifted
-        // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere)
+        // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere). With o.carry there
+        // is no forward fallback: the globe has no carried forward draw, and the region look would paint over the
+        // carry's shapes (the whole globe, Everywhere), so where the inverse pass doesn't draw the globe stays bare
         const pth = recs ? pathOf(s, map, role, 'globe', { recs, budget: live, status: true }).path : 'forward';
-        const smd = !hom && (live || offRender) ? smFor(s, r, role, 'globe', map, pane, smR, live && pth === 'forward') : null;
+        const smd = !hom && !o.carry && (live || offRender)
+          ? smFor(s, r, role, 'globe', map, pane, smR, live && pth === 'forward') : null;
         const sme = smd && (smd.e || smd.old);
-        if (sme && !sme.data.n) { /* nothing of it shows on the globe */ } else if (sme && smRes(sme)) fwd.push({ pre: sme.res, st: Object.assign(smLook(s, pane, S.alpha), { view: null }) });
+        if (o.carry || (sme && !sme.data.n)) { /* no forward fill: the carry, or nothing of it shows on the globe */ }
+        else if (sme && smRes(sme)) fwd.push({ pre: sme.res, st: Object.assign(smLook(s, pane, S.alpha), { view: null }) });
         else if (pf.p.meshRes) {
           const fx = pf.fx, pm = pf.p;
           const st = { map, dpr: pane.dpr, L: MESH_L, color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), skip: fx ? fx.skip : null, stretch,
