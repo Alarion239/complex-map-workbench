@@ -772,9 +772,12 @@
   let svFadeCv = null;
   function svSphereMoving(pane) {
     const { a, b, u, map, F, near } = svBetween();
-    // (a plane past the colour plane: its regions carry the colour plane's colour, exactly, as svCarryExact's on the flat
-    // plane, with no d/dz before it)
-    const carryOf = (k) => (!svColoured(k) && !derivIn(0, k) ? svCarryStyle(svT()) : null);
+    // (a plane past the colour plane, with no d/dz before it: the colour plane's colour carried exactly over the carry's
+    // shapes, svCarryShapes (Everywhere, the whole plane), as svCarryExact does on the flat plane)
+    const carryOf = (k) => {
+      const sh = !svColoured(k) && !derivIn(0, k) ? svCarryShapes() : null;
+      return sh && sh.length ? { style: svCarryStyle(svT()), shapes: sh } : null;
+    };
     const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L', colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F }, carry: carryOf(k) });
     const info = sphereView(pane, camL, CAML, look(a));
     // (plane b's globe fades in when it has its own paint: coloured, or the shapes on paper past the colour plane)

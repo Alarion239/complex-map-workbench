@@ -961,8 +961,8 @@
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
-  // of o.probeW; without it the probe is a dot on the globe. o.carry (the steps view's svCarryStyle): the regions drawn
-  // exactly take their points' carried colour. Returns the frame's {MVP, eye} or null.
+  // of o.probeW; without it the probe is a dot on the globe. o.carry {style (svCarryStyle), shapes}: the steps view's
+  // carried colour, filled over those shapes where they draw exactly. Returns the frame's {MVP, eye} or null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
     // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
@@ -1023,25 +1023,30 @@
     // the globe's own triangles (every fragment exact, the poles ordinary pixels) or the lifted mesh; the frame's shape
     // records are packed once. o.role: 'R' the w-globe (Y Sphere), 'L' the z-globe (X Sphere, at stage 0 too)
     const role = o.role === 'L' ? 'L' : 'R', live = !offRender;
+    // (the shapes whose areas are filled: the shapes' own, or with o.carry the steps view's carry shapes, o.carry.shapes,
+    // which may hold a pseudo-shape of its own (the whole plane), filled and never outlined)
+    const fillList = o.carry && o.carry.shapes ? o.carry.shapes : S.shapes;
+    const fillExtra = fillList.filter((x) => !S.shapes.includes(x));
     const stretch = { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) };
     const smR = regionsOn ? globeRpx(pane, c, base) : 0;   // the globe's radius, device px (SphereMesh's view)
     let recs = null;
     if (regionsOn && GLR.packShapes && GLR.drawInverse && S.exactImages !== false && PHASE[role].globe
-      && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area')) {
+      && fillList.some((s) => s.visible !== false && kindType(s) === 'area')) {
       const m0 = normalizeMap(map);
       if ((m0.mode || 0) === 0 && invPlan(m0.a || 0, m0.b || 0).ok) {
         cmFormAnchor('X');
-        recs = GLR.packShapes(S.shapes.filter((s) => s.visible !== false && !shapeStage(s))).recs;
+        recs = GLR.packShapes(S.shapes.filter((s) => s.visible !== false && !shapeStage(s)).concat(fillExtra)).recs;
         if (!sideDraw) lastRecs = recs;
         if (live) prepDeferred = false;
       }
     }
-    for (const s of S.shapes) {
+    for (const s of fillExtra.concat(S.shapes)) {
       if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;   // ([#253] the globes: the z-plane's shapes, flat planes first)
       const r = shapeGPU(s);
       const ink = shapeInk(s);
-      const pf = regionsOn && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
-      if (regionsOn && kindType(s) === 'area') {
+      const fill = regionsOn && kindType(s) === 'area' && fillList.includes(s), extra = fillExtra.includes(s);
+      const pf = fill && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
+      if (fill) {
         const fwd = [];
         // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) replaces the lifted
         // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere)
@@ -1068,7 +1073,7 @@
           const look = o.carry ? { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }
             : { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch };
           regions.push({
-            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox, look, carry: o.carry || undefined },
+            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox, look, carry: o.carry ? o.carry.style : undefined },
             fwd, onResult: (res) => globeResult(role, s, res, live, fwd),
           });
         } else {
@@ -1076,7 +1081,7 @@
           if (live && recs) notePath(role, s.id, p ? p.path : 'forward');
         }
       }
-      const rl = linesOf(r, pf.p);
+      const rl = extra ? {} : linesOf(r, pf.p);
       if (rl.lineRes && !hideStrokes && !(artMode && artSkip && artSkip.has(s.id))) {
         const area = kindType(s) === 'area';
         lines.push({ res: rl.lineRes, st: { map, dpr: pane.dpr, M: 8, width: (area ? 1.5 : 2) * pane.dpr, color: imageMode ? GLR.hexRGB(ink.edge) : GLR.hexRGB(TH.dcCasing), alpha: 1, casing: { color: imageMode ? halo : [1, 1, 1], alpha: 0.85, width: (area ? 3.5 : 4) * pane.dpr }, cacheKey: cache ? `${rl.lineKey}|${mk}` : null } });
