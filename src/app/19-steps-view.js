@@ -912,30 +912,49 @@
       if (!r || !r.meshRes) return false;
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
+      // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
+      const oldRes = smd && smd.old ? smRes(smd.old) : null, stand = oldRes ? { box: smd.old.guardBox, res: oldRes } : null;
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null });
-      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null });
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null, stand });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null, stand });
     }
     if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    // (a stand-in as drawScene's: the old mesh alone where its guard box covers the pane, else inside the box with the
+    // tessellated meshes, which cover clipWin's window alone, around it; a box off the pane, none. The frame is open:
+    // GLR.scissorOf reads its size)
+    const lay = [];
+    for (let i = 0; i < draws.length; i++) {
+      const d = draws[i], o = d.stand, end = !o || i + 1 >= draws.length || draws[i + 1].stand !== o;
+      if (o && o.sc === undefined) o.sc = GLR.scissorOf(o.box, pane.view, pane.dpr, 0);
+      if (!o || (o.sc && !(o.sc[2] > 0))) { lay.push(d); continue; }
+      if (o.sc === null) { if (end) lay.push({ res: o.res, pre: true }); continue; }
+      const sc = o.sc;
+      lay.push(Object.assign({}, d, { scissors: [[0, 0, pane.pw, sc[1]], [0, sc[1] + sc[3], pane.pw, pane.ph - sc[1] - sc[3]], [0, sc[1], sc[0], sc[3]], [sc[0] + sc[2], sc[1], pane.pw - sc[0] - sc[2], sc[3]]].filter((q) => q[2] > 0 && q[3] > 0) }));
+      if (end) lay.push({ res: o.res, pre: true, scissor: sc });
+    }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
     // the map sends far, which would cover the pane many times over, so it is left out)
-    const sts = draws.map((d, i) => {
-      const depth = draws.length === 1 ? 'only' : i === 0 ? 'first' : i === draws.length - 1 ? 'last' : 'mid';
+    // (an old mesh drawn inside its guard box never ends the depth: its clear would be scissored too, so the depth is
+    // cleared after it; it is never first, its shape's tessellated mesh comes before it)
+    const n = lay.length, tail = n > 1 && lay[n - 1].scissor;
+    const sts = lay.map((d, i) => {
+      const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
     });
     // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
-    for (let i = 0; i < draws.length; i++) if (!draws[i].pre && (sts[i].prep = GLR.carryPrep(draws[i].res, sts[i])) === false) return false;
-    for (let i = 0; i < draws.length; i++) {
-      const d = draws[i], st = sts[i];
+    for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
+    for (let i = 0; i < n; i++) {
+      const d = lay[i], st = sts[i];
       if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
         if (i > 0) GLR.carryDepthEnd();
         return false;
       }
     }
+    if (tail) GLR.carryDepthEnd();
     return true;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
