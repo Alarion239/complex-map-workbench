@@ -11,7 +11,7 @@ const frames = (ms) => ev(`await __qa.frames(${ms})`);
 for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await view(w, h, false, mob);
   await go(U + `?ns=pf${w}`); await settled({ until: TOUR });
-  if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: 0, of: 1, fails: [['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)', false, null]] };
+  if (!(await isSteps())) return { pass: 0, of: 1, fails: [['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)', false, null]] };
   await ev('Tour.dismissSuggestion()');
   // the panes' size changes through Views (one chapter): a ResizeObserver on #panes
   // (each change logged with the step's title, the height and the web fonts' state: what a failure needs to be read)
