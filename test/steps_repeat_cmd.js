@@ -27,11 +27,9 @@ const planes = () => ev(`__cmwSteps().planes.length`);
 const badges = () => ev(`[...document.querySelectorAll('#svStrip .sv-step')].map((s) => { const b = s.querySelector('.sv-rep'); return [s.dataset.k, b ? b.textContent : '', s.querySelector('.sv-fwrap').className]; })`);
 const row = () => ev(`(() => { const r = document.querySelector('.insp-repeat'); if (!r || r.hidden || !r.getClientRects().length) return null; const f = r.querySelector('.rep-n'), b = [...r.querySelectorAll('button')];
   return { n: f.value, label: f.getAttribute('aria-label'), range: r.querySelector('.rep-range').textContent, less: b[0].disabled, more: b[1].disabled, end: b[2].textContent, focus: document.activeElement === f, h: b.map((x) => Math.round(x.getBoundingClientRect().height)) }; })()`);
-const press = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); e.click(); return true; })()`);
-const pickItem = (label) => ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`);
+const { press, pickItem, typeN } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'repeat_kit.js'), 'utf8'))({ ev, settled });
 const undo = async () => { await press('#undoBtn'); await settled({}); };
 const kb = (k) => ev(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true })); 1`);
-const typeN = async (text) => { await ev(`(() => { const f = document.querySelector('.insp-repeat .rep-n'); f.focus(); f.value = ${JSON.stringify(text)}; f.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`); await settled({}); };
 
 // ---- the desktop: set a repeat from the chip's ⋯ ----
 await open(1280, 800, false, 'en', mk(null));
