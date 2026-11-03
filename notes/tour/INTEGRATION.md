@@ -651,6 +651,7 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | anchor | element |
 |---|---|
 | `svStrip` | the thread, `#svStrip` |
+| `svNext` | the thread's › button, `#svStrip .sv-next` |
 | `svRing` | the ring that marks the place on the thread, `#svStrip .sv-thumb` |
 | `svCp` | Colour from here, `#svHead .sv-cp` |
 | `svScope` | the Everywhere / Inside regions choice, `#svHead .sv-scope` |
