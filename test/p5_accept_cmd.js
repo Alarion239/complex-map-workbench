@@ -6,8 +6,8 @@
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
 //  (k) the crack test: exact images off, each scene's region drawn from its SphereMesh; every interior pixel (the
-//      analytic truth, 4 px from the rims) is covered (fill = a Phase colour: its channels spread more than FILL_SPREAD;
-//      the paper, its tint and the grid spread less)
+//      analytic truth, 4 px from the rims) is covered (fill = more than 24 (summed over the channels) from the plane's
+//      own picture with no fill: its paper, its grid lines and axes, and their anti-aliased blends with the paper)
 //  12.3 the trouble classification (__cmwSmVerdict) is the same at 1x, 4x and 1/4x zoom for every quality scene
 //  8.8 a left pan that re-centres the meshing window: no frame shows today's GPU image (the old mesh stands in until
 //      the new one lands), and the slices of every job stay within 6 ms
@@ -22,9 +22,6 @@ const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
 const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false, exactImages: false };
 // the steps view at the chain's last plane (sv.at is clamped to it), coloured from plane z, on Inside regions
 const SV = { dc: 'phase', sv: { at: 99, T: 0, scope: 'in' } };
-// (the Phase wheel's channels spread at least 73/255 at its L 0.75; the paper, its tint, the grid lines and the axes at
-// most 42)
-const FILL_SPREAD = 50;
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 // wait until every SphereMesh job has published and the canvas is still. `want`: the least number of meshes and of
 // builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet)
@@ -105,6 +102,15 @@ const crack = (cls) => ev(`(() => {
   const ec = getComputedStyle(document.documentElement).getPropertyValue('--c1-edge').trim(), EDGE = [1, 3, 5].map((k) => parseInt(ec.slice(k, k + 2), 16));
   const wOf = (x, y) => [(x - o[0]) / sx, (o[1] - y) / sy];
   const A = window.__p5.a1;
+  // (the plane's picture with no fill: the paper, and each grid colour blended with it, as segments in RGB; the axis
+  // colour too within 4 px of an axis, Re w = 0 or Im w = 0, its line and its ticks)
+  const cs = getComputedStyle(document.documentElement), hx = (n) => { const m = /#([0-9a-f]{6})/i.exec(cs.getPropertyValue(n)); return m ? [0, 2, 4].map((k) => parseInt(m[1].slice(k, k + 2), 16)) : null; };
+  const paper = hx('--plane') || [252, 253, 253], grid = ['--grid-minor', '--grid-medium', '--grid-major'].map(hx).filter(Boolean), axis = hx('--axis');
+  const bgDist = (c, onAxis) => Math.min(...(onAxis && axis ? grid.concat([axis]) : grid).map((g) => {
+    const d = [g[0] - paper[0], g[1] - paper[1], g[2] - paper[2]], q = [c[0] - paper[0], c[1] - paper[1], c[2] - paper[2]];
+    const t = Math.max(0, Math.min(1, (q[0] * d[0] + q[1] * d[1] + q[2] * d[2]) / (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] || 1)));
+    return Math.abs(q[0] - t * d[0]) + Math.abs(q[1] - t * d[1]) + Math.abs(q[2] - t * d[2]);
+  }));
   let inN = 0, miss = 0, outN = 0, spill = 0; const ex = [];
   for (let y = 6; y < r.height - 6; y += 2) for (let x = 6; x < r.width - 6; x += 2) {
     const c = cls(wOf(x + 0.5, y + 0.5));
@@ -112,7 +118,7 @@ const crack = (cls) => ev(`(() => {
     for (let k = 0; k < 12 && !near; k++) { const t = k * Math.PI / 6; if (cls(wOf(x + 0.5 + 4 * Math.cos(t), y + 0.5 + 4 * Math.sin(t))) !== c) near = true; }
     if (near) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
-    const fill = Math.max(A[i], A[i + 1], A[i + 2]) - Math.min(A[i], A[i + 1], A[i + 2]) > ${FILL_SPREAD};
+    const fill = bgDist([A[i], A[i + 1], A[i + 2]], Math.abs(x + 0.5 - o[0]) < 4 || Math.abs(y + 0.5 - o[1]) < 4) > 24;
     // (a pixel under an edge-coloured mark is not a crack; the strokes are hidden in this frame, so this only skips
     // pixels some other mark covers)
     if (!fill && Math.abs(A[i] - EDGE[0]) + Math.abs(A[i + 1] - EDGE[1]) + Math.abs(A[i + 2] - EDGE[2]) < 90) continue;
