@@ -86,7 +86,7 @@
   // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
   const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip });
-  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
+  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, !!clip);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
@@ -110,7 +110,7 @@
     fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
-    regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
+    regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(true, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -131,9 +131,6 @@
     // TEMP-DEBUG-HOOK
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
-    // (#366 F: the steps view's carried colour, CARRY_VS)
-    carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
-    carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
     // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
     cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },
@@ -972,27 +969,16 @@ float wabs(vec2 w) {
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
       data[o + pc + 4] = d.tri[t];
     }
-    // ((#366 prototype) d.dynamic: the data kept, for updatePreMesh to move its vertices frame by frame)
-    const buf = makeBuf(data, d.dynamic ? gl.DYNAMIC_DRAW : undefined);
+    const buf = makeBuf(data);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
     gl.bindVertexArray(null);
-    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [], data: d.dynamic ? data : null, stride };
+    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
     for (const [r] of preAll) { if (preBytes <= PRE_BYTES) break; if (r !== res) destroy(r); }
     return res;
-  }
-  // ((#366 prototype) a flat dynamic mesh's vertices moved: pos as createPreMesh's (2 per vertex, 6 per triangle), the
-  // other attributes kept; one upload, no new buffer)
-  function updatePreMesh(res, pos) {
-    if (!ok || !res || !res.data || res.sph || !res.n) return false;
-    const D = res.data, st = res.stride, nv = res.count;
-    for (let v = 0; v < nv; v++) { D[v * st] = pos[2 * v]; D[v * st + 1] = pos[2 * v + 1]; }
-    gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
-    return true;
   }
   // st: {view, dpr, color, color2, edge, ink, alpha, pattern, cell, lines, sphN, stretch, sphere: {MVP, eye},
   //      scissor [x, y, w, h] (device px of the pane, bottom-left origin),
@@ -1306,7 +1292,7 @@ float wabs(vec2 w) {
   let fillPtsRuns = 0;
   const fillPointsRuns = () => fillPtsRuns;
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noCarry, noKCDraw, noFill (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  // noCarry, noKCDraw, noFill (drawRegionCarry); {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

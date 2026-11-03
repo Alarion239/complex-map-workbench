@@ -322,9 +322,10 @@
     add('dh near M 0.6z-0.5 N 12', [S('affine', { a: '0.6', b: '-0.5' }), S('dh', { N: 12 })]);
     add('default bottcher', [S('bottcher')]);
     add('bottcher c = 0.3+0.6i outside M', [S('bottcher', { c: '0.3+0.6i' })]);
-    // [issue #439] the steps view's carried colour (GLR.drawCarried): its vertex shader walks plane s's points to plane
-    // hi's path at t through chainAt (src/gl MAP_PLAIN[1], base = s), and its fragment shader colours them by
-    // chainRange(p, s, T). carry: true adds those rows (CARRY_TS, every base, focus and s < T), in a program of its own
+    // [issue #439] the steps view's carried colour (the region meshes' carry, REGION_VS and CARRY_FS): the vertex stage
+    // walks plane s's points to plane hi's path at t through chainAt (src/gl MAP_PLAIN[1], base = s), and the fragment
+    // stage colours them by chainRange(p, s, T). carry: true adds those rows (CARRY_TS, every base, focus and s < T), in
+    // a program of its own
     const Cy = (name, steps) => chains.push({ name, steps, carry: true });
     Cy('carry exp mobius', [S('mul', { c: '0.5' }), S('exp'), S('mobius', { a: '1', b: '0.5', c: '0.2', d: '1' })]);
     Cy('carry mobius pown 3', [S('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), S('pown', { n: 3 })]);
