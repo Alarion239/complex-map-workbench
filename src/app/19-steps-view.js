@@ -216,8 +216,7 @@
     svPause(false);
     svKeepView();
     SV.span = null;
-    // (the landscape has no frames between two planes: it changes plane at once)
-    if (now || svReduced() || SV.surf === 'land') { SV.anim = null; SV.g.set(i); svArrive(); return; }
+    if (now || svReduced()) { SV.anim = null; SV.g.set(i); svArrive(); return; }
     SV.g.max = P.length - 1;
     const from = SV.g.x;
     if (Math.abs(i - from) < 1e-6) { SV.anim = null; SV.g.set(i); svArrive(); return; }
@@ -275,6 +274,19 @@
     dirty.L = true;
     svSync();
     if (still) { SV.g.last = 0; svArrive(); return false; }
+    return true;
+  }
+  // (#846) The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
+  // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
+  // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
+  // (the X → Y view a glide from past the colour plane starts in)
+  function svLandMoving(pane) {
+    if (SV.surf !== 'land' || !lLand()) return false;
+    const g = svBetween();
+    if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
+    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
+    const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
+    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null });
     return true;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
@@ -1993,7 +2005,7 @@
     // (at the end, or past it: from the start)
     const from = x >= end - 1e-6 ? start : x;
     draft = null; probe = null;
-    if (svReduced() || SV.surf === 'land') {
+    if (svReduced()) {
       SV.g.set(Math.round(from));
       SV.play = { slide: true, start, end, timer: 0, steps: S.steps };
       svSlide(true);
