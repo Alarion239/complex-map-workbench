@@ -977,20 +977,24 @@
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
-  // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
+  // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
+  // globe (GLR.drawSphere's st.carried). Returns the frame's {MVP, eye, carried} (carried: that colour was drawn) or
+  // null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
     // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
     // (a frame or two) the regions' globe alone; the frame is asked again when it has)
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
-      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));
+      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
+      let carried = false;
       if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
         try {
-          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+          carried = !!(mi && mi.carried);
         } catch (e) { console.error('globe region mask', e); }
       }
-      return info;
+      return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
     // backdrop, shadow or marks of its own, #440)
@@ -1111,7 +1115,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain',
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
