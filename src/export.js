@@ -34,7 +34,7 @@ const Export = (() => {
       sndExportDone();
       return true;
     }
-    // true only when the file was saved (or handed to the browser's download): a declined or refused save is false, so
+    // true only when the file is saved (or handed to the browser's download): a declined or refused save is false, so
     // the export dialog never says "Saved" for it
     if (!d) { sndError(); toast($t('Saving files is not available in this view.')); return false; }
     try {
@@ -106,7 +106,7 @@ const Export = (() => {
     const top = y - it.h - it.va;
     return it.markup.replace('<svg', `<svg x="${left.toFixed(2)}" y="${top.toFixed(2)}"`);
   }
-  // SPEC 10.6: prepareExport(panels, alive) -> true when the export may draw, false when it was cancelled (alive()
+  // SPEC 10.6: prepareExport(panels, alive) -> true when the export may draw, false when it is cancelled (alive()
   // turned false: an option changed or the dialog closed). Asynchronous and time-sliced: it refines the lines and
   // waits (bounded, polling every 25 ms, never blocking) for the inverse programs that each panel's current view draws
   // with: the right plane or the w-globe (role R), the left plane at a focused stage or the z-globe (role L, also at
@@ -202,7 +202,7 @@ const Export = (() => {
     // none) is waited for here, and only then
     const wait = !warm && GLR.ok && GLR.inverseStatus && (GLR.inverseStatus(A.S.alpha, 'flat') === 'pending' || GLR.inverseStatus(A.S.alpha, 'globe') === 'pending');
     // the forward programs are always waited for: a deformation frame may need a map mode the screen never drew
-    // (gl.js MAP compiles one program per mode), and a static program's first use no longer waits on screen
+    // (gl.js MAP compiles one program per mode), and a static program's first use does not wait on screen
     const waitFwd = !warm && GLR.ok;
     A.offRender = true;
     if (wait) GLR.syncCompile = true;
@@ -261,8 +261,8 @@ const Export = (() => {
     return null;
   }
   // ---- the caption, as segments: {t: text} and {m: TeX}; also as LaTeX source ----
-  // (one pass over the special characters: a replacement's own braces are not escaped again, as they were when the backslash
-  // was replaced first and the braces after it)
+  // (one pass over the special characters: a replacement's own braces are not escaped again, as they would be when the backslash
+  // is replaced first and the braces after it)
   const texEsc = (s) => String(s).replace(/[\\#$%&_{}~^]/g, (c) => (c === '\\' ? '\\textbackslash{}' : c === '~' ? '\\textasciitilde{}' : c === '^' ? '\\textasciicircum{}' : '\\' + c));
   // a caption sentence as segments: the template is translated whole (DESIGN.md 1) and its %{slots} hold segments,
   // so the word order follows the language. cs 'gen': the genitive form ("the images of ...", Russian needs the case)
@@ -287,7 +287,7 @@ const Export = (() => {
     // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга», math-4)
     const phrase = (c) => {
       const sp = (src, params) => capT(src, params, c);
-      // (v16: constructions by their definitions; [v16.4 review user-2, user-3] a phrase that must be closed when more text
+      // (constructions by their definitions; a phrase that must be closed when more text
       // follows (a Russian participial phrase, a stacked "in the domain") ends with a closing comma, {pc}: pcTidy drops it
       // before punctuation and at the end)
       if (s.def || s.at) { const ph = Construct.phrase(s, P); if (ph) { const r = sp(ph.src, ph.params); if (ph.close) r.push({ t: ',', pc: 1 }); return r; } }
@@ -313,7 +313,7 @@ const Export = (() => {
         }
         case 'segment': return sp('the segment %{m}', { m: M(`[${P(s.a)},\\,${P(s.b)}]`) });
         // (a line stored from a cap on a globe has a unit direction and is written by its equation, Region normalTex)
-        // (v16 review picture-7: "\text{…}" in any language is the line-through form: by its two points, never as maths)
+        // ("\text{…}" in any language is the line-through form: by its two points, never as maths)
         case 'line': return tex && !/^\\text\{/.test(tex) ? sp('the line %{m}', { m: M(tex) }) : sp('the line through %{a} and %{b}', { a: M(P(s.a)), b: M(P(s.b)) });
         case 'ray': return sp('the ray from %{a} through %{b}', { a: M(P(s.a)), b: M(P(s.b)) });
         case 'circle': return sp('the circle %{m}', { m: M(tex) });
@@ -337,7 +337,7 @@ const Export = (() => {
         default: return Region.KINDS[s.kind] ? sp('a %{kind}', { kind: Region.KINDS[s.kind].label.toLowerCase() }) : sp('a shape', {});
       }
     };
-    // (v16: a 3-point region and a bound half-plane say their side themselves: "the outside of the circle through …")
+    // (a 3-point region and a bound half-plane say their side themselves: "the outside of the circle through …")
     if (s.complement && kindType(s) === 'area' && !(s.def || (s.at && s.kind === 'halfplane'))) return capT('the complement of %{segs}', { segs: phrase('gen') }, cs);
     return phrase(cs);
   }
@@ -350,7 +350,7 @@ const Export = (() => {
     return out;
   };
   const cap1 = (segs) => { const s = segs.slice(); if (s[0] && s[0].t) s[0] = { t: s[0].t.charAt(0).toUpperCase() + s[0].t.slice(1) }; return s; };
-  // [v16.4 review user-2] a phrase's closing comma ({pc}) stays only before more words: it goes before punctuation, an
+  // a phrase's closing comma ({pc}) stays only before more words: it goes before punctuation, an
   // opening bracket, another comma and at the end (keepEnd: a list that a template continues; it is left as PC_MARK,
   // which figure.js's polish resolves the same way once the sentence is whole). [verify-1] It also goes before the
   // English "and" (a list's or a meet's): there it would read as a list break; Russian keeps it («…, и~…»)
@@ -426,8 +426,8 @@ const Export = (() => {
       else if (lGlobe() && lPhase()) push(...lab('a'), ...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
       else if (lLand()) {
         const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[A.S.height || 'log'];
-        // (v16.1 user-5: what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
-        // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets)
+        // (what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
+        // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets; standards-ok: a spec path in notes/)
         const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname0) : null;
         push(...lab('a'), ...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
       } else if (vis.length) push(...lab('a'), ...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
@@ -608,8 +608,8 @@ const Export = (() => {
     if (!(await prepareExport(panels, alive, isMorph && !opt.upTo, { pw, dpr, gen: opt.expGen || 0 }))) return null;
     // One panel per task, in the light theme for print (switched for that panel only, so no frame on screen runs in
     // it), and every raster's encoding in a task of its own: toBlob reads the pixels back synchronously and waits
-    // for the GPU to finish what was drawn before. Two 300 dpi globe panels and the first readback in one task
-    // blocked the main thread for 51-60 ms (P3 review); a task here is one panel's draw, or one readback.
+    // for the GPU to finish what is drawn before. Two 300 dpi globe panels and the first readback in one task
+    // would block the main thread for 51-60 ms; a task here is one panel's draw, or one readback.
     const nextTask = () => new Promise((r) => setTimeout(r, 0));
     const drawn = [];
     for (const side of panels) {
@@ -915,7 +915,7 @@ const Export = (() => {
     // Russian notation (tg, sh, ...) at the export boundary (DESIGN.md 6); English is unchanged
     return I18N.notation(out.join('\n'));
   }
-  // (v16.5 V02: the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
+  // (the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
   function exportMenuItems(withShare) {
     const items = /** @type {any[]} */ ([
       { label: $t('Export figure…'), fig: true, key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
@@ -925,14 +925,14 @@ const Export = (() => {
       { label: $t('Copy LaTeX with guarantees'), icon: 'copy', run: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); } },
       { label: $t('Save LaTeX with guarantees (.txt)'), save: true, run: () => saveFile('complex-map.txt', latexDocument()) },
     ]);
-    // ([v17 D5] the link and the scene files are Share's on a laptop; the phone's sheet lists both)
+    // (the link and the scene files are Share's on a laptop; the phone's sheet lists both)
     if (withShare) items.push('sep', ...shareMenuItems());
     // files cannot be offered in this view: only the copy remains
     // (by a flag, not by the label: the label is translated)
     if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
     return items;
   }
-  // v15: the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
+  // the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
   function shareMenuItems() {
     const items = [
       { label: $t('Copy link to this figure'), icon: 'copy', run: () => { copyFigureLink(); } },

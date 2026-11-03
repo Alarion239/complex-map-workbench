@@ -593,7 +593,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
       out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
   float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
-      // one loop body for every case (a constant-bound loop written out per case was four copies of the term code, which
+      // one loop body for every case (a constant-bound loop written out per case would be four copies of the term code, which
       // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
       // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
       // values, not constants, so the loops stay loops
@@ -810,7 +810,7 @@ vec2 cx_lgamma1(vec2 z) {
   return clog(cdiv(ser * 2.5066282746310005, z), CX_PI, 0.0) - tmp;
 }
 // log Γ(z): the reflection log π − log sin(πz) − log Γ(1 − z) for Re z < 1/2; a pole: Re = +inf. (issue #72) One call
-// of cx_lgamma1, its argument chosen first: FXC (Direct3D 11) inlines every call, and the Lanczos body was there twice
+// of cx_lgamma1, its argument chosen first: FXC (Direct3D 11) inlines every call, and the Lanczos body would be there twice
 vec2 cx_lgamma(vec2 z) {
   bool refl = z.x < 0.5;
   if (refl && z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf(), 0.0);
@@ -943,7 +943,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   return cexp(acc);
 }
 `;
-  // (issue #72) the parts a source calls and those they need, in order: Γ no longer brings ζ
+  // (issue #72) the parts a source calls and those they need, in order: Γ does not bring ζ
   // along, nor w^e (a series) Γ and ζ
   const specialLib = (src) => {
     const zeta = /\bcx_zetad?\(/.test(src), fact = /\bcx_(fact|binom)\(/.test(src);
@@ -1502,7 +1502,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       return { kind: 'powc', get v() { return vOf(); }, get n() { const v = vOf(); return intOf(v) ? 1 : Funcs.sheetCount(v); } };
     };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
-    // (v16.1 review math-3: the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
+    // (the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
     function node(bn, inC) {
       const rc = A.cell(), i = rads.length;
       rads.push(rc);
@@ -1595,7 +1595,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // with e = 1 + (alpha - 1)t, log through cxs0_lh (P_h of the step, on (th, s))
       const g = type === 'root' ? (x) => `cpowr(${x}, e, th, s)` : type === 'powa' ? (x) => `cpow(${x}, e, th, s)` : (x) => `cxs0_lh(${x}, th, s, u)`;
       const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `vec2 e = vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
-      // (v16.1 review math-3) the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
+      // the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
       // + 2 pi k, the digit shifted by floor((rc.y - arg c0) / 2 pi), c0 the input at the cell centre (0 by default)
       const kk = type === 'root' ? (((v.k | 0) % n) + n) % n : v.k | 0, Th = (v.cut ?? 180) * Math.PI / 180 + 2 * Math.PI * kk;
       const sOf = (s0) => `${s0} + floor((${rc.y} - carg(p.xy)) / (2.0 * CX_PI))`;
@@ -1849,9 +1849,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
       + '  if (mode == 1) { if (k > base && k < hi) return 1; if (k == hi) return 2; }\n'
       + '  else if (mode == 3) { if (k > base && k <= a) return 1; if (k > a && k <= b) return 2; }\n'
       + '  if (post > b && k > b && k <= post) return 1;\n  return 0;\n}\n';
-    // end > 0 (F's last step, v16.1 review math-5): F's digits, every live step in (base, end]; a step the map does not
+    // end > 0 (F's last step): F's digits, every live step in (base, end]; a step the map does not
     // apply yet reads its digits and does not act (Funcs.sheetMapEval's end)
-    // (cxs0_dom: after a call, the least side value of z against a cut it was continued across (a path's dom: positive
+    // (cxs0_dom: after a call, the least side value of z against a cut it is continued across (a path's dom: positive
     // on zc's side of its cut, where the continuation is the path itself); 1e30 where no path has one)
     let hcFns = 'float cxs0_dom = 1e30;\n';
     const shHead = sh.length;
@@ -1919,13 +1919,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
     const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
-    // on / off flags are taken now (stepOps reads only the built steps).
+    // on / off flags are taken as they are at the call (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
     let inverse;
     return {
       key: JSON.stringify(['glc1', sigs]),
       source: src,
-      // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md): GLSL to put after
+      // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md; standards-ok: a spec path in notes/): GLSL to put after
       // source in the programs that call it
       sheetHom: sh,
       get inverse() {

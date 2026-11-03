@@ -39,7 +39,7 @@ const Expr = (() => {
   // Russian notation (notes/i18n/DESIGN.md 6), accepted in either language: tg, ctg, sh, ch, th, ... and Ln (the
   // principal branch, as Log). Kept out of LATEX_CMDS and PLAIN so the English 'Try \\sin or \\sinh' suggestions
   // stay as they are. Longest-first matching keeps theta and cosh whole; of these names only cosec starts with an
-  // existing name (cos), and cos e c was an error before, so no formula that parsed before parses differently.
+  // existing name (cos), and cos e c is an error, so no formula that parses is read differently.
   // (GLOSSARY 2.1 also lists the plain arsinh, arcosh, artanh: review math-16; none is a prefix of another name)
   const RU_NAMES = { arctg: 'f:atan', arsh: 'f:asinh', arch: 'f:acosh', arth: 'f:atanh', cosec: 'f:csc', ctg: 'f:cot', cth: 'f:coth', tg: 'f:tan', sh: 'f:sinh', ch: 'f:cosh', th: 'f:tanh', Ln: 'f:log', arsinh: 'f:asinh', arcosh: 'f:acosh', artanh: 'f:atanh' };
   // tokenize(src, rel, ru): ru = false is the base tokenizer exactly. The Russian forms (these names, 0{,}5,
@@ -65,10 +65,10 @@ const Expr = (() => {
   const commaHint = (src, pos) => (COMMA_UI() && src[pos] === ',' && /\d/.test(src[pos - 1] || '') && /\d/.test(src[pos + 1] || '')
     ? $t('Use a decimal point: 0.5, not 0,5 (a comma separates conditions)') : null);
   const LETTERS = { z: 'v:z', w: 'v:z', x: 'v:x', y: 'v:y', r: 'v:r', i: 'c:i', e: 'c:e' };
-  // ---- shared numbers (v15, src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1.1) ----
+  // ---- shared numbers (src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1.1) ----
   // Expr.setNames({get(name) -> number | undefined, display(name)}) turns on names: a letter the parser does not read
   // (a, k, A, a1, a_1, alpha, \alpha, α) is a shared number, read as its value (a num node with .param). Only text
-  // that was an error without names reads differently: a run of letters is a name only when the base tokenizer
+  // that is an error without names reads differently: a run of letters is a name only when the base tokenizer
   // cannot read the whole run (xi stays x i, chi stays ch i). Without the hook (node tests) nothing changes.
   let NAMES = null, NAMED = null;
   const setNames = (h) => { NAMES = h || null; };
@@ -303,7 +303,7 @@ const Expr = (() => {
       // a number, with an exponent only when [eE] is directly followed by digits (1e-12, 2.5E+3), so that
       // a bare e stays Euler's number (2e^{z}, 2e, e z)
       const num = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(src.slice(i));
-      // 0{,}5: the decimal comma of Russian TeX (I18N.texNum) reads as 0.5 (it was an error before)
+      // 0{,}5: the decimal comma of Russian TeX (I18N.texNum) reads as 0.5
       const dc = ru && num && /^\d+$/.test(num[0]) && /^\{,\}(\d+)/.exec(src.slice(i + num[0].length));
       if (dc) { RU_USED = true; const s = num[0] + '.' + dc[1]; toks.push({ t: 'num', v: parseFloat(s), s, pos: i }); i += num[0].length + dc[0].length; continue; }
       if (num) { toks.push({ t: 'num', v: parseFloat(num[0]), s: num[0], pos: i }); i += num[0].length; continue; }
@@ -443,7 +443,7 @@ const Expr = (() => {
       while (peek().t === 'and' || (allowRel && isOp(peek(), ','))) {
         const sep = next(), b = parseNot();
         // Russian only (review ui-1): |z| < 0,5 is |z| < 0 and 5; a comma between digits that leaves a condition on one
-        // side and a bare number on the other was a decimal comma, and the message says to use the point (English
+        // side and a bare number on the other is a decimal comma, and the message says to use the point (English
         // keeps its messages; a list with no condition at all, 1,0,-1, parses as before)
         const hint = sep.t === 'op' && commaHint(src, sep.pos);
         if (hint && hasCmp(a) !== hasCmp(b)) throw new ParseError(hint, sep.pos);

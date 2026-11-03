@@ -196,7 +196,7 @@ const Inverse = (() => {
         return centralPx(z, mul(z, dLX), mul(z, dLY));
       };
     } else if (s._g && s._g.A !== 0 && s.kind === 'disc') {
-      // a gcircle disc; through 0 by incidence [C9]: near 0 it is its tangent half-plane there
+      // a gcircle disc; through 0 by incidence: near 0 it is its tangent half-plane there
       const G = s._g, gx = G.B[0] - G.A * G.o[0], gy = G.B[1] - G.A * G.o[1], gl = Math.hypot(gx, gy) || 1, d = C(-gy / gl, gx / gl);
       lamRule = (big, th, dLX, dLY) => (big ? sure(G.A < 0) : G.thru0 ? dirHalf(d, th, dLX, dLY, 1) : sure(at0()));
     } else if (bounded) {
@@ -446,7 +446,7 @@ const Inverse = (() => {
     return { x0: x0 - px, x1: x1 + px, y0: y0 - py, y1: y1 + py };
   }
   // Member and lattice indices are counted with integers that must stay exact and must change when incremented: an
-  // index beyond IDX_SAFE (where float64 positions base + n step no longer resolve neighbouring points anyway) makes
+  // index beyond IDX_SAFE (where float64 positions base + n step do not resolve neighbouring points anyway) makes
   // the lattice / family unusable here, and every index loop below is bounded by an iteration count, never by a float
   // comparison (n++ is a no-op above 2^53).
   const IDX_SAFE = 2 ** 50;

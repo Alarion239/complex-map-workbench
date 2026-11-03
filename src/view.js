@@ -276,8 +276,8 @@ const Views = (() => {
   // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
   // its own speed (a state without one takes the device's). alone: the step shown alone, an active step's index, a key only
   // while one is shown; at and T are then the whole chain's place (what leaving it goes back to). planes: the stages of
-  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state was
-  // never saved from the steps view): a fractional or far `at` is clamped to the planes, a T the chain no longer has
+  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state holds
+  // no steps view): a fractional or far `at` is clamped to the planes, a T the chain does not have
   // is -1, an unknown scope or surface is the default, an unknown speed is dropped.
   const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
   function cleanSv(v, planes) {

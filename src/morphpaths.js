@@ -365,9 +365,9 @@ const MorphPaths = (() => {
           if (c.kept || c.dead || (edges && c.sp.kind !== 'edge')) continue;
           if (c.dS < dS || c.dE < dE) { c.dead = 1; continue; }
           const sc = Math.min(c.dS, c.dE * dS / dE, 4 * dS) + (c.sp.kind === 'edge' ? (opt.globe ? -0.35 : 0.35) * dS : 0) + (small ? 0.15 : 0.04) * Math.min(c.len, 200 * k) - (c.loop ? 0.5 * dS : 0) - (c.stub ? dS : 0) - dS * c.turn / Math.PI;
-          // (review v16 regress-2: the score in whole micro-px, so candidates that tie but for rounding (1e-14 px, a
+          // (the score in whole micro-px, so candidates that tie but for rounding (1e-14 px, a
           // homotopy's end exact or not, another browser's Math) tie exactly, and the first in the seeds' fixed order
-          // wins, as an exact tie always did)
+          // wins, as in an exact tie)
           const scq = Math.round(sc * 1e6) / 1e6;
           if (scq > bs) { bs = scq; best = c; }
         }
@@ -782,7 +782,7 @@ const MorphPaths = (() => {
     if (!p || (!p.pre.length && !p.post.length)) return null;
     // (a d/dz in the pre is an operator on the chain so far, not a map composed with it: the pre then starts from the
     // stage of its last d/dz, w_d, a function of z that the chain sentence defines, and goes on with the maps after it:
-    // P = f_{a−1} ∘ … ∘ f_{d+1} ∘ w_d. Review v16 math-1)
+    // P = f_{a−1} ∘ … ∘ f_{d+1} ∘ w_d)
     let d = 0;
     for (const k of p.pre) if (isDeriv(k)) d = k;
     const tok = (ks, w) => [...(w ? [`w_{${w}}`] : []), ...ks.map((k) => `f_{${k}}`)];
@@ -791,7 +791,7 @@ const MorphPaths = (() => {
     const preT = tok(p.pre.filter((k) => k > d), d), postT = tok(p.post);
     const pre = preT.length ? comp(preT) : null, post = postT.length ? comp(postT) : null;
     const qp = [post, pre].filter(Boolean).join('\\circ ');
-    // (v16.1, verify-2: the captions that write w_d also define it, as a function of z)
+    // (the captions that write w_d also define it, as a function of z)
     const wdef = d ? `w_{${d}}=${stageTexOf(d)}` : null;
     return { range: { a: p.a, b: p.b }, pre, post, qp, qpz: app(postT, app(preT, 'z')), H: `H_t=${[post, 'G_t', pre].filter(Boolean).join('\\circ ')}`, deriv: d, wdef };
   }
@@ -803,7 +803,7 @@ const MorphPaths = (() => {
   }
   // " Here w_d = ...", after a caption sentence that writes the bracket's start with a d/dz in its pre
   const wDefSegs = (rt) => (rt && rt.wdef ? capT(' Here %{w}.', { w: { m: rt.wdef } }) : []);
-  // (v16.1 review user-1, user-2) the Landscape draws H_t on F's sheets: a deformed root, power or log runs on every
+  // the Landscape draws H_t on F's sheets: a deformed root, power or log runs on every
   // sheet, so its homotopy is not said to be on the principal branch (homTex's o.sheets: "on every sheet")
   const homSheetWords = () => { try { const sh = sheetsShown(); return !!(sh && sh.hom); } catch (e) { return false; } };
   function morphHomSegs(Tend) {
@@ -1019,7 +1019,7 @@ const MorphPaths = (() => {
     if (paths) {
       try { drawMorphPathsX(pane, morphSelScreen(pane), ms.F); } catch (e) { console.error('deformation paths', e); }
     } else {
-      // (Paths off: the point trails from t = 0 to now, as before)
+      // (Paths off: the point trails from t = 0 to the current t)
       const ctx = pane.ctx;
       const steps = Math.max(2, Math.ceil(morph.T * 40));
       const Fs = [];
@@ -1049,10 +1049,10 @@ const MorphPaths = (() => {
     drawRulers(pane, 'R');
   }
   // the transport's readout and scrubber follow the time in every view
-  // (gate v16 deform_range_fps) the play tick calls this every frame, also in Phase and Landscape alone. It reads
+  // the play tick calls this every frame, also in Phase and Landscape alone. It reads
   // before it writes (the phone's label check measured the scrubber after the readout changed: a forced layout every
   // frame), sets the readout's Text node instead of replacing it, and while playing moves the scrubber only when its
-  // thumb moves by half a pixel: on a phone each change of the page's tree or a style was a full style recalc (the
+  // thumb moves by half a pixel: on a phone each change of the page's tree or a style is a full style recalc (the
   // page's :has() rules), about 1.5 to 2 ms a frame. Paused, the scrubber shows T exactly.
   function syncTransport() {
     const sl = /** @type {HTMLInputElement} */ ($('morphRange'));
@@ -1067,9 +1067,9 @@ const MorphPaths = (() => {
       if (!(morph.playing && w > 0 && Math.abs(morph.T - +sl.value) * w / span < 0.5)) { sl.value = morph.T; paintFader(sl); }
     }
   }
-  // (v16.5 UX103) the deformation's readout in words: "Step 1 of 3 · f₂ · 84 %", the step and its function as the ticks
+  // the deformation's readout in words: "Step 1 of 3 · f₂ · 84 %", the step and its function as the ticks
   // name it (it read "t = 0.84 / 3", like a page count); t itself is in its tooltip. All at once: "All steps · 84 %"
-  // ([v16.5 fix regress-1] the percentage is padded to three figures with figure spaces, so the row never reflows while
+  // (the percentage is padded to three figures with figure spaces, so the row never reflows while
   // it plays; short: "1/2 · f₁ · 53 %", the form a tight row takes (the words stay in the tooltip), so the close button
   // keeps its place on the row and the plane keeps its height)
   function morphReadout(short) {
@@ -1142,7 +1142,7 @@ const MorphPaths = (() => {
     if (er) {
       const show = !A.S.steps.length && rImage();
       if (show && !er.firstChild) er.append(h('span', null, $t('Add a function to map the region')), h('button', { class: 'btn primary small', 'data-tip': $t('Add a function to map the region'), onclick: (e) => openPalette(e.currentTarget, A.S.steps.length, { fnOnly: true }) }, $t('Add function')));
-      // (v16.5 UX20: in Y's head the title is fitted with the button in place, so its role is whole, short or gone)
+      // (in Y's head the title is fitted with the button in place, so its role is whole, short or gone)
       if (er.hidden === show) { er.hidden = !show; if (er.parentNode && /** @type {HTMLElement} */ (er.parentNode).classList.contains('pane-head')) fitTitle('R'); }
     }
     updateCalcChip();

@@ -53,7 +53,7 @@ const Recognize = (() => {
     if (!e || e[0] !== tag) throw new Refuse('shape');
     return e[1];
   }
-  // a yes/no decision whose recorded answer must hold now (a structural equality that a value cannot create)
+  // a yes/no decision whose recorded answer must hold for the current input (a structural equality that a value cannot create)
   function must(tag, cur) {
     const r = pick(tag, cur);
     if (r && !cur) throw new Refuse('shape');
@@ -351,7 +351,7 @@ const Recognize = (() => {
     // 0. a product of powers of affine factors: product form (zp), or one root: affine, power, scale
     const fz = factored(n, cut);
     if (fz !== undefined) return fz;
-    // 1. rational in z: P/Q coprime, exact where the constants are; refused when a common root was divided out (the
+    // 1. rational in z: P/Q coprime, exact where the constants are; refused when a common root is divided out (the
     //    formula is 0/0 there, a catalog step would fill the point in)
     if (Inverse.rationalForm) {
       const rf = Inverse.rationalForm(n);

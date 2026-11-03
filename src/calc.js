@@ -105,7 +105,7 @@ const Calc = (() => {
     const fine = [0, 0];
     let tot = C(0, 0);
     let bad = null;
-    // stall: the parent piece was already tiny and its error did not shrink
+    // stall: true when the parent piece is already tiny and its error does not shrink
     function adapt(a, d, L, t0, t1, whole, depth, prevErr, stall, segTol, out) {
       const tm = 0.5 * (t0 + t1);
       const l = gl(a, d, t0, tm), r = l && gl(a, d, tm, t1);
@@ -184,7 +184,7 @@ const Calc = (() => {
     const d1 = argq(g0, gm), d2 = argq(gm, g1);
     const lin = Math.hypot(gm.re - 0.5 * (g0.re + g1.re), gm.im - 0.5 * (g0.im + g1.im)) <= 0.2 * Math.min(absC(g0), absC(g1));
     if (Math.abs(d1) < Math.PI / 8 && Math.abs(d2) < Math.PI / 8 && lin) return d1 + d2;
-    // a wall-clock deadline (ctx.deadline, a performance.now() time), checked again after every 16 calls: past it, the
+    // a wall-clock deadline (ctx.deadline, a time in ms on the performance clock), checked again after every 16 calls: past it, the
     // budget is spent
     if (ctx.deadline && ctx.evals >= (ctx.nextT || 0)) { ctx.nextT = ctx.evals + 16; if (nowMs() > ctx.deadline) ctx.budget = 0; }
     if (depth >= 44 || ctx.evals > ctx.budget) { ctx.failAt = zm; return NaN; }
@@ -229,14 +229,14 @@ const Calc = (() => {
   // when the tracker fails, d is the principal difference and why says why: 'end' (F is 0 or not finite at an end),
   // 'zero' or 'pole' (F vanishes or blows up on the segment), 'jump' (F stays finite and non-zero but does not
   // converge: a branch cut), 'budget' (the work budget ran out).
-  // opts.deadline: a performance.now() time after which the work stops as if the budget had run out ('budget')
+  // opts.deadline: a time in ms on the performance clock after which the work stops as if the budget had run out ('budget')
   function argStep(F, z0, g0, z1, g1, opts = {}) {
     if (!g0) g0 = F(z0);
     if (!g1) g1 = F(z1);
     const ok = (g) => fin(g) && absC(g) > 0;
     if (!ok(g0) || !ok(g1)) return { d: ok(g0) && ok(g1) ? argq(g0, g1) : 0, exact: false, why: 'end', evals: 0 };
     const ctx = { evals: 0, budget: opts.budget || 6000, tiny: opts.tiny != null ? opts.tiny : 1e-300, deadline: opts.deadline || 0 };
-    // v15.2 (review math-1): track() cannot see whole turns hidden in a piece where |F| hardly changes (e^{30z} moved
+    // track() cannot see whole turns hidden in a piece where |F| hardly changes (e^{30z} moved
     // up by 0.42 turns by 4π in each half and reads 0). So the segment is first cut into m equal pieces, each turning arg
     // F by at most π/4 at the rate of either end: the rate is d arg F / ds there, from one more call of F at a
     // thousandth of the step (2 calls in all). Pieces beyond the budget fail as 'budget'
@@ -936,8 +936,8 @@ const Calc = (() => {
     }
     return { ok: true, loops, poles: inside, probes: [], fast: true, memo };
   }
-  // The memo for an F that changed a little (a slider): each pole is followed by Newton's method on 1/F from where it was,
-  // and its principal part is found again. null when a pole moved far, or a principal part no longer has its order:
+  // The memo for an F that changed a little (a slider): each pole is followed by Newton's method on 1/F from its old place,
+  // and its principal part is found again. null when a pole moved far, or a principal part has lost its order:
   // the caller then plans in full.
   function cauchyTrack(F, memo) {
     if (!memo) return null;

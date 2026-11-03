@@ -28,7 +28,7 @@ const Inspector = (() => {
   const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
   const s16 = (inner, fill) => `<svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-  // (v16.5 UX85: Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
+  // (Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
   const LENS = s16('<rect x="5.25" y="4.75" width="5.5" height="6.5" rx="1"/><path d="M2 5V3.25C2 2.56 2.56 2 3.25 2H5M11 2h1.75C13.44 2 14 2.56 14 3.25V5M14 11v1.75c0 .69-.56 1.25-1.25 1.25H11M5 14H3.25C2.56 14 2 13.44 2 12.75V11"/>');
   // the specificity order of the lit names on the F tile (the strongest first)
   const STRONG = ['mobius', 'polynomial', 'rational', 'conformal', 'entire', 'homeo', 'proper', 'analytic'];
@@ -75,7 +75,7 @@ const Inspector = (() => {
       for (const lab of el.querySelectorAll('label.pl:not(.zp-sym)')) {
         const inp = el.querySelector('#' + CSS.escape(lab.htmlFor || ''));
         const key = inp && inp.dataset.pkey;
-        const sym = lab.querySelector('.ps') || lab;   // (v16.5 UX33: "Factor a₃", the word and its symbol)
+        const sym = lab.querySelector('.ps') || lab;   // ("Factor a₃", the word and its symbol)
         const t = sym.textContent;
         if (!key || SPECIAL.has(key) || [...t].length !== 1 || lab.dataset.ix || (sym === lab && lab.classList.contains('worded'))) continue;
         lab.dataset.ix = '1';
@@ -116,7 +116,7 @@ const Inspector = (() => {
     //
     // (#455) the choice needs the well's width: in a well that has none (the Inspector built while a phone's sheet is
     // closed) nothing is decided, and the well is watched: when its width changes (the sheet opens, the phone turns)
-    // each formula in it is decided again, here, from the arguments it was last given
+    // each formula in it is decided again, here, from the arguments it last received
     const pickArgs = new WeakMap(), pickForms = new WeakMap();
     const pickRO = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
       for (const { target: form } of entries) {
@@ -182,8 +182,8 @@ const Inspector = (() => {
       const S = A.S(), st = S.steps[k - 1], d = A.defOf(st), b = A.built()[k - 1];
       const deriv = A.isDerivStep(st, b);
       const lens = h('button', { class: 'icon-btn alone-btn', 'aria-pressed': 'false', html: LENS, onclick: () => A.toggleAlone(k) });
-      lens.append(h('span', { class: 'ab-l' }));   // (v16.5 UX85: "Show alone" / "Show F" in words where there is no hover)
-      // (v16.5 UX81: ← → move the step one place, in a phone's editor sheet; the laptop has Alt+← / Alt+→ on the card)
+      lens.append(h('span', { class: 'ab-l' }));   // ("Show alone" / "Show F" in words where there is no hover)
+      // (← → move the step one place, in a phone's editor sheet; the laptop has Alt+← / Alt+→ on the card)
       const n = S.steps.length;
       const mvL = h('button', { class: 'icon-btn mv-btn', 'data-tip': $t('Move left'), 'aria-label': $t('Move f{x} left', { x: sub(k) }), disabled: k <= 1 || null, onclick: () => A.moveStep(k, -1) }, '←');
       const mvR = h('button', { class: 'icon-btn mv-btn', 'data-tip': $t('Move right'), 'aria-label': $t('Move f{x} right', { x: sub(k) }), disabled: k >= n || null, onclick: () => A.moveStep(k, 1) }, '→');
@@ -201,9 +201,9 @@ const Inspector = (() => {
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
       const note = h('div', { class: 'inote' });
-      const nums = h('div', { class: 'inote inums', hidden: true });   // (v16.5 UX65: the numbers this step uses)
+      const nums = h('div', { class: 'inote inums', hidden: true });   // (the numbers this step uses)
       const det = h('div', { class: 'isub' });
-      // v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps shows how it is built, after
+      // a formula that is a chain of catalog steps shows how it is built, after
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true }) : null;
       const rep = buildRepeat(k);
@@ -275,7 +275,7 @@ const Inspector = (() => {
       const show = !!(sp && (sp.kind === 'one' || sp.kind === 'many') && sp.rows);
       if (box.hidden !== !show) box.hidden = !show;
       if (!show) return false;
-      // (v16.1, user 5: the tour's stop about the offer unfolds it, so its Split button shows, without saving the fold)
+      // (the tour's stop about the offer unfolds it, so its Split button shows, without saving the fold)
       if (A.splitTour && A.splitTour() && !box.open) { box.dataset.tourOpen = '1'; box.open = true; }
       const n = sp.steps.length, one = sp.kind === 'one';
       const name = one ? A.Funcs.DEFS[sp.steps[0].type].label : '';
@@ -430,7 +430,7 @@ const Inspector = (() => {
       };
       return [row($t('Ray'), '<i>θ</i>', '1/3', 'dhray', $t('Add ray')), row($t('Level'), '|Φ|', '1.1', 'dheq', $t('Add equipotential'))];
     }
-    // (v16.5 UX33) a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
+    // a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
     function hasCut(st, k) {
       if (st.type !== 'custom') return true;
       const b = A.built()[k - 1];
@@ -442,7 +442,7 @@ const Inspector = (() => {
       const bad = !!(b && b.error), off = st.on === false;
       const alone = S.focus === k;
       E.lens.setAttribute('aria-pressed', String(alone));
-      // (v16.5 UX85: one name, Show alone; while it is on, the same button reads Show F)
+      // (one name, Show alone; while it is on, the same button reads Show F)
       const lt = alone ? $t('Show F  L') : $t('Show alone  L');
       if (E.lens.dataset.tip !== lt) {
         E.lens.dataset.tip = lt; E.lens.setAttribute('aria-label', alone ? $t('Show F') : $t('Show f{x} alone', { x: sub(k) }));
@@ -479,7 +479,7 @@ const Inspector = (() => {
             rn = rn.replace(/\.$/, '') + '; ' + $t('it stays one step: {why}', { why: why.charAt(0).toLowerCase() + why.slice(1) });
           }
         }
-        // (v16.5 UX33: the cut and the sheet are in their fields, so the note no longer repeats them: A.branchTag left out)
+        // (the cut and the sheet are in their fields, so the note does not repeat them: A.branchTag is left out)
         const shortNote = b.show ? $t('Written in short; the field below holds the formula in full.') : null;
         const n = [shortNote, b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
         const nt = n ? n + '.' : '';
@@ -507,7 +507,7 @@ const Inspector = (() => {
         }
       }
       if (E.det.dataset.h !== dt) { E.det.dataset.h = dt; E.det.innerHTML = dt; }
-      // (v16.5 UX65) the numbers the step uses, with their values
+      // the numbers the step uses, with their values
       const nt = A.numbersOf ? A.numbersOf(k) : '';
       if (E.nums.textContent !== nt) E.nums.textContent = nt;
       E.nums.hidden = !nt;
@@ -649,7 +649,7 @@ const Inspector = (() => {
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Shapes')));
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
-      // (v16.5 UX17: on a touch screen, the phone's places)
+      // (on a touch screen, the phone's places)
       const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.'));
       return { kind: 'region', root: h('div', { class: 'iregion' }, head, sum, sw, hint), sum, sw };
     }
@@ -679,7 +679,7 @@ const Inspector = (() => {
       const sel = A.sel();
       // (a selected construction shows its Construction view while the selection is the region; construct.js)
       const cmSig = (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
-      // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
+      // (a selected free shape is edited here, on the laptop: the app's shape view)
       const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
       const sig = cmSig || shSig || sigOf(sel);
       if (sig !== cur.sig || cur.stale || !cur.el || !selSec.contains(cur.el.root)) {
@@ -710,7 +710,7 @@ const Inspector = (() => {
       cur.sig = sigOf(k);
       if (host) host.scrollTop = top;
     }
-    // the chain was rebuilt (undo, a step added or removed, a number renamed): the editor is built again at the next
+    // the chain is rebuilt (undo, a step added or removed, a number renamed): the editor is built again at the next
     // render, except under a field being typed in (it waits for the field to be left, as above)
     function invalidate() { cur.stale = true; }
     return { render, refreshParams, invalidate, typeIcon, regionIcon, STRONG };

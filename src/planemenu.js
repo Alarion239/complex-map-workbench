@@ -1,5 +1,5 @@
 'use strict';
-// The planes' context menu (v15; notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press" and "Keyboard and
+// The planes' context menu (notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press" and "Keyboard and
 // screen readers", phone/DESIGN.md 3.6). One menu for every plane: a right-click, the touch long-press (450 ms ring, a
 // release without moving), Shift+F10 or the Menu key. A head with the point and the map there, then groups, empty
 // ones left out:
@@ -161,7 +161,7 @@ const PlaneMenu = (() => {
     ringEl.style.left = cx + 'px'; ringEl.style.top = cy + 'px';
     document.body.append(ringEl);
   }
-  // the ring is full: the press is a long press now
+  // the ring is full: the press counts as a long press
   function ringFull() { if (ringEl) ringEl.classList.add('full'); try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) { /* no vibration */ } }
   function ringStop() { if (ringEl) { ringEl.remove(); ringEl = null; } }
 
@@ -215,10 +215,10 @@ const PlaneMenu = (() => {
     if (vtx) out.push({ id: 'vertex-remove', icon: 'trash', label: $t('Remove vertex'), disabled: vtx.n <= 3, run: () => api.removeVertex(vtx.id, vtx.i) });
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
     const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id).map((it) => ({ id: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', icon: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', label: it.label, run: it.run }));
-    // ([v16.5 UX56] a point is the menu's subject: its items come before the curve's integral)
+    // (a point is the menu's subject: its items come before the curve's integral)
     if (!(s && s.kind === 'point')) out.push(...integrals);
     if (s) {
-      // ([v16.5 UX56] a point on a curve says so on its first line: "z₁ · on Arc 1")
+      // (a point on a curve says so on its first line: "z₁ · on Arc 1")
       const on = s.on && s.on.length ? $t('lies on {x}', { x: s.on.join(', ') }) : null;
       if (on) out.push({ id: 'shape-on', icon: 'select', label: s.name, sub: on, disabled: true });
       // (UX42: shapes that cover each other: every one under the pointer can be selected from here, and the subject can

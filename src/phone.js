@@ -1,5 +1,5 @@
 'use strict';
-// The phone layout (v15; notes/ui-redesign-2/phone/DESIGN.md, build notes in notes/ui-redesign-2/build/phone.md).
+// The phone layout (notes/ui-redesign-2/phone/DESIGN.md, build notes in notes/ui-redesign-2/build/phone.md).
 //
 // Below 768 px (and on a landscape phone: coarse pointer, at most 500 px tall, below 1024 px wide) the page is one
 // screen without page scroll: the view switch and More in the header, one plane with the other as a live inset (tap
@@ -54,7 +54,7 @@ const Phone = (() => {
     els.grab = h('button', { class: 'ph-grab', type: 'button', 'aria-label': $t('Resize the sheet') });
     els.close = h('button', { class: 'ph-x', type: 'button', 'aria-label': $t('Close'), html: I.close, onclick: () => close() });
     els.mark = h('span', { class: 'ph-mark', 'aria-hidden': 'true' });
-    // v16.5 UX24: Undo in every sheet's head, beside ×, where the sheet covers the tool row's Undo (its long press
+    // Undo in every sheet's head, beside ×, where the sheet covers the tool row's Undo (its long press
     // offers Redo, as the tool row's does)
     els.sundo = h('button', { class: 'ph-hundo', type: 'button', 'aria-label': $t('Undo'), html: I.undo });
     undoKey(els.sundo);
@@ -73,7 +73,7 @@ const Phone = (() => {
     els.shapesPane = h('div', { class: 'ph-tabpane', role: 'tabpanel', 'data-tab': 'shapes', 'aria-label': $t('Shapes') });
     els.body.tools.append(els.tabs, els.tiles, els.ctiles, els.shapesPane);
     // Display: this view's options and the unit circle, then (in the X → Y view) the regions' display, lent from
-    // page.html's #regionsHome ([v17 D5, #82]: no longer a section of the region tools)
+    // page.html's #regionsHome (not a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
     els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
@@ -141,7 +141,7 @@ const Phone = (() => {
       if (sum) { els.badge = h('span', { class: 'ph-badge', 'aria-hidden': 'true', hidden: true }); sum.append(els.badge); }
       if (rc) new MutationObserver(() => { if (els.tabs) setTab(toolTab); syncBadge(); }).observe(rc, { childList: true, characterData: true, subtree: true });
       syncBadge(); }
-    if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });   // (v16 [C20])
+    if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });
     new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
     els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled;
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
@@ -151,7 +151,7 @@ const Phone = (() => {
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
-    // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
+    // the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1×
     document.addEventListener('click', (e) => {
       if (!on) return;
       const tg = /** @type {HTMLElement} */ (e.target), b = /** @type {HTMLElement | null} */ (tg.closest && tg.closest('.tdock #speedSeg > button.on'));
@@ -186,7 +186,7 @@ const Phone = (() => {
     // portrait; review-phone-swap-verify verify-1)
     if (want && !on) enter(l); else if (!want && on) leave(); else { const keepIt = keepSheet(); land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); reconcile(); keepIt(); }
   }
-  // v16.5 UX68: a rotation (portrait <-> landscape) relays the sheet out: the same sheet opens again in the new layout,
+  // a rotation (portrait <-> landscape) relays the sheet out: the same sheet opens again in the new layout,
   // at the same scroll, and the field that had the focus gets it back with its caret (the Editor's fields are rebuilt
   // by the reopening: the field in the same place among the sheet's fields)
   function keepSheet() {
@@ -237,11 +237,11 @@ const Phone = (() => {
     syncPanes(); syncTools(); syncNums(); syncSnap();
     chainSeen = ''; chain();
     A.resize();
-    reconcile();   // (v15.1: the inset shows its plane's own view, the desktop's or the saved one, at its size)
+    reconcile();   // (the inset shows its plane's own view, the desktop's or the saved one, at its size)
   }
   function leave() {
     close(true);
-    // (v15.1: the desktop gets each plane's large view back; no view is drawn small while merged or held)
+    // (the desktop gets each plane's large view back; no view is drawn small while merged or held)
     for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
     rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
@@ -288,15 +288,15 @@ const Phone = (() => {
     if (t) t.click();
     setTimeout(syncPanes, 0);
   }
-  // The inset swaps with the large plane, and each plane keeps its own view (v15.1, build/phone-swap.md). A plane's
+  // The inset swaps with the large plane, and each plane keeps its own view (build/phone-swap.md). A plane's
   // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,
   // the same region (its centre and its units per pane width) at the inset's size; the plane that comes back large
-  // shows exactly what it showed before. Nothing is fitted (v15 fitted the new inset: for an unbounded region the fit
-  // framed the part in its own window plus a margin, so every round trip multiplied the scale). A plane the app fits
-  // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
-  // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
+  // shows exactly what it showed before. Nothing is fitted (the fit of an unbounded region
+  // frames the part in its own window plus a margin, so every round trip would multiply the scale). A plane the app fits
+  // itself (Y's auto fit, X's at a focused step) is fitted by the resize.
+  // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset is given, r: v.s / set.s}.
   // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
-  // parks, replaces or saves the views (hold), every plane holds its large view (review-phone-swap swap-1 to swap-6).
+  // parks, overwrites or saves the views (hold), every plane holds its large view.
   const keep = { L: null, R: null };
   let held = false;
   const sameView = (a, b) => !!a && !!b && a.cx === b.cx && a.cy === b.cy && a.s === b.s;
@@ -310,7 +310,7 @@ const Phone = (() => {
     A.setView(side, v);
     keep[side] = { v: { cx: a.cx, cy: a.cy, s: a.s }, set: v, r: a.w / w };
   }
-  // the plane that comes back large: what it showed large (or, when its view changed while it was small, that view
+  // the plane that comes back large: what it showed large (or, when its view changes while it is small, that view
   // at the large size)
   function grow(side) {
     const k = keep[side]; keep[side] = null;
@@ -337,7 +337,7 @@ const Phone = (() => {
     else if (!small && keep[ins]) grow(ins);
   }
   // the app is about to park, replace or save the views (a view switch, the Deformation, a focus, an example, the
-  // tour): the inset gets its large view back now, and is drawn small again once the current task ends
+  // tour): the inset gets its large view back at once, and is drawn small again once the current task ends
   function hold() {
     if (!on || held) return;
     held = true;
@@ -483,7 +483,7 @@ const Phone = (() => {
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
-    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3-pt circle')
+    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (the tile's short label, '3-pt circle')
     else if (ic.dataset.ph !== 'more') { ic.innerHTML = els.moreIc; lab.textContent = els.moreLab; }
     ic.dataset.ph = extra ? id : 'more';
     if (kind === 'tools') fillTiles();
@@ -491,7 +491,7 @@ const Phone = (() => {
   function fillTiles() {
     const tile = (b) => {
       const t = h('button', { class: 'ph-tile' + (b.classList.contains('on') ? ' on' : ''), type: 'button', 'aria-pressed': String(b.classList.contains('on')), 'data-tool': b.dataset.tool, 'aria-label': b.getAttribute('aria-label') },
-        h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.dataset.phl || b.querySelector('span').textContent));   // (v16.5 UX93: a short form, app.js)
+        h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.dataset.phl || b.querySelector('span').textContent));   // (a short form, app.js)
       t.addEventListener('click', () => {
         const id = b.dataset.tool;
         b.click();
@@ -504,7 +504,7 @@ const Phone = (() => {
     const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
-    // v16.5 UX40: the long press, taught where people look (never on the plane)
+    // the long press, taught where people look (never on the plane)
     ct.push(tip(HOLD, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.')));
     els.tiles.replaceChildren(...tiles);
     els.ctiles.replaceChildren(...ct);
@@ -561,7 +561,7 @@ const Phone = (() => {
 
   // ---------------- the sheet ----------------
   function geometry() {
-    // (v16.4: less the guided tour's strip under the header, --ph-tour, while it shows)
+    // (less the guided tour's strip under the header, --ph-tour, while it shows)
     const H = window.innerHeight - (parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-tour')) || 0);
     // (the Edit sheet's head is a 44 px strip, and the planes give 26 px of it, so the Inspector's scroller keeps the room a tour
     // step's anchor needs. On a short phone that would leave the planes under 200 px, too small to watch respond, so there the
@@ -686,7 +686,7 @@ const Phone = (() => {
     let y0 = null, dy = 0, id = null, onGrab = false, tap = 0, tapT = 0;
     const down = (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } };
     head.addEventListener('pointerdown', down);
-    // (#483: the Editor's head is its 18 px bar, with the grab handle cut to it so that it no longer covers the title row; the title row,
+    // (the Editor's head is its 18 px bar, with the grab handle cut to it so that it does not cover the title row; the title row,
     // the Inspector's .ihead, drags the sheet too, wherever nothing in it can be pressed)
     els.sheet.addEventListener('pointerdown', (e) => {
       const t = /** @type {Element} */ (e.target);
@@ -787,7 +787,7 @@ const Phone = (() => {
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg;
-    // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
+    // (mesh quality, the laptop's Settings', stays at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     if (mesh) els.body.display.append(mesh);
@@ -824,8 +824,8 @@ const Phone = (() => {
     pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
     pc.setAttribute('aria-haspopup', 'menu');
     const lang = A.langPref();
-    // v16.5 V02: the links, the scene files and the LaTeX are rows of this sheet (it opened a desktop menu over the
-    // plane, with a key a phone has not got); "… again" only once a figure was made
+    // the links, the scene files and the LaTeX are rows of this sheet (not a desktop menu over the
+    // plane, which needs a key a phone has not got); "… again" only once a figure is made
     const sceneRows = [], figRows = [];
     const xs = typeof A.exportItems === 'function' ? A.exportItems() : [];
     if (xs.length) {
@@ -870,7 +870,7 @@ const Phone = (() => {
     filter();
   }
 
-  // ---------------- the on-screen keyboard (v16.5 UX69) ----------------
+  // ---------------- the on-screen keyboard ----------------
   // Android Chrome lays the page out as before when its keyboard opens (only the visual viewport shrinks), so a field
   // low in a sheet went under the keyboard and Chrome panned the whole screen to show it. While the keyboard is up (the
   // visual viewport shorter than the window), the sheet's body gets that much room at its end (--ph-kb), and the field
@@ -952,7 +952,7 @@ const Phone = (() => {
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', () => kbHeight()); window.visualViewport.addEventListener('scroll', () => kbHeight()); }
   }
 
-  // ---------------- Back (v16.5 UX12) ----------------
+  // ---------------- Back ----------------
   // A phone's Back (the system button or the edge gesture) closes the top layer, and the user stays in the app: a menu,
   // the palette, the coordinate pad, the tour's chapter menu, the sound settings, a dialog, a sheet (A.backLayer says
   // which, top first). While one is open, one history entry of ours sits on the page's own; Back pops it, the app
@@ -975,7 +975,7 @@ const Phone = (() => {
   }
   const backLater = () => { if (!back.t) back.t = setTimeout(backSync, 0); };
   function backInit() {
-    // (a reload while a layer was open, the language switch: the entry we stand on was ours; it is the page's now)
+    // (after a reload with a layer open, or the language switch, the entry we stand on carries the old layer's mark: it is cleared, and the entry is the page's)
     try { if (history.state && history.state.cmwLayer) { const st = Object.assign({}, history.state); delete st.cmwLayer; history.replaceState(Object.keys(st).length ? st : null, ''); } } catch (e) { /* */ }
     window.addEventListener('popstate', (e) => {
       if (back.skip) { back.skip--; backLater(); return; }
@@ -1012,7 +1012,7 @@ const Phone = (() => {
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
-    _kb: (h) => kbHeight(h),   // (v16.5: a keyboard of h px, for the browser checks; headless Chrome has none)
+    _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
     // TEMP-DEBUG-HOOK
   };
 })();

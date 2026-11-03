@@ -1,5 +1,5 @@
 'use strict';
-// Shared numbers, links and scene files (v15; notes/ui-redesign-2/constructions/DESIGN.md 1, phase 1).
+// Shared numbers, links and scene files (notes/ui-redesign-2/constructions/DESIGN.md 1).
 //
 // A shared number is {name, value, min, max, step} (a free number, a slider) or {name, expr, min, max, step} (a number
 // by formula of other numbers: b = 2a + 1). The list lives in the app's state (S.params) so that saving, undo and the
@@ -9,7 +9,7 @@
 // names as their values: step parameters (Funcs.build), zeros and poles, shape fields, region and curve formulas.
 // A field's text keeps the names; the app re-evaluates the fields that use a number when it changes.
 //
-// Public API (the interface between the v15 builds): mount(el), list(), get(name), set(name, value), on('change', fn),
+// Public API: mount(el), list(), get(name), set(name, value), on('change', fn),
 // and the hook (install()). Also: add, remove, rename, check, display, tex, namesIn, unknownIn, resolve, evalReal,
 // attach(host), and the links and scene files (encodeLink, decodeLink, scene, readScene).
 const Params = (() => {
@@ -27,7 +27,7 @@ const Params = (() => {
   // a name as shown: a₁, α₂ (the index as subscript digits)
   const display = (nm) => String(nm).replace(/\d+$/, (d) => [...d].map((c) => SUBD[+c]).join(''));
   const tex = (nm) => (Expr.nameTex ? Expr.nameTex(nm) : nm);
-  // the canonical name of what was typed: a, a1 (from a1, a_1, a_{1}, a₁), α (from α, alpha, \alpha); null if none
+  // the canonical name of what is typed: a, a1 (from a1, a_1, a_{1}, a₁), α (from α, alpha, \alpha); null if none
   function canon(raw) {
     let s = String(raw == null ? '' : raw).trim().replace(/^\\/, '');
     s = s.replace(/[₀-₉]/g, (c) => String(SUBD.indexOf(c))).replace(/_\{?\s*(\d+)\s*\}?$/, '$1');
@@ -354,7 +354,7 @@ const Params = (() => {
       if (isNum(q.im) && q.im !== 0) p.im = q.im;
       if (typeof q.expr === 'string' && q.expr.trim()) p.expr = q.expr.trim().slice(0, 500);
       if (q.play === 'bounce' || q.play === 'loop') p.play = q.play;
-      // an example's own number: the next example takes it away (examples.js); ex.was is the user's number of that name it
+      // an example's own number: the next example takes it away (examples.js); the user's number of that name it
       // stands in for, which comes back then
       if (q.ex === true) p.ex = true;
       else if (q.ex && typeof q.ex === 'object') { const w = q.ex.was && typeof q.ex.was === 'object' ? sanitize([Object.assign({}, q.ex.was, { ex: undefined })])[0] : null; p.ex = w ? { was: w } : true; }
@@ -437,7 +437,7 @@ const Params = (() => {
 .prm { display: flex; flex-direction: column; min-height: 240px; min-width: 0; }
 .prm > h2 { flex: 0 0 auto; min-height: 28px; margin: 0 0 4px; }
 .prm-list { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
-/* ([v16.5 fix user-5] the list takes its own height, so + Number sits right under the last number or the hint, never at
+/* (the list takes its own height, so + Number sits right under the last number or the hint, never at
    the section's foot; a long list still scrolls) */
 .prm-row { display: grid; grid-template-rows: 24px 20px; row-gap: 4px; padding: 2px 0 6px; min-height: 56px; box-sizing: border-box; border-bottom: 1px solid var(--line); }
 .prm-row:last-child { border-bottom: 0; }
@@ -495,9 +495,9 @@ const Params = (() => {
     draw(m);
     return { el, refresh: () => draw(m), destroy: () => { mounts.delete(m); el.innerHTML = ''; } };
   }
-  // [v16.5 fix user-1] the "Not used yet" line follows the chain: which numbers nothing uses, and the step Use in would
+  // the "Not used yet" line follows the chain: which numbers nothing uses, and the step Use in would
   // take; the app calls syncUnused when the chain or the selected step changes, and the panel redraws only when that
-  // changed (a step added with its number in one undo step, from the palette, used to leave the line stale)
+  // changed (a step added with its number in one undo step, from the palette, also refreshes the line)
   let unusedSig = null;
   const unusedKey = () => arr().map((p) => (usedBy(p.name).length ? '' : p.name + '>' + (((host && host.useIn && host.useIn(p.name)) || {}).label || ''))).join('|');
   // (while a slider is dragged its row keeps its DOM: a redraw would end the drag; the line follows at the release)
@@ -526,7 +526,7 @@ const Params = (() => {
     const el = m.el;
     const focus = document.activeElement && el.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement).dataset.prmFocus : null;
     el.innerHTML = '';
-    // (v16.5 UX65: one name, Numbers, for the section, the key, the hint and the button)
+    // (one name, Numbers, for the section, the key, the hint and the button)
     const sec = h('section', { class: 'psec prm', 'aria-label': $t('Numbers') });
     // (review design-17: one add control, + Number at the end of the list)
     sec.append(h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))));
@@ -543,7 +543,7 @@ const Params = (() => {
   }
   const CSS_ESC = (s) => (typeof CSS !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/"/g, '\\"'));
   function newRow(m) {
-    // (v16.5 UX32: the next free letter is there as real text, selected: Add works at once, and typing replaces it)
+    // (the next free letter is there as real text, selected: Add works at once, and typing overwrites it)
     const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), value: nextFree(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
     const err = h('div', { class: 'prm-err', role: 'alert' });
     // cx: the new number is complex (1 + i to start from), real otherwise
@@ -564,7 +564,7 @@ const Params = (() => {
     setTimeout(() => { if (inp.isConnected) { inp.focus(); inp.select(); } }, 0);
     return h('div', null, box, err);
   }
-  // (v16.5 UX32) the first letter not taken by a number or by the app: a, b, c, …
+  // the first letter not taken by a number or by the app: a, b, c, …
   function nextFree() {
     for (const c of 'abcdghkmnpqrstuvαβγλμρ') if (!check(c).error) return c;
     return '';
@@ -626,7 +626,7 @@ const Params = (() => {
     }
     if (p._err) showErr(p._err);
     r.append(err);
-    // (v16.5 UX65: a number nothing uses yet says so, and offers the way in: + a in a formula step)
+    // (a number nothing uses yet says so, and offers the way in: + a in a formula step)
     if (!usedBy(nm).length) {
       const use = host && host.useIn ? host.useIn(nm) : null;
       r.append(h('div', { class: 'prm-unused' }, h('span', { class: 'prm-note' }, use ? $t('Not used yet.') : $t('Not used yet: type {x} in a formula.', { x: d })),

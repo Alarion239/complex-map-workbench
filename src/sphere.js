@@ -354,7 +354,7 @@ const SphereMesh = (() => {
       if (st === FINAL) {
         evalF(m); evalL(m);
         CUTP.delete(t);
-        if (TCM[t] && !INJ) {   // already counted: the children's coverage replaces the parent's
+        if (TCM[t] && !INJ) {   // already counted: the children's coverage stands in for the parent's
           for (const tri of trisOf(t)) rasterCov(tri, -1);
           for (const k of [t1, t2]) { TCM[k] = 1; for (const tri of trisOf(k)) rasterCov(tri, 1); }
           for (const n of revisit) if (n >= 0 && TCH[n] < 0 && TST[n] === SAT) { TST[n] = PENDING; counts.revisit++; heapPush(n); }
@@ -429,8 +429,8 @@ const SphereMesh = (() => {
         g.nU -= (mk[1] - mk[0]) * (mk[3] - mk[2]);
       }
       // level L, block (x, y): its cells in the grid minus those in the mask. Built a row at a time with native fills
-      // (the per-block loop was the set-up's cost: 4-7 ms per mesh job in the app, where the set-up, run once per job,
-      // executes unoptimised; P5 review open item (5), the slices over 6 ms). Per row: the full blocks, the partial
+      // (a per-block loop would be the set-up's cost: 4-7 ms per mesh job in the app, where the set-up, run once per job,
+      // executes unoptimised, past the 6 ms slices). Per row: the full blocks, the partial
       // last column, and in the mask's rows its first and last block columns (the ones between lie inside it).
       for (let L = 1; L <= g.LMAX; L++) {
         const b = 1 << L, bx = Math.ceil(nx / b), by = Math.ceil(ny / b), a = new Int32Array(bx * by);
@@ -1217,7 +1217,7 @@ const SphereMesh = (() => {
     // absolute source point; tri: the area scale 0.5 log2 |dw / dz| per triangle.
     let pubCache = null, pub = null;
     // the publication in phases (leaves, their clipped triangles, the order, the arrays), each resumable: -> true when
-    // the data is ready (deadline: a performance.now() time)
+    // the data is ready (deadline: a time in ms on the performance clock)
     function pubStep(deadline) {
       if (pubCache) return true;
       if (!pub) pub = { phase: 0, t: 0, leaves: [], k: 0, tris: [] };

@@ -15,7 +15,7 @@ const Examples = (() => {
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
-    // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
+    // (on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
     // same 48 px, the examples' views unchanged; measured from the head it took the whole plane and the fit went NaN)
     const f = $('leftFoot'), pr = A.paneL.ocanvas && A.paneL.ocanvas.getBoundingClientRect(), fr = f && !f.hidden && f.parentNode === $('plotL') ? f.getBoundingClientRect() : null;
     return Math.max(40, fr && pr && fr.height > 0 ? pr.bottom - fr.top : 0) + 8;
@@ -64,15 +64,15 @@ const Examples = (() => {
     phHold();
     const ex = spec || EX[i];
     if (!ex) return;
-    // what plays along a curve belongs to the scene it was started in (notes/sea-song review ui-1)
+    // what plays along a curve belongs to the scene it started in
     sndStopPlay(false);
-    // (v16.5 UX74) an example's Try line goes with the example
+    // an example's Try line goes with the example
     if (Tour.laneHide) Tour.laneHide('example');
     exTryStop();
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) A.currentExample = i;
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
-    if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
+    if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // (its tooltip: the whole name)
     setShapes([]); setSteps([]);
     // [issue #5] an example's own shared numbers (the partial sums' N) are marked ex: the next example takes away the ones it does
     // not define, and gives back a number of the user's that one of them stood in for; the user's other numbers stay
@@ -81,7 +81,7 @@ const Examples = (() => {
       const ps = [];
       for (const q of A.S.params) {
         if (!q.ex || mine.some((p) => p.name === q.name)) { ps.push(q); continue; }
-        // (the user's number it stood in for is kept in the state, on its own entry: q.ex.was, so a reload, a link or a scene
+        // (the user's number it stood in for is kept in the state, on its own entry in q.ex, so a reload, a link or a scene
         // that opens with the example does not lose it)
         const back = q.ex && q.ex.was ? Params.sanitize([q.ex.was])[0] : null;
         if (back) ps.push(back);
@@ -110,7 +110,7 @@ const Examples = (() => {
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
     defMem.y = null; defMem.d = null; defMem.dkey = '';
-    // (v16.5 UX74) an example with a melody shows its Try line before the layout, so its plane is fitted with the
+    // an example with a melody shows its Try line before the layout, so its plane is fitted with the
     // line's room already taken (shown after the fit, the line pushed the spiral's top out of the plane)
     const laned = !spec && (ex.song || ex.shapes.some((sh) => sh.listen)) && sndPieceHint(true);
     applyLayout();
@@ -120,7 +120,7 @@ const Examples = (() => {
     // an example's box that must be in view (a phone's narrow plane): its view's scale at most, centred on the box
     exFitTo(ex);
     A.paneL.setView(A.S.srcView);
-    // (review v16 regress-6: the window goes into the state too, so a link, a scene file or an autosave made from the
+    // (the window goes into the state too, so a link, a scene file or an autosave made from the
     // example carries it, and the recipient meshes in the sender's window whatever the size of their pane)
     A.clipWin = viewBox(A.S.srcView);
     setOpt('clipWin', A.clipWin);
@@ -128,7 +128,7 @@ const Examples = (() => {
     A.selected = null;
     for (const sh of ex.shapes) {
       const ns = newShape(sh.kind, JSON.parse(JSON.stringify(sh)));
-      // a melody's data keeps the chain it was composed for and the key of its points (sndListenOf)
+      // a melody's data keeps the chain it is composed for and the key of its points (sndListenOf)
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
       pushShape(ns);
     }
@@ -142,7 +142,7 @@ const Examples = (() => {
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
     if (!spec) Params.render();
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');
-    // (an example that is played: the Phase key's n it was made for, one colour line a note)
+    // (an example that is played: the Phase key's n it is made for, one colour line a note)
     if (ex.sectors) setOpt('sectors', ex.sectors);
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find(sndIsSong);
@@ -160,7 +160,7 @@ const Examples = (() => {
     buildPipeline();
     setFocus(ex.focus || 0);
     commit();
-    // (v16.5 UX25: what opened, with Undo, when there is work to go back to; the button names it until an edit)
+    // (what opened, with Undo, when there is work to go back to; the button names it until an edit)
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
     if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
@@ -234,9 +234,9 @@ const Examples = (() => {
     const okey = focusKey(anchor);
     const items = EX.map((ex, i) => {
       const img = h('img', { class: 'ex-thumb', alt: '', width: 48, height: 32 });
-      // (v16.5 UX25: the empty canvas is "New", first, the way to start fresh)
+      // (the empty canvas is "New", first, the way to start fresh)
       const b = h('button', { class: 'ex-item' + (i === 0 ? ' ex-new' : ''), role: 'menuitem', hidden: !exOk(ex) || null, 'aria-current': i === A.currentExample ? 'true' : null, onclick: () => { closePalette(); loadExample(i); focusBack(anchor, okey); } }, img,
-        h('span', { class: 'ex-text' }, h('span', { class: 'ex-nl' }, h('span', { class: 'ex-name' }, i === 0 ? $t('New: empty canvas') : ex.name), ex.song || ex.shapes.some((sh) => sh.listen) ? h('span', { class: 'ex-snd', title: $t('With sound'), 'aria-label': $t('With sound') }, '♫') : null), h('span', { class: 'ex-blurb' }, ex.blurb || '')));   // (v16.5 UX74: ♫ beside the name, not in it: .ex-name stays the example's name)
+        h('span', { class: 'ex-text' }, h('span', { class: 'ex-nl' }, h('span', { class: 'ex-name' }, i === 0 ? $t('New: empty canvas') : ex.name), ex.song || ex.shapes.some((sh) => sh.listen) ? h('span', { class: 'ex-snd', title: $t('With sound'), 'aria-label': $t('With sound') }, '♫') : null), h('span', { class: 'ex-blurb' }, ex.blurb || '')));   // (♫ beside the name, not in it: .ex-name stays the example's name)
       return { b, img, i };
     });
     closePalette();
@@ -273,7 +273,7 @@ const Examples = (() => {
   // ---------------- guide ----------------
   // the guide's TeX in $…$ as typeset spans (the guide sets every [data-tex] after it is built)
   const guideTex = (s) => s.replace(/\$([^$]+)\$/g, (_, x) => `<span class="gtex" data-tex="${x.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></span>`);
-  // v16.5 UX17: the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
+  // the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
   // or a gesture of the desktop (the tools on the left, the right pane, the Inspector, a double-click, a right-click,
   // Shift, a key) is given in a phone's words. A paragraph is found by its section's heading and its place in the
   // section, so the desktop wording can change without this list. The Deformation section gets a line on where its
@@ -426,7 +426,7 @@ const Examples = (() => {
       <p>${$t(`<b>Export</b> in the top bar (or {x}) makes a figure of the open view: Save PDF, PNG or SVG, Copy image for a document, or Save + copy LaTeX for Overleaf, with a caption that states exactly what is drawn. On a phone the sheet offers Share first and keeps the print settings folded.`, { x: k(mod.trim() + ' E') })}</p>
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
-    if (touchUI()) guideTouch(m);   // (v16.5 UX17)
+    if (touchUI()) guideTouch(m);
     guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');

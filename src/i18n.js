@@ -40,7 +40,7 @@ const I18N = (() => {
   let store = null;                               // tests replace localStorage here (I18N._store)
   const ls = () => store || (hasWin ? window.localStorage : null);
   function readPref() { try { const v = ls().getItem(lsk(PREF)); return isLang(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
-  // true when the setting was written and reads back (storage can be blocked: a private window, a sandboxed frame)
+  // true when the setting is written and reads back (storage can be blocked: a private window, a sandboxed frame)
   function writePref(v) {
     try {
       const s = ls();
@@ -91,7 +91,7 @@ const I18N = (() => {
       return k && hasOwn(p, k) ? String(p[k]) : m;
     });
   }
-  // ([v16.5 check app-4] Italian) a name filled in with its article after a simple preposition takes the articulated
+  // (Italian) a name filled in with its article after a simple preposition takes the articulated
   // one, as Italian writes it: "su {c}" with "la circonferenza unitaria" reads "sulla circonferenza unitaria", "a {c}"
   // with "l'asse reale" "all'asse reale". Only a value that starts with a definite article (the reference forms of the
   // unit circle and the axes, ctx 'ref'), right after a whole-word a / da / di / in / su; a template with TeX is filled

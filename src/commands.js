@@ -65,7 +65,7 @@ const Commands = (() => {
     }
     return defaultPropsCache.get(type);
   }
-  // v16.5 UX29: the palette on a phone: Cancel at the right of the search row (it had no visible way out), and the
+  // the palette on a phone: Cancel at the right of the search row (it had no visible way out), and the
   // insert position a chip on its own row: a tap moves the new step's place along the chain (at the start, after f₁,
   // …, at the end), the chip saying where. (D1, issue #23: the Replace chip, when there is one, comes first on that row,
   // and the position chip shows only while the choice is Insert)
@@ -127,7 +127,7 @@ const Commands = (() => {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
           const formula = { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) };
-          // v15.2 (notes/formula-steps/DESIGN.md 4): a query that reads as exactly one catalog step is that step, with its
+          // a query that reads as exactly one catalog step is that step, with its
           // parameters written from the query, listed first (Enter adds it); the formula is the second choice. A query
           // of several steps keeps the formula first and offers it as those steps second.
           const sp = cb.error ? null : Funcs.splitSteps(cst, cb);
@@ -143,7 +143,7 @@ const Commands = (() => {
           } else items.push(formula);
         }
       } catch (e) {
-        // (v16.5 UX16: one new letter, "z^2 + a", is a row like any other: the formula with a new number a = 1, added
+        // (one new letter, "z^2 + a", is a row like any other: the formula with a new number a = 1, added
         // together as one undo step; the region box and the Inspector's fields already work this way)
         const nc = e.unknown && e.unknown.length === 1 ? Params.check(e.unknown[0]) : null;
         let row = null;
@@ -158,7 +158,7 @@ const Commands = (() => {
             }
           } catch (e2) { /* not a formula with that number either: the parser's message below */ }
         }
-        // (v16.5 UX23: the message, where it went wrong, and the repairs that read as a formula)
+        // (the message, where it went wrong, and the repairs that read as a formula)
         if (!row) { items.parseErr = e.message; items.parseErrPos = e.pos; for (const f of formulaFixes(q)) items.push({ kind: 'fix', group: $t('Fix the formula'), label: f.label, fixTo: f.t, run: () => null }); }
       }
     }
@@ -190,7 +190,7 @@ const Commands = (() => {
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
       for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add shape'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
-      EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (v16.5 UX03: searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
+      EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       A.S.steps.forEach((st, i) => {
         const k = i + 1, nm = defOf(st).label;
@@ -224,7 +224,7 @@ const Commands = (() => {
         [morph.open ? $t('Deformation off') : $t('Deformation on (play the homotopy)'), () => toggleTransport(), 'M', $t('morph deformation homotopy animate animation merge')],
         [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
         [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
-        // (v16: the bracket for the selected step, else the last; SPEC 6.5)
+        // (the bracket for the selected step, else the last; SPEC 6.5)
         ...(activeSteps().length >= 2 ? (() => {
           const k = Number.isInteger(A.S.sel) && A.S.sel >= 1 && A.S.sel <= nSteps() ? A.S.sel : nSteps(), n = nSteps();
           const al = $t('part range bracket pullback pull-back precompose push-forward inside under outer inner') + ', ' + 'part range bracket pullback pull-back precompose push-forward inside under outer inner';
@@ -252,11 +252,11 @@ const Commands = (() => {
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
         [$t('Clear chain'), () => $('clearChain').click(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
-        // ([UX54] names are kept when others are deleted: these make them tidy again)
+        // (names are kept when others are deleted: these make them tidy again)
         [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
         [$t('Renumber zeros and poles'), () => renumberZp(), '', $t('renumber, rename, numbers, names, zeros, poles, tidy'), 1],
         [$t('Open the guide'), () => openGuide(), '?', $t('help, guide, manual, documentation, docs, reference, how to')],
-        // (v16.5 UX03: the header's and the menus' commands, listed when searched, each with its key)
+        // (the header's and the menus' commands, listed when searched, each with its key)
         [$t('Export figure…'), () => Figure.open(), /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', $t('export, png, pdf, svg, picture, image, save image, download, print, video, movie'), 1],
         [$t('Copy LaTeX with guarantees'), () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); }, '', $t('latex, tex, overleaf, copy formula, guarantees'), 1],
         [$t('Copy link to this figure'), () => { copyFigureLink(); }, '', $t('link, share, url, copy link, send'), 1],
@@ -275,11 +275,11 @@ const Commands = (() => {
         ...(Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
         ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
-        ...Construct.paletteActs(),   // (v16: the four tools; Make free, Use complement)
+        ...Construct.paletteActs(),   // (the four tools; Make free, Use complement)
         ...dhActs(),
       ];
       for (const [label, run, key, alias, searched] of acts) if (!ql ? !searched : score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
-      // (v16.5 UX03: the drawing tools, with their keys, and the guide's sections, found by what they are for)
+      // (the drawing tools, with their keys, and the guide's sections, found by what they are for)
       if (ql) {
         for (const [id, label, key, , group] of TOOLS) {
           if (group === 'construct') continue;   // (Construct.paletteActs lists those)
@@ -299,7 +299,7 @@ const Commands = (() => {
     }
     return items;
   }
-  // (v16.5 UX03) the words people use for the drawing tools and the guide's sections (translated: Russian finds them too)
+  // the words people use for the drawing tools and the guide's sections (translated: Russian finds them too)
   const TOOL_ALIAS = () => ({
     select: $t('select, move, pointer, arrow, pan'), point: $t('point, dot, mark'), segment: $t('segment, line segment'), line: $t('line, straight line'),
     ray: $t('ray, half-line'), circle: $t('circle, round curve'), arc: $t('arc, circular arc'), curve: $t('freehand, pen, sketch, curve'),
@@ -316,20 +316,20 @@ const Commands = (() => {
     [$t('Sound'), $t('sound, audio, listen, hear, music')], [$t('Guarantees'), $t('guarantee, guarantees, property, conformal, injective, analytic')],
     [$t('Keys'), $t('keys, shortcuts, keyboard, hotkeys, help')],
   ];
-  // (v16.5 UX03) a guide section found in the palette: the guide opens at its heading
+  // a guide section found in the palette: the guide opens at its heading
   function openGuideAt(sec) {
     openGuide();
     const m = document.querySelector('.modal-bg .modal');
     const hd = m && [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === sec);
     if (hd) hd.scrollIntoView({ block: 'start' });
   }
-  // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
+  // parse with one more number, name = 1, as if it were already added (the palette's row and preview)
   function withNewName(name, fn) {
     if (typeof Expr.setNames !== 'function') return fn();
     Expr.setNames({ get: (n) => (n === name ? 1 : Params.read(n)), display: Params.display });
     try { return fn(); } finally { Params.install(); }
   }
-  // (v16.5 UX23) the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
+  // the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
   // or a set: close the brackets, drop a trailing operator, one operator for a doubled one, the nearest function name
   const FIX_FN = ['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'coth', 'exp', 'log', 'ln', 'sqrt', 'abs', 'arg', 'conj', 'arcsin', 'arccos', 'arctan', 'arsinh', 'arcosh', 'artanh', 'Re', 'Im'];
   function editDist(a, b) {
@@ -360,7 +360,7 @@ const Commands = (() => {
     if (named !== q) offer($t('Did you mean {f}?', { f: named }), named);
     return out.slice(0, 3);
   }
-  // (v16.5 UX82) the strongest properties of a palette row, in words, on the highlighted row only (like the F tile)
+  // the strongest properties of a palette row, in words, on the highlighted row only (like the F tile)
   function propWords(P) {
     if (!P) return '';
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective }), W = FT_WORD();
@@ -430,10 +430,10 @@ const Commands = (() => {
       palState.sel = 0; render();
     };
     tourEmit('palette-opened', {});
-    // (v16.4) the step catalog: the add card, {+}, the palette's Add a step
+    // the step catalog: the add card, {+}, the palette's Add a step
     if (opt.fnOnly) tourEmit('layer-opened', { kind: 'catalog' });
     const runItem = (it, before) => {
-      // (v16.5 UX23: a repair puts the repaired formula in the field and adds it as Enter would)
+      // (a repair puts the repaired formula in the field and adds it as Enter would)
       if (it.kind === 'fix') {
         input.value = it.fixTo; palState.sel = 0; render();
         const f = palState.items[0];
@@ -470,7 +470,7 @@ const Commands = (() => {
         if (it.rows) t.append(drvStart(it.rows));
         else if (it.tex) TeX.set(t, it.tex);
         const props = h('span', { class: 'pal-props' });
-        // (v16.5 UX82: no row of letters; the highlighted row names its strongest properties in words)
+        // (no row of letters; the highlighted row names its strongest properties in words)
         if (it.props) { const w = propWords(it.props); if (w) props.append(h('span', { class: 'pal-pw' }, w)); }
         else if (it.key) props.append(h('span', { class: 'kbd' }, it.key));
         const row = h('div', { class: 'pal-item' + (i === palState.sel ? ' sel' : ''), role: 'option', id: `pal-o${i}`, 'aria-selected': String(i === palState.sel), 'data-i': i,
@@ -484,7 +484,7 @@ const Commands = (() => {
       });
       fitPalTex(list, items);
       // a query that looks like a formula but does not parse gets the parser's message, in grey, with the place it stopped
-      // marked; a plain word that finds commands or functions gets none (v16.5 UX23, UX03)
+      // marked; a plain word that finds commands or functions gets none
       const raw = Expr.typed(input.value.trim()), fl = /[()^\\|<>+\-*/=0-9]/.test(raw);
       if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas') && (fl || !items.some((x) => x.kind !== 'fix'))) {
         const at = Math.max(0, Math.min(raw.length, items.parseErrPos | 0));
@@ -503,7 +503,7 @@ const Commands = (() => {
         if (on && scroll) el.scrollIntoView({ block: 'nearest' });
       }
       input.setAttribute('aria-activedescendant', `pal-o${palState.sel}`);
-      // (v16.5 UX03, UX23: Enter says what it does to the highlighted row, and is grey when there is nothing to run)
+      // (Enter says what it does to the highlighted row, and is grey when there is nothing to run)
       const it = palState.items[palState.sel], en = pop.querySelector('.pal-enter'), vb = pop.querySelector('.pal-verb');
       if (en && vb) {
         const verb = !it ? '' : it.kind === 'cmd' ? $t(' to run') : it.kind === 'ex' ? $t(' to open') : it.kind === 'fix' ? $t(' to fix') : it.kind === 'fn' && (it.mode || palState.mode) !== 'insert' ? $t(' to replace') : $t(' to add');
@@ -538,7 +538,7 @@ const Commands = (() => {
     });
     $('popHost').append(pop);
     A.popEl = pop;
-    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey, where);   // (v16.5 UX29)
+    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey, where);
     else if (where) pop.querySelector('.pal-ctx').replaceWith(where);
     palState.render = render;
     paintWhere();
@@ -569,7 +569,7 @@ const Commands = (() => {
       if (url) { const img = new Image(); img.onload = () => { const s = Math.min(W / img.width, Hh / img.height); ctx.drawImage(img, (W - img.width * s) / 2, (Hh - img.height * s) / 2, img.width * s, img.height * s); }; img.src = url; }
       return;
     }
-    // (v16.5 UX16: a formula with a new number is previewed with that number = 1, as it will be added)
+    // (a formula with a new number is previewed with that number = 1, as it will be added)
     const mk = () => Funcs.build({ type: it.type, params: Object.assign(Funcs.defaults(it.type), it.params || {}), on: true });
     const b = it.newName ? withNewName(it.newName, mk) : mk();
     if (!b || b.error) { ctx.fillStyle = A.TH.plane; ctx.fillRect(0, 0, W, Hh); cap.textContent = b ? b.error : ''; return; }
@@ -647,8 +647,7 @@ const Commands = (() => {
   // a derivation as a line of its rows' formulas joined by ↦, each typeset on its own in display style (a fraction's
   // parts at the full size, its scripts one level down), a row and the ↦ after it kept together, so the line breaks
   // after a ↦. It wraps first; only a row wider than the whole box makes the line smaller, down to 85 % (the scripts
-  // stay at about 8 px), and a row wider still scrolls. Never cut, never unreadable (review steps-2, steps-12; v15.2.1
-  // verify-3: it shrank to 70 % before it wrapped, and a fraction's exponent came out at 4.6 px)
+  // stay at about 8 px), and a row wider still scrolls. Never cut, never unreadable.
   function drvLine(rows, cls, min = 0.85) {
     const line = h('span', { class: cls });
     rows.forEach((r, i) => {

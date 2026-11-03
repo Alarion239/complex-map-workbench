@@ -464,7 +464,7 @@ const Funcs = (() => {
       hom: mob ? mobHom(m) : null,
       homTex: mob ? (v) => mobHomTex(m, v) : null,
       tex: (x) => {
-        // (v15.2: a zero a drops its term, \frac{1}{e^{-z}+1}, never \frac{0\,e^{-z}+1}{…}: the split's rows show it)
+        // (a zero a drops its term, \frac{1}{e^{-z}+1}, never \frac{0\,e^{-z}+1}{…}: the split's rows show it)
         const num = zeroV(a) ? { s: valTex(b), p: ptexOf(b) ? ptexOf(b).p : 4 } : addTex(mulTex(a, x), b);
         if (zeroV(c)) {
           // (a named entry is not divided out: (a z + b)/d, or a z + b for d = 1)
@@ -927,7 +927,7 @@ const Funcs = (() => {
     },
   });
   def({
-    // (v16.5 UX84: the type is "Formula"; the formula is in the card's tooltip)
+    // (the type is "Formula"; the formula is in the card's tooltip)
     id: 'custom', group: $t('Polynomial & custom'), label: $t('Formula'), menuTex: 'f(z)\\ \\text{(LaTeX)}',
     params: [{ key: 'expr', label: 'f(z) =', type: 'expr', def: 'z^2+\\frac{1}{z}' }, { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 }],
     hasCut: 'maybe',
@@ -968,7 +968,7 @@ const Funcs = (() => {
       // a formula that is a chain of catalog steps renders, deforms and reports as that chain (recognizeCustom)
       const rec = part || !cls.dep || P.constant ? null : recChain(ast, cut, f);
       let nat = null;
-      // ([issue #5, #6] a series or a recurrence deforms along the straight line for now: its zoom path waits for its
+      // (issues #5, #6: a series or a recurrence deforms along the straight line; its zoom path waits for its
       // GPU twin)
       try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) && !Expr.hasIter(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
       const r = /** @type {any} */ ({
@@ -1091,10 +1091,10 @@ const Funcs = (() => {
   }
   // A log, root or power step of a recognized formula: on the CPU (its map and its homotopy, which the deformation's
   // curves follow) it evaluates as Expr.compile does, on the formula's raw θ and sheet 0: CX.log(z, θ),
-  // CX.powReal(z, 1/n, θ), CX.pow(z, α, θ). finish() normalises a cut beyond (−180°, 180°] into (cut, k), which was the
-  // same function off the ray but not on it (argCut(θ + 360°m) was not argCut(θ) + 2πm at a −0 point on the ray), so the
-  // deformation ended on the other branch there (review verify-1); since review math-3 argCut reads the −0 alike at
-  // every θ = 180° + 360°m, and the two agree on the ray too. b.vals keep the normalised (cut, k), which the GPU plan and
+  // CX.powReal(z, 1/n, θ), CX.pow(z, α, θ). finish() normalises a cut beyond (−180°, 180°] into (cut, k), the
+  // same function off the ray and on it (argCut(θ + 360°m) = argCut(θ) + 2πm at a −0 point on the ray too), so the
+  // deformation ends on the same branch there; argCut reads the −0 alike at
+  // every θ = 180° + 360°m. b.vals keep the normalised (cut, k), which the GPU plan and
   // the inverse ops read.
   function onFormulaCut(b, th) {
     if (!b || b.error) return b;
@@ -1151,7 +1151,7 @@ const Funcs = (() => {
     if (!tape) return null;
     const rc = read(ast, { tape: { mode: 'play', list: tape } });
     const bt = rc && recBuild(rc, cut);
-    // the structure was proved at generic values; here only a gross difference refuses (no flicker at 1e-9 noise)
+    // the structure is proved at generic values; here only a gross difference refuses (no flicker at 1e-9 noise)
     if (!bt || !recProbe(f, bt.fc, 1e-6)) return null;
     return finishRec({ rc, bt }, cut, th);
   }
@@ -1160,7 +1160,7 @@ const Funcs = (() => {
   function finishRec(c, cut, th) {
     if (!c) return null;
     const { rc, bt } = c;
-    // (v15.2: each group keeps its piece of the formula as typed, src, which the split writes its parameters from)
+    // (each group keeps its piece of the formula as typed, src, which the split writes its parameters from)
     if (!c.groups) c.groups = rc.groups.map((g) => ({ from: g.from, to: g.to, f: Expr.compile(g.src, { theta: th }), src: g.src }));
     if (!c.ins) c.ins = rc.steps.map((s, j) => (s.inp && sideMatters(bt.built[j]) ? Expr.compile(s.inp, { theta: th }) : null));
     return { steps: rc.steps, built: bt.built, partial: rc.partial, fc: bt.fc, groups: c.groups, ins: c.ins };
@@ -1240,7 +1240,7 @@ const Funcs = (() => {
     }
     r.cuts = cuts; r.poles = poles;
     r.rec = { steps: rec.steps, built, partial: rec.partial, groups: rec.groups, ins: rec.ins, fc: rec.fc };
-    // the Inspector's line: what the formula was read as, and what that gives
+    // the Inspector's line: what the formula is read as, and what that gives
     let note;
     Object.defineProperty(r, 'recNote', {
       enumerable: false,
@@ -1304,7 +1304,7 @@ const Funcs = (() => {
   // Evaluate raw params and build. Returns built object or {error}.
   // A formula step's display form (params.show, TeX written in z): a short readable form the Inspector shows in place of
   // the expanded formula, for display only (the map, the field's text, the copied LaTeX and the export keep the formula).
-  // It holds while the formula is the one it was written for: params.showOf = showKey(params.expr), FNV-1a (32 bits,
+  // It holds while the formula is the one it is written for: params.showOf = showKey(params.expr), FNV-1a (32 bits,
   // 8 hex digits) of the formula's text as UTF-16 code units, trimmed; an edited formula drops it, and Undo brings it back.
   function showKey(expr) {
     const s = String(expr == null ? '' : expr).trim();
@@ -1319,7 +1319,7 @@ const Funcs = (() => {
     const s = v === 'z' ? tex : tex.replace(/\\(?:text|textit|textbf|mathrm|operatorname|mbox)\s*\{[^{}]*\}|\\[a-zA-Z]+|z/g, (m) => (m === 'z' ? v : m));
     return { s, p: 0 };
   }
-  // (a link or a scene carries params.show as it was written, and MathJax typesets it as soon as it opens: a display
+  // (a link or a scene carries params.show as written, and MathJax typesets it as soon as it opens: a display
   // form that links, styles, names DOM nodes, loads extensions, defines macros or writes MathML is refused, and the
   // formula itself is shown)
   const SHOW_BAD = /\\(?:href|url|style|class|cssId|data|html|require|unicode|newcommand|renewcommand|newenvironment|renewenvironment|def|let|edef|gdef|mmlToken|tag|label|ref|eqref|begingroup|endgroup)(?![a-zA-Z])/;
@@ -1563,7 +1563,7 @@ const Funcs = (() => {
   // map, G_{k−1} itself for a bypassed or failed step, and G_k = G_{k−1}′ for a d/dz step: by the exact chain rule
   // Π f_j′(w_{j−1}) while no d/dz precedes (and every step has a known derivative), else by the circle formula.
   // G.levels[k] is the circle nesting level of stage k (0: exact). opts (for tests that model the GPU):
-  // circleRel(L) replaces the radius rule, exact: false forbids the exact chain rule.
+  // circleRel(L) overrides the radius rule, exact: false forbids the exact chain rule.
   function stageFunctions(steps, built, opts = {}) {
     const relOf = opts.circleRel || circleRel;
     /** @type {Array<(z: any) => any> & {levels?: number[]}} */

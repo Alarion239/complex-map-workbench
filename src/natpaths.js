@@ -70,7 +70,7 @@ const NatPaths = (() => {
   }
   // the branch of a power homotopy, as words
   const branchWords = (cut, k) => (Math.abs(cut - 180) < 1e-9 && !k ? $t('principal branch') : $t('branch with the cut at $\\arg=%{cut}^\\circ$, sheet %{k}', { cut: CX.texNum(cut, 2), k }));
-  // (v16.1 review user-1) a root's, power's or log's path while the Landscape draws it on every sheet (homTex's
+  // a root's, power's or log's path while the Landscape draws it on every sheet (homTex's
   // o.sheets): no branch is named, since each surface takes its own
   const branchOr = (o, cut, k) => (o && o.sheets ? $t('on every sheet') : branchWords(cut, k));
   // z^{1 + (alpha - 1) t} with a real exponent: 1 + (n - 1) t written out

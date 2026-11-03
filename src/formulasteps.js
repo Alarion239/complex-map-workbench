@@ -399,7 +399,7 @@ const FormulaSteps = (host) => {
     // (an unexpected failure of the reader or the gate is no offer, never an error in the search or the Inspector)
     const res = splitCached(Recognize.key(ast, cut) + '\u0001' + expr, () => { try { return splitMake(ast, cut, expr, hasP ? null : b); } catch (e) { return splitNone('R1'); } });
     if (!hasP || res.kind === 'none') return res;
-    // shared numbers: the structure was decided at generic values; at the current ones the formula may change kind
+    // shared numbers: the structure is decided at generic values; at the current ones the formula may change kind
     // (\frac{az+1}{z+a} at a = 1): the offer stays, its button is disabled (R5), so nothing flickers while a slider moves
     const vk = JSON.stringify(Expr.toTex(ast).s) + JSON.stringify(res.pnames.map((nm) => { let v = null; (function walk(n) { if (!n || typeof n !== 'object' || v) return; if (n.t === 'num' && n.param === nm) { v = n.v; return; } walk(n.a); walk(n.b); walk(n.n); })(ast); return v; }));
     if (!res.hold || res.hold.k !== vk) {

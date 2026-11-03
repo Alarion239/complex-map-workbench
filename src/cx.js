@@ -118,7 +118,7 @@ const CX = (() => {
   const cos = (a) => C(Math.cos(a.re) * Math.cosh(a.im), -Math.sin(a.re) * Math.sinh(a.im));
   // tan z, without cancellation near its poles and without the old clamp to +-i for |Im z| > 20 (which also made tanh
   // exactly +-1 for |Re z| > 20). |Im z| <= 1: (sin x cos x + i sinh y cosh y) / (cos^2 x + sinh^2 y), where
-  // cos 2x + cosh 2y = 2 (cos^2 x + sinh^2 y) no longer cancels at the poles (the GPU's ctan uses the same form);
+  // cos 2x + cosh 2y = 2 (cos^2 x + sinh^2 y) does not cancel at the poles (the GPU's ctan uses the same form);
   // |Im z| > 1: tan z = s i (1 - q) / (1 + q), s = sign(Im z), q = e^{2isz} with |q| = e^{-2|Im z|} < e^-2.
   function tan(a) {
     const x = a.re, y = a.im;
@@ -493,7 +493,7 @@ const CX = (() => {
     return Object.assign(out, { th: ths, L, c });
   }
   const dhEquipotential = (L, o) => drain(dhEquipotentialGen(L, o));
-  // A traced ray or equipotential moved to the nearby parameter c: each point by Newton from where it was, at its own
+  // A traced ray or equipotential moved to the nearby parameter c: each point by Newton from its old place, at its own
   // angle and potential (exact points of the new curve, at the cost of one Newton solve each). null when a point does not
   // settle, a segment grows past 4 times the longest old one (a jump to another ray), or (an equipotential) the level is
   // not above the new critical one
@@ -509,7 +509,7 @@ const CX = (() => {
       let m = 0;
       while (L * 2 ** m < DH_TGT) m++;
       const a = TAU * dhAngle(th, m), rr = Math.exp(L * 2 ** m);
-      // (from where it was, moved as its neighbour moved: a ray's deep points follow its landing point)
+      // (from its old place, moved as its neighbour moved: a ray's deep points follow its landing point)
       const y = dhNewton(i ? add(P[i], sub(out[i - 1], P[i - 1])) : P[i], m, C(rr * Math.cos(a), rr * Math.sin(a)), c);
       if (!y || (i && abs(sub(y, out[i - 1])) > 4 * longest + 1e-9)) return null;
       out.push(y);
@@ -594,7 +594,7 @@ const CX = (() => {
     return div(C(em * Math.cos(u.im) - 2 * h * h, (em + 1) * Math.sin(u.im)), u);
   }
   // Σ_{k ≥ lo} a_k k^{−s} for coefficients of that form, where it converges (Re w > 1, or > 0 when B = 0; w = s − p):
-  // {S, A} (A: the sum of the sizes of what was added, for the cancellation test). Per residue r, Σ_{m ≥ N} (X_r + qm)^{−w}
+  // {S, A} (A: the sum of the sizes of the terms added, for the cancellation test). Per residue r, Σ_{m ≥ N} (X_r + qm)^{−w}
   // by Euler–Maclaurin in m, as zetaEM: X^{−w} (X/(q(w − 1)) + ½ + Σ_{j≤M} B₂ⱼ/(2j)! P_j (q/X)^{2j−1}), X = K0 + r + qN,
   // P_j = w(w+1)…(w+2j−2), N = |Im w| + 15. The poles X_r^{1−w}/(q(w − 1)) are summed as
   // X_0^{1−w} (B/(w − 1) − Σ b_r d_r (e^{(1−w)d_r} − 1)/((1−w)d_r))/q, d_r = log(X_r/X_0), so they cancel exactly when

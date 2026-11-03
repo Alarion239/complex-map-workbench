@@ -312,7 +312,7 @@ const Region = (() => {
     }
     if (dhQueue.length) dhTimer = setTimeout(dhRun, 0);
   }
-  // the best curve for shape s now: the full trace, else (in the app) a quick one, with the full trace scheduled
+  // the best curve for shape s as it stands: the full trace, else (in the app) a quick one, with the full trace scheduled
   function dhCurve(s) {
     const job = dhJob(s);
     if (!job) return null;
@@ -558,7 +558,7 @@ const Region = (() => {
     tex: (s) => { try { return Expr.toTex(Expr.parse((s.bind && s.bind.expr) || s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
   };
 
-  // ---------- v16: the exact gcircle form (notes/constructions-v16/SPEC.md 2.2) ----------
+  // ---------- the exact gcircle form (notes/constructions-v16/SPEC.md 2.2; standards-ok: a spec path in notes/) ----------
   // Region.formOf(s): the runtime form s._g of a constructed circle, line, disc or half-plane ({o, A, B, C}: f(z) =
   // A|z - o|^2 + 2 Re(conj(B)(z - o)) + C, f < 0 on its left side, the region), else the form of the shape's own
   // fields (Constr.formOfFields: disc, circle, half-plane, line), else null (other kinds, or no constr.js)
@@ -574,7 +574,7 @@ const Region = (() => {
   }
   // a gcircle disc (or its complement) or half-plane: its region is the form's left side (the complement is in the form)
   const gArea = (s) => !!(s && s._g && (s.kind === 'disc' || s.kind === 'halfplane'));
-  // circles far larger than the window (r > MR_RATIO x its diagonal), and gcircles, are drawn as M(R) (SPEC 2.2 [C7]):
+  // circles far larger than the window (r > MR_RATIO x its diagonal), and gcircles, are drawn as M(R) (SPEC 2.2):
   // dense near the view, geometric beyond, the far arc through the antipode present (160 equal angles would put no
   // sample in the window, and 1/z maps the far arc next to 0)
   const MR_RATIO = 50;
@@ -584,7 +584,7 @@ const Region = (() => {
     const f = (s) => { const z = Constr.mR(H0, diag * Math.tan(Math.PI * (s - 0.5))); return z === Constr.INF ? C(NaN, NaN) : C(z[0], z[1]); };
     return { f, n0: 400, closed: true, gform: G, gsamp: (w, step) => Constr.sampleMR(G, w || win, step) };
   }
-  // (review regress-2: constructions only, s._g; a plain v15 circle or disc keeps v15.1's sampling and cost)
+  // (constructions only, s._g; a plain circle or disc keeps its own sampling and cost)
   function bigCircle(s, win) {
     if (!win || !s._g || !(s.kind === 'circle' || s.kind === 'disc') || !Constr.sampleMR) return null;
     const G = formOf(s);
@@ -605,7 +605,7 @@ const Region = (() => {
     const b = K[s.kind].bbox && K[s.kind].bbox(s);
     return b || null;
   }
-  // (v16.4: a perpendicular circle drawn inside its curve only, notes/orthogonal-circle/segments) the arc's open curves:
+  // (a perpendicular circle drawn inside its curve only, notes/orthogonal-circle/segments) the arc's open curves:
   // a circle's from Constr.segCurves; on a line (review math-1, math-4) the chord is a segment, and the ray, or the two
   // rays through infinity, are the line kinds' long rays (the FAR clip and, with {reach: 'sphere'}, c.reach), so the
   // settle refinement, its tails and curvePieces' clip treat them as a whole line; each runs from the arc's start toward
@@ -1241,7 +1241,7 @@ const Region = (() => {
   }
   function clipPrimitive(s) {
     if (!s || !K[s.kind] || K[s.kind].type !== 'area') return null;
-    // a gcircle disc: the form itself ('g': {f < 0}, A > 0); its complement: the flipped form as the hole (v16)
+    // a gcircle disc: the form itself ('g': {f < 0}, A > 0); its complement: the flipped form as the hole
     if (gArea(s) && s._g.A !== 0) {
       const G = s._g;
       if (G.A > 0) return { in: [{ t: 'g', G }], hole: null, exact: true };
@@ -1282,7 +1282,7 @@ const Region = (() => {
     const qq = q.re * q.re + q.im * q.im;
     if (pc.t === 'g') {
       // {t : f(z0 + t q) < 2m} (f / 2 is the signed distance near the curve): a t^2 + b t + c < 0 with a = A|q|^2 >= 0,
-      // in coordinates relative to the anchor (v16, SPEC 2.2)
+      // in coordinates relative to the anchor
       const G = pc.G, ux = z0.re - G.o[0], uy = z0.im - G.o[1];
       const a = G.A * qq, b = 2 * (G.A * (ux * q.re + uy * q.im) + G.B[0] * q.re + G.B[1] * q.im);
       const c = G.A * (ux * ux + uy * uy) + 2 * (G.B[0] * ux + G.B[1] * uy) + G.C - 2 * m;
@@ -1383,7 +1383,7 @@ const Region = (() => {
   function capOf(s) {
     let a, b, d;
     if (s._g && (s.kind === 'disc' || s.kind === 'circle' || s.kind === 'halfplane' || s.kind === 'line')) {
-      // the region a|z|^2 + 2 Re(conj(b) z) + d > 0 of the form (-f > 0, expanded about 0; v16 [C8])
+      // the region a|z|^2 + 2 Re(conj(b) z) + d > 0 of the form (-f > 0, expanded about 0)
       const G = s._g, ox = G.o[0], oy = G.o[1];
       a = -G.A; b = [-(G.B[0] - G.A * ox), -(G.B[1] - G.A * oy)];
       d = -(G.A * (ox * ox + oy * oy) - 2 * (G.B[0] * ox + G.B[1] * oy) + G.C);
