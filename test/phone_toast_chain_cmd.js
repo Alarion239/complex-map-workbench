@@ -71,6 +71,20 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   ok(`${tag}: the toast's words are not cut`, m.cut <= 1, { cut: m.cut, text: m.text });
   ok(`${tag}: its buttons can be pressed`, m.btns.length >= 2 && m.btns.every((b) => b.hit), m.btns);
 }
+// ---- a slow resize: the sheet's edge takes 1.5 s to move (a slow device's frames stretch the 220 ms the same way); once it has
+// stopped the card just added is whole inside the sheet (its edges within half a pixel of the sheet's)
+for (const [w, h] of [[360, 640], [390, 844]]) {
+  const tag = `${w}×${h} slow resize`;
+  await fresh(w, h, 'en', true);
+  await ev(`document.querySelector('.ph-csteps').click(); 1`);
+  await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="chain"].open')` });
+  await ev(`(() => { const st = document.createElement('style'); st.textContent = '.ph-sheet { transition-duration: 1500ms !important; }'; document.head.append(st); __cmwAddStep('exp'); return 1; })()`);
+  ok(`${tag}: a toast shows after a step is added`, await shown(), null);
+  await madeWay('chain');
+  const whole = await settled({ max: 3000, panes: false, until: `(() => { const sh = document.querySelector('.ph-sheet[data-k="chain"]'), nc = sh && sh.querySelector('#pipeline .card[aria-selected="true"]'); if (!nc) return false; const sb = sh.getBoundingClientRect(), r = nc.getBoundingClientRect(); return r.top >= sb.top - 0.5 && r.bottom <= sb.bottom + 0.5; })()` });
+  const pos = await ev(`(() => { const sh = document.querySelector('.ph-sheet[data-k="chain"]'), nc = sh.querySelector('#pipeline .card[aria-selected="true"]'), r = nc.getBoundingClientRect(), sb = sh.getBoundingClientRect(); return { card: [r.top, r.bottom].map(Math.round), sheet: [sb.top, sb.bottom].map(Math.round) }; })()`);
+  ok(`${tag}: the step just added is whole inside the sheet`, whole.ok, pos);
+}
 // ---- the More sheet (eyes on #575): it hangs from its bottom edge up to a cap, with no top of its own; with its bottom lifted for the message it
 // has to shrink, not slide up off the screen (its header, ✕ and search field gone), and no control of it is under the message
 const measureMore = () => ev(`(() => {

@@ -8,10 +8,17 @@
   // the values Constr reads: f1's zeros and poles (parsed like the marks), F(z0) of the whole chain, traced curves
   function cmEnv() {
     const val = (raw) => { let v = null; try { v = typeof zpParse === 'function' ? zpParse(raw) : Expr.constValue(raw); } catch (e) { v = null; } return v && CX.isFin(v) ? [v.re, v.im] : null; };
+    // the map that carries a z-plane point to plane k (the steps up to k)
+    const Fk = (k) => (z) => {
+      if (z === Constr.INF) return null;
+      try { const w = stageF(k)(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; }
+    };
     return {
       zp: (st, kind, i) => val(Funcs.splitList(st.params[kind])[i] || ''),
       zpAll: (st, kind) => Funcs.splitList(st.params[kind]).map(val),
-      F: (z) => { if (z === Constr.INF) return null; try { const w = stageF(nSteps())(C(z[0], z[1])); return CX.isFin(w) ? [w.re, w.im] : null; } catch (e) { return null; } },
+      // F(z0) of the whole chain: the map to the last plane
+      F: (z) => Fk(nSteps())(z),
+      Fk,
       // (review math-11: one component per traced branch, each with its level function for the float64 Newton step,
       // traced on the z-plane's window plus a margin, never joined into one polyline)
       trace: (s) => {
@@ -104,6 +111,8 @@
     const find = (id) => S.shapes.find((x) => x.id === id) || S.targets.find((x) => x.id === id) || null;
     const isT = (id) => S.targets.some((x) => x.id === id);
     const done = (ids, live, structural) => {
+      // (a construction is an edit of the chain shown, not another chain: the steps view stays on its plane)
+      if (SV.on && SV.sig != null) SV.sig = svSigNow();
       // (v16.3 review user-4: a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag)
       const r = live && !structural ? null : cmSync({ all: true });
       const st = structural || !!(r && (r.kindChanged.length || r.undefChanged.length));
@@ -178,7 +187,7 @@
       // [v16.5 rail] the drag in progress; ending it without its release; back to the last undo step (Esc, a second
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
-      leftStage, lFlat, targetsEditable, zpStep,
+      leftStage, planeShapes, lFlat, targetsEditable, zpStep,
       yWhole: () => S.focus === 0 && !morphOn() && rImage(),
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
       nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
