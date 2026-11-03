@@ -485,9 +485,9 @@
     // area shape takes its path in list order (inverse and forward passes interleave, so list order holds across paths)
     const m0 = normalizeMap(map);
     const live = (role === 'R' || role === 'L') && !offRender && !opt.thin;
-    // (opt.sm: the SphereMesh role of a draw with no pane role of its own, the steps view's region mask 'SV': its
-    // meshes are asked for and its paths noted as a live pane's. smLive and smRole are live and role for a pane draw)
-    const smRole = role || opt.sm || null, smLive = live || (!!opt.sm && !offRender);
+    // (opt.sm: the SphereMesh role of the steps view's region mask, 'SV', drawn in the left pane: its meshes are asked
+    // for and its paths noted under 'SV', as a live pane's, in place of the pane's role. Without it smRole is role)
+    const smRole = opt.sm || role || null, smLive = live || (!!opt.sm && !offRender);
     // (the pane redrawn when an inverse program it waits on lands: a live pane's own role; the steps view's mask is
     // drawn in the left pane)
     const waitRole = live ? role : opt.sm && !offRender ? 'L' : null;
