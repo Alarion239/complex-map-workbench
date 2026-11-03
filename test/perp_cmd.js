@@ -132,7 +132,7 @@ const SF = {
 };
 
 // (an old page is read once its hooks exist: it takes longer to open when the machine is busy)
-const oldReady = async (ms = 20000) => { for (let t = 0; t < ms; t += 250) { if (await ev(`typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.length > 0`).catch(() => false)) return true; await sleep(250); } return false; };
+const oldReady = async (id, ms = 20000) => { for (let t = 0; t < ms; t += 250) { if (await ev(`typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.some((s) => s.id === '${id}')`).catch(() => false)) return true; await sleep(250); } return false; };
 
 await section('A', async () => {
   await view(1440, 900, false, false);
@@ -419,7 +419,7 @@ await section('B', async () => {
   const has162 = fs.existsSync(path.join(DIR, '..', '..', 'dist', 'v162-test.html'));
   info.v162 = has162;
   if (has162) {
-    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await oldReady(); await settle(500);
+    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await oldReady('fk'); await settle(500);
     const old = await ev(`__cmwCI({shapes:true}).list.find((s) => s.id === 'fk')`);
     info.v162 = { old, linkToasts: await toasts() };
     ok('B the v16.2 page opens the link: K is the cached circle (no definition)', old && !old.def && old.kind === 'circle' && Math.abs(old.r - byId(st, 'fk').r) < 1e-12 && Math.abs(old.c[1] - byId(st, 'fk').c[1]) < 1e-12, info.v162);
@@ -711,12 +711,13 @@ await section('I', async () => {
   await click(u[0] + 2, u[1] - 1); await settle(150);
   const PQ = [[[0.3, 0.2], [-0.6, 0.5]], [[-0.3, -0.6], [0.6, -0.1]], [[0.1, 0.7], [-0.2, -0.3]]];
   // (the dashed preview: the arc the click will make, read on the overlay canvas: ink on K's carrier inside the disc only)
-  const prevPix = (Bz) => ev(`(() => { const r0 = __cmwW2S('L', 0, 0); const cvs = [...document.querySelectorAll('canvas')].filter((c) => { const b = c.getBoundingClientRect(); return r0[0] > b.left && r0[0] < b.right && r0[1] > b.top && r0[1] < b.bottom; }); const cv = cvs.reverse().find((c) => { try { return !!c.getContext('2d'); } catch (e) { return false; } }); if (!cv) return null;
+  // (the steps view draws the pointer's guide lines across the plane: a sample on one of them is not the preview's ink)
+  const prevPix = (Bz, P) => ev(`(() => { const r0 = __cmwW2S('L', 0, 0); const cvs = [...document.querySelectorAll('canvas')].filter((c) => { const b = c.getBoundingClientRect(); return r0[0] > b.left && r0[0] < b.right && r0[1] > b.top && r0[1] < b.bottom; }); const cv = cvs.reverse().find((c) => { try { return !!c.getContext('2d'); } catch (e) { return false; } }); if (!cv) return null;
     const b = cv.getBoundingClientRect(), k = cv.width / b.width, cx = cv.getContext('2d'), G = Constr.perpForm({ A: 1, B: [0, 0], C: -1, o: [0, 0] }, [0.3, 0.2], ${JSON.stringify(Bz)}).G, g = Constr.geomOf(G);
     let inI = 0, inN = 0, outI = 0, outN = 0;
-    for (let j = 0; j < 720; j++) { const t = j * Math.PI / 360, z = [g.c[0] + g.r * Math.cos(t), g.c[1] + g.r * Math.sin(t)], m = Math.hypot(z[0], z[1]); if (Math.abs(m - 1) < 0.06) continue; const s = __cmwW2S('L', z[0], z[1]), x = (s[0] - b.left) * k, y = (s[1] - b.top) * k; if (x < 3 || y < 3 || x > cv.width - 4 || y > cv.height - 4) continue; const d = cx.getImageData(Math.round(x) - 1, Math.round(y) - 1, 3, 3).data; let a = 0; for (let i = 3; i < d.length; i += 4) a = Math.max(a, d[i]); if (m < 1) { inN++; if (a > 40) inI++; } else { outN++; if (a > 40) outI++; } }
+    for (let j = 0; j < 720; j++) { const t = j * Math.PI / 360, z = [g.c[0] + g.r * Math.cos(t), g.c[1] + g.r * Math.sin(t)], m = Math.hypot(z[0], z[1]); if (Math.abs(m - 1) < 0.06) continue; const s = __cmwW2S('L', z[0], z[1]), x = (s[0] - b.left) * k, y = (s[1] - b.top) * k; if (x < 3 || y < 3 || x > cv.width - 4 || y > cv.height - 4) continue; if (Math.abs(s[0] - ${P[0]}) < 3 || Math.abs(s[1] - ${P[1]}) < 3) continue; const d = cx.getImageData(Math.round(x) - 1, Math.round(y) - 1, 3, 3).data; let a = 0; for (let i = 3; i < d.length; i += 4) a = Math.max(a, d[i]); if (m < 1) { inN++; if (a > 40) inI++; } else { outN++; if (a > 40) outI++; } }
     return { inI, inN, outI, outN }; })()`);
-  for (const [a, b] of PQ) { const A = await W(a[0], a[1]), B = await W(b[0], b[1]); await click(A[0] + 1, A[1]); await settle(100); await move(B[0], B[1]); await settle(150); if (a[0] === 0.3) { await shot('seg-d1440-preview'); info.segPreview = await prevPix(b); } await click(B[0], B[1]); await settle(350); }
+  for (const [a, b] of PQ) { const A = await W(a[0], a[1]), B = await W(b[0], b[1]); await click(A[0] + 1, A[1]); await settle(100); await move(B[0], B[1]); await settle(500); if (a[0] === 0.3) { await shot('seg-d1440-preview'); info.segPreview = await prevPix(b, B); } await click(B[0], B[1]); await settle(350); }
   ok('I1 the dashed preview draws the arc inside the disc only', info.segPreview && info.segPreview.inN > 20 && info.segPreview.inI > 0.4 * info.segPreview.inN && info.segPreview.outI === 0, info.segPreview);
   await key('Escape'); await tool('select'); await settle(200);
   let st = await ST();
@@ -783,7 +784,8 @@ await section('I', async () => {
   // ---- I2 the Inspector and ⋯
   const K1 = Ks[0].id;
   await ev(`__cmwCI({}) && 1`);
-  await ev(`(() => { const r = document.querySelector('.shape[data-id="${K1}"] .shape-name') || document.querySelector('.shape[data-id="${K1}"]'); r && r.click(); return 1; })()`); await settle(300);
+  await ev(`(() => { const r = document.querySelector('.shape[data-id="${K1}"] .shape-name') || document.querySelector('.shape[data-id="${K1}"]'); r && r.click(); return 1; })()`);
+  for (let i = 0; i < 20 && !(await ev(`document.querySelectorAll('.cm-iside button').length`)); i++) await sleep(150);   // (the Inspector opens once the row's click has been handled)
   info.inspSides = await ev(`[...document.querySelectorAll('.cm-iside button')].map((b) => b.textContent.trim() + (b.classList.contains('on') ? '*' : ''))`);
   ok('I2 the Inspector: Whole | Inside | Outside | Between, Inside on', JSON.stringify(info.inspSides) === '["Whole","Inside*","Outside","Between"]', info.inspSides);
   const steps = [];
@@ -918,7 +920,7 @@ await section('I', async () => {
     const has = fs.existsSync(path.join(DIR, '..', '..', 'dist', `v${v}-test.html`));
     if (!has) { info['v' + v] = 'no page'; continue; }
     await logs();
-    await nav(`http://localhost:${PORT}/v${v}-test.html?ns=${NS}o${v}#cmw=${payload}`); await oldReady(); await settle(500);
+    await nav(`http://localhost:${PORT}/v${v}-test.html?ns=${NS}o${v}#cmw=${payload}`); await oldReady('k'); await settle(500);
     const old = await ev(`__cmwCI({shapes:true}).list.find((s) => s.id === 'k')`);
     const lg = (await logs()).filter((x) => x.t === 'EXC' || x.t === 'error');
     info['v' + v] = { kind: old && old.kind, seg: old && old.def && old.def.seg, def: !!(old && old.def), errs: lg.slice(0, 3) };
