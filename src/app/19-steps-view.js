@@ -438,11 +438,12 @@
   // continuously with t. The search is a generator that pauses every SV_POLE_CHUNK evaluations of the map, so a slice of
   // it stops at SV_POLE_BUDGET ms whatever step it is in
   const SV_POLE_K = 64, SV_POLE_SEED = 8, SV_POLE_GRID = 24, SV_POLE_MAX = 8, SV_POLE_TOP = 8;
-  const SV_POLE_CHUNK = 48, SV_POLE_BUDGET = 2;
+  const SV_POLE_CHUNK = 16, SV_POLE_BUDGET = 2;
   const svPoleMemo = new Map(), svPoleLast = new Map();
   // a pause of a search: once SV_POLE_CHUNK evaluations (E.n, counted by the map P.Ft gives) ran since the last. The
-  // searches pause at the start of each Newton or peak climb and of each grid, after each of their iterations and row,
-  // so at most SV_POLE_CHUNK - 1 plus a row's SV_POLE_GRID + 1 evaluations run between two pauses
+  // searches may pause at the start of each Newton or peak climb and of each grid, after each of their iterations and
+  // every 8 points of a grid, so at most SV_POLE_CHUNK - 1 plus a peak climb's first 9 evaluations run between two
+  // pauses: a slice ends within a few evaluations of its time (a map such as zeta's takes tens of µs each)
   function* svPoleTick(E) {
     if (E.n - E.at >= SV_POLE_CHUNK) { E.at = E.n; yield; }
   }
@@ -489,6 +490,7 @@
         let w = null;
         try { w = F(C(box.x0 + i * dx, box.y0 + j * dy)); } catch (e) { w = null; }
         M.push(w && CX.isFin(w) ? CX.abs(w) : Infinity);
+        if (i % 8 === 7) yield* svPoleTick(E);
       }
       yield* svPoleTick(E);
     }
@@ -730,7 +732,7 @@
   let svRingMemo = null, svRingPane = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
   const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
-  // m at the twentieth q of the glide g (null: no ring): a generator that pauses every SV_RING_N / 4 points
+  // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
   function* svRingSize(g, q, v, pw, ph) {
     const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1 } : null), w = clipWin;
     const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s;
@@ -742,7 +744,7 @@
     const all = function* (fn) {
       for (let i = 0; i < SV_RING_N; i++) {
         if (!past(fn(i))) return false;
-        if ((i + 1) % (SV_RING_N / 4) === 0) yield;
+        if (i % 8 === 7) yield;
       }
       return true;
     };
