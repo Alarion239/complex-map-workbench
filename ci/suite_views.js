@@ -109,7 +109,7 @@ const VIEWS = {
   'series_edit_cmd.js': steps({ pin: true }),
   'series_params_cmd.js': steps({ pin: true }),
   'shape_rows_cmd.js': steps({ pin: true }),
-  'stage_shapes_cmd.js': port('interact', 'the steps view\'s z-globe shows no pulled-back lobes (#705); the suite reads Y\'s pixels, which the steps view does not show'),
+  'stage_shapes_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
   'top_bar_focus_classic_cmd.js': classic('the classic top bar\'s view switch and Deformation in the Tab order, and the segments of the view switch and of the classic heads: the steps view has none of them (top_bar_focus_cmd)'),
   'ux165_fix_classic_cmd.js': classic('the classic transport dock\'s one row, the Sphere view\'s switch-to-the-plane hint for Orthogonal, and the planes staying put when Listen starts: the steps view has no dock, takes no curve pick on its globe yet, and its Listening-along note moves the plane'),
