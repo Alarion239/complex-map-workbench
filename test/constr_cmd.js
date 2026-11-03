@@ -432,8 +432,8 @@ await section('C', async () => {
   ok(
     'RU draft chip',
     [
-      'Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена',
-      'Выберите точку или пустое место · 1 из 3 · Esc — отмена',
+      'Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена',
+      'Выберите точку или пустое место · 1 из 3 · Esc — отмена',
       'Выберите точку или пустое место · 1 из 3 · По 3 точкам'
     ].includes(await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t').textContent`))),
     await ev(`document.querySelector('#draftChipL .cm-t').textContent`)
