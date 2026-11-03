@@ -1,6 +1,6 @@
 // The steps view's Inside regions under a cost guard that always trips: the regions' mask is not a frame the guard
-// measures or demotes, so a pan leaves the guard at full resolution, shows colour only inside the regions while it
-// moves, and keeps every area, the forward ones past the cap of four included, at rest.
+// measures or demotes, so a pan leaves the guard at full resolution and shows colour only inside the regions while it
+// moves. The areas past the cap of four, drawn forward, keep their fill, once their sphere meshes are built and after the pan.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -10,10 +10,12 @@ await view(1440, 900);
 const six = ['|z| < 1', '|z-1| < 0.5', '|z+1| < 0.5', '|z-i| < 0.5', '|z+i| < 0.5', '|z-2| < 0.3']
   .map((e, i) => ({ id: 'f' + i, kind: 'formula', expr: e, ci: i, visible: true }));
 await load('curves-areas-guard', Object.assign({}, BASE, {
-  shapes: six, targets: [], steps: [{ type: 'pown', params: { n: 2 }, on: true }],
+  shapes: six, targets: [], steps: [{ type: 'pown', params: { n: 2 } }],
 }));
-await settle();
 await ev(`__cmwSteps({ go: Math.max(...__cmwSteps().planes), now: true, scope: 'in' })`);
+await settled({ until: `__cmwPaths().length >= 6 && __cmwPaths().every((p) => p.path !== 'pending')`, max: 20000 });
+// (the forward areas' sphere meshes are built in the background: a published mesh must not take the fill away)
+await settled({ until: `__cmwSphere().jobs.length === 0`, max: 20000 });
 await settle();
 // (the colour of the plane's pixel at world point w, read from the colour canvas)
 const pixelAt = (re, im) => ev(`(() => {
@@ -28,6 +30,11 @@ const dist = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(
 // points outside every image: w = -5 + 4i, 3 - 4i, -5 - 4i
 const OUT = [[-5, 4], [3, -4], [-5, -4]];
 const paper = await pixelAt(...OUT[0]);
+// (the sixth area, |z - 2| < 0.3, is the disc around w = 4, drawn forward: past the cap of four it stays filled once its
+// sphere mesh is built, with no guard in play)
+const first6 = await pixelAt(4.2, 0.5);
+R.first = { paper, first6 };
+ok('the sixth area, a forward one, stays filled once its sphere mesh is built', !!first6 && !!paper && dist(first6, paper) > 60, R.first);
 await ev(`__cmwGuardOpts({ budget: 0.01, exit: 0.005 })`);
 const c = await ev(`__cmwW2S('L', 0, 0)`);
 const mouse = (type, x, y, buttons = 0) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons, clickCount: 1 });
@@ -46,10 +53,9 @@ await settle();
 const g = await ev('__cmwGuard()');
 R.guard = g && g.L;
 ok('the guard stays at full resolution for the mask', !!g && g.L.level === 0 && !g.L.half && !g.L.stuck, R.guard);
-// (the sixth area, |z - 2| < 0.3, is the disc around w = 4: its centre is filled at rest)
-const six6 = await pixelAt(4, 0);
+const six6 = await pixelAt(4.2, 0.5);
 R.sixth = { paper, six6 };
-ok('at rest the sixth area, a forward one, keeps its fill', !!six6 && !!paper && dist(six6, paper) > 60, R.sixth);
+ok('after the pan the sixth area keeps its fill', !!six6 && !!paper && dist(six6, paper) > 60, R.sixth);
 const paths = (await ev('__cmwPaths()')).filter((p) => p.role === 'L').map((p) => p.path);
 ok('at rest: the first four areas inverse, the fifth and sixth forward', paths.length === 6 && paths.slice(0, 4).every((p) => p === 'inverse') && paths.slice(4).every((p) => p === 'forward'), paths);
 R.logs = (await logs()).filter((l) => /EXC|error/i.test(l.t));
