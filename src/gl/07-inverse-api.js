@@ -811,7 +811,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsOn, fillPointsRuns, carryProbes, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsOn, fillPointsRuns, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -878,6 +878,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },
+    // (tests) the map cache's budget in bytes, CACHE_BYTES
+    get cacheBudget() { return CACHE_BYTES; }, set cacheBudget(v) { CACHE_BYTES = v; },
+    // the steps view's carried colour's kept scratch entries (e.carry): {n, bytes}, both counted in cacheBytes
+    get carryTmp() { let n = 0, bytes = 0; for (const e of tmpAll) if (e.carry) { n++; bytes += e.bytes; } return { n, bytes }; },
     // true: every compile is waited for (tests that compare frames drawn right after a chain change)
     set syncCompile(v) { syncDepth += v ? 1 : -1; },
     // (exports) every chain and static program a draw needs is linked before it draws: a deformation frame's map mode
