@@ -15,8 +15,9 @@
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs;
 // - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
-//   rest longer than the scratch sweep's second; the carried colour creates no texture and no buffer in their frames
-//   (the outer ring's meshes and the carry's scratch textures are made in idle moments and kept between scrubs), and
+//   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
+//   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
+//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs), and
 //   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
@@ -187,11 +188,12 @@ async function hold(x, links = true) {
     await ev(`__cmwSteps({ go: ${to} }), 1`);
     await settled({ max: 60000, until: '!__cmwSteps().moving' });
   }
-  await settled({ max: 30000, until: '!__cmwSvKey().busy' });
-  // (each texture or buffer created from the carried colour's draws: its stack passes through svCarryRegions)
+  const idle = await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  ok('before the scrubs: the idle job ends (the outer ring\'s sizes and meshes made)', idle.ok, idle);
+  // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
   await ev(`(() => {
     const P = WebGL2RenderingContext.prototype, A = window.__svAlloc = [];
-    for (const name of ['createTexture', 'createBuffer']) {
+    for (const name of ['createTexture', 'createBuffer', 'createVertexArray']) {
       const f = P[name];
       P[name] = function (...a) { const st = new Error().stack || ''; if (st.includes('svCarryRegions')) A.push(name + ' ' + st.split('\\n').slice(2, 6).map((l) => l.trim()).join(' < ')); return f.apply(this, a); };
     }
@@ -227,10 +229,13 @@ async function hold(x, links = true) {
     const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / 40); if (i < 40) setTimeout(step, 16); else { ev('pointerup', x1); done(1); } };
     setTimeout(step, 16);
   })`);
+  // (at rest: 2 s, and the idle job's work for the plane the thread is at done)
   const rest = async () => {
     await settled({ max: 60000, until: '!__cmwSteps().moving' });
     await ev('window.__restT = performance.now(), 1');
     await settled({ max: 20000, panes: false, until: 'performance.now() - window.__restT > 2000' });
+    const r = await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+    ok('at rest between scrubs: the idle job ends', r.ok, r);
   };
   await rest();
   await scrub(0, -1);
@@ -239,7 +244,7 @@ async function hold(x, links = true) {
   await rest();
   const alloc = await ev('window.__svAlloc');
   info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
-  ok('two scrubs of the Mountain King: the carried colour creates no texture or buffer in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
+  ok('two scrubs of the Mountain King: the carried colour creates no texture, buffer or vertex array in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
   // (Everywhere: the whole plane's mesh and the outer ring's, each with its map cache's pass)
   const returns = Object.values(await ev('window.__svReturns'));
   info['returns to the default framebuffer'] = { frames: returns.length, most: Math.max(0, ...returns) };
