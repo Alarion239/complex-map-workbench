@@ -1,4 +1,4 @@
-  // ---------------- v16 constructions: the model (notes/constructions-v16/SPEC.md 20.2, CORE) ----------------
+  // ---------------- constructions: the model (notes/constructions-v16/SPEC.md 20.2, CORE; standards-ok: notes/constructions-v16 is a directory name) ----------------
   // Shapes may carry s.at (bound handles) and s.def (circle3, meet, glider, midpoint, bisector); Constr (constr.js)
   // writes their geometry in topological order. cmSync runs at the start of shapesChanged / targetsChanged and after
   // every chain change (zeros of f1, image refs), so every path that moves a source (a drag, a number, undo, load, a
@@ -65,7 +65,7 @@
     const r = cmSync({ all: true });
     return !!(r && (r.kindChanged.length || r.undefChanged.length));
   }
-  // load (sanitizeState): steps keep uid and zpIds, refs are validated (fallbacks [C29]), one recompute
+  // load (sanitizeState): steps keep uid and zpIds, refs are validated (with fallbacks), one recompute
   function cmLoad(o) {
     const env = cmEnv();
     try {
@@ -75,14 +75,14 @@
       if (v.freed) { /** @type {any} */ (cmLoad).freed = v.freed; cmEmit('loadFreed', { n: v.freed }); }
     } catch (e) { console.error('constructions (load)', e); }
   }
-  // delete shapes through Constr.deletePlan (definitions cascade, bindings are freed [C17]); returns the plan
+  // delete shapes through Constr.deletePlan (definitions cascade, bindings are freed); returns the plan
   function cmDeletePlan(ids) {
     if (!cmOn()) return { del: ids, freed: [], undef: [] };
     const plan = Constr.deletePlan(S, ids);
     Constr.applyFreed(S, plan.freed);
     return plan;
   }
-  // a zero or pole of step k is removed: its bindings are freed, its constructions become undefined [C12]
+  // a zero or pole of step k is removed: its bindings are freed, its constructions become undefined
   function cmZeroRemoved(k, kind, i) {
     if (!cmOn()) return null;
     const st = S.steps[k - 1];
@@ -94,7 +94,7 @@
     if (plan.undef.length || plan.freed.length) cmEmit('zpRemoved', { zref, undef: plan.undef, freed: plan.freed });
     return plan;
   }
-  // (review math-10, SPEC 2.2 [C5]) the anchor the GPU packs the exact forms at, in float64: the centre of the view of
+  // (SPEC 2.2) the anchor the GPU packs the exact forms at, in float64: the centre of the view of
   // the plane whose forms are packed ('X': the shapes, at the z-window's centre; 'Y': the targets, at Y's centre; or a
   // point), so float32 sees only small numbers near the view at any radius and any distance from the first point
   function cmFormAnchor(which) {
@@ -105,7 +105,7 @@
     else if (which === 'Y') xy = [V.right.cx, V.right.cy];
     GLR.setFormAnchor(xy && xy.every(Number.isFinite) ? xy : null);
   }
-  // the interface's API (SPEC 20.2): every call that changes S records undo as v15's gestures do
+  // the interface's API (SPEC 20.2): every call that changes S records undo as the other gestures do
   let cmGesture = false;
   function cmApi() {
     const find = (id) => S.shapes.find((x) => x.id === id) || S.targets.find((x) => x.id === id) || null;
@@ -113,7 +113,7 @@
     const done = (ids, live, structural) => {
       // (a construction is an edit of the chain shown, not another chain: the steps view stays on its plane)
       if (SV.on && SV.sig != null) SV.sig = svSigNow();
-      // (v16.3 review user-4: a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag)
+      // (a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag does)
       const r = live && !structural ? null : cmSync({ all: true });
       const st = structural || !!(r && (r.kindChanged.length || r.undefChanged.length));
       if (ids.some((id) => !isT(id))) shapesChanged(st);
@@ -145,13 +145,13 @@
         if (patch.def) s.def = patch.def;
         if (!s.def) return;
         for (const k of ['fill', 'index', 'seed']) if (k in patch) s.def[k] = patch[k];
-        // (v16.3 review math-5: Use complement keeps the meet points on the shape where they are, in the same step)
+        // (Use complement keeps the meet points on the shape where they are, in the same step)
         if ('flip' in patch) { if (Constr.setFlip) Constr.setFlip(S, id, patch.flip); else s.def.flip = patch.flip; }
         if ('t' in patch) s.t = patch.t;
-        // (v16.3 review user-4: a glider's live drag frame is not structural: the rows are updated, not rebuilt)
+        // (a glider's live drag frame is not structural: the rows are updated, not rebuilt)
         done([id], !!patch.live, !patch.live || !!patch.def);
       },
-      makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // ([v16.5 rail] live: a pull mid-drag, the release commits)
+      makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // (live: a pull mid-drag, the release commits)
       // a gesture moved a source (live: a motion frame; the gesture's end calls end())
       moved(changed, o = {}) { cmGesture = cmGesture || !!o.live; const r = cmSync(changed || { all: true }); if (r && r.ids.length) { shapesChanged(!!(r.kindChanged.length || r.undefChanged.length)); targetsChanged(false); } return r; },
       end() { cmGesture = false; commit(); if (rightAuto && autoFit()) fitRight(); requestRender('L', 'R', 'T'); },
@@ -172,7 +172,7 @@
       env: cmEnv,
     };
   }
-  // ---------------- v16 constructions: the interface's adapter (construct.js; SPEC 20, INTERFACE) ----------------
+  // ---------------- constructions: the interface's adapter (construct.js; SPEC 20, INTERFACE) ----------------
   function cmUiApi() {
     const paneOf = (side) => (side === 'R' ? paneR : paneL);
     return {
@@ -184,7 +184,7 @@
       select: (id) => { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR', 'P'); },
       hoverShape: (id) => { hoverShape = id; requestRender('L', 'R'); },
       snapZ, snapOn: () => !!S.snap, altHeld: () => altHeld,
-      // [v16.5 rail] the drag in progress; ending it without its release; back to the last undo step (Esc, a second
+      // the drag in progress; ending it without its release; back to the last undo step (Esc, a second
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
       leftStage, planeShapes, lFlat, targetsEditable, zpStep,
@@ -212,7 +212,7 @@
     for (const x of S.shapes.concat(S.targets)) if (x.bind) for (const key of Object.keys(x.bind)) out.push({ label: names.get(x.id) || $t('a target'), get: () => x.bind[key], set: (t) => { x.bind[key] = t; } });
     return out;
   }
-  // (v16.5 UX65) an unused number's way into a formula: + a appended to the selected formula step, else the last one
+  // an unused number's way into a formula: + a appended to the selected formula step, else the last one
   function paramUseIn(nm) {
     const ks = [];
     S.steps.forEach((st, i) => { if (st.type === 'custom') ks.push(i + 1); });
@@ -271,7 +271,7 @@
     for (const x of S.targets) if (applyBinds(x, big ? null : names)) tg = true;
     if (steps) chainChanged(big, { live: ev.live && !ev.play });
     // the tone under a still pointer follows the new function (a slider, Play, a field, undo): the pathless form, the
-    // nearest turn (notes/sound/DEFORMATION.md, "The hook for v15"); however often it is called, the tone is
+    // nearest turn (notes/sound/DEFORMATION.md, "The hook"); however often it is called, the tone is
     // re-evaluated once a frame at most (its requestAnimationFrame), together with chainChanged's own report
     if (steps) soundFunctionChanged();
     if (sh || big) shapesChanged(big);

@@ -129,7 +129,7 @@
     Integrals.init(integralsApi());   // the integrals (src/integrals.js)
     Examples.init(examplesApi());   // the examples and the guide (src/examples.js)
     // TEMP-DEBUG-HOOK (removed before publishing)
-    // (the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
+    // (the quality and perf suites keep a fixed pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
     if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
     // i18n (notes/i18n/DESIGN.md 2): English does nothing here
@@ -139,7 +139,7 @@
     // (and «Поиск» where the header is short of room: page.html, review ui-9)
     if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function'))); } }
     I18N.reveal();
-    // the switch reloads only when the work was written and reads back (review i18n-3); while a tour holds the canvas
+    // the switch reloads only when the work is written and reads back; while a tour holds the canvas
     // the saved state is the user's own work, and the tour's scenes are never stashed as undo history
     I18N.onSwitch(() => {
       const held = tourHold;
@@ -148,7 +148,7 @@
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
       if (!ok) return false;
       // the open panels come back too: the deformation (at its t, paused), the open lamp, the selected shape
-      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
+      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh; standards-ok: Date.now() earlier on this line is code, not a comment */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
@@ -207,7 +207,7 @@
     if (S.clipWin) clipWin = S.clipWin;
     paneL.resize(); paneR.resize();
     paneL.setView(S.srcView);
-    // (v16 review picture-1) a saved state without its window (older saves, hand-made states) meshes and samples in
+    // a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
     if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; setOpt('clipWin', clipWin); } }
     buildTools();
@@ -218,8 +218,8 @@
     setupPane(paneR, 'R');
     PlaneMenu.init(planeMenuApi());   // the planes' context menu
     Commands.init(commandsApi());   // the command palette (src/commands.js)
-    Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
-    if (Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
+    Construct.init({ cm: cmApi() });   // constructions (the interface)
+    if (Construct.ui) Construct.ui(cmUiApi());   // the app's adapter for the constructions' interface
     setupHeader();
     setupViewControls();
     setupMorphButton();
@@ -283,7 +283,7 @@
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
           if (swUi.lamp) openLamp = swUi.lamp;
-          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
+          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (the open sheet and the large plane)
           if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
           // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
@@ -313,8 +313,8 @@
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
     Phone.init(phoneApi());
-    // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
-    // (and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
+    // (a language switch on a phone reopens the sheet that is open, More where the switch is)
+    // (and the plane that is large stays large, so each plane's saved view is drawn at the size it is saved at;
     // build/phone-swap.md)
     if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     setupStepsView();   // ((#366 prototype) ?view=steps)

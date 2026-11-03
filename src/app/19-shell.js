@@ -33,7 +33,7 @@
   }
   // the right click, the messages' place, the drawers and the panels' buttons (init: before applyLayout)
   function setupShell() {
-    // (v16.5 UX99) a right click on a chain card or a Shapes row opens its ⋯ menu at the pointer, as on the planes
+    // a right click on a chain card or a Shapes row opens its ⋯ menu at the pointer, as on the planes
     // (a mouse only: a phone's long press keeps its own meaning)
     document.addEventListener('contextmenu', (e) => {
       const t = e.target instanceof Element ? e.target : null;
@@ -52,9 +52,9 @@
       if (py + ph > window.innerHeight - 12) py = Math.max(12, e.clientY - ph - 2);
       pop.style.left = px + 'px'; pop.style.top = py + 'px';
     });
-    // (v16.5 UX80) a message is placed clear of the planes' controls when it shows and when the layout changes
+    // a message is placed clear of the planes' controls when it shows and when the layout changes
     { const th = $('toastHost'); if (th) new MutationObserver(() => placeToasts()).observe(th, { childList: true }); window.addEventListener('resize', () => requestAnimationFrame(placeToasts));
-      // ([v16.5 fix regress-2] and whenever the layout under a toast changes while it stays up: the deformation's dock
+      // (and whenever the layout under a toast changes while it stays up: the deformation's dock
       // opening or closing, the learning lane showing or hiding, a panel: each resizes a plot or the chain; one rAF, and
       // only while a toast shows)
       if (th) {
@@ -102,7 +102,7 @@
   // the header's buttons and menus: undo and redo, help, sound, export, share, examples, the theme, the palette, Settings
   function setupHeaderButtons() {
     $('undoBtn').addEventListener('click', () => {
-      // [v16.5 UX15] a construction's last pick, [UX14] an open polygon's last point, before any finished work
+      // a construction's last pick, then an open polygon's last point, before any finished work
       const w = Construct.undoPick();
       if (w != null) { toast(w ? $t('Undid the pick: {x}', { x: w }) : $t('Undid the last pick')); updateUndo(); return; }
       if (polyBack()) return;
@@ -135,10 +135,10 @@
       });
       syncPalBtn();
     }
-    // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
+    // Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
     // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
-    // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
-    // the header's globe went (notes/i18n/USER-DECISIONS.md, 2026-10-28)
+    // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette
+    // (notes/i18n/USER-DECISIONS.md, 2026-10-28)
     const sb = $('settingsBtn');
     if (sb) sb.addEventListener('click', () => openSettings(sb));
   }
