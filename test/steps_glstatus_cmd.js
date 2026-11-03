@@ -22,6 +22,9 @@ const scrub = async (x) => ev(`(() => {
   window.__svScrubUp = () => ev('pointerup', ${x});
   return 1;
 })()`);
+// (the thread at x and a left-pane status newer than t1: a frame drawn there since)
+const renewed = (x, t1) => `Math.abs(__cmwSvX() - ${x}) < 0.01`
+  + ` && (() => { const s = __cmwPaneStatus('L'); return !!s && s.t > ${t1}; })()`;
 {
   const ex = names.indexOf('Square root and its sheets');
   ok('the square root example is found', ex >= 0, names.length);
@@ -38,10 +41,12 @@ const scrub = async (x) => ev(`(() => {
   await settled({ max: 20000, panes: false, until: `__cmwSteps().planes.length === ${n0 + 1}` });
   const last = n0;
   await ev(`__cmwSteps({ go: ${last}, now: true }), 1`);
-  const atRest = await settled({ max: 20000, panes: false, until: `!__cmwSteps().moving && (() => { const s = __cmwPaneStatus('L'); return !!s && (s.pending || s.compiling); })()` });
+  const waits = `(() => { const s = __cmwPaneStatus('L'); return !!s && (s.pending || s.compiling); })()`;
+  const atRest = await settled({ max: 20000, panes: false, until: `!__cmwSteps().moving && ${waits}` });
   const s0 = await ev(`__cmwPaneStatus('L')`);
   info.held = { atRest: atRest.ok, status: s0, pendingLinks: await ev('GLR.pendingLinks') };
-  ok('with the links held, the new plane\'s frame at rest waits for its programs', atRest.ok && s0 && (s0.pending || s0.compiling), info.held);
+  ok('with the links held, the new plane\'s frame at rest waits for its programs',
+    atRest.ok && s0 && (s0.pending || s0.compiling), info.held);
   // (held mid-glide before the new plane: every frame from here is one between planes)
   const x = last - 0.5;
   await scrub(x);
@@ -50,13 +55,15 @@ const scrub = async (x) => ev(`(() => {
   const linked = await settled({ max: 20000, panes: false, until: 'GLR.pendingLinks === 0' });
   const t1 = await ev('performance.now()');
   await ev(`window.__svScrubTo(${x - 0.05}), 1`);
-  const fresh = await settled({ max: 10000, panes: false, until: `Math.abs(__cmwSvX() - ${x - 0.05}) < 0.01 && (() => { const s = __cmwPaneStatus('L'); return !!s && s.t > ${t1}; })()` });
+  const fresh = await settled({ max: 10000, panes: false, until: renewed(x - 0.05, t1) });
   const s1 = await ev(`__cmwPaneStatus('L')`);
   const between = await ev('__cmwSteps().moving');
   info.released = { linked: linked.ok, fresh: fresh.ok, status: s1, between, t1 };
   ok('once the links are let go: none is pending', linked.ok, info.released);
-  ok('between planes: the frame after the links landed renews the left pane\'s status', fresh.ok && s1 && s1.t > t1, info.released);
-  ok('between planes, with no link pending: the left pane says nothing is pending or compiling', s1 && !s1.pending && !s1.compiling && !s1.error, info.released);
+  ok('between planes: the frame after the links landed renews the left pane\'s status',
+    fresh.ok && s1 && s1.t > t1, info.released);
+  ok('between planes, with no link pending: the left pane says nothing is pending or compiling',
+    s1 && !s1.pending && !s1.compiling && !s1.error, info.released);
   ok('the thread is still between planes', between === true, info.released);
   await ev('window.__svScrubUp(), 1');
 }
@@ -80,11 +87,14 @@ const scrub = async (x) => ev(`(() => {
   await settled({ max: 20000, panes: false, until: `Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
   const t1 = await ev('performance.now()');
   await ev(`window.__svScrubTo(${x - 0.05}), 1`);
-  const fresh = await settled({ max: 10000, panes: false, until: `Math.abs(__cmwSvX() - ${x - 0.05}) < 0.01 && (() => { const s = __cmwPaneStatus('L'); return !!s && s.t > ${t1}; })()` });
+  const fresh = await settled({ max: 10000, panes: false, until: renewed(x - 0.05, t1) });
   const s1 = await ev(`__cmwPaneStatus('L')`);
-  info.inside = { fresh: fresh.ok, status: s1, pendingLinks: await ev('GLR.pendingLinks'), between: await ev('__cmwSteps().moving'), scope: await ev('__cmwSteps().scope') };
-  ok('Inside regions between planes, links held: the frame renews the left pane\'s status', fresh.ok && s1 && s1.t > t1, info.inside);
-  ok('Inside regions between planes, links held: the left pane says its programs are pending', s1 && s1.pending, info.inside);
+  info.inside = { fresh: fresh.ok, status: s1, pendingLinks: await ev('GLR.pendingLinks') };
+  Object.assign(info.inside, { between: await ev('__cmwSteps().moving'), scope: await ev('__cmwSteps().scope') });
+  ok('Inside regions between planes, links held: the frame renews the left pane\'s status',
+    fresh.ok && s1 && s1.t > t1, info.inside);
+  ok('Inside regions between planes, links held: the left pane says its programs are pending',
+    s1 && s1.pending, info.inside);
   await ev('window.__svScrubUp(), 1');
   await ev('GLR.holdLinks(false), 1');
 }
