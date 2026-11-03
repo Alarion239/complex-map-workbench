@@ -961,7 +961,8 @@
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
-  // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
+  // of o.probeW; without it the probe is a dot on the globe. o.carry (the steps view's svCarryStyle): the regions drawn
+  // exactly take their points' carried colour. Returns the frame's {MVP, eye} or null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
     // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
@@ -1063,9 +1064,11 @@
             if (p.plan.ops.length) gbox = invBox(p.e, p.plan, s, live);
             else { try { gbox = Region.bboxOf(s); } catch (err) { gbox = null; } }
           }
+          // (o.carry: the steps view's carried colour, svCarryStyle: each point of the region its own colour, opaque)
+          const look = o.carry ? { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }
+            : { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch };
           regions.push({
-            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
-              look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
+            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox, look, carry: o.carry || undefined },
             fwd, onResult: (res) => globeResult(role, s, res, live, fwd),
           });
         } else {
