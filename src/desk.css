@@ -349,6 +349,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
 #toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
 #toastHost[data-placed="head"] .toast .toast-act { height: 24px; }
+/* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
+:root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
 /* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
 .pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
 .pane-head > .empty-chip[hidden] { display: none; }
@@ -373,7 +375,13 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* a long Russian or Italian pick sentence may take a third line on a laptop before it is cut (the chip is one of the plane's, over the picture) */
 @media (min-width: 1280px) and (max-width: 1440px) { :root:is([data-lang="ru"], [data-lang="it"]) .cm-chip > .cm-t { -webkit-line-clamp: 3; } }
 .mc-stop { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0 8px; height: 22px; cursor: pointer; }
+
 .mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
+.mode-chip .mc-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mode-chip > :not(.mc-t) { flex: 0 0 auto; }
+.mode-chip.mc-bare .mc-t, .mode-chip.mc-bare .mc-sep { display: none; }
+.mode-chip.mc-bare { padding-left: 0; }
+.mode-chip.mc-nokey .kbd { display: none; }
 .mode-chips[hidden] { display: none; }
 .mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip .kbd, .mode-chip .kbd { font-size: 10px; padding: 0 4px; }
