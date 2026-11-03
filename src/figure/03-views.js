@@ -10,6 +10,13 @@
   // the i-th panel letter in the figure's language: (a) (b) ... ; а б ... (set in italic by head)
   const panelLetter = (i) => (XD.lang === 'ru' ? RU_LETTERS[i] : `(${String.fromCharCode(97 + i)})`);
   const expandBox = (b, f) => { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = (b.x1 - b.x0) * f / 2, h = (b.y1 - b.y0) * f / 2; return { x0: cx - w, x1: cx + w, y0: cy - h, y1: cy + h }; };
+  // a box widened about its centre to the aspect a (width / height), so all of it shows in a frame of that shape
+  const widenTo = (b, a) => {
+    const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    let w = b.x1 - b.x0, h = b.y1 - b.y0;
+    if (w / h > a) h = w / a; else w = h * a;
+    return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 };
+  };
   const stepFor = (box, wpt) => niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), Math.max(2, Math.min(5, Math.round(wpt / 42))));
   // a polyline set [[x, y], ...] from Region.mapCurve's flat arrays
   const unflat = (fl) => { const o = []; for (let i = 0; i + 1 < fl.length; i += 2) o.push([fl[i], fl[i + 1]]); return o; };

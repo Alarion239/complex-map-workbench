@@ -13,7 +13,9 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt)`,
    `clickSel(css)`, `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
-   `loadView(view, ns, state, { lang })` (the same, with the app's first load in 'classic' or 'steps' whatever the pin is),
+   `loadView(view, ns, state, { lang })` (the same, with the app's first load in 'classic' or 'steps' whatever the pin is; with no
+   view, in the pinned view), `seed(ns, state)` (only the saved state, written from the helper page), `isSteps()` (whether the page
+   shows the steps view),
    `logs()` (console + exceptions
    since the last call), `send(method, params)` (raw CDP), `sleep(ms)`.
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash

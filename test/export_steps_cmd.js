@@ -10,6 +10,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // a cell agrees when every channel is within TOL of the stage (on the sphere: its hue within HUE degrees); a case passes when AGREE of its coloured cells agree
 // (the figure is drawn on white paper in the light theme, the stage in the light theme: the colours are the same map's)
 const TOL = 40, HUE = 25, AGREE = 0.85, GRID = [40, 28];
+// the width the figure's raster is read back at: 240 px gives each of the 40 grid columns 6 samples, enough for a 3 x 3 median
+const RASTER_W = 240;
 await view(1440, 900, false);
 await load('xsv' + Date.now(), {});
 const base = await ev('location.origin');
@@ -40,8 +42,7 @@ async function stageShot() {
     }
     return out; })()`);
   const shotImg = await img({ x: pane.x, y: pane.y, width: pane.w, height: pane.h });
-  const scr = { w: shotImg.w, h: shotImg.h, ch: shotImg.ch, data: shotImg.data };
-  return { scr, free };
+  return { scr: shotImg, free };
 }
 // pixels: an image's RGB at (x, y); the median of 3 x 3 samples r apart (a line or a label does not decide it)
 const px = (im, x, y) => { const i = (Math.min(im.h - 1, Math.max(0, Math.round(y))) * im.w + Math.min(im.w - 1, Math.max(0, Math.round(x)))) * (im.ch || 3); return [im.data[i], im.data[i + 1], im.data[i + 2]]; };
@@ -70,7 +71,7 @@ for (const c of CASES) {
     const f = await Figure.build({}); if (!f) return { none: true };
     const m = /<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/.exec(f.svg); if (!m) return { cap: String(f.captionTex || ''), view: f.view, box: f.box, art: null };
     const im = new Image(); im.src = m[1]; await im.decode();
-    const W = Math.min(240, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const W = Math.min(${RASTER_W}, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
     let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]);
     return { cap: String(f.captionTex || ''), view: f.view, box: f.box, art: { w: W, h: H, b64: btoa(bin) } };
@@ -153,7 +154,7 @@ for (const ex of [1, 18]) {
   const planes = await ev('__cmwSteps().planes');
   await ev(`window.__xsv = null; Figure.build({ svPic: 'film', crop: 'screen' }).then(async (f) => {
     const urls = [...f.svg.matchAll(/<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g)].map((m) => m[1]), arts = [];
-    for (const u of urls) { const im = new Image(); im.src = u; await im.decode(); const W = Math.min(240, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]); arts.push({ w: W, h: H, b64: btoa(bin) }); }
+    for (const u of urls) { const im = new Image(); im.src = u; await im.decode(); const W = Math.min(${RASTER_W}, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let bin = ''; for (let i = 0; i < W * H; i++) bin += String.fromCharCode(d[4 * i], d[4 * i + 1], d[4 * i + 2]); arts.push({ w: W, h: H, b64: btoa(bin) }); }
     window.__xsv = { cap: String(f.captionTex || ''), view: f.view, name: f.name, bytes: f.svg.length, arts }; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
   const fig = await ev('window.__xsv');

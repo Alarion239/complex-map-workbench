@@ -110,7 +110,7 @@
     if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
-    if (tc) want.push(['tool', tc.count ? tc.name + ' · ' + tc.count : tc.name, $t('Leave the tool'), '']);
+    if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
@@ -127,14 +127,16 @@
     const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
-      box.replaceChildren(...want.map(([m, label, tip, key]) => h('span', { class: 'mode-chip', 'data-mode': m },
+      box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
         h('span', { class: 'mc-t' }, label),
+        ...(count ? [h('span', { class: 'mc-n' }, h('span', { class: 'mc-sep' }, ' · '), count)] : []),
         ...(m === next || m === 'tool' ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
     if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
     box.hidden = !want.length;
+    if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');
     if (ac) {
       let k = ac.querySelector('.kbd');
@@ -150,6 +152,7 @@
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     syncSel();
+    svFSync();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
       if (underChain()) setPanels(S.hideLeft, false);
@@ -225,8 +228,9 @@
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, replacePalette: (el, k) => openPalette(el, null, { fnOnly: true, replace: k }), toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
+      repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
-      regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      svOn: () => SV.on, regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -297,11 +301,16 @@
     svOn: () => SV.on,
     // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it, in o.box when one is
     // given (the stage is moved to it for the one render and back)
-    svFrames: () => svPlanes().map((k, i, P) => ({ name: k === 0 ? 'z' : `w_{${k}}`, prev: i ? (P[i - 1] === 0 ? 'z' : `w_{${P[i - 1]}}`) : null, f: i ? `f_{${k}}` : null })),
+    svFrames: () => svPlanes().map((k, i, P) => {
+      const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
+      return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
+    }),
     svArt: async (i, o) => {
       const keep = SV.i;
       svGo(i, true);
-      try { return await artRender('L', Object.assign({}, o, SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) } : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) })); } finally { svGo(keep, true); }
+      const at = SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
+        : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
+      try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there

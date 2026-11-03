@@ -81,7 +81,7 @@
       steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
     },
     {
-      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), trySv: $t('Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.'), tryDoneSv: [[{ on: 'step-moved' }]], tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
@@ -576,13 +576,6 @@
     const u = $('unitChk');
     if (u && u.checked !== !!S.unit) u.checked = !!S.unit;
   }
-  // P4: a drawing tool pressed in X at focus k >= 2 draws nothing; the Whole chain button pulses once
-  function pulseWhole() {
-    const b = $('viewAllBtn');
-    if (!b) return;
-    b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
-    clearTimeout(/** @type {any} */ (pulseWhole).t); /** @type {any} */ (pulseWhole).t = setTimeout(() => b.classList.remove('pulse'), 900);
-  }
   // resizable gutters between the planes and above the chain (sizes are per viewer)
   function setupGutters() {
     const stage = $('stage'), panes = $('panes');
@@ -788,8 +781,9 @@
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
     }
   }
-  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between
-  // the areas (the top bar, the tools, X, Y, the chain, the Inspector). A phone keeps every control a stop
+  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between the
+  // areas (the top bar, the tools, X, Y, the chain, the Inspector; in the steps view the top bar, the tools, the
+  // plane, the thread, the Inspector). A phone keeps every control a stop
   const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
@@ -845,6 +839,8 @@
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
       { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
       { id: 'chain', el: () => act('#pipeline'), has: (el) => !!el.closest('#pipeline') },
+      // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
+      { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
     ].filter((a) => a.el());
     if (!areas.length) return;
@@ -931,11 +927,14 @@
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
     const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
+    // (the F chip and "+ Add function" beside the rail step aside with the planes, and the message takes their room too)
+    const aside = rail ? [strip.querySelector('.sv-wholemap'), strip.querySelector('.sv-add')].map(box).filter(Boolean) : [];
+    const room = rail ? Math.max(rail.right, ...aside.map((b) => b.right)) - rail.left : 0;
     if (rail && rail.width >= 160 && host.children.length === 1) {
       stripAway(true);
       host.setAttribute('data-placed', 'rail');
-      st.left = Math.round(rail.left + rail.width / 2) + 'px';
-      st.maxWidth = Math.round(rail.width - 8) + 'px';
+      st.left = Math.round(rail.left + room / 2) + 'px';
+      st.maxWidth = Math.round(room - 8) + 'px';
       const tw = host.firstElementChild.getBoundingClientRect();
       st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
       return;
