@@ -26,16 +26,8 @@ async function open(ns, steps) {
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}`); await settle(2200);
 }
-// (a step's chip on the thread, or the whole-map chip for F: pressed as a pointer does, and the selection asserted, so that
-// a check never reads the Inspector of a step that was not chosen)
-async function select(k) {
-  const sel = k === 'F' ? '#svStrip .sv-wholemap' : `#svStrip .sv-step[data-k="${k}"] .sv-fchip`;
-  const hit = await ev(`(() => { const c = document.querySelector(${JSON.stringify(sel)}); if (!c) return false; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); c.click(); return true; })()`);
-  await settled({ max: 10000, until: `__cmwSteps().sel === ${JSON.stringify(k)} && !!document.querySelector('#propsPanel .iform')` }).catch(() => {});
-  const got = await ev('__cmwSteps().sel');
-  ok(`the chip of ${k === 'F' ? 'F' : 'step ' + k} selects it`, hit && got === k, { hit, got });
-  await settle(1200);
-}
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
+const select = async (k) => { await selectStep(k); await settle(1200); };
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
