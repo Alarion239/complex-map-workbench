@@ -80,11 +80,16 @@ const pixel = (re, im) => ev(`(() => { const c = document.getElementById('canvas
   return [...c.getContext('2d').getImageData(Math.round((p[0] - r.left) * k), Math.round((p[1] - r.top) * k), 1, 1).data].slice(0, 3); })()`);
 // (the five pixels are read until each is a pixel of the drawn plane, at most 40 rounds of 300 ms: the plane draws a frame or two after the page opens)
 const probe = async () => { for (let i = 0; i < 40; i++) { const q = { p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), far: await pixel(0, 1.2), hy: await pixel(Math.SQRT2, 1) }; if (Object.values(q).every(px)) return q; await sleep(300); } return {}; };
+// (the plane's scope is Inside regions once a shape exists and Everywhere for none: both pictures are taken in Inside regions, so a pixel outside every
+// preimage is the same in the bare picture and in the pulled one, and the lobes are the only difference)
+const inside = async () => { await ev(`__cmwSteps({ scope: 'in' }), 1`); await settled({ until: `__cmwSteps().scope === 'in'` }); };
 const two = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }];
 await openApp({ srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [] });
+await inside();
 const bare = await probe();
 const offBare = await ev(`__cmwRenderOff('L', 320, 240, 1)`);
 await openApp({ srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [{ id: 's2', kind: 'disc', c: [1, 0], r: 0.5, ci: 1, visible: true, stage: 1 }, { id: 's3', kind: 'line', a: [2, -1], b: [2, 1], ci: 2, visible: true, stage: 2 }] });
+await inside();
 const pulled = await probe();
 const offPulled = await ev(`__cmwRenderOff('L', 320, 240, 1)`);
 ok('an export of X draws the preimages too (its offscreen render differs from the bare one)', typeof offPulled === 'string' && offPulled.length > 100 && offPulled !== offBare, [String(offBare).length, String(offPulled).length]);
@@ -105,9 +110,8 @@ for (let i = 0; i < 160; i++) {
 info.linked = (await shapes()).map((x) => [x.id, x.stage]);
 ok('a link round trip keeps each shape\'s plane', typeof link === 'string' && JSON.stringify(info.linked) === JSON.stringify([['s2', 1], ['s3', 2]]), [typeof link, info.linked]);
 info.pixels = { bare, pulled };
-// (the plane outside the shapes' preimages is plain: a point of a preimage differs from a point well outside them)
-ok('the disc of w₁ is pulled back to z = 1 and z = −1', [bare, pulled].every((q) => px(q.p1) && px(q.m1) && px(q.o) && px(q.far) && px(q.hy)) && !same(pulled.p1, pulled.far) && !same(pulled.m1, pulled.far), info.pixels);
-ok('… and not to z = 0.35i (w₁ = −0.12, outside it)', same(pulled.o, pulled.far), info.pixels);
+ok('the disc of w₁ is pulled back to z = 1 and z = −1', [bare, pulled].every((q) => px(q.p1) && px(q.m1) && px(q.o) && px(q.far) && px(q.hy)) && !same(pulled.p1, bare.p1) && !same(pulled.m1, bare.m1) && !same(pulled.p1, pulled.far) && !same(pulled.m1, pulled.far), info.pixels);
+ok('… and not to z = 0.35i (w₁ = −0.12, outside it)', same(pulled.o, bare.o) && same(pulled.o, pulled.far), info.pixels);
 ok('the line of w₂ is pulled back through two steps, onto the hyperbola x² − y² = 1', !same(pulled.hy, bare.hy), info.pixels);
 
 // ---- the z-globe too: the disc of w₁ is pulled back onto the sphere (one pass per later plane), z = 1 in view
@@ -115,16 +119,16 @@ const gpix = (re, im) => ev(`(() => { const c = document.getElementById('canvasL
   return q ? [...c.getContext('2d').getImageData(Math.round(q[0] * k), Math.round(q[1] * k), 1, 1).data].slice(0, 3) : null; })()`);
 const globe = async (shapes) => {
   await openApp({ srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes });
+  await inside();
   await ev(`__cmwSteps({ surf: 'sphere' }), 1`); await settled({ max: 20000, until: `__cmwSteps().surf === 'sphere'` });
   await ev('__cmwCam("L", { pitch: 0.2, yaw: 0 }); 1'); await settled({ max: 20000 });
   return { p1: await gpix(1, 0), o: await gpix(0.5, 0), far: await gpix(0.25, 0) };
 };
 const gBare = await globe([]), gPulled = await globe([{ id: 's2', kind: 'disc', c: [1, 0], r: 0.5, ci: 1, visible: true, stage: 1 }]);
 info.globe = { gBare, gPulled };
-// (the lobe is the disc's warm fill on a neutral globe: more red over blue at z = 1 than at 0.5 or 0.25 by 20 levels; the globe's own
-// shading and graticule lines differ between those points, so the colour, not the equality of two pixels, says which is the lobe)
+// (besides the comparison with the bare globe: the lobe is the disc's warm fill on a neutral globe, more red over blue at z = 1 than at 0.5 or 0.25 by 20 levels)
 const warm = (q) => q[0] - q[2];
-ok('on the z-globe the disc of w₁ is pulled back to z = 1, not to 0.5', [gBare, gPulled].every((q) => px(q.p1) && px(q.o) && px(q.far)) && warm(gPulled.p1) - Math.max(warm(gPulled.o), warm(gPulled.far)) > 20, info.globe);
+ok('on the z-globe the disc of w₁ is pulled back to z = 1, not to 0.5', [gBare, gPulled].every((q) => px(q.p1) && px(q.o) && px(q.far)) && !same(gPulled.p1, gBare.p1) && same(gPulled.o, gBare.o) && warm(gPulled.p1) - Math.max(warm(gPulled.o), warm(gPulled.far)) > 20, info.globe);
 
 // ---- the steps change: the shape follows its plane; a saved stage loads
 await openApp(Object.assign({}, base, { shapes: base.shapes.concat([{ id: 's2', kind: 'disc', c: [0.3, 0.2], r: 0.1, ci: 1, visible: true, stage: 1 }]) }));
