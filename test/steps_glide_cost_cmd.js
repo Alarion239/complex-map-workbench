@@ -7,9 +7,8 @@
 //   plane 2) make no step of its tracks (many times a frame's share) and search for its poles only at the tracks'
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
 //   others), in slices that pause every 48 evaluations of the map;
-// - the square root example parked at x after x (each a new map of the glide): the map cache allocates no texture
-//   after its first entries (fresh ones with the probes' noReuse), and over two scrubs there and back the outer ring's
-//   size is made in no frame and each size's mesh is built at most once.
+// - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
+//   outer ring's sizes are made by the idle job, in no frame, and each size's mesh is built at most once.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -99,7 +98,7 @@ async function hold(x, links = true) {
   ok('after an edit: the idle moments make the tracks whole, in slices of at most 72 evaluations between pauses', whole.tracks.k === whole.tracks.of && idle.poleIdle > 1 && idle.poleChunk > 0 && idle.poleChunk <= 72, idle);
   ok('after an edit: the poles found at t are the whole tracks\' poles', now.sing.every((p) => near(p, whole.sing)) && whole.sing.every((p) => near(p, now.sing)), info['after an edit']);
 }
-// ---- a moving map's frames: the map cache's textures and the outer ring ----
+// ---- a moving map's frames: the outer ring ----
 {
   const ex = names.indexOf('Square root and its sheets');
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gm${Date.now()}`);
@@ -108,32 +107,23 @@ async function hold(x, links = true) {
   await settled({ max: 20000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 20000 });
-  // (parked at x: the glide's map at t = x, a new map cache entry for each mesh at each x)
+  // (parked at x: the glide's map at t = x; inside (1/8, 7/8), where a thread let go stays)
   const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }), 1`); await settled({ max: 20000, until: `Math.abs(__cmwSvX() - ${x}) < 1e-6` }); };
-  const xs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
-  for (const x of xs.slice(0, 5)) await park(x);
-  const a0 = await ev('GLR.tfAllocations()');
-  for (const x of xs.slice(5)) await park(x);
-  const allocs = (await ev('GLR.tfAllocations()')) - a0;
-  // (the same frames with a fresh texture for each entry, the probes' noReuse: what the count is without the reuse)
-  await ev('window.__svCarryProbe = { noReuse: true }, 1');
-  const b0 = await ev('GLR.tfAllocations()');
-  for (const x of xs.slice(0, 4)) await park(x + 0.05);
-  const fresh = (await ev('GLR.tfAllocations()')) - b0;
-  await ev('window.__svCarryProbe = null, 1');
-  info['a moving map'] = { allocs, fresh };
-  ok('a moving map: its frames allocate no map cache texture (an evicted entry gives its own over)', allocs === 0 && fresh > 0, info['a moving map']);
-  // (two scrubs there and back, after the idle job made the glide's ring sizes: the ring's values made in no frame,
-  // and its meshes built once for each size)
-  await settled({ max: 20000, until: '!__cmwSvKey().busy' });
-  const r0 = await ev('__cmwSvRing(true)');
+  const xs = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8];
+  // (parked once at each, then the idle job left to make the glide's ring sizes)
   await ev('globalThis.__svPathStats = {}, 1');
+  for (const x of xs) await park(x);
+  await settled({ max: 20000, until: '!__cmwSvKey().busy' });
+  const ahead = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
+  // (then two scrubs there and back: the ring's sizes made in no frame, and its meshes built once for each size)
+  const r0 = await ev('__cmwSvRing(true)');
   const ms = [];
   for (let k = 0; k < 2; k++) for (const x of xs.concat(xs.slice().reverse())) { await park(x); ms.push((await ev('__cmwSvRing()') || { m: null }).m); }
   const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   const builds = (await ev('__cmwSvRing(true)')) - r0, sizes = new Set(ms.filter((m) => m != null)).size;
-  info['the ring'] = { ms, sizes, builds, ringFrame: ps.ringFrame || 0, ringIdle: ps.ringIdle || 0 };
+  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, ringFrame: ps.ringFrame || 0 };
   ok('the ring: the scrubs draw a ring', sizes > 0, info['the ring']);
+  ok('the ring: the idle job makes the glide\'s ring sizes', ahead.ringIdle > 0, info['the ring']);
   ok('the ring: no frame of the scrubs makes its size (the idle job made them)', !(ps.ringFrame > 0), info['the ring']);
   ok('the ring: each of its sizes\' meshes is built once at most over two scrubs', builds <= sizes, info['the ring']);
 }

@@ -1175,26 +1175,18 @@ float wabs(vec2 w) {
     const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(count / W));
     if (H > maxTex) return null;
     const bytes = W * H * 8;
-    // (an evicted entry of the same size gives its texture over, written whole by the pass, so a moving map's entry,
-    // a new one each frame, allocates and frees none: carryProbe's noReuse, a fresh texture each, for the probes)
-    let tex = null;
-    while (c.size >= (bytes > BIG_ENTRY ? 2 : CACHE_MAX)) {
-      const o = c.values().next().value;
-      if (!tex && P.rt && o.tex && o.W === W && o.H === H && !carryProbe.noReuse) { tex = o.tex; o.tex = null; }
-      freeEntry(o);
-    }
+    while (c.size >= (bytes > BIG_ENTRY ? 2 : CACHE_MAX)) freeEntry(c.values().next().value);
     const now = performance.now();
     if (cacheBytes + bytes > CACHE_BYTES) freeStaleTmp(now);
     for (const e0 of [...cacheAll.keys()]) {
       if (cacheBytes + bytes <= CACHE_BYTES) break;
       if (now - e0.t > 250) freeEntry(e0);
     }
-    const e = { tex: tex || floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L };
+    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L };
     use(P, map);
     originUniforms(P, res.org);
     const vao = isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L);
-    if (!tex) tfAllocs++;
-    if (P.rt) runRT(P, vao, tpl.P, res.n, e.tex, W, H, !tex);
+    if (P.rt) runRT(P, vao, tpl.P, res.n, e.tex, W, H);
     else runTF(P, vao, gl.POINTS, tpl.P, res.n, bytes, e.tex, W, H, gl.RG32F, gl.RG);
     c.set(key, e); cacheAll.set(e, true); cacheBytes += bytes;
     if (P.ch === cur && !sideMode) dropSuperseded(c, e);
@@ -1283,11 +1275,8 @@ float wabs(vec2 w) {
   // (how many point passes have run: the tests' proof that the fill took its values from one)
   let fillPtsRuns = 0;
   const fillPointsRuns = () => fillPtsRuns;
-  // (the map cache's texture allocations (tfEntry): the tests count those of a moving map's frames)
-  let tfAllocs = 0;
-  const tfAllocations = () => tfAllocs;
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noReuse (tfEntry), noCarry, noKCDraw, noFill (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  // noCarry, noKCDraw, noFill (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {
