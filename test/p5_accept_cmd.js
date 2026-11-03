@@ -104,11 +104,19 @@ const crack = (cls) => ev(`(() => {
   const A = window.__p5.a1;
   // (the plane's picture with no fill: the paper, and each grid colour blended with it, as segments in RGB; the axis
   // colour too within 4 px of an axis, Re w = 0 or Im w = 0, its line and its ticks)
-  const cs = getComputedStyle(document.documentElement), hx = (n) => { const m = /#([0-9a-f]{6})/i.exec(cs.getPropertyValue(n)); return m ? [0, 2, 4].map((k) => parseInt(m[1].slice(k, k + 2), 16)) : null; };
-  const paper = hx('--plane') || [252, 253, 253], grid = ['--grid-minor', '--grid-medium', '--grid-major'].map(hx).filter(Boolean), axis = hx('--axis');
+  const cs = getComputedStyle(document.documentElement);
+  const hx = (n) => {
+    const m = /#([0-9a-f]{6})/i.exec(cs.getPropertyValue(n));
+    return m ? [0, 2, 4].map((k) => parseInt(m[1].slice(k, k + 2), 16)) : null;
+  };
+  const paper = hx('--plane'), axis = hx('--axis');
+  const grid = ['--grid-minor', '--grid-medium', '--grid-major'].map(hx).filter(Boolean);
+  const read = { paper: !!paper, grid: grid.length, axis: !!axis };
+  if (!paper || grid.length !== 3 || !axis) return { inN: 0, miss: 0, outN: 0, spill: 0, ex: [], read };
   const bgDist = (c, onAxis) => Math.min(...(onAxis && axis ? grid.concat([axis]) : grid).map((g) => {
-    const d = [g[0] - paper[0], g[1] - paper[1], g[2] - paper[2]], q = [c[0] - paper[0], c[1] - paper[1], c[2] - paper[2]];
-    const t = Math.max(0, Math.min(1, (q[0] * d[0] + q[1] * d[1] + q[2] * d[2]) / (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] || 1)));
+    const d = [0, 1, 2].map((k) => g[k] - paper[k]), q = [0, 1, 2].map((k) => c[k] - paper[k]);
+    const dd = d[0] * d[0] + d[1] * d[1] + d[2] * d[2] || 1;
+    const t = Math.max(0, Math.min(1, (q[0] * d[0] + q[1] * d[1] + q[2] * d[2]) / dd));
     return Math.abs(q[0] - t * d[0]) + Math.abs(q[1] - t * d[1]) + Math.abs(q[2] - t * d[2]);
   }));
   let inN = 0, miss = 0, outN = 0, spill = 0; const ex = [];
@@ -125,7 +133,7 @@ const crack = (cls) => ev(`(() => {
     if (c > 0) { inN++; if (!fill) { miss++; if (ex.length < 4) ex.push([x, y, wOf(x, y).map((v) => +v.toPrecision(4))]); } }
     else if (c < 0) { outN++; if (fill) spill++; }
   }
-  return { inN, miss, outN, spill, ex };
+  return { inN, miss, outN, spill, ex, read };
 })()`);
 
 // ---- (k) the crack test ----
@@ -151,6 +159,8 @@ for (const [name, steps, shapes, , view, cls] of CRACK) {
   await ev('__cmwHideStrokes(false)');
   const c = await crack(cls);
   R.crack[name] = Object.assign(c, { meshes: st.entries.map((e) => ({ why: e.why, n: e.n, partial: e.partial, ms: e.ms })), maxSlice: +st.stats.maxSlice.toFixed(1) });
+  ok(`(k) ${name}: the plane's paper, grid and axis colours are read`,
+    !!c.read && c.read.paper && c.read.grid === 3 && c.read.axis, c.read);
   ok(`(k) ${name}: drawn from a SphereMesh`, st.entries.length > 0, st.entries.length);
   ok(`(k) ${name}: the app drew the mesh before the frame compared`, drew.every(Boolean), drew);
   ok(`(k) ${name}: interior pixels not covered = 0`, c.miss === 0 && c.inN > 1000, c);
@@ -303,12 +313,14 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
 // over 2 s, so none evicts another under the budgets ----
 {
   const hs = [0, 1, 2, 3].map((k) => ({ id: 'h' + k, kind: 'halfplane', a: [0, 0.4 * k], b: [1, 0.4 * k + 0.3 * (k % 2)] }));
-  await loadReady('p5rest' + Date.now(), Object.assign({ shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+  const st = { shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } };
+  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV));
   const s0 = await settle(120000, { entries: 4, built: 4 });
   await sleep(2000);
   const s1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
   R.rest4 = { built: [s0.stats.built, s1.stats.built], entries: s1.entries.length, preBytes: s1.preBytes, cpuBytes: s1.cpuBytes };
-  ok('memory: at rest with four unbounded regions, no mesh is rebuilt over 2 s', s1.entries.length >= 4 && s1.stats.built === s0.stats.built && !s1.jobs.length, R.rest4);
+  ok('memory: at rest with four unbounded regions, no mesh is rebuilt over 2 s',
+    s1.entries.length >= 4 && s1.stats.built === s0.stats.built && !s1.jobs.length, R.rest4);
 }
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
