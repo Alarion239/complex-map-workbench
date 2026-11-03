@@ -1146,9 +1146,9 @@ async function svInteractUnit(scene) {
       for (const scope of ['all', 'in']) {
         const reps = slow[scope], pre = `sv.scrub.${scope}.${scene}.slow`;
         for (const cls of ['start', 'arrival', 'other']) put(`${pre}_${cls}`, 'info', 'frames', reps.map((legs) => legs.flat().filter((f) => f.cls === cls).length));
-        detail(`${pre}_frames`, { limit_ms: SV_ATTR_MS, reps: reps.map((legs) => legs.map((fs, k) => ({ leg: k ? 'back' : 'there', frames: fs }))) });
+        detail(`${pre}_frames`, { limit_ms: SV_ATTR_MS, reps: reps.map((legs) => legs.map((fs, k) => ({ leg: k ? 'back' : 'out', frames: fs }))) });
         reps.forEach((legs, r) => legs.forEach((fs, k) => {
-          for (const f of fs) log(`${pre} rep ${r + 1} ${k ? 'back' : 'there'} #${f.i}/${f.of} ${f.cls}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}, gap ${f.gap}), x ${f.x}; gl ${JSON.stringify(f.gl)}`);
+          for (const f of fs) log(`${pre} rep ${r + 1} ${k ? 'back' : 'out'} #${f.i}/${f.of} ${f.cls}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}, gap ${f.gap}), x ${f.x}; gl ${JSON.stringify(f.gl)}`);
         }));
       }
     }
