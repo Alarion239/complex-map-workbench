@@ -1,13 +1,11 @@
-// The deformation on a Dirichlet series (ζ as Σ n^{−z}) against the same scene with z² + 1: its start and the choice
-// of its paths, with the main thread's long tasks. In the steps view the start is the thread parked halfway from z to
-// w₁ (a glide's frame) and the paths are the glide's (__cmwSteps().paths.ready); in the classic view it is the click on
-// Deformation and the X → Y path selection (rightMode image, __cmwMorphCache().ready). The series is sampled by Euler–Maclaurin per residue, no
-// slower than a formula, so the park and the choice stay within a margin of the formula's; the absolute times on
-// software GL are dominated by the shader link, which both scenes pay. Also: η ((−1)^{n+1}) builds as a Dirichlet series
-// and deforms.
-// It runs twice (ci/browser_suites.js): pinned to the steps view (ci/suite_views.js: steps({ pin: true })), and in the
-// classic view.
-// A command file for a CDP daemon.
+// The deformation on a Dirichlet series (ζ as Σ n^{−z}) against the same scene with z² + 1: its start and the choice of
+// its paths, with the main thread's long tasks. In the steps view the start is the thread parked halfway from z to w₁
+// (a glide's frame) and the paths are the glide's (__cmwSteps().paths.ready); in the classic view it is the click on
+// Deformation and the X → Y path selection (rightMode image, __cmwMorphCache().ready). The series is sampled by
+// Euler–Maclaurin per residue, no slower than a formula, so the park and the choice stay within a margin of the
+// formula's; the absolute times on software GL are dominated by the shader link, which both scenes pay. Also: η
+// ((−1)^{n+1}) builds as a Dirichlet series and deforms. It runs twice (ci/browser_suites.js): pinned to the steps view
+// (ci/suite_views.js: steps({ pin: true })), and in the classic view. A command file for a CDP daemon.
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const shapes = [{ id: 's1', kind: 'rect', a: [1.5, -6], b: [5, 6] }];
