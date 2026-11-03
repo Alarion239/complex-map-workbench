@@ -8,7 +8,9 @@
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
 //   others), in slices that pause every 16 evaluations of the map;
 // - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
-//   outer ring's sizes are made by the idle job, in no frame, and each size's mesh is built at most once.
+//   outer ring's sizes are made by the idle job, in no frame, and each size's mesh is built at most once;
+// - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
+//   region under zeta) runs no slice until the thread is let go, then runs.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -126,5 +128,28 @@ async function hold(x, links = true) {
   ok('the ring: the idle job makes the glide\'s ring sizes', ahead.ringIdle > 0, info['the ring']);
   ok('the ring: no frame of the scrubs makes its size (the idle job made them)', !(ps.ringFrame > 0), info['the ring']);
   ok('the ring: each of its sizes\' meshes is built once at most over two scrubs', builds <= sizes, info['the ring']);
+}
+// ---- the tiling's fix-ups wait out a scrub ----
+{
+  const ex = names.indexOf('Zeros of the zeta function');
+  ok('the zeta example is found', ex >= 0, names.length);
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=gz${Date.now()}`);
+  await ready();
+  await ev(`__cmwExample(${ex}); 1`);
+  await settled({ max: 30000 });
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  await settled({ max: 30000 });
+  // (held mid-scrub by plane 1, whose plane the left pane follows; the meshes rebuilt, so a fix-up is asked for: the
+  // left pane's region under zeta, seconds of CPU work)
+  await hold(0.9, false);
+  await ev(`globalThis.__svPathStats = {}, __cmwSet('meshN', __cmwState().meshN), window.__heldT = performance.now(), 1`);
+  await settled({ max: 20000, panes: false, until: 'performance.now() - window.__heldT > 2000' });
+  const held = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
+  // (let go: at rest on plane 1 the job runs)
+  await ev('window.__svScrubUp(), 1');
+  await settled({ max: 30000, panes: false, until: '(globalThis.__svPathStats.fixSlices || 0) > 0' });
+  const rest = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
+  info['a scrub'] = { held: held.fixSlices || 0, rest: rest.fixSlices || 0 };
+  ok('a scrub: the fix-up asked for runs no slice while the thread is held', !(held.fixSlices > 0) && rest.fixSlices > 0, info['a scrub']);
 }
 return { pass: fails.length === 0, fails, info };
