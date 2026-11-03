@@ -69,8 +69,8 @@
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
       offlinePage: () => offlinePage(),   // [#21] the More sheet's Download offline page (null: none)
-      exportItems: () => exportMenuItems(true),   // (v16.5 V02)
-      // v16.5 UX12: the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
+      exportItems: () => exportMenuItems(true),
+      // the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
       // first: the coordinate pad, the popover (the palette, a menu, a plane's menu, the integral, the options), the
       // tour's chapter menu, the sound settings, a dialog (Export, the guide), a popover of the top layer, the sheet
       backLayer: () => {

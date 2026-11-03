@@ -1,5 +1,5 @@
   // ---------------- init ----------------
-  // ---------------- v15: shared numbers, links and scene files (src/params.js; constructions/DESIGN.md 1) ----------------
+  // ---------------- shared numbers, links and scene files (src/params.js; constructions/DESIGN.md 1) ----------------
   // A step's text fields keep the names (Funcs.build reads them through the parser's name scope); a shape's field that
   // holds names keeps its text in s.bind[key] and its value in the field itself (s.expr: the text with the values
   // written in), so the renderers and every cache keyed by a shape see plain values.
