@@ -1,4 +1,4 @@
-// The steps view's carried colour on the GPU (issue #439): the region meshes' carry (GLR.drawRegion with st.carry, the
+// The steps view's carried colour on the GPU: the region meshes' carry (GLR.drawRegion with st.carry, the
 // whole plane's mesh as the steps view draws it Everywhere: SV_ALL's, 80 base cells a side, the template at level 2).
 // With the places the identity (the map from plane s to itself), each fragment is the colour plane's colour of its
 // point, so the picture is the colour plot of the map from s to T (GLR.drawColorPlot, {a: s, b: T}), pixel for pixel

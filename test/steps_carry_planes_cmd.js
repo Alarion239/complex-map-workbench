@@ -1,4 +1,4 @@
-// The steps view's carried colour where the region meshes carry the whole plane (#589): parked mid-glide, at each point
+// The steps view's carried colour where the region meshes carry the whole plane: parked mid-glide, at each point
 // w the colour of the point z that lands there must be the colour plane's colour of z, which plane z shows at z when
 // it is coloured from the same colour plane (the reference, at rest on plane z, in the same camera). A point counts as
 // wrong when its pixel differs by more than 14 in a channel from all 9 pixels around z's (a phase edge or a contour
