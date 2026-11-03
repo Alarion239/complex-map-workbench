@@ -1217,7 +1217,9 @@
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
     // drawn on the globe (P3b) over the shapes
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+    // (the steps view at rest past its colour plane: the plane's regions carry its colour, svGlobeCarry)
+    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain',
+      carry: SV.on ? svGlobeCarry(svStage()) : null });
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
   function sphereCaption(pane, text) {
