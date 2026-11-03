@@ -15,7 +15,7 @@ const shapes = async () => ev('__cmwShapes()');
 // a globe of plane z looking at the northern hemisphere from above, the given shapes on it
 const scene = async (name, list) => {
   await load(name + Date.now(), { shapes: list, steps: [CAY], srcView: { cx: 0, cy: 0, s: 80 }, snap: true });
-  await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
+  await ev("__cmwSteps({ surf: 'sphere' }); 1"); await settle(1500);
   await ev('__cmwCam("L", { pitch: 0.55, yaw: -1.0 }); 1'); await settle(800);
   R[name + 'Surf'] = await ev('__cmwSteps().surf');
   ok(`${name}: the surface is the Sphere`, R[name + 'Surf'] === 'sphere', R[name + 'Surf']);
