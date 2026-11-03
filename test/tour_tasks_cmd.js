@@ -46,6 +46,7 @@ const task = async (id, text, fn, ready) => {
   } catch (e) { check(`${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } return null; }
 };
 
+if (!SV) {
 // y: a pan of Y (not of X)
 await task('y', 'Scroll to zoom in Y, or drag to pan.', async () => {
   const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
@@ -67,6 +68,25 @@ await task('targets', 'Choose Disc, then drag in Y.', async () => {
   await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
 });
 check('targets: the result line says X shades its preimage', /X shades its preimage/.test((await l2()).text), await l2());
+} else {
+  // targets in the steps view: a disc drawn on w₁, then ‹ to z. A disc drawn on z, then › and ‹, does not tick it
+  const drawDisc = async () => {
+    const d = await center('#tools > .tool[data-tool="disc"], #railTools > .tool[data-tool="disc"]');
+    await mdrag(d[0], d[1], d[0], d[1]); await sleep(300);
+    const b = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
+    await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
+  };
+  const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await settle(1200); };
+  await task('targets', 'On w₁, draw a disc, then press ‹, or ←.', async () => {
+    await drawDisc();
+    check('targets: a disc alone does not tick it', !(await l2()).done, await l2());
+    await press('#svStrip .sv-prev');
+  });
+  check('targets: the result line says z shows where the disc comes from', /z shows where the disc comes from/.test((await l2()).text), await l2());
+  await goStep('targets');
+  await press('#svStrip .sv-prev'); await drawDisc(); await press('#svStrip .sv-next'); await press('#svStrip .sv-prev');
+  check('targets: a disc drawn on z, then › and ‹, does not tick it', !(await l2()).done, await l2());
+}
 
 // domain: click the F tile
 await task('domain', 'Click the F tile.', async () => {
