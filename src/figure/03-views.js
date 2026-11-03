@@ -10,6 +10,13 @@
   // the i-th panel letter in the figure's language: (a) (b) ... ; а б ... (set in italic by head)
   const panelLetter = (i) => (XD.lang === 'ru' ? RU_LETTERS[i] : `(${String.fromCharCode(97 + i)})`);
   const expandBox = (b, f) => { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = (b.x1 - b.x0) * f / 2, h = (b.y1 - b.y0) * f / 2; return { x0: cx - w, x1: cx + w, y0: cy - h, y1: cy + h }; };
+  // a box widened about its centre to the aspect a (width / height), so all of it shows in a frame of that shape
+  const widenTo = (b, a) => {
+    const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    let w = b.x1 - b.x0, h = b.y1 - b.y0;
+    if (w / h > a) h = w / a; else w = h * a;
+    return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 };
+  };
   const stepFor = (box, wpt) => niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), Math.max(2, Math.min(5, Math.round(wpt / 42))));
   // a polyline set [[x, y], ...] from Region.mapCurve's flat arrays
   const unflat = (fl) => { const o = []; for (let i = 0; i + 1 < fl.length; i += 2) o.push([fl[i], fl[i + 1]]); return o; };
@@ -333,8 +340,8 @@
   const REF_PANE = [480, 360];
   const sceneWin = (v) => ({ x0: v.cx - REF_PANE[0] / 2 / v.s, x1: v.cx + REF_PANE[0] / 2 / v.s, y0: v.cy - REF_PANE[1] / 2 / v.s, y1: v.cy + REF_PANE[1] / 2 / v.s });
   // Y's window: the box of the image under FR of what X's panel shows (the areas, curves and points whose FL lies in
-  // boxL), 0.5 % trimmed at each end (a pole), plus 8 % of each side; null when nothing shows
-  function imageWin(FL, FR, boxL, srcWin, shapes) {
+  // boxL), 0.5 % trimmed at each end (a pole), plus pad (8 %) of each side; null when nothing shows
+  function imageWin(FL, FR, boxL, srcWin, shapes, pad = 0.08) {
     const xs = [], ys = [];
     const inL = (a) => fin(a) && a.re >= boxL.x0 && a.re <= boxL.x1 && a.im >= boxL.y0 && a.im <= boxL.y1;
     const keep = (z) => { let a, b; try { a = FL(z); if (!inL(a)) return; b = FR(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
@@ -357,7 +364,7 @@
     const k = Math.floor(0.005 * xs.length), b = { x0: xs[k], x1: xs[xs.length - 1 - k], y0: ys[k], y1: ys[ys.length - 1 - k] };
     const span = Math.max(b.x1 - b.x0, b.y1 - b.y0);
     if (!(span > 0)) return null;
-    const px = 0.08 * Math.max(b.x1 - b.x0, 0.25 * span), py = 0.08 * Math.max(b.y1 - b.y0, 0.25 * span);
+    const px = pad * Math.max(b.x1 - b.x0, 0.25 * span), py = pad * Math.max(b.y1 - b.y0, 0.25 * span);
     return { x0: b.x0 - px, x1: b.x1 + px, y0: b.y0 - py, y1: b.y1 + py };
   }
 
