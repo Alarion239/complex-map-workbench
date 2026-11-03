@@ -21,7 +21,7 @@
     // (only the dragged shape: the others keep their meshes, and their looks, through the drag)
     return drag.capMesh && drag.shape === s ? cap : full;
   }
-  const gpu = new Map(); // shape id -> {meshKey, mesh, meshRes, lineKey, lineRes, polys, refKey, fix: {L, R}, hold, live}
+  const gpu = new Map(); // shape id -> {meshKey, mesh, meshRes, builds (of its mesh), lineKey, lineRes, polys, refKey, fix: {L, R}, hold, live}
   function destroyFix(r) {
     for (const k of Object.keys(r.fix || {})) { const f = r.fix[k]; if (f && f.extraRes) GLR.destroy(f.extraRes); }
     r.fix = {};
@@ -214,6 +214,7 @@
         // (the build time at each resolution: the drag-time cap reads the full-resolution one)
         (r.buildMs || (r.buildMs = {}))[base] = performance.now() - tb;
         retireMesh(r);
+        r.builds = (r.builds || 0) + 1;
         r.mesh = mesh;
         r.meshKey = key;
         r.skey = sk;

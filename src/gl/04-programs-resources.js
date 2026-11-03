@@ -1275,6 +1275,10 @@ float wabs(vec2 w) {
   // (how many point passes have run: the tests' proof that the fill took its values from one)
   let fillPtsRuns = 0;
   const fillPointsRuns = () => fillPtsRuns;
+  // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
+  // noCarry, noKCDraw, noFill (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  let carryProbe = {};
+  function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, e.tex);
