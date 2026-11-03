@@ -407,7 +407,7 @@ Settings (environment variables):
 | `CMW_GLSL_CACHE` | a folder kept between runs for `ci/glsl.js`'s Chrome profile, with the GPU program cache on: a shader program compiled before (same source) is not compiled again. The GPU gate sets it on its machines ([RUNNERS.md](RUNNERS.md)); delete the folder to start cold |
 | `CMW_GLSL_STALL_MIN` | minutes without CPU in the browser after which `ci/glsl.js` closes it and reports the page as stalled (default: never; the GPU gate sets 20) |
 | `CMW_GLSL_PROGRESS_S` | seconds between `ci/glsl.js`'s progress lines while a page runs (default 60): the minutes so far, and how busy the GPU process and the page were |
-| `CMW_SPEED_SCALE` | scales the construction tests' absolute speed limits (set on the development Mac); CI uses 3 |
+| `CMW_SPEED_SCALE` | scales the construction tests' remaining absolute speed limits (the four in `t_constr.js`; set on the development Mac); CI uses 3. The other construction limits (`constr_perp_tests.js`, `constr_touch_tests.js`, `constr_seg_tests.js`, the 50-dependent drag of `constr_core_tests.js`) are ratios to a reference operation measured in the same run (`test/lib/speed_ref.js`), so they need no scale |
 | `CMW_PORT`, `CMW_BASE` | the server some browser suites open (`ci/browser.js` sets both to its own) |
 | `PYTHON` | the Python the scripts call (default `python3`; `python` on Windows) |
 
