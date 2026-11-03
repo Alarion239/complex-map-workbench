@@ -1,7 +1,8 @@
 // The steps view's glide, its cost without a change of picture, Everywhere:
 // - while the carried colour's programs link (held: GLR.holdLinks), a glide's frames start only its own programs, no
 //   stand-in for them (each a compile of the chain that the GPU process makes the frames wait behind): the square root
-//   example with a step added, held mid-glide at x = 1/2 (a scrub on the rail not let go);
+//   example with a step added, held mid-glide at x = 1/2 (a scrub on the rail not let go); once let go, every held
+//   program links, those no frame asks for again too;
 // - the Mountain King with a step put between its two: the glide to plane 1, whose chain the edit leaves, keeps its
 //   whole pole tracks. Then one put before them both: before any idle moment, the frames of the Möbius map's glide (to
 //   plane 2) make no step of its tracks (many times a frame's share) and search for its poles only at the tracks'
@@ -52,11 +53,14 @@ async function hold(x, links = true) {
   await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
   await ev('window.__svScrubUp(), 1');
+  // (released, the held programs finish linking, those no frame asks for again too)
   await ev('GLR.holdLinks(false), 1');
-  await settled({ max: 30000 });
-  info['while the programs link'] = { started };
-  ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => started.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', !['regionKSC', 'regionKS', 'regionK'].some((n) => started.includes(n)), started);
+  const after = await settled({ max: 10000, panes: false, until: 'GLR.pendingLinks === 0' });
+  info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
+  const list = Array.isArray(started) ? started : [];
+  ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', Array.isArray(started) && !['regionKSC', 'regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
 // ---- the glides' pole tracks after an edit ----

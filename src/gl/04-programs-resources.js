@@ -545,7 +545,12 @@ float wabs(vec2 w) {
   }
   function holdLinks(on) {
     held = !!on;
-    if (!held && api.onReady) api.onReady({ main: true, side: false });
+    if (held) return;
+    // (released: the programs held finish as they would have, linked now where links are synchronous (no parallel
+    // compile), polled where they run in the background; a program no frame asks for again would stay pending)
+    if (pcExt) schedulePoll();
+    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv) finishLink(e);
+    if (api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
