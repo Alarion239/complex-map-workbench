@@ -170,17 +170,17 @@ const VIEWS = {
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
-  'constr_cmd.js': port('geometry', 'constr G (drawing on the chain\'s last plane, #692/#693) and R picture-1 (a plain plane under the stroke)'),
+  'constr_cmd.js': steps({ pin: true }),
   'curves_cmd.js': steps({ pin: true }),
   'curves_target_cmd.js': port('geometry', 'the preimages of five targets on the source plane (the steps view draws them with ink up to 3.1 px from the curve, or 8 to 14 % of it far from the curve, where the tolerance is 2.5 px), the target legend and the formula areas\' renderer paths (both read the classic right pane): #699'),
   'dh_cmd.js': steps({ pin: true }),
   'fix163_cmd.js': steps({ pin: true }),
   'meetnear_coincide_cmd.js': steps({ pin: true }),
-  'perp_cmd.js': port('geometry', 'G and the Y-plane picks: drawing on the chain\'s last plane (#692/#693)'),
+  'perp_cmd.js': steps({ pin: true }),
   'poly_verts_cmd.js': steps({ pin: true }),
   'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
   'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
-  'touch_cmd.js': port('geometry', 'G and the Y-plane picks: drawing on the chain\'s last plane (#692/#693)'),
+  'touch_cmd.js': steps({ pin: true }),
   'ux165_rail_cmd.js': steps({ pin: true }),
 
   // to port: render
