@@ -514,6 +514,8 @@
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
     return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
   }
+  // the look of a region pass that draws the carried colour: opaque, each point its own colour, no lines
+  const SV_CARRY_LOOK = Object.freeze({ alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false });
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
@@ -533,7 +535,7 @@
       let res = 'error';
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+          look: SV_CARRY_LOOK, carry, half: false, motion: false, coldOk: true });
       } catch (e) { console.error('steps view exact colour', e); }
       // (a shape drawn already stays: the next path draws over it)
       if (res !== 'drawn') return false;
@@ -770,9 +772,18 @@
   }
   // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
   let svFadeCv = null;
+  // the carried colour of plane k on the Sphere surface (sphereView's o.carry): past the colour plane, with no d/dz
+  // before it, the colour plane's colour carried exactly over the carry's shapes, svCarryShapes (Everywhere, the whole
+  // plane), as svCarryExact does on the flat plane; else null
+  function svGlobeCarry(k) {
+    const sh = SV.on && !svColoured(k) && !derivIn(0, k) ? svCarryShapes() : null;
+    return sh && sh.length ? { style: svCarryStyle(svT()), shapes: sh } : null;
+  }
   function svSphereMoving(pane) {
     const { a, b, u, map, F, near } = svBetween();
-    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L', colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F } });
+    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L',
+      colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F },
+      carry: svGlobeCarry(k) });
     const info = sphereView(pane, camL, CAML, look(a));
     // (plane b's globe fades in when it has its own paint: coloured, or the shapes on paper past the colour plane)
     if (u > 0.01 && b !== a && (svColoured(b) || !svColoured(near))) {
