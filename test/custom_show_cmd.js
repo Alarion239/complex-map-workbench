@@ -6,6 +6,7 @@
 //  2. a display form: the well shows it (in w for a second step), whole, at 70 % or more; the note says so; the f(z) field
 //     holds the formula unchanged; F's line and the offer's last row use it;
 //  3. the formula edited (one character): the display form is gone (stale key), the long note is back; Undo returns it.
+// The steps are picked on the steps view's thread (a step's chip, the whole-map chip for F), each pick asserted.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/custom_show_cmd.js
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -25,8 +26,14 @@ async function open(ns, steps) {
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}`); await settle(2200);
 }
+// (a step's chip on the thread, or the whole-map chip for F: pressed as a pointer does, and the selection asserted, so that
+// a check never reads the Inspector of a step that was not chosen)
 async function select(k) {
-  await ev(`(() => { const c = ${k === 'F' ? `document.querySelector('#pipeline .ftile')` : `document.querySelector('#pipeline .card[data-k="${k}"]')`}; if (c) c.click(); return !!c; })()`);
+  const sel = k === 'F' ? '#svStrip .sv-wholemap' : `#svStrip .sv-step[data-k="${k}"] .sv-fchip`;
+  const hit = await ev(`(() => { const c = document.querySelector(${JSON.stringify(sel)}); if (!c) return false; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); c.click(); return true; })()`);
+  await settled({ max: 10000, until: `__cmwSteps().sel === ${JSON.stringify(k)} && !!document.querySelector('#propsPanel .iform')` }).catch(() => {});
+  const got = await ev('__cmwSteps().sel');
+  ok(`the chip of ${k === 'F' ? 'F' : 'step ' + k} selects it`, hit && got === k, { hit, got });
   await settle(1200);
 }
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
