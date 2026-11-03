@@ -92,7 +92,7 @@
     const k = plan._ck + '|' + winKey();
     let v = invSings.get(k);
     if (!v) {
-      try { v = Inverse.accumulation(plan, clipWin); } catch (e) { v = []; }
+      try { v = Inverse.keySing(plan, clipWin); } catch (e) { v = []; }
       if (invSings.size >= 32) invSings.clear();
       invSings.set(k, v);
     }
@@ -456,6 +456,11 @@
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
   }
+  // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
+  // them (the steps view's whole-plane region)
+  function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
+  // the visible area shapes, in list order
+  const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
   // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
   // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin
@@ -486,9 +491,10 @@
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
-      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
+      recs = packRecs();
       if (!sideDraw) lastRecs = recs;
-      if (live && guard) {
+      // (a region mask, opt.fills, is not a frame of the pane's picture: the cost guard neither measures nor demotes it)
+      if (live && guard && !opt.fills) {
         const info = GLR.inverseInfo;
         // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1, P2 review)
         // (no predicted floor: motion stays at full resolution unless the measured frames leave the 60 fps budget;
@@ -636,7 +642,7 @@
       if (live && role) liveFix(s, r);
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
-      const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
+      const smd = (live || offRender) && role && !opt.fills ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
       if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
         if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
