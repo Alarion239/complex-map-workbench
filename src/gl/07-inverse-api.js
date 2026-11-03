@@ -196,7 +196,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile).
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
   function invProgram(B, globe, start, extra, invOv) {
-    // (SPIKE: invOv, an inverse op list of its own, GLChain.buildInverse of a chain with a step's homotopy at t)
+    // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
+    // standing for the step: its own program, the chain's forward data beside it)
     const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
@@ -426,6 +427,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   //   whose record GLR.packShapes packed this frame; viewKind 'flat' (default) | 'globe'; view {cx, cy, s}, dpr (flat)
   //   or sphere {MVP, eye} (globe); look {color, color2, edge, ink, alpha (drawn, hover-dimmed), alphaOwn (undimmed,
   //   sets B), pattern, cell, lines, stretch, origin}; scissor [x, y, w, h] device px (optional); half (cost guard).
+  //   inv (optional): an inverse op list for plan other than the chain's (GLChain.buildInverse), drawn by its own program
   // 'pending' (a compile in flight or not yet allowed to start) sets frameStatus().pending; 'error': the shape cannot
   // be drawn inverse this frame (no program, a failed compile, a side draw without a ready program, a plan / prep
   // mismatch); both fall through to the forward draw.

@@ -11,6 +11,7 @@
   const SV = {
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -754,30 +755,36 @@
     }
     return true;
   }
-  // SPIKE (glide inverse, window.__svInvGlide): a glide's frame between planes as svCarryExact draws a plane: per
-  // pixel, the front point z of plane 0 with H_u(F_{b-1}(z)) = w (invHomPath), in the colour of dcolor(F_T(z)).
-  // window.__svInvGlideHalf: at half resolution. False (nothing more drawn) unless every shape takes that path
-  function svCarryExactHom(pane, b, u, T, frame) {
+  // A frame between planes a and b as svCarryExact draws a plane: per pixel, by the inverse pass, the front point z of
+  // plane 0 with H_u(F_{b-1}(z)) = w (invHomPath: step b's homotopy at u inverted by its own ops), in the colour
+  // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
+  // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
+  function svCarryExactHom(pane, b, u, T, frame, why) {
     const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || derivIn(0, b)) return false;
+    if (!list || !list.length) { why.r = 'a region of a later plane'; return false; }
+    if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return false; }
+    if (derivIn(0, b)) { why.r = 'a d/dz step'; return false; }
     packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
     const paths = list.map((x) => invHomPath(x, 0, b, u));
-    /** @type {any} */ (window).__svInvGlideWhy = paths.map((p) => p.reason);
-    if (paths.some((p) => p.path !== 'inverse')) return false;
-    const carry = svCarryStyle(T), half = !!(/** @type {any} */ (window).__svInvGlideHalf);
+    const no = paths.find((p) => p.path !== 'inverse');
+    if (no) { why.r = no.reason; return false; }
+    const carry = svCarryStyle(T);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     for (let i = 0; i < list.length; i++) {
       const p = paths[i];
       let res = 'error';
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half, motion: false, coldOk: true });
+          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
       } catch (e) { console.error('steps view glide colour', e); }
-      /** @type {any} */ (window).__svInvGlideRes = res;
-      if (res !== 'drawn') return false;
+      if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     }
     return true;
   }
+  // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
+  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), view, w, h (the pane's css size)}
+  // (read by the test hooks)
+  let svGlideRec = null;
   const SV_CARRY_L = 2;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
   // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
@@ -995,7 +1002,8 @@
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     paper(pane);
-    const bare = !!(/** @type {any} */ (window).__svBare);   // SPIKE: the colour layer alone (no grid, outlines, points)
+    // (SV.bare, a test hook's: the colour layer alone, without the grid, the outlines and the points)
+    const bare = !!SV.bare;
     const grid = (under) => !bare && GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
@@ -1009,8 +1017,14 @@
       GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al });
     };
     const colour = () => {
-      // (SPIKE: the glide drawn per pixel through the inverse path, no blends)
-      if (/** @type {any} */ (window).__svInvGlide && !still && map.mode === 1 && !isDeriv(b) && svCarryExactHom(pane, b, u, T, frame)) { /** @type {any} */ (window).__svInvGlideDrew = (/** @type {any} */ (window).__svInvGlideDrew || 0) + 1; return; }
+      // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
+      // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
+      if (!still && map.mode === 1 && !isDeriv(b)) {
+        const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
+        const kp = drew ? invHomPath(SV_ALL, 0, b, u) : null;
+        svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+        if (drew) return;
+      }
       // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
       // the window would, the picture is not left blank)
       if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }

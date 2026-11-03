@@ -1563,7 +1563,7 @@ const Inverse = (() => {
   // 12. Homotopy end points for normalizeMap (SPEC 10.5; verified by test/t_inverse.js (k))
   // =====================================================================================================
 
-  // SPIKE (glide inverse): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
+  // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
   // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
   // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, the generic zoom
   // for t >= t0), and a recognised chain's sub-steps in turn. {ok, ops} | {ok: false, reason}

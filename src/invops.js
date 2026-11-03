@@ -251,7 +251,7 @@ const InvOps = (() => {
   // Inverse.stepOps(b) -> {ok: true, ops} | {ok: false, reason}; b: a Funcs.build() result
   function stepOps(b) {
     if (!b || b.error || !b.def) return INEL(b && b.error ? b.error : 'no step');
-    // SPIKE (glide inverse): a step standing for its homotopy at a time t (Inverse.homBuilt)
+    // a step standing for its homotopy at a time t (Inverse.homBuilt): its homotopy's ops
     if (b.__homOps) return b.__homOps();
     const id = b.def.id, v = b.vals, P = b.props || {};
     if (b.op === 'deriv' || id === 'deriv') return INEL('d/dz is not a map');

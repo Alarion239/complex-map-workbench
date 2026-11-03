@@ -368,7 +368,7 @@
     }
     return out;
   }
-  // SPIKE (glide inverse): the inverse path of area shape s under the glide's map H_t o F_{k-1} (mode 1, hi k): the
+  // The inverse path of area shape s under the glide's map H_t o F_{k-1} (mode 1, hi k): the
   // plan of stages (a, k] with step k standing for its homotopy at t (Inverse.homBuilt), its own inverse op list
   // (GLChain.buildInverse: another program, the op values its uniforms) and the shape's preparation. Same answer as
   // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}
