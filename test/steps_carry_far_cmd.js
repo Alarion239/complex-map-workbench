@@ -169,6 +169,9 @@ async function farFrames(P0, J) {
 // here); and at 40 points w across the pane, in steps of 0.01, the front point changes with t only once at a time,
 // never back on the next step
 async function keyAlongT(P0, J) {
+  // (the key reads the glide's pole tracks once the idle moments have made them whole; until then it reads a fallback)
+  const whole = await settled({ max: 30000, until: '(() => { const k = __cmwSvKey(1, 0.5); return !!k.tracks && k.tracks.k === k.tracks.of; })()' });
+  ok("Joukowski key along t: the idle moments make plane w1's pole tracks whole", whole.ok, whole);
   const keyOff = [];
   for (let s = 30; s <= 70; s += 5) {
     const got = (await ev(`__cmwSvKey(1, ${s / 100})`)).sing, want = J.poleAt(s / 100);
