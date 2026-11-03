@@ -6,20 +6,14 @@
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''))); };
 async function openApp(st) {
   const ns = 'stg' + Date.now();
   await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
-  const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image' }, st);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  await loadView('steps', ns, Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image' }, st));
   // (a loaded machine: the page answers once its hooks and the chain are up)
-  for (let i = 0; i < 60 && !(await ev(`typeof __cmwPre === 'function' && typeof __cmwP === 'function' && !!document.querySelector('#svStrip .sv-step')`)); i++) await sleep(250);
-  await settle(800);
+  await settled({ max: 40000, until: `typeof __cmwPre === 'function' && typeof __cmwP === 'function' && !!document.querySelector('#svStrip .sv-step')` });
 }
 // the plane shown, by its place in the chain (0 is z, 1 is w₁ …)
 const atPlane = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return s.x === ${i} && !s.anim && !s.moving; })()` }); };
@@ -41,11 +35,13 @@ await openApp(base);
 await atPlane(2);
 const r0 = await picture();
 await atPlane(1);
-await ev(`document.querySelector('.tool[data-tool="disc"]').click(); 1`); await settle(300);
+await ev(`document.querySelector('.tool[data-tool="disc"]').click(); 1`);
+await settled({ panes: false, until: `document.querySelector('.tool[data-tool="disc"]').matches('[aria-pressed="true"], .on')` });
 ok('a drawing tool keeps the shown plane (w₁ stays)', (await planeOf()) === 1, await planeOf());
 const L = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
 const x0 = L[0] + L[2] * 0.62, y0 = L[1] + L[3] * 0.42;
-await drag(x0, y0, x0 + 45, y0, 12, 16); await settle(900);
+await drag(x0, y0, x0 + 45, y0, 12, 16);
+await settled({ until: `__cmwP().shapes.length === 2` });
 let sh = await shapes();
 const drawn = sh.find((s) => s.id !== 's1');
 ok('the disc drawn in w₁ is a shape of stage 1', !!drawn && drawn.kind === 'disc' && drawn.stage === 1, sh);
@@ -55,17 +51,20 @@ await atPlane(1);
 info.list = await ev(`[...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent)`);
 ok('the Shapes list puts it under its plane', info.list.some((t) => /plane w/.test(t) || /w₁/.test(t)), info.list);
 // ---- the whole chain: Y (w₃) shows its image, X (the z-plane) its preimage
-await ev(`document.getElementById('undoBtn').click()`); await settle(900);
+await ev(`document.getElementById('undoBtn').click()`);
+await settled({ until: `__cmwP().shapes.length === 1` });
 ok('one Undo takes it away', (await shapes()).length === 1, await shapes());
 const planeAfterUndo = await planeOf();
-await ev(`document.getElementById('redoBtn').click()`); await settle(900);
+await ev(`document.getElementById('redoBtn').click()`);
+await settled({ until: `__cmwP().shapes.some((s) => s.stage === 1)` });
 ok('Redo brings it back, in w₁', (await shapes()).some((s) => s.stage === 1), await shapes());
 info.planeAfterUndo = planeAfterUndo;
 await atPlane(0);
 const zWith = await picture();
 await atPlane(3);
 const yWith = await picture();
-await ev(`document.getElementById('undoBtn').click()`); await settle(900);
+await ev(`document.getElementById('undoBtn').click()`);
+await settled({ until: `__cmwP().shapes.length === 1` });
 await atPlane(0);
 const zWithout = await picture();
 await atPlane(3);
@@ -92,10 +91,17 @@ ok('an export of X draws the preimages too (its offscreen render differs from th
 // a link round trip: the figure's link, opened on a page without shapes, brings them back in their planes
 await ev(`Params.encodeLink(__cmwP().figure).then((l) => { window.__lk = l; }); 1`);
 let link = null;
-for (let i = 0; i < 20 && !link; i++) { await sleep(150); link = await ev('window.__lk || null'); }
+await settled({ panes: false, until: `!!window.__lk` });
+link = await ev('window.__lk || null');
 await openApp({ steps: two, shapes: [] });
 await ev(`Params.decodeLink(${JSON.stringify(String(link))}).then((st) => { __cmwPOpen(st, 'link'); }); 1`);
-await sleep(2500); await settle(800);
+// (opening a link replaces the page: a poll with a bound and a condition, which tolerates the reload between its reads)
+for (let i = 0; i < 160; i++) {
+  let got = false;
+  try { got = await ev(`typeof __cmwP === 'function' && __cmwP().shapes.length === 2 && !!document.querySelector('#svStrip .sv-step')`); } catch (e) { got = false; }
+  if (got) break;
+  await sleep(250);
+}
 info.linked = (await shapes()).map((x) => [x.id, x.stage]);
 ok('a link round trip keeps each shape\'s plane', typeof link === 'string' && JSON.stringify(info.linked) === JSON.stringify([['s2', 1], ['s3', 2]]), [typeof link, info.linked]);
 info.pixels = { bare, pulled };
@@ -126,9 +132,10 @@ ok('a saved stage loads', (await shapes()).find((s) => s.id === 's2').stage === 
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-more').click()`);
 await settled({ panes: false, until: `!!document.querySelector('#popHost .mi')` });
 info.menu = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .mi')].find((e) => e.querySelector('.mi-label').textContent === 'Remove'); if (!b) return [...document.querySelectorAll('#popHost .mi .mi-label')].map((e) => e.textContent); b.click(); return true; })()`);
-await settle(900);
+await settled({ until: `!__cmwP().shapes.find((s) => s.id === 's2').stage` });
 ok('removing f₁ moves the shape of w₁ to f₁\'s input plane, the z-plane', info.menu === true && !(await shapes()).find((s) => s.id === 's2').stage, [info.menu, await shapes()]);
-await ev(`document.getElementById('undoBtn').click()`); await settle(900);
+await ev(`document.getElementById('undoBtn').click()`);
+await settled({ until: `__cmwP().shapes.find((s) => s.id === 's2').stage === 1` });
 ok('Undo puts it back in w₁', (await shapes()).find((s) => s.id === 's2').stage === 1, await shapes());
 await openApp(Object.assign({}, base, { shapes: base.shapes.concat([{ id: 's2', kind: 'disc', c: [0.3, 0.2], r: 0.1, ci: 1, visible: true, stage: 9 }]) }));
 ok('a stage past the chain is dropped (the shape is the z-plane\'s)', !(await shapes()).find((s) => s.id === 's2').stage, await shapes());
