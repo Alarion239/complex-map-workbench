@@ -1004,6 +1004,46 @@ const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
 // sampling returns
 const SV_LABEL_MS_LIMIT = 2;
 const SV_GLCOUNT = `(() => { if (window.__svBl) return; const W = window.__svBl = { n: 0 }; const b = GLR.blit; GLR.blit = function (...x) { W.n++; return b.apply(this, x); }; })()`;
+// Per-frame attribution of the King's scrub frames (info only, #714): each frame at or over SV_ATTR_MS with its index in
+// the leg, cpu, gpu, the rAF gap before it (its t0 less the previous frame's t1), the WebGL calls the page made in it
+// and the thread's place (__cmwSvX); and the count of such frames by class: 'start' (the leg's first two moving
+// frames), 'arrival' (the thread within 0.05 of a plane) and 'other'. SV_ATTR_MS is about the row's limit on a quiet
+// reference (max(1.15 x 14.7, 14.7 + 2) ms).
+const SV_ATTR_MS = 17;
+const SV_ATTR_GL = ['useProgram', 'bindFramebuffer', 'drawArrays', 'drawArraysInstanced', 'clear', 'readPixels', 'createTexture',
+  'createBuffer', 'createVertexArray', 'texImage2D', 'bufferData', 'getProgramParameter', 'linkProgram'];
+// (counts WebGL2 calls by name while __svAttr.on; one snapshot per animation frame, its counts since the one before and
+// the thread's place)
+const SV_ATTR_REC = `(() => {
+  if (window.__svAttr) return 1;
+  const R = window.__svAttr = { on: false, gl: {}, snaps: [] }, P = WebGL2RenderingContext.prototype;
+  for (const k of ${JSON.stringify(SV_ATTR_GL)}) {
+    const f = P[k];
+    if (typeof f === 'function') P[k] = function (...a) { if (R.on) R.gl[k] = (R.gl[k] || 0) + 1; return f.apply(this, a); };
+  }
+  const snap = () => {
+    if (R.on) { R.snaps.push([performance.now(), R.gl, typeof __cmwSvX === 'function' ? __cmwSvX() : null]); R.gl = {}; }
+    requestAnimationFrame(snap);
+  };
+  requestAnimationFrame(snap);
+  return 1;
+})()`;
+// the frames of one leg (windowStats' drawn, prev: the frame drawn before the leg or null) at or over SV_ATTR_MS, each
+// with its class, from the leg's snapshots ([t, gl, x], in time order)
+function svAttrFrames(drawn, prev, snaps) {
+  const out = [];
+  drawn.forEach((f, i) => {
+    const frame = f[1] + f[2];
+    if (frame < SV_ATTR_MS) return;
+    const before = i > 0 ? drawn[i - 1] : prev;
+    // (the snapshot taken after the frame's end holds its counts and the place the frame drew)
+    const sn = snaps.find((q) => q[0] >= f[6]) || null;
+    const x = sn ? sn[2] : null;
+    const cls = i < 2 ? 'start' : x != null && Math.abs(x - Math.round(x)) <= 0.05 ? 'arrival' : 'other';
+    out.push({ i, of: drawn.length, frame: +frame.toFixed(2), cpu: +f[1].toFixed(2), gpu: +f[2].toFixed(2), gap: before ? +(f[0] - before[6]).toFixed(2) : null, x: x == null ? null : +x.toFixed(3), gl: sn ? sn[1] : {}, cls });
+  });
+  return out;
+}
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
@@ -1011,17 +1051,26 @@ async function svInteractUnit(scene) {
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.interact.${scene}`, 'skipped: a software renderer (one rep outlasts the unit\'s time limit there)'); return; }
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
   // a timed window around fn, then its settle (as dragLeg)
-  const leg = async (fn) => {
+  const attr = scene === 'king';
+  const leg = async (fn, rec) => {
+    if (rec) await B.ev('(__svAttr.snaps = [], __svAttr.gl = {}, __svAttr.on = true, 1)');
     const bl0 = await B.ev('__svBl.n'), a = await pageNow();
     await fn();
     const b = await pageNow(), bl1 = await B.ev('__svBl.n');
     const w = await windowStats(a, b);
+    if (rec) {
+      const snaps = JSON.parse(await B.ev('(__svAttr.on = false, JSON.stringify(__svAttr.snaps))'));
+      const before = await B.ev(`__perf.framesSince(${a - 2000}, ${a}).filter((f) => f[4] > 0).pop() || null`);
+      w.attr = svAttrFrames(w.drawn, before, snaps);
+    }
     const st = await settle(b);
     return Object.assign(w, { blits: bl1 - bl0, settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now), a, b });
   };
   const park = async () => { await B.ev('__cmwSteps({ go: 0.5, now: true }), 1'); await settle(await pageNow()); };
   {
     const R = { 'scrub.all': [], 'scrub.in': [], 'pan.in': [], 'orbit': [] }, copies = { all: [], in: [] }, orbitPoles = [];
+    // (per rep, per leg: the frames at or over SV_ATTR_MS, svAttrFrames)
+    const slow = { all: [], in: [] };
     // (the reps stop early, said in the details, when the next one would pass 75% of the unit's time limit: fewer reps,
     // not a timeout, which aborts the whole run)
     const t0 = Date.now(), budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.interact.${scene}`)) * 1000;
@@ -1035,6 +1084,7 @@ async function svInteractUnit(scene) {
       if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
       await sleep(SV_IDLE_MS);
       await B.ev(SV_GLCOUNT);
+      if (attr) await B.ev(SV_ATTR_REC);
       // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
       for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
       await settle(await pageNow());
@@ -1044,9 +1094,10 @@ async function svInteractUnit(scene) {
         // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
         const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
         const r1 = await stripAt();
-        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }));
+        const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }), attr);
         const r2 = await stripAt();
-        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }));
+        const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }), attr);
+        if (attr) slow[scope].push([l1, l2].map((l) => l.attr));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R[`scrub.${scope}`].push(legSummary([l1, l2], 'pointermove'));
@@ -1082,6 +1133,17 @@ async function svInteractUnit(scene) {
     }
     put(`sv.interact.${scene}.reps`, 'info', '', [R.orbit.length]);
     put(`sv.scrub.all.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.all)], { limit: SV_COPIES_LIMIT, samples: copies.all.map(r3) });
+    // (the King's frames at or over SV_ATTR_MS by class, per rep: info rows, and each frame in the details and the log)
+    if (attr) {
+      for (const scope of ['all', 'in']) {
+        const reps = slow[scope], pre = `sv.scrub.${scope}.${scene}.slow`;
+        for (const cls of ['start', 'arrival', 'other']) put(`${pre}_${cls}`, 'info', 'frames', reps.map((legs) => legs.flat().filter((f) => f.cls === cls).length));
+        detail(`${pre}_frames`, { limit_ms: SV_ATTR_MS, reps: reps.map((legs) => legs.map((fs, k) => ({ leg: k ? 'back' : 'there', frames: fs }))) });
+        reps.forEach((legs, r) => legs.forEach((fs, k) => {
+          for (const f of fs) log(`${pre} rep ${r + 1} ${k ? 'back' : 'there'} #${f.i}/${f.of} ${f.cls}: ${f.frame} ms (cpu ${f.cpu}, gpu ${f.gpu}, gap ${f.gap}), x ${f.x}; gl ${JSON.stringify(f.gl)}`);
+        }));
+      }
+    }
     put(`sv.scrub.in.${scene}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies.in)], { limit: SV_COPIES_IN_LIMIT, samples: copies.in.map(r3) });
   }
 }
@@ -2182,8 +2244,8 @@ if (require.main === module) {
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { try { if (B) await B.close(); } catch (e) { /* ignore */ } process.exit(130); });
   main().catch(async (e) => { console.error(e); try { if (B) await B.close(); } catch (x) { /* ignore */ } process.exit(2); });
 }
-// for perf/selftest.js: the runner's own helpers, driven against a browser it launched
+// for perf/selftest.js (the runner's own helpers, driven against a browser it launched) and test/t_perf_attr.js
 module.exports = {
   use(browser, base) { B = browser; if (base) BASE = base.endsWith('/') ? base : base + '/'; },
-  RES, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
+  RES, svAttrFrames, SV_ATTR_MS, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
 };
