@@ -8,7 +8,7 @@
     const where = k === 1 ? $t('at the start') : $t('after f{x}', { x: sub(k - 1) });
     const plus = h('button', { class: 'conn-add', tabindex: -1, 'data-tip': $t('Insert a function {where}', { where }), 'aria-label': $t('Insert a function {where}', { where }), html: ICONS.plus,
       onclick: (e) => { e.stopPropagation(); openPalette(e.currentTarget, k - 1, { fnOnly: true, insert: true }); } });
-    // (v15, review design-14: the connectors are pictures in the listbox, not options; their + is a pointer
+    // (review design-14: the connectors are pictures in the listbox, not options; their + is a pointer
     // shortcut, the keyboard has Insert a function after it in a step's ⋯)
     const el = h('div', { class: 'conn', 'data-conn': k, 'aria-hidden': 'true' },
       h('span', { class: 'conn-var', html: wsub(k - 1) }),
@@ -29,7 +29,7 @@
     });
     return el;
   }
-  // ---------------- v16: the deformation's bracket over the chain (notes/deform-range/SPEC.md 6) ----------------
+  // ---------------- the deformation's bracket over the chain (notes/deform-range/SPEC.md 6) ----------------
   // Shown while the transport is open on the whole chain with two or more active steps: a line in the chain bar's top
   // padding from connector a to connector b + 1, its ends two sliders (dragged on desktop and tablet; drawn only on a
   // phone, where the Display sheet's Deformed steps row sets it)
@@ -44,7 +44,7 @@
     for (let i = 0; i < ks.length;) { let j = i; while (j + 1 < ks.length && ks[j + 1] === ks[j] + 1) j++; out.push(j > i ? `${f(ks[i])}–${f(ks[j])}` : f(ks[i])); i = j + 1; }
     return out.join(', ');
   }
-  // (review v16 verify-1) the phone's Deformed steps row lives in the Display sheet once moved there, so a rebuilt
+  // the phone's Deformed steps row lives in the Display sheet once moved there, so a rebuilt
   // dock does not replace it: every such row follows the bracket here (its selects and its 'from ...' line)
   function syncRangeRows() {
     for (const b of document.querySelectorAll('.tsteps')) { const t = stepsLabel(); if (b.textContent !== t) b.textContent = t; }
@@ -63,7 +63,7 @@
       }
     }
   }
-  // ([v17 UX64]) the bracketed cards are tinted while the bracket shows fewer than every step
+  // the bracketed cards are tinted while the bracket shows fewer than every step
   function tintBracketed() {
     const hr = brOn() ? homRangeOk() : null;
     cardRefs.forEach((c, k) => { if (c && c.root) c.root.classList.toggle('br-in', !!hr && k >= hr.a && k <= hr.b); });
@@ -94,7 +94,7 @@
   // the block that step k is in, as repeatBlocks gives it, or null
   const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
   // the keyboard goes back to a step's chip on the thread (its card in the classic view) once the chain is drawn again: after a
-  // control that has gone, such as the Inspector's End the repeat, no longer holds it
+  // control that has gone, such as the Inspector's End the repeat, cannot hold it
   function focusStepChip(k) {
     requestAnimationFrame(() => {
       const el = SV.on ? svEl(k, 'chip') : document.querySelector(`#pipeline .card[data-k="${k}"]`);
@@ -143,7 +143,7 @@
   }
   function repeatField(getK) {
     const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+    // (typed for the step it is typed on: a chain or example switch within the 400 ms must not take the N)
     let settle = 0, typedFor = null;
     const apply = () => {
       clearTimeout(settle);
@@ -223,7 +223,7 @@
       return;
     }
     if (!L) {
-      // ([v17 UX64] the bracket says what it deforms, "Deforming f₁–f₂", with an All steps reset, while it brackets
+      // (the bracket says what it deforms, "Deforming f₁–f₂", with an All steps reset, while it brackets
       // fewer than every step)
       const all = h('button', { class: 'br-all', type: 'button', 'data-tip': $t('Deform every step'), onclick: (e) => { e.stopPropagation(); chooseRange(null); } }, $t('All steps'));
       L = h('div', { class: 'chain-bracket', id: 'chainBracket' }, h('div', { class: 'br-line', 'aria-hidden': 'true', 'data-tip': $t('Drag either end to choose the deformed steps') }), brHandle('l'), brHandle('r'),
@@ -268,7 +268,7 @@
       lab.style.left = Math.round((x0 + x1) / 2) + 'px';
     }
   }
-  // ([v17 UX64]) what the bracket deforms in words: "Deforming f₁–f₂" (the active steps inside it); null on every step
+  // what the bracket deforms in words: "Deforming f₁–f₂" (the active steps inside it); null on every step
   function bracketWords(fmt) {
     const r = homRangeOk();
     if (!r) return null;
@@ -302,7 +302,7 @@
     if (!preview) playNewRange();
     return true;
   }
-  // ([v17 UX64]) a bracket the user just chose plays from its start, so the change shows; not under reduced motion
+  // a bracket the user just chose plays from its start, so the change shows; not under reduced motion
   function playNewRange() {
     if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
   }
@@ -353,7 +353,7 @@
   // their normal forms; disabled with the reason when the d/dz rule moves b past the item's end or f_k is bypassed
   function deformItems(k) {
     const n = nSteps(), cur = homRangeOk(), off = S.steps[k - 1] && S.steps[k - 1].on === false, ph = brPhone();
-    // (review v16 user-2: F is italic like f_k; the start, 'from f₃(w₁)', is set in the label's math face)
+    // (F is italic like f_k; the start, 'from f₃(w₁)', is set in the label's math face)
     const itF = (x) => x.replace(/(^|[\s(])F(?=$|[\s,.)])/g, '$1<i>F</i>');
     const cand = [
       [{ a: k, b: k }, itF($t('Only {f}, inside F', { f: fsub(k) })), $t('Only {f}, inside F', { f: fUni(k) })],
@@ -400,11 +400,11 @@
   function buildPipeline() {
     const host = $('pipeline');
     host.innerHTML = '';
-    if (insp) insp.invalidate();   // (v15: the Inspector's fields belong to the steps rebuilt here)
+    if (insp) insp.invalidate();   // (the Inspector's fields belong to the steps rebuilt here)
     thumbs.clear();
     cardRefs.length = 0;
     // region card (stage 0)
-    // (v15: the region card selects the region; a double-click shows the whole chain)
+    // (the region card selects the region; a double-click shows the whole chain)
     const c0 = h('div', { class: 'card region-card' + (S.focus === 0 ? ' focus' : ''), 'data-k': 0, tabindex: 0, role: 'option', 'aria-label': $t('Shapes'),
       onclick: () => cardClick(0), ondblclick: () => setFocus(0), onkeydown: (e) => chainKey(e, 0) },
     h('div', { class: 'card-head' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: Inspector.regionIcon() }), h('span', { class: 'nm' }, $t('Shapes'))),
@@ -422,12 +422,12 @@
     });
     host.append(connector(S.steps.length + 1));
     /** @type {HTMLElement} */ (host.lastChild).classList.add('conn-last');
-    updateBracket();   // (v16: the deformation's bracket, a tab stop after the cards and before the Add tile)
+    updateBracket();   // (the deformation's bracket, a tab stop after the cards and before the Add tile)
     host.append(h('button', { class: 'add-card' + (S.steps.length <= 3 ? ' labelled' : ''), id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
-      h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (v16.5 UX22: the label the short chain shows, desk.css)
+      h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (the label the short chain shows, desk.css)
     host.append(fTile());
     { const cc = $('clearChain'); if (cc) cc.hidden = !S.steps.length; }   // (D1, issue #23: Clear chain in words, with a chain to clear)
-    // (v15 review design-14: the listbox owns the options only, the region card, the step cards and F, through
+    // (the listbox owns the options only, the region card, the step cards and F, through
     // aria-owns; the connectors are aria-hidden and the Add tile is its own tab stop after the listbox, not an item in it)
     host.removeAttribute('role'); host.removeAttribute('aria-label');
     const opts = /** @type {HTMLElement[]} */ ([...host.querySelectorAll(':scope > [role="option"]')]);
@@ -448,22 +448,21 @@
     const st = S.steps[k - 1], d = defOf(st);
     // (D1, issue #23: Replace… first: the palette, ready to replace this step)
     const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
-    // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
+    // (the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
     if (opt && opt.full) {
       const b0 = built[k - 1];
       if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
       items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
-      // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
-      // none on a touch screen)
+      // (the keys a focused card takes, Alt+← / Alt+→; none on a touch screen)
       { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
       { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
       { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
       { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
-    // (v16: which steps the deformation deforms, SPEC 6.5)
+    // (which steps the deformation deforms, SPEC 6.5)
     if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
     if (!isDerivStep(st, built[k - 1])) {
@@ -475,7 +474,7 @@
     }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
-    // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
+    // a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
     if (st.type === 'custom') {
       const sp = Funcs.splitSteps(st, bk), no = sp.kind === 'none' || !!sp.blocked;
       items.push({ label: sp.kind === 'one' ? $t('Replace with “{name}”', { name: Funcs.DEFS[sp.steps[0].type].label }) : $t('Split into steps'), disabled: no, tip: no ? Funcs.splitReason(sp) : null, run: () => splitStep(k) });
@@ -487,10 +486,10 @@
     return items;
   }
   function stepMenu(anchor, k, opt) { return openMenu(anchor, stepMenuItems(anchor, k, opt)); }
-  // v15 (DESIGN.md 2.4): a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
+  // (DESIGN.md 2.4) a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
   // the lens in the Inspector's head)
   function cardClick(k) { selectStep(k); }
-  // (v16.5 UX81) move step k one place and keep the keyboard on its card (the chain is drawn again)
+  // move step k one place and keep the keyboard on its card (the chain is drawn again)
   function moveCard(k, d) {
     if (!moveStep(k, d)) return;
     const c = /** @type {HTMLElement | null} */ (document.querySelector(`#pipeline .card[data-k="${k + d}"]`));
@@ -507,8 +506,8 @@
     if (e.target !== e.currentTarget) return;
     const n = S.steps.length, cur = k === 'F' ? n + 1 : k;
     const go = (j) => { e.preventDefault(); const el = /** @type {HTMLElement | null} */ (j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`)); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
-    // (v16.5 UX81 / UX97: Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
-    // keeps the keyboard; the chain and learn pieces built the same key, merged as one)
+    // (Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
+    // keeps the keyboard)
     const ed = stepEditKey(e);
     if (ed && ed.move) {
       e.preventDefault(); e.stopPropagation();
@@ -534,7 +533,7 @@
     const byp = h('button', { class: 'icon-btn bypass', 'aria-pressed': String(off), 'data-tip': off ? $t('Turn this step back on') : $t('Bypass this step'), 'aria-label': $t('Bypass this step'), html: ICONS.bypass,
       onclick: (e) => { stop(e); st.on = st.on === false; chainChanged(true); commit(); if (st.on) startTransition(k); sndToggleCue(st.on); } });
     const more = h('button', { class: 'icon-btn more', 'data-tip': $t('More'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), 'aria-haspopup': 'menu', html: ICONS.more, onclick: (e) => { stop(e); stepMenu(e.currentTarget, k); } });
-    // v15 (DESIGN.md 2.1): a card is its type and a picture; the chain is a listbox, a card an option. Its head shows
+    // (DESIGN.md 2.1) a card is its type and a picture; the chain is a listbox, a card an option. Its head shows
     // the index, the type icon and the name (two lines allowed); Bypass and More appear over the name on hover or focus
     // (#361: Bypass and More are a hover's, for the mouse; the keyboard has the card's keys. An option holds no control a
     // screen reader can reach, so they are inert until a pointer is over the card: a negative tabindex is not enough)
@@ -570,7 +569,7 @@
     if (st.type === 'mobius') return $tx('card', 'Möbius');
     if (st.type === 'ijouk') return $tx('card', 'Inverse Joukowski');
     if (st.type === 'blaschke') return $tx('card', 'Disk automorphism');
-    // (v15 review russian-2: «Гиперболический» takes three hyphenated lines of a narrow card; the card says «Гиперб.»)
+    // («Гиперболический» takes three hyphenated lines of a narrow card; the card says «Гиперб.»)
     if (st.type === 'sinh') return $tx('card', 'Hyperbolic sine');
     if (st.type === 'cosh') return $tx('card', 'Hyperbolic cosine');
     if (st.type === 'tanh') return $tx('card', 'Hyperbolic tangent');
@@ -612,7 +611,7 @@
     for (const key of lit.slice(0, 2).reverse()) { const el = fl.querySelector(`.lamp[data-lamp="${key}"]`); if (el) fl.prepend(el); }
     /** @type {HTMLElement} */ (t.querySelector('.fnone')).hidden = lit.length > 0;
     const names = BADGES.filter(([key]) => words[key]).map(([, n]) => n);
-    // (v16.5 UX84: an empty chain is the identity: the tile says F = z, not its guarantees)
+    // (an empty chain is the identity: the tile says F = z, not its guarantees)
     const id = !act.length;
     t.classList.toggle('ident', id);
     if (id) for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp, .fnone'))) el.hidden = true;
@@ -747,7 +746,7 @@
     co: ['aₖ', $t('Coefficients aₙ, …, a₀, highest degree first')], p: ['p', $t('Numerator coefficients, highest degree first')], q: ['q', $t('Denominator coefficients, highest degree first')] };
   function paramField(st, k, q, pre = 'p') {
     const val = st.params[q.key] ?? q.def;
-    // (the step now in the chain: an Undo while the field is being typed in replaces the steps and keeps the field)
+    // (the step in the chain at this moment: an Undo while the field is being typed in swaps the steps and keeps the field)
     const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
     const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
     let input, extra = null, before = null;
@@ -781,7 +780,7 @@
         if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
-      // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
+      // a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
       // with All sheets on, the one view that draws them
       if (q.key === 'k' && q.type === 'int') {
         const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
@@ -828,14 +827,14 @@
     const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
-    // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
+    // (a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
     // says what the field is; the symbol keeps its own span, where a step's index goes)
     const word = paramWord(st, q);
     const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
     if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
     return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }
-  // (v16.5 UX33) the word before a field's symbol: the cut, the sheet, the power or root index, the zeros-and-poles factor
+  // the word before a field's symbol: the cut, the sheet, the power or root index, the zeros-and-poles factor
   function paramWord(st, q) {
     if (q.key === 'cut') return $t('Cut angle');
     if (q.key === 'k') return $t('Sheet');
@@ -866,7 +865,7 @@
     return t;
   }
   function updateCards() {
-    // v15: a card shows its state only (bypassed, error); its formula and parameters are in the Inspector
+    // a card shows its state only (bypassed, error); its formula and parameters are in the Inspector
     S.steps.forEach((st, i) => {
       const k = i + 1;
       const c = cardRefs[k];
@@ -876,7 +875,7 @@
       c.root.classList.toggle('off', st.on === false);
       c.root.classList.toggle('bad', bad);
       const d = defOf(st);
-      // (v16.5 UX84: a typed step is a "Formula"; its formula is in the tooltip and the aria label, never on the card)
+      // (a typed step is a "Formula"; its formula is in the tooltip and the aria label, never on the card)
       // ([#465] read as text: \frac{1}{z} is 1/z and z^3 is z³ in the tooltip and to a screen reader)
       const fx = st.type === 'custom' && st.params && st.params.expr ? texTitle(String(st.params.expr)) : '';
       const lab = `f${sub(k)}, ${d.label}` + (fx ? ` ${fx}` : '') + (S.focus === k ? $t(', shown alone') : '') + (st.on === false ? $t(', bypassed') : '') + (bad ? $t(', error: {msg}', { msg: b.error }) : '');
@@ -908,7 +907,7 @@
     at = Math.max(0, Math.min(S.steps.length, at));
     spliceSteps(at, 0, st);
     chainChanged(true);
-    // (v16.5 UX01: the planes keep what they showed, F or the step shown alone; the new card is selected, and the
+    // (the planes keep what they showed, F or the step shown alone; the new card is selected, and the
     // toast offers Show alone: Show alone is its own choice, ui-redesign-2)
     keepShown(at + 1, 1);
     commit();
@@ -920,7 +919,7 @@
     return cardButton(at + 1);
   }
   // (D1, issue #23) the palette's Replace: steps k0+1 … k0+count give way to what run(k0) inserts, as one undo step; a
-  // step shown alone stays shown, now the first new step when it was one of the replaced
+  // step shown alone stays shown; when it is one of the replaced, the first new step is shown
   function replaceSteps(k0, count, run, name) {
     const f = S.focus, old = count === 1 ? defOf(S.steps[k0]).label : '', n0 = S.steps.length - count;
     const gone = spliceSteps(k0, count);
@@ -933,7 +932,7 @@
     tourEmit('step-replaced', { k: k0 + 1, type: S.steps[k0].type });
     return cardButton(k0 + 1) || r;
   }
-  // (UX01) after a step is added, moved or duplicated: the step shown alone, if any, stays shown (its index moved by
+  // after a step is added, moved or duplicated: the step shown alone, if any, stays shown (its index moved by
   // the n new cards at k, or by the move), and card k is selected for the Inspector
   function keepShown(k, n, from) {
     let f = S.focus;
@@ -951,15 +950,15 @@
       : n === 1 ? $t('Added f{x} {name}.', { x: sub(k), name }) : $t('Added f{x}–f{x2}.', { x: sub(k), x2: sub(k + n - 1) });
     undoToast(msg, S.focus === k ? null : [$t('Show alone'), () => { if (S.steps[k - 1]) { setFocus(k); requestRender('P'); } }]);
   }
-  // v15.2: a formula added as its steps (the palette's Add as n steps): one commit; the planes keep what they showed
-  // (v16.5 UX01), so into an empty chain F is the formula the user typed, with its parts on the cards (review steps-1)
+  // a formula added as its steps (the palette's Add as n steps): one commit; the planes keep what they showed:
+  // into an empty chain F is the formula the user typed, with its parts on the cards
   function addSteps(list, at) {
     if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
     at = Math.max(0, Math.min(S.steps.length, at));
     const news = list.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: true }));
     spliceSteps(at, 0, ...news);
     chainChanged(true);
-    keepShown(at + 1, news.length);   // (v16.5 UX01: the planes keep F, the first new card is selected)
+    keepShown(at + 1, news.length);   // (the planes keep F, the first new card is selected)
     commit();
     startTransition(at + 1);
     for (const s of news) noteRecent(s.type);
@@ -976,7 +975,7 @@
     if (!still) { for (const c of cards) c.classList.add('born'); setTimeout(() => { for (const c of cards) c.classList.remove('born'); }, 240); }
     if (cards[0]) cards[0].scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still ? 'auto' : 'smooth' });
   }
-  // v15.2 (notes/formula-steps/DESIGN.md 7): a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
+  // (notes/formula-steps/DESIGN.md 7) a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
   // same function, so the planes do not change; one commit, undone by Undo
   function splitStep(k) {
     const st = S.steps[k - 1], b = built[k - 1];
@@ -992,7 +991,7 @@
     // no other step, F is the formula: show F, so the planes stay the same; otherwise the toast says what is shown
     // (review steps-1)
     const alone = S.focus === k, only = S.steps.length === 1;
-    // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
+    // (the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
     const hr = S.homRange ? HR.resolve(S, true) : null;
     spliceSteps(k - 1, 1, ...news);
     if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
@@ -1016,7 +1015,7 @@
   }
   function removeStep(k) {
     const name = defOf(S.steps[k - 1]).label;
-    // (v16: the bracket by index: a removed step leaves it, so it shrinks; a bracket of that step alone is dropped)
+    // (the bracket by index: a removed step leaves it, so it shrinks; a bracket of that step alone is dropped)
     const hr = S.homRange ? HR.resolve(S, true) : null;
     spliceSteps(k - 1, 1);
     if (hr) { if (hr.a === k && hr.b === k) deleteOpt('homRange'); else setOpt('homRange', { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }); }
@@ -1034,7 +1033,7 @@
     delete cp.repeat;   // ([issue #6] the copy is a step after the block, not a second repeat)
     spliceSteps(k, 0, cp);
     chainChanged(true);
-    keepShown(k + 1, 1);   // (v16.5 UX01)
+    keepShown(k + 1, 1);   
     commit();
     bornCards(k + 1, 1);
     addedToast(k + 1, 1, 'dup');
@@ -1046,7 +1045,7 @@
     const [st] = spliceSteps(k - 1, 1);
     spliceSteps(j, 0, st);
     chainChanged(true);
-    keepShown(j + 1, 0, k);   // (v16.5 UX01: a step shown alone stays shown, wherever it moved)
+    keepShown(j + 1, 0, k);   // (a step shown alone stays shown, wherever it moved)
     commit();
     tourEmit('step-moved', { k: j + 1, from: k });
     undoToast($t('Moved {name} to f{x}.', { name: defOf(st).label, x: sub(j + 1) }));
@@ -1125,7 +1124,7 @@
     try { r = Funcs.derivativeStep(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast((r && r.error) || $t('f{x} has no derivative here.', { x: sub(k) })); return null; }
     const type = Funcs.DEFS[r.step.type] ? r.step.type : 'custom';
-    // ([issue #6] a repeat the step ended now repeats its derivative's block, as the step's place in it stays)
+    // (a repeat the step ended repeats its derivative's block, as the step's place in it stays)
     setStepAt(k - 1, Object.assign({ type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     chainChanged(true);
     setFocus(k);
@@ -1147,8 +1146,7 @@
     radioKeys($('chainMode'));
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
     $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; setSteps([]); setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
-    // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
-    // had been under a ⋯ there since v15, review design-18)
+    // (Clear chain is a word button in the chain head, shown while there is a chain to clear)
     $('clearChain').hidden = !S.steps.length;
     // ([#357] the chain head never cuts a control: when its row does not fit (Russian and Italian at 1024 px beside the
     // Inspector), the heading "Function chain" gives way, kept for screen readers; the cards under it say what it is)
