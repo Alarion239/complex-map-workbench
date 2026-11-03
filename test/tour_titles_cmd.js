@@ -21,7 +21,7 @@ for (const lang of ['en', 'ru', 'it']) {
   await view(1440, 900, false, false);
   await go(`http://localhost:${PORT}/test.html?ns=tt${lang}${Date.now()}&lang=${lang}`);
   await settled({ until: `${TOUR} && I18N.lang === '${lang}'` });
-  if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
+  if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.auto(false); 1');
   const w = WANT[lang];
   const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`window.__shown = null; Tour.start(${JSON.stringify({ chapter, step })})`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}' && (() => { const g = ${READ}; if (!g.title) return false; window.__shown = window.__shown || g; return true; })()` }); return ev(`window.__shown`); };
