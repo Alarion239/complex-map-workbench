@@ -1,25 +1,25 @@
 // What the curves suites share: the formula box helpers, the exact-truth scenes (a curve added through the formula box,
 // its ink the difference between the canvas with it shown and hidden, scored against the true curve computed here) and
 // the runner of one scene. An expression for eval in a suite:
-// `const K = eval(fs.readFileSync(...))({ ev, send, nav, load, shot, sleep, view, fs, DIR, ok, R })`.
-({ ev, send, nav, load, shot, sleep, view, fs, DIR, ok, R }) => {
+// `const K = eval(fs.readFileSync(...))({ ev, send, nav, load, shot, settled, view, fs, DIR, ok, R })`.
+({ ev, send, nav, load, shot, settled, view, fs, DIR, ok, R }) => {
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const settle = async (ms = 1200) => {
-  await sleep(ms);
-  for (let i = 0; i < 40; i++) {
-    const busy = await ev(`(() => { const a = document.getElementById('leftLed'), b = document.getElementById('rightLed'); return /busy/.test((a ? a.className : '') + (b ? b.className : '')); })()`);
-    if (!busy) break;
-    await sleep(150);
-  }
-  await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-};
+// (the page is quiet: both panes' frames done, no animation running)
+const settle = async () => { await settled({ max: 20000 }); };
 const BASE = { pattern: 'solid', lines: false, unit: false, fov: false, outline: false, chev: false, alpha: 0.85, hideLeft: false, hideRight: false, solo: null, v3: true, v4: true, v5: true, nextId: 50 };
 const typeIn = async (t) => {
   await ev(`(() => { const i = document.getElementById('formulaInput'); i.focus(); i.value = ${JSON.stringify(t)}; i.dispatchEvent(new Event('input')); return 1; })()`);
-  await sleep(120);
+  // (the formula box's preview shows the text it parsed, or its error)
+  await settled({ until: `document.getElementById('formulaPrev').textContent.trim() !== ''`, max: 5000 });
   return ev(`({ prev: document.getElementById('formulaPrev').textContent, err: !!document.querySelector('#formulaPrev .err'), note: document.getElementById('formulaNote').hidden ? '' : document.getElementById('formulaNote').textContent, tag: document.getElementById('formulaPlane').textContent })`);
 };
-const addFormula = async (t) => { const r = await typeIn(t); await ev(`document.getElementById('formulaAdd').click()`); await sleep(250); return r; };
+// (the add clears the input when it made the shape; an error stays in the preview)
+const addFormula = async (t) => {
+  const r = await typeIn(t);
+  await ev(`document.getElementById('formulaAdd').click()`);
+  await settled({ until: `!document.getElementById('formulaInput').value || !!document.querySelector('#formulaPrev .err')`, max: 5000 });
+  return r;
+};
 const shapes = () => ev('__cmwShapes()');
 // the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden
 // (the steps view has one plane: the source plane is step 0, the right pane's plane is the chain's last step)
@@ -28,7 +28,7 @@ const inkOf = async (side, id, isTarget, nSteps, rv) => {
   if (await ev(`document.documentElement.classList.contains('sv')`)) {
     if (side === 'R') await ev(`__cmwSet('srcView', ${JSON.stringify(rv)}); 1`);
     await ev(`__cmwSteps({ go: ${side === 'R' ? nSteps : 0}, now: true })`);
-    await settle(1200);
+    await settle();
     side = 'L';
   }
   const snap = `(() => { const c = document.getElementById('canvas${side}'); const s = document.createElement('canvas'); s.width = c.width; s.height = c.height; const x = s.getContext('2d', { willReadFrequently: true }); x.drawImage(c, 0, 0); return Array.from(x.getImageData(0, 0, s.width, s.height).data); })()`;
@@ -38,10 +38,10 @@ const inkOf = async (side, id, isTarget, nSteps, rv) => {
   // hide it through its row's eye button
   const idx = await ev(`(() => { const S = __cmwShapes(); const list = ${isTarget ? 'S.targets' : 'S.shapes'}; return list.findIndex((s) => s.id === ${JSON.stringify(id)}) + ${isTarget ? 'S.shapes.length' : 0}; })()`);
   await ev(`document.querySelectorAll('#shapeList .icon-btn.eye')[${idx}].click()`);
-  await settle(900);
+  await settle();
   const off = await ev(snap);
   await ev(`document.querySelectorAll('#shapeList .icon-btn.eye')[${idx}].click()`);
-  await settle(600);
+  await settle();
   const W = geo.w, H = geo.h, ink = [];
   for (let i = 0; i < W * H; i++) {
     const d = Math.abs(on[4 * i] - off[4 * i]) + Math.abs(on[4 * i + 1] - off[4 * i + 1]) + Math.abs(on[4 * i + 2] - off[4 * i + 2]);
@@ -139,25 +139,24 @@ const runScene = async (sc) => {
   const st = Object.assign({}, BASE, { steps: sc.steps.map((s) => Object.assign({ on: true }, s)), srcView: sc.srcView || { cx: 0, cy: 0, s: 60 }, rightView: sc.rv, targets: [], shapes: [] });
   // the shapes come from the formula box as a user adds them (exact shapes or a curve formula)
   await load('curves-' + sc.name, st);
-  await settle(1200);
+  await settle();
   if (sc.target) await addFormula(sc.target); else await addFormula(sc.expr);
-  await settle(1800);
+  await settle();
   // a pinned right view (the app may have refit after the add)
   const s = await shapes();
   const id = sc.target ? s.targets[0] && s.targets[0].id : s.shapes[0] && s.shapes[0].id;
   if (!ok(`${sc.name}: the formula added a shape`, !!id, s)) return;
-  if (!sc.side || sc.side === 'R') {
-    await ev(`(() => { const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:curves-${sc.name}')); return 1; })()`);
-  }
   // the right view as pinned: reload with the state the app saved (the add is in it) plus the pinned view
-  await sleep(400);
+  // (the app has saved the shape or target the formula box added)
+  await settled({ until: `(() => { const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:curves-${sc.name}') || 'null'); return !!st && (st.shapes || []).length + (st.targets || []).length > 0; })()`, max: 5000 });
   await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
   await nav(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
-  await settle(2500);
+  await settled({ until: `typeof __cmwSet === 'function' && typeof __cmwShapes === 'function'`, max: 30000 });
+  await settle();
   // (#363: the reload opens the saved pattern as the phase; the scoring reads the solid fill, the renderer's own)
-  await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle(800);
+  await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle();
   // (the steps view draws a shape's curve on its colour plane only while Outlines is on; the classic right pane's image always does)
-  if (await ev(`document.documentElement.classList.contains('sv')`)) { await ev(`__cmwSet('outline', true); 1`); await settle(800); }
+  if (await ev(`document.documentElement.classList.contains('sv')`)) { await ev(`__cmwSet('outline', true); 1`); await settle(); }
   const I = await inkOf(sc.side || 'R', id, !!sc.target, sc.steps.length, sc.rv);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
   await shot('curves-' + sc.name, sc.side === 'L' ? { x: 268, y: 44, width: 432, height: 570 } : { x: 706, y: 44, width: 432, height: 570 });
