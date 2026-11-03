@@ -74,8 +74,8 @@
     const st = { set, view, building: false };
     dlg = st;
     const close = () => { closed = true; token++; pv.stop(); bg.remove(); document.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onDown, true); dlg = null; if (opener && opener.focus) opener.focus({ preventScroll: true }); };
-    // (v16.1 user-5) a press outside an open menu (Size, More formats) closes the menu only, not the dialog with it:
-    // whether a menu was open is read before the menu's own outside press closes it (window, capture)
+    // a press outside an open menu (Size, More formats) closes the menu only, not the dialog with it:
+    // whether a menu is open is read before the menu's own outside press closes it (window, capture)
     let downMenu = false;
     const onDown = () => { downMenu = !!document.querySelector('#popHost .pop.menu'); };
     window.addEventListener('pointerdown', onDown, true);
@@ -182,7 +182,7 @@
     const forRow = row($t('For'), forSeg); forRow.classList.add('wide');
     const inkRow = row($t('Ink'), inkSeg); inkRow.classList.add('wide');
     // the caption language (DESIGN.md 12): offered only when the interface is not English (the English dialog is
-    // unchanged); remembered with the settings. An edited caption is dropped: it was written in the other language
+    // unchanged); remembered with the settings. An edited caption is dropped: it is in the other language
     const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' || set.capLang === 'it' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
     if (capLangRow) capLangRow.classList.add('wide');
     // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, the paths (plane and
@@ -206,7 +206,7 @@
     const canVideo = typeof VideoEncoder !== 'undefined';
     const fmtOf = () => (set.fmt === 'video' ? (defo && canVideo ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
-    // (v16.5 UX60: Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
+    // (Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
     // opens again on Video: a video records the deformation)
     fOpts.push(['video', $t('Video')]);
     // (PNG: 600 dpi for an article, where journals ask for it; 300 dpi for homework and slides; remembered per For)
@@ -501,7 +501,7 @@
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
       wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
-      // (once MathJax is in, the line says what the build is doing now)
+      // (once MathJax is in, the line says what the build is doing)
       if (!XD.ready()) XD.whenReady(20000, () => my === token && !closed).then((on) => { if (on && my === token && !wait.hidden) wait.textContent = $t('Typesetting…'); });
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));

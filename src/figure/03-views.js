@@ -156,7 +156,7 @@
     // the figure is the same from a phone or a wide window (3:2 around the view's centre; a vertical strip is square)
     if (t.l && t.r && !(t.t && t.b)) { const c = (screen.x0 + screen.x1) / 2, hw = 0.75 * (b.y1 - b.y0); b.x0 = c - hw; b.x1 = c + hw; }
     else if (t.t && t.b && !(t.l && t.r)) { const c = (screen.y0 + screen.y1) / 2, hh = 0.5 * (b.x1 - b.x0); b.y0 = c - hh; b.y1 = c + hh; }
-    // (v16 review picture-9) the points the caption names are framed whole, even when an unbounded set (a line) keeps
+    // the points the caption names are framed whole, even when an unbounded set (a line) keeps
     // the window's edge on that side: 8 % beyond the farthest point
     const mu = content.must;
     if (mu) {
@@ -238,7 +238,7 @@
       if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
     let pi = 0;
-    // (v16 review picture-7) with constructions the caption names points (z₀, z₃ …): every point is labelled as the
+    // with constructions the caption names points (z₀, z₃ …): every point is labelled as the
     // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
     const cmFig = shapes.some((x) => x.def || x.at);
     const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);

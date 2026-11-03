@@ -66,7 +66,7 @@
   // the first letter of a sentence made from a clause, in capitals (not inside math)
   const upperFirst = (s) => s.replace(/^(\s*)(\p{Ll})/u, (m0, sp0, ch) => sp0 + ch.toUpperCase());
   // multi: the figure draws the multivalued function (a landscape with All sheets), so the display writes it as one
-  // (Ln in Russian, GLOSSARY 2.2; English unchanged), as the inline map of the same caption does (v16.1 user-5)
+  // (Ln in Russian, GLOSSARY 2.2; English unchanged), as the inline map of the same caption does
   function displayF(cap, c, maxW = 300, pt = 10, multi = false) {
     const iC = cap.indexOf(CHAINTOK);
     if (iC >= 0) {
@@ -127,12 +127,12 @@
   // the homotopy as a sentence (export review r3, editor-13): "Here H_t, 0 <= t <= m, deforms the identity (t = 0)
   // into F (t = m) and runs the steps in turn (...): for f_1, ...; for f_2, ..." rather than "... along the homotopy
   // H_t, ..., that runs the steps in turn"; CHAINTOK ends it when the chain is displayed. Called inside using(lang)
-  // (v16.1, verify-2) " Here w_d = ...": a bracket's start written with the stage of a d/dz in its pre, defined in z
+  // " Here w_d = ...": a bracket's start written with the stage of a d/dz in its pre, defined in z
   const wDefS = (d) => (d && d.wdef ? $t(' Here $%{w}$.', { w: d.wdef }) : '');
   function homSentence(c, map) {
     if (!c.hom) return '';
     const m = tnum(c.hom.m), tail = c.chain && c.raw ? CHAINTOK : '';
-    // (v16, SPEC 8: a bracket with a pre or a post: H_t = Q o G_t o P, and G_t is the bracketed part)
+    // (SPEC 8: a bracket with a pre or a post: H_t = Q o G_t o P, and G_t is the bracketed part)
     const d = A.defo ? A.defo() : null;
     if (d && d.qp && c.hom.inner) {
       const hom = (c.hom.inner.length > 360 && c.hom.innerShort ? c.hom.innerShort.replace(/:\s*$/, '') : c.hom.inner) + tail;
@@ -153,7 +153,7 @@
     return $t(' Here $H_t$ deforms the identity ($t=0$) into %{map} ($t=%{m}$) along %{hom}.', { map, m, hom: c.hom.tex + tail });
   }
   // the landscape's clause on its sheets (app's sheetsClause, 'tex'): the window k and H, F as math, then the sentence on
-  // the deformed pieces' paths on a sheet (v16.1 review math-2), if any
+  // the deformed pieces' paths on a sheet, if any
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
   // the thread of a steps-view filmstrip, z → w₁ → w₂ with each step's name over its arrow, in TeX
   const svChain = (frames) => `$${frames.map((f) => (f.f ? `\\xrightarrow{${f.f}} ${f.name}` : f.name)).join(' ')}$`;
@@ -195,7 +195,7 @@
         : x.hiddenIn && x.hiddenIn.length ? $t(' The %{mark} is the image of the point %{p}; in %{frames} it is on the far side of the sphere.', { mark: marks[x.mk], p: hp(x), frames: joinL(x.hiddenIn.map(fl)) })
           : $t(' The %{mark} is the image of the point %{p}.', { mark: marks[x.mk], p: hp(x) }))).join('');
       // (verify-editor-13) the sentence that names F is short, so its display follows it at once ("..., where \[ F(z) = ... \]")
-      const dq = A.defo ? A.defo() : null, z0 = dq && dq.qp ? `H_0(z)=${dq.qpz}` : 'z';   // (v16: a bracket's start)
+      const dq = A.defo ? A.defo() : null, z0 = dq && dq.qp ? `H_0(z)=${dq.qpz}` : 'z';   // (a bracket's start)
       if (fi.globePaths) return (dq && dq.qp ? $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over the boundary of its image at $t=0$ (gray).', { QP: dq.qp, list, map, m: tnum(fi.m), F: c.Fname }) + wDefS(dq) : $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).', { list, map, m: tnum(fi.m), F: c.Fname })) + (plainN.length ? (plainN.length === 1 ? $t(' The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { p: plainN[0], F: c.Fname, z0 }) : plainN.length <= 3 ? $t(' Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { list: joinL(plainN), F: c.Fname, z0 }) : $t(' Curves are the paths $t\\mapsto H_t(z)$ of %{n} points, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { n: String(plainN.length), F: c.Fname, z0 })) + marksS : '') + markS + hidden + dashed;
       if (fi.film === 'globe') return (dq && dq.qp ? $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { QP: dq.qp, map, m: tnum(fi.m), ts, list }) + wDefS(dq) : $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { map, m: tnum(fi.m), ts, list })) + (named.length === 1 ? $t(" Solid: the path $t\\mapsto H_t(z)$ of the point %{p} up to the frame's $t$; dotted: the rest of the path; gray: the boundary at $t=0$.", { p: named[0] }) : named.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the points %{list} up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.", { list: joinL(named) }) : $t(' Gray: the boundary at $t=0$.')) + markS + hidden + dashed;
       if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, at %{ts}: the color shows $\\arg H_t$ (key at right).', { ts }) + (fi.outline ? $t(' Black: the boundary of $X$.') : '') + along;
@@ -203,7 +203,7 @@
         const ht = { log: '\\log|H_t|', abs: '|H_t|', re: '\\operatorname{Re} H_t', im: '\\operatorname{Im} H_t' }[c.height || 'log'];
         let s2 = $t('Landscapes of $H_t$%{over} at %{ts}: the height is $%{ht}$', { over: fi.box ? $t(' over $%{box}$', { box: winTex(fi.box) }) : '', ts, ht });
         if (c.phase && o.ink !== 'bw') s2 += $t(' and the color shows $\\arg %{f}$', { f: 'H_t' });
-        // (v16.1 review user-1: the frames draw H_t on F's sheets, as the single frame; its clause says so)
+        // (the frames draw H_t on F's sheets, as the single frame; its clause says so)
         const shf = c.sheets && c.sheets.hom && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
         s2 += shf ? sheetsTex(shf) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
         return s2 + along;
@@ -251,11 +251,11 @@
     if (view === 'land') {
       const f = hm ? 'H_t' : c.Fname, ht = { log: `\\log|${f}|`, abs: `|${f}|`, re: `\\operatorname{Re} ${f}`, im: `\\operatorname{Im} ${f}` }[c.height || 'log'];
       // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2, review math-8; c.sheets: what the landscape
-      // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming: v16.1 user-5)
+      // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming)
       const shc = c.sheets && (hm || !c.sheets.hom) && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
       let s = $t('Landscape of %{map}%{over}: the height is $%{ht}$', { map: hm ? '$H_t$' : shc && I18 ? I18.notation(map, undefined, { multi: true }) : map, over: body.info.box ? $t(' over $%{box}$', { box: winTex(body.info.box) }) : '', ht });
       if (c.phase && o.ink !== 'bw') s += $t(' and the color shows $\\arg %{f}$', { f });
-      // (while deforming, c.sheets.hom: the sheets of H_t that become those of F, notes/v16-user5/SHEETS-DESIGN.md; the
+      // (while deforming, c.sheets.hom: the sheets of H_t that become those of F, SHEETS-DESIGN.md in notes/; the
       // window k and H, F are math)
       s += shc ? sheetsTex(shc) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
       return s + homDef();
@@ -311,7 +311,7 @@
     return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat })) : $t('The image under %{map}.%{pat}', { map, pat });
   }
   // a Russian caption as LaTeX: Russian notation (tg, sh, ln), no-break spaces (GLOSSARY 3.6) written as ~
-  // ([v16.4 review user-2] first the closing comma a shape list left open (U+2063, app.js pcTidy): a comma before more
+  // (first the closing comma a shape list left open (U+2063, app.js pcTidy): a comma before more
   // words, nothing before punctuation, an opening bracket, the English "and" or the end)
   const pcOut = (tex) => (typeof tex === 'string' && tex.includes('\u2063') ? tex.replace(/\u2063(?=\s*(?:[,.;:()]|and\b|$))/g, '').replace(/\u2063/g, ',') : tex);
   const polish = (tex, lang) => { tex = pcOut(tex); return lang === 'ru' && I18 && tex ? I18.nbspTeX(I18.nbsp(I18.notation(tex, 'ru'), 'ru')).replace(/—/g, '---') : tex; };
@@ -345,7 +345,7 @@
   const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // (export review r3, editor-2) the default file name and \label: the scene, the view and the kind of figure, so two
   // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
-  // name stays the same for the same figure, so a new export replaces only its own file
+  // name stays the same for the same figure, so a new export overwrites only its own file
   function defaultName(view, deform, fmt) {
     // (the app's scene name ends with the tag of the view on screen: the base is the scene alone)
     const sn = (A && A.sceneName()) || 'figure', suf = { phase: '-phase', land: '-landscape', morph: '-deformation' }[A.viewKind()];
