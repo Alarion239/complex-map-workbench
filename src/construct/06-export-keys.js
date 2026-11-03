@@ -15,7 +15,7 @@
   // a row name; a line bound at both ends by its points
   function phrase(s, texOf) {
     if (!s || !(s.def || s.at)) return null;
-    const d = s.def, plane = isT(s) || s._capT ? 1 : 0;
+    const d = s.def, plane = isT(s) || s._capT ? 'T' : planeOf(s);
     const val = (r) => { try { const res = Constr.resolve(S(), r, plane, env()); return res && res.z ? res.z : null; } catch (e) { return null; } };
     const R = (r) => {
       if (!r) return '?';

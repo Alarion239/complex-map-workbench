@@ -668,6 +668,7 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `surface-changed` | `{ s: 'plane' \| 'sphere' \| 'land' }` | the user chooses a surface (the choice, the phone's button, its Sphere key) |
 | `scope-changed` | `{ s: 'all' \| 'in' }` | the user chooses Everywhere or Inside regions |
 | `step-selected` | `{ k }` | a step is selected for the Inspector (a click on a card, or on a function chip of the steps view's thread) |
+| `step-moved` | `{ k, from }` | a step is moved along the chain (`moveStep`: the card's or chip's ⋯ menu, the keyboard); `k` is its new number, `from` the old one. An example's Try line (`tryDoneSv`) waits for it |
 | `probe` | `{ pane: 'L', stage, past, z, w, mod }` | (the steps view's own, besides Y's) the pointer reads a point of the shown plane; `w` and `mod` are the map into the colour plane there, undefined past it (`past`: the plane is after the colour plane) |
 
 `sheet-changed` is also sent when a sheet is typed into a step's field (the Inspector's or a card's), not only through ‹ ›.

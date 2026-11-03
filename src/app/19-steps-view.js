@@ -43,13 +43,27 @@
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
   // the map from plane k into the colour plane T, by name (#435): F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
-  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html' or 'text'
+  // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html', 'text' or 'tex'
   function svMapName(fmt, k = svStage(), T = svT()) {
-    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html';
+    const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html', tex = fmt === 'tex';
     if (!ss.length) return null;
     if (k === 0 && T === P[P.length - 1]) return h5 ? '<i>F</i>' : 'F';
-    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : `f${sub(s)}`), q = ss.slice().reverse();
-    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}∘${f(q[1])}` : `${f(q[0])}∘⋯∘${f(q[q.length - 1])}`;
+    const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : tex ? `f_{${s}}` : `f${sub(s)}`), q = ss.slice().reverse();
+    const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
+    return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
+  }
+  // the longest step formula, in TeX characters, that the export's caption shows in its display: a longer one would
+  // not fit the display's one line, so the caption names the map without it
+  const SV_CAP_TEX_MAX = 240;
+  // the export's caption parts for the shown plane: its variable; the map that colours it (into the colour plane)
+  // or, past the colour plane, the map that carries the shapes to it from z, by name; that map's formula when it is
+  // one step and no longer than SV_CAP_TEX_MAX
+  function svFigParts() {
+    const k = svStage(), T = svT(), coloured = svColoured(k), [a, b] = coloured ? [k, T] : [0, k];
+    const ss = svPlanes().filter((s) => s > a && s <= b), st = ss.length === 1 ? built[ss[0] - 1] : null;
+    const lvar = k === 0 ? 'z' : `w_{${k}}`, arg = a === 0 ? 'z' : `w_{${a}}`;
+    const raw = st && !st.error ? st.tex({ s: arg, p: 4 }).s : null;
+    return { k, coloured, lvar, arg, name: svMapName('tex', a, b), raw: raw && raw.length < SV_CAP_TEX_MAX ? raw : null };
   }
   // that map applied to the plane's own variable, "f₂(w₁)"; just the variable when k is T
   const svMapCall = (fmt, k = svStage()) => { const m = svMapName(fmt, k), v = fmt === 'html' ? wHtml(k) : svName(k); return m ? (fmt === 'html' ? `${m}<span class="rm">(</span>${v}<span class="rm">)</span>` : `${m}(${v})`) : v; };
@@ -135,8 +149,10 @@
     if ((ext === svMain() || ext === SV.main) && !force) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
-    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'), o = Views.svOf(S.view, areas);
+    const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
+    const o = Views.svOf(S.view, areas, S.steps.length === 0);
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
+    if (SV.els) setSeg(SV.els.scope, SV.scope);   // (the head's switch shows what the view opened on)
     SV.i = 0; SV.g.set(0);
   }
   // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
@@ -276,8 +292,9 @@
     const x0 = Math.min(Math.round(from), to), x1 = Math.max(Math.round(from), to);
     return x1 - x0 > 1 && svAllOk(x0, x1) ? { x0, x1 } : null;
   }
-  function svBetween() {
-    const P = svPlanes(), x = SV.g.x, span = SV.span;
+  // the picture at the thread's place x (default where the thread is)
+  function svBetween(x = SV.g.x) {
+    const P = svPlanes(), span = SV.span;
     if (span && span.x1 < P.length && x > span.x0 + 1e-6 && x < span.x1 - 1e-6 && svAllOk(span.x0, span.x1)) {
       const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), map = { mode: 3, a, b, t: u };
       // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed)
@@ -293,6 +310,28 @@
     const hom = still || jump ? null : homF(b, u);
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false };
+  }
+  // The steps view's deformation source for the paths t -> H_t(z) (classicSource's fields): the glide's run of planes
+  // [lo, hi] (thread places), from where it started to where it goes (play: from its start; a glide: both ends; parked
+  // or dragged between two planes: those two), with T the thread's place in it, so a glide over several planes keeps one
+  // selection; H_T the picture at thread place lo + T, which starts at plane lo's image of z. Null on a plane at rest,
+  // with Paths off, or with a d/dz step in the run (it has no path, as the classic).
+  function svPathsSource() {
+    if (S.morphPaths === false || !SV.on) return null;
+    const P = svPlanes(), x = SV.g.x, n = P.length - 1;
+    let lo, hi;
+    if (SV.play && !SV.play.slide) { lo = Math.floor(Math.min(SV.play.from, SV.play.to) + 1e-9); hi = Math.ceil(Math.max(SV.play.from, SV.play.to) - 1e-9); }
+    else if (SV.anim) { lo = Math.floor(Math.min(SV.anim.from, SV.anim.to) + 1e-9); hi = Math.ceil(Math.max(SV.anim.from, SV.anim.to) - 1e-9); }
+    else { lo = Math.floor(x + 1e-9); hi = lo + 1; }
+    lo = Math.max(0, lo); hi = Math.min(n, hi);
+    if (!(hi > lo) || (x - lo < 1e-6 && !SV.anim && !SV.play) || derivIn(P[lo], P[hi])) return null;
+    const start = P[lo];
+    return {
+      Fat: (T) => svBetween(lo + T).F, T: Math.max(0, Math.min(hi - lo, x - lo)), Tend: hi - lo, seq: hi - lo > 1,
+      startId: start === 0,
+      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P]),
+      alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
+    };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
   // The colour carried by the points: a grid over plane s's window (the camera's, half again as wide), each vertex
@@ -764,7 +803,12 @@
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
+    // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
+    const paths = svPathsSource();
+    if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
+    // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
+    if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
     if (rest) drawRulers(pane, 'L');
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
@@ -859,8 +903,13 @@
     c.clearRect(0, 0, cv.width, cv.height);
     return cv;
   }
-  // (only areas bound the colour: with none drawn, a curve or a point alone, it shows everywhere)
-  function svMaskOn() { return SV.on && SV.scope === 'in' && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area'); }
+  // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is
+  // neutral)
+  function svMaskOn() { return SV.on && SV.scope === 'in'; }
+  // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
+  function svNoRegions() {
+    return SV.scope === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
+  }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
   // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
   // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
@@ -898,6 +947,17 @@
   }
   function svLoopBtn(cls, tip) {
     return h('button', { type: 'button', class: cls, 'aria-pressed': String(SV.loop), 'data-tip': tip || null, onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
+  }
+  // the Paths toggle (the classic deformation's S.morphPaths, setMorphPaths): the paths t -> H_t(z) of a glide and of a
+  // parked view (svPathsSource); key P. Off, with its reason, when a d/dz step is in the chain (svPlaySync)
+  // (inPop: the button of the Playback popover, whose row is labelled Paths, says On or Off; the phone sheet's, a toggle
+  // like its Loop, is labelled Paths itself)
+  function svPathsBtn(cls, inPop) {
+    const label = inPop ? (S.morphPaths !== false ? $t('On') : $t('Off')) : $t('Paths');
+    return h('button', {
+      type: 'button', class: cls, 'aria-pressed': String(S.morphPaths !== false),
+      onclick: () => { setMorphPaths(S.morphPaths === false); svSync(); requestRender('L'); },
+    }, label);
   }
   // the order of a glide across several planes (S.homAll): plane by plane, or all at once as one homotopy of the whole range
   function svOrderSel(title) {
@@ -970,8 +1030,9 @@
     const order = svOrderSel($t('Glide order'));
     // (the order lives in a small dialog at the strip's end, opened by its ⋯: Speed and Loop stay on the strip; a phone has the Playback sheet)
     const orderWhy = h('p', { class: 'sv-playpop-why' });
+    const paths = svPathsBtn('btn small sv-paths', true);
     const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
-      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy);
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy, h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths));
     pop.hidden = true;
     const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
@@ -1006,7 +1067,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, order, orderWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1020,7 +1081,7 @@
   // a step shown alone has a "Whole chain" chip at its left)
   function svBuildTrack() {
     const E = SV.els, P = svPlanes(), T = svT(), al = svAloneOk();
-    const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + document.documentElement.lang;
+    const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + repeatBlocks().map((r) => `${r.a}-${r.b}x${r.by || r.n}`).join(',') + '|' + document.documentElement.lang;
     if (sig === E.sig) return;
     E.sig = sig;
     // (the thread is drawn again from the chain: a control with the focus on it, a chip, its ⋯, a plane's node or Whole chain, is
@@ -1067,7 +1128,8 @@
     svBuildTrack();
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
-    const sig = [k, T, SV.scope, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0, SV.play ? 1 : 0, SV.loop ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
+    const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,
+      SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
@@ -1104,7 +1166,12 @@
       const none = P.length < 2;
       E.slider.setAttribute('tabindex', none ? '-1' : '0'); E.slider.setAttribute('aria-disabled', String(none));
       E.strip.querySelector('.sv-speed').disabled = none;
-      E.empty.hidden = !none;
+      const msg = [
+        none ? $t('Add a function to send z through it.') : '',
+        !none && svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : '',
+      ].filter(Boolean).join(' ');
+      if (E.empty.textContent !== msg) E.empty.textContent = msg;
+      E.empty.hidden = !msg;
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
     // (and, when the thread is longer than its rail (#497), the rail's width and the thread's, and the nodes' height (the
@@ -1172,6 +1239,25 @@
   // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
   // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
   // or a new title, button or surface), and never while the view moves (#320)
+  // svFitHead's chip fit: the head is one row while it is under SV_HEAD_ROW px tall (40 px minimum, with 4 px for
+  // the border and rounding). Short of room, a chip's name gives up its width in SV_NAME_STEP px steps (a few letters
+  // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
+  // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
+  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  function svChipBare(chip, bare) {
+    const t = chip.querySelector('.mc-t');
+    const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
+    chip.classList.toggle('mc-bare', bare);
+    if (!t || !act) return;
+    if (act.dataset.name === undefined) act.dataset.name = act.getAttribute('aria-label') || '';
+    if (bare) {
+      chip.setAttribute('data-tip', t.textContent);
+      act.setAttribute('aria-label', `${act.dataset.name}: ${t.textContent}`);
+    } else {
+      chip.removeAttribute('data-tip');
+      act.setAttribute('aria-label', act.dataset.name);
+    }
+  }
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
@@ -1180,10 +1266,22 @@
     // once when the glide settles; rework on #473)
     if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
-    const key = [ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML, E.cp.textContent, E.surf1.textContent, I18N.lang].join('|');
+    const mc = $('modeChips');
+    const key = [
+      ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
+      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '',
+    ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
     const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
+    if (mc) {
+      for (const c of mc.querySelectorAll('.mode-chip')) {
+        svChipBare(c, false);
+        c.classList.remove('mc-nokey');
+        const t = /** @type {HTMLElement | null} */ (c.querySelector('.mc-t'));
+        if (t) t.style.removeProperty('max-width');
+      }
+    }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
     E.bar.classList.remove('sv-c3', 'sv-c4');
@@ -1213,6 +1311,23 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
+    // chip: a chip's name shrinks, then goes, one chip after another)
+    if (mc && !mc.hidden) {
+      const wraps = () => head.getBoundingClientRect().height > SV_HEAD_ROW;
+      const chips = /** @type {NodeListOf<HTMLElement>} */ (mc.querySelectorAll('.mode-chip'));
+      for (const c of chips) {
+        const t = /** @type {HTMLElement | null} */ (c.querySelector('.mc-t'));
+        if (!t || !wraps()) continue;
+        let w = Math.ceil(t.getBoundingClientRect().width);
+        // (the Listening chip's name is its whole label: it goes at once, and Stop stays)
+        if (c.dataset.mode !== 'listen') {
+          while (wraps() && w > SV_NAME_STEP) { w -= SV_NAME_STEP; t.style.maxWidth = w + 'px'; }
+        }
+        if (wraps()) svChipBare(c, true);
+        if (wraps()) c.classList.add('mc-nokey');   // (the Esc hint goes last; the key still works)
+      }
+    }
     // (the strip in the head fits its controls to the room the bar now leaves)
     if (typeof layoutFoot === 'function') layoutFoot(true);
   }
@@ -1418,6 +1533,8 @@
       }
       // (K or M plays and pauses; Esc pauses, or else clears the range, #438)
       if ((e.key === 'k' || e.key === 'K' || e.key === 'm' || e.key === 'M') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
+      // (P: the paths, as in the classic deformation)
+      if ((e.key === 'p' || e.key === 'P') && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
@@ -1615,6 +1732,10 @@
     E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
+    // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
+    const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]);
+    for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); if (b === E.paths) b.textContent = S.morphPaths !== false && !noPaths ? $t('On') : $t('Off');
+    }
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
@@ -1694,7 +1815,7 @@
     if (settle) { if (A.slide) { svArrive(); } else { svLetGo(); if (svParked()) svApply(); } }
     svSync();
   }
-  // a phone's Playback sheet (a long press on ▶): the speed and the loop
+  // a phone's Playback sheet (a long press on ▶): the speed, the loop and the paths
   function svSheet() {
     const E = SV.els;
     if (!E.sheet) {
@@ -1702,9 +1823,10 @@
       const sel = svSpeedSel($t('Speed'));
       const ord = svOrderSel($t('Glide order'));
       const lp = svLoopBtn('btn sv-loop');
+      const pa = svPathsBtn('btn sv-paths');
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
-        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), h('div', { class: 'sv-sheet-r' }, lp));
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), h('div', { class: 'sv-sheet-r' }, lp), h('div', { class: 'sv-sheet-r' }, pa));
       sh.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); return; }
         // (modal: Tab stays in the sheet)
@@ -1714,7 +1836,7 @@
       });
       scrim.hidden = true;
       document.body.append(scrim, sh);
-      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp });
+      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp, sheetPaths: pa });
     }
     E.sheetSpeed.value = SV.speed;
     E.sheet.hidden = false; E.scrim.hidden = false;
@@ -2001,7 +2123,11 @@
     `<i>f</i><sub>${k}</sub>`, name);
     const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
-    const wrap = h('span', { class: 'sv-fwrap' + (off ? ' off' : '') }, chip, more);
+    // (a repeated block: its chips are marked, and the last one carries the count, ×N)
+    const rb = repeatOf(k);
+    const badge = rb && rb.b === k ? h('span', { class: 'sv-rep', 'aria-hidden': 'true' }, `×${rb.by ? Params.display(rb.by) : rb.n}`) : null;
+    if (rb) chip.setAttribute('aria-label', `${chip.getAttribute('aria-label')}, ${rb.a === rb.b ? $t('Repeat f{k}: times', { k: sub(rb.b) }) : $t('Repeat f{a}–f{b}: times', { a: sub(rb.a), b: sub(rb.b) })} ${rb.by ? Params.display(rb.by) : rb.n}`);
+    const wrap = h('span', { class: 'sv-fwrap' + (off ? ' off' : '') + (rb ? ' rep' + (rb.a === k ? ' rep-a' : '') : '') }, chip, badge, more);
     wrap.addEventListener('keydown', (e) => {
       const ed = stepEditKey(e);
       if (ed && ed.move) {
