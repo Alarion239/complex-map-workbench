@@ -92,7 +92,7 @@
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
-    if (SV.on) mfDrawn = null;
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
@@ -778,6 +778,18 @@
     const p = at(t1);
     return Math.abs(p[2] - z0) < 1e-6 * Math.max(1, Math.abs(z0)) + 1e-9 ? toZ(p) : null;
   }
+  // the deformation paths' projection on a globe frame info ({MVP, eye}): a point w of the plane lifted onto the
+  // sphere, just above it, in the pane's CSS px; null for a non-finite w or on the far side (the normal more than
+  // acos 0.02 from the camera)
+  function globePathP(pane, info) {
+    return (w) => {
+      if (!w || !CX.isFin(w)) return null;
+      const p = liftC(w.re, w.im), tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]];
+      const l = Math.hypot(...tv) || 1;
+      if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / l <= 0.02) return null;
+      return project(pane, info.MVP, p.map((v) => v * 1.01));
+    };
+  }
   function project(pane, MVP, p) {
     const c = GLR.M4.apply(MVP, p);
     if (c[3] <= 1e-6) return null;
@@ -1151,8 +1163,8 @@
     // the deformation's live paths t -> H_t(z) on the merged globe, over the sphere's front side
     if (hom && imageMode && role === 'R' && !figMode && S.morphPaths !== false && !morphHasDeriv()) {
       try {
-        const Pg = (w) => { if (!w || !CX.isFin(w)) return null; const p = lift(w.re, w.im); return facing(p) > 0.02 ? project(pane, info.MVP, p.map((v) => v * 1.01)) : null; };
-        drawMorphPathsX(pane, morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }), hom.imageF || hom.F, Pg);
+        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye });
+        drawMorphPathsX(pane, sel, hom.imageF || hom.F, globePathP(pane, info));
       } catch (e) { console.error('deformation paths', e); }
     }
     if (labels.length) placeLabels(ctx, pane, labels);
