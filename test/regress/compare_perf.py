@@ -19,7 +19,12 @@ the same run, so a check that is false there too, or a limit the reference is ov
 than 1.25 x it), is not this change's: BOTH, reported and not failed. REPORT_ONLY lists metrics whose kind is
 overridden to info (reported, never gated; #413). --tol-scale S (noisy machines: GitHub's virtual
 ones) widens the timing and GPU-memory kinds' allowance over the base S-fold, and the margin of IMPROVED with it.
-Exit code: 0 when nothing failed, 1 otherwise, 2 on a usage error.
+A loaded machine measures nothing worth gating (run.js records the units that started busy: meta.busyUnits, one
+entry per unit with the 1-minute load). A FAIL of such a unit is BUSY: reported, never counted. When the results merge
+several passes (perf/merge_runs.py records meta.passBusy and meta.passUnits), a unit that started busy in any pass
+counts as red only with at least MIN_CLEAN passes that started quiet; with fewer, its FAIL is BUSY too.
+Exit code: 0 when nothing failed, 1 when a metric failed, 2 on a usage error, 3 when nothing counted as failed but
+some FAIL was BUSY (invalid: machine busy: no verdict either way; run again on a quiet machine).
 
 Entry point for test/regress/compare.py: main(argv) -> int.
 """
@@ -34,6 +39,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEF_BASELINE = os.path.join(HERE, 'perf', 'baseline.json')
 DEF_RESULTS = os.path.join(HERE, 'perf', 'results', 'latest.json')
 KIB = 1024
+# the passes a unit that started busy in some pass needs, that started quiet, before its FAIL counts
+MIN_CLEAN = 2
 
 # kind -> (direction, rule text, limit(base, metric) -> worst acceptable value, better(base, new) -> improved?)
 #   lower is better: fail if new > limit;  higher is better: fail if new < limit
@@ -273,6 +280,25 @@ def _accepted():
         return {}
 
 
+def _busy_passes(results):
+    """The passes behind `results`: [(units measured or None for all, units that started busy)]. A merged file carries
+    meta.passUnits / meta.passBusy (one list per pass); a single pass carries its own meta.busyUnits."""
+    meta = results.get('meta', {})
+    if meta.get('passBusy'):
+        units = meta.get('passUnits') or [None] * len(meta['passBusy'])
+        return [(None if u is None else set(u), set(b)) for u, b in zip(units, meta['passBusy'], strict=True)]
+    return [(None, {b.get('unit') for b in (meta.get('busyUnits') or []) if isinstance(b, dict)})]
+
+
+def _busy_verdict(unit, passes):
+    """None when `unit` never started busy (its FAIL counts as before); else (clean, measured, load note): a FAIL
+    counts only with clean >= MIN_CLEAN."""
+    if not unit or not any(unit in busy for _, busy in passes):
+        return None
+    mine = [(u, b) for u, b in passes if u is None or unit in u]
+    return sum(1 for _, b in mine if unit not in b), len(mine)
+
+
 def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0, table=False):
     out = out or sys.stdout
     bm, rm = baseline.get('metrics', {}), results.get('metrics', {})
@@ -281,6 +307,8 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
     opt_in_skipped = set(rmeta.get('optInSkipped') or [])
     rows = []
     acc = _accepted()
+    passes = _busy_passes(results)
+    loads = {b.get('unit'): b.get('load') for b in (rmeta.get('busyUnits') or []) if isinstance(b, dict)}
     for name in sorted(set(bm) | set(rm)):
         status, text = judge(name, bm.get(name), rm.get(name), partial, opt_in_skipped, paired, scale)
         if status == 'FAIL' and name in acc:
@@ -288,6 +316,13 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
             if _num(nv) and nv <= acc[name].get('max', -math.inf):
                 status = 'ACCEPTED'
                 text = text + f"; accepted exception (max {acc[name]['max']}, {acc[name].get('date', '')}): {acc[name].get('reason', '')}"
+        unit_of = (rm.get(name) or bm.get(name) or {}).get('unit_id')
+        if status == 'FAIL':
+            bv = _busy_verdict(unit_of, passes)
+            if bv is not None and bv[0] < MIN_CLEAN:
+                status = 'BUSY'
+                at = f" (1-minute load {loads[unit_of]} > {rmeta.get('loadMax')})" if loads.get(unit_of) is not None else ''
+                text += f"; the unit started on a busy machine{at}, and only {bv[0]} of its {bv[1]} pass(es) started quiet ({MIN_CLEAN} needed): not counted"
         rows.append({'metric': name, 'status': status, 'text': text, 'kind': (bm.get(name) or rm.get(name) or {}).get('kind'),
                      'base': (bm.get(name) or {}).get('value'), 'new': (rm.get(name) or {}).get('value'),
                      'name': (bm.get(name) or rm.get(name) or {}).get('name'),
@@ -320,10 +355,10 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
         warn.append(f"the run reported {len(results['errors'])} error(s): {json.dumps(results['errors'])[:400]}")
     for w in warn:
         p('  WARNING: ' + w)
-    order = {'FAIL': 0, 'ACCEPTED': 1, 'BOTH': 2, 'IMPROVED': 3, 'NEW': 4, 'SKIP': 5, 'INFO': 6, 'PASS': 7}
+    order = {'FAIL': 0, 'BUSY': 0.5, 'ACCEPTED': 1, 'BOTH': 2, 'IMPROVED': 3, 'NEW': 4, 'SKIP': 5, 'INFO': 6, 'PASS': 7}
     # NEW metrics (not in the baseline yet): one line per unit, every metric with --all (a NEW check or limit that
     # fails its absolute rule is a FAIL row, listed one by one)
-    shown = [r for r in rows if r['status'] in ('FAIL', 'ACCEPTED', 'BOTH', 'IMPROVED') or show_all]
+    shown = [r for r in rows if r['status'] in ('FAIL', 'BUSY', 'ACCEPTED', 'BOTH', 'IMPROVED') or show_all]
     shown.sort(key=lambda r: (order[r['status']], r['metric']))
     width = max([len(r['metric']) for r in shown] + [10])
     for r in shown:
@@ -350,8 +385,8 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
             n = '-' if r['metric'] not in rm else fmt(r['new'], r['unit'])
             p(f"  {r['status']:<8} {r['metric']:<{tw}}  {b} -> {n}")
     p('PERF  ' + ', '.join(f'{k}: {counts[k]}' for k in sorted(counts, key=lambda k: order.get(k, 9))) +
-      ('  ->  FAIL' if counts.get('FAIL') else '  ->  PASS'))
-    return {'counts': counts, 'rows': rows, 'warnings': warn, 'failed': counts.get('FAIL', 0)}
+      ('  ->  FAIL' if counts.get('FAIL') else '  ->  INVALID: machine busy' if counts.get('BUSY') else '  ->  PASS'))
+    return {'counts': counts, 'rows': rows, 'warnings': warn, 'failed': counts.get('FAIL', 0), 'busy': counts.get('BUSY', 0)}
 
 
 def main(argv=None):
@@ -363,6 +398,7 @@ def main(argv=None):
     ap.add_argument('--paired', action='store_true', help='the baseline is the reference measured in the same run on the same machine (CI): checks and limits that fail there too are BOTH, not FAIL')
     ap.add_argument('--tol-scale', type=float, default=1.0, metavar='S', help="widen the timing and GPU-memory kinds' allowance over the base S-fold (noisy machines)")
     ap.add_argument('--table', action='store_true', help='also print every metric, one line each: reference -> this change and its verdict')
+    ap.add_argument('--busy-units', metavar='FILE', help='write the ids of the units whose FAIL was BUSY (not counted) to FILE (one per line): they need another pass')
     ap.add_argument('--failing-units', metavar='FILE', help='write the ids of the units with failing metrics to FILE (one per line; used by perf/run.sh to re-run them)')
     a = ap.parse_args(argv)
     for f in (a.baseline, a.results):
@@ -383,10 +419,15 @@ def main(argv=None):
             units.add(m.get('unit_id') or '*')
         with open(a.failing_units, 'w') as fh:
             fh.write(''.join(u + '\n' for u in sorted(units)))
+    if a.busy_units:
+        units = {(results['metrics'].get(r['metric']) or baseline['metrics'].get(r['metric']) or {}).get('unit_id') or '*'
+                 for r in rep['rows'] if r['status'] == 'BUSY'}
+        with open(a.busy_units, 'w') as fh:
+            fh.write(''.join(u + '\n' for u in sorted(units)))
     if a.json:
         with open(a.json, 'w') as fh:
             json.dump(rep, fh, indent=1)
-    return 1 if rep['failed'] else 0
+    return 1 if rep['failed'] else 3 if rep['busy'] else 0
 
 
 if __name__ == '__main__':
