@@ -1,8 +1,8 @@
-// v15.1 acceptance (review-v15-verify): verify-3 (the degenerate Möbius note), verify-7 (a Cyrillic letter in a number's
+// Acceptance: verify-3 (the degenerate Möbius note), verify-7 (a Cyrillic letter in a number's
 // value field), verify-8 (the language switch keeps a selection other than the step shown alone), verify-9 (the F
 // list's fractions in display style). verify-1, verify-4 and verify-6 are in v15_desktop_cmd.js, verify-10 in
 // tour_cmd.js. Run: test/<you>_cdp/q.sh test/v151_cmd.js
-// v15.1 probe: verify-1 (t labels while playing), verify-3 (degenerate Möbius note), verify-7 (Cyrillic in a value
+// Probe: verify-1 (t labels while playing), verify-3 (degenerate Möbius note), verify-7 (Cyrillic in a value
 // field), verify-8 (language switch with Show alone on another step), verify-9 (the F list's fractions).
 const P = { port: (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1], tag: 'v151' }, base = `http://localhost:${P.port}/test.html`, out = { port: P.port };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };

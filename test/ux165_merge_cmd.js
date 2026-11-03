@@ -1,4 +1,4 @@
-// v16.5 wave 1 merge (notes/ux-build/W1-MERGE.md): one look at the merged app in the real browser, as a person would
+// Merge check (notes/ux-build/W1-MERGE.md): one look at the merged app in the real browser, as a person would
 // use it, where the five pieces meet. Laptop 1366 × 768 (mouse) and phone 412 × 860 (Android emulation, touch through
 // Input.dispatchTouchEvent); English and Russian; light and dark. Not a gate: it loads, works, and says nothing in the
 // console; pictures go to <daemon>/shots/w1-merge/.

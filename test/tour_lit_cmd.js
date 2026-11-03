@@ -7,7 +7,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
+  // (and until the step has settled: the strip not busy, the spotlight's morph over)
   for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
 const seen = [];
 logs();   // the console from earlier commands of this daemon is not ours
@@ -22,7 +22,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
       const c = Tour.current(), L = Tour.lit();
       if (!L) return { id: c.chapter + '/' + c.id, none: true };
       const a = L.anchor;
-      // (v16.4: the welcome step draws no shade; every step's strip is a window of the shade: the strip is on top there)
+      // (the welcome step draws no shade; every step's strip is a window of the shade: the strip is on top there)
       const s = document.querySelector('.tour-strip').getBoundingClientRect(), top = document.elementFromPoint(s.left + s.width / 2, s.top + 12);
       const win = !!top && !!top.closest('.tour-strip');
       if (!a) return { id: c.chapter + '/' + c.id, centred: true, noShade: getComputedStyle(document.querySelector('.tour-root svg')).display === 'none', win };

@@ -85,7 +85,7 @@ await tap('#pipeline .add-card');
 for (const c of 'sin') await key(c);
 await settle(); await key('Enter'); await settled({ floor: 1300 });   // (the window the tip's absence is read after)
 ok('UX34 phone: no tip after an add (the focus came back to +)', !(await tipText()), await tipText());
-// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (the add was made from the chain
+// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (the add comes from the chain
 // sheet, a modal layer over the tool row: it is closed first)
 await ev('Phone.close(true); 1');
 await settled({ until: `!document.querySelector('.ph-sheet.open')` });

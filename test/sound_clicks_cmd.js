@@ -1,6 +1,6 @@
 // Sound: the click regression, recorded from the APP (notes/sound/DESIGN.md §7.5 and §7.6). Headless Chrome drives
 // pointer events over the app's planes (synthetic, at 60 and 240 Hz, ±25 % timing jitter, 2 % main-thread stalls) with
-// "Hear the function" on and every cue off (the voice alone; v15.2: on the phase plane the voice is the harp, whose
+// "Hear the function" on and every cue off (the voice alone; on the phase plane the voice is the harp, whose
 // strings are logged as scheduled so the detector tells their own attacks from snaps), records the output after the soft clipper
 // (test/sound_rec.js), and writes each run to <daemon folder>/rec/<engine>_<case>_<rate>.f32 (+ .json). Cases: the slow
 // line, the circle around a zero (z² − 1, Phase), the Height walk on the relief (the Landscape), each at 60 and 240 Hz
@@ -13,7 +13,7 @@
 // (about 25 MB).
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 // The kit's load() opens port 8793. This file loads through PORT, so the saved state, the sound settings and every
-// nav() share one origin. (With the kit's load(), the 360 px step opened 8793, where sound was never turned on.)
+// nav() share one origin. (With the kit's load(), the 360 px step would open 8793, where sound is never turned on.)
 const loadHere = async (ns, st, extra) => {
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});

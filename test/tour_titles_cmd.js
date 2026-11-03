@@ -1,7 +1,7 @@
 // The tour's task titles and the Phase portrait task (issue #34): a step whose title is a task reads as one in Russian
 // (Draw a shape: «Нарисуйте фигуру», Add a function: «Добавьте функцию», where the same words on a button stay in the
 // infinitive), a title that starts in lower case (Cauchy integral) is capitalised in every language, and the Phase
-// portrait step of Views now has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it. It runs in
+// portrait step of Views has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it. It runs in
 // the steps view (ci/suite_views.js: steps({ pin: true })); a step is found by its id, not by its place in the chapter.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];

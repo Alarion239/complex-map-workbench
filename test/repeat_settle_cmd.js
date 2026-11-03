@@ -1,4 +1,4 @@
-// A typed Repeat N applies once typing settles (400 ms); the timer belongs to the step it was typed on: opening an
+// A typed Repeat N applies once typing settles (400 ms); the timer belongs to the step it is typed on: opening an
 // example (or any chain change) inside those 400 ms must not give its N to the new chain (issue: stale settle timer).
 // A command file for a CDP daemon.
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };

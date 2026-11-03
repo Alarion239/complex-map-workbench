@@ -1,4 +1,4 @@
-// v16.5 wave 1, the "plane" piece (notes/ux-build/w1-plane-AS-BUILT.md): every fix of UX09, UX10, UX14, UX15, UX27,
+// The "plane" piece (notes/ux-build/w1-plane-AS-BUILT.md): every fix of UX09, UX10, UX14, UX15, UX27,
 // UX37, UX44, UX48, UX51, UX52, UX55, UX56, UX66, UX67, UX86, UX91, UX92, UX94, UX95, UX100, UX101, UX105, in the real
 // app with real input: the laptop at 1366 × 768 (mouse, keys), the phone at 412 × 860 (Android emulation, real touch
 // events through Input.dispatchTouchEvent), 915 × 412 where it matters; English, and Russian where words changed.
@@ -189,7 +189,7 @@ await section('L48', async () => {
   ok('UX48 3 points: what to pick, the count, the tool, Esc', /^Pick a point or an empty spot · 1 of 3 · .*Esc cancels$/.test(info.c3chip), info.c3chip);
   const a = await W(-1.5, -1.5);
   await click(a[0], a[1]); await settle(120);
-  // (v16.5 merge, V16.5-MERGE.md: v16.3.1's rule kept: a chip that would wrap with its keyboard tail drops it when it
+  // (a chip that would wrap with its keyboard tail drops it when it
   // then fits one line; so the tail, or no tail on one line, as touch_cmd A5 accepts)
   info.c3chip2 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   ok('UX48 after a pick: 2 of 3 and "⌫ undo pick · Esc" (or no tail, on one line)', !!info.c3chip2 && (/^Pick a point or an empty spot · 2 of 3 · .*⌫ undo pick · Esc$/.test(info.c3chip2.text) || (/^Pick a point or an empty spot · 2 of 3 · [^·]+$/.test(info.c3chip2.text) && info.c3chip2.lines === 1)), info.c3chip2);
@@ -319,7 +319,7 @@ await section('L66', async () => {
   const vw = await ev(`__cmwPlaneMenu().view('L')`);
   info.l66 = { cut1: after.steps && after.steps[0] && after.steps[0].params.cut, s0, s1: await sc(), z66, vw };
   ok('UX66 a double-click on empty X never turns the cut', info.l66.cut1 === 180, info.l66);
-  // (issue #13: the double-click centres the view at the point, at the same scale; it replaced v16.5's ×2 zoom)
+  // (the double-click centres the view at the point, at the same scale)
   ok('UX66 it centres the view there, same scale', Math.abs(vw.cx - z66[0]) < 1.5 / vw.s && Math.abs(vw.cy - z66[1]) < 1.5 / vw.s && Math.abs(info.l66.s1 / info.l66.s0 - 1) < 1e-6, info.l66);
 });
 
@@ -361,7 +361,7 @@ await section('L10', async () => {
 await section('P10', async () => {
   await phone();
   await load(NS + 'l', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } }, `localStorage.removeItem('cmw-probe-learned'); sessionStorage.removeItem('cmw-probe-taught')`);
-  // (v16.5 fix regress-4: the line shows once a session, for 8 s; this suite's earlier phone sections were that once,
+  // (the line shows once a session, for 8 s; this suite's earlier phone sections use up that once,
   // so the session's mark is cleared with the learned one, as ux165_fix_cmd's regress-4 clears the session)
   await settle(1000);
   const zRe = /^z /, wRe = /^F\(z\) /;   // (the steps view's readout has no "=")
@@ -458,7 +458,7 @@ await section('L86', async () => {
   ok('UX92/UX95 a strip: "Goes on forever; drawn faded towards the edge."', gId !== fId && n2 === 'Goes on forever; drawn faded towards the edge.', { n2, fId, gId });
   // UX86: the Phase style
   await key('2'); await settle(900);
-  // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
+  // (on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
   // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
   const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
@@ -478,7 +478,7 @@ await section('P51', async () => {
   const u = await W(0, 1.5);
   await tap(u[0] + 30, u[1]);
   info.p51 = await ev(`(() => { const c = document.getElementById('draftChipL'); const x = c.querySelector('.cm-x'), q = x.getBoundingClientRect(); const hit = (dx, dy) => document.elementFromPoint(q.left + q.width / 2 + dx, q.top + q.height / 2 + dy) === x; return { t: (c.querySelector('.cm-t') || {}).textContent, segs: [...c.querySelectorAll('.cm-sb')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width)]), x44: hit(20, 0) && hit(-20, 0) && hit(0, 20) && hit(0, -20) }; })()`);
-  // (v16.5 fix user-6: after the curve, "Pick a point (on {c} or anywhere)"; the tap picks SD's Line 1)
+  // (after the curve, "Pick a point (on {c} or anywhere)"; the tap picks SD's Line 1)
   ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point \(on Line 1 or anywhere\) · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
   // (D3: on a phone the three choices are in the context bar, in words, and the chip drops its copy: one place)
   const barSeg = await ev(`[...document.querySelectorAll('.ph-ctseg > button')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().height)])`);
@@ -500,7 +500,7 @@ await section('P51', async () => {
   await shot('ux94-phone-snap');
   await key('Escape'); await settle(200);
   // UX95: the Display sheet's region section is "Regions" (#35; #363: the regions' display, as Y's head button names it)
-  // ([v17 D5, #82]: a heading of the sheet, no longer the left panel's #secDisplay)
+  // (a heading of the sheet, not the left panel's #secDisplay)
   const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
   ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
 });

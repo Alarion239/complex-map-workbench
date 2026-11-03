@@ -50,7 +50,7 @@ check('a click on the shade keeps the tour', await ev('Tour.isActive()'));
 const stash1 = await st('cmw-tour-stash:t1');
 check('the user\'s work is stashed while the tour runs (its persisted state, this page\'s id)', stash1 && /"page"/.test(stash1) && /"state"/.test(stash1) && !/"mem"/.test(stash1), stash1 && stash1.slice(0, 60));
 check('a heartbeat says this page holds the stash', /"page"/.test((await st('cmw-tour-live:t1')) || ''));
-// a second Tour.init in this page (the app re-initialising) replaces the adapter and leaves the running tour alone
+// a second Tour.init in this page (the app re-initialising) swaps the adapter and leaves the running tour alone
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(k + ':' + n)); Tour.init(window.__tourApi)`);
 g = await ev(`({ restore: __calls.filter((c) => c === 'call:restore').length, active: Tour.isActive() })`);
 check('Tour.init during a tour: no restore, the stash stays', g.restore === 0 && g.active && (await st('cmw-tour-stash:t1')) === stash1, g);
@@ -135,7 +135,7 @@ await ev('Tour.next()'); await settle(1200); await ev('Tour.next()'); await sett
 g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
 check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
 await snap('tour-sphere-dark');
-// the Phase key: Y is lit, and (v16.5 UX20; #247: the check is a toggle in Y's pane head, or behind the head's ⋯ button)
+// the Phase key: Y is lit, and (the check is a toggle in Y's pane head, or behind the head's ⋯ button)
 // the check, or that button, has a ring of its own
 await ev('Tour.next()'); await settle(1600);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); const a = L && L.anchor, el = k && k.getClientRects().length ? k.closest('label') : ob, b = el.getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!el.closest('.pane-head'), y: (Tour.lit() || {}).body }; })()`);
@@ -187,7 +187,7 @@ g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.q
 check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, the integral over the unit circle', g.c && g.c.id === 'cauchy' && g.scene === 'roots' && g.main === 'phase' && g.dc === 'cauchy' && g.lit && g.on === 'Cauchy' && /inside, 0 outside/.test(g.note || '') && !/Select a closed curve/.test(g.note || ''), g);
 await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(300);
 await snap('tour-cauchy-light');
-// (Zeros and poles moved to the chapter Editing the chain, step 3; v15.2: step 4, after A formula in steps)
+// (Zeros and poles are in the chapter Editing the chain, step 3)
 await ev(`Tour.start({ chapter: 'edit', step: 3 })`); await settle(1800);
 check('Zeros and poles: its scene brings the Tiles style back', (await ev('__cmwState().dc')) === 'enhanced');
 // (the zeros and poles are edited in the Inspector: the lit anchor is its parameter block)
@@ -263,7 +263,7 @@ await ev(`Tour.start({ chapter: 'keys' })`); await settle(1200);
 await key('Escape'); await settle(400);
 check('a second Escape ends the tour', !(await ev('Tour.isActive()')));
 
-// 8. the suggestion (v16.5 UX21: one line in the tour's docked slot, never a card over the planes); Not now dismisses
+// 8. the suggestion (one line in the tour's docked slot, never a card over the planes); Not now dismisses  standards-ok: Not now is a button label
 // it for good
 await open('t6');
 await ev('Tour.reset(); Tour.suggest({ delay: 0, force: true })'); await settle(1200);
@@ -287,7 +287,7 @@ for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !
 check('first open: the suggestion shows', (await ev(`!!document.querySelector('.tour-lane')`)) === true);
 check('first open: counted', JSON.parse((await st('cmw-tour')) || '{}').shown === 1);
 check('a first visit says "New here?"', /New here/.test(await ev(`document.querySelector('.tour-sg-title').textContent`)));
-// (v16.5 UX21) working in a pane leaves the line where it is: it covers nothing
+// working in a pane leaves the line where it is: it covers nothing
 await click(500, 400); await settle(300);
 check('working in a pane: the line stays docked', await ev(`(() => { const s = document.querySelector('.tour-lane'); return !!s && s.parentNode.id === 'tourSlot'; })()`));
 await nav(U);
@@ -310,7 +310,7 @@ await open('t7');
 await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 3 }, last: { ch: 'views', i: 1 } }))})`);
 await clickSel('#helpBtn'); await settle(500);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); return m && { items: [...m.querySelectorAll('.mi')].map(x => x.textContent.trim()), focus: m.contains(document.activeElement), role: m.getAttribute('role'), done: m.querySelectorAll('.tour-done').length }; })()`);
-// (nine chapters, with Constructions; v16.4: ten, with Sound)
+// (ten chapters, with Sound)
 check('menu: continue, ten chapters, guide, shortcuts', g && g.items.length === 13 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
 check('menu: focus inside', g && g.focus);
 await snap('tour-menu-light');
@@ -327,7 +327,7 @@ await view(1440, 900, false);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await nav(U + '?ns=t9'); await settle(1800); await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle(1600);
 const d0 = await ev(`document.querySelector('.tour-shade').getAttribute('d')`);
-// (review verify-10: not a fixed 320 ms wait, which failed once under load while the step was still being placed: every
+// (not a fixed 320 ms wait, which can fail under load while the step is still being placed: every
 // frame's shade path is recorded until it has changed and then held for two frames (at most 3 s). A jump shows at
 // most a few distinct paths; a 320 ms tween would show one per frame. The expression awaits the promise itself: in the
 // daemon's REPL mode a returned promise comes back as {})
@@ -361,7 +361,7 @@ check('phone: the strip under the header, full width, 68 px, X 608 px below it, 
 await snap('tour-phone-x');
 await open('t8b', { chapter: 'basics', step: 4 }, 390, 844, true, true);
 g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), d = document.querySelector('#tools > .tool[data-tool="disc"]').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, disc: { l: d.left, t: d.top, r: d.right, b: d.bottom }, stripOnTop: !!(top && top.closest('.tour-strip')) }; })()`);
-// (v16.1, user 5: the Disc key itself, not the whole row; v16.4: the strip clear of the tool row and on top)
+// (the Disc key itself, not the whole row; the strip clear of the tool row and on top)
 check('phone, two lit areas: the Disc key lit whole, the strip clear of the tool row and on top', g.lit && g.lit.holes.length === 2 && ['l', 't', 'r', 'b'].every((k) => Math.abs(g.lit.holes[0][k] - g.disc[k]) <= 1) && (g.bottom <= g.row.t || g.top >= g.row.b) && g.stripOnTop, g);
 await snap('tour-phone-draw-dark');
 // what a phone reads: the panes by their role, touch instead of hover

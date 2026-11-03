@@ -12,7 +12,7 @@
 // Each run also counts glideCuts: a Height move posted inside a swap's 0.15 s glide that ends before the glide does
 // (expect 0 in every run; review snddef-5: a fresh start cut the glide at the Landscape's open to one 8 ms move).
 // Delete rec_deform afterwards (about 100 MB).
-// v15.2.1 (gate v15.2): the harp's notes are logged with Sound.cueHook, as test/sound_clicks_cmd.js does, so
+// The harp's notes are logged with Sound.cueHook, as test/sound_clicks_cmd.js does, so
 // test/sound_clicks.py excuses each pluck's own attack (with cues: [] every harp note counted as a click: 224 in 36 files).
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const OUT = path.join(DIR, 'rec_deform'), OUTB = path.join(OUT, 'det');

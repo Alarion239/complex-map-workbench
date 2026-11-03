@@ -1,4 +1,4 @@
-// v16.4 (notes/tour-r3/SPEC.md 7.6): the tour's completion conditions and its auto-advance, with real CDP input, at
+// Spec notes/tour-r3/SPEC.md 7.6: the tour's completion conditions and its auto-advance, with real CDP input, at
 // 1440 × 900 (mouse, English) and 390 × 844 (touch, English), and the Sound chapter at 390 × 844 (touch, Russian) and
 // 1440 (mouse laps round the zero and the pole). Each task: no advance without input; the tick within 300 ms of the
 // event; the advance 1500 ± 150 ms after the event, whatever the pointer or keys do next (doors 700 ± 100); holds and cancels; the sound
@@ -25,7 +25,7 @@ const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max)
 // done, which an action that compiles a formula or rebuilds the chain can precede by that work's time (a spike blocks the page,
 // and the poll with it): the advance is measured from the poll and expected as the countdown's own `left`, which never exceeds CD_MS.
 // A blocked main thread also fires the countdown's timer late, by up to the blocked time: the page's long tasks (PerformanceObserver,
-// buffered) are summed over the wait, so the advance may be late by what was blocked and never early
+// buffered) are summed over the wait, so the advance may be late by the blocked time and never early
 const ltInstall = () => ev(`(() => { if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } } return !!window.__lt; })()`);
 const doneAt = async (t0, max = 6000) => { await ltInstall(); while (Date.now() - t0 < max) { const L = await ev('(() => { const l = Tour.lit(); return l && l.done ? { left: l.countdown && l.countdown.left, p: performance.now() } : null; })()'); if (L) return { t: Date.now(), p: L.p, left: L.left, after: Date.now() - t0 }; await sleep(15); } return null; };
 const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
@@ -96,7 +96,7 @@ at = await advancedAt('views/switch', t0);
 check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
 // Phase key: a check; an input at +2 s does not restart the countdown
 await goStep('views', 4);
-// (v16.5 UX20; #247: on a desktop the check is a toggle in Y's pane head; when the head has no room it is behind the
+// (on a desktop the check is a toggle in Y's pane head; when the head has no room it is behind the
 // head's ⋯ button, which is opened first)
 const ob = (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
 if (ob) { await click(ob[0], ob[1]); await sleep(400); }
@@ -142,7 +142,7 @@ if (fi) {
   await click(fi[0], fi[1]); await settle(100);
   await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
   // (the countdown runs from the step's done, which follows Enter by the formula's compile: the advance is measured from
-  // the moment done shows, and the countdown may fire late only as far as the page was blocked)
+  // the moment done shows, and the countdown may fire late only as far as the page is blocked)
   await type('|z-1|<2'); await key('Enter'); t0 = Date.now();
   const dD = await doneAt(t0);
   const ff = await lit();
@@ -352,7 +352,7 @@ const pt = await center('.ts-text');
 await tap(pt[0], pt[1]); await settle(300);
 const why = await ev(`(() => { const w = document.querySelector('#tourWhy'), b = w.getBoundingClientRect(); return { open: !w.hidden, h: b.height, max: innerHeight / 2 }; })()`);
 check('phone: Why opens a panel at most half the screen', why.open && why.h > 40 && why.h <= why.max + 1, why);
-// (v16.5 UX38: the plane's keys are one column at the bottom right of a phone's plane: the pan starts left of it)
+// (the plane's keys are one column at the bottom right of a phone's plane: the pan starts left of it)
 await tdrag(a.r - 160, a.b - 160, a.r - 240, a.b - 110);
 check('phone: a touch in X folds Why and reaches the app (the pan ticks the task)', await ev(`document.querySelector('#tourWhy').hidden && document.querySelector('.ts-l2').classList.contains('done')`));
 // the Constructions chapter by finger: "Drag z2 across the line" is done by a touch drag too (issue #34, T4)

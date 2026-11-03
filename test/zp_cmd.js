@@ -22,7 +22,7 @@ const PLAIN = { pattern: 'solid', alpha: 1, lines: false, unit: false, fov: fals
 const EXACT_SRC = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'zp_kit.js'), 'utf8'))(DISC);
 
 // ---------------------------------------------------------------------------------------------------------------
-// (v15 review regress-3: the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
+// (the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
 // edges, 16 px, where axis ink is neither fill nor plane)
 // (a step's ⋯ menu and its name: the chain's card in the classic view, the thread's step in the steps view)
 const stepMore = (k) => inSteps ? `#svStrip .sv-step[data-k="${k}"] .sv-more` : `#pipeline .card[data-k="${k}"] .more`;
@@ -132,7 +132,7 @@ z = await zp();
 ok('+ pole adds a pole in view', Funcs_split(z.params.poles).length === 2 && z.handles.some((q) => q.kind === 'poles' && q.i === 1 && q.x > pane.left && q.x < pane.left + pane.w), z);
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:1"] ~ .zp-del'); await settle(600);
 ok('x removes it', Funcs_split((await zp()).params.poles).length === 1, (await zp()).params);
-// [UX54] x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
+// UX54: x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
 const zSyms = () => ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] .zp-sym.zeros')].map((e) => e.textContent)`);
 info.zSyms0 = await zSyms();
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"] ~ .zp-del'); await settle(600);

@@ -1,4 +1,4 @@
-// v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
+// The learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
 // of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX60, UX70-UX74, UX87, UX88, UX97, UX99, UX102-UX104, on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
@@ -130,7 +130,7 @@ await fresh('ux165d'); await settle(1800);
 await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(200);
 const pr = await box('#plotR');
 await drag(pr.l + pr.w * 0.5, pr.t + pr.h * 0.45, pr.l + pr.w * 0.55, pr.t + pr.h * 0.5); await settle(1200);
-// (v16.5 UX20/V01 and the wave 1 merge, W1-MERGE.md 8: the note "gives way before the title itself would" (fitTitle,
+// (UX20/V01, W1-MERGE.md 8: the note "gives way before the title itself would" (fitTitle,
 // class nofit). With plane's worded Plane | Sphere (UX37), the "Y · " tag (UX27) and the key chip in Y's head, a
 // 1366 px head may have no room for it: then it must be hidden by that rule only, i.e. Y's title would not fit beside
 // it (measured as fitTitle measures, with the note and the title's classes put back at once), and never cut)
@@ -142,8 +142,8 @@ check('UX20 laptop: the note\'s tooltip is plain words', /^Where F lands in the 
 await shot('ux165-v01-laptop');
 grab();
 
-// an example's fit keeps X's bottom margin, measured on the plane (the bar is in the head now): the tour's Grieg step
-// and the next step have a finite view (it went NaN / div)
+// an example's fit keeps X's bottom margin, measured on the plane (the bar is in the head): the tour's Grieg step
+// and the next step have a finite view (not NaN / div)
 await laptop(1440, 900);
 await fresh('ux165t'); await settle(1500);
 await ev(`Tour.auto(true); Tour.start({ chapter: 'sound', step: 0 })`); await settle(2500);
@@ -158,7 +158,7 @@ await laptop();
 await laptop();
 await fresh('ux165e'); await settle(1800);
 await ev(`document.querySelector('#clearChain').click()`); await settle(500);
-// (v16.5 fix regress-3, consented by the user 2026-10-27 (W1-MERGE-NOTES.md): a desktop message that fits whole on one
+// (consented by the user 2026-10-27 (W1-MERGE-NOTES.md): a desktop message that fits whole on one
 // line goes in the chain head's free middle (#toastHost data-placed="head"); only a longer one goes above the chain)
 g = await ev(`(() => { const t = document.querySelector('#toastHost .toast').getBoundingClientRect(), r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: { l: t.left, t: t.top, r: t.right, b: t.bottom }, x: r('#paneL .viewstack'), y: r('#paneR .viewstack'), chain: r('.pipe-wrap'), head: r('.pipe-head'), placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
 check('UX80 laptop: the Undo message sits in the chain head (v16.5 regress-3) or above the chain, between X\'s and Y\'s button columns', !meet(g.t, g.x) && !meet(g.t, g.y) && (g.placed === 'head' ? g.t.t >= g.head.t - 1 && g.t.b <= g.head.b + 1 && g.t.l >= g.head.l && g.t.r <= g.head.r : g.t.b <= g.chain.t && g.t.l >= g.x.r && g.t.r <= g.y.l), g);
@@ -237,7 +237,7 @@ await ev(`[...document.querySelectorAll('#popHost .pop.menu .mi')].find((b) => /
 g = await ev(`({ play: __cmwSound().play, chip: __qa.txt('#sphereChipL'), stop: !!document.querySelector('#sphereChipL .chip-stop') })`);
 check('UX71: the listening chip names the curve and has a Stop button', g.play && /^Listening along/.test(g.chip) && g.stop, g);
 await shot('ux165-ux71-listening');
-// UX73: a pointer move over the plane no longer cuts it
+// UX73: a pointer move over the plane does not cut it
 const pl = await box('#plotL');
 for (let i = 0; i < 6; i++) { await move(pl.l + 100 + i * 15, pl.t + 120 + i * 9); await sleep(40); }
 check('UX73: moving the pointer over X does not stop Listen along', await ev('__cmwSound().play'));
@@ -246,7 +246,7 @@ check('UX71: Stop stops it, and the chip goes', !(await ev('__cmwSound().play'))
 // UX72: and in the selected curve's editor (a real click on the row's name, then on the button)
 const nameB = await box('#shapeList .shape[data-id="s2"] .shape-name');
 if (nameB) { await click(...mid(nameB)); await settle(400); }
-// ([v17 D4] on the laptop the selected shape's editor is in the Inspector)
+// (on the laptop the selected shape's editor is in the Inspector)
 await ev(`(() => { const e = document.querySelector('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
 const edB = await box('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]');
 g = { btn: edB, text: await ev(`(document.querySelector('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]') || {}).textContent || null`) };
@@ -290,7 +290,7 @@ grab();
 await laptop();
 await fresh('ux165m'); await settle(1800);
 await key('m'); await settle(800);
-// (v16.5 fix regress-1: a row too tight for the words takes the short form "1/2 · f₁ · 53 %", marked data-short, the
+// (a row too tight for the words takes the short form "1/2 · f₁ · 53 %", marked data-short, the
 // words staying in the tooltip; the title's two spans read "Deformation" and "from z to w" with no space between)
 g = await ev(`({ ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null, title: __qa.txt('#rightTitle'), speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent) })`);
 check('UX103: the readout is in words ("Step k of m · fₖ · p %"; in a tight row its short form, v16.5 regress-1) and the title too ("Deformation from z to w")', (/^Step \d+ of 2 · f[₁₂] · \d+ %$/.test(g.ro) || (g.short === '1' && /^\d\/2 · f[₁₂] · \d+ %$/.test(g.ro))) && /^Deformation\s*from z to w$/.test(g.title), g);
@@ -308,7 +308,7 @@ await key('ArrowLeft', 8); await key('ArrowLeft', 8); await key('ArrowLeft', 8);
 const t0 = await ev('__cmwState().morph.T');
 await key('ArrowRight', 8); await settle(150);
 g = await ev(`({ T: __cmwState().morph.T, ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null })`);
-// (the readout in words, or its short form in a tight row: v16.5 regress-1)
+// (the readout in words, or its short form in a tight row)
 check('UX97: Shift+← goes back to t = 0, Shift+→ to the next step\'s tick', t0 === 0 && g.T === 1 && (/Step 2 of 2 · f₂ · 0 %|Step 1 of 2 · f₁ · 100 %/.test(g.ro) || (g.short === '1' && /^(2\/2 · f₂ · 0 %|1\/2 · f₁ · 100 %)$/.test(g.ro))), Object.assign({ t0 }, g));
 await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(300);
 g = await ev(`({ chip: __qa.txt('#sphereChipR'), btn: !!document.querySelector('#sphereChipR .chip-draw') })`);

@@ -1,4 +1,4 @@
-// Editing a series without the lag (#243) and a number inside a_n on a slider (#241 part 2): typing a_n rebuilds the
+// Editing a series without the lag and a number inside a_n on a slider: typing a_n rebuilds the
 // chain once per pause, not per key, and Enter applies it at once, one Undo step; of two quick edits the later one is
 // the picture; a formula step stays synchronous (the field's change is the chain's at once); a slider of a number in
 // a_n keeps its drag (the first drag after the page opens too) and the picture follows the number. The timing checks

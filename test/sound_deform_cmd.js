@@ -24,7 +24,7 @@ const count = (list, name) => list.filter((x) => x === name).length;
 const spy = () => ev(`(() => {
   window.__made = []; window.__vset = [];
   for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; }
-  // (v16.5, Hear the function, SOUND-PLAN 2.3: the harp, the tone and the Height voice are retired; F at the probe goes
+  // (Hear the function: F at the probe goes
   // to Sound.hear's seat / step / cut / pathless, one call per update, [time, arg in turns, ln|F|])
   const hw = (fn) => function (s) { __vset.push([performance.now(), s && s.phi, s && s.ln, __cmwState().morph.T]); return fn.apply(this, arguments); };
   if (!Sound.hear.__w) { for (const k of ['seat', 'step', 'cut', 'pathless']) Sound.hear[k] = hw(Sound.hear[k]); Sound.hear.__w = 1; }
@@ -41,7 +41,7 @@ const frames = (ms) => ev(`await new Promise((res) => { const t = [], T = [], t0
 // every frame in which t moved has a voice update of its own: a set() call made at that frame's t (the probe reads
 // the transport's t as it is when the engine is told, so a t is voiced only while it is the transport's). A set belongs
 // to its frame by the t it carries, not by when it ran: the app's re-track and this test's frame callback are both
-// requestAnimationFrame callbacks, and their order within a frame is not fixed (wave 12's gate, #502: one set ran just
+// requestAnimationFrame callbacks, and their order within a frame is not fixed (one set ran just
 // before this test's callback in its frame, and a window between this test's frame times counted it in the frame
 // before)
 const perFrame = (fr, vset) => {
@@ -105,7 +105,7 @@ const th = 170 * Math.PI / 180, Z = [1.2 * Math.cos(th), 1.2 * Math.sin(th)];
   ok('A Phase: the notes: the red line 2 up (arg z = 170° + 1.889 turns crosses 1 and 2), a note at each colour line crossed (23), no zero, pole, cut or dense', got2.harp.up === wantDs(za / (2 * Math.PI), 4 * za / (2 * Math.PI)) && got2.harp.down === 0 && got2.harp.notes + got2.harp.merged === linesA && !got2.made.some((x) => /^(zero|pole|cut|dense|turnMany)$/.test(x)), { harp: got2.harp, linesA, made: got2.made });
   ok('A Phase, Play: the swell and the arrival once each', count(got2.made, 'morphStart') === 1 && count(got2.made, 'morphEnd') === 1, got2.made);
 }
-// A2. Play again with Loop on, and the pointer jiggling by 1 px now and then: the loop repeat is a new start (no cut,
+// A2. Play again with Loop on, and the pointer jiggling by 1 px from time to time: the loop repeat is a new start (no cut,
 // no bell back), each play rings its one bell, nothing twice
 {
   await ev(`__cmwSet('loop', true); 1`);
@@ -202,7 +202,7 @@ await spy();
   ok('D merged plane: the probe is the plane\'s point (src merged)', lay.merged === 'R' && s0.rest && s0.rest.src === 'merged' && Math.abs(s0.rest.z[0] - Z[0]) < 0.04 && Math.abs(s0.rest.z[1] - Z[1]) < 0.04, { lay, rest: s0.rest });
   ok('D merged plane: a hear update in every frame t moved', R.merged.per.moved > 60 && R.merged.per.missed === 0, R.merged.per);
   ok('D merged plane: H_t(p) as in X: about 1.889 turns, the red line 2 up, no zero or cut', s.run && Math.abs(s.run.phi - 4 * th / (2 * Math.PI)) < 0.02 && got.harp.up === 2 && got.harp.down === 0 && !got.made.some((x) => /^(zero|pole|cut|dense)$/.test(x)), { run: s.run, harp: got.harp, made: got.made });
-  // M closes the deformation: X → Y splits again; the still pointer's probe is the point now under it (X: its z; Y: no
+  // M closes the deformation: X → Y splits again; the still pointer's probe is the point under it (X: its z; Y: no
   // tone), found again by the re-pick (review snddef-2), never the merged plane's point
   await take();
   await key('m'); await settle(300);

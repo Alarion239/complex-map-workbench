@@ -1,4 +1,4 @@
-// A filmstrip of the user's case (notes/v16-user5/SHEETS-DESIGN.md): sin √z with √ bracketed, Landscape, All sheets,
+// A filmstrip of the user's case: sin √z with √ bracketed, Landscape, All sheets,
 // height Im, t = 0 … 1 in steps of 0.1, desktop 1440 x 900, light and dark. Frames go to <daemon>/shots/film-*.png.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
