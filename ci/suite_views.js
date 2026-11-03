@@ -29,6 +29,7 @@ const VIEWS = {
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps(),
+  'phone_export_steps_cmd.js': steps(),
   'phone_landscape_cmd.js': steps(),
   'phone_palette_cmd.js': steps(),
   'steps_carry_cmd.js': steps(),
@@ -67,6 +68,7 @@ const VIEWS = {
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'mv_views_cmd.js': classic('the merged X → Y / Phase / Landscape views and their switch, which the steps view replaces'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
+  'phone_glide_export_cmd.js': classic('the export while the classic ‹ › glide has Y on a step\'s plane, and the chip over it: the steps view\'s export of a step\'s plane is phone_export_steps_cmd'),
   'phone_glide_cmd.js': classic('the phone\'s ‹ › glide of Y between X and Y: the steps view glides its one plane (steps_view_cmd)'),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
@@ -169,7 +171,6 @@ const VIEWS = {
   'export_tex_cmd.js': port('export', 'the shown plane\'s export'),
   'figure_wait_cmd.js': port('export'),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
-  'phone_glide_export_cmd.js': port('export', 'the shown plane\'s export'),
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
