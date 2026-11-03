@@ -489,7 +489,7 @@ const SB = {
 };
 
 // (a page opened by a link is read once its shapes are in: the steps view takes longer to open than the classic one)
-const shapesIn = (n, ms = 20000) => calm(
+const shapesIn = (n, ms = 20000) => must(
   `typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.length >= ${n}`, ms, true);
 
 await section('B', async () => {

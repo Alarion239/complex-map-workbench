@@ -160,7 +160,7 @@ const SF = {
 };
 
 // (an old page is read once its hooks exist: it takes longer to open when the machine is busy)
-const oldReady = (id, ms = 20000) => calm(
+const oldReady = (id, ms = 20000) => must(
   `typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.some((s) => s.id === '${id}')`, ms, true);
 
 await section('A', async () => {
