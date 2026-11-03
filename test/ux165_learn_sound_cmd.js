@@ -1,4 +1,4 @@
-// v16.5 wave 1, the sound piece of the learn piece, on a laptop (1366 x 768): the Sound settings (UX87 the caret, UX70
+// The sound piece of the learn piece, on a laptop (1366 x 768): the Sound settings (UX87 the caret, UX70
 // Hear the function, UX88 Diagnostics and keyboard help), the wave on the Sound button, Listen along (UX72 the Shapes
 // row's ⋯ and the selected curve's editor, UX71 the chip with its Stop, UX73), and the sound example's Try line (UX74).
 // The same in the steps view and the classic view; the phone's sound checks stay in ux165_learn_cmd.js. A command file
@@ -47,7 +47,7 @@ await ev(`[...document.querySelectorAll('#popHost .pop.menu .mi')].find((b) => /
 g = await ev(`({ play: __cmwSound().play, chip: __qa.txt('#sphereChipL'), stop: !!document.querySelector('#sphereChipL .chip-stop') })`);
 check('UX71: the listening chip names the curve and has a Stop button', g.play && /^Listening along/.test(g.chip) && g.stop, g);
 await shot('ux165-ux71-listening');
-// UX73: a pointer move over the plane no longer cuts it
+// UX73: a pointer move over the plane does not cut it
 const pl = await box('#plotL');
 for (let i = 0; i < 6; i++) { await move(pl.l + 100 + i * 15, pl.t + 120 + i * 9); await sleep(40); }
 check('UX73: moving the pointer over X does not stop Listen along', await ev('__cmwSound().play'));
@@ -56,7 +56,7 @@ check('UX71: Stop stops it, and the chip goes', !(await ev('__cmwSound().play'))
 // UX72: and in the selected curve's editor (a real click on the row's name, then on the button)
 const nameB = await box('#shapeList .shape[data-id="s2"] .shape-name');
 if (nameB) { await click(...mid(nameB)); await settle(400); }
-// ([v17 D4] on the laptop the selected shape's editor is in the Inspector)
+// (on the laptop the selected shape's editor is in the Inspector)
 await ev(`(() => { const e = document.querySelector('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
 const edB = await box('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]');
 g = { btn: edB, text: await ev(`(document.querySelector('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]') || {}).textContent || null`) };
