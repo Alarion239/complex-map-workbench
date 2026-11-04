@@ -1229,6 +1229,9 @@ in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
 uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
 uniform highp sampler2D uT1; uniform int uN; uniform int uSheetK; uniform int uTileC;
+// (the steps view's flatten: the flat plane's marks, its regions' outlines and its points, a canvas over the plane's
+// rectangle uMarksBox (row 0 at its top, straight alpha), laid over the plate at opacity uMarksA)
+uniform sampler2D uMarks; uniform float uMarksA; uniform vec4 uMarksBox;
 out vec4 o;
 void main() {
   vec2 uv = vPos.xy / (2.0 * uAspect) + 0.5;
@@ -1262,6 +1265,14 @@ void main() {
   vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out
   float a = uPlateA * smoothstep(0.0, 1.0, min(e.x, e.y));
   o = vec4(toSrgb(fogged(lin, vPos)) * a, a);
+  if (uMarksA > 0.0) {
+    vec2 mv = (z - uMarksBox.xy) / uMarksBox.zw;
+    if (mv.x >= 0.0 && mv.y >= 0.0 && mv.x <= 1.0 && mv.y <= 1.0) {
+      vec4 m = texture(uMarks, vec2(mv.x, 1.0 - mv.y));
+      m = vec4(m.rgb * m.a, m.a) * uMarksA;
+      o = m + o * (1.0 - m.a);
+    }
+  }
 }
 `;
   const ULEVEL_VS = `

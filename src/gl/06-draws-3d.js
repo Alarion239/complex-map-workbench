@@ -279,6 +279,7 @@
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
   let maskTex = null, maskKey = null;
+  let marksTex = null;   // (the flatten's marks, drawLandscape's st.marks: uploaded each frame on unit 13)
   function maskUniforms(P, m) {
     u1f(P, 'uMaskOn', m ? 1 : 0);
     if (!m || !P.loc.uMask) return;
@@ -1219,6 +1220,31 @@
     // floor plate: faint graph paper, phase print, contact shading. Seen from above it lies under the surface; seen
     // from below the plate (the camera under it) it is drawn last, as a light veil, so the underside stays visible.
     const below = eye[2] < floorZ;
+    const marksPass = (m) => {
+      const Fp = program('floor', st.map);
+      if (!Fp || !Fp.loc.uMarks) return;
+      use(Fp, st.map);
+      common(Fp);
+      u2f(Fp, 'uExt', ext[0], ext[1]); u1f(Fp, 'uFloorZ', 0);
+      u1f(Fp, 'uShadowA', 0); u1f(Fp, 'uPrint', 0); u1f(Fp, 'uPlateA', 0);
+      gl.activeTexture(gl.TEXTURE13);
+      if (!marksTex) marksTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, marksTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.cv);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      u1i(Fp, 'uMarks', 13);
+      u4f(Fp, 'uMarksBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
+      u1f(Fp, 'uMarksA', flat);
+      gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1, -4);
+      gl.bindVertexArray(empty());
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.bindVertexArray(null);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+    };
     const floorPass = (alpha) => {
       const Fp = program('floor', st.map);
       if (!Fp) return;
@@ -1229,6 +1255,7 @@
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', (1 - flat) * C.shadowA);
       u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1 - flat);
       u1f(Fp, 'uPlateA', alpha * (1 - flat));
+      u1f(Fp, 'uMarksA', 0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     if (!below) floorPass(0.8);
@@ -1339,7 +1366,7 @@
     const boxM = [];
     for (let i = 0; i < 4; i++) boxM.push(segM([cs[i][0], cs[i][1], floorZ], [cs[(i + 1) % 4][0], cs[(i + 1) % 4][1], floorZ], 0.5 * dpr));
     gl.depthMask(false);
-    drawMarks(MVP, boxM, C.box, below ? 0.4 : 0.8, { zBias: 0.0002 });
+    drawMarks(MVP, boxM, C.box, (below ? 0.4 : 0.8) * (1 - flat), { zBias: 0.0002 });
     info.backCorner = [cs[far][0], cs[far][1]];
     // source outlines printed on the floor plate: clipped to the plate, fading with its outer rim, and hidden
     // wherever the surface covers them (plain depth test: never drawn through the relief)
@@ -1348,8 +1375,11 @@
     gl.depthFunc(gl.LEQUAL);
     for (const o of st.outlines || []) {
       if (!o || !o.res) continue;
-      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: 1.25 * dpr, color: col3(o.color, C.modLine), alpha: below ? 0.45 : 1, fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
+      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: 1.25 * dpr, color: col3(o.color, C.modLine), alpha: (below ? 0.45 : 1) * (1 - flat), fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
     }
+    // (the flatten, st.marks {cv, box}: the flat plane's outlines and points, the floor's outlines' twins, on the plane
+    // at height 0 at opacity flat: hidden where the lifted surface stands in front, over it once it lies flat)
+    if (st.marks && flat > 0) marksPass(st.marks);
     // unit level: the plane h(|F| = 1)
     if (st.unitLevel) {
       const Up = program('ulevel');
