@@ -77,10 +77,20 @@ ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
 const tClick = Date.now();
-await ev(`document.querySelector('.sv-play').click(); 1`);
+// (the glide is 0.9 s of frame time and the button's label follows on a frame: from the press, every frame is looked at
+// until the glide runs and the button says Pause, at most 5 s, so a page whose frames are slow is read while it plays)
+const p1 = await ev(`await new Promise((res) => {
+  const btn = document.querySelector('.sv-play'), t0 = performance.now();
+  btn.click();
+  const look = () => {
+    const s = __cmwSteps(), label = btn.getAttribute('aria-label');
+    if ((s.play === 'glide' && s.moving && label === 'Pause') || performance.now() - t0 > 5000) return res({ play: s.play, moving: s.moving, i: s.i, x: s.x, speed: s.speed, buttonLabel: label });
+    requestAnimationFrame(look);
+  };
+  look();
+})`);
 ok('starting says where it plays from and to, in the live region', await ev(`/Playing from z to w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
-const p1 = await S();
-ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && await ev(`document.querySelector('.sv-play').getAttribute('aria-label') === 'Pause'`), p1);
+ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && p1.buttonLabel === 'Pause', p1);
 const e1 = await until((s) => !s.play); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
