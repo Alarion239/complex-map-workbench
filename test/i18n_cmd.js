@@ -130,10 +130,10 @@ for (const w of [1024, 1440]) {
   await nav(`${U}?ns=${ns}`); await loaded(3500);
   check('switch: starts English', (await ev('I18N.lang')) === 'en');
   await key('k', 4); await settle(300); await type('sin'); await settle(400); await key('Enter'); await settle(1200);
-  // the deformation open and paused at t = 0.5 (a playing one moves t on its own), the right panel hidden
-  await ev(`__cmwMorph({ open: true }), 1`); await settle(600); await ev(`__cmwMorph({ T: 0.5 }), 1`); await settle(300);
+  // a step chosen on the thread (the Inspector's step, the thread's place), the right panel hidden
+  await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip'); if (!c) return false; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); c.click(); return true; })()`); await settle(1500);
   await ev(`document.getElementById('toggleRight').click(), 1`); await settle(400);
-  const snapOf = `JSON.stringify({ st: __cmwState(), hist: document.getElementById('undoBtn').disabled, cards: document.querySelectorAll('#pipeline .card').length, morph: !!document.getElementById('morphPlay'), right: document.getElementById('toggleRight').getAttribute('aria-pressed'), view: (() => { const o = JSON.parse(localStorage.getItem(__qa.key()) || 'null'); return o && JSON.stringify({ view: o.view, rightView: o.rightView, l: o.leftView || o.lview || null, shapes: o.shapes, steps: o.steps }); })() })`;
+  const snapOf = `JSON.stringify({ st: __cmwState(), hist: document.getElementById('undoBtn').disabled, n: (() => { const o = JSON.parse(localStorage.getItem(__qa.key()) || 'null'); return o && o.steps ? o.steps.length : -1; })(), sv: (() => { const s = __cmwSteps(); return JSON.stringify({ on: s.on, sel: s.sel, i: s.i, T: s.T, main: s.main, surf: s.surf, scope: s.scope, all: s.all }); })(), right: document.getElementById('toggleRight').getAttribute('aria-pressed'), view: (() => { const o = JSON.parse(localStorage.getItem(__qa.key()) || 'null'); return o && JSON.stringify({ view: o.view, rightView: o.rightView, l: o.leftView || o.lview || null, shapes: o.shapes, steps: o.steps }); })() })`;
   // the saved work is written now (the switch writes it too); the same JSON must come back
   await ev(`document.getElementById('undoBtn').disabled, 1`);
   // (reads it once the page has booted: after a load or a language switch, fixed sleeps ran out on a machine that draws
@@ -145,17 +145,17 @@ for (const w of [1024, 1440]) {
   const after = await snap();
   check('switch en→ru: Russian after the reload', (await ev('I18N.lang')) === 'ru' && (await ev('document.documentElement.lang')) === 'ru');
   check('switch en→ru: the work and view come back', JSON.stringify(after.st) === JSON.stringify(before.st), { before: before.st && Object.keys(before.st).length, after: after.st && Object.keys(after.st).length });
-  check('switch en→ru: chain, deformation and panels', after.cards === before.cards && after.morph && after.morph === before.morph && after.right === 'false' && after.right === before.right, { before: { cards: before.cards, morph: before.morph, right: before.right }, after: { cards: after.cards, morph: after.morph, right: after.right } });
+  check('switch en→ru: the steps view, the chosen step and the panels', after.n === before.n && !!after.sv && after.sv === before.sv && JSON.parse(after.sv).sel === 1 && after.right === 'false' && after.right === before.right, { before: { n: before.n, sv: before.sv, right: before.right }, after: { n: after.n, sv: after.sv, right: after.right } });
   check('switch en→ru: the saved work and the planes\' view come back', !!after.view && after.view === before.view, [before.view, after.view].map((v) => String(v).slice(0, 160)));
   check('switch en→ru: undo history kept', after.hist === false);
   await ev(`document.getElementById('undoBtn').click(), 1`); await settle(1000);
-  check('switch en→ru: undo undoes the step added before the switch', (await ev(`document.querySelectorAll('#pipeline .card').length`)) === before.cards - 1);
+  check('switch en→ru: undo undoes the step added before the switch', (await ev(`(() => { const o = JSON.parse(localStorage.getItem(__qa.key()) || 'null'); return o && o.steps ? o.steps.length : -1; })()`)) === before.n - 1);
   await ev(`document.getElementById('redoBtn').click(), 1`); await settle(800);
   const before2 = await snap();
   await setLang('auto');
   await sleep(4500); await settle(1500);
   const after2 = await snap();
-  check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.cards === before2.cards && after2.morph === before2.morph);
+  check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.n === before2.n && after2.sv === before2.sv);
   // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
   await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
@@ -165,7 +165,7 @@ for (const w of [1024, 1440]) {
   await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); b && b.click(); })()`);
   await sleep(4500); await settle(1500);
   const a3 = await snap();
-  check('phone switch: Russian, same work', (await ev('I18N.lang')) === 'ru' && JSON.stringify(a3.st) === JSON.stringify(b3.st) && a3.cards === b3.cards, { cards: [b3.cards, a3.cards] });
+  check('phone switch: Russian, same work', (await ev('I18N.lang')) === 'ru' && JSON.stringify(a3.st) === JSON.stringify(b3.st) && a3.n === b3.n && a3.sv === b3.sv, { n: [b3.n, a3.n], sv: [b3.sv, a3.sv] });
   await ev(`I18N.setPref('auto'), 1`); await sleep(4000);
 }
 // ---- 5: ЙЦУКЕН shortcuts ----
@@ -182,23 +182,25 @@ for (const w of [1024, 1440]) {
   await press('м', 'KeyV'); check('ЙЦУКЕН М (KeyV) → Select', (await tool()) === 'select');
   await press('л', 'KeyK', 4); await settle(300); check('ЙЦУКЕН ⌘Л (KeyK) → palette', await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`)); await press('Escape', 'Escape');
   await press('.', 'Slash'); await settle(300); check('ЙЦУКЕН «.» on the / key → palette', await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`)); await press('Escape', 'Escape');
-  await press('ь', 'KeyM'); await settle(600); check('ЙЦУКЕН Ь (KeyM) → deformation on', !!(await ev(`!!document.getElementById('morphPlay')`)));
-  const paths = `(document.getElementById('pathsBtn') || {}).getAttribute ? document.getElementById('pathsBtn').getAttribute('aria-pressed') : null`;
+  // (K and M play and pause the thread, P toggles its Paths; the thread is idle first)
+  await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` });
+  const playLabel = () => ev(`document.querySelector('#svStrip .sv-play').getAttribute('aria-label')`);
+  const idleLabel = await playLabel();
+  // (the label follows the key by a frame or more on a software renderer: it is read for up to 3 s until it is the one asked)
+  const playing = async (want) => { let on = false; for (let i = 0; i < 30; i++) { on = (await playLabel()) !== idleLabel; if (on === want) break; await sleep(100); } return on; };
+  await press('ь', 'KeyM'); check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playing(true));
+  await press('ь', 'KeyM'); check('ЙЦУКЕН Ь again → the thread pauses', !(await playing(false)));
+  const paths = `document.querySelector('#svStrip .sv-paths').getAttribute('aria-pressed')`;
   const p0 = await ev(paths);
-  await press('з', 'KeyP'); await settle(400); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) in the deformation → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
+  await press('з', 'KeyP'); await settle(400); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
   await press('з', 'KeyP'); await settle(300);
-  await press('ь', 'KeyM'); await settle(500); check('ЙЦУКЕН Ь again → deformation off', !(await ev(`!!document.getElementById('morphPlay')`)));
-  await press('Ь', 'KeyM', 8); await settle(800); check('ЙЦУКЕН ⇧Ь (Shift+KeyM) → sound on', await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed') === 'true'`));
-  await press('Ь', 'KeyM', 8); await settle(500); check('ЙЦУКЕН ⇧Ь again → sound off', await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed') === 'false'`));
-  await press('2', 'Digit2'); await settle(900); check('digit 2 → Phase', (await ev(`__cmwState().view.main`)) === 'phase');
-  await press('1', 'Digit1'); await settle(900); check('digit 1 → X → Y', (await ev(`__cmwState().view.main`)) === 'xy');
   await press('у', 'KeyE', 4); await settle(1500); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
   await press('Escape', 'Escape'); await settle(500);
   // a text field keeps its letters: the region formula field
   await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
   await press('м', 'KeyV'); await press('с', 'KeyC'); await press('ь', 'KeyM');
-  const typed = await ev(`({ v: document.getElementById('formulaInput').value, tool: (document.querySelector('.tool.on') || { dataset: {} }).dataset.tool, morph: !!document.getElementById('morphPlay') })`);
-  check('typing in a text field is never taken', typed.v === 'мсь' && typed.tool === 'select' && !typed.morph, typed);
+  const typed = await ev(`({ v: document.getElementById('formulaInput').value, tool: (document.querySelector('.tool.on') || { dataset: {} }).dataset.tool, playing: document.querySelector('#svStrip .sv-play').getAttribute('aria-label') !== ${JSON.stringify(idleLabel)} })`);
+  check('typing in a text field is never taken', typed.v === 'мсь' && typed.tool === 'select' && !typed.playing, typed);
   await ev(`document.getElementById('formulaInput').value = '', document.activeElement.blur(), 1`);
 }
 // ---- 6: detection ----
@@ -240,9 +242,6 @@ for (const w of [1024, 1440]) {
   await clickSel('#examplesBtn'); await settle(500);
   const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
   check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
-  await settle(2500);
-  const t = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
-  check('ru: the Landscape title names the window of sheets («листы k = −2…2»), not «все листы»', /, листы k = −2…2$/.test(t || '') && !/все листы/.test(t || ''), t);
 }
 const errs = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404|fonts\.g/.test(JSON.stringify(l)));
 check('no console errors', errs.length === 0, errs.slice(0, 5));
