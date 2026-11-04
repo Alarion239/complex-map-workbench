@@ -254,7 +254,7 @@ const SPOT = String.raw`(() => {
   const CTL = {
     'basics/x': () => selTool(), 'basics/preimages': () => 'none', 'basics/draw': () => tool('disc'),
     // (#34's task lines: Y is panned with Select on, Targets draws a Disc, the F tile and the card d/dz are in the chain sheet on a phone, Cauchy's circle is dragged with Select)
-    'basics/y': () => selTool(), 'analysis/targets': () => tool('disc'), 'analysis/domain': () => q1('#pipeline .ftile') || q1('#svStrip .sv-wholemap') || q1('.ph-csteps'),
+    'basics/y': () => selTool(), 'analysis/targets': () => (q1('#svStrip') ? [tool('disc'), q1('#svStrip .sv-prev')] : tool('disc')), 'analysis/domain': () => q1('#pipeline .ftile') || q1('#svStrip .sv-wholemap') || q1('.ph-csteps'),
     'branches/deriv': () => q1('#pipeline .card[data-k="2"]') || q1('#svStrip .sv-step[data-k="2"] .sv-fchip') || q1('.ph-csteps'), 'analysis/cauchy': () => selTool(),
     'basics/shapes': () => (innerWidth < 640 ? 'none' : selTool()), 'basics/formula': () => 'none',
     // (#246: on a phone the card and the Add tile are rows of the chain sheet; while it is closed, the step lights the

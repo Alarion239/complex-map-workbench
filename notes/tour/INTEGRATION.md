@@ -250,7 +250,7 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 | event | payload | emit when |
 |---|---|---|
 | `probe` | `{ pane: 'L' \| 'R', w: [re, im] }` | the pointer (or a held finger) probes a point (the hover preimages); the tour waits for a `'R'` probe inside the unit disc and one outside it (without `w`, any `'R'` probe) |
-| `shape-added` | `{ kind, plane: 'z' \| 'w' }` | a shape or a target is added (drawn, typed, pasted) |
+| `shape-added` | `{ kind, plane: 'z' \| 'w', stage }` (`stage`: the plane of the chain the shape was drawn on, 0 for z) | a shape or a target is added (drawn, typed, pasted) |
 | `shape-moved` | `{ id, plane }` | a drag moves or reshapes a shape or a target (once, at the end of the drag) |
 | `step-focused` | `{ k }` | the focus changes (0 = Whole chain) |
 | `step-selected` | `{ k }` | a card or the F tile is selected for the Inspector (`k` is the step's number, or `'F'` for the F tile) |
@@ -658,6 +658,7 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `svSurf` | the surface choice: the segmented control, or on a phone the one button that steps through the three |
 | `svChip` | the first function chip on the thread, `#svStrip .sv-fchip` |
 | `svChip2` | the second function chip, `#svStrip .sv-step[data-k="2"] .sv-fchip` |
+| `svPrev` | the thread's ‹ button, `#svStrip .sv-prev` |
 | `svAdd` | the thread's Add function button, in its wide and its round form, `#svStrip .sv-add` |
 | `svMenu2` | the second chip's ⋯ button, `#svStrip .sv-step[data-k="2"] .sv-more`; the chip itself where it has none (a phone) |
 | `svF` | the F chip, the whole map, `#svStrip .sv-wholemap` |
