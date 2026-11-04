@@ -323,7 +323,9 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
   const st = { shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } };
   await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV));
   const s0 = await settle(120000, { entries: 4, built: 4 });
-  await sleep(2000);
+  // (the window watched: 2 s of the page's own time from here, through its frames)
+  await ev('window.__restT = performance.now(), 1');
+  await settled({ max: 20000, panes: false, until: 'performance.now() - window.__restT > 2000' });
   const s1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
   R.rest4 = { built: [s0.stats.built, s1.stats.built], entries: s1.entries.length, preBytes: s1.preBytes, cpuBytes: s1.cpuBytes };
   ok('memory: at rest with four unbounded regions, no mesh is rebuilt over 2 s',
