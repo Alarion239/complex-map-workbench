@@ -1058,5 +1058,41 @@ section('singularAfter (ζ after an injective plan)');
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
 }
 
+// Inverse.homOps by Newton (InvOps.opNewt) with seeds: Joukowski's homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
+// disc and coth((1 + t) arcoth z) outside it, has one or two points over w; its NEWT op walks from w and back from
+// f's two points over w, and finds every one on a 40 x 26 grid of w over [-6.2, 6.2] x [-4, 4] at t = .25, .5, .75
+// (the points within 0.02 of the unit circle, where the path has its cut, left out), and no other
+{
+  const b = Funcs.build(St('joukowski'));
+  const tanh = (y) => { const e = CX.exp(CX.scale(y, 2)); return CX.div(CX.sub(e, C(1, 0)), CX.add(e, C(1, 0))); };
+  const atanh = (z) => CX.scale(CX.log(CX.div(CX.add(C(1, 0), z), CX.sub(C(1, 0), z))), 0.5);
+  for (const t of [0.25, 0.5, 0.75]) {
+    const o = Inverse.homOps(b, t).ops[0], Hh = b.hom(t);
+    // (each branch's points over w: z = tanh((artanh w + i pi (k + t / 2)) / (1 + t)) on the disc, 1 / tanh((artanh(1 / w)
+    // + i pi k) / (1 + t)) outside it, kept where H gives w back)
+    const pts = (w) => {
+      const out = [], aw = atanh(w), ac = atanh(CX.inv(w));
+      for (let k = -3; k <= 3; k++) {
+        for (const z of [tanh(CX.scale(CX.add(aw, C(0, Math.PI * (k + t / 2))), 1 / (1 + t))), CX.inv(tanh(CX.scale(CX.add(ac, C(0, Math.PI * k)), 1 / (1 + t))))]) {
+          if (!Number.isFinite(z.re) || !Number.isFinite(z.im) || CX.abs(CX.sub(Hh(z), w)) > 1e-7 || out.some((e) => CX.abs(CX.sub(e, z)) < 1e-9)) continue;
+          out.push(z);
+        }
+      }
+      return out;
+    };
+    let miss = 0, extra = 0, n2 = 0;
+    for (let i = 0; i < 40; i++) {
+      for (let j = 0; j < 26; j++) {
+        const w = C(-6.2 + (i + 0.5) * 12.4 / 40, -4 + (j + 0.5) * 8 / 26), T = pts(w), G = o.pre(w).map((m) => m.u);
+        const far = (z) => Math.abs(CX.abs(z) - 1) > 0.02;
+        if (T.length > 1) n2++;
+        if (T.some((z) => far(z) && !G.some((g) => CX.abs(CX.sub(g, z)) < 1e-6))) miss++;
+        if (G.some((g) => !T.some((z) => CX.abs(CX.sub(g, z)) < 1e-6))) extra++;
+      }
+    }
+    check(`homOps joukowski at t = ${t}: NEWT seeded by JOUK finds every point over w, and no other`, o.kind === 'NEWT' && o.fam.count === 3 && miss === 0 && extra === 0 && n2 > 100, { miss, extra, n2 });
+  }
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;

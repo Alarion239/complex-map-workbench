@@ -25,7 +25,8 @@ const InvOps = (() => {
   //      plane) | null, lam: log u | null, dlam: d(log u)/dw (with lam), m}
   // Parameters in p (read by glsl.js's uInv allocator): AFF {a, b}; MOB {m: [a, b, c, d]}; IPOW {n};
   //      ROOTPOW {s, beta, theta, k, lo, hi, mode: 'int' | 'finite' | 'inf'}; EXPC {L0}; LOG {theta, k, lo, hi};
-  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; the others {}.
+  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; NEWT {t, back?: the step's exact ops};
+//      the others {}.
   function op(kind, p, fwd, o) {
     return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null }, o);
   }
@@ -198,26 +199,66 @@ const InvOps = (() => {
       },
     });
   }
-  // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). Two members:
-  // m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each of the NEWT_K stages t/K, 2t/K,
-  // ..., t, then NEWT_POL more at t; m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where
-  // a map near a 2:1 one about w puts it; NEWT_DEF steps). A member is dropped when H_t(u) misses w (a central
-  // difference for H'). glsl.js's NEWT runs the same walks with chainHom. (One step per stage, as every pixel of a
-  // glide frame walks: on a 41 x 41 grid of w at five t, more steps per stage change the root found only where the walk
-  // passes near a critical point: nowhere for Joukowski, under 0.6 % of the points for z^2 + 1/z, z + z^3/3, cos z, ζ)
-  const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24;
-  function opNewt(t, H) {
+  // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). back: the step's
+  // own exact ops (forward order, every one single-valued or a finite family, NEWT_SEEDS members in all at most) or null.
+  // Members: m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each of the NEWT_K stages t/K,
+  // 2t/K, ..., t, then NEWT_POL more at t. With back, m = 1 + i, continued back in t from the i-th of f = H(1)'s points
+  // over w (back's members, mixed radix with the last op's member least significant): one step at each of
+  // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every earlier one.
+  // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
+  // one about w puts it; NEWT_DEF steps). A member is dropped when H_t(u) misses w (a central difference for H').
+  // glsl.js's NEWT runs the same walks with chainHom. (One step per stage, as every pixel of a glide frame walks: on a
+  // 41 x 41 grid of w at five t, more steps per stage change the root found only where the walk passes near a critical
+  // point: nowhere for Joukowski, under 0.6 % of the points for z^2 + 1/z, z + z^3/3, cos z, ζ. The walks from t = 0
+  // and from f's points find every point of H_t over w on a 40 x 26 grid of Joukowski's, z^2 + 1/z's and ijouk's
+  // windows at t = .25, .5, .75 but where it lies on the homotopy's cut: points born and lost between 0 and 1 are the
+  // ones they cannot reach)
+  const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4;
+  const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
+  // the member counts of exact ops ops when every one is single-valued or a finite family with NEWT_SEEDS members in
+  // all at most, else null
+  function newtSeedCounts(ops) {
+    if (!ops || !ops.length) return null;
+    const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
+    return n.every((k) => k > 0) && n.reduce((a, k) => a * k, 1) <= NEWT_SEEDS ? n : null;
+  }
+  function opNewt(t, H, back) {
     const Ht = H(t);
+    const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
-    return op('NEWT', { t }, Ht, {
-      fam: { type: 'fin', count: 2 },
+    const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
+    const polishAt = (u, w) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) u = step(u, w, Ht); return u; };
+    // f's i-th point over w (back's members in turn, the last op's first), or null
+    const seedOf = (w, i) => {
+      let u = w;
+      for (let j = back.length - 1; j >= 0 && u; j--) {
+        const k = i % counts[j];
+        i = (i - k) / counts[j];
+        const r = back[j].pre(u);
+        u = r.length > k && isFin(r[k].u) ? r[k].u : null;
+      }
+      return u;
+    };
+    return op('NEWT', counts ? { t, back } : { t }, Ht, {
+      fam: { type: 'fin', count: counts ? 1 + seeds : 2 },
       pre: (w) => {
         let u = w;
-        for (let s = 1; s <= NEWT_K && isFin(u); s++) { const f = H(t * s / NEWT_K); u = sub(u, div(sub(f(u), w), dH(f, u))); }
-        for (let it = 0; it < NEWT_POL && isFin(u); it++) u = sub(u, div(sub(Ht(u), w), dH(Ht, u)));
-        if (!hits(u, w)) return [];
-        const out = [ONEM(u, CX.inv(dH(Ht, u)), { m: 0 })];
+        for (let s = 1; s <= NEWT_K && isFin(u); s++) u = step(u, w, H(t * s / NEWT_K));
+        u = polishAt(u, w);
+        const out = [];
+        if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
+        if (counts) {
+          const K = newtBackK(t);
+          for (let i = 0; i < seeds; i++) {
+            let v = seedOf(w, i);
+            for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
+            v = v && polishAt(v, w);
+            if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > 1e-6 * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 + i }));
+          }
+          return out;
+        }
+        if (!out.length) return [];
         let v = sub(scale(w, 2), u);
         for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
         if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
@@ -831,7 +872,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';

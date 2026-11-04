@@ -2142,8 +2142,92 @@ void ixAncTan(vec2 w) {
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
+  // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
+  const newtBack = (o) => {
+    const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
+    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1) } : null;
+  };
+  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn
+  const ixSlots = (o) => {
+    const bk = o.kind === 'NEWT' && newtBack(o);
+    return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0);
+  };
+  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members
+  const ixFinMax = (o) => {
+    const bk = o.kind === 'NEWT' && newtBack(o);
+    return bk ? 1 + bk.seeds : IX_FIN[o.kind];
+  };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
+  // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
+  // continued in t from w, member 1 + i continued from 1 down to t from f's i-th point over w (bk.ops' members, mixed
+  // radix with the last op's member least significant). _roots walks every member once per w and keeps the roots;
+  // a member equal to an earlier one is dropped. A Newton step takes H' by a forward difference that reuses H_t(u),
+  // capped at a quarter of 1 + |u|; the members' derivative is a central one
+  function newtSeededFns(o, j, c, bk, H) {
+    const P = `ix${j}`, NB = 1 + bk.seeds, K = Inverse.NEWT_K;
+    const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
+    let cell = c + IX_SLOTS.NEWT;
+    const fns = bk.ops.map((q, n) => { const t = invOpFns({ kind: q.kind, step: o.step }, `${j}s${n}`, cell); cell += IX_SLOTS[q.kind] || 0; return t; }).join('');
+    const seedSteps = [];
+    for (let n = bk.ops.length - 1; n >= 0; n--) {
+      const Q = `ix${j}s${n}`;
+      if (bk.n[n] === 1 && !IX_FIN[bk.ops[n].kind]) seedSteps.push(`  if (!${Q}_one(S)) return false;`);
+      else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
+    }
+    return `vec2 chainHom(int i, vec2 z, float t);
+${fns}vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
+bool ${P}_step(inout vec2 u, vec2 w, float t) {
+  vec2 hu = ${H('u', 't')};
+  float h = 1e-3 * (1.0 + cx_abs(u));
+  vec2 d = (${H('u + vec2(h, 0.0)', 't')} - hu) / h;
+  if (!(dot(d, d) > 0.0)) return false;
+  vec2 st = cdiv(hu - w, d);
+  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
+  u -= sl > mx ? st * (mx / sl) : st;
+  return ixFin(u);
+}
+bool ${P}_seed(vec2 w, int i, out vec2 u) {
+  Lf S = ixStart(w);
+${seedSteps.join('\n')}
+  u = S.u;
+  return ixFin(u);
+}
+bool ${P}_has = false;
+vec2 ${P}_w = vec2(0.0);
+vec2 ${P}_r[${NB}];
+bool ${P}_k[${NB}];
+void ${P}_roots(vec2 w, float t) {
+  if (${P}_has && ${P}_w == w) return;
+  ${P}_has = true; ${P}_w = w;
+  vec2 u = w;
+  bool ok = true;
+  for (int k = 1; k <= ${K}; k++) if (ok) ok = ${P}_step(u, w, t * float(k) / ${K}.0);
+  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
+  ${P}_r[0] = u; ${P}_k[0] = ok && ${P}_hit(u, w, t);
+  int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
+  for (int i = 0; i < ${bk.seeds}; i++) {
+    vec2 v;
+    bool okv = ${P}_seed(w, i, v);
+    for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
+    for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (okv) okv = ${P}_step(v, w, t);
+    okv = okv && ${P}_hit(v, w, t);
+    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= 1e-3 * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
+  }
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 w = L.u;
+  float t = uInv[${c}].x;
+  ${P}_roots(w, t);
+  if (!${P}_k[b]) return false;
+  vec2 u = ${P}_r[b];
+  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
+}
+`;
+  }
   // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]
   function invOpFns(o, j, c) {
     const P = `ix${j}`, U = (i) => `uInv[${c + i}]`;
@@ -2160,6 +2244,8 @@ void ixAncTan(vec2 w) {
       // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
       case 'NEWT': {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        const bk = newtBack(o);
+        if (bk) return newtSeededFns(o, j, c, bk, H);
         return `vec2 chainHom(int i, vec2 z, float t);
 vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
@@ -2361,7 +2447,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       }
       if (IX_FIN[o.kind]) {
         out.push(`${ind}int nb${j} = ixAct(${k}) ? ${P}_nb(${cur}) : 1;`,
-          `${ind}for (int b${j} = 0; b${j} < ${IX_FIN[o.kind]}; b${j}++) {`,
+          `${ind}for (int b${j} = 0; b${j} < ${ixFinMax(o)}; b${j}++) {`,
           `${ind}  if (b${j} >= nb${j}) break;`,
           `${ind}  Lf ${R} = ${cur};`,
           `${ind}  if (ixAct(${k}) && !${P}_one_b(${R}, b${j})) continue;`);
@@ -2443,7 +2529,12 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       case 'EXPC': { const iL = CX.inv(p.L0), st = CX.mul(CX.C(0, 2 * Math.PI), iL); put(c, iL.re, iL.im, st.re, st.im); break; }
       case 'LOG': put(c, p.lo, p.hi, 0, 0); break;
       case 'IJOUK': put(c, p.sg, 0, 0, 0); break;
-      case 'NEWT': put(c, p.t, 0, 0, 0); break;
+      case 'NEWT': {
+        put(c, p.t, 0, 0, 0);
+        let cell = c + IX_SLOTS.NEWT;
+        for (const q of p.back || []) { invOpValues(q, put, cell); cell += IX_SLOTS[q.kind] || 0; }
+        break;
+      }
       case 'QUAD': put(c, p.a.re, p.a.im, p.b.re, p.b.im); put(c + 1, p.c.re, p.c.im, 0, 0); break;
       case 'RAT2': {
         const [P0, P1, P2] = p.P.map(z), [Q0, Q1, Q2] = p.Q.map(z);
@@ -2463,13 +2554,13 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       if (!b || b.error || !b.def) { sigs.push('err'); return; }
       const r = Inverse.stepOps(b);
       if (!r.ok) { sigs.push('X'); ops.push({ kind: 'X', step: i + 1, node: 0, op: null }); return; }
-      sigs.push(r.ops.map((o) => o.kind));
+      sigs.push(r.ops.map(Inverse.opSig));
       r.ops.forEach((o, n) => ops.push({ kind: o.kind, step: i + 1, node: n, op: o }));
     });
     const key = JSON.stringify(['inv2', sigs]);
     if (ops.filter((o) => o.kind !== 'X').length > IX_OPS_MAX) return { ok: false, reason: 'chain too long', key };
     let slots = 0;
-    ops.forEach((o, j) => { o.j = j; o.cell = slots; slots += IX_SLOTS[o.kind] || 0; });
+    ops.forEach((o, j) => { o.j = j; o.cell = slots; slots += ixSlots(o); });
     const S = Math.max(1, slots), N = Math.max(1, ops.length);
     // compile-time features of this op list (smaller programs): IX_LAM, Lambda = log z can reach a leaf (op 0 is LOG or
     // ROOTPOW); IX_MOB, the Mobius-prefix centre and stop can apply (an additive family whose prefix is AFF / MOB with

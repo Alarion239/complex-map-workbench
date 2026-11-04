@@ -782,12 +782,14 @@
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return false; }
     if (derivIn(0, b)) { why.r = 'a d/dz step'; return false; }
     packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
-    const paths = list.map((x) => invHomPath(x, 0, b, u));
+    const singAt = () => svSheetKeyAt(b, u).sing;
+    const paths = list.map((x) => invHomPath(x, 0, b, u, singAt));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return false; }
-    // (a homotopy inverted by Newton finds two of H_t's points over w; Everywhere asks for the front one of all of them
-    // over the whole plane, where H_t can have more, so that frame keeps the carried mesh)
-    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) { why.r = 'Everywhere under a Newton inverse'; return false; }
+    // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
+    // when its step's own exact ops seed walks back from t = 1 (InvOps.opNewt's back); without them it finds two, so
+    // that frame keeps the carried mesh)
+    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return false; }
     const res = svDrawInverse(pane, list, paths, T, frame);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
@@ -1071,7 +1073,7 @@
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
-        const kp = drew ? invHomPath(SV_ALL, 0, b, u) : null;
+        const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
         svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
