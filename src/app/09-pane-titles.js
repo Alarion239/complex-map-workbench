@@ -1266,7 +1266,9 @@
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
+    // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
+      st.caption = t;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
       let x = LEG.W - 8;
       for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width; }
@@ -1323,7 +1325,8 @@
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
       else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
     }
-    const Fn = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    // (the steps view's Height key describes h(F), the same quantity on every plane: ux's rule on #846, 7)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one

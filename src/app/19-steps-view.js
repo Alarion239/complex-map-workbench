@@ -110,7 +110,7 @@
     let role;
     if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
+    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(svMapName('html', k, svHT(k)) || wHtml(k)), sheets: landSheetsHtml() });
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
