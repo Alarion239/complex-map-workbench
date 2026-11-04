@@ -2,7 +2,7 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w) the Mountain King Everywhere (the
-// whole plane carried forward), and a polynomial: Roots as preimages (a cubic) Everywhere. Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// whole plane carried forward), and two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions. Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks four things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
@@ -31,7 +31,7 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways, the Mountain King and Roots as preimages at 1, and the default example Inside regions and
+// Inside regions, the Joukowski airfoil both ways, the Mountain King and the two polynomials at 1, and the default example Inside regions and
 // Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -93,6 +93,10 @@ const CASES = [
   // chain's first half runs z^3's exponent at 1 + 4u, four times the speed of a step's own path, so its ends are a
   // tenth as far from the planes: end)
   { tag: 'Roots as preimages, Everywhere', example: 'Roots as preimages', scope: 'all', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], step: 5, end: 1e-4 },
+  // (the partial sum of the exponential, degree 8, over a square Inside regions: the glide finds every root of
+  // H_u(z) = w, those in Newton's fractal basins included; its step's own path moves a point by u |p(z) - z|, up to
+  // 0.05 at the square's corners at u = 0.001, some pixels, so its ends are a tenth as far from the planes: end)
+  { tag: 'Partial sum of the exponential', example: 'Partial sums of the exponential', scope: 'in', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], end: 1e-4 },
 ];
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
