@@ -270,10 +270,11 @@
   window.__cmwStageBox = () => paneBox(paneL, leftView());
   // the steps view's globe: whether its last frame drew the carried colour and by which path ('inverse' or 'mesh'),
   // and where the point (re, im) of the glide's plane a is at the glide's u (H_u of svBetween; the point itself at
-  // rest)
+  // rest); H: that map ({re, im} -> {re, im}, the identity at rest); eye and key: the last frame's camera position and
+  // key light direction (drawSphere's, world coordinates)
   window.__cmwSvGlobe = (re, im) => {
-    const g = svBetween(), z = C(re, im), w = g.H ? g.H(z) : z;
-    return { carried: !!(leftSphereInfo && leftSphereInfo.carried), path: (leftSphereInfo && leftSphereInfo.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null };
+    const g = svBetween(), z = C(re, im), w = g.H ? g.H(z) : z, si = leftSphereInfo;
+    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null };
   };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
   // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe), the selection's size and

@@ -1514,7 +1514,7 @@
     }
     if (masked) { writeMask(true, true); keepInAlpha(); }
     resetState();
-    return { MVP, eye, carried };
+    return { MVP, eye, key: sph.key, carried };
   }
   // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
   // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written
