@@ -290,10 +290,6 @@
     const w0 = F(q0), win = stageWin(a);
     return CX.isFin(w0) ? trackRoot(F, q0, 1, w0, w, Math.max(win.x1 - win.x0, win.y1 - win.y0), performance.now() + PRE_TRACK_MS) : null;
   }
-  // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
-  // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the
-  // clockwise one dashed, and a handle on the solid curve for the editable cuts (the ray's handle point carried the
-  // same way, pulled in along the ray until it is in view and clear of the branch point's image). Pushes into handles
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
   // jump of more than a quarter of the pane
   function strokeCurves(pane, curves, dash) {
@@ -316,6 +312,12 @@
     ctx.setLineDash([]); ctx.globalAlpha = 1;
   }
   let carriedCuts = [];
+  // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
+  // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
+  // dashed, and for the editable cuts a handle on the solid curve (the ray's handle point carried the same way, pulled in
+  // along the ray until it is in view and clear of the branch point's image). The handle is on that bank because a drag from
+  // it into the picture, as the log's line Im w = θ − 2π moving up, stays inside the image where the pull-back exists; from
+  // the other bank the same drag would leave the image. Pushes into handles
   function drawCarriedCuts(pane, k, handles) {
     carriedCuts = [];
     const ctx = pane.ctx;
