@@ -1,4 +1,4 @@
-// The steps view's keys work on a Russian layout (ЙЦУКЕН): Л and Ь (the K and M keys) play and pause the thread, З (P) toggles
+// The steps view's keys work on a Russian layout (ЙЦУКЕН): Л and Ь (the K and M keys) start a play of the thread, З (P) toggles
 // Paths. Each key is sent as the browser sends it on that layout: a Cyrillic `key` and the physical `code`. A command file
 // for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -13,15 +13,17 @@ ok('the page is the steps view', await ev('!!__cmwSteps().on'), null);
 await ev('document.activeElement && document.activeElement.blur(), 1');
 // a key as the browser sends it on that layout; the caller waits on the state it changes
 const press = async (k, code) => { const p = { key: k, code, modifiers: 0, windowsVirtualKeyCode: code.charCodeAt(3) }; await send('Input.dispatchKeyEvent', { type: 'keyDown', text: k, ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); };
-const PLAY = `document.querySelector('#svStrip .sv-play').getAttribute('aria-label') === 'Pause'`;
 const PATHS = `document.querySelector('#svStrip .sv-paths').getAttribute('aria-pressed')`;
+// A play on a short thread ends within a few frames, so the page counts the times the Play button's label turns to Pause
+// (a MutationObserver) instead of the suite reading the label at a moment
+await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n === 'Pause') window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); })(), 1`);
 // press a key, wait up to 5 s until the page's state is the one expected, then say whether it is
 const keyTo = async (k, code, expr) => { await press(k, code); await settled({ max: 5000, only: true, until: expr }); return ev(expr); };
-ok('the thread is not playing at the start', !(await ev(PLAY)), null);
-ok('Ь (KeyM) plays', await keyTo('ь', 'KeyM', PLAY), null);
-ok('Ь again pauses', await keyTo('ь', 'KeyM', `!(${PLAY})`), null);
-ok('Л (KeyK) plays', await keyTo('л', 'KeyK', PLAY), null);
-ok('Л again pauses', await keyTo('л', 'KeyK', `!(${PLAY})`), null);
+ok('the thread has not played at the start', (await ev('window.__starts')) === 0, null);
+ok('Ь (KeyM) plays', await keyTo('ь', 'KeyM', 'window.__starts >= 1'), await ev('window.__starts'));
+await settled({ max: 20000, until: idle });
+ok('Л (KeyK) plays', await keyTo('л', 'KeyK', 'window.__starts >= 2'), await ev('window.__starts'));
+await settled({ max: 20000, until: idle });
 const p0 = await ev(PATHS);
 ok('the Paths button is there and enabled', p0 !== null && !(await ev(`document.querySelector('#svStrip .sv-paths').disabled`)), p0);
 ok('З (KeyP) toggles Paths', await keyTo('з', 'KeyP', `${PATHS} !== ${JSON.stringify(p0)}`), [p0, await ev(PATHS)]);
