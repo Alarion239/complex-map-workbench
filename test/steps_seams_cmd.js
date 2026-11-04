@@ -28,9 +28,10 @@ const drawn = async () => {
   }
   return false;
 };
-// parked at x with the scope given, the region lines and the strokes off (they cross the seam), the frame drawn
+// parked at x with the scope given, the region lines, the strokes and the deformation's paths off (they cross the
+// seam), the frame drawn
 const park = async (x, scope) => {
-  await ev(`__cmwSet('lines', false); __cmwHideStrokes(true); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); 1`);
   await ev(`__cmwSteps({ scope: '${scope}', surf: 'plane', go: 0, now: true }); __cmwSteps({ scope: '${scope}', surf: 'plane', park: ${x} }); 1`);
   await settled({ max: 20000 });
   ok(`parked at ${x}: the frame is drawn`, await drawn(), null);
