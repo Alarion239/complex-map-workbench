@@ -104,7 +104,7 @@
     if (lColor()) { leftSphereInfo = null; cutHandlesL = renderColor(pane) || []; if (hasTargets()) { updateRoots(); drawRoots(pane); } return; }
     // X Landscape: the relief of the height over X
     if (lLand()) {
-      cutHandlesL = []; leftSphereInfo = null; render3D(pane);
+      cutHandlesL = []; leftSphereInfo = null; render3D(pane, SV.on ? svLandRest() : undefined);
       // the relief has no place for the target preimages (they show in X Plane and Sphere): said, not dropped silently
       if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show in X → Y and Phase (1, 2)'));
       return;
@@ -582,10 +582,11 @@
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
     return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
   }
-  // carry (the steps view's glide, svLandMoving): {map, s, T, lim, u, b, va, vb}: plane s's surface moved by the glide's
-  // map (GLR.drawLandscape's carry); its block and its height scale go from plane s's to plane b's over u (the box's
-  // centre linearly, its size and the scale in log; b null: plane s's), so the block, its floor and its axes move
-  // smoothly from one plane's rest frame to the other's. va, vb: the two planes' views
+  // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, lim, u, a, b, vs, va, vb}: plane
+  // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of
+  // (s, T]; its block and its height scale go from plane a's to plane b's over u (the box's centre linearly, its size
+  // and the scale in log; b null: plane a's), so the block, its floor and its axes move smoothly from one plane's rest
+  // frame to the other's. vs, va, vb: the views of planes s, a and b
   // p to q at f in log (p, q > 0)
   const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
   function carryBox(c) {
@@ -609,8 +610,8 @@
     const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
-      const ma = medianAbs(landBox(carry.va), svColourMap(carry.s), svF(carry.s));
-      const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svColourMap(carry.b), svF(carry.b));
+      const ma = medianAbs(landBox(carry.va), svHeightMap(carry.a), svHeightF(carry.a));
+      const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
       mu = logLerp(ma, mb, carry.u);
     }
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
@@ -625,7 +626,7 @@
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
     // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
     // and a log window keeps its pitch instead of the compressed height's plates)
-    const fm = focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
+    const fm = carry ? svColourMap(carry.s) : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
@@ -661,9 +662,9 @@
       };
       // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
       // frames' are, so a frame depends on u alone
-      const ofPlane = (k, v) => { const m = svColourMap(k), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
+      const ofPlane = (k, v) => { const m = svColourMap(k <= carry.T ? k : carry.s), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
       const c = carry ? (() => {
-        const ra = ofPlane(carry.s, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
+        const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
       })() : scaleOf(fm, si.K, box);
       mu = c.mu;
@@ -741,7 +742,7 @@
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
-    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.va)) : svLandMask(svStage(), box)) : null;
+    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.vs)) : svLandMask(svStage(), box)) : null;
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
@@ -755,7 +756,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, lim: carry.lim, src: landBox(carry.vs) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,

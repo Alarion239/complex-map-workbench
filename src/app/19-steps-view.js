@@ -40,6 +40,16 @@
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
+  // (ux's rule on #846, 2) every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
+  // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
+  // no map from w_k (then the colour plane, or past it w_k itself)
+  function svHT(k) { const P = svPlanes(), L = P[P.length - 1]; return k === 0 || !derivIn(k, L) ? L : Math.max(k, svT()); }
+  // the height map of plane k (a map spec of plane k) and its CPU twin
+  const svHeightMap = (k) => ({ mode: 0, a: k, b: svHT(k) });
+  const svHeightF = (k) => { const t = svHT(k); return k === t ? (z) => z : rangeF(k, t); };
+  // plane k has a Landscape: at or before the colour plane T (svColoured), or past it with a map from T (whose points
+  // carry T's colour there)
+  const svLandOk = (k) => { const T = svT(); return svColoured(k) || (k > T && (T === 0 || !derivIn(T, k))); };
   // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
@@ -107,7 +117,7 @@
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
-  const svMain = (k = svStage()) => (SV.surf === 'land' && svColoured(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
+  const svMain = (k = svStage()) => (SV.surf === 'land' && svLandOk(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
   function svViewFix() {
     const k = svStage(), col = svColoured(k), v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
     const main = svMain(k);
@@ -277,17 +287,34 @@
     if (still) { SV.g.last = 0; svArrive(); return false; }
     return true;
   }
-  // (#846) The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
-  // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
-  // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
-  // (the X → Y view a glide from past the colour plane starts in)
+  // (#846, ux's rule on it) The Landscape as the points of a source plane s carried (render3D's carry): s is the plane
+  // the frame starts from, or the colour plane T when that is before it, so every point past T keeps T's colour. Each
+  // point is placed by `map` (from plane s), at its height h(F) (the stages (s, hT]) and in its colour (the stages
+  // (s, T]); the block goes from plane a's to plane b's over u (b null: a's). vs, va, vb: the views of s, a and b
+  function svLandCarry(map, s, a, b, u) {
+    const T = svT(), lim = 0.35 * Math.max(paneL.w, paneL.h) / S.srcView.s;
+    return { map, s, T, hT: svHT(s), lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b) };
+  }
+  // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
+  // when its heights are of that map too; else plane k's points (k at or before T) or T's (past it) carried to plane k
+  // at u = 1, so the height is h(F_k) and the colour that of the 2D picture. Undefined for the rest frame
+  function svLandRest(k = svStage()) {
+    const T = svT();
+    if (!SV.on || !svLandOk(k)) return undefined;
+    if (k <= T) return svHT(k) === T ? undefined : svLandCarry({ mode: 0, a: k, b: k }, k, k, null, 0);
+    return svLandCarry({ mode: 0, a: T, b: k }, T, T, k, 1);
+  }
+  // (#846) The Landscape between two planes a and b: the points of plane s = min(a, T) carried by the glide's map, each
+  // at its height and colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s =
+  // F_b ∘ (the map s → b). At a plane, or across a d/dz step (no map), the nearer plane's surface at rest. False when
+  // the Landscape is not on the pane (the X → Y view a glide from a plane with no Landscape starts in)
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
-    if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
-    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
-    const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: leftView(g.a), vb: leftView(g.b) });
+    if (!g.H || !svLandOk(g.a)) { render3D(pane, svLandRest(g.near)); return true; }
+    const s = Math.min(g.a, svT());
+    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u };
+    render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
