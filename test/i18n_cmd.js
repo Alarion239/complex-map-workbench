@@ -15,11 +15,14 @@ const U = `http://localhost:${PORT}/test.html`;
 const SCAN = fs.readFileSync(path.join(DIR, '..', 'i18n_scan.js'), 'utf8');
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail === undefined ? null : detail]);
+const until = (expr, max = 5000) => settled({ max, only: true, until: expr });
+const PAL = `!!document.querySelector('#popHost .palette, .pop.palette')`;
+const ITEMS = `!!document.querySelector('#popHost .pal-item')`;
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // a page just opened: the pause it always had, then its ready state (loaded, I18N there, the chain built), which a
 // busy machine reaches later than any fixed pause; then two frames
 const loaded = async (pause, ms = 30000) => {
-  await sleep(pause);
+  await settled({ max: pause });
   for (const t0 = Date.now(); Date.now() - t0 < ms; await sleep(200)) {
     let ok = false;
     try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* navigating */ }
@@ -97,19 +100,19 @@ const items = await ev(`[...document.querySelectorAll('.set-pop #setLang button'
 check('Settings: Language Авто, English, Русский, Italiano', JSON.stringify(items) === JSON.stringify(['Авто', 'English', 'Русский', 'Italiano']), items);
 const mrect = await ev(`(() => { const m = document.querySelector('.set-pop'); if (!m) return null; const r = m.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
 check('Settings inside the window', mrect && mrect.l >= 0 && mrect.r <= 1440 && mrect.t >= 0, mrect);
-await key('Escape'); await settle(200);
+await key('Escape'); await until(`!document.querySelector('.set-pop')`);
 for (const q of ['язык', 'language']) {
-  await key('k', 4); await settle(300); await type(q); await settle(500);
+  await key('k', 4); await until(PAL); await type(q); await until(ITEMS);
   const rows = await ev(`[...document.querySelectorAll('.pal-item .pal-label')].map((e) => e.textContent).filter((t) => /^Язык:/.test(t))`);
   check(`palette "${q}": the four Language rows`, rows.length === 4, rows);
-  await key('Escape'); await settle(200);
+  await key('Escape'); await until(`!document.querySelector('#popHost .palette, .pop.palette')`);
 }
 // (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are
 // in the bar, inside the window, and Settings, with Language, opens there)
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
   const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-    // ([v17 D5] Theme and the panel buttons are in Settings: the bar has Share and Settings instead)
+    // (Theme and the panel buttons are in Settings; the bar has Share and Settings)
     const ids = ['examplesBtn', 'cmdBtn', 'exportBtn', 'shareBtn', 'soundBtn', 'settingsBtn', 'helpBtn'];
     const inBar = ids.filter((id) => { const e = document.getElementById(id), r = e && e.getBoundingClientRect(); return vis(e) && r.top < 60 && r.right <= innerWidth - 4 && r.left >= 0; });
     return { more: vis(document.getElementById('hdrMoreBtn')), inBar, over: document.documentElement.scrollWidth - innerWidth }; })()`);
@@ -117,7 +120,7 @@ for (const w of [768, 900, 1023]) {
   await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(500);
   const lm = await ev(`(() => { const m = document.querySelector('.set-pop'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('#setLang button').length, l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
   check(`tablet ${w}: Settings, with Language, opens from the bar, inside the window`, lm && lm.n === 4 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
-  await key('Escape'); await settle(200);
+  await key('Escape'); await until(`!document.querySelector('.set-pop')`);
 }
 for (const w of [1024, 1440]) {
   await open('en', w, false);
@@ -129,7 +132,7 @@ for (const w of [1024, 1440]) {
   await view(1440, 900, false, false);
   await nav(`${U}?ns=${ns}`); await loaded(3500);
   check('switch: starts English', (await ev('I18N.lang')) === 'en');
-  await key('k', 4); await settle(300); await type('sin'); await settle(400); await key('Enter'); await settle(1200);
+  await key('k', 4); await until(PAL); await type('sin'); await until(ITEMS); await key('Enter'); await until(`!document.querySelector('#popHost .palette, .pop.palette') && !!document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')`);
   // a step chosen on the thread (the Inspector's step, the thread's place), the right panel hidden
   await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip'); if (!c) return false; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); c.click(); return true; })()`); await settle(1500);
   await ev(`document.getElementById('toggleRight').click(), 1`); await settle(400);
@@ -173,7 +176,7 @@ for (const w of [1024, 1440]) {
   await view(1440, 900, false, false);
   await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
   await ev(`document.activeElement && document.activeElement.blur(), 1`);
-  const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await sleep(300); };
+  const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await settled({ max: 3000 }); };
   const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
   // (С is C: the colour plane, as on a Latin layout; the thread is taken to the first plane, then С sets it as the colour plane)
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
@@ -183,8 +186,8 @@ for (const w of [1024, 1440]) {
   await press('и', 'KeyB'); check('ЙЦУКЕН И (KeyB) → Rectangle', (await tool()) === 'rect');
   await press('ы', 'KeyS'); check('ЙЦУКЕН Ы (KeyS) → Segment', (await tool()) === 'segment');
   await press('м', 'KeyV'); check('ЙЦУКЕН М (KeyV) → Select', (await tool()) === 'select');
-  await press('л', 'KeyK', 4); await settle(300); check('ЙЦУКЕН ⌘Л (KeyK) → palette', await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`)); await press('Escape', 'Escape');
-  await press('.', 'Slash'); await settle(300); check('ЙЦУКЕН «.» on the / key → palette', await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`)); await press('Escape', 'Escape');
+  await press('л', 'KeyK', 4); await until(PAL); check('ЙЦУКЕН ⌘Л (KeyK) → palette', await ev(PAL)); await press('Escape', 'Escape'); await until(`!${PAL}`);
+  await press('.', 'Slash'); await until(PAL); check('ЙЦУКЕН «.» on the / key → palette', await ev(PAL)); await press('Escape', 'Escape'); await until(`!${PAL}`);
   // (K and M play and pause the thread, P toggles its Paths; the thread is idle first)
   await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` });
   // (a play on a short thread ends within a few frames: the page counts the times the Play button's label changes, and
@@ -199,8 +202,8 @@ for (const w of [1024, 1440]) {
   const p0 = await ev(paths);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} !== ${JSON.stringify(p0)}` }); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} === ${JSON.stringify(p0)}` });
-  await press('у', 'KeyE', 4); await settle(1500); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
-  await press('Escape', 'Escape'); await settle(500);
+  await press('у', 'KeyE', 4); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
+  await press('Escape', 'Escape'); await until(`!document.querySelector('.modal-bg')`);
   // a text field keeps its letters: the region formula field
   await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
   await press('м', 'KeyV'); await press('с', 'KeyC'); await press('ь', 'KeyM');
@@ -226,12 +229,12 @@ for (const w of [1024, 1440]) {
   check('ru: "0,5" gets the hint', /Дробную часть отделяйте точкой: 0\.5/.test(m['0,5']), m['0,5']);
   check('ru: "sin(0,5z)" gets the hint after its message', /Дробную часть отделяйте точкой: 0\.5$/.test(m['sin(0,5z)'] || ''), m['sin(0,5z)']);
   check('ru: "z^0,5" gets the hint', /Дробную часть отделяйте точкой/.test(m['z^0,5'] || ''), m['z^0,5']);
-  await key('k', 4); await settle(300); await type('tan'); await settle(600);
+  await key('k', 4); await until(PAL); await type('tan'); await until(ITEMS);
   const pal = await ev(`document.querySelector('#popHost .pal-item') ? [...document.querySelectorAll('#popHost .pal-item')].slice(0, 4).map((e) => e.textContent).join(' | ') : ''`);
   check('ru palette: "tan" finds the tangent', /тангенс|tg/.test(pal), pal.slice(0, 160));
   await key('Escape');
   for (const [q, re, what] of [['дзета', /ζ/, 'ζ'], ['факториал', /Γ/, 'Γ']]) {
-    await key('k', 4); await settle(300); await type(q); await settle(600);
+    await key('k', 4); await until(PAL); await type(q); await until(ITEMS);
     const p2 = await ev(`[...document.querySelectorAll('#popHost .pal-item')].slice(0, 4).map((e) => e.textContent).join(' | ')`);
     check(`ru palette: "${q}" finds ${what}`, re.test(p2), p2.slice(0, 160));
     await key('Escape');
@@ -244,7 +247,7 @@ for (const w of [1024, 1440]) {
 {
   await open('ru', 1440, false);
   // (the example picked from the Examples list by its Russian name)
-  await clickSel('#examplesBtn'); await settle(500);
+  await clickSel('#examplesBtn'); await until(`!!document.querySelector('#popHost .examples .ex-name')`);
   const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
   check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
 }
