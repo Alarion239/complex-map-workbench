@@ -313,6 +313,24 @@
     const ry = $('rulerLY'), rx = $('rulerLX'), dw = ry ? ry.getBoundingClientRect().width : 0, dh = rx ? rx.getBoundingClientRect().height : 0;
     return { x: c.left - dw, y: c.top, w: c.width + dw, h: c.height + dh };
   }
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each:
+  // - around each pole of the glide's map at its place (map, the carry's) in plane a's carried box src, from a
+  //   ten-thousandth of a cell of the box's N x N grid to three cells, nearest the box's centre first, at most 4: near a
+  //   pole the map carries a small disc over the far plane, where the box's cells stretch past the tear limit and are
+  //   left out;
+  // - with outer (the flatten, whose last frame is X → Y's whole pane), the plane beyond the box too: an annulus about its
+  //   centre from half its shorter side to two thousand times its longer one, which the map can carry into the pane
+  //   (the ends of a Möbius step's plane, by its pole's image)
+  function svLandPoles(map, src, N, outer) {
+    const F = cpuMap(map);
+    if (!F) return [];
+    const E = { n: 0, at: 0 }, it = svPolesIn(F, src, 16, src, E);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    const W = src.x1 - src.x0, H = src.y1 - src.y0, cell = Math.max(W, H) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    const near = r.value.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
+    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 3]).concat(outer ? [[cx, cy, 0.5 * Math.min(W, H), 2000 * Math.max(W, H)]] : []);
+  }
   // the plane's grid paper in the open GL frame, at the pane's view (under: under what the frame holds already)
   const svGrid = (pane, under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
   // (the flatten, render3D) plane b's grid paper as X → Y draws it at view, in a canvas the pane's size: {cv, box, key},

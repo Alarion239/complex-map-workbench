@@ -757,10 +757,12 @@
     // landscape's frame begins, as it takes a GL frame of its own)
     // (the carried grid: over plane a's block)
     const src = carry ? landBox(carry.va, place && place.A) : null;
+    const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
+    // (the carried grid's patches about the glide map's poles and beyond the box: svLandPoles)
+    const poles = carry ? svLandPoles(carry.map, src, cells, !!place) : null;
     const mask = SV.on ? (carry ? svLandMask(carry.s, src) : svLandMask(svStage(), box)) : null;
     const marks = place ? svFlatMarks(pane, carry.vb) : null, paper = place ? svFlatPaper(pane, carry.vb) : null;
     GLR.begin(pane.pw, pane.ph);
-    const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     // (the flatten: the shapes at their places along the glide, and each one's stroke going from the print's to the
     // flat plane's outline over u, its width, colour and casing (shapeStroke), one stroke throughout)
@@ -783,7 +785,7 @@
       outlines.push(o);
     }
     const info = GLR.drawLandscape({
-      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src, flat: carry.flat || 0, paper: TH.planeRGB } : null, box, cam: view, screen: place ? place.ndc : null, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: carry && carry.flat ? svLandMaterial() : landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src, poles, flat: carry.flat || 0, paper: TH.planeRGB } : null, box, cam: view, screen: place ? place.ndc : null, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: carry && carry.flat ? svLandMaterial() : landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, marks, paper, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
@@ -802,7 +804,7 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, flat: carry.flat || 0, place: place && place.R, mu, box } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, flat: carry.flat || 0, place: place && place.R, poles, patches: info.patches, mu, box } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)

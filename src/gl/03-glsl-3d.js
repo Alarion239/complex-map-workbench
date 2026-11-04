@@ -537,13 +537,27 @@ void main() {
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of G = the stages (s, T] there (uGs,
   // uGt), so every point keeps its height and colour while the plane moves; the height times 1 - uFlat (the glide into
   // the plane after the colour plane flattens it). tfOut: (place x, y, height, finite).
+  // The carried grid's point of plane s at grid place ij (0 to uN - 1 each way): over the box uSrc, or, with uPolar
+  // (pole x, y, r0, r1; r1 > 0), a patch around a pole of the glide's map: the angle once round with i, the radius from
+  // r0 to r1 geometrically with j, so the far plane the pole's neighbourhood is carried to is covered by small cells
+  // where the box's cells, stretched past uLim, are left out
+  const CARRY_Z = `
+uniform vec4 uPolar;
+vec2 carryZ(vec2 ij) {
+  float f = 1.0 / float(uN - 1);
+  if (uPolar.w <= 0.0) return uSrc.xy + ij * f * uSrc.zw;
+  float th = 6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
+  return uPolar.xy + r * vec2(cos(th), sin(th));
+}
+`;
   const LAND_CARRY_TF_VS = `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform float uFlat;
 out vec4 tfOut;
+` + CARRY_Z + `
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = uSrc.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uSrc.zw;
+  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
   vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x * (1.0 - uFlat), 1.0) : vec4(0.0);
 }
@@ -585,6 +599,7 @@ uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; unif
 uniform float uStep;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
+` + CARRY_Z + `
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
@@ -598,7 +613,7 @@ void main() {
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = uSrc.xy + vec2(V) / float(M) * uSrc.zw;
+  vZ = carryZ(vec2(V));
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -1091,7 +1106,7 @@ in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc; uniform float uPatch;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1182,7 +1197,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
-  // where the block's top or bottom clips the surface: the same rim as the domain's edges
+${carry ? '  rim *= 1.0 - uPatch;   // (a patch of the carried grid (CARRY_Z) has no domain edge of its own)\n' : ''}  // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
                          vBoxE.y * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.y))),
                          vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z)))) * (1.0 - uFlat);

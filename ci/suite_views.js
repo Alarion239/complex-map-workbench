@@ -40,6 +40,7 @@ const VIEWS = {
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_flatten_cmd.js': steps(),
+  'steps_land_poles_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
