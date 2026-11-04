@@ -154,6 +154,10 @@
     // (the base cells: the base's fragment stage, F at the fragment and no fade, so a formula's first Landscape compiles
     // what it did before the walls; r2 review math-2)
     land: { chain: true, vs: () => LAND_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true) },
+    // (#846: the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
+    landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
+    landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     landB: { chain: false, vs: () => LAND_B_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
