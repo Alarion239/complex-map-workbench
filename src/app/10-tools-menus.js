@@ -112,7 +112,7 @@
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
-    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
+    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', stage: s.stage || 0, bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
   }
   // [issue #260] an external ray (theta: '1/3') or an equipotential (r > 1) of step k's set: M for Φ_M, the Julia set of
   // z² + c for φ_c (its c, by name when it is a shared number), as a shape of the plane the step reads (stage k − 1)
