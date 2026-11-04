@@ -86,7 +86,7 @@
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
     let roleL, shortL;
-    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : deformOneSheet() ? $t('; one sheet is drawn while it deforms') : '' }); shortL = $tx('role', 'landscape'); }
+    if (lLand()) { roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: landSheetsHtml() }); shortL = $tx('role', 'landscape'); }
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
@@ -667,6 +667,12 @@
     if (sh.pieces.length === 1) return Number.isFinite(N) ? { src: '; the sheets %{k} of %{N} are shown.', p: { k, N } } : { src: '; the sheets %{k} of infinitely many are shown.', p: { k } };
     return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: sh.K, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: sh.K, k } };
   }
+  // the Landscape title's sheets suffix, as both views' titles say it: which sheets are drawn (", both sheets"), or that one
+  // is while a deformation with no sheet form shows; '' for the principal branch
+  function landSheetsHtml() {
+    const shw = sheetsShown();
+    return shw ? sheetsClause(shw, 'html') : deformOneSheet() ? $t('; one sheet is drawn while it deforms') : '';
+  }
   // the TeX parameters of a clause: the window k and, while deforming, H and F are math (wrap: {m} for capT, $..$)
   const sheetsTexP = (p, wrap) => { const r = Object.assign({}, p); for (const q of ['k', 'H', 'F']) if (r[q] != null) r[q] = wrap(r[q]); return r; };
   // the All sheets check: with more sheet combinations than the landscape draws (GLR caps them), "24 of 30" (F's: while
@@ -693,7 +699,7 @@
     return true;
   }
   // [v16.5 UX67] the step editor's "Show all sheets": Landscape (3) with All sheets on
-  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); }
+  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); tourEmit('sheets-shown', {}); }
   function setSheets(on) {
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F

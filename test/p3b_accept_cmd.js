@@ -13,7 +13,7 @@ const tool = async (t) => ev(`document.querySelector('#tools .tool[data-tool="${
 const shapes = async () => ev('__cmwShapes()');
 
 await load('p3bA' + Date.now(), { shapes: [], steps: [CAY], srcView: { cx: 0, cy: 0, s: 80 }, snap: true });
-await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
+await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere' }); 1`); await settle(1500);
 // look at the northern hemisphere from above, N in view
 await ev('__cmwCam("L", { pitch: 0.55, yaw: -1.0 }); 1'); await settle(800);
 R.inf = await at('L', NaN, NaN);
@@ -63,7 +63,8 @@ await tool('point');
 await click(R.inf[0] + 3, R.inf[1]); await settle(300);
 const nAfterInf = (await shapes()).shapes.length;
 ok('the Point tool places nothing within 10 px of ∞', nAfterInf === 3, nAfterInf);
-const pp = await at('L', 0.51, 0.49);
+// (0.5 + 0.4955i lies within the globe's 4 px line radius of the 45° meridian, as 0.51 + 0.49i, 5.7 px off it on this globe, does not)
+const pp = await at('L', 0.5, 0.4955);
 await click(pp[0], pp[1]); await settle(300);
 const S4 = await shapes();
 const pt = S4.shapes[3];
@@ -101,38 +102,42 @@ await ev(`__cmwSelect('${comp.id}'); 1`); await settle(300);
 const H = await ev(`__cmwGlobeHandles('L')`);
 R.handles = H;
 ok('the selected cap shows a centre and a rim handle on the facing hemisphere', H.length === 2 && H[0][0] === 'C' && H[0][1] && H[1][0] === 'rim', H);
-// drag the centre handle (at ∞) to 1.5 - 1.5i: the cap leaves ∞ -> a disc
+// drag the centre handle (at ∞) to 1.5 + 1.5i, a point of the facing hemisphere: the cap leaves ∞ -> a disc
 const o = await paneR0('L');
 const hc = H[0][1];
-const south = await at('L', 1.5, -1.5);
-if (hc && south) { await drag(o[0] + hc[0], o[1] + hc[1], south[0], south[1], 20, 16); await settle(); }
+const south = await at('L', 1.5, 1.5);
+ok('the centre handle and the target point 1.5 + 1.5i are on screen', !!hc && !!south, { hc, south });
+await drag(o[0] + hc[0], o[1] + hc[1], south[0], south[1], 20, 16); await settle();
 const S7 = await shapes();
 const moved = S7.shapes.find((s) => s.id === comp.id);
 R.moved = moved;
-ok('its centre dragged from ∞ to 1.5 - 1.5i: the complement becomes a disc (the kind follows the geometry)', moved && moved.kind === 'disc' && !moved.complement, moved);
+ok('its centre dragged from ∞ to 1.5 + 1.5i: the complement becomes a disc (the kind follows the geometry)', moved && moved.kind === 'disc' && !moved.complement, moved);
 // a slide (move by rotation) of the half-plane: off ∞ it becomes a disc or a complement, never stays a half-plane
-// (pressed at 2.5i and slid along its meridian to 1.1i: the cap moves away from N, its rim leaves ∞)
-const hz = await at('L', 0, 2.5), hz1 = await at('L', 0, 1.1);
-if (hz && hz1) { await drag(hz[0], hz[1], hz1[0], hz1[1], 12, 16); await settle(); }
+// (pressed at -3 + 3i, inside the half-plane and outside the disc the complement became, and slid down to -3 + 1.2i:
+// the cap moves away from N, its rim leaves ∞)
+const hz = await at('L', -3, 3), hz1 = await at('L', -3, 1.2);
+ok('the press and the slide points are on screen', !!hz && !!hz1, { hz, hz1 });
+await drag(hz[0], hz[1], hz1[0], hz1[1], 12, 16); await settle();
 const S8 = await shapes();
 const slid = S8.shapes.find((s) => s.id === hp.id);
 R.slid = slid;
 ok('the half-plane slid on the sphere becomes a disc or the complement of a disc', slid && slid.kind === 'disc', slid);
 await shot('p3b_xglobe_edit');
 
-// 8. targets on the Y globe: a Disc target drawn on the w-globe; it is listed with the targets and pulled back in X
-await ev('__cmwSetView("L", "plane"); __cmwSetView("R", "sphere"); 1'); await settle(1500);
-await ev('__cmwCam("R", { pitch: 0.4, yaw: -0.9 }); 1'); await settle(600);
+// 8. a Disc on the last plane's globe: a shape of that plane (stage 1), drawn on the globe and pulled back in X
+await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere' }); 1`); await settle(1500);
+await ev('__cmwCam("L", { pitch: 0.4, yaw: -0.9 }); 1'); await settle(600);
 await tool('disc');
-const w0 = await at('R', 0.3, 0.3), w1 = await at('R', 0.8, 0.3);
+const w0 = await at('L', 0.3, 0.3), w1 = await at('L', 0.8, 0.3);
 await drag(w0[0], w0[1], w1[0], w1[1], 10, 16); await settle(1200);
 const S9 = await shapes();
-R.target = S9.targets;
-ok('Disc on the Y globe: a target disc', S9.targets.length === 1 && S9.targets[0].kind === 'disc', S9.targets);
-// the w-globe shows the target: pixels of its fill colour inside its projected rim
-const look = await ev(`(() => { const t = __cmwShapes().targets[0]; if (!t) return null; const cv = document.getElementById('canvasR'); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); const q = __cmwGlobeXY('R', t.c[0], t.c[1]); const d = window.devicePixelRatio || 1; const px = x.getImageData(Math.round(q[0] * d), Math.round(q[1] * d), 1, 1).data; return { q, px: [px[0], px[1], px[2]] }; })()`);
+const onLast = S9.shapes.filter((s) => s.stage === 1);
+R.target = onLast;
+ok('Disc on the last plane\'s globe: a disc of that plane', onLast.length === 1 && onLast[0].kind === 'disc', S9.shapes);
+// the globe shows it: pixels of its fill colour inside its projected rim
+const look = await ev(`(() => { const t = __cmwShapes().shapes.find((s) => s.stage === 1); if (!t) return null; const cv = document.getElementById('canvasL'); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); const q = __cmwGlobeXY('L', t.c[0], t.c[1]); const d = window.devicePixelRatio || 1; const px = x.getImageData(Math.round(q[0] * d), Math.round(q[1] * d), 1, 1).data; return { q, px: [px[0], px[1], px[2]] }; })()`);
 R.look = look;
-ok('the target is drawn on the w-globe (not the globe colour at its centre)', look && look.px && Math.max(...look.px) - Math.min(...look.px) > 25, look);
+ok('the disc is drawn on the globe (not the globe colour at its centre)', look && look.px && Math.max(...look.px) - Math.min(...look.px) > 25, look);
 await shot('p3b_yglobe_target');
 R.logs = logs().filter((l) => /error|exception/i.test(l.t) && !/404/.test(l.m)).slice(0, 6);
 ok('no errors in the console', !R.logs.length, R.logs);
