@@ -1104,6 +1104,8 @@
     // its print and its contact shadow going, and gives way to plane b's paper, which the caller draws under the frame)
     const flat = st.carry ? st.carry.flat || 0 : 0;
     const floorZ = flat ? (1 - flat) * geom.floorZ - flat * 1e-3 : geom.floorZ;
+    // (the floor's outlines and the flatten's marks: on the plate, rising with it to just over the flattened surface)
+    const marksZ = flat ? (1 - flat) * geom.floorZ + flat * 1e-3 : floorZ;
     const modeName = st.heightMode || 'log';
     const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[modeName] ?? 0;
     const mu = st.mu > 0 ? st.mu : 1;
@@ -1225,7 +1227,7 @@
       if (!Fp || !Fp.loc.uMarks) return;
       use(Fp, st.map);
       common(Fp);
-      u2f(Fp, 'uExt', ext[0], ext[1]); u1f(Fp, 'uFloorZ', 0);
+      u2f(Fp, 'uExt', ext[0], ext[1]); u1f(Fp, 'uFloorZ', marksZ);
       u1f(Fp, 'uShadowA', 0); u1f(Fp, 'uPrint', 0); u1f(Fp, 'uPlateA', 0);
       gl.activeTexture(gl.TEXTURE13);
       if (!marksTex) marksTex = gl.createTexture();
@@ -1375,10 +1377,10 @@
     gl.depthFunc(gl.LEQUAL);
     for (const o of st.outlines || []) {
       if (!o || !o.res) continue;
-      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: 1.25 * dpr, color: col3(o.color, C.modLine), alpha: (below ? 0.45 : 1) * (1 - flat), fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
+      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: o.width || 1.25 * dpr, casing: o.casing, color: col3(o.color, C.modLine), alpha: below ? 0.45 : 1, fade: plate, floor: { MVP, box, aspect, floorZ: marksZ, clip: plate } });
     }
-    // (the flatten, st.marks {cv, box}: the flat plane's outlines and points, the floor's outlines' twins, on the plane
-    // at height 0 at opacity flat: hidden where the lifted surface stands in front, over it once it lies flat)
+    // (the flatten, st.marks {cv, box}: the flat plane's points, on the plate, at opacity flat: hidden where the lifted
+    // surface stands in front, over it once it lies flat)
     if (st.marks && flat > 0) marksPass(st.marks);
     // unit level: the plane h(|F| = 1)
     if (st.unitLevel) {

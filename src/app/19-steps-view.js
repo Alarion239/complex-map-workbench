@@ -326,20 +326,18 @@
     pane.ctx.save(); pane.ctx.globalAlpha = a; GLR.blit(pane.ctx); pane.ctx.restore();
     pane.setView(v);
   }
-  // (the flatten, render3D) plane b's marks that the Landscape draws no twin of as X → Y does, the regions' outlines and
-  // the points at their places along the glide, over plane b's view (view) into a canvas the pane's size: {cv, box},
-  // box the plane's rectangle it covers (GLR.drawLandscape's st.marks, laid on the plane at opacity flat). Drawn before
-  // the Landscape's frame begins, as the outlines take a GL frame of their own
+  // (the flatten, render3D) plane b's marks that the Landscape draws no twin of: the points at their places along the
+  // glide, as X → Y draws them over plane b's view (view), into a canvas the pane's size: {cv, box}, box the plane's
+  // rectangle it covers (GLR.drawLandscape's st.marks, laid on the plate at opacity flat)
   let svMarksCv = null;
   function svFlatMarks(pane, view) {
     if (SV.bare) return null;
-    const { b, map, F } = svBetween();
+    const { b, F } = svBetween();
     svMarksCv = svCanvas(svMarksCv, pane);
     const p = svProxy(pane, svMarksCv);
     p.setView(view);
-    svOutlines(p, map);
     p.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    drawPoints(p, F, { primes: b, k: b });
+    drawPoints(p, F, { primes: b, k: b, editK: b });
     return { cv: svMarksCv, box: leftPaneBox(view) };
   }
   // an element's rectangle in page CSS px, with the window's size it was taken at
