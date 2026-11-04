@@ -59,6 +59,7 @@ const VIEWS = {
   'sv_curve_menu_cmd.js': steps(),
   'sv_globe_mask_cmd.js': steps(),
   'sv_globe_draw_cmd.js': steps(),
+  'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_construct_plane_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
   'toasts_515_cmd.js': steps(),
