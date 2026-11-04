@@ -443,6 +443,16 @@ const Tour = (() => {
       body: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu.',
       touch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu: hold the chip.', phoneFine: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
       try: { text: reorderMenu, deskTouch: reorderMenu, touch: 'Hold the chip $f_2$, then choose Move left.', phoneFine: 'Right-click the chip $f_2$, then choose Move left.', on: 'step-moved', test: (/** @type {any} */ e) => !e || e.from === 2, ctl: ['svMenu2'], then: 'The planes after this step changed with the order.' } };
+    // a shape drawn on a later plane, its preimage on z under Inside regions; ticked by a disc drawn on a later plane, then ‹ to z
+    const drawnLater = (/** @type {any} */ e, /** @type {any} */ m) => {
+      if (!e) return true;
+      if ('stage' in e) { m.drawn = e.stage > 0; return false; }
+      return !!m.drawn && e.i === 0;
+    };
+    Object.assign(svStep('analysis', 'targets'), { anchor: 'paneL', also: ['svStrip'], title: 'Shapes on a later plane',
+      before: [['svPlace', { i: 1, T: -1, scope: 'in', surf: 'plane' }]], lead: undefined,
+      body: 'A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane\'s regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.',
+      try: { text: 'On $w_1$, draw a disc, then click ‹ (or press ←).', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane $z$ shows where the disc comes from.' } });
     const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
     const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
     if (cardsAt < 0) throw new Error('the tour has no cards step to replace');
@@ -487,7 +497,7 @@ const Tour = (() => {
     svStrip: '#svStrip', svNext: () => vis1('#svStrip .sv-next'), svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
     svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svChip2: () => vis1('#svStrip .sv-step[data-k="2"] .sv-fchip'), svF: () => vis1('#svStrip .sv-wholemap'),
     // (the thread's Add function button, in either form; the second chip's ⋯ menu, or on a phone, where chips have none, the chip)
-    svAdd: () => vis1('#svStrip .sv-add'), svMenu2: () => vis1('#svStrip .sv-step[data-k="2"] .sv-more') || vis1('#svStrip .sv-step[data-k="2"] .sv-fchip'),
+    svPrev: () => vis1('#svStrip .sv-prev'), svAdd: () => vis1('#svStrip .sv-add'), svMenu2: () => vis1('#svStrip .sv-step[data-k="2"] .sv-more') || vis1('#svStrip .sv-step[data-k="2"] .sv-fchip'),
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
@@ -2222,11 +2232,14 @@ const Tour = (() => {
       await frames(1); if (stale()) return;
     }
     const want = sceneAt(ch, si);
+    const sceneLoaded = want != null && r.scene !== want;
     const ok = want == null ? true : loadScene(r, want);
     // a step that does not ask for the panel: a phone's sheet that an earlier step opened closes (optional)
     if (r.scenes && !(step.before || []).some((a) => a[0] === 'panel')) call('closeSheet');
     for (const a of step.before || []) {
       if (a[0] === 'scene') continue;
+      // (the steps view takes a scene just loaded a frame or two later and sets its place back: the placement waits for that)
+      if (a[0] === 'svPlace' && sceneLoaded) { await frames(2); if (stale()) return; }
       act(r, a);
       await null;
       if (stale()) return;

@@ -35,7 +35,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -1566,7 +1566,8 @@ const Inverse = (() => {
   // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
   // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
   // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
-  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn. {ok, ops} | {ok: false, reason}
+  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
+  // (newtOps). {ok, ops} | {ok: false, reason}
   function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
@@ -1582,7 +1583,7 @@ const Inverse = (() => {
       return { ok: true, ops: ops.concat(r.ops) };
     }
     const own = stepOps(b);
-    if (!own.ok) return own;
+    if (!own.ok) return newtOps(b, t, own.reason);
     const one = own.ops.length === 1 ? own.ops[0] : null;
     // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path
     if (one && (one.kind === 'MOB' || one.kind === 'AFF') && (!nat || nat.kind === 'mob')) {
@@ -1612,7 +1613,15 @@ const Inverse = (() => {
       const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);
       return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
     }
-    return { ok: false, reason: `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})` };
+    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
+  }
+  // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
+  // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
+  // step has its f). A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
+  function newtOps(b, t, reason) {
+    if (!(b.props && b.props.analytic)) return { ok: false, reason };
+    const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
+    return { ok: true, ops: [opNewt(t, H)] };
   }
   // a stand-in for built step b whose ops are its homotopy's at t (stepOps reads them)
   function homBuilt(b, t) { return Object.assign({}, b, { __homOps: () => homOps(b, t) }); }
@@ -1626,7 +1635,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
