@@ -14,9 +14,9 @@ const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
 const READ = `(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`;
 const strip = () => ev(READ);
 const WANT = {
-  en: { draw: 'Draw a shape', add: 'Add a function', cauchy: 'Cauchy integral', zoom: 'Zoom in on a zero or a pole.' },
-  ru: { draw: 'Нарисуйте фигуру', add: 'Добавьте функцию', cauchy: 'Интеграл Коши', zoom: 'Приблизьте нуль или полюс.' },
-  it: { draw: 'Disegna una figura', add: 'Aggiungi una funzione', cauchy: 'Integrale di Cauchy', zoom: 'Ingrandisci uno zero o un polo.' },
+  en: { draw: 'Draw a shape', add: 'Add a function', cauchy: 'Cauchy integral', zoom: 'Drag empty space, or scroll to zoom.' },
+  ru: { draw: 'Нарисуйте фигуру', add: 'Добавьте функцию', cauchy: 'Интеграл Коши', zoom: 'Перетащите пустое место или прокрутите колёсико.' },
+  it: { draw: 'Disegna una figura', add: 'Aggiungi una funzione', cauchy: 'Integrale di Cauchy', zoom: 'Trascina uno spazio vuoto, oppure scorri per ingrandire.' },
 };
 for (const lang of ['en', 'ru', 'it']) {
   await view(1440, 900, false, false);
@@ -32,8 +32,8 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang}: Add a function reads as a task`, g.cur === 'add' && g.title === w.add, g);
   g = await at('analysis', 'cauchy');
   ok(`${lang}: Cauchy integral starts in capitals`, g.cur === 'cauchy' && g.title === w.cauchy, g);
-  g = await at('views', 'phase');
-  ok(`${lang}: the Phase portrait step has its task`, g.cur === 'phase' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
+  g = await at('planes', 'plane');
+  ok(`${lang}: the plane step has its task`, g.cur === 'plane' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
   await settled();   // (the step's own actions have run and it listens: the wheel then ticks the task)
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 450, deltaX: 0, deltaY: -120 });
   await settled({ until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 3000 });
