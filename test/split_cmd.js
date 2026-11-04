@@ -36,6 +36,8 @@ async function open(ns, st, q = '') {
   const o = Object.assign({ v3: true, v4: true, shapes: SHAPES, steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await nav(U(ns, q)); await settle(2200);
+  // (the thread has drawn a chip for each step of the state)
+  await settled({ until: `document.querySelectorAll('#svStrip .sv-step').length === ${o.steps.length}`, max: 15000 });
 }
 const steps = () => ev('__cmwP().steps');
 const sel = () => ev('__cmwCards().sel');
