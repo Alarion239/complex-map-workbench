@@ -376,7 +376,7 @@
   // The carried colour of mesh res in two steps: carryPrep runs its off-screen passes (its map cache's, its fill's point
   // pass) and picks its programs; drawRegionCarry draws it on the frame's framebuffer. A frame of several meshes
   // (svCarryRegions) prepares them all before it draws any, so its framebuffer is left once, not once a mesh.
-  // -> {L, e, P, fill, fp, full, clip}; true: nothing to draw (the probes' noCarry); false: nothing can draw
+  // -> {L, e, P, fill, fp, full, clip, pass1}; true: nothing to draw (the probes' noCarry); false: nothing can draw
   function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
@@ -411,13 +411,16 @@
       if (P) e = null;
     }
     if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
-    return P ? { L, e, P, fill, fp, full, clip } : false;
+    // (pass1: the sheet program's second pass, the parts of its torn triangles past the cut on the branch there: the
+    // fill's, a clipped cut's, and the whole-mesh sheet program's where it is the way the frame draws (no map cache);
+    // where it only stands in while the fill's programs link, it is left out, so a frame on a busy GPU stays one pass)
+    return P ? { L, e, P, fill, fp, full, clip, pass1: !!fill || clip || (!!full && !cache) } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)
   function drawRegionCarry(res, st, prep) {
     if (prep == null) prep = carryPrep(res, st);
     if (typeof prep === 'boolean') return prep;
-    const { L, e, P, fill, fp, full } = prep;
+    const { L, e, P, fill, fp, full, pass1 } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     const set = (Q) => {
@@ -441,8 +444,7 @@
       if (!carryProbe.noKCDraw) scissored(st.scissors, drawAll);
       const sheet = fill || full;
       if (fill) { set(fill); scissored(st.scissors, drawAll); }
-      // (the sheet program's pass 1: the parts of its triangles past the cut, on the branch there)
-      if (sheet) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
+      if (sheet && pass1) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
     });
     gl.bindVertexArray(null);
     return true;
