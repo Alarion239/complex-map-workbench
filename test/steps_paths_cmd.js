@@ -8,8 +8,6 @@
 // - a glide from plane z to plane w₂ is one run of two steps (a bar where they meet), and paths are drawn during it;
 // - a d/dz in the chain turns the toggle off, with its reason.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // z → w₁ = z² → w₂ = i w₁ (a quarter turn: its paths are arcs), a disc of z
@@ -18,19 +16,10 @@ const chain = (extra) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, 
   steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'affine', params: { a: 'i', b: '0' }, on: true }].concat(extra || []) });
 let lastNs = null;
 const open = async (st) => {
-  const ns = lastNs = 'svpa' + Date.now();
-  await go(`${BASE}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await loadView('steps', lastNs = 'svpa' + Date.now(), st, { lang: 'en' });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip')` });
 };
-const S = () => ev('__cmwSteps()');
-// (parked at x: until a frame has drawn the paths of the finished selection, at most 20 s on a software renderer)
-const parked = async (x) => {
-  await ev(`__cmwSteps({ park: ${x} }), 1`);
-  await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.ready && p.heads > 0 && Math.abs(p.T - p.src.T) < 1e-9; })()` });
-  return (await S()).paths;
-};
+const { S, parked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_paths_kit.js'), 'utf8'))({ ev, settled });
 const btn = () => ev(`(() => {
   const b = document.querySelector('#svStrip .sv-playpop .sv-paths');
   if (!b) return null;
