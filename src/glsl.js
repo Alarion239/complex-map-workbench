@@ -2140,7 +2140,7 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
   const IX_FIN = { IPOW: 16, JOUK: 2, QUAD: 2, RAT2: 2 };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
@@ -2154,6 +2154,22 @@ void ixAncTan(vec2 w) {
     const sg = (x) => `(${x} < 0.0 ? 1.0 : -1.0)`;   // -sgn(x), sgn(0) = 1 (Inverse's sgn)
     switch (o.kind) {
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
+      // (Inverse's opNewt walk: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
+      // this, hence its declaration)
+      case 'NEWT': return 'vec2 chainHom(int i, vec2 z, float t);\n' + one(`  float t = ${U(0)}.x, s = 1e-3 * (1.0 + cx_abs(w));
+  vec2 u = w, d = vec2(1.0, 0.0);
+  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) {
+    float tk = t * float(k) / ${Inverse.NEWT_K}.0;
+    for (int it = 0; it < ${Inverse.NEWT_IT}; it++) {
+      float h = s * (1.0 + cx_abs(u)) / (1.0 + cx_abs(w));
+      d = (chainHom(${o.step}, u + vec2(h, 0.0), tk) - chainHom(${o.step}, u - vec2(h, 0.0), tk)) / (2.0 * h);
+      if (!(dot(d, d) > 0.0)) return false;
+      u -= cdiv(chainHom(${o.step}, u, tk) - w, d);
+      if (!ixFin(u)) return false;
+    }
+  }
+  if (!(cx_abs(chainHom(${o.step}, u, t) - w) <= 1e-3 * (1.0 + cx_abs(w)))) return false;
+  return ixApply(L, u, cinv(d), ${NOR});`);
       case 'AFF': return one(`  vec4 P = ${U(0)};\n  return ixApply(L, cmul(w - P.zw, P.xy), P.xy, ${NOR});`);
       case 'MOB': return one(`  vec4 P0 = ${U(0)}, P1 = ${U(1)};
   vec2 den = P1.zw - cmul(P1.xy, w);
@@ -2392,6 +2408,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       case 'EXPC': { const iL = CX.inv(p.L0), st = CX.mul(CX.C(0, 2 * Math.PI), iL); put(c, iL.re, iL.im, st.re, st.im); break; }
       case 'LOG': put(c, p.lo, p.hi, 0, 0); break;
       case 'IJOUK': put(c, p.sg, 0, 0, 0); break;
+      case 'NEWT': put(c, p.t, 0, 0, 0); break;
       case 'QUAD': put(c, p.a.re, p.a.im, p.b.re, p.b.im); put(c + 1, p.c.re, p.c.im, 0, 0); break;
       case 'RAT2': {
         const [P0, P1, P2] = p.P.map(z), [Q0, Q1, Q2] = p.Q.map(z);
