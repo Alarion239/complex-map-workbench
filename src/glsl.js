@@ -2159,11 +2159,26 @@ void ixAncTan(vec2 w) {
   };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
+  // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
+  // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
+  // capped at a quarter of 1 + |u|
+  const newtCoreFns = (P, H) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
+vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
+bool ${P}_step(inout vec2 u, vec2 w, float t) {
+  vec2 hu = ${H('u', 't')};
+  vec2 d = ${P}_fd(u, hu, t);
+  if (!(dot(d, d) > 0.0)) return false;
+  vec2 st = cdiv(hu - w, d);
+  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
+  u -= sl > mx ? st * (mx / sl) : st;
+  return ixFin(u);
+}
+`;
   // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
   // continued in t from w, member 1 + i continued from 1 down to t from f's i-th point over w (bk.ops' members, mixed
   // radix with the last op's member least significant). _roots walks every member once per w and keeps the roots;
-  // a member equal to an earlier one is dropped. A Newton step takes H' by a forward difference that reuses H_t(u),
-  // capped at a quarter of 1 + |u|; the members' derivative is a central one
+  // a member equal to an earlier one is dropped (newtCoreFns: the Newton steps and the members' derivative)
   function newtSeededFns(o, j, c, bk, H) {
     const P = `ix${j}`, NB = 1 + bk.seeds, K = Inverse.NEWT_K;
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
@@ -2176,19 +2191,7 @@ void ixAncTan(vec2 w) {
       else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
     }
     return `vec2 chainHom(int i, vec2 z, float t);
-${fns}vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
-bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
-bool ${P}_step(inout vec2 u, vec2 w, float t) {
-  vec2 hu = ${H('u', 't')};
-  float h = 1e-3 * (1.0 + cx_abs(u));
-  vec2 d = (${H('u + vec2(h, 0.0)', 't')} - hu) / h;
-  if (!(dot(d, d) > 0.0)) return false;
-  vec2 st = cdiv(hu - w, d);
-  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
-  u -= sl > mx ? st * (mx / sl) : st;
-  return ixFin(u);
-}
-bool ${P}_seed(vec2 w, int i, out vec2 u) {
+${fns}${newtCoreFns(P, H)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
   Lf S = ixStart(w);
 ${seedSteps.join('\n')}
   u = S.u;
@@ -2240,26 +2243,15 @@ bool ${P}_one_b(inout Lf L, int b) {
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
       // (Inverse's opNewt walks: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
       // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0. A Newton step takes
-      // H' by a forward difference that reuses H_t(u), two evaluations of H, and is capped at a quarter of 1 + |u|; the
-      // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
+      // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is capped at a quarter of
+      // 1 + |u|; the members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not
+      // walk again)
       case 'NEWT': {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
         const bk = newtBack(o);
         if (bk) return newtSeededFns(o, j, c, bk, H);
         return `vec2 chainHom(int i, vec2 z, float t);
-vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
-bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
-bool ${P}_step(inout vec2 u, vec2 w, float t) {
-  vec2 hu = ${H('u', 't')};
-  float h = 1e-3 * (1.0 + cx_abs(u));
-  vec2 d = (${H('u + vec2(h, 0.0)', 't')} - hu) / h;
-  if (!(dot(d, d) > 0.0)) return false;
-  vec2 st = cdiv(hu - w, d);
-  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
-  u -= sl > mx ? st * (mx / sl) : st;
-  return ixFin(u);
-}
-bool ${P}_has = false, ${P}_ok = false;
+${newtCoreFns(P, H)}bool ${P}_has = false, ${P}_ok = false;
 vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
   if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
@@ -2280,8 +2272,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec2 v = 2.0 * w - u;
   for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
     vec2 hv = ${H('v', 't')};
-    float h = 1e-3 * (1.0 + cx_abs(v));
-    vec2 g = cdiv((${H('v + vec2(h, 0.0)', 't')} - hv) / h, hv - w) - cinv(v - u);
+    vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
     if (!(dot(g, g) > 0.0)) return false;
     v -= cinv(g);
     if (!ixFin(v)) return false;

@@ -1621,11 +1621,11 @@ const Inverse = (() => {
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
-  // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it; the step's own
-  // exact ops, when they have finitely many members (newtSeedCounts), seed Newton's walks back from t = 1. A step that
-  // is not analytic (no complex derivative for Newton) or has no f: {ok: false, reason}
+  // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
+  // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
+  // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
   function newtOps(b, t, reason) {
-    if (!(b.props && b.props.analytic) || (typeof b.f !== 'function' && typeof b.hom !== 'function')) return { ok: false, reason };
+    if (!(b.props && b.props.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
     const own = stepOps(b);
     return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
