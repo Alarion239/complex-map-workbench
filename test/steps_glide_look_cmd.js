@@ -1,9 +1,10 @@
 // The steps view's glide looks like its planes: the frames of a glide from plane z to the next, held still on the rail
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
-// regions, and Everywhere: a homotopy inverted by Newton, every point over w) and the Mountain King Everywhere (the
-// whole plane carried forward). Paths are off: the glide's paths are drawn over the colour, which is what is read.
-// Each case checks four things, each in checks of their own:
+// regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
+// whole plane carried forward) and the logarithm of an annulus Everywhere (a glide with no inverse, drawn by the
+// carried mesh). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
@@ -13,6 +14,11 @@
 //   that stroke shows, at least MIN_LINE_PX pixels, at most SAME_FRAC more off it than plane z's rest frame read the
 //   same way), and each open set's outline dashed (outlines: its ink in pieces no wider than a dash, the share in wider
 //   ones at most the rest frame's + SAME_FRAC); a case with no open set's outline on the plane has no dash to check;
+// - the logarithm's coverage (in place of the same look: a frame the carried mesh draws has no exact reference): the
+//   colour layer alone (__cmwSteps({ bare })) of the frames at u (LOOK_U and COVER_U) sampled every 3 device px, the
+//   pixels more than 3 CSS px from the edge of H_u's image (the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t,
+//   sends the plane cut along (-inf, 0] onto the sector s - 1/s + rho e^(i phi), |phi| < s pi): inside it, none is the
+//   bare paper (the commonest colour outside it), and outside it none is drawn, at most COVER_TOL of each;
 // - the ends: the frames at x = END_X from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
 //   SAME_FRAC more than LOOK_TOL apart);
@@ -31,7 +37,7 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways and the Mountain King at 1, and the default example Inside regions and
+// Inside regions, the Joukowski airfoil both ways, the Mountain King and the logarithm at 1, and the default example Inside regions and
 // Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -41,7 +47,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005;
 const LOOK_U = [0.25, 0.5, 0.75], LOOK_TOL = 3, END_X = 0.001, MIN_SAME = 20000, MIN_COMPARED = 1000, MIN_LINE_PX = 100, FIRST = 0.02, EDGE = 0.005;
-const EDGE_RUN = 16;
+const EDGE_RUN = 16, COVER_U = [0.02, 0.98], COVER_TOL = 0.001;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
@@ -88,7 +94,32 @@ const CASES = [
   { tag: 'Joukowski airfoil, Everywhere', example: 'Joukowski airfoil', scope: 'all', seeds: [24, 16] },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
+  { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true },
 ];
+// the logarithm's coverage of the frame held at u: its colour layer alone read every 3 device px, against the sector
+// H_u's image is: {u, ins, holes (inside it, on the paper), outs, strays (outside it, drawn)}
+const coverage = async (tag) => {
+  await ev('__cmwSteps({ bare: true }), 1');
+  const still = await grab('C' + tag);
+  const r = await ev(`(() => {
+    const g = __cmwSteps().glide, v = g.view, c = document.getElementById('canvasL'), W = c.width, H = c.height, dpr = W / g.w, d = c.getContext('2d').getImageData(0, 0, W, H).data;
+    const s = 1 - g.u, A = s - 1 / s, half = s * Math.PI, m = 3 / v.s, ins = [], outs = [];
+    for (let y = 2; y < H - 2; y += 3) for (let x = 2; x < W - 2; x += 3) {
+      const pr = v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s - A, pi = v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s;
+      const rho = Math.hypot(pr, pi), dphi = half - Math.abs(Math.atan2(pi, pr));
+      if ((Math.abs(dphi) < Math.PI / 2 ? rho * Math.sin(Math.abs(dphi)) : rho) < m) continue;
+      const i = 4 * (y * W + x);
+      (dphi > 0 ? ins : outs).push([d[i], d[i + 1], d[i + 2]]);
+    }
+    const n = new Map();
+    for (const p of outs) n.set(p.join(), (n.get(p.join()) || 0) + 1);
+    const top = [...n].sort((a, b) => b[1] - a[1])[0], paper = top ? top[0].split(',').map(Number) : [d[0], d[1], d[2]];
+    const isP = (p) => Math.max(Math.abs(p[0] - paper[0]), Math.abs(p[1] - paper[1]), Math.abs(p[2] - paper[2])) <= 3;
+    return { u: +g.u.toFixed(4), path: g.path, paper, ins: ins.length, holes: ins.filter(isP).length, outs: outs.length, strays: outs.filter((p) => !isP(p)).length };
+  })()`);
+  await ev('__cmwSteps({ bare: false }), 1');
+  return Object.assign({ still }, r);
+};
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
   await go(`http://localhost:${PORT}/test.html?ns=look${Date.now()}`);
@@ -121,11 +152,17 @@ async function look(c, r) {
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
     if (!lines.rest) lines.rest = { grid: await gridOver('R0'), outlines: await outlines('R0') };
+    if (c.cover) look[u].cover = await coverage(u);
     await letGo();
   }
+  if (c.cover) for (const u of COVER_U) { const held = (await hold(u)).ok; look[u] = { held, cover: await coverage(u) }; await letGo(); }
   r.look = look;
   r.lines = lines;
-  for (const u of LOOK_U) {
+  for (const u of c.cover ? LOOK_U.concat(COVER_U) : []) {
+    const V = look[u].cover;
+    ok(`${c.tag}: the frame at u = ${u} covers H_u's image and nothing past it (its colour layer: at most ${COVER_TOL * 100} % of the pixels inside on the paper and of those outside drawn)`, look[u].held && V.still && V.ins > 1000 && V.outs > 0 && V.holes <= COVER_TOL * V.ins && V.strays <= COVER_TOL * V.outs, look[u]);
+  }
+  for (const u of c.cover ? [] : LOOK_U) {
     const L = look[u], R = L.ref;
     ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${LOOK_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
   }
