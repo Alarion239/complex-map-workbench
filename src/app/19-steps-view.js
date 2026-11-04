@@ -71,8 +71,10 @@
   // the map from the shown plane into the colour plane as a function: what the probe reads (the identity past it, where
   // the plane carries shapes and no colour of its own)
   function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }
-  // the plane the shown plane's colour is carried from, "w₁", when it is past the colour plane (the key says so, #442); else ''
-  const svCarriedFrom = () => (SV.on && svStage() > svT() && !svColoured() ? svName(svT()) : '');
+  // the plane the shown plane's colour is carried from, "w₁", when it is past the colour plane (the key says so, #442) or
+  // on the Landscape's flatten from the colour plane to the plane after it, whose X → Y key comes in over the glide;
+  // else ''
+  const svCarriedFrom = () => (SV.on && ((svStage() > svT() && !svColoured()) || svFlattening()) ? svName(svT()) : '');
   // what the key's caption calls the colouring, "arg and |f₂|": the map into the colour plane, or the plane's own variable
   const svKeyName = (k = svStage()) => svMapName('text', k) || svName(k);
   // past the colour plane the colour is carried, so the probe names where its point comes from in the colour plane T: a
@@ -353,12 +355,45 @@
   // the 2D chrome that X → Y has and the Landscape has not (the rulers, their corner and the colour key on the plot) at
   // opacity a: it comes in over the flatten's glide (annotation with no 3D twin ramps in over the same span),
   // and is whole (a = 1) everywhere else
+  // The Landscape's Height key chip, which X → Y has not, goes the other way: a copy of it stays where it stood in the
+  // Landscape's pane head, over the picture, at opacity 1 - a, and is gone at a = 1 (svHkeyGhost)
   let svChromeA = 1;
   function svFlatChrome(a) {
+    if (a >= 1 && svChromeA >= 1) { if (!svHkeyC) svHkeyTake(); return; }
     if (a === svChromeA) return;
+    if (svChromeA >= 1) svHkeyTake();
     svChromeA = a;
     const op = a >= 1 ? '' : String(+a.toFixed(3));
     for (const id of ['rulerLX', 'rulerLY', 'cornerL', 'leftLegend']) { const e = $(id); if (e) e.style.opacity = op; }
+    svHkeyGhost(a);
+  }
+  // the Height key chip as the Landscape's pane head shows it: {el}, a copy of the chip with no ids, no canvas and
+  // folded, at its place from the head's top left. Taken while the chip is in the head and shown: at rest on
+  // the Landscape (once, while there is none) and on each flatten's first frame, still in the Landscape's layout. A glide
+  // back from T + 1 uses the last one taken; with none taken yet it shows no copy
+  let svHkeyC = null;
+  function svHkeyTake() {
+    const L = $('leftLegend'), head = L && /** @type {HTMLElement} */ (L.parentNode);
+    if (!head || !head.classList || !head.classList.contains('pane-head') || L.dataset.kind !== '3d' || L.hidden) return;
+    const r = L.getBoundingClientRect(), hr = head.getBoundingClientRect();
+    if (!r.width) return;
+    const el = /** @type {HTMLElement} */ (L.cloneNode(true));
+    for (const e of [el, ...el.querySelectorAll('[id]')]) e.removeAttribute('id');
+    for (const e of el.querySelectorAll('canvas')) e.remove();
+    el.classList.remove('open');
+    el.classList.add('sv-hkey-ghost');
+    el.removeAttribute('tabindex'); el.removeAttribute('aria-label');
+    el.setAttribute('aria-hidden', 'true');
+    Object.assign(el.style, { position: 'absolute', left: (r.left - hr.left) + 'px', top: (r.top - hr.top) + 'px', margin: '0', pointerEvents: 'none' });
+    svHkeyC = { el };
+  }
+  // the copy of the Height key in the left pane's head at opacity 1 - a (a < 1), none at a = 1
+  function svHkeyGhost(a) {
+    const head = document.querySelector('#paneL > .pane-head'), el = svHkeyC && svHkeyC.el;
+    if (!el) return;
+    if (a >= 1 || !head) { el.remove(); return; }
+    if (el.parentNode !== head) head.appendChild(el);
+    el.style.opacity = String(+(1 - a).toFixed(3));
   }
   // between the colour plane and the plane after it, one step's glide on the Landscape (g: svBetween's)
   function svFlattening(g = svBetween()) {
