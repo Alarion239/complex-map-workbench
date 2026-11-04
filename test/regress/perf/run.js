@@ -909,17 +909,22 @@ async function svFirstGlideUnit() {
 // __cmwAddStep) and a glide to plane 1 at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness).
 // Per glide: its longest frame (CPU), frames over 33 ms (jank), frame p95, the poles' searches in its frames
 // (__svPathStats.poleSyncMs, while a glide's tracks are not whole) and the idle job's longest slice of the tracks
-// (poleIdleMax). Info rows
+// (poleIdleMax). Info rows; and per scene, over the idle wait and the glides, the idle job's ring-mesh builds
+// (__svPathStats.ringOver): the longest build and the longest overrun of SV_POLE_BUDGET by a slice that built one
 async function svColdGlideUnit() {
+  const ringMax = (ps, k) => Math.max(0, ...(ps.ringOver || []).map((r) => r[k]));
   for (const scene of ['default', 'king']) {
-    const R = { first: [], edit: [] };
+    const R = { first: [], edit: [] }, ring = { over: [], build: [] };
     for (let i = 0; i < REPS; i++) {
       await B.nav(`${BASE}test.html?ns=perfsvc${process.pid}_${++nsCounter}&view=steps`);
       await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
       await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      await B.ev('globalThis.__svPathStats = {}, 1');
       if (scene === 'king') await B.ev(`__cmwExample(${exampleIndex('In the Hall of the Mountain King')}), 1`);
       await settle(await pageNow());
       await sleep(SV_IDLE_MS);
+      const idle = JSON.parse(await B.ev('JSON.stringify(globalThis.__svPathStats || {})'));
+      let over = ringMax(idle, 'over'), build = ringMax(idle, 'build');
       const glide = async (to) => {
         await B.ev('globalThis.__svPathStats = {}, 1');
         const a = await pageNow();
@@ -929,6 +934,7 @@ async function svColdGlideUnit() {
         const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
         const fr = (await B.ev(`__perf.framesSince(${a}, ${b + 20})`)).filter((f) => f[4] > 0);
         const frame = fr.map((f) => f[1] + f[2]);
+        over = Math.max(over, ringMax(ps, 'over')); build = Math.max(build, ringMax(ps, 'build'));
         return { cpuMax: Math.max(0, ...fr.map((f) => f[1])), jank: frame.filter((x) => x > 33).length, p95: quant(frame, 0.95), poleMs: ps.poleSyncMs || 0, poleN: ps.poleSync || 0, idleMax: ps.poleIdleMax || 0, idleSteps: ps.poleIdleSteps || 0 };
       };
       R.first.push(await glide(1));
@@ -940,7 +946,11 @@ async function svColdGlideUnit() {
       await B.until('!!document.querySelector(".sv-plane")', 10000);
       R.edit.push(await glide(1));
       await settle(await pageNow());
+      ring.over.push(over); ring.build.push(build);
     }
+    put(`sv.cold_glide.${scene}.ring_over_ms`, 'info', 'ms', ring.over);
+    put(`sv.cold_glide.${scene}.ring_build_ms`, 'info', 'ms', ring.build);
+    log(`sv.cold_glide.${scene}: ring mesh builds: longest ${ring.build.map((x) => x.toFixed(1)).join(' / ')} ms; slice overrun ${ring.over.map((x) => x.toFixed(1)).join(' / ')} ms`);
     for (const [k, reps] of Object.entries(R)) {
       const pre = `sv.cold_glide.${scene}.${k}`;
       put(`${pre}.longest_ms`, 'info', 'ms', reps.map((r) => r.cpuMax));

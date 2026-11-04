@@ -152,7 +152,9 @@ async function hold(x, links = true) {
   ok('the ring: no frame of the scrubs makes its size (the idle job made them)', !(ps.ringFrame > 0), info['the ring']);
   ok('the ring: each of its sizes\' meshes is built once at most over two scrubs', builds <= sizes, info['the ring']);
   ok('the ring: no frame of the page\'s first glide or the scrubs creates a buffer, texture or vertex array for its mesh (the idle job built them)', frameAlloc === 0, info['the ring']);
-  ok('the ring: the idle job builds its sizes\' meshes, each in the slice that makes the size; RINGOVER', warm.length > 0 && warm.every((t) => t.over <= 1e9), info['the ring']);
+  // (the slice that makes a size builds its mesh too, past SV_POLE_BUDGET by the build: at most 12 ms over, 1.5 times
+  // the longest cold build measured on a lavapipe runner; a mesh built at full resolution or past its cache costs tens)
+  ok('the ring: the idle job builds its sizes\' meshes, each in the slice that makes the size, at most 12 ms past the slice\'s budget', warm.length > 0 && warm.every((t) => t.over <= 12), info['the ring']);
   ok('the ring: its meshes build no strokes (it has no edge drawn)', lines === 0, info['the ring']);
 }
 // ---- the tiling's fix-ups wait out a scrub ----
