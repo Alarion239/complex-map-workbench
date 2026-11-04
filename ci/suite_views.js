@@ -66,6 +66,7 @@ const VIEWS = {
   'sv_curve_menu_cmd.js': steps(),
   'sv_globe_mask_cmd.js': steps(),
   'sv_globe_draw_cmd.js': steps(),
+  'steps_sphere_glide_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
   'shape_stroke_cmd.js': classic('the stroke rule of the classic globes\' lines and of the target outlines drawn on the canvas'),
