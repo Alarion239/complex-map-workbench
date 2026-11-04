@@ -2,8 +2,9 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w) and the Mountain King Everywhere (the
-// whole plane carried forward). Paths are off: the glide's paths are drawn over the colour, which is what is read.
-// Each case checks four things, each in checks of their own:
+// whole plane carried forward), and the Sheets of the logarithm Everywhere (drawn by the carried mesh: no per-pixel
+// path, so only its fades are checked). Paths are off: the glide's paths are drawn over the colour, which is what is
+// read. Each case checks four things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
@@ -31,8 +32,8 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways and the Mountain King at 1, and the default example Inside regions and
-// Everywhere at 2.
+// Inside regions, the Joukowski airfoil both ways, the Mountain King and the logarithm at 1, and the default example
+// Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -86,6 +87,8 @@ const CASES = [
   // (the exact picture's Newton seeds a 24 x 16 grid: from 8 x 6, Newton misses the points of H_.25 in the disc by its
   // lower semicircle, the path's cut, at over half of the two-point w on the window)
   { tag: 'Joukowski airfoil, Everywhere', example: 'Joukowski airfoil', scope: 'all', seeds: [24, 16] },
+  // (the log's homotopy is inverted by Newton with no seeds (a log family): Everywhere, the carried mesh draws it)
+  { tag: 'Sheets of the logarithm, Everywhere', example: 'Sheets of the logarithm', scope: 'all', fadeOnly: true },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
 ];
@@ -109,6 +112,8 @@ async function look(c, r) {
   await rest(0);
   r.rest0 = await grab('R0');
   ok(`${c.tag}: plane z's parked frame settles`, r.rest0, null);
+  // (a case drawn by the carried mesh, a glide with no per-pixel path: no exact picture to hold it to, only its fades)
+  if (c.fadeOnly) { await noFade(c, r); r.step = 'done'; return; }
   // ---- the same look as the exact picture at the same u ----
   r.step = 'the same look';
   const look = {}, lines = {};
@@ -170,7 +175,24 @@ async function look(c, r) {
     const O = over[x], R = O.rest, M = O.moving;
     ok(`${c.tag}: a moving frame a hair from plane ${k} (x = ${x}) draws that plane's overlays: its graph paper draws, its dashed outlines and the colour plot's grid (rest, moving)`, O.held && !!R && !!M && R.grid === M.grid && R.dashed === M.dashed && (!R.colourGrid || M.colourGrid), O);
   }
-  // ---- no fade at a glide's ends ----
+  await noFade(c, r);
+  // ---- no mesh half-way ----
+  r.step = 'no mesh';
+  const meshN = await ev('__cmwState().meshN');
+  const held = (await hold(0.5)).ok, a = await grab('H');
+  await ev(`__cmwSet('meshN', ${Math.round(meshN / 2)}), 1`);
+  await settled({ max: 60000, until: `__cmwState().meshN === ${Math.round(meshN / 2)} && GLR.pendingLinks === 0` });
+  const b = await grab('Hhalf');
+  await ev(`__cmwSet('meshN', ${meshN}), 1`);
+  r.mesh = { meshN, held, still: a && b, diff: await compare('H', 'Hhalf') };
+  ok(`${c.tag}: no mesh: the frame held half-way is the same with meshes of half the resolution (at most ${SAME_FRAC * 100} % of pixels > ${DIFF_TOL}/255 apart)`, held && a && b && r.mesh.diff && r.mesh.diff.frac <= SAME_FRAC, r.mesh);
+  if (c.edges) await straightEdges(c, r, held && a);
+  await letGo();
+  r.step = 'done';
+}
+// no fade at a glide's ends: the frames held at x = FIRST from either end draw no plane's colour plot at a partial
+// opacity
+async function noFade(c, r) {
   r.step = 'no fade';
   const fade = {};
   for (const [x, end] of [[FIRST, 'R0'], [1 - FIRST, 'R1']]) {
@@ -188,19 +210,6 @@ async function look(c, r) {
   const crossfade = (x) => !fade[x].held || !fade[x].still || fade[x].alphas.some((a) => a > 0 && a < 1);
   ok(`${c.tag}: no fade: the first frame of the glide (x = ${FIRST}) blends no plane's colour at a partial opacity (lum and alpha: moving, rest)`, !crossfade(FIRST), fade[FIRST]);
   ok(`${c.tag}: no fade: the last frame of the glide (x = ${1 - FIRST}) blends no plane's colour at a partial opacity (lum and alpha: moving, rest)`, !crossfade(1 - FIRST), fade[1 - FIRST]);
-  // ---- no mesh half-way ----
-  r.step = 'no mesh';
-  const meshN = await ev('__cmwState().meshN');
-  const held = (await hold(0.5)).ok, a = await grab('H');
-  await ev(`__cmwSet('meshN', ${Math.round(meshN / 2)}), 1`);
-  await settled({ max: 60000, until: `__cmwState().meshN === ${Math.round(meshN / 2)} && GLR.pendingLinks === 0` });
-  const b = await grab('Hhalf');
-  await ev(`__cmwSet('meshN', ${meshN}), 1`);
-  r.mesh = { meshN, held, still: a && b, diff: await compare('H', 'Hhalf') };
-  ok(`${c.tag}: no mesh: the frame held half-way is the same with meshes of half the resolution (at most ${SAME_FRAC * 100} % of pixels > ${DIFF_TOL}/255 apart)`, held && a && b && r.mesh.diff && r.mesh.diff.frac <= SAME_FRAC, r.mesh);
-  if (c.edges) await straightEdges(c, r, held && a);
-  await letGo();
-  r.step = 'done';
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more
 async function straightEdges(c, r, held) {
