@@ -782,7 +782,8 @@
     return true;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
-  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), view, w, h (the pane's css size)}
+  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
+  // (H_u on the glide's first plane), view, w, h (the pane's css size)}
   // (read by the test hooks)
   let svGlideRec = null;
   const SV_CARRY_L = 2;
@@ -1060,7 +1061,7 @@
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+        svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
       // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
@@ -1181,12 +1182,22 @@
     if (!frame) GLR.begin(pane.pw, pane.ph);
     for (const s of hideStrokes ? [] : S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || (col && !S.outline && s.id !== selected)) continue;
-      const map = shapeMap(s, map0), r = map && shapeGPU(s);
+      const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = r.open ? { dash: [5, 3.5], arc: arcOf(r, cpuMap(map), mapKeyOf(map)) } : null;
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
+  }
+  // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
+  // h_{hi,t} after the steps before hi; mode 3: h_{b,t} ... h_{a+1,t} after the steps to a) for a shape of plane k > 0
+  // at or before the glide's first plane, the same map from plane k (its base), so it moves as plane k's picture does.
+  // Null: a shape the frame does not draw (a later plane's, or one behind a d/dz step on the way)
+  function svShapeMap(s, map0) {
+    const m = map0.mode || 0, k = shapeStage(s);
+    if (!k || (m !== 1 && m !== 3) || (map0.base || 0) !== 0) return shapeMap(s, map0);
+    const lo = m === 1 ? (map0.hi || 0) - 1 : (map0.a || 0);
+    return k <= lo && !derivIn(k, lo) ? Object.assign({}, map0, { base: k }) : null;
   }
   // a pane that draws into canvas cv instead (the same size and view)
   function svProxy(pane, cv) {
