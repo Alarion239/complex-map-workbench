@@ -29,6 +29,7 @@ const VIEWS = {
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps(),
+  'phone_fmap_cmd.js': steps(),
   'phone_export_steps_cmd.js': steps(),
   'phone_landscape_cmd.js': steps(),
   'phone_palette_cmd.js': steps(),
