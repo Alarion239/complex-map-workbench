@@ -741,19 +741,24 @@
     const map = stageMap(a), recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
     const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
     if (paths.some((p) => p.path !== 'inverse')) return false;
+    return svDrawInverse(pane, list, paths, T, frame) === 'drawn';
+  }
+  // the carried colour of the shapes list by their inverse paths (pathOf's or invHomPath's, all 'inverse'; a path's inv:
+  // its own inverse program), into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse
+  // answer that was not ('error' when it threw). A shape drawn already stays: the next path draws over it
+  function svDrawInverse(pane, list, paths, T, gl) {
     const carry = svCarryStyle(T);
-    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    if (!gl.open) { GLR.begin(pane.pw, pane.ph); gl.open = true; }
     for (let i = 0; i < list.length; i++) {
       const p = paths[i];
       let res = 'error';
       try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
           look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
-      } catch (e) { console.error('steps view exact colour', e); }
-      // (a shape drawn already stays: the next path draws over it)
-      if (res !== 'drawn') return false;
+      } catch (e) { console.error('steps view carried colour', e); }
+      if (res !== 'drawn') return res;
     }
-    return true;
+    return 'drawn';
   }
   // A frame between planes a and b as svCarryExact draws a plane: per pixel, by the inverse pass, the front point z of
   // plane 0 with H_u(F_{b-1}(z)) = w (invHomPath: step b's homotopy at u inverted by its own ops), in the colour
@@ -768,17 +773,8 @@
     const paths = list.map((x) => invHomPath(x, 0, b, u));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return false; }
-    const carry = svCarryStyle(T);
-    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-    for (let i = 0; i < list.length; i++) {
-      const p = paths[i];
-      let res = 'error';
-      try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
-      } catch (e) { console.error('steps view glide colour', e); }
-      if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
-    }
+    const res = svDrawInverse(pane, list, paths, T, frame);
+    if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
@@ -1181,10 +1177,10 @@
   function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
     for (const s of hideStrokes ? [] : S.shapes) {
-      if (s.visible === false || kindType(s) === 'point' || (col && !S.outline && s.id !== selected)) continue;
+      if (!outlineShown(s, !col)) continue;
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
-      const dash = r.open ? { dash: [5, 3.5], arc: arcOf(r, cpuMap(map), mapKeyOf(map)) } : null;
+      const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);

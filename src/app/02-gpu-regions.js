@@ -1193,3 +1193,10 @@
     if (r.arcs.size > 4) r.arcs.delete(r.arcs.keys().next().value);
     return a;
   }
+  // the dash of an open set's outline (spec 6.8: 5 on, 3.5 off, along the curve under map; F: map's CPU twin when the
+  // caller has one), as GLR.drawLines takes it; null for a closed set
+  const OPEN_DASH = [5, 3.5];
+  function openDash(r, map, F) { return r.open ? { dash: OPEN_DASH, arc: arcOf(r, F || cpuMap(map), mapKeyOf(map)) } : null; }
+  // whether a plane draws shape s's outline: a visible curve or region, every one with Outlines on, else the selected
+  // one alone; all: every one whatever Outlines says
+  const outlineShown = (s, all) => s.visible !== false && kindType(s) !== 'point' && (all || S.outline || s.id === selected);

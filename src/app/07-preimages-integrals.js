@@ -111,7 +111,7 @@
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.globalAlpha = TH.haloA; ctx.strokeStyle = TH.halo; ctx.lineWidth = w + 2; ctx.stroke();
       ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = w;
-      if (area && Region.isOpen(s)) ctx.setLineDash([5, 3.5]);
+      if (area && Region.isOpen(s)) ctx.setLineDash(OPEN_DASH);
       ctx.stroke();
       ctx.restore();
     }

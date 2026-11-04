@@ -372,6 +372,8 @@
   // plan of stages (a, k] with step k standing for its homotopy at t (Inverse.homBuilt), its own inverse op list
   // (GLChain.buildInverse: another program, the op values its uniforms) and the shape's preparation. Same answer as
   // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}
+  // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
+  // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map();
   function invHomPath(s, a, k, t) {
     const F = (reason) => ({ path: 'forward', reason });
@@ -733,7 +735,7 @@
       const area = kindType(s) === 'area';
       const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
-      if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
+      if (area && r.open && !opt.thin) { st.dash = OPEN_DASH; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
     }
     if (GLR.flushHalf) GLR.flushHalf();

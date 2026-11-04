@@ -95,13 +95,16 @@ async function look(c, r) {
   r.step = 'the rest frames';
   await rest(1);
   r.rest1 = await grab('R1');
+  ok(`${c.tag}: plane 1's parked frame settles`, r.rest1, null);
   await rest(0);
   r.rest0 = await grab('R0');
+  ok(`${c.tag}: plane z's parked frame settles`, r.rest0, null);
   // ---- the same look as the exact picture at the same u ----
   r.step = 'the same look';
   const look = {}, lines = {};
   for (const u of LOOK_U) {
     const held = (await hold(u)).ok, still = await grab('M' + u);
+    ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
     look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, DIFF_TOL));
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
@@ -146,6 +149,7 @@ async function look(c, r) {
     // (a redraw of the held frame, its plots' opacities recorded)
     await ev('window.__plotAlphas = [], __cmwHideStrokes(false), 1');
     const still = await grab('F' + x);
+    ok(`${c.tag}: the held frame at x = ${x} settles`, still, null);
     const alphas = [...new Set(await ev('window.__plotAlphas'))].map((a) => +a.toFixed(4));
     const d = await compare('F' + x, end);
     fade[x] = { held, still, alphas, lum: d && d.lum, alpha: d && d.alpha };
