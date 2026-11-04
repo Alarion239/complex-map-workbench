@@ -217,8 +217,7 @@
     svPause(false);
     svKeepView();
     SV.span = null;
-    // (the landscape has no frames between two planes: it changes plane at once)
-    if (now || svReduced() || SV.surf === 'land') { SV.anim = null; SV.g.set(i); svArrive(); return; }
+    if (now || svReduced()) { SV.anim = null; SV.g.set(i); svArrive(); return; }
     SV.g.max = P.length - 1;
     const from = SV.g.x;
     if (Math.abs(i - from) < 1e-6) { SV.anim = null; SV.g.set(i); svArrive(); return; }
@@ -276,6 +275,19 @@
     dirty.L = true;
     svSync();
     if (still) { SV.g.last = 0; svArrive(); return false; }
+    return true;
+  }
+  // (#846) The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
+  // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
+  // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
+  // (the X → Y view a glide from past the colour plane starts in)
+  function svLandMoving(pane) {
+    if (SV.surf !== 'land' || !lLand()) return false;
+    const g = svBetween();
+    if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
+    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
+    const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
+    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: leftView(g.a), vb: leftView(g.b) });
     return true;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
@@ -1206,6 +1218,31 @@
     }
     if (!frame) GLR.blit(pane.ctx);
   }
+  // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
+  // plane's 2D picture colours (svMask): {cv, key, box}, a canvas over box (512 pixels on its longer side, row 0 at its
+  // top), opaque inside the set and clear outside; the surface is plain (the Plain material's colour) there. One per
+  // chain, plane, box and shapes; null with the colour everywhere (Everywhere)
+  let svLandMaskC = null;
+  function svLandMask(k, box) {
+    if (!svMaskOn() || !paneL) return null;
+    const W = box.x1 - box.x0, H = box.y1 - box.y0, n = 512;
+    const pw = W >= H ? n : Math.max(8, Math.round(n * W / H)), ph = W >= H ? Math.max(8, Math.round(n * H / W)) : n;
+    const key = [svSigNow(), chainSig[nSteps()], k, box.x0, box.x1, box.y0, box.y1, pw, ph].concat(S.shapes.map((x) => shapeKey(x))).join('|');
+    if (svLandMaskC && svLandMaskC.key === key) return svLandMaskC;
+    const cv = (svLandMaskC && svLandMaskC.cv) || document.createElement('canvas');
+    cv.width = pw; cv.height = ph;
+    const cc = cv.getContext('2d');
+    cc.setTransform(1, 0, 0, 1, 0, 0);
+    cc.fillStyle = '#fff';
+    cc.fillRect(0, 0, pw, ph);
+    // (a pane over box at one pixel a CSS pixel: the 2D plane's own mask, cut out of the white)
+    // (own values over the pane's getters)
+    const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
+    const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
+    svMask(over, stageMap(k), k, { cc });
+    svLandMaskC = { cv, key, box: Object.assign({}, box) };
+    return svLandMaskC;
+  }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
   // h_{hi,t} after the steps before hi; mode 3: h_{b,t} ... h_{a+1,t} after the steps to a) for a shape of plane k > 0
   // at or before the glide's first plane, the same map from plane k (its base), so it moves as plane k's picture does.
@@ -2132,7 +2169,7 @@
     // (at the end, or past it: from the start)
     const from = x >= end - 1e-6 ? start : x;
     draft = null; probe = null;
-    if (svReduced() || SV.surf === 'land') {
+    if (svReduced()) {
       SV.g.set(Math.round(from));
       SV.play = { slide: true, start, end, timer: 0, steps: S.steps };
       svSlide(true);
