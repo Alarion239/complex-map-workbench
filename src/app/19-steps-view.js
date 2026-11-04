@@ -816,7 +816,8 @@
   // under the same key, its corners over the whole plane's mesh are the same points in the same colour. m is the glide's
   // at its nearest twentieth (svRingSize), kept while the planes, the window, the view and that twentieth stay
   // (svRingSizes): made ahead in idle moments for the glides into and out of the plane the thread is at (svRingAhead),
-  // else in the frame. null: none needed; {c, k1, k2, ring}: the polar annulus while gliding, the ring of size ring
+  // else in the frame. A number: the ring's size; null: none needed; {polar: true, c, k1, k2, ring}: the polar annulus
+  // while gliding, the ring of size ring
   // (null: none) parked
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
@@ -836,7 +837,7 @@
     const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
     // (the edge of the box: 4 sides of SV_RING_N / 4 points; a circle of radius r: SV_RING_N points)
     const side = (i) => { const f4 = 4 * i / SV_RING_N, k = Math.floor(f4), f = 2 * (f4 - k) - 1; return k === 0 ? C(cx + ax * f, cy - ay) : k === 1 ? C(cx + ax, cy + ay * f) : k === 2 ? C(cx - ax * f, cy + ay) : C(cx - ax, cy - ay * f); };
-    const circ = (r, i) => C(cx + r * Math.cos(2 * Math.PI * i / SV_RING_N), cy + r * Math.sin(2 * Math.PI * i / SV_RING_N));
+    const about = (o, r) => (i) => C(o.re + r * Math.cos(2 * Math.PI * i / SV_RING_N), o.im + r * Math.sin(2 * Math.PI * i / SV_RING_N));
     const all = function* (fn) {
       for (let i = 0; i < SV_RING_N; i++) {
         if (!past(fn(i))) return false;
@@ -844,14 +845,11 @@
       }
       return true;
     };
-    // (the singular point of plane b's key nearest clipWin's centre, within R of its box: the polar mesh's centre)
-    let c = null;
-    try {
-      for (const p of svSheetKey(g.b).sing || []) if (p && CX.isFin(p) && p.re > w.x0 - R && p.re < w.x1 + R && p.im > w.y0 - R && p.im < w.y1 + R) { c = p; break; }
-    } catch (e) { c = null; }
-    const about = (o, r) => (i) => C(o.re + r * Math.cos(2 * Math.PI * i / SV_RING_N), o.im + r * Math.sin(2 * Math.PI * i / SV_RING_N));
     let m = null;
     try {
+      // (the singular point of plane b's key nearest clipWin's centre, within R of its box: the polar mesh's centre)
+      let c = null;
+      for (const p of svSheetKey(g.b).sing || []) if (p && CX.isFin(p) && p.re > w.x0 - R && p.re < w.x1 + R && p.im > w.y0 - R && p.im < w.y1 + R) { c = p; break; }
       // (the cells beside c are the whole plane's, a cell of its mesh across: they hold the view's points unless the
       // circle of that radius about c lands past the view)
       // (ring: the ring's size, which a parked map draws in place of the polar ring; fits: one of its sizes, or none,
@@ -859,7 +857,7 @@
       let ring = null, fits = true;
       if (!(yield* all(side))) {
         ring = SV_RING_M[SV_RING_M.length - 1]; fits = false;
-        for (const x of SV_RING_M) if (yield* all((i) => circ(x * R, i))) { ring = x; fits = true; break; }
+        for (const x of SV_RING_M) if (yield* all(about(C(cx, cy), x * R))) { ring = x; fits = true; break; }
       }
       const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / 80)));
       if (!deep && fits) return ring;
@@ -890,7 +888,7 @@
         const K1 = Math.max(1, Math.floor(Math.log2(R / floor)));
         k1 = kq(yield* svLeastK(inner, K1), K1);
       }
-      m = { c: [o.re, o.im], k1, k2, ring };
+      m = { polar: true, c: [o.re, o.im], k1, k2, ring };
     } catch (e) { m = SV_RING_M[0]; }
     return m;
   }
@@ -922,17 +920,17 @@
       if (ps) ps.ringFrame = (ps.ringFrame || 0) + 1;
     }
     // (a parked map draws the ring: its fix-ups and pre-mapped meshes refine the whole plane's mesh, not the polar ring's)
-    const ring = svRingShape(m && typeof m === 'object' && !map.mode ? m.ring : m);
+    const ring = svRingShape(m && m.polar && !map.mode ? m.ring : m);
     svRingMemo = { key, ring, m };
     return ring;
   }
   // the outer ring of size m about clipWin, null for none (a shape of its own for each m: the rings of a glide's sizes
-  // keep their meshes, not one rebuilt at each change); a polar size {c, k1, k2}: the polar annulus about c from
+  // keep their meshes, not one rebuilt at each change); a polar size {polar: true, c, k1, k2}: the polar annulus about c from
   // R 2^-k1 (k1 null: clipWin's inscribed circle) to R 2^k2, R clipWin's half-diagonal (polar: true; sing: about a
   // singular point, k1 not null)
   function svRingShape(m) {
     const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
-    if (m && typeof m === 'object') {
+    if (m && m.polar) {
       const r1 = m.k1 === null ? Math.min(ax, ay) : R * Math.pow(2, -m.k1);
       return Object.assign({}, SV_RING, { id: [SV_RING.id, 'polar', m.c[0], m.c[1], r1, m.k2, R].join('|'), polar: true, sing: m.k1 !== null, c: m.c.slice(), r1, r2: R * Math.pow(2, m.k2) });
     }
@@ -984,8 +982,8 @@
       for (let k = 0; k < 3; k++) { x += P0[2 * T[3 * t + k]]; y += P0[2 * T[3 * t + k] + 1]; }
       if (out(x, y)) flags[t] = 1;
     }
-    if (P && P.res === r.meshRes) GLR.setSkip(P.skip, flags);
-    else P = r.polarSkip = { res: r.meshRes, skip: GLR.createSkip(r.meshRes, flags) };
+    if (!P || P.res !== r.meshRes) P = r.polarSkip = { res: r.meshRes, skip: null };
+    P.skip = svSkipSet(P.skip, r.meshRes, flags);
     // (the fix-up's pieces: [ax, ay, bx, by, cx, cy] a piece, on the plane)
     P.extraRes = ex ? fx.extraRes : null;
     P.extra = null;
@@ -996,6 +994,12 @@
     }
     P.key = key;
     return P;
+  }
+  // skip flags on the mesh res: those of skip, made for res, set to flags; a new skip of res when there is none
+  function svSkipSet(skip, res, flags) {
+    if (!skip) return GLR.createSkip(res, flags);
+    GLR.setSkip(skip, flags);
+    return skip;
   }
   // the polar ring's own skip flags (its mesh r, svPolarGPU's): its cells within the whole plane's share left out.
   // Kept per mesh (r.share: {key, skip})
@@ -1013,8 +1017,7 @@
         if (inWin(ra, ta) && inWin(ra, tb) && inWin(rb, ta) && inWin(rb, tb)) flags[2 * (i * NT + j)] = flags[2 * (i * NT + j) + 1] = 1;
       }
     }
-    if (r.share) GLR.setSkip(r.share.skip, flags);
-    else r.share = { skip: GLR.createSkip(r.meshRes, flags) };
+    r.share = { skip: svSkipSet(r.share && r.share.skip, r.meshRes, flags) };
     r.share.key = key;
     return r.share.skip;
   }
@@ -1054,7 +1057,7 @@
   // a ring size's mesh and its carried colour's textures, made by the idle job once it has made the size, so the frame
   // that first draws the ring builds and allocates nothing
   function svRingWarm(m) {
-    if (m && typeof m === 'object' && m.ring) svRingWarm(m.ring);
+    if (m && m.polar && m.ring) svRingWarm(m.ring);
     const ring = svRingShape(m), r = ring ? svRingGPU(ring) : null;
     if (r && r.meshRes && GLR.carryReserve) GLR.carryReserve(r.meshRes, SV_CARRY_L);
     // (a polar ring's share of the plane: its own skip flags and the whole plane's mesh's, with their vertex arrays)
