@@ -13,7 +13,7 @@ await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` })
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
 await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && __cmwSteps().on` });
-await settle(1500);
+await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` }); await settled({ max: 20000, until: "!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')" }); await settle(1500);
 ok('the page is the steps view', await ev('__cmwSteps().on'), null);
 await ev('document.activeElement && document.activeElement.blur(), 1');
 const press = async (k, code) => { const vk = code.charCodeAt(3); await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, modifiers: 0, windowsVirtualKeyCode: vk, text: k }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: 0 }); await sleep(300); };
