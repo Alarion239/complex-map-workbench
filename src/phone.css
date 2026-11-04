@@ -632,7 +632,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
 :root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
 :root.ph.sv .sv-more { display: none; }
-:root.ph.sv .sv-wholemap { display: none; }   /* (the phone's chain sheet has the whole-map row) */
+:root.ph.sv .sv-rail { display: flex; }
+/* F, the whole map, ends what the rail scrolls: a 44 px round chip after the thread, which keeps room for it on a short chain */
+:root.ph.sv .sv-track { flex: 0 0 auto; min-width: calc(100% - 52px); }
+:root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0 4px 0 0; }
 :root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 4px; border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
