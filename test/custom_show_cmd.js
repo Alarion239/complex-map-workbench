@@ -28,6 +28,15 @@ async function open(ns, steps) {
 }
 const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
 const select = async (k) => { await selectStep(k); await settle(1200); };
+// a language switch reloads the page: wait until the new page is in that language (data-lang, which English leaves unset)
+// and shows the element `sel`
+const relang = async (lang, sel) => {
+  await ev(`I18N.setPref('${lang}'), 1`);
+  const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
+  // (while the page reloads an evaluation can fail with the old page gone: that is "not yet")
+  for (let i = 0; i < 100; i++) { let r = false; try { r = await ev(there); } catch (e) { r = false; } if (r === true) break; await sleep(200); }
+  await settled({ max: 8000, until: there });
+};
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
@@ -81,11 +90,11 @@ ok('show: F is written with the display form', fw && fw.includes('\\prod_{j=1}^{
 let M = await marks();
 ok('show: F\'s line carries the mark, with the full-formula explanation', M.f && M.f.text === 'in short' && /each step/.test(M.f.tip) && M.f.desc === M.f.tip, M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
-  await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+  await relang(lang, '#propsPanel .iform > .shortmark');
   const mf = await marks();
   ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word && mf.f.tip === mf.f.desc && !/^Written/.test(mf.f.tip), mf);
 }
-await ev(`I18N.setPref('en'), 1`); await settle(1200);
+await relang('en', '#propsPanel .iform > .shortmark');
 
 // 3. the formula edited: the key is stale
 await select(2);
@@ -115,11 +124,11 @@ M = await marks();
 ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /each step's own field/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
 ok('offer: the last row ends with the display form', (await ev(`[...document.querySelectorAll('#propsPanel .split-offer .so-tex')].pop().dataset.tex`)).includes(SHTEX), M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
-  await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+  await relang(lang, '#propsPanel .split-offer .so-row .shortmark');
   const m = await marks();
   ok(`offer: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip === m.rows[0].desc && !/^Written/.test(m.rows[0].tip), m);
 }
-await ev(`I18N.setPref('en'), 1`); await settle(1200);
+await relang('en', '#propsPanel .split-offer .so-row .shortmark');
 await ev(`(() => { const f = document.querySelector('#propsPanel input[data-pkey="expr"]'); f.focus(); f.value = f.value.replace(/\\)$/, '+0)'); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); f.blur(); return 1; })()`);
 await settle(1200);
 M = await marks();
