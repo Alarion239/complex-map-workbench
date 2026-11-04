@@ -12,8 +12,11 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await view(1200, 800, false, false);
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && typeof GLR.fillPointsOn === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); 1`); await settled({ max: 20000 }); };
-// canvasL's pixels kept in the page as __fpx[tag] once two reads 100 ms apart agree
+// canvasL's pixels kept in the page as __fpx[tag] once two reads 100 ms apart agree, both taken after the panes' frames
+// are drawn (two equal reads can both precede a frame still pending)
 const grab = async (tag) => {
+  await settled({ max: 30000 });
+  await ev('(window.__fpx || (window.__fpx = {}))._prev = null; 1');
   for (let n = 0; n < 100; n++) {
     const same = await ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__fpx || (window.__fpx = {}), p = g._prev;
       g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false; g[${JSON.stringify(tag)}] = d; return true; })()`);
