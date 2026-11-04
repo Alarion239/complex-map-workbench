@@ -661,7 +661,11 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `svPrev` | the thread's ‹ button, `#svStrip .sv-prev` |
 | `svAdd` | the thread's Add function button, in its wide and its round form, `#svStrip .sv-add` |
 | `svMenu2` | the second chip's ⋯ button, `#svStrip .sv-step[data-k="2"] .sv-more`; the chip itself where it has none (a phone) |
-| `svF` | the F chip, the whole map, `#svStrip .sv-wholemap` |
+| `svF` | the F chip, the whole map, `#svStrip .sv-wholemap`; it is scrolled into view first, as on a phone it is at the end of the scrolling rail |
+| `svPlay` | the ▶ / pause button, `#svStrip .sv-play` |
+| `svRail` | the rail with the band, `#svStrip .sv-rail` |
+| `svSpeed` | the speed select, `#svStrip .sv-speed` (on a phone it is in the Playback sheet, not on the strip) |
+| `svLoop` | the Loop button, `#svStrip .sv-loop` (on a phone, in the Playback sheet) |
 
 ### Events added for the steps view (#442)
 
@@ -674,6 +678,9 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `scope-changed` | `{ s: 'all' \| 'in' }` | the user chooses Everywhere or Inside regions |
 | `step-selected` | `{ k }` | a step is selected for the Inspector (a click on a card, or on a function chip of the steps view's thread) |
 | `step-moved` | `{ k, from }` | a step is moved along the chain (`moveStep`: the card's or chip's ⋯ menu, the keyboard); `k` is its new number, `from` the old one. An example's Try line (`tryDoneSv`) waits for it |
+| `play-started` | `{ from }` | ▶ (or K) starts the glide along the chain; `from` is the plane it starts on |
+| `loop-changed` | `{ on }` | Loop is switched, on the strip or in the Playback sheet |
+| `range-set` | `{ lo, hi }` | a range of planes is committed: a drag's end, or the keyboard's extension; `lo` and `hi` are plane numbers |
 | `probe` | `{ pane: 'L', stage, past, z, w, mod }` | (the steps view's own, besides Y's) the pointer reads a point of the shown plane; `w` and `mod` are the map into the colour plane there, undefined past it (`past`: the plane is after the colour plane) |
 
 `sheet-changed` is also sent when a sheet is typed into a step's field (the Inspector's or a card's), not only through ‹ ›.
