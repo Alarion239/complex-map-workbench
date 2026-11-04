@@ -2141,7 +2141,7 @@ void ixAncTan(vec2 w) {
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
-  const IX_FIN = { IPOW: 16, JOUK: 2, QUAD: 2, RAT2: 2 };
+  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
   // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]
@@ -2154,22 +2154,35 @@ void ixAncTan(vec2 w) {
     const sg = (x) => `(${x} < 0.0 ? 1.0 : -1.0)`;   // -sgn(x), sgn(0) = 1 (Inverse's sgn)
     switch (o.kind) {
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
-      // (Inverse's opNewt walk: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
-      // this, hence its declaration)
-      case 'NEWT': return 'vec2 chainHom(int i, vec2 z, float t);\n' + one(`  float t = ${U(0)}.x, s = 1e-3 * (1.0 + cx_abs(w));
-  vec2 u = w, d = vec2(1.0, 0.0);
+      // (Inverse's opNewt walks: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
+      // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0)
+      case 'NEWT': {
+        const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        return `vec2 chainHom(int i, vec2 z, float t);
+vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
+int ${P}_nb(Lf L) { return ixFin(L.u) ? 2 : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 w = L.u, u = w;
+  float t = ${U(0)}.x;
   for (int k = 1; k <= ${Inverse.NEWT_K}; k++) {
     float tk = t * float(k) / ${Inverse.NEWT_K}.0;
-    for (int it = 0; it < ${Inverse.NEWT_IT}; it++) {
-      float h = s * (1.0 + cx_abs(u)) / (1.0 + cx_abs(w));
-      d = (chainHom(${o.step}, u + vec2(h, 0.0), tk) - chainHom(${o.step}, u - vec2(h, 0.0), tk)) / (2.0 * h);
-      if (!(dot(d, d) > 0.0)) return false;
-      u -= cdiv(chainHom(${o.step}, u, tk) - w, d);
-      if (!ixFin(u)) return false;
-    }
+    for (int it = 0; it < ${Inverse.NEWT_IT}; it++) { vec2 d = ${P}_d(u, tk); if (!(dot(d, d) > 0.0)) return false; vec2 st = cdiv(${H('u', 'tk')} - w, d); float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u)); u -= sl > mx ? st * (mx / sl) : st; }
   }
-  if (!(cx_abs(chainHom(${o.step}, u, t) - w) <= 1e-3 * (1.0 + cx_abs(w)))) return false;
-  return ixApply(L, u, cinv(d), ${NOR});`);
+  if (!${P}_hit(u, w, t)) return false;
+  if (b == 0) return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
+  vec2 v = dot(u, u) > 0.0 ? -u : vec2(1.0, 0.0);
+  for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
+    vec2 g = cdiv(${P}_d(v, t), ${H('v', 't')} - w) - cinv(v - u);
+    if (!(dot(g, g) > 0.0)) return false;
+    v -= cinv(g);
+    if (!ixFin(v)) return false;
+  }
+  if (!${P}_hit(v, w, t) || cx_abs(v - u) <= 1e-3 * (1.0 + cx_abs(u))) return false;
+  return ixApply(L, v, cinv(${P}_d(v, t)), ${NOR});
+}
+`;
+      }
       case 'AFF': return one(`  vec4 P = ${U(0)};\n  return ixApply(L, cmul(w - P.zw, P.xy), P.xy, ${NOR});`);
       case 'MOB': return one(`  vec4 P0 = ${U(0)}, P1 = ${U(1)};
   vec2 den = P1.zw - cmul(P1.xy, w);

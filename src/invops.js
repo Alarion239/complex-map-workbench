@@ -198,28 +198,29 @@ const InvOps = (() => {
       },
     });
   }
-  // H(t)(u) = w by Newton, continued in t from u = w (H(0) is the identity): a homotopy's step with no exact ops. H(t):
-  // the map at time t; t in (0, 1). NEWT_K stages t/K, 2t/K, ..., t, NEWT_IT Newton steps each (a central difference
-  // for H'); the member is the u that this path ends on, dropped when H_t(u) misses w. glsl.js's NEWT runs the same
-  // walk with chainHom
-  const NEWT_K = 8, NEWT_IT = 4;
+  // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). Two members:
+  // m = 0, continued in t from u = w (H(0) is the identity): NEWT_K stages t/K, 2t/K, ..., t, NEWT_IT Newton steps each;
+  // m = 1, another root at t, by Newton deflated by the first (its seed -u0, NEWT_DEF steps). A member is dropped when
+  // H_t(u) misses w (a central difference for H'). glsl.js's NEWT runs the same walks with chainHom
+  const NEWT_K = 32, NEWT_IT = 4, NEWT_DEF = 24;
   function opNewt(t, H) {
     const Ht = H(t);
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+    const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
     return op('NEWT', { t }, Ht, {
+      fam: { type: 'fin', count: 2 },
       pre: (w) => {
         let u = w;
-        for (let s = 1; s <= NEWT_K; s++) {
+        for (let s = 1; s <= NEWT_K && isFin(u); s++) {
           const f = s === NEWT_K ? Ht : H(t * s / NEWT_K);
-          for (let it = 0; it < NEWT_IT; it++) {
-            const d = dH(f, u);
-            if (!isFin(d) || isZero(d)) return [];
-            u = sub(u, div(sub(f(u), w), d));
-            if (!isFin(u)) return [];
-          }
+          for (let it = 0; it < NEWT_IT && isFin(u); it++) u = sub(u, div(sub(f(u), w), dH(f, u)));
         }
-        if (!(abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w)))) return [];
-        return [ONEM(u, CX.inv(dH(Ht, u)))];
+        if (!hits(u, w)) return [];
+        const out = [ONEM(u, CX.inv(dH(Ht, u)), { m: 0 })];
+        let v = isZero(u) ? ONE : neg(u);
+        for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+        if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
+        return out;
       },
     });
   }
@@ -829,7 +830,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_IT, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_IT, NEWT_DEF, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';
