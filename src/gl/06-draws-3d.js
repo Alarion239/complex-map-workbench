@@ -275,9 +275,6 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return landC;
   }
-  // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
-  // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
-  // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
   // a 2D canvas as a texture on unit u: o {tex, key}, uploaded again when key changes (key null: every call)
   function canvasTex(o, u, cv, key) {
     gl.activeTexture(gl.TEXTURE0 + u);
@@ -293,6 +290,9 @@
     o.key = key;
   }
   const maskT = {}, marksT = {}, paperT = {};   // (the mask on unit 15, the flatten's marks on 13 and paper on 11)
+  // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
+  // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
+  // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
   function maskUniforms(P, m) {
     u1f(P, 'uMaskOn', m ? 1 : 0);
     if (!m || !P.loc.uMask) return;
