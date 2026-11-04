@@ -242,15 +242,18 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // (#846) The steps view's carried landscape (st.carry {map, s, T, lim}): plane s's grid over the box moved by the
-  // glide's map (mapPoint of map, from plane s), each vertex at the height of G = the stages (s, T] at its point
+  // (#846) The steps view's carried landscape (st.carry {map, s, T, lim, src}): plane s's grid over its box src (default
+  // the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box, each
+  // vertex at the height of G = the stages (s, T] at its point
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
   let landC = null;
+  // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
+  const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   function carryHeights(st, N, mode, H, mu, aspect) {
-    const c = st.carry, b = st.box, bytes = N * N * 16;
+    const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!landC || landC.N !== N) {
       if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
@@ -258,7 +261,7 @@
     }
     use(P1, c.map);
     u1i(P1, 'uN', N);
-    u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.T);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, landC.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -266,7 +269,7 @@
     u1i(P2, 'uN', N);
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
-    u1f(P2, 'uH', H); u1f(P2, 'uLim', c.lim);
+    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, landC.tex1);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
@@ -1204,8 +1207,10 @@
       common(Pc);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uLim', st.carry.lim); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
+      const sb = st.carry.src || box;
+      u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
       gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
       info.refine = null;
       info.carried = true;

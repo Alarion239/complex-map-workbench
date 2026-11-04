@@ -2,7 +2,8 @@
 // height and colour on plane a, which at u = 1 is plane b's surface. The default page (z, exp, Möbius) on the
 // Landscape:
 // - parked at u = 0.25, 0.5, 0.75 between z and w₁: carried frames (__cmwLandCarry), each unlike both planes at rest
-//   and each nearer its neighbour on the thread than the two planes are to each other (the picture moves on);
+//   and each nearer its neighbour on the thread than the two planes are to each other (the picture moves on); the
+//   block's width changes by under 3 % between u = 0.45 and 0.55, where the parked view's nearer plane changes;
 // - a glide (svGo) draws carried frames at three or more places between the planes, and its first and last frames
 //   (u ≤ 0.1, ≥ 0.9) are the planes at rest, within the exact-image tolerance (at most 2 %
 //   of the pane's pixels more than 32/255 apart: the rest frame's refined walls and cut rims are not drawn while
@@ -41,6 +42,11 @@ for (const x of [0.25, 0.5, 0.75]) {
   between[x] = { from0: await diff('x' + x, 'rest0'), from1: await diff('x' + x, 'rest1') };
   ok(`parked at ${x}: unlike both planes at rest`, between[x].from0 > 0.01 && between[x].from1 > 0.01, between[x]);
 }
+// (the block goes from z's to w₁'s with u: no step where the parked view's nearer plane changes, at u = 0.5)
+const boxAt = async (x) => { await rest(0); await park(x); const c = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null'); return c && c.box ? c.box.x1 - c.box.x0 : null; };
+const w45 = await boxAt(0.45), w55 = await boxAt(0.55);
+info.boxW = { w45, w55 };
+ok('the block moves on smoothly across u = 0.5 (width within 3 % between 0.45 and 0.55)', w45 > 0 && w55 > 0 && Math.abs(Math.log(w55 / w45)) < 0.03, info.boxW);
 between.d1 = await diff('x0.25', 'x0.5'); between.d2 = await diff('x0.5', 'x0.75');
 info.between = between;
 ok('the frames move on: each nearer its neighbour than the planes are to each other', between.d1 < info.planes && between.d2 < info.planes, between);

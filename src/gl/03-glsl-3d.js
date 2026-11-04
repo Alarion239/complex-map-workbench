@@ -525,29 +525,29 @@ void main() {
   gl_PointSize = 1.0;
 }
 `;
-  // (#846) The steps view's carried landscape: plane s's grid over the box uBox (uN x uN), each vertex at its image
+  // (#846) The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of G = the stages (s, T] there (uGs,
   // uGt), so every point keeps its height and colour while the plane moves. tfOut: (place x, y, height, finite).
   const LAND_CARRY_TF_VS = `
-uniform int uN; uniform vec4 uBox; uniform int uGs; uniform int uGt;
+uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = uBox.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uBox.zw;
+  vec2 z = uSrc.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uSrc.zw;
   vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
 }
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
-  // across a tear (a step over uLim on the plane) or a height step over 0.3 H), and LAND_NRM_VS's occlusion of the
+  // across a tear (a step over uLim on the plane) or a height step over uStep), and LAND_NRM_VS's occlusion of the
   // heights over the grid
   const LAND_CARRY_NRM_VS = `
-uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform float uLim;
+uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 out vec4 tfOut;
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
-bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= 0.3 * uH; }
+bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -570,13 +570,16 @@ void main() {
   tfOut = vec4(n, cnt > 0.0 ? 1.0 - clamp(6.0 * (sum / cnt - c.z), 0.0, 0.4) : 1.0);
 }
 `;
-  // its draw: two triangles a cell (gl_VertexID), each corner at its moved place; a triangle with a corner not finite,
-  // an edge over uLim on the plane (torn across a cut or a pole of the glide's map) or a height step over 0.3 H (a cut
-  // of G, which the edge passes split at rest) is left out. vZ is the point of plane s, where the fragment stage
+  // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle
+  // with a corner not finite, an edge over uLim on the plane (torn across a cut or a pole of the glide's map) or a
+  // height step over uStep (a cut of G, which the edge passes split at rest) is left out. uStep is 0.3 H for the
+  // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
+  // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form)
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
-uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
+uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
+uniform float uStep;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 void main() {
@@ -589,10 +592,10 @@ void main() {
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
-  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > 0.3 * uH) return;
+  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = uBox.xy + vec2(V) / float(M) * uBox.zw;
+  vZ = uSrc.xy + vec2(V) / float(M) * uSrc.zw;
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -1057,14 +1060,15 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // The mesh follows the true surface to a quarter of a pixel where it is refined (REFINE), so F at the fragment's own
   // z is the surface's value at its height there; where it is not (a wall coarser than its pixels while something
   // moves, the refinement capped), the contour lines fade by how far the facet is from the true height
-  // carry: the carried landscape's (LAND_CARRY_VS): F is G = the stages (uGs, uGt] at the point of plane s, and the
-  // surface is clipped at the block's sides (uClipA: its half extent), past which the moving plane's points may go
+  // carry: the carried landscape's (LAND_CARRY_VS): F is G = the stages (uGs, uGt] at the point of plane s, the rim is
+  // that of plane s's box uSrc, and the surface is clipped at the block's sides (uClipA: its half extent), past which
+  // the moving plane's points may go
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1146,7 +1150,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile
-  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
   // where the block's top or bottom clips the surface: the same rim as the domain's edges
