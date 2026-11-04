@@ -1963,9 +1963,8 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      // (drawn: the cut fill's own-option programs start now, after the ones the first glide waits on; GLR's
-      // methods are checked as svPrestart checks prestartCarry, GLR being a stub without WebGL 2)
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); if (GLR.prestartOwn) GLR.prestartOwn(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
+      // (drawn: the cut fill's own-option programs start now, after the ones the first glide waits on)
+      if (done) { svWarmSig = sig; svWarmAt = performance.now(); GLR.prestartOwn(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
