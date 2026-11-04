@@ -279,7 +279,7 @@
     if (still) { SV.g.last = 0; svArrive(); return false; }
     return true;
   }
-  // (#846) The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
+  // The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
   // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
   // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
   // (the X → Y view a glide from past the colour plane starts in)
@@ -346,7 +346,7 @@
     return { x: r.left, y: r.top, w: r.width, h: r.height, iw: innerWidth, ih: innerHeight };
   }
   // the 2D chrome that X → Y has and the Landscape has not (the rulers, their corner and the colour key on the plot) at
-  // opacity a: it comes in over the flatten's glide (ux on #846: annotation with no 3D twin ramps in over the same span),
+  // opacity a: it comes in over the flatten's glide (annotation with no 3D twin ramps in over the same span),
   // and is whole (a = 1) everywhere else
   let svChromeA = 1;
   function svFlatChrome(a) {
@@ -1274,7 +1274,7 @@
     }
     if (!frame) GLR.blit(pane.ctx);
   }
-  // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
+  // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
   // plane's 2D picture colours (svMask): {cv, key, box}, a canvas over box (512 pixels on its longer side, row 0 at its
   // top), opaque inside the set and clear outside; the surface is plain (the Plain material's colour) there. One per
   // chain, plane, box and shapes; null with the colour everywhere (Everywhere)

@@ -242,7 +242,7 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // (#846) The steps view's carried landscape (st.carry {map, s, T, lim, src}): plane s's grid over its box src (default
+  // The steps view's carried landscape (st.carry {map, s, T, lim, src}): plane s's grid over its box src (default
   // the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box, each
   // vertex at the height of G = the stages (s, T] at its point
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
@@ -1089,7 +1089,7 @@
     if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
     // TEMP-DEBUG-HOOK
     lvCollect();
-    // (#846) the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
+    // the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
     if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
     // (st.screen [sx, sy, bx, by]: the picture drawn in a rectangle of the canvas, not the whole of it (the steps view's
     // flatten, flatPlace): the camera takes that rectangle's aspect, and its clip space is scaled by (sx, sy) and moved

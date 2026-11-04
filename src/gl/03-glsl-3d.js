@@ -533,7 +533,7 @@ void main() {
   gl_PointSize = 1.0;
 }
 `;
-  // (#846) The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
+  // The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of G = the stages (s, T] there (uGs,
   // uGt), so every point keeps its height and colour while the plane moves; the height times 1 - uFlat (the glide into
   // the plane after the colour plane flattens it). tfOut: (place x, y, height, finite).

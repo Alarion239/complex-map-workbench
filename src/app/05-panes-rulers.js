@@ -557,7 +557,7 @@
     const mk = map ? mapKeyOf(map) : SV.on ? mapKeyOf(svMap()) : '';
     const key = `${chainSig[nSteps()]}|${S.focus}|${mk}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}`;
     if (muCache.has(key)) return muCache.get(key);
-    const F = map ? Fm : typeof plotF === 'function' ? plotF() : focusF(), vals = [];
+    const F = map ? Fm : plotF(), vals = [];
     for (let j = 0; j < 32; j++) for (let i = 0; i < 32; i++) {
       const w = F(C(box.x0 + (i + 0.5) / 32 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 32 * (box.y1 - box.y0)));
       const v = S.height === 're' ? Math.abs(w.re) : S.height === 'im' ? Math.abs(w.im) : CX.abs(w);
@@ -632,7 +632,7 @@
     // the Morph transport (homView): the surface of H_t; All sheets (S.sheets, window S.sheetW): the whole covering
     // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
     // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
-    const hv = !carry && typeof homView === 'function' ? homView() : null;
+    const hv = !carry ? homView() : null;
     // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     const sheets = !carry && S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
@@ -763,7 +763,7 @@
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     // (the flatten: the shapes at their places along the glide, and each one's stroke going from the print's to the
-    // flat plane's outline over u, its width and its casing (shapeStroke), one stroke throughout; ux on #846)
+    // flat plane's outline over u, its width and its casing (shapeStroke), one stroke throughout)
     const outlines = [];
     const fl = carry && carry.flat ? carry.flat : 0;
     const omap0 = fl ? svBetween().map : stageMap(leftStage());
