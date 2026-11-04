@@ -275,9 +275,9 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return landC;
   }
-  // (the steps view's Inside regions) st.mask {cv, key, box, paper}: a canvas over box (plane coordinates), opaque on the
+  // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
-  // passes' scratch unit); paper: the plain surface's colour outside it; null: the colour everywhere
+  // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
   let maskTex = null, maskKey = null;
   function maskUniforms(P, m) {
     u1f(P, 'uMaskOn', m ? 1 : 0);
@@ -295,7 +295,6 @@
       maskKey = m.key;
     }
     u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
-    u3(P, 'uPaper', col3(m.paper, [1, 1, 1]));
   }
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back

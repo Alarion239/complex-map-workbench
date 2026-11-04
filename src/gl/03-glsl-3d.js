@@ -1055,8 +1055,8 @@ uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // colours kept, as it flattens into that plane's flat picture; 0 everywhere else)
 uniform float uFlat;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
-// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain paper, uPaper)
-uniform sampler2D uMask; uniform float uMaskOn; uniform vec4 uMaskBox; uniform vec3 uPaper;
+// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster)
+uniform sampler2D uMask; uniform float uMaskOn; uniform vec4 uMaskBox;
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
@@ -1148,6 +1148,8 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   float ds = abs(lr) / max(flr, 1e-6);                                                  // sea level |F| = 1
   a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), la * uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
   a = mix(a, vec3(1.0), la * uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
+  // (outside the carried region set: plain, under the sheet cue, the cut's banks and the rim as everywhere)
+  a = mix(toLin(uPlaster), a, inRegions(vZ));
 ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
   // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
@@ -1163,7 +1165,6 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
-  a = mix(toLin(uPaper), a, inRegions(vZ));
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile
   vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
