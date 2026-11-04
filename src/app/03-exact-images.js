@@ -371,11 +371,13 @@
   // The inverse path of area shape s under the glide's map H_t o F_{k-1} (mode 1, hi k): the
   // plan of stages (a, k] with step k standing for its homotopy at t (Inverse.homBuilt), its own inverse op list
   // (GLChain.buildInverse: another program, the op values its uniforms) and the shape's preparation. Same answer as
-  // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}
+  // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}. singAt(): the key's points for a plan that
+  // inverts the homotopy by Newton (a NEWT op has no poles of its own for keySing to pull back): the glide's, as the
+  // carried mesh keys its sheets (svSheetKeyAt), so both draw the same point in front
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map();
-  function invHomPath(s, a, k, t) {
+  function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
@@ -392,12 +394,13 @@
       invHoms.set(ck, h);
     }
     if (!h.plan.ok) return F(h.plan.reason);
-    const wk = winKey() + '|' + shapeKey(s);
+    const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT') ? singAt() : null;
+    const wk = winKey() + '|' + shapeKey(s) + (own ? '|' + own.map((p) => p.re + ',' + p.im).join(';') : '');
     let prep = h.preps.get(wk);
     if (!prep) {
       try {
-        if (!h.sing || h.sing.k !== winKey()) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin) };
-        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: h.sing.v });
+        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin) };
+        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v });
       } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
       h.preps.set(wk, prep);
     }
