@@ -2257,7 +2257,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
-  // own w, and finds them itself elsewhere
+  // own w, and finds them itself elsewhere and where a root read misses w
   const IX_NR_NONE = '3.0e38';
   function newtPolyFns(o, j, c, D, H) {
     const P = `ix${j}`, NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)', T = Math.ceil(D / 2);
@@ -2326,8 +2326,12 @@ void ${P}_roots(vec2 w, float t) {
 #if defined(IX_NR_N) && !defined(IX_NR_PASS) && IX_NR_N >= ${T}
   if (uNrRead == 1 && w == ixPixW) {
 ${fetch('uNrTex')}
-    for (int i = 0; i < ${D}; i++) { ${P}_r[i] = z[i]; ${P}_k[i] = abs(z[i].x) < 1e37; }
-    return;
+    bool good = true;
+    for (int i = 0; i < ${D}; i++) {
+      ${P}_r[i] = z[i]; ${P}_k[i] = abs(z[i].x) < 1e37;
+      if (${P}_k[i] && !${P}_hit(z[i], w, t)) good = false;
+    }
+    if (good) return;
   }
 #endif
   bool got = false;
