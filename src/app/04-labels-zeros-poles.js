@@ -287,28 +287,34 @@
       for (const z of ex.zs) { const d = CX.abs(CX.sub(z, q0)); if (d < bd) { bd = d; best = z; } }
       return best;
     }
-    const w0 = F(q0);
-    if (!CX.isFin(w0)) return null;
-    let z = q0;
-    for (let i = 1; i <= 24; i++) {
-      const t = i / 24, tw = C(w0.re + (w.re - w0.re) * t, w0.im + (w.im - w0.im) * t);
-      for (let it = 0; it < 12; it++) {
-        const h = 1e-6 * (1 + CX.abs(z)), f = F(z), fx = F(C(z.re + h, z.im));
-        if (!CX.isFin(f) || !CX.isFin(fx)) return null;
-        const d = C((fx.re - f.re) / h, (fx.im - f.im) / h), r = CX.sub(tw, f);
-        if (CX.abs(r) < 1e-12 * (1 + CX.abs(tw))) break;
-        const dd = d.re * d.re + d.im * d.im;
-        if (!(dd > 1e-300)) return null;
-        z = C(z.re + (r.re * d.re + r.im * d.im) / dd, z.im + (r.im * d.re - r.re * d.im) / dd);
-      }
-      if (!CX.isFin(z) || CX.abs(CX.sub(F(z), tw)) > 1e-6 * (1 + CX.abs(tw))) return null;
-    }
-    return z;
+    const w0 = F(q0), win = stageWin(a);
+    return CX.isFin(w0) ? trackRoot(F, q0, 1, w0, w, Math.max(win.x1 - win.x0, win.y1 - win.y0), performance.now() + PRE_TRACK_MS) : null;
   }
   // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
   // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the
   // clockwise one dashed, and a handle on the solid curve for the editable cuts (the ray's handle point carried the
   // same way, pulled in along the ray until it is in view and clear of the branch point's image). Pushes into handles
+  // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
+  // jump of more than a quarter of the pane
+  function strokeCurves(pane, curves, dash) {
+    const ctx = pane.ctx;
+    ctx.setLineDash(dash || []);
+    for (const [wd, al, col] of [[3.5, TH.haloA, TH.halo], [1.75, 1, TH.cut]]) {
+      ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = wd;
+      ctx.beginPath();
+      for (const pts of curves) {
+        let pen = null;
+        for (const q of pts) {
+          if (!q || Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; continue; }
+          if (pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > 0.25 * Math.max(pane.w, pane.h)) pen = null;
+          if (pen) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
+          pen = q;
+        }
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
   let carriedCuts = [];
   function drawCarriedCuts(pane, k, handles) {
     carriedCuts = [];
@@ -324,7 +330,6 @@
         const win = stageWin(j - 1), Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
         for (const side of [-1, 1]) {
           const a = c.ang + side * 1e-7;
-          ctx.setLineDash(side > 0 ? [] : [6, 4]);
           const pts = [], ws = [];
           for (let i = 0; i <= 480; i++) {
             const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
@@ -333,20 +338,8 @@
             if (CX.isFin(w)) ws.push([w.re, w.im]);
           }
           carriedCuts.push({ step: j, solid: side > 0, w: ws });
-          for (const [wd, al, col] of [[3.5, TH.haloA, TH.halo], [1.75, 1, TH.cut]]) {
-            ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = wd;
-            ctx.beginPath();
-            let pen = null;
-            for (const q of pts) {
-              if (!q || Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; continue; }
-              if (pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > 0.25 * Math.max(pane.w, pane.h)) pen = null;
-              if (pen) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
-              pen = q;
-            }
-            ctx.stroke();
-          }
+          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
-        ctx.setLineDash([]); ctx.globalAlpha = 1;
         if (!c.editable) continue;
         const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);
         // (a branch point that lands at infinity, as log's: nothing to keep clear of)
@@ -369,7 +362,7 @@
   // (Inverse.pointPre, whatever the cut), the samples of one branch joined to the nearest of the next; a handle on the first
   // curve in view. A chain with no exact preimages draws none
   function drawCutPreimages(pane, k, handles) {
-    const ctx = pane.ctx, n = S.steps.length;
+    const n = S.steps.length;
     for (let j = k + 2; j <= n; j++) {
       const st = S.steps[j - 1], b = built[j - 1];
       if (!st || st.on === false || !b || b.error || derivIn(k, j - 1)) continue;
@@ -390,22 +383,7 @@
           }
           if (i === 0) for (const z of free) tracks.push({ pts: [z] });
         }
-        for (const [wd, al, col] of [[3.5, TH.haloA, TH.halo], [1.75, 1, TH.cut]]) {
-          ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = wd; ctx.setLineDash([]);
-          ctx.beginPath();
-          for (const t of tracks) {
-            let pen = null;
-            for (const z of t.pts) {
-              const q = pane.w2s(z);
-              if (Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; continue; }
-              if (pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > 0.25 * Math.max(pane.w, pane.h)) pen = null;
-              if (pen) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
-              pen = q;
-            }
-          }
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
+        strokeCurves(pane, tracks.map((t) => t.pts.map((z) => pane.w2s(z))));
         carriedCuts.push({ step: j, solid: true, pre: true, w: tracks.map((t) => t.pts.map((z) => [z.re, z.im])) });
         if (!c.editable) continue;
         let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33, done = false;

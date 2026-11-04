@@ -10,9 +10,9 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1440, 900, false, false);
-const open = async (type, params, plane, before) => {
+const open = async (type, params, plane, before, after) => {
   const ns = 'cutcurve' + Date.now();
-  await loadView('steps', ns, { srcView: { cx: 0, cy: 0, s: 60 }, shapes: [], steps: (before || []).concat([{ type, params, on: true }]), height: 'im' });
+  await loadView('steps', ns, { srcView: { cx: 0, cy: 0, s: 60 }, shapes: [], steps: (before || []).concat([{ type, params, on: true }], after || []), height: 'im' });
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwSteps({ go: ${plane}, now: true }); 1`); await settled({ max: 60000 });
@@ -75,4 +75,15 @@ const h2 = (await handles()).find((q) => q.carried);
 const turn2 = h2 ? ((h2.deg - d0 + 540) % 360) - 180 : null;
 info.turn2 = turn2;
 ok('before the cut: dragging the handle up turns θ down (arg of z + 1 falls from π)', turn2 !== null && turn2 < -1, [d0, h2 && h2.deg]);
+// a later step with no exact preimage (the exponential has infinitely many): the drag follows the root by continuation
+await open('log', { cut: 180 }, 2, [], [{ type: 'exp', params: {}, on: true }]);
+hs = await handles();
+ok('after exp: a carried handle', hs.length === 1 && hs[0].carried, hs);
+if (hs.length) {
+  const e0 = hs[0].deg;
+  await drag(hs[0].x, hs[0].y, hs[0].x + 12, hs[0].y - 12, 8, 20); await settled({ max: 20000 });
+  const e1 = (await handles())[0];
+  info.expTurn = [e0, e1 && e1.deg];
+  ok('after exp: a drag of the handle turns θ', !!e1 && Math.abs(e1.deg - e0) > 0.5, info.expTurn);
+}
 return { pass: !fails.length, fails, info };
