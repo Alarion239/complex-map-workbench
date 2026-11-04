@@ -832,8 +832,7 @@
   // is a number, and a full table is dropped whole)
   const SV_RING_SIZES_MAX = 400;
   const svRingSizes = new Map();
-  // (svRingWarmM: a size made whose mesh the idle job builds next, svRingWarm)
-  let svRingMemo = null, svRingJob = null, svRingWarmM = null;
+  let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
   const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
@@ -915,20 +914,12 @@
     }
     return null;
   }
-  const svRingLeft = () => !!svRingJob || svRingWarmM !== null || !!svRingNext();
-  // the idle job's share of the ring: an m made for at most ms, or the mesh of the last one made (svRingWarm, built whole:
-  // only with at least half a slice's time left); false when this slice's share ends (none left to make, or a mesh to
-  // build and too little time)
+  const svRingLeft = () => !!svRingJob || !!svRingNext();
+  // the idle job's share of the ring: an m made for at most ms, its mesh built (svRingWarm) in the slice that publishes
+  // it, so no frame finds a size whose mesh is not built; that slice can run past ms by the build's time. false when
+  // none is left to make
   function svRingAhead(ms) {
     const t0 = performance.now();
-    if (svRingWarmM !== null) {
-      if (ms < SV_POLE_BUDGET / 2) return false;
-      const m = svRingWarmM, ps = globalThis.__svPathStats;
-      svRingWarmM = null;
-      if (ps) (ps.ringWarmMs || (ps.ringWarmMs = [])).push(ms);
-      svRingWarm(m);
-      return true;
-    }
     if (!svRingJob) {
       const n = svRingNext();
       if (!n) return false;
@@ -937,11 +928,16 @@
     for (;;) {
       const r = svRingJob.gen.next();
       if (r.done) {
+        const ps = globalThis.__svPathStats, tw = performance.now();
+        if (r.value) svRingWarm(r.value);
         svRingSet(svRingJob.key, r.value);
         svRingJob = null;
-        if (r.value) svRingWarmM = r.value;
-        const ps = globalThis.__svPathStats;
-        if (ps) ps.ringIdle = (ps.ringIdle || 0) + 1;
+        if (ps) {
+          ps.ringIdle = (ps.ringIdle || 0) + 1;
+          // (for each size whose mesh it built: the slice's time past ms and the build's, in ms)
+          const t1 = performance.now();
+          if (r.value) (ps.ringOver || (ps.ringOver = [])).push({ over: +Math.max(0, t1 - t0 - ms).toFixed(2), build: +(t1 - tw).toFixed(2) });
+        }
         return true;
       }
       if (performance.now() - t0 >= ms) return true;

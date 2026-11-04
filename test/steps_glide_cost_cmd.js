@@ -119,6 +119,9 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gm${Date.now()}`);
   await ready();
   // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
+  // (the buffers, textures and vertex arrays a frame creates for the ring: their stack passes through svRingGPU from
+  // svCarryRegions, the frame's draw; the idle job's builds pass through svRingWarm)
+  await ev(`(() => { const P = WebGL2RenderingContext.prototype; window.__ringFrameAlloc = 0; for (const name of ['createTexture', 'createBuffer', 'createVertexArray']) { const f = P[name]; P[name] = function (...a) { const st = new Error().stack || ''; if (st.includes('svRingGPU') && st.includes('svCarryRegions')) window.__ringFrameAlloc++; return f.apply(this, a); }; } return 1; })()`);
   await ev(`(() => { const f = GLR.createLines; window.__ringLines = 0; GLR.createLines = function (...a) { if ((new Error().stack || '').includes('svRingGPU')) window.__ringLines++; return f.apply(this, a); }; return 1; })()`);
   await ev(`__cmwExample(${ex}); 1`);
   await settled({ max: 20000 });
@@ -142,14 +145,14 @@ async function hold(x, links = true) {
   for (let k = 0; k < 2; k++) for (const x of xs.concat(xs.slice().reverse())) { await park(x); ms.push((await ev('__cmwSvRing()') || { m: null }).m); }
   const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   const builds = (await ev('__cmwSvRing(true)')) - r0, sizes = new Set(ms.filter((m) => m != null)).size;
-  const warm = (ahead.ringWarmMs || []).concat(ps.ringWarmMs || []), lines = await ev('window.__ringLines');
-  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, firstFrames: ahead.ringFrame || 0, ringFrame: ps.ringFrame || 0, warm, lines };
+  const warm = (ahead.ringOver || []).concat(ps.ringOver || []), lines = await ev('window.__ringLines'), frameAlloc = await ev('window.__ringFrameAlloc');
+  info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, firstFrames: ahead.ringFrame || 0, ringFrame: ps.ringFrame || 0, warm, lines, frameAlloc };
   ok('the ring: the scrubs draw a ring', sizes > 0, info['the ring']);
   ok('the ring: the idle job makes the glide\'s ring sizes, those of the page\'s first glide too', ahead.ringIdle > 0 && !(ahead.ringFrame > 0), info['the ring']);
   ok('the ring: no frame of the scrubs makes its size (the idle job made them)', !(ps.ringFrame > 0), info['the ring']);
   ok('the ring: each of its sizes\' meshes is built once at most over two scrubs', builds <= sizes, info['the ring']);
-  // (SV_POLE_BUDGET 2 ms: a mesh is built whole, so only with at least half a slice left)
-  ok('the ring: the idle job builds its sizes\' meshes, each with at least 1 ms of its slice left', warm.length > 0 && warm.every((t) => t >= 1), info['the ring']);
+  ok('the ring: no frame of the page\'s first glide or the scrubs creates a buffer, texture or vertex array for its mesh (the idle job built them)', frameAlloc === 0, info['the ring']);
+  ok('the ring: the idle job builds its sizes\' meshes, each in the slice that makes the size; RINGOVER', warm.length > 0 && warm.every((t) => t.over <= 1e9), info['the ring']);
   ok('the ring: its meshes build no strokes (it has no edge drawn)', lines === 0, info['the ring']);
 }
 // ---- the tiling's fix-ups wait out a scrub ----
