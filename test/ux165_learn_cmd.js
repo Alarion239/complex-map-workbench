@@ -1,6 +1,8 @@
 // v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
 // of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX60, UX97, UX99, UX102-UX104 (the laptop's sound checks,
-// UX70-UX74, UX87 and UX88, are ux165_learn_sound_cmd.js; standards-ok: those 15 checks moved there unchanged), on a
+// UX70-UX74, UX87 and UX88, are ux165_learn_sound_cmd.js; its first-run line, UX21 with #250 and UX90, is
+// ux165_learn_first_run_cmd.js, and its Undo message, UX80, is ux165_learn_msg_classic_cmd.js; standards-ok: those checks
+// moved there unchanged), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
@@ -31,33 +33,7 @@ const ready = async () => { for (let i = 0; i < 40 && !(await ev(`typeof __cmwSt
 const fresh = async (ns, q = '') => { await nav(U + '?ns=ux165clean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
 const firstVisit = async (q = '') => { await fresh('ux165x'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (!/:/.test(k)) localStorage.removeItem(k); return 1; })()`); await nav(U + q); for (let i = 0; i < 40 && !(await ev(`!!document.querySelector('.tour-lane')`)); i++) await sleep(200); };
 logs();
-
-// ---------------------------------------------------------------- UX21: the first-run line, docked
-await laptop();
-await firstVisit();
-let g = await ev(`(() => { const s = document.querySelector('.tour-lane'); if (!s) return null; const b = s.getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(), q = document.querySelector('#paneR').getBoundingClientRect(), i = document.querySelector('#rightPanel').getBoundingClientRect(); return { slot: s.parentNode.id, mode: s.dataset.mode, h: Math.round(b.height), clear: b.bottom <= p.top + 0.5 && b.bottom <= q.top + 0.5, insp: b.right <= i.left + 0.5, card: !!document.querySelector('.tour-suggest'), title: s.querySelector('.tl-title').textContent, btns: [...s.querySelectorAll('button')].map((x) => x.textContent) }; })()`);
-check('UX21 laptop: the first-run invitation is one line in the docked slot, above X and Y, clear of the Inspector, no card', g && g.slot === 'tourSlot' && g.mode === 'desk' && g.h <= 48 && g.clear && g.insp && !g.card && /New here\?/.test(g.title), g);
-check('UX21 laptop: Start the tour and Not now', g && g.btns.some((t) => /Start the tour/.test(t)) && g.btns.some((t) => /Not now/.test(t)), g && g.btns);
-g = await ev(`(() => { const t = document.querySelector('.tour-lane .tl-text'); return { cut: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1, two: t.closest('.tour-lane').classList.contains('two'), body: !t.querySelector('.tl-body').hidden }; })()`);
-check('UX21 laptop: the line is one line and its words are whole (the description only where it fits whole)', !g.cut && !g.two, g);
-await shot('ux165-ux21-laptop');
-await laptop(1366, 768, true); await settle(300); await shot('ux165-ux21-laptop-dark'); await laptop();
-await ev(`document.querySelector('.tour-lane .btn.primary').click()`); await settle(1500);
-check('UX21 laptop: Start runs the tour from Basics, and the line has gone', (await ev('Tour.isActive() && Tour.current().chapter === "basics"')) && !(await ev(`!!document.querySelector('.tour-lane')`)));
-// (#250) no Details on a laptop: the strip's text is plain, with the key on Next and the switch beside ×; the welcome lead says the practice is cleared (UX90)
-g = await ev(`({ why: Tour.lit() ? Tour.lit().why : null, details: [...document.querySelectorAll('.tour-strip *')].some((e) => /Details/.test(e.textContent) || /Details/.test(e.getAttribute('aria-label') || '')), key: getComputedStyle(document.querySelector('.ts-next'), '::after').content, autob: !!document.querySelector('.ts-autob') && document.querySelector('.ts-autob').getClientRects().length > 0, textBtn: document.querySelector('.ts-text').getAttribute('role'), lead: (document.querySelector('#tourLead') || {}).textContent })`);
-check('#250: no Details at 1366; the Next key hint is gone, the timer button is gone (Move on by itself is a switch in the Chapters menu)', g.why === false && !g.details && g.key === 'none' && !g.autob, g);
-check('UX90: the welcome lead says what is cleared', /Practice freely: what you draw here is cleared at the end/.test(g.lead || ''), g.lead);
-await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(500); await ev('Tour.stop()'); await settle(300);
-await laptop(1440, 900);
-await fresh('ux165w'); await settle(1500);
-// (a fresh page on a slow runner: the app up before the tour starts, and the step lit before it is read)
-await ready();
-await ev(`Tour.start({ chapter: 'views' })`); await settle(1500);
-for (let i = 0; i < 20 && !(await ev('!!Tour.lit()')); i++) await sleep(250);
-check('#250: no sheet at 1440 x 900 either', (await ev('Tour.lit() && Tour.lit().why')) === false && (await ev(`!document.querySelector('#tourWhy') || !document.querySelector('#tourWhy').isConnected`)));
-await ev('Tour.stop()'); await settle(300);
-await laptop();
+let g = null;
 
 // phone portrait: the row under the header, 44 px buttons, real taps
 await phone(412, 860);
@@ -155,20 +131,17 @@ check('UX20: with X\'s options in the head, an example\'s fit stays finite (the 
 await ev('Tour.stop()'); await settle(400);
 await laptop();
 
-// ---------------------------------------------------------------- UX80: messages clear of the planes' controls
+// ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
+// (the Undo message of the same page is ux165_learn_msg_classic_cmd.js)
 await laptop();
 await fresh('ux165e'); await settle(1800);
 await ev(`document.querySelector('#clearChain').click()`); await settle(500);
-// (v16.5 fix regress-3, consented by the user 2026-10-27 (W1-MERGE-NOTES.md): a desktop message that fits whole on one
-// line goes in the chain head's free middle (#toastHost data-placed="head"); only a longer one goes above the chain)
-g = await ev(`(() => { const t = document.querySelector('#toastHost .toast').getBoundingClientRect(), r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: { l: t.left, t: t.top, r: t.right, b: t.bottom }, x: r('#paneL .viewstack'), y: r('#paneR .viewstack'), chain: r('.pipe-wrap'), head: r('.pipe-head'), placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
-check('UX80 laptop: the Undo message sits in the chain head (v16.5 regress-3) or above the chain, between X\'s and Y\'s button columns', !meet(g.t, g.x) && !meet(g.t, g.y) && (g.placed === 'head' ? g.t.t >= g.head.t - 1 && g.t.b <= g.head.b + 1 && g.t.l >= g.head.l && g.t.r <= g.head.r : g.t.b <= g.chain.t && g.t.l >= g.x.r && g.t.r <= g.y.l), g);
-await shot('ux165-ux80-laptop');
 g = await ev(`(() => { const e = document.querySelector('#emptyRight'), b = e.querySelector('.btn'); return { head: e.parentNode.classList.contains('pane-head'), shown: !e.hidden && !!b && b.getClientRects().length > 0, tip: b && b.dataset.tip, tiny: document.querySelector('#paneR').classList.contains('tiny') }; })()`);
 check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not over the picture', g.head && g.shown && /Add a function to map the region/.test(g.tip || '') && !g.tiny, g);
 // (the title is fitted with the button in place: its role is whole, short or gone, never cut by an ellipsis: "imag…")
 g = await ev(`(() => { const t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'), pt = t.querySelector('.ptitle'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { cls: t.className, prCut: vis(pr) && pr.scrollWidth > pr.clientWidth + 1, ptCut: vis(pt) && pt.scrollWidth > pt.clientWidth + 1 }; })()`);
 check('UX20 laptop: with "Add function" in Y\'s head the title and its role are not cut', !g.prCut && !g.ptCut, g);
+
 await phone(412, 860);
 await fresh('ux165f'); await settle(2200);
 await ev(`document.querySelector('#clearChain').click()`); await settle(500);
