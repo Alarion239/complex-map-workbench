@@ -62,6 +62,8 @@ for (const [name, w, h, touch] of [['desk', 1280, 800, false], ['phone', 390, 84
       if (lang === 'ru') ok(`${tag} ${s0.id}: the words are Russian`, /[А-Яа-я]/.test(s0.body || ''), s0.body && s0.body.slice(0, 50));
       else ok(`${tag} ${s0.id}: the words are English`, !/[А-Яа-я]/.test(s0.body || ''), s0.body && s0.body.slice(0, 50));
       ok(`${tag} ${s0.id}: not done before the user does it`, !s0.done, s0);
+      // (the tour listens for the task only once the step has settled: Tour.lit().moving is true until then)
+      await waitFor(`!!Tour.lit() && !Tour.lit().moving`);
       if (DO[s0.id]) await DO[s0.id]();
       const done = await waitFor(`!!(Tour.lit() && Tour.lit().done)`, 9000);
       ok(`${tag} ${s0.id}: done by its action`, done, await st());
