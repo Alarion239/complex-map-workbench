@@ -1310,6 +1310,28 @@
     return info;
   }
 
+  // a w-box {x0, x1, y0, y1} -> its scissor [x, y, w, h] in device px of the current frame (bottom-left origin), padded
+  // by pad device px; null when it covers the frame; [0, 0, 0, 0] when it misses the frame
+  function scissorOf(b, view, dpr = 1, pad = 4) {
+    if (!b || !view || ![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return null;
+    const k = view.s * dpr;
+    const x0 = Math.floor(fw / 2 + (b.x0 - view.cx) * k) - pad, x1 = Math.ceil(fw / 2 + (b.x1 - view.cx) * k) + pad;
+    const y0 = Math.floor(fh / 2 + (b.y0 - view.cy) * k) - pad, y1 = Math.ceil(fh / 2 + (b.y1 - view.cy) * k) + pad;
+    const cx0 = Math.max(0, x0), cy0 = Math.max(0, y0), cx1 = Math.min(fw, x1), cy1 = Math.min(fh, y1);
+    if (cx1 <= cx0 || cy1 <= cy0) return [0, 0, 0, 0];
+    if (cx0 <= 0 && cy0 <= 0 && cx1 >= fw && cy1 >= fh) return null;
+    return [cx0, cy0, cx1 - cx0, cy1 - cy0];
+  }
+  function scissorAround(sc) {
+    const [x, y, w, h] = sc;
+    return [[0, 0, fw, y], [0, y + h, fw, fh - y - h], [0, y, x, h], [x + w, y, fw - x - w, h]].filter((q) => q[2] > 0 && q[3] > 0);
+  }
+  function standInOf(b, view, dpr = 1) {
+    const sc = scissorOf(b, view, dpr, 0);
+    if (sc === null) return 'whole';
+    return sc[2] > 0 ? { sc, around: scissorAround(sc) } : null;
+  }
+
   // SPEC 4.8 on a globe (P3): the scissor [x, y, w, h] (device px of the current pane, bottom-left origin, padded by pad)
   // of the image on the sphere of a w-box b, seen through MVP from eye; null when no scissor can be promised (the
   // image may reach the far side or the silhouette) or none is needed (it covers the pane); [0, 0, 0, 0] when it misses
