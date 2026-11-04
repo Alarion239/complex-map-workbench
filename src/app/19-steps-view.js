@@ -963,9 +963,7 @@
   // everywhere else. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
   // stretched outer cell, placed worse than the ring's), the ring every cell that reaches within 2h of the ring's share
   // (a corner outside clipWin shrunk by 2h, or within rho + 2h of c), so the two overlap along the edge, the ring's
-  // drawn behind there (SV_POLAR_BEHIND). About a singular point the ring also takes the strip within h of the ray from
-  // c at angle pi, its seam and the principal cut of a logarithm or a root about c: a whole-plane triangle across that
-  // cut would be continued across it on one sheet (a torn triangle drawn whole), past the map's image.
+  // drawn behind there (SV_POLAR_BEHIND).
   // svPolarShare: the radius rho about the ring's centre (0: none)
   function svPolarShare(ring) {
     const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
@@ -975,7 +973,7 @@
   // pieces (null without them; the triangles fx leaves out are left out too). Kept per mesh (r.polarSkip)
   function svPolarSkip(r, ring, fx) {
     if (!r.mesh || !GLR.createSkip) return null;
-    const w = clipWin, { h, rho } = svPolarShare(ring), cut = ring.sing;
+    const w = clipWin, { rho } = svPolarShare(ring);
     const base = fx && fx.res && fx.res.flags && fx.res.flags.length === r.mesh.tri.length / 3 ? fx.res.flags : null;
     const ex = fx && fx.extraRes && fx.res && fx.res.extra ? fx.res.extra : null;
     const key = [r.meshKey, ring.c[0], ring.c[1], rho, w.x0, w.x1, w.y0, w.y1, base || ex ? fx.mapKey : ''].join('|');
@@ -983,7 +981,7 @@
     if (P && P.key === key && P.extraRes === (ex ? fx.extraRes : null)) return P;
     const [cx, cy] = ring.c;
     // (a point outside the whole plane's share)
-    const out = (x, y) => x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho || (cut && x < cx + h && Math.abs(y - cy) < h);
+    const out = (x, y) => x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho;
     const T = r.mesh.tri, P0 = r.mesh.src, n = T.length / 3, flags = base ? Float32Array.from(base) : new Float32Array(n);
     for (let t = 0; t < n; t++) {
       for (let k = 0; k < 3; k++) if (out(P0[2 * T[3 * t + k]], P0[2 * T[3 * t + k] + 1])) { flags[t] = 1; break; }
@@ -1020,8 +1018,6 @@
       if (ra < rho + 2 * h) continue;
       for (let j = 0; j < NT; j++) {
         const ta = -Math.PI + 2 * Math.PI * j / NT, tb = ta + 2 * Math.PI / NT;
-        // (a cell reaching within 2h of the ray from c at angle pi stays: the whole plane's leaves that strip out)
-        if (ring.sing && Math.min(ra * Math.abs(Math.sin(ta)), ra * Math.abs(Math.sin(tb))) < 2 * h && Math.min(Math.cos(ta), Math.cos(tb)) < 0) continue;
         if (inWin(ra, ta) && inWin(ra, tb) && inWin(rb, ta) && inWin(rb, tb)) flags[2 * (i * NT + j)] = flags[2 * (i * NT + j) + 1] = 1;
       }
     }
