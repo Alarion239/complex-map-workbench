@@ -8,6 +8,7 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const quiet = () => settled({
   floor: 400, max: 20000,
   until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
@@ -31,7 +32,8 @@ const st = {
   shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }],
 };
-await loadView('steps', ns, st);
+await seed(ns, st);
+await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
 await settled({ max: 60000, until: `typeof __cmwSteps === 'function'` });
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere', scope: 'in', T: 1 }); 1`); await quiet();
 const where = await ev('(() => { const s = __cmwSteps(); return { i: s.i, T: s.T, scope: s.scope, surf: s.surf }; })()');

@@ -11,6 +11,7 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const TOL = 8, OVER_MAX = 0.005, N_MIN = 300, RANGE = 12, LOOK_U = [0.25, 0.5, 0.75];
 await view(1200, 800);
 const ST = {
@@ -20,7 +21,9 @@ const ST = {
   shapes: [{ id: 'd0', kind: 'disc', c: [0.2, 0.6], r: 0.9, ci: 0, visible: true }],
   targets: [],
 };
-await loadView('steps', 'svslook' + Date.now(), ST);
+const NS = 'svslook' + Date.now();
+await seed(NS, ST);
+await go(`http://localhost:${PORT}/test.html?ns=${NS}&view=steps`);
 await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvGlobe === "function" && !!window.GLR && GLR.pendingLinks === 0' });
 ok('the page shows the steps view', await isSteps(), null);
 await ev(`__cmwSet('morphPaths', false), 1`);
@@ -127,7 +130,8 @@ const ST2 = {
   targets: [],
 };
 const C1 = ST2.shapes[2];
-await loadView('steps', 'svslook2' + Date.now(), ST2);
+await seed(NS + 'b', ST2);
+await go(`http://localhost:${PORT}/test.html?ns=${NS}b&view=steps`);
 await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvGlobe === "function" && !!window.GLR && GLR.pendingLinks === 0' });
 await ev(`__cmwSet('morphPaths', false), 1`);
 await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere', scope: 'all', T: 2 }); 1`);
