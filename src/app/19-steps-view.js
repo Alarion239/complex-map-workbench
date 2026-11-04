@@ -917,12 +917,13 @@
   }
   // the outer ring of size m about clipWin, null for none (a shape of its own for each m: the rings of a glide's sizes
   // keep their meshes, not one rebuilt at each change); a polar size {c, k1, k2}: the polar annulus about c from
-  // R 2^-k1 (k1 null: clipWin's inscribed circle) to R 2^k2, R clipWin's half-diagonal (polar: true)
+  // R 2^-k1 (k1 null: clipWin's inscribed circle) to R 2^k2, R clipWin's half-diagonal (polar: true; sing: about a
+  // singular point, k1 not null)
   function svRingShape(m) {
     const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
     if (m && typeof m === 'object') {
       const r1 = m.k1 === null ? Math.min(ax, ay) : R * Math.pow(2, -m.k1);
-      return Object.assign({}, SV_RING, { id: [SV_RING.id, 'polar', m.c[0], m.c[1], r1, m.k2, R].join('|'), polar: true, c: m.c.slice(), r1, r2: R * Math.pow(2, m.k2) });
+      return Object.assign({}, SV_RING, { id: [SV_RING.id, 'polar', m.c[0], m.c[1], r1, m.k2, R].join('|'), polar: true, sing: m.k1 !== null, c: m.c.slice(), r1, r2: R * Math.pow(2, m.k2) });
     }
     return m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * R }) : null;
   }
@@ -935,10 +936,77 @@
   // round in the map's picture as on the plane, whatever its radius. Its seam, the edge between its first and its last
   // column of cells, is the ray from c at angle pi, a hair either side (SV_POLAR_EPS), the principal cut of a logarithm
   // or a root about c: no cell straddles it. Relative to c (meshInstances' origin), so float32 keeps its points near c.
-  // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes}; svPolarBuilds counts the builds
+  // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes, NR rings, NT cells a ring, dl
+  // the log of a ring's ratio}; svPolarBuilds counts the builds
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KEEP = 6;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
+  // Under a polar ring the whole plane's mesh and the ring's share the plane, each where its cells are the finer, so
+  // no point is drawn twice by two meshes that place it differently (in the same depth, the worse one's straight edges
+  // would cut into the other's picture): the whole plane's inside clipWin, where its cells are uniform, h across
+  // (clipWin's larger side / 80), and, about a singular point c the ring reaches in to past rho - h, outside the disc
+  // of radius rho = h (SV_POLAR_NT / 2 pi - 1) about it, a cell inside the radius within which the ring's cells are the
+  // finer (beside a logarithm's branch point a whole-plane cell spans radii the map sends far apart); the ring's
+  // everywhere else. Each keeps its triangles that reach into its share: the whole plane's whose centre is in it, the
+  // ring's cells with a corner outside clipWin or within rho + h of c, so the two overlap by a cell along the edge.
+  // svPolarShare: the radius rho about the ring's centre (0: none)
+  function svPolarShare(ring) {
+    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
+    return { h, rho: ring.sing && ring.r1 < rho - h ? rho : 0 };
+  }
+  // the whole plane's mesh r's skip flags under the polar ring: {skip, extra}, extra those of its fix-up fx's refined
+  // pieces (null without them; the triangles fx leaves out are left out too). Kept per mesh (r.polarSkip)
+  function svPolarSkip(r, ring, fx) {
+    if (!r.mesh || !GLR.createSkip) return null;
+    const w = clipWin, { rho } = svPolarShare(ring);
+    const base = fx && fx.res && fx.res.flags && fx.res.flags.length === r.mesh.tri.length / 3 ? fx.res.flags : null;
+    const ex = fx && fx.extraRes && fx.res && fx.res.extra ? fx.res.extra : null;
+    const key = [r.meshKey, ring.c[0], ring.c[1], rho, w.x0, w.x1, w.y0, w.y1, base || ex ? fx.mapKey : ''].join('|');
+    let P = r.polarSkip;
+    if (P && P.key === key && P.extraRes === (ex ? fx.extraRes : null)) return P;
+    const [cx, cy] = ring.c;
+    // (a triangle whose three corners add up to (x, y): its centre outside the whole plane's share)
+    const out = (x, y) => { x /= 3; y /= 3; return x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho; };
+    const T = r.mesh.tri, S = r.mesh.src, n = T.length / 3, flags = base ? Float32Array.from(base) : new Float32Array(n);
+    for (let t = 0; t < n; t++) {
+      let x = 0, y = 0;
+      for (let k = 0; k < 3; k++) { x += S[2 * T[3 * t + k]]; y += S[2 * T[3 * t + k] + 1]; }
+      if (out(x, y)) flags[t] = 1;
+    }
+    if (P && P.res === r.meshRes) GLR.setSkip(P.skip, flags);
+    else P = r.polarSkip = { res: r.meshRes, skip: GLR.createSkip(r.meshRes, flags) };
+    // (the fix-up's pieces: [ax, ay, bx, by, cx, cy] a piece, on the plane)
+    P.extraRes = ex ? fx.extraRes : null;
+    P.extra = null;
+    if (ex) {
+      const m = ex.length / 6, fe = new Float32Array(m);
+      for (let t = 0; t < m; t++) if (out(ex[6 * t] + ex[6 * t + 2] + ex[6 * t + 4], ex[6 * t + 1] + ex[6 * t + 3] + ex[6 * t + 5])) fe[t] = 1;
+      P.extra = GLR.createSkip(fx.extraRes, fe);
+    }
+    P.key = key;
+    return P;
+  }
+  // the polar ring's own skip flags (its mesh r, svPolarGPU's): its cells within the whole plane's share left out.
+  // Kept per mesh (r.share: {key, skip})
+  function svPolarOwnSkip(r, ring) {
+    if (!GLR.createSkip) return null;
+    const w = clipWin, { h, rho } = svPolarShare(ring), key = [w.x0, w.x1, w.y0, w.y1, rho].join('|');
+    if (r.share && r.share.key === key) return r.share.skip;
+    const { NR, NT, dl } = r, [cx, cy] = ring.c, flags = new Float32Array(2 * NR * NT);
+    const inWin = (rr, th) => { const x = cx + rr * Math.cos(th), y = cy + rr * Math.sin(th); return x > w.x0 && x < w.x1 && y > w.y0 && y < w.y1; };
+    for (let i = 0; i < NR; i++) {
+      const ra = ring.r1 * Math.exp(i * dl), rb = ring.r1 * Math.exp((i + 1) * dl);
+      if (ra < rho + h) continue;
+      for (let j = 0; j < NT; j++) {
+        const ta = -Math.PI + 2 * Math.PI * j / NT, tb = ta + 2 * Math.PI / NT;
+        if (inWin(ra, ta) && inWin(ra, tb) && inWin(rb, ta) && inWin(rb, tb)) flags[2 * (i * NT + j)] = flags[2 * (i * NT + j) + 1] = 1;
+      }
+    }
+    if (r.share) GLR.setSkip(r.share.skip, flags);
+    else r.share = { skip: GLR.createSkip(r.meshRes, flags) };
+    r.share.key = key;
+    return r.share.skip;
+  }
   function svPolarGPU(ring) {
     let r = svPolarRes.get(ring.id);
     if (r) { svPolarRes.delete(ring.id); svPolarRes.set(ring.id, r); return r; }
@@ -962,7 +1030,7 @@
       }
     }
     out.origin = ring.c.slice();
-    r = { meshRes: GLR.createMesh(out) };
+    r = { meshRes: GLR.createMesh(out), NR, NT, dl };
     svPolarBuilds++;
     while (svPolarRes.size >= SV_POLAR_KEEP) {
       const [k, o] = svPolarRes.entries().next().value;
@@ -1089,15 +1157,16 @@
       const r = x === ring ? svRingGPU(ring) : svCarryGPU(x);
       if (!r || !r.meshRes) return false;
       // (the polar ring's cells are already the map's own: no fix-up, no pre-mapped mesh)
-      if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: null, stand: null }); continue; }
+      if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: svPolarOwnSkip(r, x), stand: null }); continue; }
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
       // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
       const oldRes = smd && smd.old ? smRes(smd.old) : null, stand = oldRes ? { box: smd.old.guardBox, res: oldRes } : null;
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null, stand });
-      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null, stand });
+      const ps = x === SV_ALL && ring && ring.polar ? svPolarSkip(r, ring, fx) : null;
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: ps ? ps.skip : fx ? fx.skip : null, stand });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: ps ? ps.extra : null, stand });
     }
     if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }

@@ -21,7 +21,7 @@
 //   bare paper (the commonest colour outside it), and outside it none is drawn, at most COVER_TOL of each;
 // - the ends: the frames at x = END_X from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
-//   SAME_FRAC more than LOOK_TOL apart);
+//   SAME_FRAC more than LOOK_TOL apart); the logarithm's inside H_u's image only;
 // - the same overlays: a moving frame a hair from a plane (x = EDGE from either end) draws what that plane's rest frame
 //   draws over the colour, which the same look's comparison skips (it leaves out the pixels by lines): as many graph
 //   paper draws (GLR.drawGrid), as many dashed outlines (open sets: GLR.drawLines with a dash), and the colour plot's
@@ -96,20 +96,27 @@ const CASES = [
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
   { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true },
 ];
-// the logarithm's coverage of the frame held at u: its colour layer alone read every 3 device px, against the sector
-// H_u's image is: {u, ins, holes (inside it, on the paper), outs, strays (outside it, drawn)}
+// (the page's __logSector(): for the glide's last frame, where its device pixel (x, y) is against H_u's image, the
+// sector the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut along (-inf, 0] onto: 1 inside
+// it, -1 outside it, 0 within 3 CSS px of its edge)
+const LOG_SECTOR = `window.__logSector = () => {
+  const g = __cmwSteps().glide, v = g.view, dpr = document.getElementById('canvasL').width / g.w, s = 1 - g.u, A = s - 1 / s;
+  return (x, y) => {
+  const pr = v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s - A, pi = v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s;
+  const rho = Math.hypot(pr, pi), dphi = s * Math.PI - Math.abs(Math.atan2(pi, pr));
+  return (Math.abs(dphi) < Math.PI / 2 ? rho * Math.sin(Math.abs(dphi)) : rho) < 3 / v.s ? 0 : dphi > 0 ? 1 : -1;
+  };
+}, 1`;
+// the logarithm's coverage of the frame held at u: its colour layer alone read every 3 device px, against the sector:
+// {u, ins, holes (inside it, on the paper), outs, strays (outside it, drawn)}
 const coverage = async (tag) => {
   await ev('__cmwSteps({ bare: true }), 1');
   const still = await grab('C' + tag);
   const r = await ev(`(() => {
-    const g = __cmwSteps().glide, v = g.view, c = document.getElementById('canvasL'), W = c.width, H = c.height, dpr = W / g.w, d = c.getContext('2d').getImageData(0, 0, W, H).data;
-    const s = 1 - g.u, A = s - 1 / s, half = s * Math.PI, m = 3 / v.s, ins = [], outs = [];
+    const g = __cmwSteps().glide, c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data, K = __logSector(), ins = [], outs = [];
     for (let y = 2; y < H - 2; y += 3) for (let x = 2; x < W - 2; x += 3) {
-      const pr = v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s - A, pi = v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s;
-      const rho = Math.hypot(pr, pi), dphi = half - Math.abs(Math.atan2(pi, pr));
-      if ((Math.abs(dphi) < Math.PI / 2 ? rho * Math.sin(Math.abs(dphi)) : rho) < m) continue;
-      const i = 4 * (y * W + x);
-      (dphi > 0 ? ins : outs).push([d[i], d[i + 1], d[i + 2]]);
+      const k = K(x, y), i = 4 * (y * W + x);
+      if (k) (k > 0 ? ins : outs).push([d[i], d[i + 1], d[i + 2]]);
     }
     const n = new Map();
     for (const p of outs) n.set(p.join(), (n.get(p.join()) || 0) + 1);
@@ -131,6 +138,7 @@ async function look(c, r) {
     await settled({ max: 60000 });
   }
   await ev(`__cmwSet('morphPaths', false), __cmwSteps(${JSON.stringify({ scope: c.scope, surf: 'plane' })}), 1`);
+  if (c.cover) await ev(LOG_SECTOR);
   // (the opacity of each colour plot drawn since the last reset: window.__plotAlphas)
   await ev(`(() => { const f = GLR.drawColorPlot; window.__plotAlphas = []; GLR.drawColorPlot = function (o) { window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); }; return 1; })()`);
   r.step = 'the rest frames';
@@ -184,7 +192,9 @@ async function look(c, r) {
     await ev(`__cmwSteps({ x: ${x} }), 1`);
     await settled({ max: 60000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 1e-9 && __cmwSteps().moving` });
     const still = await grab('E' + x), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
-    ends[x] = Object.assign({ restOk, still, g }, await sameAway('E' + x, 'E' + k, LOOK_TOL));
+    // (the logarithm's: inside H_u's image, outside which the frame is the bare paper, as its coverage checks, and the
+    // colour plane's parked frame has its own colours)
+    ends[x] = Object.assign({ restOk, still, g }, await sameAway('E' + x, 'E' + k, LOOK_TOL, c.cover ? '((K) => (x, y) => K(x, y) > 0)(__logSector())' : null));
     await rest(0);
   }
   r.ends = ends;
