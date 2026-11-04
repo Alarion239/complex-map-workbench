@@ -6,7 +6,7 @@
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
-//   than LOOK_TOL apart (#843's bar: 3 levels on 99.5 %). A frame drawn
+//   than LOOK_TOL apart (3 levels on 99.5 %). A frame drawn
 //   by the carried mesh has no sheet key in its record, so no reference: it fails as such. And the lines over the
 //   colour in those frames are the rest renderer's: its major grid over the colour (held_frames.js's gridOver: where
 //   that stroke shows, at least MIN_LINE_PX pixels, at most SAME_FRAC more off it than plane z's rest frame read the
@@ -28,7 +28,7 @@
 //   of at least EDGE_RUN CSS pixels, as the rows of the whole plane's stretched outer cells and the ring's coarse cells
 //   leave) than the rest frame of either plane, at most SAME_FRAC of the pixels more.
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
-// CSS px (the views shard's time; #843 names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR); LOOK_CASES (a preamble) names the cases a run makes, all by default:
+// CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR); LOOK_CASES (a preamble) names the cases a run makes, all by default:
 // ci/browser_suites.js runs the default example Inside regions, the Joukowski airfoil and the Mountain King at 1, and the
 // default example Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -65,8 +65,9 @@ const overlays = async () => {
     __cmwHideStrokes(false);
     return 1;
   })()`);
-  await settled({ max: 20000, panes: false, until: 'window.__ov.strokes.length > 0 || window.__ov.grid > 0' });
-  await ev('await new Promise((r) => setTimeout(r, 300)), 1');
+  // (until the frame has drawn and its counts hold still from one poll to the next: the frame's draws are all in)
+  await ev('window.__ovN = -1, 1');
+  await settled({ max: 20000, panes: false, until: '(() => { const n = window.__ov.strokes.length + window.__ov.grid + window.__ov.dashed, same = n === window.__ovN; window.__ovN = n; return n > 0 && same; })()' });
   return ev(`(() => {
     const o = window.__ov, css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
     const line = css('--dc-line', '#ffffff'), casing = css('--dc-casing', '#0b1114'), S = o.strokes;

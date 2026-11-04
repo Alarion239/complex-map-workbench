@@ -767,7 +767,10 @@
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
           look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
-      } catch (e) { console.error('steps view carried colour', e); }
+      } catch (e) {
+        // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
+        console.error('steps view carried colour', e);
+      }
       if (res !== 'drawn') return res;
     }
     return 'drawn';
