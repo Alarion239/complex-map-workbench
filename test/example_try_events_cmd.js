@@ -19,26 +19,25 @@ ok('the examples exist', Object.values(idx).every((i) => i >= 0), idx);
 const open = async (k) => { await ev(`__cmwExample(${idx[k]})`); await settle(1600); };
 const stays = async (k) => { ok(`${k}: the line is there after the example opens`, await lane(), null); };
 const closes = async (k, what) => { await settle(700); ok(`${k}: ${what} closes it`, !(await lane()), null); };
-// the chip of step n, which opens the step in the Inspector
-const clickChip = (n) => ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="${n}"] .sv-fchip'); if (!c) return false; c.click(); return true; })()`);
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
 
 // the square root: ‹ › on its sheet
 await open('root'); await stays('root');
-ok('root: the chip f₁ is there', await clickChip(1), null); await settle(500);
+await selectStep(1); await settle(500);
 ok('root: the sheet buttons are there', await ev(`!!document.querySelector('#propsPanel .sh-next')`), null);
 await ev(`document.querySelector('#propsPanel .sh-next').click()`);
 await closes('root', 'flipping the sheet');
 
 // the formula of the custom step: typing in it
 await open('latex'); await stays('latex');
-ok('latex: the chip f₁ is there', await clickChip(1), null); await settle(500);
+await selectStep(1); await settle(500);
 const fx = await ev(`(() => { const i = document.querySelector('#propsPanel input[data-pkey="expr"]'); if (!i) return false; i.value = i.value + ' '; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
 ok('latex: the formula field is there', fx, null);
 await closes('latex', 'typing in the formula');
 
 // the Douady-Hubbard map: a ray of one's own
 await open('dh'); await stays('dh');
-ok('dh: the chip f₁ is there', await clickChip(1), null); await settle(600);
+await selectStep(1); await settle(600);
 const added = await ev(`(() => { const f = document.querySelector('#propsPanel .pf.dh-add .btn'); if (!f) return false; f.click(); return true; })()`);
 ok('dh: the Add ray button is there', added, null);
 await closes('dh', 'adding a ray');

@@ -62,7 +62,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 await nav(`http://localhost:${PORT}/test.html?ns=exrpru${Date.now() % 1000000}&view=steps&lang=ru`);
 await settle(2000);
 for (const [k, re] of [['julia', /Множество Жюлиа, которое сохраняет/], ['rabbit', /Кролик Дуади/], ['newton', /Метод Ньютона для/], ['juliai', /Множество Жюлиа для z² \+ i/]]) {
-  const i = await ev(`(() => { for (let n = 0; n < 60; n++) { try { __cmwExample(n); } catch (e) { return -1; } const l = document.querySelector('#examplesBtn .exlabel'); if (l && ${re}.test(l.textContent)) return n; } return -1; })()`);
+  const i = await byName(re);
   ok(`ru ${k}: the example exists`, i >= 0, i);
   if (i < 0) continue;
   await ev(`__cmwExample(${i})`); await settle(1600);
