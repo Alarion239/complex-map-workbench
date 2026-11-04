@@ -1198,6 +1198,9 @@
     return out.length ? out : null;
   }
   function renderSphereLeft(pane) {
+    // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
+    // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
+    const net = globeEdit('L') ? globeNet() : 'plain';
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
     // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
@@ -1206,15 +1209,15 @@
       ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null;
     // ((#366 prototype) the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
     // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
-    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false) });
+    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
-      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
     // drawn on the globe (P3b) over the shapes
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net });
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
   function sphereCaption(pane, text) {

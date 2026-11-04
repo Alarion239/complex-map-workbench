@@ -53,6 +53,7 @@ const VIEWS = {
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
+  'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
