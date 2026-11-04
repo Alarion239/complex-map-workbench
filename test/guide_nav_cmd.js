@@ -24,8 +24,8 @@ ok('the search leaves the sections with the word', s.shown.length >= 1 && s.show
 await ev(`(() => { const f = document.querySelector('.guide-find'); f.value = 'qzxqzx'; f.dispatchEvent(new Event('input', { bubbles: true })); })()`); await settled();
 ok('a search with no match says so', await ev(`!document.querySelector('.guide-none').hidden && ![...document.querySelectorAll('.guide-sec')].some((x) => !x.hidden)`), null);
 await ev(`(() => { const f = document.querySelector('.guide-find'); f.value = ''; f.dispatchEvent(new Event('input', { bubbles: true })); })()`); await settled();
-// Show me on Views starts the Views chapter
+// Show me on Views starts the steps view's chapter in its place, Planes
 await ev(`[...document.querySelectorAll('.guide-sec')].find((x) => x.querySelector('h3').textContent === 'Views').querySelector('.guide-show .btn').click()`); await settled();
 const t = await ev(`({ modal: !!document.querySelector('.modal-bg'), cur: Tour.isActive() ? Tour.current().chapter : null })`);
-ok('Show me closes the guide and starts that chapter', !t.modal && t.cur === 'views', t);
+ok('Show me closes the guide and starts that chapter', !t.modal && t.cur === 'planes', t);
 return { pass: fails.length === 0, fails };

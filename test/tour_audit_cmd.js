@@ -135,9 +135,11 @@ for (const cfg of runs) {
   }
   // every step this build has was visited
   const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
-  // (46 steps since issue #13 took out edit/zpHere, the planes' menu's "Add zero of f₁ here"; 45 since #363 took out
-  // Views' Patterns step. A phone's layout leaves two out)
-  check(`${tag}: every step visited (45, less what the layout leaves out)`, n >= 43, n);
+  // (the classic tour has 45 steps and the steps view's 42; a desk walks all of them, a phone's layout leaves some out. The
+  // floors: classic 43, steps view 42 at a desk and 40 on a phone)
+  const sv = await ev('!!Tour._t.SV_ON');
+  const floor = !sv ? 43 : phoneSize(w, h) ? 40 : 42;
+  check(`${tag}: every step visited (${sv ? 42 : 45}, less what the layout leaves out)`, n >= floor, n);
   await ev('Tour.isActive() && Tour.stop()'); await calm();
   }
   // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app
