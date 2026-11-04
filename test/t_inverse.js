@@ -1064,8 +1064,7 @@ section('singularAfter (ζ after an injective plan)');
 // (the points within 0.02 of the unit circle, where the path has its cut, left out), and no other
 {
   const b = Funcs.build(St('joukowski'));
-  const tanh = (y) => { const e = CX.exp(CX.scale(y, 2)); return CX.div(CX.sub(e, C(1, 0)), CX.add(e, C(1, 0))); };
-  const atanh = (z) => CX.scale(CX.log(CX.div(CX.add(C(1, 0), z), CX.sub(C(1, 0), z))), 0.5);
+  const tanh = CX.tanh, atanh = CX.atanh;
   for (const t of [0.25, 0.5, 0.75]) {
     const o = Inverse.homOps(b, t).ops[0], Hh = b.hom(t);
     // (each branch's points over w: z = tanh((artanh w + i pi (k + t / 2)) / (1 + t)) on the disc, 1 / tanh((artanh(1 / w)

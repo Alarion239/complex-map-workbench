@@ -2161,7 +2161,8 @@ void ixAncTan(vec2 w) {
   const IX_OPS_MAX = 16;
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
-  // capped at a quarter of 1 + |u|
+  // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walk0, member 0: continued in t from w over NEWT_K
+  // stages, polished, kept when it hits w
   const newtCoreFns = (P, H) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
@@ -2173,6 +2174,17 @@ bool ${P}_step(inout vec2 u, vec2 w, float t) {
   float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
   u -= sl > mx ? st * (mx / sl) : st;
   return ixFin(u);
+}
+bool ${P}_polish(inout vec2 u, vec2 w, float t) {
+  bool ok = true;
+  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
+  return ok;
+}
+bool ${P}_walk0(vec2 w, float t, out vec2 u) {
+  u = w;
+  bool ok = true;
+  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) if (ok) ok = ${P}_step(u, w, t * float(k) / ${Inverse.NEWT_K}.0);
+  return ok && ${P}_polish(u, w, t) && ${P}_hit(u, w, t);
 }
 `;
   // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
@@ -2204,18 +2216,15 @@ bool ${P}_k[${NB}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
-  vec2 u = w;
-  bool ok = true;
-  for (int k = 1; k <= ${K}; k++) if (ok) ok = ${P}_step(u, w, t * float(k) / ${K}.0);
-  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
-  ${P}_r[0] = u; ${P}_k[0] = ok && ${P}_hit(u, w, t);
+  vec2 u;
+  ${P}_k[0] = ${P}_walk0(w, t, u);
+  ${P}_r[0] = u;
   int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
   for (int i = 0; i < ${bk.seeds}; i++) {
     vec2 v;
     bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
-    for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (okv) okv = ${P}_step(v, w, t);
-    okv = okv && ${P}_hit(v, w, t);
+    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= 1e-3 * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
   }
@@ -2255,11 +2264,7 @@ ${newtCoreFns(P, H)}bool ${P}_has = false, ${P}_ok = false;
 vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
   if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
-  u = w;
-  bool ok = true;
-  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) if (ok) ok = ${P}_step(u, w, t * float(k) / ${Inverse.NEWT_K}.0);
-  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
-  ok = ok && ${P}_hit(u, w, t);
+  bool ok = ${P}_walk0(w, t, u);
   ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
   return ok;
 }
