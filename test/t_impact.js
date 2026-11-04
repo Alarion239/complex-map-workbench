@@ -43,6 +43,19 @@ ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select([
 ok('T1: constr.js\'s modules (issue #20) -> the same as constr.js', ['src/constrpoc.js', 'src/constrortho.js'].every((f) => same(select([f]).browser, select(['src/constr.js']).browser) && same(select([f]).glsl, select(['src/constr.js']).glsl)));
 ok('T1: src/construct/ (construct.js in parts) -> the constructions shards', same(select(['src/construct/04-chip-overlay.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
 for (const f of ['tools/it_table.json', 'tools/ru_extra.json']) ok(`T1: ${f} -> i18n`, same(select([f]).browser, [...AREAS.i18n, 'smoke']), select([f]).browser);
+// ci/suite_views.js: the shards of the suites whose entry changed (a pin flip or a note), every suite without a diff
+{
+  const sv = (suites) => select(['ci/suite_views.js'], suites === undefined ? {} : { suitesOf: () => suites }).browser;
+  const shardsOf = (t) => select(['test/' + t]).browser.filter((id) => id !== 'smoke');
+  const one = 'kit_settled_cmd.js', two = 'export_cmd.js';
+  ok('T1: suite_views.js, one suite\'s entry changed (a pin flip or a note) -> its shards and the smoke shard', same(sv([one]), [...shardsOf(one), 'smoke']), sv([one]));
+  ok('T1: suite_views.js, two suites changed -> the shards of both', same(sv([one, two]), [...new Set([...shardsOf(one), ...shardsOf(two)]), 'smoke']), sv([one, two]));
+  ok('T1: suite_views.js, no entry changed (a comment) -> the smoke shard alone', same(sv([]), ['smoke']), sv([]));
+  ok('T1: suite_views.js without a diff (or unreadable) -> the shards of every listed suite', shardsOf(two).every((id) => sv(undefined).includes(id)) && sv(null).length === sv(undefined).length && sv(undefined).length > 10, sv(undefined));
+  const { suitesOfDiff } = require('../ci/impact.js');
+  ok('suitesOfDiff, a commit against itself -> no suite', same(suitesOfDiff('HEAD', 'HEAD', 'ci/suite_views.js') || ['?'], []));
+  ok('suitesOfDiff, an unknown revision -> null (every suite)', suitesOfDiff('0000000000000000000000000000000000000000', 'HEAD', 'ci/suite_views.js') === null);
+}
 // (#611) a change that can move layout runs every layout shard: Russian and Italian have the longest words (#609's
 // phone.css change ran layout-1 alone)
 for (const f of ['src/phone.css', 'src/desk.css', 'src/page.html', 'src/app/19-shell.js', 'src/app/19-steps-view.js']) ok(`T1: ${f} -> layout-1 and layout-2`, ['layout-1', 'layout-2'].every((id) => select([f]).browser.includes(id)), select([f]).browser);
