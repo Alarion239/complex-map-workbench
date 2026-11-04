@@ -92,7 +92,7 @@
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
-    if (SV.on) mfDrawn = null;
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
@@ -1157,8 +1157,8 @@
     // the deformation's live paths t -> H_t(z) on the merged globe, over the sphere's front side
     if (hom && imageMode && role === 'R' && !figMode && S.morphPaths !== false && !morphHasDeriv()) {
       try {
-        const Pg = (w) => { if (!w || !CX.isFin(w)) return null; const p = lift(w.re, w.im); return facing(p) > 0.02 ? project(pane, info.MVP, p.map((v) => v * 1.01)) : null; };
-        drawMorphPathsX(pane, morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }), hom.imageF || hom.F, Pg);
+        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye });
+        drawMorphPathsX(pane, sel, hom.imageF || hom.F, globeSelP(info, pane.w, pane.h, 0.02));
       } catch (e) { console.error('deformation paths', e); }
     }
     if (labels.length) placeLabels(ctx, pane, labels);
