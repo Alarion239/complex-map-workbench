@@ -215,10 +215,12 @@ const InvOps = (() => {
   // ones they cannot reach)
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4;
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
-  // the member counts of exact ops ops when every one is single-valued or a finite family with NEWT_SEEDS members in
-  // all at most, else null
+  // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
+  // JOUK, QUAD, RAT2) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
+  // or a log family's, which prepare sets: a principal member alone would seed one sheet of many)
+  const NEWT_SEED_KINDS = new Set(['AFF', 'MOB', 'IJOUK', 'IPOW', 'JOUK', 'QUAD', 'RAT2']);
   function newtSeedCounts(ops) {
-    if (!ops || !ops.length) return null;
+    if (!ops || !ops.length || !ops.every((o) => NEWT_SEED_KINDS.has(o.kind))) return null;
     const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
     return n.every((k) => k > 0) && n.reduce((a, k) => a * k, 1) <= NEWT_SEEDS ? n : null;
   }
