@@ -134,7 +134,7 @@
     // (#366 F: the steps view's carried colour, CARRY_VS)
     carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
     carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
-    // (#846: the same on the globe, CARRY_GLOBE_VS)
+    // (the same on the globe, CARRY_GLOBE_VS)
     carryG: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + CARRY_GLOBE_FS(false) },
     carryGId: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + CARRY_GLOBE_FS(true) },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },

@@ -1423,7 +1423,7 @@
       gl.bindVertexArray(null);
       gl.enable(gl.BLEND);
     }
-    // (#846) st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
+    // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
     // the globe's depth again, which the passes below are tested against
     const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
     const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr }, st.carried), sph));

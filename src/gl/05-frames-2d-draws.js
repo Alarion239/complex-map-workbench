@@ -738,7 +738,7 @@
     return true;
   }
 
-  // (#846) drawCarried on the globe, inside drawSphere's frame (sph: its camera and key light): the whole sphere of
+  // drawCarried on the globe, inside drawSphere's frame (sph: its camera and key light): the whole sphere of
   // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
   // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
   // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.

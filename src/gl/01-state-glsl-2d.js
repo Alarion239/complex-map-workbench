@@ -1185,7 +1185,7 @@ ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ =
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
-  // (#846) the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
+  // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
   // tan(theta / 2) e^(i phi) from z = 0 (theta 0) to |z| = 1 / uPole (theta near pi; infinity itself has no finite
   // point), each cell two triangles, drawn without buffers. A vertex places its triangle's three corners by mapPoint
   // (the glide's map from plane s) lifted to the sphere, so the triangle is the same in all three; one torn across a

@@ -438,8 +438,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!rec || !rec.ok) return 'error';
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
-    const extra = st.carry && !globe ? INV_CARRY : st.extra;
+    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
+    // globe)
+    const extra = st.carry ? INV_CARRY : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
