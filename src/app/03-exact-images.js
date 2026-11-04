@@ -497,15 +497,15 @@
   const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
   // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
-  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin
+  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin; opt.still: the globes' lines, with neither emphasis and a grid drawn as any curve
   function shapeStroke(s, dpr, opt = {}) {
     const ink = shapeInk(s);
-    const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
+    const grid = !opt.still && (s.kind === 'cgrid' || s.kind === 'pgrid');
     const area = kindType(s) === 'area';
     let width = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
     let casingWidth = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-    if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { width += 0.75; casingWidth += 0.75; }
-    if (!opt.thin && s.id === hoverShape) { width += 0.5; casingWidth += 0.5; }
+    if (!opt.thin && !opt.still && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { width += 0.75; casingWidth += 0.75; }
+    if (!opt.thin && !opt.still && s.id === hoverShape) { width += 0.5; casingWidth += 0.5; }
     const st = { width: width * dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1 };
     if (casingWidth) st.casing = { color: GLR.hexRGB(TH.halo), alpha: TH.haloA, width: casingWidth * dpr };
     return st;
