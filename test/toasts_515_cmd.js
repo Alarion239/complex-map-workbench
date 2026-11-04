@@ -1,4 +1,4 @@
-// Toasts (#515): at 1024×768, en, ru and it, in the classic view and in ?view=steps (and in the steps view at 1280 and 1440), after adding two steps from the palette
+// Toasts: at 1024×768, en, ru and it, in the classic view and in ?view=steps (and in the steps view at 1280 and 1440), after adding two steps from the palette
 // (Ctrl+K "sine", "exponential"), a desktop toast covers no control and is never cut: no violation of __layout.toasts()
 // (test/lib/layout.js) and no cut text in the toast host. In the steps view it lies over the left plot's bottom edge, above the
 // thread's strip, which keeps every plane and chip in place and clickable; a press on its body dismisses it. A command file for a CDP daemon (test/cdp_kit README).
