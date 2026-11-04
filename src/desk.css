@@ -605,6 +605,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head .pat-btn[aria-expanded="true"], .pane-head > .options > .opts-btn[aria-expanded="true"] { background: var(--well); color: var(--ink); }
 .disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
 .disp-pop.pat-pop { width: 300px; }
+.cp-pop > .lbl { white-space: normal; text-wrap: pretty; }
+.disp-pop.pat-pop.cp-wide { width: 500px; max-width: calc(100vw - 24px); }
+.cp-pop > .cp-go { align-self: flex-start; justify-self: start; width: auto; }
+.cp-pop > .cp-rows { display: flex; flex-direction: column; gap: 8px; }
 /* (the ⋯ pop-up shows the words: each style's under its glyph, each toggle's beside its check) */
 .disp-pop .ic-tg > .tg-ic { display: none; }
 .disp-pop > .psec-body { padding: 0; }
