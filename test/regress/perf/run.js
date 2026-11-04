@@ -869,13 +869,16 @@ const SV_LINKWAIT = `(() => { if (window.__svLw) return; const W = window.__svLw
     P.getProgramParameter = function (p, pn) { if (pn !== this.LINK_STATUS) return f.call(this, p, pn); const a = performance.now(), r = f.call(this, p, pn), d = performance.now() - a; if (d > 5) { W.n++; W.ms += d; } return r; };
   } })()`;
 async function svFirstGlideUnit() {
-  for (const scene of ['default', 'zeta']) {
+  const EX = { zeta: 'Zeros of the zeta function', jouk: 'Joukowski airfoil' };
+  for (const scene of ['default', 'zeta', 'jouk']) {
     const longest = [], waits = [], waitMs = [], first95 = [], warm95 = [];
     for (let i = 0; i < REPS; i++) {
       await B.nav(`${BASE}test.html?ns=perfsv${process.pid}_${++nsCounter}&view=steps`);
       await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
       await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
-      if (scene === 'zeta') await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
+      if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
+      // (the Joukowski airfoil glides Everywhere, as its example is shown)
+      if (scene === 'jouk') await B.ev("__cmwSteps({ scope: 'all', go: 0, now: true }), 1");
       await settle(await pageNow());
       if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
       await sleep(SV_IDLE_MS);
@@ -2003,7 +2006,7 @@ unit('cards.startup', 'the step cards at start-up (a first visit of the default 
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
 unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
-unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
+unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta, the Joukowski airfoil Everywhere)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
