@@ -45,5 +45,19 @@
     const n = A.length / 4, r = (v) => +v.toFixed(4);
     return { frac: r(over / n), max, mean: r(sum / n), lum: [r(la / n), r(lb / n)], alpha: [r(aa / n), r(ab / n)], px: n };
   })()`);
-  return { hold, grab, compare, DIFF_TOL };
+  // the straight hard edges of a kept frame: the pixels more than DIFF_TOL apart (their largest channel difference) from
+  // the next row's (h, a horizontal edge) or the next column's (v, a vertical one), in runs of at least `run` pixels
+  // along the edge
+  const edgeRuns = (tag, run) => ev(`(() => {
+    const P = window.__heldPx[${JSON.stringify(tag)}], c = document.getElementById('canvasL'), W = c.width, H = c.height;
+    if (!P || P.length !== 4 * W * H) return null;
+    const step = (i, j) => Math.max(Math.abs(P[4 * i] - P[4 * j]), Math.abs(P[4 * i + 1] - P[4 * j + 1]), Math.abs(P[4 * i + 2] - P[4 * j + 2])) > ${DIFF_TOL};
+    // (along a line of n pixels, at(k) the step there: the pixels in runs of at least ${run})
+    const runs = (n, at) => { let s = 0, len = 0; for (let k = 0; k <= n; k++) { if (k < n && at(k)) len++; else { if (len >= ${run}) s += len; len = 0; } } return s; };
+    let h = 0, v = 0;
+    for (let y = 0; y + 1 < H; y++) h += runs(W, (x) => step((y + 1) * W + x, y * W + x));
+    for (let x = 0; x + 1 < W; x++) v += runs(H, (y) => step(y * W + x + 1, y * W + x));
+    return { h, v, px: W * H };
+  })()`);
+  return { hold, grab, compare, edgeRuns, DIFF_TOL };
 })()

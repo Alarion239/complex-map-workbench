@@ -65,8 +65,12 @@ const SUITES = {
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  // (at the device pixel ratio 1 and at the Mac screen's 2: the kit's CMW_DPR)
-  'steps_glide_look_cmd.js': { runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }] },
+  // (the default example Inside regions, the Joukowski airfoil and the Mountain King at the device pixel ratio 1, and the
+  // default example Everywhere at the Mac screen's 2: the kit's CMW_DPR)
+  'steps_glide_look_cmd.js': { runs: [
+    { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Mountain King, Everywhere'];" },
+    { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk, Everywhere'];" },
+  ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
