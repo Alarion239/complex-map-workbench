@@ -50,6 +50,7 @@ const VIEWS = {
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
   'steps_chipname_cmd.js': steps(),
+  'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
