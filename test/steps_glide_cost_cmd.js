@@ -18,8 +18,8 @@
 //   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
 //   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
 //   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs), and
-//   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws), and they
-//   make an inverse plan for each u from each glide's t-free part (invHomPath), made once per glide;
+//   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
+//   scrub's frames decompose no step of the chain (each glide's plans share its t-free part: invHomPath);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -243,14 +243,8 @@ async function hold(x, links = true) {
   await rest();
   await scrub(0, -1);
   await rest();
-  // (the first scrub crosses every glide: each glide's t-free part made once; the second, back over them, makes a plan
-  // for each u from those and none of its own)
-  const hom0 = await ev('__cmwInvHom()'), glides = await ev('__cmwSteps().planes.length - 1');
   await scrub(-1, 0);
   await rest();
-  const hom1 = await ev('__cmwInvHom()');
-  info['the glides\' inverse plans'] = { glides, after1: hom0, after2: hom1 };
-  ok('two scrubs of the Mountain King: one t-free part per glide, and the second scrub\'s frames make a plan for each u from them, decomposing no step again', !!(hom0 && hom1) && hom0.skeletons === glides && hom1.skeletons === hom0.skeletons && hom1.plans - hom0.plans > 10, info['the glides\' inverse plans']);
   const alloc = await ev('window.__svAlloc');
   info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
   ok('two scrubs of the Mountain King: the carried colour creates no texture, buffer or vertex array in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
@@ -258,6 +252,25 @@ async function hold(x, links = true) {
   const returns = Object.values(await ev('window.__svReturns'));
   info['returns to the default framebuffer'] = { frames: returns.length, most: Math.max(0, ...returns) };
   ok('two scrubs of the Mountain King: each frame\'s carried colour returns to the default framebuffer once', returns.length > 20 && returns.every((n) => n === 1), info['returns to the default framebuffer']);
+  // (a third scrub, over the glides the first two crossed: the King's steps (custom formulas) are not decomposed again.
+  // V8's call counts of customOps, InvOps' decomposition of a formula step, taken by the debugger protocol (reset as
+  // the scrub starts; counting slows every call, so after the checks above). Its frames ask for a plan at each u,
+  // each from the glide's t-free part)
+  await send('Profiler.enable', {});
+  await send('Profiler.startPreciseCoverage', { callCount: true, detailed: false });
+  const decomps = async () => {
+    const cov = await send('Profiler.takePreciseCoverage', {});
+    let n = 0;
+    for (const sc of (cov && cov.result) || []) for (const f of sc.functions) if (/^customOps\d*$/.test(f.functionName)) n += f.ranges[0].count;
+    return n;
+  };
+  await decomps();
+  await scrub(0, -1);
+  await rest();
+  const nDec = await decomps();
+  await send('Profiler.stopPreciseCoverage', {});
+  info['the third scrub\'s step decompositions'] = nDec;
+  ok('a third scrub of the Mountain King: its frames decompose no step of the chain again (each glide\'s plans share its t-free part)', nDec === 0, nDec);
   // (with the map cache over its budget, the scratch sweep frees the kept entries a second after their last draw, not
   // 30 s; then a scrub keeps them again)
   const kept0 = await ev('GLR.carryTmp'), budget = await ev('GLR.cacheBudget');

@@ -378,21 +378,23 @@
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map();
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
-  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), so the plan, the inverse op list
-  // and step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
-  // planChain sets the same step, node and j on them (they have the same a and k). invHomStats: how many skeletons and
-  // how many plans (one per a, k, t and chain) were made (read by the test hooks)
-  const invHomSkels = new Map(), invHomStats = { skeletons: 0, plans: 0 };
+  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
+  // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
+  // planChain sets the same step, node and j on them (they have the same a and k)
+  const invHomSkels = new Map();
+  function invHomOnce(b) {
+    if (!b || b.error || !b.def) return b;
+    const r = Inverse.stepOps(b);
+    const o = Object.assign({}, b, { __homOps: () => r });
+    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
+    return o;
+  }
   function invHomSkeleton(a, k) {
     const sk = `${a}|${k}|${chainSig[nSteps()]}`;
     let bs = invHomSkels.get(sk);
     if (!bs) {
-      bs = built.map((b, i) => {
-        if (!b || b.error || !b.def || !S.steps[i] || S.steps[i].on === false) return b;
-        const r = Inverse.stepOps(b);
-        return Object.assign({}, b, { __homOps: () => r });
-      });
-      invHomStats.skeletons++;
+      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
       if (invHomSkels.size >= 8) invHomSkels.clear();
       invHomSkels.set(sk, bs);
     }
@@ -411,7 +413,6 @@
       try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
       if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
       h = { plan, inv, preps: new Map(), sing: null };
-      invHomStats.plans++;
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
