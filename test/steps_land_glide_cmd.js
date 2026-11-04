@@ -7,7 +7,8 @@
 // - held by either end (a scrub on the rail, not let go, at u = 0.005 and 0.995): carried frames that are the planes at
 //   rest there, within the exact-image tolerance (at most 2 % of the pane's pixels more than 32/255 apart: the rest
 //   frame's refined walls and cut rims are not drawn while moving);
-// - a glide (svGo) draws carried frames at three or more places between the planes;
+// - a glide (svGo), its clock stepped by fifths of its length, draws carried frames at three or more places between
+//   the planes;
 // - under reduced motion a glide is a change of plane at once, and play ticks one plane at a time: no carried frame.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -77,22 +78,23 @@ for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]
 }
 // ---- a glide ----
 await rest(0);
-await ev(`window.__lg = null; new Promise((done) => {
-  const seen = new Set();
-  __cmwSteps({ go: 1 });
-  const t0 = performance.now();
-  const tick = () => {
-    const c = typeof __cmwLandCarry === 'function' ? __cmwLandCarry() : null;
-    if (c && c.u > 0 && c.u < 1) seen.add(c.u.toFixed(3));
-    if (performance.now() - t0 < 6000 && __cmwSteps().moving !== false) requestAnimationFrame(tick); else done([...seen]);
-  };
-  requestAnimationFrame(tick);
-}).then((v) => { window.__lg = v; }), 1`);
-await settled({ max: 30000, panes: false, until: 'window.__lg !== null' });
-const us = (await ev('window.__lg')) || [];
-info.glide = us.length;
-ok('a glide draws carried frames at three or more places', us.length >= 3, us);
+// (the glide's clock, performance.now, held and stepped by a fifth of its length: the frames it draws do not depend
+// on the machine's frame rate)
+await ev(`(() => { const now = performance.now.bind(performance); window.__clk = now(); window.__realNow = now; performance.now = () => window.__clk; __cmwSteps({ go: 1 }); return 1; })()`);
+await ev(rAF2);
+const anim = await ev('JSON.stringify(__cmwSteps().anim)');
+const A = anim ? JSON.parse(anim) : null;
+const us = [];
+for (let k = 1; A && k <= 4; k++) {
+  await ev(`window.__clk = ${A.t0 + (A.ms * k) / 5}; 1`);
+  await ev(rAF2);
+  const c = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null');
+  if (c && c.u > 0 && c.u < 1 && !us.includes(c.u.toFixed(3))) us.push(c.u.toFixed(3));
+}
+await ev('performance.now = window.__realNow; 1');
 await settled({ max: 60000 });
+info.glide = us.length;
+ok('a glide draws carried frames at three or more places', us.length >= 3, { us, anim });
 // ---- reduced motion ----
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await rest(1);
