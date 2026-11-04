@@ -95,7 +95,7 @@
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
     if (SV.on) mfDrawn = null;
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
-    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
+    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf !== 'sphere' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
@@ -579,12 +579,13 @@
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
     return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
   }
-  // carry (the steps view's glide, svLandMoving): {map, s, T, lim, u, b, flat, va, vb}: plane s's surface moved by the
+  // carry (the steps view's glide, svLandMoving): {map, s, T, lim, u, b, flat, dc, va, vb}: plane s's surface moved by the
   // glide's map (GLR.drawLandscape's carry); its block and its height scale go from plane s's to plane b's over u (the
   // box's centre linearly, its size and the scale in log; b null: plane s's), so the block, its floor and its axes move
   // smoothly from one plane's rest frame to the other's. flat (0 to 1, the glide into the plane after the colour plane):
   // the block goes to plane vb's whole pane, the camera to straight above it at the pane's scale, and the heights,
-  // light, fog and plate's print to none, so at 1 the frame is that plane's flat view. va, vb: the two planes' views
+  // light, fog and plate's print to none, and the colour to the flat plane's (dc: its colour style, svCarryStyle), so at
+  // 1 the frame is that plane's flat view. va, vb: the two planes' views
   // p to q at f in log (p, q > 0)
   const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
   function carryBox(c) {
@@ -748,7 +749,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va), flat: carry.flat || 0 } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va), flat: carry.flat || 0, dc: carry.flat ? carry.dc : null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,

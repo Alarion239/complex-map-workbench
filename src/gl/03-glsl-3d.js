@@ -1051,8 +1051,9 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
   const LAND_COMMON = `
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
-// (the steps view's glide into the plane after the colour plane, 0 to 1: the light and the fog go, as the surface
-// flattens into that plane's flat picture; 0 everywhere else)
+// (the steps view's glide into the plane after the colour plane, 0 to 1: the light and the fog go, and the carried
+// surface's colour goes to that plane's own (dcolor in its style), as the surface flattens into that plane's flat
+// picture; 0 everywhere else)
 uniform float uFlat;
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
@@ -1169,7 +1170,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   vec3 c;
   if (gl_FrontFacing) {
     a = mix(a, ml, 0.55 * rim);
-    c = mix(shade(a, n, v, vAO), a, uFlat);
+    c = ${carry ? "mix(shade(a, n, v, vAO), toLin(dcolor(w)), uFlat)" : 'shade(a, n, v, vAO)'};
   } else {
     // its own colouring, darker, under a soft headlight (the key light never reaches the underside): a sheet reads
     // as one surface from both sides, its contours and sea level kept (r2: round 1 desaturated it to a grey)
