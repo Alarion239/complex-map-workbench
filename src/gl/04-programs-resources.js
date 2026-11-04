@@ -1323,7 +1323,7 @@ float wabs(vec2 w) {
     if (!res.tmp.get(slot)) {
       const e = { tex: floatTex(), W, H, P: tpl.P, bytes: W * H * 8, res, slot, key: '', t: performance.now(), carry: true };
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
-      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
+      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes; carryTmpT = e.t;
       sweepTmpLater();
     }
     const k = carryKinds();
