@@ -127,23 +127,21 @@
   // the carried colour's variant of the inverse program (extra = INV_CARRY): each covering sheet's point z on
   // plane uGs is shaded with the colour plane's colour of it, dcolor(G(z)), G the stages (uGs, uGt] (the forward
   // chain's chainRange, compiled in beside the walker), its footprints from the walk's dz across and down a pixel
-  // (dcolorD: the screen's derivatives mean nothing inside the walk): G'(z) dz, one evaluation of G with its
-  // derivative by the chain rule (the chain's jet, chainRangeJ), else G at z and its two neighbours z + dz
+  // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
+  // footprint down is G'(z) dY from the one across, else G at z + dY too
   const INV_CARRY = { carry: true, pre: '', main: '' };
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
-    return '#define IX_CARRY 1\n' + info.source + (info.jet ? info.jet.source : '') + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
+    return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
   }
-  function invCarryFns(info) {
-    const G = info.jet ? `vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
-  return dcolorD(w, wx, cmul(cdiv(wx, dX), dY));` : `vec2 w = chainRange(z, uGs, uGt);
-  return dcolorD(w, chainRange(z + dX, uGs, uGt) - w, chainRange(z + dY, uGs, uGt) - w);`;
+  function invCarryFns() {
     return DCOLOR.replace('uniform float uDpr;', '') + `
-uniform int uGs; uniform int uGt;
+uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   if (uGs >= uGt) return dcolorD(z, dX, dY);
-  ${G}
+  vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
+  return dcolorD(w, wx, uGan && dot(dX, dX) > 0.0 ? cmul(cdiv(wx, dX), dY) : chainRange(z + dY, uGs, uGt) - w);
 }
 `;
   }
@@ -156,7 +154,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns(info) : '') + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns() : '') + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
@@ -207,7 +205,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
     const ik = inv.key + (extra && extra.carry ? '|carry' : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
-    const fk = (extra ? (extra.carry ? (info.jet ? 'carryJ|' : 'carry|') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
@@ -242,7 +240,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
     if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
-    const fk = (extra ? (extra.carry ? (info.jet ? 'carryJ|' : 'carry|') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
     const order = [3, 5, INV_B_MAX].filter((b) => b !== Bwant).sort((a, b) => (a > Bwant) !== (b > Bwant) ? (a > Bwant ? -1 : 1) : (a > Bwant ? a - b : b - a));
     for (const B of order) {
       const e = progs.get(invProgKey(inv, B, globe, fk));
@@ -537,9 +535,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (extra === INV_CARRY) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
-      if (P.loc.uChainJ) gl.uniform4fv(P.loc.uChainJ, cur.info.jet.data);
       u1i(P, 'uPattern', 9);
-      u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T);
+      u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
       bindLut(P);
     }
