@@ -321,15 +321,24 @@
   // - with outer (the flatten, whose last frame is X → Y's whole pane), the plane beyond the box too: an annulus about its
   //   centre from half its shorter side to two thousand times its longer one, which the map can carry into the pane
   //   (the ends of a Möbius step's plane, by its pole's image)
+  //   The search runs once per chain, map, box, N and outer (the last one kept): a parked, held or resting frame reuses it
+  let svLandPolesC = null;
   function svLandPoles(map, src, N, outer) {
+    const key = [svSigNow(), chainSig[nSteps()], map.mode, map.a, map.b, map.t, map.base, map.hi, src.x0, src.x1, src.y0, src.y1, N, outer].join('|');
+    if (svLandPolesC && svLandPolesC.key === key) return svLandPolesC.patches;
     const F = cpuMap(map);
-    if (!F) return [];
-    const E = { n: 0, at: 0 }, it = svPolesIn(F, src, 16, src, E);
-    let r = it.next();
-    while (!r.done) r = it.next();
     const W = src.x1 - src.x0, H = src.y1 - src.y0, cell = Math.max(W, H) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
-    const near = r.value.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
-    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 3]).concat(outer ? [[cx, cy, 0.5 * Math.min(W, H), 2000 * Math.max(W, H)]] : []);
+    const found = F ? svDrain(svPolesIn(F, src, 16, src, { n: 0, at: 0 })) : [];
+    const near = found.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
+    const patches = !F ? [] : near.map((p) => [p.re, p.im, cell * 1e-4, cell * 3]).concat(outer ? [[cx, cy, 0.5 * Math.min(W, H), 2000 * Math.max(W, H)]] : []);
+    svLandPolesC = { key, patches };
+    return patches;
+  }
+  // a generator run to its end: its return value
+  function svDrain(gen) {
+    let r;
+    do r = gen.next(); while (!r.done);
+    return r.value;
   }
   // the plane's grid paper in the open GL frame, at the pane's view (under: under what the frame holds already)
   const svGrid = (pane, under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
@@ -956,10 +965,7 @@
     if (svRingMemo && svRingMemo.key === key) return svRingMemo.ring;
     let m = svRingSizes.get(sk);
     if (m === undefined) {
-      const gen = svRingSize(g, q, { cx: v.cx, cy: v.cy, s: v.s }, pane.w, pane.h);
-      let r;
-      do r = gen.next(); while (!r.done);
-      m = r.value;
+      m = svDrain(svRingSize(g, q, { cx: v.cx, cy: v.cy, s: v.s }, pane.w, pane.h));
       svRingSet(sk, m);
       const ps = globalThis.__svPathStats;
       if (ps) ps.ringFrame = (ps.ringFrame || 0) + 1;

@@ -253,15 +253,18 @@
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // (polar [x, y, r0, r1]: the patch around a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
+  // o's two N x N float textures (tex1 the carried heights, tex2 with the normals), made again when N changes
+  function carryTex(o, N) {
+    if (o.N === N) return;
+    if (o.tex1) for (const t of [o.tex1, o.tex2]) gl.deleteTexture(t);
+    Object.assign(o, { N, tex1: floatTex(), tex2: floatTex() });
+  }
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
-    if (!polar && (!landC || landC.N !== N)) {
-      if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
-      landC = { N, tex1: floatTex(), tex2: floatTex() };
-    }
+    if (!polar) landC = landC || {};
     const out = polar ? o : landC;
-    if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
+    carryTex(out, N);
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
