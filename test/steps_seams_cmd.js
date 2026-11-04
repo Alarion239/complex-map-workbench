@@ -47,7 +47,7 @@ const park = async (x, scope) => {
   await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
   await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
   ok('teeth: the frame is drawn with the fill\'s mask', await drawn(), null);
-  const teeth = () => ev(`(() => {
+  const TEETH = `(() => {
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
     const dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
@@ -65,7 +65,8 @@ const park = async (x, scope) => {
     for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
     const g = __cmwSteps().glide || {};
     return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: +worst.toFixed(2), worstY, W, H };
-  })()`);
+  })()`;
+  const teeth = () => ev(TEETH);
   info.teeth = await teeth();
   // (the same frame without the cut fill: what the seam looks like where no torn triangle is drawn; for reference)
   await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
@@ -79,14 +80,20 @@ const park = async (x, scope) => {
   ok('teeth: the colour has a left edge in most rows', info.teeth.rows > info.teeth.H * 0.8, info.teeth);
   ok('teeth: exp then log, parked between w1 and w2: the seam along the cut is smooth (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', info.teeth.perRow != null && info.teeth.perRow <= 1.5, info.teeth);
   // (the first frames after a chain change: a step put first, the same seam now between w2 and w3, parked there at
-  // once; 8 frames over 2 s, while the new chain's programs link)
+  // once. The window is what is checked: every animation frame of the 2 s after the park, on the page's clock, while
+  // the new chain's programs link; a frame with no colour edge yet has no rows and does not count)
   await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
   await settled({ max: 20000, panes: false, until: '__cmwSteps().planes.length === 4' });
-  await ev(`__cmwSteps({ T: 0 }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 }); 1`);
-  const after = [];
-  for (let i = 0; i < 8; i++) { await sleep(250); after.push(await teeth()); }
-  info.afterChange = after.map((t) => [t.label, t.rows, t.perRow]);
-  const worst = after.reduce((w, t) => (t.perRow > w.perRow ? t : w), after[0]);
+  await ev(`__cmwSteps({ T: 0 }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
+    window.__seamsAfter = []; window.__seamsDone = false;
+    { const t0 = performance.now(), tick = () => { window.__seamsAfter.push(${TEETH});
+        if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else window.__seamsDone = true; };
+      requestAnimationFrame(tick); } 1`);
+  await settled({ max: 30000, panes: false, until: 'window.__seamsDone === true' });
+  const after = (await ev('__seamsAfter.map((t) => ({ label: t.label, rows: t.rows, perRow: t.perRow }))')).filter((t) => t.rows > 0);
+  info.afterChange = { frames: after.length, perRow: after.map((t) => t.perRow) };
+  ok('teeth: frames were drawn in the 2 s after a chain change', after.length > 0, info.afterChange);
+  const worst = after.reduce((w, t) => (t.perRow > w.perRow ? t : w), { perRow: 0 });
   ok('teeth: in the 2 s after a chain change, no frame shows a sawtooth along the seam (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', worst.perRow <= 1.5, worst);
   // (and once settled, the seam is drawn: the colour reaches it in most rows)
   await settled({ max: 30000 }); await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
