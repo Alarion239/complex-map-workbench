@@ -360,15 +360,17 @@
   // readout chip (its scale, "2 / div") lies on that spot, so it takes the spot over in the glide's second half, at
   // opacity max(0, 2a - 1): at most one of the two is ever shown
   let svChromeA = 1;
+  // an element's opacity a (clamped to [0, 1]) as a style string, to 3 decimals
+  const svOpacity = (a) => String(+Math.min(1, Math.max(0, a)).toFixed(3));
   function svFlatChrome(a) {
     if (a >= 1 && svChromeA >= 1) { if (!svHkeyC) svHkeyTake(); return; }
     if (a === svChromeA) return;
     if (svChromeA >= 1) svHkeyTake();
     svChromeA = a;
-    const op = a >= 1 ? '' : String(+a.toFixed(3));
+    const op = a >= 1 ? '' : svOpacity(a);
     for (const id of ['rulerLX', 'rulerLY', 'cornerL', 'leftLegend']) { const e = $(id); if (e) e.style.opacity = op; }
     const ro = $('leftReadout');
-    if (ro) ro.style.opacity = a >= 1 ? '' : String(+Math.max(0, 2 * a - 1).toFixed(3));
+    if (ro) ro.style.opacity = a >= 1 ? '' : svOpacity(2 * a - 1);
     svHkeyGhost(a);
   }
   // the Height key chip as the Landscape's pane head shows it: {el}, a copy of the chip and its key's pixels with no
@@ -398,7 +400,7 @@
     if (!el) return;
     if (a >= 1 || !head) { el.remove(); return; }
     if (el.parentNode !== head) head.appendChild(el);
-    el.style.opacity = String(+Math.max(0, 1 - 2 * a).toFixed(3));
+    el.style.opacity = svOpacity(1 - 2 * a);
   }
   // between the colour plane and the plane after it, one step's glide on the Landscape (g: svBetween's)
   function svFlattening(g = svBetween()) {
