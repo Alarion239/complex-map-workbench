@@ -13,7 +13,8 @@
 //   Newton's method from seeds over the window (H_u and the front sheet's key from the glide's record,
 //   __cmwSteps().glide), takes the front z among the roots in the regions (where P is not the paper: a map many-to-one
 //   onto w under Inside regions; every root when none is, or with window.__giAllRoots) and colours w as P, plane z's
-//   parked frame, colours z (bilinear). Pixels next
+//   parked frame, colours z (bilinear). A pixel whose front covered root could be one off P's canvas (whose cover P
+//   cannot show) counts as none. Pixels next
 //   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
@@ -30,17 +31,18 @@
   // (the parked frame's paper, where Inside regions leaves a pixel outside the regions; null: none known)
   const sh = (__cmwShapes().shapes || [])[0], ph = sh && !window.__giAllRoots ? __cmwLook(sh.id, 'L').plane : null;
   const paper = ph && /^#[0-9a-f]{6}$/i.test(ph) ? [1, 3, 5].map((i) => parseInt(ph.slice(i, i + 2), 16)) : null;
+  // (true / false: z in the regions or on the paper; null: z off P's canvas, where P cannot tell)
   const covers = (z) => {
     if (!paper) return true;
     const x = Math.round(((z.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), y = Math.round((g.h / 2 - (z.im - v.cy) * v.s) * dpr - 0.5);
-    if (x < 0 || y < 0 || x >= W || y >= Ht) return false;
+    if (x < 0 || y < 0 || x >= W || y >= Ht) return null;
     const i = 4 * (y * W + x);
     return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
   };
   let n = 0, over = 0, none = 0, max = 0;
   for (let py = 4; py < Ht - 4; py += 10) for (let px = 4; px < W - 4; px += 10) {
     const w = s2w(px + 0.5, py + 0.5);
-    let best = null, bk = Infinity, bcv = false;
+    let best = null, bk = Infinity, bcv = false, kOff = Infinity;
     for (const s0 of seeds) {
       let z = s0;
       for (let it = 0; it < 40 && z; it++) {
@@ -58,9 +60,12 @@
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       const k = g.key(z), cv = covers(z);
+      if (cv === null) { kOff = Math.min(kOff, k); continue; }
       if (best === null || (cv && !bcv) || (cv === bcv && k < bk)) { bk = k; best = z; bcv = cv; }
     }
-    if (!best) { none++; continue; }
+    // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one
+    // the renderer colours w by: the regions run past the canvas, so w's colour is not known)
+    if (!best || kOff < (bcv ? bk : Infinity)) { none++; continue; }
     const fx = ((best.re - v.cx) * v.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (best.im - v.cy) * v.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
     if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { none++; continue; }
     if (__giRange(P.d, W, qx, qy) > 12 || __giRange(F.d, W, px, py) > 12) continue;
