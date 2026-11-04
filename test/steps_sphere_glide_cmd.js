@@ -3,7 +3,8 @@
 //  - colour: the pixels of the left pane in a saturated phase colour (max - min channel > 60), at rest on plane z with
 //    Inside regions and parked half-way; parked, about as many as at rest (the region's image moves and shrinks), not
 //    the whole globe
-//  - paths: parked, the frame draws the paths' moving points (__cmwSteps().paths.globeHeads > 0)
+//  - paths: parked, the frame draws the paths' moving points (__cmwSteps().paths.globeHeads > 0), and they threw nothing
+//    (globeError: a throw's message, named in the check)
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -51,7 +52,7 @@ ok('parked: the view is between plane z and plane w1', R.parked.x > 0.3 && R.par
 ok('parked: the colour shows inside the moving region', R.parked.coloured > 0, R.parked);
 ok('parked: Inside regions keeps the colour inside the region (at most 1.5 times the coloured pixels at rest)',
   R.parked.coloured <= 1.5 * R.rest.coloured, { rest: R.rest.coloured, parked: R.parked.coloured });
-ok('parked: the paths of the glide are drawn on the globe', !!p && p.on && p.globeHeads > 0, p);
+ok(`parked: the paths of the glide are drawn on the globe${p && p.globeError ? ' (they threw: ' + p.globeError + ')' : ''}`, !!p && p.on && p.globeHeads > 0 && !p.globeError, p);
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
 return { pass: fails.length === 0, fails, results: R };
