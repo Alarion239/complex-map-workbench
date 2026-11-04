@@ -1152,6 +1152,7 @@
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
+    cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
@@ -1169,7 +1170,9 @@
   // - o.cc (the 2D path): the picture already in the 2D context o.cc is cut to the regions (drawn opaque into a canvas
   //   the pane's size, destination-in). True
   function svMask(pane, map, k, o) {
-    const opt = k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k };
+    // (sm: the regions' SphereMesh in the steps view's slot, SPEC 8, where the tiling would draw them from one)
+    const opt = k == null ? { noGrid: true, fills: true, cache: false, sm: 'SV' }
+      : { noGrid: true, fills: true, domain: k === 0, plane: k, sm: 'SV' };
     if (o.cc) {
       svMaskCv = svCanvas(svMaskCv, pane);
       const mp = svProxy(pane, svMaskCv);
