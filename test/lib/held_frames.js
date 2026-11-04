@@ -9,7 +9,7 @@
 //   pixels more than DIFF_TOL apart (frac), the largest (max) and the mean (mean); and each frame's mean luminance
 //   (lum, Rec. 601 weights) and mean alpha (alpha);
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
-//   uses it too): __giRef(P, F, tol = 6) samples the frame F every 10 px; at each pixel w it solves H_u(z) = w by
+//   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window (H_u and the front sheet's key from the glide's record,
 //   __cmwSteps().glide), takes the front z among the roots in the regions (where P is not the paper: a map many-to-one
 //   onto w under Inside regions; every root when none is, or with window.__giAllRoots) and colours w as P, plane z's
@@ -23,7 +23,7 @@
 (() => {
   // (the page script of the exact reference, as written for steps_glide_inverse_cmd.js)
   const RANGE = `window.__giRange = (P, W, x, y) => { let r = 0; for (let c = 0; c < 3; c++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = P[4 * ((y + dy) * W + x + dx) + c]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };`;
-  const REF = `window.__giRef = (P, F, tol = 6) => {
+  const REF = `window.__giRef = (P, F, tol = 6, step = 10) => {
   const g = __cmwSteps().glide, H = g.H, v = g.view, W = F.W, Ht = F.H, dpr = W / g.w, C = (re, im) => ({ re, im });
   const s2w = (x, y) => C(v.cx + (x / dpr - g.w / 2) / v.s, v.cy - (y / dpr - g.h / 2) / v.s);
   const x0 = v.cx - g.w / 2 / v.s, x1 = v.cx + g.w / 2 / v.s, y0 = v.cy - g.h / 2 / v.s, y1 = v.cy + g.h / 2 / v.s, seeds = [];
@@ -40,7 +40,7 @@
     return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
   };
   let n = 0, over = 0, none = 0, max = 0;
-  for (let py = 4; py < Ht - 4; py += 10) for (let px = 4; px < W - 4; px += 10) {
+  for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5);
     let best = null, bk = Infinity, bcv = false, kOff = Infinity;
     for (const s0 of seeds) {
