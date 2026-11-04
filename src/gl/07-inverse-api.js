@@ -195,8 +195,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the inverse program for the current chain, B and view kind with the current formula bundle. start: begin its
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile).
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
-  function invProgram(B, globe, start, extra) {
-    const info = cur.info, inv = info && info.inverse;
+  function invProgram(B, globe, start, extra, invOv) {
+    // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
+    // standing for the step: its own program, the chain's forward data beside it)
+    const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
@@ -425,6 +427,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   //   whose record GLR.packShapes packed this frame; viewKind 'flat' (default) | 'globe'; view {cx, cy, s}, dpr (flat)
   //   or sphere {MVP, eye} (globe); look {color, color2, edge, ink, alpha (drawn, hover-dimmed), alphaOwn (undimmed,
   //   sets B), pattern, cell, lines, stretch, origin}; scissor [x, y, w, h] device px (optional); half (cost guard).
+  //   inv (optional): an inverse op list for plan other than the chain's (GLChain.buildInverse), drawn by its own program
   // 'pending' (a compile in flight or not yet allowed to start) sets frameStatus().pending; 'error': the shape cannot
   // be drawn inverse this frame (no program, a failed compile, a side draw without a ready program, a plan / prep
   // mismatch); both fall through to the forward draw.
@@ -437,7 +440,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
     const extra = st.carry && !globe ? INV_CARRY : st.extra;
-    let pr = /** @type {any} */ (invProgram(B, globe, true, extra));
+    let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
     // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
@@ -445,13 +448,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
     const defer = st.motion || st.coldOk === false;
     if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
-      const alt = invAltProgram(B, globe, extra, true);
+      const alt = st.inv ? null : invAltProgram(B, globe, extra, true);
       if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
       else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
     }
     if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
     if (pr.state !== 'ready') return 'error';
-    const P = pr.P, inv = cur.info.inverse;
+    const P = pr.P, inv = st.inv || cur.info.inverse;
     P.warm = true;
     const d = passData(inv, st.plan, st.prep);
     if (!d.ok) return 'error';
@@ -829,16 +832,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // current pane (bottom-left origin), padded by pad device px; null when it covers the pane (no scissor needed);
     // [0, 0, 0, 0] when it misses the pane (nothing to draw)
     globeScissorOf: (b, MVP, eye, pad = 4) => globeScissorOf(b, MVP, eye, pad),
-    scissorOf(b, view, dpr = 1, pad = 4) {
-      if (!b || !view || ![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return null;
-      const k = view.s * dpr;
-      const x0 = Math.floor(fw / 2 + (b.x0 - view.cx) * k) - pad, x1 = Math.ceil(fw / 2 + (b.x1 - view.cx) * k) + pad;
-      const y0 = Math.floor(fh / 2 + (b.y0 - view.cy) * k) - pad, y1 = Math.ceil(fh / 2 + (b.y1 - view.cy) * k) + pad;
-      const cx0 = Math.max(0, x0), cy0 = Math.max(0, y0), cx1 = Math.min(fw, x1), cy1 = Math.min(fh, y1);
-      if (cx1 <= cx0 || cy1 <= cy0) return [0, 0, 0, 0];
-      if (cx0 <= 0 && cy0 <= 0 && cx1 >= fw && cy1 >= fh) return null;
-      return [cx0, cy0, cx1 - cx0, cy1 - cy0];
-    },
+    scissorOf: (b, view, dpr = 1, pad = 4) => scissorOf(b, view, dpr, pad),
+    // the current frame around scissor sc [x, y, w, h]: up to four rects [x, y, w, h] in device px, each of positive size
+    scissorAround: (sc) => scissorAround(sc),
+    // where an old SphereMesh stands in for a rebuilding one, its guard box b in the current frame: 'whole' (the box
+    // covers the frame: the old mesh alone), {sc, around} (the old mesh inside scissor sc, the new meshes in the rects
+    // around it, scissorAround), or null (the box misses the frame: no stand-in)
+    standInOf: (b, view, dpr = 1) => standInOf(b, view, dpr),
     // the current chain's inverse structure: {ok, key, reason, nOps} (null without a chain)
     get inverseInfo() { const v = cur.info && cur.info.inverse; return v ? { ok: !!v.ok, key: v.key, reason: v.reason || null, nOps: v.nOps || 0 } : null; },
     // draws made with an inverse program since load (tests, perf counters)

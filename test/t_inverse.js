@@ -1031,5 +1031,32 @@ section('singularAfter (ζ after an injective plan)');
   check('Γ names no set (its poles run along a line\'s reach): it keeps the scan', Funcs.build(St('gamma')).sing === undefined);
 }
 
+// Inverse.homOps: the ops of a step's homotopy at t compose to the homotopy itself (the glide frames' inverse pass);
+// a straight-line homotopy and a step with no ops have none
+{
+  const cases = [['exp', {}], ['mobius', { a: '1', b: '-1', c: '1', d: '1' }], ['affine', { a: '2i', b: '1' }], ['pown', { n: 3 }], ['sin', {}],
+    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }]];
+  for (const [type, params] of cases) {
+    const b = Funcs.build(St(type, params));
+    for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
+      const h = Inverse.homOps(b, t), H = b.hom(t);
+      let e = Infinity;
+      if (h.ok) {
+        e = 0;
+        for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4)]) {
+          let w = z;
+          for (const o of h.ops) w = o.fwd(w);
+          const v = H(z);
+          e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+        }
+      }
+      check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
+    }
+  }
+  const lin = Funcs.build(St('custom', { expr: 'z+0.2*conj(z)' }));
+  check('homOps: a straight-line homotopy has none', !Inverse.homOps(lin, 0.5).ok);
+  check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;
