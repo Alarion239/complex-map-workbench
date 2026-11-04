@@ -11,15 +11,32 @@ await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof _
 await ev(`__cmwExample(${names.indexOf('Joukowski airfoil')}); 1`); await settled({ max: 60000 });
 await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'in', surf: 'plane' }), 1`);
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
-await rest(0); await grab('R0');
-for (const u of [0.999]) {
+const cam = () => ev(`(() => { const v = (window.paneL || {}).view; const g = __cmwSteps().glide; return JSON.stringify(g && g.view); })()`);
+for (const u of [0.25, 0.75, 0.999]) {
+  // (plane 0's parked frame under the camera the glide then uses: the camera can change between visits)
+  await rest(0); await grab('R0');
   out['held' + u] = (await hold(u)).ok; await grab('M' + u);
+  const cm = await cam();
   for (const all of [true, false]) { await ev(`window.__giAllRoots = ${all}, 1`); out[`u${u} ${all ? 'old (all roots)' : 'new (roots in the region)'} vs the moving frame`] = await refOf('R0', 'M' + u, DIFF_TOL); }
+  if (process.env.GI_IMG && u < 0.9) {
+    await ev(fs.readFileSync(process.env.GI_DIAG, 'utf8') + '; 1');
+    const png = async (js, name) => fs.writeFileSync(path.join(process.env.GI_IMG, name), Buffer.from((await ev(js)).split(',')[1], 'base64'));
+    await png(`__giPng(__heldPx['M${u}'])`, `u${u}_renderer.png`);
+    await png(`__giPng(__heldPx.R0)`, `u${u}_plane0.png`);
+    await png(`(() => { const c = document.getElementById('canvasL'); return __giImg(__heldPx.R0, c.width, c.height, true); })()`, `u${u}_ref_old.png`);
+    await png(`(() => { const c = document.getElementById('canvasL'); return __giImg(__heldPx.R0, c.width, c.height, false); })()`, `u${u}_ref_new.png`);
+  }
+  await ev('window.__svScrubUp(), 1');
+  await rest(0); await grab('R0b'); out['base unchanged ' + u] = await compare('R0', 'R0b');
   if (u === 0.999) {
+    await hold(u); await grab('M2'); out.cam = [cm, await cam()];
     await ev('window.__svScrubUp(), 1'); await rest(1); await grab('R1');
-    out.movingVsParked = await compare('M0.999', 'R1');
-    out.R1 = await ev(`(() => { const c = document.getElementById('canvasL'); return [c.width, c.height]; })()`);
+    out.movingVsParked = await compare('M2', 'R1');
     for (const all of [true, false]) { await ev(`window.__giAllRoots = ${all}, 1`); out[`u${u} ${all ? 'old (all roots)' : 'new (roots in the region)'} vs plane 1's PARKED frame`] = await refOf('R0', 'R1', DIFF_TOL); }
-  } else { await ev('window.__svScrubUp(), 1'); await rest(0); }
+    if (process.env.GI_DIAG) {
+      await ev(fs.readFileSync(process.env.GI_DIAG, 'utf8') + '; 1');
+      out.diag = await ev(`(() => { const c = document.getElementById('canvasL'), K = window.__heldPx, f = (t) => ({ W: c.width, H: c.height, d: K[t] }); return __giDiag(f('R0'), f('R1'), ${DIFF_TOL}); })()`);
+    }
+  }
 }
 return { pass: true, fails: [], info: out };
