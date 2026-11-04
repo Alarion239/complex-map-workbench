@@ -79,10 +79,11 @@ for (const lang of ['en', 'ru', 'it']) {
     if (what === '3 steps') ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
     // (the Playback ⋯ ends the strip and takes the room of "+ Add function"'s words once the thread is longer than a step or two:
     // + keeps its words on a short thread and is the round one beside a longer one; the rule never lets the words make the thread
-    // scroll; Russian's wide names scroll as they did before the chip: the rail still keeps most of its width)
+    // scroll; a two-step chain that fits with its names only beside the round + keeps them, and one that fits only with the
+    // chips' letters shows them, so it is whole either way)
     ok(`1440 ${lang}, ${what}: the Playback ⋯ ends the strip, and the words of + Add function never make the thread scroll`, w.moreLast && (w.addFolded || !w.scrolls), w);
     if (what === '1 step') ok(`1440 ${lang}, 1 step: + Add function keeps its words beside the short thread, which does not scroll`, !w.addFolded && !w.scrolls && w.addOnTop, w);
-    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: + Add function is the round + (the words would not fit beside the thread and the Playback controls), whole and on top, the chain z … w₂ shows in en and it, and Russian's wide names scroll as before in a rail of 400 px or more`, w.addFolded && w.addOnTop && (lang === 'ru' ? w.scrolls && w.rail >= 400 : !w.scrolls), w);
+    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: the chain z … w₂ shows whole and does not scroll, + Add function whole and on top (in en it is the round +, the words would not fit beside the thread and the Playback controls)`, w.addOnTop && !w.scrolls && (lang !== 'en' || w.addFolded), w);
     else if (what === '12 steps') ok(`1440 ${lang}, 12 steps: + Add function is the round + (its words would make the thread scroll more), whole and on top`, w.addFolded && w.addOnTop, w);
   }
 }
