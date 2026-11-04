@@ -30,7 +30,7 @@ const S = () => ev('__cmwSteps()');
 const whole = () => ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); if (!f) return null; const rail = document.querySelector('#svStrip .sv-rail'), add = document.querySelector('#svStrip .sv-add'), planes = [...document.querySelectorAll('#svStrip .sv-plane')], last = planes[planes.length - 1];
   return { text: f.textContent, label: f.getAttribute('aria-label'), pressed: f.getAttribute('aria-pressed'), tab: f.tabIndex, tag: f.tagName, hidden: f.hidden, shown: getComputedStyle(f).display !== 'none',
     more: !!f.querySelector('.sv-more'), inRail: rail.contains(f), afterRail: !!(last && (last.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING)), beforeAdd: !!(f.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING),
-    chips: document.querySelectorAll('#svStrip .sv-fchip').length, h: f.getBoundingClientRect().height }; })()`);
+    chips: document.querySelectorAll('#svStrip .sv-fchip').length, h: f.getBoundingClientRect().height, w: f.getBoundingClientRect().width }; })()`);
 const insp = () => ev(`(document.getElementById('propsPanel') || document.body).textContent`);
 
 await open(1280, 800, false, 'en');
@@ -107,10 +107,10 @@ for (const lang of ['ru', 'it']) {
   ok(`${lang}: the chip's name is translated`, f && f.label && f.label !== 'Whole map' && !/Whole map/.test(f.text), f);
 }
 
-// a phone: the chain sheet has the whole-map row, so the strip has no chip
+// a phone: F is a round 44 px chip at the end of the rail, after the last plane (the rail scrolls it in; the chain sheet has the row too)
 await open(390, 844, true, 'en');
 const fp = await whole();
-ok('phone: the strip has no F chip (the chain sheet holds the whole-map row)', fp && !fp.shown, fp);
+ok('phone: F is a 44 px button inside the rail, after the last plane, named Whole map', fp && fp.shown && fp.inRail && fp.afterRail && fp.tag === 'BUTTON' && fp.label === 'Whole map' && fp.h === 44 && fp.w === 44, fp);
 
 // room: at 1024 the strip's controls sit on one row inside it, overlapping nothing, the rail keeps room for the thread
 for (const lang of ['en', 'ru', 'it']) {

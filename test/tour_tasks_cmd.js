@@ -28,6 +28,7 @@ const ticks = async (ms = 2500) => until(`document.querySelector('.ts-l2').class
 const px = (side, re, im) => ev(`(() => { const v = __cmwPlaneMenu().view(${JSON.stringify(side)}), b = document.getElementById('plot${side}').getBoundingClientRect(); return [b.left + b.width / 2 + (${re} - v.cx) * v.s, b.top + b.height / 2 - (${im} - v.cy) * v.s]; })()`);
 
 await open('tt1', 1440, 900, false, false);
+const SV = await isSteps();
 const task = async (id, text, fn, ready) => {
   try {
     await goStep(id);
@@ -69,17 +70,34 @@ check('targets: the result line says X shades its preimage', /X shades its preim
 
 // domain: click the F tile
 await task('domain', 'Click the F tile.', async () => {
-  const f = await center('#pipeline .ftile');
+  const f = await center(SV ? '#svStrip .sv-wholemap' : '#pipeline .ftile');
   await mdrag(f[0], f[1], f[0], f[1]);
 });
 check('domain: the result line names the Inspector', /Inspector lists where every step is defined/.test((await l2()).text), await l2());
 
-// deriv: double-click the card d/dz (the second card of its scene)
-await task('deriv', 'Double-click the card d/dz.', async () => {
+// deriv: double-click the card d/dz (the second card of its scene); in the steps view, click its chip
+await task('deriv', SV ? 'Click the chip d/dz.' : 'Double-click the card d/dz.', async () => {
+  if (SV) { const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip'); await mdrag(c[0], c[1], c[0], c[1]); return; }
   const c = await center('#pipeline .card[data-k="2"]');
   for (const n of [1, 2]) { await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c[0], y: c[1], button: 'left', clickCount: n }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c[0], y: c[1], button: 'left', clickCount: n }); }
 });
-check('deriv: the result line says X and Y are its input and output', /input and output/.test((await l2()).text), await l2());
+check('deriv: the result line says what the step is', SV ? /Inspector shows the step that differentiates/.test((await l2()).text) : /input and output/.test((await l2()).text), await l2());
+
+// the steps view's Add function and Reorder steps (the classic add card has no such line; its chain has no reorder step)
+if (SV) {
+  await task('add', 'Click + Add function.', async () => {
+    const c = await center('#svStrip .sv-add');
+    await mdrag(c[0], c[1], c[0], c[1]);
+  });
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await task('reorder', 'In the ⋯ menu of f₂, choose Move left.', async () => {
+    const m = await center('#svStrip .sv-step[data-k="2"] .sv-more');
+    await mdrag(m[0], m[1], m[0], m[1]); await settle(400);
+    const it = await ev(`(() => { const e = [...document.querySelectorAll('#popHost [role="menuitem"], #popHost button, .menu button')].find((x) => /^Move left/.test(x.textContent.trim())); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+    await mdrag(it[0], it[1], it[0], it[1]);
+  });
+  check('reorder: the result line says the planes changed with the order', /changed with the order/.test((await l2()).text), await l2());
+}
 
 // cauchy: drag the circle gamma (Select is on); a fresh page, as the focus the double-click above left on a card is no part of it
 await open('tt2', 1440, 900, false, false);

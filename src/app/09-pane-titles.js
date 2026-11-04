@@ -851,6 +851,9 @@
     if (b.getAttribute('aria-pressed') !== pressed) b.setAttribute('aria-pressed', pressed);
     if (b.disabled !== !!noPaths) b.disabled = !!noPaths;
     if (b.dataset.tip !== tip) b.dataset.tip = tip;
+    // (a disabled button gets no pointer events, so its reason is also its description)
+    const desc = noPaths ? tip : '';
+    if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);

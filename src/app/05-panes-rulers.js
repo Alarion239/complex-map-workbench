@@ -92,7 +92,7 @@
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
-    if (SV.on) mfDrawn = null;
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
@@ -975,7 +975,7 @@
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));
       if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
         try {
-          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
         } catch (e) { console.error('globe region mask', e); }
       }
       return info;
@@ -1018,7 +1018,6 @@
     // ((#366 prototype) o.lineMap: the steps view's glide moves the shapes in either paint, 19)
     const map = o.lineMap || (hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage));   // shapes live in the z-plane
     const cell = patternCell();
-    const halo = GLR.hexRGB(TH.halo);
     // the same map cache keys as drawScene: orbiting the globe re-evaluates nothing (spec 8.1); homotopy frames go
     // to GLR's per-resource scratch evaluation instead (no cache entry per t)
     const cache = map.mode === 0, mk = mapKeyOf(map);
@@ -1040,26 +1039,30 @@
       }
     }
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;   // ([#253] the globes: the z-plane's shapes, flat planes first)
+      if (s.visible === false || kindType(s) === 'point') continue;
+      // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map (none in a homotopy)
+      const sm = hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
+      if (!sm) continue;
+      const smk = sm === map ? mk : mapKeyOf(sm), recsOf = shapeStage(s) ? null : recs;   // (the packed records hold the z-plane's shapes only)
       const r = shapeGPU(s);
       const ink = shapeInk(s);
-      const pf = regionsOn && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
+      const pf = regionsOn && kindType(s) === 'area' && !hom && !shapeStage(s) ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map (a later plane's shape: its bare mesh)
       if (regionsOn && kindType(s) === 'area') {
         const fwd = [];
         // SPEC 8: a published SphereMesh of the globe (valid while the globe's radius is within 2x) replaces the lifted
         // mesh and its fix-ups; during a rebuild the old one is drawn (it covers the whole sphere)
-        const pth = recs ? pathOf(s, map, role, 'globe', { recs, budget: live, status: true }).path : 'forward';
-        const smd = !hom && (live || offRender) ? smFor(s, r, role, 'globe', map, pane, smR, live && pth === 'forward') : null;
+        const pth = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live, status: true }).path : 'forward';
+        const smd = !hom && !shapeStage(s) && (live || offRender) ? smFor(s, r, role, 'globe', sm, pane, smR, live && pth === 'forward') : null;
         const sme = smd && (smd.e || smd.old);
         if (sme && !sme.data.n) { /* nothing of it shows on the globe */ } else if (sme && smRes(sme)) fwd.push({ pre: sme.res, st: Object.assign(smLook(s, pane, S.alpha), { view: null }) });
         else if (pf.p.meshRes) {
           const fx = pf.fx, pm = pf.p;
-          const st = { map, dpr: pane.dpr, L: MESH_L, color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), skip: fx ? fx.skip : null, stretch,
-            cacheKey: cache ? `${pm.meshKey}|${mk}` : null };
+          const st = { map: sm, dpr: pane.dpr, L: MESH_L, color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), skip: fx ? fx.skip : null, stretch,
+            cacheKey: cache ? `${pm.meshKey}|${smk}` : null };
           fwd.push({ res: pm.meshRes, st });
-          if (fx && fx.extraRes) fwd.push({ res: fx.extraRes, st: Object.assign({}, st, { skip: null, L: 1, cacheKey: cache ? `x|${fx.mapKey}|${mk}` : null }) });
+          if (fx && fx.extraRes) fwd.push({ res: fx.extraRes, st: Object.assign({}, st, { skip: null, L: 1, cacheKey: cache ? `x|${fx.mapKey}|${smk}` : null }) });
         }
-        const p = recs ? pathOf(s, map, role, 'globe', { recs, budget: live }) : null;
+        const p = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live }) : null;
         if (p && p.path === 'inverse') {
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
           let gbox = null;
@@ -1079,8 +1082,11 @@
       }
       const rl = linesOf(r, pf.p);
       if (rl.lineRes && !hideStrokes && !(artMode && artSkip && artSkip.has(s.id))) {
-        const area = kindType(s) === 'area';
-        lines.push({ res: rl.lineRes, st: { map, dpr: pane.dpr, M: 8, width: (area ? 1.5 : 2) * pane.dpr, color: imageMode ? GLR.hexRGB(ink.edge) : GLR.hexRGB(TH.dcCasing), alpha: 1, casing: { color: imageMode ? halo : [1, 1, 1], alpha: 0.85, width: (area ? 3.5 : 4) * pane.dpr }, cacheKey: cache ? `${rl.lineKey}|${mk}` : null } });
+        // (the globe's lines: the stroke of a shape's curve, without the selection's or the hover's emphasis; a phase portrait takes the
+        // dc line colour on a white casing)
+        const sk = shapeStroke(s, pane.dpr, { still: true });
+        if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1151,8 +1157,8 @@
     // the deformation's live paths t -> H_t(z) on the merged globe, over the sphere's front side
     if (hom && imageMode && role === 'R' && !figMode && S.morphPaths !== false && !morphHasDeriv()) {
       try {
-        const Pg = (w) => { if (!w || !CX.isFin(w)) return null; const p = lift(w.re, w.im); return facing(p) > 0.02 ? project(pane, info.MVP, p.map((v) => v * 1.01)) : null; };
-        drawMorphPathsX(pane, morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }), hom.imageF || hom.F, Pg);
+        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye });
+        drawMorphPathsX(pane, sel, hom.imageF || hom.F, globeSelP(info, pane.w, pane.h, 0.02));
       } catch (e) { console.error('deformation paths', e); }
     }
     if (labels.length) placeLabels(ctx, pane, labels);
@@ -1198,22 +1204,26 @@
     return out.length ? out : null;
   }
   function renderSphereLeft(pane) {
-    // ((#366 prototype) the steps view's Inside regions on the globe, 19)
-    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L' });
+    // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
+    // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
+    const net = globeEdit('L') ? globeNet() : 'plain';
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
     // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
     // view, in both paints (over the portrait, area fills at half strength)
     const pre = typeof hasTargets === 'function' && hasTargets() && typeof preimageTargets === 'function'
       ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null;
+    // ((#366 prototype) the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
+    // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
+    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
-      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
     // drawn on the globe (P3b) over the shapes
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net: globeEdit('L') ? globeNet() : 'plain' });
+    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net });
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
   function sphereCaption(pane, text) {
