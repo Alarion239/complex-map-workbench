@@ -74,7 +74,8 @@
   // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
   let zpHandlesL = [], zpHover = null, zpSel = null;
-  function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
+  // (k: the stage the left plane shows, default its own: z's view is S.srcView, a later stage's V.left)
+  function leftView(k = leftStage()) { return k === 0 ? S.srcView : V.left; }
   // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
   function phHold() { if (Phone.hold) Phone.hold(); }
@@ -582,9 +583,11 @@
   // map (GLR.drawLandscape's carry); its block and its height scale go from plane s's to plane b's over u (the box's
   // centre linearly, its size and the scale in log; b null: plane s's), so the block, its floor and its axes move
   // smoothly from one plane's rest frame to the other's. va, vb: the two planes' views
+  // p to q at f in log (p, q > 0)
+  const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
   function carryBox(c) {
     const A = landBox(c.va), B = c.b == null ? A : landBox(c.vb), u = c.u;
-    const mid = (p, q) => (1 - u) * p + u * q, geo = (p, q) => Math.exp((1 - u) * Math.log(p) + u * Math.log(q));
+    const mid = (p, q) => (1 - u) * p + u * q, geo = (p, q) => logLerp(p, q, u);
     const cx = mid((A.x0 + A.x1) / 2, (B.x0 + B.x1) / 2), cy = mid((A.y0 + A.y1) / 2, (B.y0 + B.y1) / 2);
     const hw = geo(A.x1 - A.x0, B.x1 - B.x0) / 2, hh = geo(A.y1 - A.y0, B.y1 - B.y0) / 2;
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
@@ -605,7 +608,7 @@
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svColourMap(carry.s), svF(carry.s));
       const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svColourMap(carry.b), svF(carry.b));
-      mu = Math.exp((1 - carry.u) * Math.log(ma) + carry.u * Math.log(mb));
+      mu = logLerp(ma, mb, carry.u);
     }
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
@@ -708,7 +711,7 @@
           if (h.mu[jt] === undefined) h.fill(jt, null);
           return h.mu[jt];
         };
-        mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : Math.exp((1 - f) * Math.log(at(j)) + f * Math.log(at(j + 1)));
+        mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : logLerp(at(j), at(j + 1), f);
       }
       lscale *= c.boost || 1;
       if (lin) render3D.linear = true;

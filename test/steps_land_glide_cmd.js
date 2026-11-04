@@ -4,10 +4,10 @@
 // - parked at u = 0.25, 0.5, 0.75 between z and w₁: carried frames (__cmwLandCarry), each unlike both planes at rest
 //   and each nearer its neighbour on the thread than the two planes are to each other (the picture moves on); the
 //   block's width changes by under 3 % between u = 0.45 and 0.55, where the parked view's nearer plane changes;
-// - a glide (svGo) draws carried frames at three or more places between the planes, and its first and last frames
-//   (u ≤ 0.1, ≥ 0.9) are the planes at rest, within the exact-image tolerance (at most 2 %
-//   of the pane's pixels more than 32/255 apart: the rest frame's refined walls and cut rims are not drawn while
-//   moving);
+// - held by either end (a scrub on the rail, not let go, at u = 0.005 and 0.995): carried frames that are the planes at
+//   rest there, within the exact-image tolerance (at most 2 % of the pane's pixels more than 32/255 apart: the rest
+//   frame's refined walls and cut rims are not drawn while moving);
+// - a glide (svGo) draws carried frames at three or more places between the planes;
 // - under reduced motion a glide is a change of plane at once, and play ticks one plane at a time: no carried frame.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -50,7 +50,31 @@ ok('the block moves on smoothly across u = 0.5 (width within 3 % between 0.45 an
 between.d1 = await diff('x0.25', 'x0.5'); between.d2 = await diff('x0.5', 'x0.75');
 info.between = between;
 ok('the frames move on: each nearer its neighbour than the planes are to each other', between.d1 < info.planes && between.d2 < info.planes, between);
-// ---- by the ends ----
+// ---- by the ends: the thread held at x mid-scrub (not let go: a parked view snaps to a plane within 1/8 of it) ----
+async function hold(x) {
+  await ev(`(() => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
+    window.__svScrubUp = () => ev('pointerup', cx);
+    return 1;
+  })()`);
+  await settled({ max: 60000, until: `Math.abs(__cmwSvX() - ${x}) < 0.002 && __cmwSteps().moving` });
+  await ev(rAF2);
+}
+info.ends = {};
+for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]) {
+  await rest(0);
+  await hold(x);
+  const c = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null');
+  await grab(tag);
+  info.ends[tag] = { u: c ? c.u : null, d: await diff(tag, restTag) };
+  await ev('window.__svScrubUp(), 1');
+  await settled({ max: 60000 });
+  ok(`held at ${x}: a carried frame`, !!c && Math.abs(c.u - x) < 0.002, c);
+  ok(`held at ${x}: the plane at rest there (≤ 2 % of pixels > 32/255)`, info.ends[tag].d != null && info.ends[tag].d <= 0.02, info.ends[tag]);
+}
 // ---- a glide ----
 await rest(0);
 await ev(`window.__lg = null; new Promise((done) => {
@@ -59,13 +83,7 @@ await ev(`window.__lg = null; new Promise((done) => {
   const t0 = performance.now();
   const tick = () => {
     const c = typeof __cmwLandCarry === 'function' ? __cmwLandCarry() : null;
-    if (c && c.u > 0 && c.u < 1) {
-      seen.add(c.u.toFixed(3));
-      // (the frame on the canvas is the one c describes: the first and the last of the glide kept)
-      const cv = document.getElementById('canvasL'), px = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-      if (!window.__ss.g0) { window.__ss.g0 = px; window.__g0u = c.u; }
-      window.__ss.g1 = px; window.__g1u = c.u;
-    }
+    if (c && c.u > 0 && c.u < 1) seen.add(c.u.toFixed(3));
     if (performance.now() - t0 < 6000 && __cmwSteps().moving !== false) requestAnimationFrame(tick); else done([...seen]);
   };
   requestAnimationFrame(tick);
@@ -74,10 +92,6 @@ await settled({ max: 30000, panes: false, until: 'window.__lg !== null' });
 const us = (await ev('window.__lg')) || [];
 info.glide = us.length;
 ok('a glide draws carried frames at three or more places', us.length >= 3, us);
-// (the glide's first and last frames against the planes at rest, by how far from them they are: u ≤ 0.1 within 2 %)
-info.ends = { u0: await ev('window.__g0u'), e0: await diff('g0', 'rest0'), u1: await ev('window.__g1u'), e1: await diff('g1', 'rest1') };
-ok('by plane z: the plane at rest (≤ 2 % of pixels > 32/255)', info.ends.u0 <= 0.1 && info.ends.e0 != null && info.ends.e0 <= 0.02, info.ends);
-ok('by plane w₁: the plane at rest (≤ 2 % of pixels > 32/255)', info.ends.u1 >= 0.9 && info.ends.e1 != null && info.ends.e1 <= 0.02, info.ends);
 await settled({ max: 60000 });
 // ---- reduced motion ----
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });

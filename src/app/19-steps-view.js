@@ -286,9 +286,7 @@
     if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
     const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
     const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    // (each plane's view: z's is S.srcView, a later plane's V.left, as leftView)
-    const viewOf = (k) => (k === 0 ? S.srcView : V.left);
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: viewOf(g.a), vb: viewOf(g.b) });
+    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: leftView(g.a), vb: leftView(g.b) });
     return true;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
