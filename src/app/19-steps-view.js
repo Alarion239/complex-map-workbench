@@ -99,7 +99,7 @@
     let role;
     if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: '' });
+    else if (SV.surf === 'land') { const shw = sheetsShown(); role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: shw ? sheetsClause(shw, 'html') : '' }); }
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
@@ -922,17 +922,16 @@
     if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (a stand-in as drawScene's: the old mesh alone where its guard box covers the pane, else inside the box with the
-    // tessellated meshes, which cover clipWin's window alone, around it; a box off the pane, none. The frame is open:
-    // GLR.scissorOf reads its size)
+    // tessellated meshes, which cover clipWin's window alone, around it; a box off the pane, none: GLR.standInOf. The
+    // frame is open: it reads the frame's size)
     const lay = [];
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], o = d.stand, end = !o || i + 1 >= draws.length || draws[i + 1].stand !== o;
-      if (o && o.sc === undefined) o.sc = GLR.scissorOf(o.box, pane.view, pane.dpr, 0);
-      if (!o || (o.sc && !(o.sc[2] > 0))) { lay.push(d); continue; }
-      if (o.sc === null) { if (end) lay.push({ res: o.res, pre: true }); continue; }
-      const sc = o.sc;
-      lay.push(Object.assign({}, d, { scissors: [[0, 0, pane.pw, sc[1]], [0, sc[1] + sc[3], pane.pw, pane.ph - sc[1] - sc[3]], [0, sc[1], sc[0], sc[3]], [sc[0] + sc[2], sc[1], pane.pw - sc[0] - sc[2], sc[3]]].filter((q) => q[2] > 0 && q[3] > 0) }));
-      if (end) lay.push({ res: o.res, pre: true, scissor: sc });
+      if (o && o.so === undefined) o.so = GLR.standInOf(o.box, pane.view, pane.dpr);
+      if (!o || !o.so) { lay.push(d); continue; }
+      if (o.so === 'whole') { if (end) lay.push({ res: o.res, pre: true }); continue; }
+      lay.push(Object.assign({}, d, { scissors: o.so.around }));
+      if (end) lay.push({ res: o.res, pre: true, scissor: o.so.sc });
     }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
@@ -1043,6 +1042,8 @@
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
     if (rest) drawRulers(pane, 'L');
+    // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
+    glStatusNote(pane);
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -1220,8 +1221,11 @@
       sel.title = tip;
       sel.setAttribute('aria-description', ok ? '' : tip);
     }
-    E.orderWhy.textContent = ok ? '' : tip;
-    E.orderWhy.hidden = ok;
+    for (const why of [E.orderWhy, E.sheetOrderWhy]) {
+      if (!why) continue;
+      why.textContent = ok ? '' : tip;
+      why.hidden = ok;
+    }
     if (E.play) E.play.setAttribute('aria-description', ok ? `${$t('Hold for speed and loop')}. ${$t('Glide order')}: ${S.homAll ? $t('All at once') : $t('Step by step')}` : $t('Hold for speed and loop'));
   }
   // the Playback dialog: the glide order, with its reason when it is off (muted); focus goes in, Esc returns it to the ⋯, a press
@@ -1263,9 +1267,11 @@
     const order = svOrderSel($t('Glide order'));
     // (the order lives in a small dialog at the strip's end, opened by its ⋯: Speed and Loop stay on the strip; a phone has the Playback sheet)
     const orderWhy = h('p', { class: 'sv-playpop-why' });
+    const pathsWhy = h('p', { class: 'sv-playpop-why', hidden: '' });
     const paths = svPathsBtn('btn small sv-paths', true);
     const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
-      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy, h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths));
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy,
+      h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths), pathsWhy);
     pop.hidden = true;
     const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
     const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
@@ -1300,7 +1306,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => svFitHead());
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1974,6 +1980,11 @@
     const P = svPlanes(), noPaths = P.length > 1 && derivIn(P[0], P[P.length - 1]);
     for (const b of [E.paths, E.sheetPaths]) { if (!b) continue; syncPathsBtn(b, S.morphPaths !== false, noPaths); b.classList.toggle('on', S.morphPaths !== false && !noPaths); if (b === E.paths) b.textContent = S.morphPaths !== false && !noPaths ? $t('On') : $t('Off');
     }
+    for (const [b, why] of [[E.paths, E.pathsWhy], [E.sheetPaths, E.sheetPathsWhy]]) {
+      if (!b || !why) continue;
+      why.textContent = noPaths ? b.dataset.tip || '' : '';
+      why.hidden = !noPaths;
+    }
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
@@ -2062,9 +2073,14 @@
       const ord = svOrderSel($t('Glide order'));
       const lp = svLoopBtn('btn sv-loop');
       const pa = svPathsBtn('btn sv-paths');
+      // (a disabled control's reason is on the sheet, where a touch can read it)
+      const ordWhy = h('p', { class: 'sv-sheet-why', hidden: '' });
+      const paWhy = h('p', { class: 'sv-sheet-why', hidden: '' });
       const sh = h('div', { class: 'sv-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': $t('Playback'), hidden: '' },
         h('div', { class: 'sv-sheet-h' }, h('b', {}, $t('Playback')), h('button', { type: 'button', class: 'btn small', onclick: () => svSheetClose() }, $t('Done'))),
-        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel), h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), h('div', { class: 'sv-sheet-r' }, lp), h('div', { class: 'sv-sheet-r' }, pa));
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Speed')), sel),
+        h('label', { class: 'sv-sheet-r' }, h('span', {}, $t('Order')), ord), ordWhy,
+        h('div', { class: 'sv-sheet-r' }, lp), h('div', { class: 'sv-sheet-r' }, pa), paWhy);
       sh.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { e.stopPropagation(); svSheetClose(); return; }
         // (modal: Tab stays in the sheet)
@@ -2074,7 +2090,10 @@
       });
       scrim.hidden = true;
       document.body.append(scrim, sh);
-      Object.assign(E, { sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp, sheetPaths: pa });
+      Object.assign(E, {
+        sheet: sh, scrim, sheetSpeed: sel, sheetOrder: ord, sheetLoop: lp, sheetPaths: pa,
+        sheetOrderWhy: ordWhy, sheetPathsWhy: paWhy,
+      });
     }
     E.sheetSpeed.value = SV.speed;
     E.sheet.hidden = false; E.scrim.hidden = false;
