@@ -542,26 +542,42 @@
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
-  // (v16.1 review math-6) D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few
-  // generic points (two surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so
-  // its two surfaces are one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
-  let sheetsD = { key: '', D: 0 };
+  // D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few generic points (two
+  // surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so its two surfaces are
+  // one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
+  // The distinct sheets among the K combos of map m (window W): the first combo of each class of combos whose values
+  // agree at every probe point; null when no combo repeats an earlier one (all K are distinct) or a map has no combos.
+  // The sheets of √ then log coincide in pairs, so the surfaces drawn are these combos only. Cached per chain, map, focus, window.
+  const sheetUniqCache = new Map();
+  function sheetUniq(m, W, K) {
+    const key = `${chainSig[nSteps()]}|${mapKeyOf(m)}|${S.focus}|${W}|${K}`;
+    let r = sheetUniqCache.get(key);
+    if (r) return r.list;
+    const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [], list = [];
+    const fin = (u) => Number.isFinite(u.re) && Number.isFinite(u.im);
+    const same = (u, v) => (!u || !v ? u === v : !fin(u) || !fin(v) ? !fin(u) && !fin(v) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
+    for (let c = 0; c < K; c++) {
+      // a point where the sheet cannot be evaluated (a throw) counts as a missing value, which only equals another
+      const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
+      if (!reps.some((x) => x.every((w, i) => same(w, v[i])))) { reps.push(v); list.push(c); }
+    }
+    r = { list: list.length < K ? list : null, D: list.length };
+    if (sheetUniqCache.size > 32) sheetUniqCache.delete(sheetUniqCache.keys().next().value);
+    sheetUniqCache.set(key, r);
+    return r.list;
+  }
+  // sheetUniq for map m as GLR.sheetInfo counts it: the combos drawn instead of 0..K-1, or null when all K are
+  function sheetUniqOf(m, W) {
+    const si = GLR.ok && typeof GLR.sheetInfo === 'function' ? GLR.sheetInfo(m, W) : null;
+    return si ? sheetUniq(m, W, si.K) : null;
+  }
   function multiSheet() {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
     try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const m = endMap(), key = `${chainSig[nSteps()]}|${S.focus}|${ms.W}|${ms.K}`;
-    if (sheetsD.key !== key) {
-      const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [];
-      const same = (u, v) => (!u || !v ? u === v : !(Number.isFinite(u.re) && Number.isFinite(u.im) && Number.isFinite(v.re) && Number.isFinite(v.im)) ? !(Number.isFinite(u.re) && Number.isFinite(u.im)) && !(Number.isFinite(v.re) && Number.isFinite(v.im)) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
-      for (let c = 0; c < ms.K; c++) {
-        const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, ms.W, { a: m.a || 0 }); } catch (e) { return null; } });
-        if (!reps.some((r) => r.every((w, i) => same(w, v[i])))) reps.push(v);
-      }
-      sheetsD = { key, D: reps.length };
-    }
-    return sheetsD.D > 1 ? Object.assign({}, ms, { D: sheetsD.D }) : null;
+    const m = endMap(), list = sheetUniq(m, ms.W, ms.K), D = list ? list.length : ms.K;
+    return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
