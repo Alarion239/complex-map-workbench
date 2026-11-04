@@ -1213,16 +1213,23 @@
     for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: p.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)) }) : p);
     return out.length ? out : null;
   }
+  // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
+  // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
+  const leftNet = () => (globeEdit('L') ? globeNet() : 'plain');
+  // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
+  // view, in both paints (over the portrait, area fills at half strength)
+  const leftPre = () => (typeof hasTargets === 'function' && hasTargets() && typeof preimageTargets === 'function'
+    ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null);
+  // what the left globe draws over its picture at rest: the net, the targets pulled back, the probe and a shape draft
+  // drawn on the globe (P3b) over the shapes (sphereView's options)
+  const leftGlobeOver = () => ({ net: leftNet(), pre: preAll(leftPre(), false), probeW: probe || null, post: [globeDraftPass('L')] });
   function renderSphereLeft(pane) {
-    // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
-    // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
-    const net = globeEdit('L') ? globeNet() : 'plain';
+    // the steps view at rest on a plane past the colour plane: the colour carried to it, as the plane shows it (19)
+    const carried = SV.on && !svColoured() ? svGlobeRest(pane, svStage()) : null;
+    if (carried) return carried;
+    const net = leftNet(), pre = leftPre();
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
-    // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
-    // view, in both paints (over the portrait, area fills at half strength)
-    const pre = typeof hasTargets === 'function' && hasTargets() && typeof preimageTargets === 'function'
-      ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null;
     // ((#366 prototype) the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
     // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
@@ -1231,9 +1238,8 @@
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
       return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
-    // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
-    // drawn on the globe (P3b) over the shapes
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net });
+    // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
+    return sphereView(pane, camL, CAML, Object.assign({ imageMode: true, stage: leftStage(), plane: !!xView().eq, role: 'L' }, leftGlobeOver()));
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
   function sphereCaption(pane, text) {

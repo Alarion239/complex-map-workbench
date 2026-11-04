@@ -171,6 +171,38 @@ for (const u of [0.25, 0.75]) {
   ok(`strokes, u = ${u}: every stroke is where H_u carries it (≥ ${HIT_MIN * 100} % of ≥ ${MIN_SAMPLES})`, r.all.n >= MIN_SAMPLES && r.all.hit >= HIT_MIN * r.all.n, r);
   ok(`strokes, u = ${u}: plane w1's circle is where H_u carries it (≥ ${HIT_MIN * 100} % of ≥ ${MIN_SAMPLES})`, r.own.n >= MIN_SAMPLES && r.own.hit >= HIT_MIN * r.own.n, r);
 }
+// Past the colour plane (T = 1: plane w2 is past it) the globe shows the colour carried there, as the plane does,
+// at rest and moving, with no fade: the glide w1 -> w2 held at u = 0.25 and 0.75 is drawn by the inverse pass and is
+// the exact picture at u (as above, from w1's parked globe); at rest on w2 the globe draws the carried colour; and
+// at u = 0.998 the moving globe is w2's resting globe (a mean within END_MEAN levels on the whole frame).
+const END_MEAN = 1.5;
+await ev(`__cmwSteps({ go: 1, now: true, T: 1 }); 1`);
+await settled({ max: 60000, until: '!__cmwSteps().moving && GLR.pendingLinks === 0' });
+await grab('P');
+for (const u of [0.25, 0.75]) {
+  await ev(`__cmwSteps({ x: ${1 + u} }); 1`);
+  await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${1 + u}) < 1e-9 && GLR.pendingLinks === 0` });
+  await grab('F');
+  const r = await compare('P', 'F');
+  R[`past T ${u}`] = r;
+  ok(`past the colour plane, u = ${u}: the moving globe is the exact picture at u, drawn by the inverse pass (at most ${OVER_MAX * 100} % of ≥ ${N_MIN} points over ${TOL} levels)`,
+    r.path === 'inverse' && r.n >= N_MIN && r.over <= OVER_MAX, r);
+}
+await ev(`__cmwSteps({ go: 2, now: true }); 1`);
+await settled({ max: 60000, until: '!__cmwSteps().moving && GLR.pendingLinks === 0' });
+await grab('E');
+R.restPastT = await ev('__cmwSvGlobe(0, 0)');
+ok('at rest past the colour plane the globe shows the carried colour (the inverse pass)', R.restPastT && R.restPastT.path === 'inverse', R.restPastT);
+await ev(`__cmwSteps({ x: 1.998 }); 1`);
+await settled({ max: 60000, until: 'Math.abs(__cmwSteps().x - 1.998) < 1e-9 && GLR.pendingLinks === 0' });
+await grab('F');
+R.endPastT = await ev(`(() => {
+  const A = window.__sl.E.d, B = window.__sl.F.d;
+  let sum = 0;
+  for (let i = 0; i < A.length; i += 4) sum += (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2])) / 3;
+  return { mean: +(sum / (A.length / 4)).toFixed(3), path: __cmwSvGlobe(0, 0).path };
+})()`);
+ok(`just before w2 the moving globe is w2's resting globe (a mean within ${END_MEAN} levels)`, R.endPastT.path === 'inverse' && R.endPastT.mean <= END_MEAN, R.endPastT);
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
 return { pass: fails.length === 0, fails, results: R };
