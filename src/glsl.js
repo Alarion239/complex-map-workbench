@@ -310,19 +310,19 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   }
 
   // Uniform allocator in vec2 cells (two per vec4 slot). A writer fills cell values on demand.
-  function makeAlloc() {
+  function makeAlloc(U = 'uChain') {
     let cells = 0;
-    const comp = (c, k) => `uChain[${c >> 1}].${(c & 1 ? 'zw' : 'xy')[k]}`;
+    const comp = (c, k) => `${U}[${c >> 1}].${(c & 1 ? 'zw' : 'xy')[k]}`;
     return {
       cell() {
         const c = cells++;
-        return { c, v: `uChain[${c >> 1}].${c & 1 ? 'zw' : 'xy'}`, x: comp(c, 0), y: comp(c, 1) };
+        return { c, v: `${U}[${c >> 1}].${c & 1 ? 'zw' : 'xy'}`, x: comp(c, 0), y: comp(c, 1) };
       },
       slot() {
         if (cells & 1) cells++;
         const s = cells >> 1;
         cells += 2;
-        return { s, c: 2 * s, v: `uChain[${s}]` };
+        return { s, c: 2 * s, v: `${U}[${s}]` };
       },
       get slots() { return Math.max(1, (cells + 1) >> 1); },
     };
@@ -1906,7 +1906,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
 
     // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
-    src = specialLib(src + sh) + src;
+    const lib = specialLib(src + sh), body = src;
+    src = lib + src;
     let cache = null;
     function values() {
       if (cache) return cache;
@@ -1921,7 +1922,29 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken now (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
-    let inverse;
+    let inverse, jet;
+    // chainRangeJ(z, a, b, out D): the maps in (a, b] at z, as chainRange, with D their derivative there by the chain
+    // rule over each map's exact derivative (derivPlan); GLSL to put after source, its numbers in its own
+    // uniform vec4 uChainJ[] (data). Null with a live d/dz step, a map with no derivative plan, or a derivative that
+    // calls a special function source does not carry
+    function buildJet() {
+      if (dks.length) return null;
+      const AJ = makeAlloc('uChainJ'), dps = [];
+      for (const x of maps) {
+        const dp = derivPlan(`${x.P}j`, built[x.k - 1], AJ);
+        if (!dp) return null;
+        dps.push(dp);
+      }
+      let s = `uniform vec4 uChainJ[${AJ.slots}];\n`;
+      maps.forEach((x, i) => { s += `vec2 ${x.P}j_df(vec2 z) {\n  ${dps[i].f}\n}\n`; });
+      s += 'vec2 chainRangeJ(vec2 z, int a, int b, out vec2 D) {\n  D = vec2(1.0, 0.0);\n';
+      for (const x of maps) s += `  if (a < ${x.k} && b >= ${x.k}) { D = cmul(D, ${x.P}j_df(z)); z = ${x.P}_f(z); }\n`;
+      s += '  return z;\n}\n';
+      if (specialLib(body + sh + s) !== lib) return null;
+      const vals = new Float64Array(4 * AJ.slots), put = (c, re, im) => { vals[2 * c] = re; vals[2 * c + 1] = im; };
+      for (const dp of dps) dp.write(put);
+      return { source: s, slots: AJ.slots, data: Float32Array.from(vals) };
+    }
     return {
       key: JSON.stringify(['glc1', sigs]),
       source: src,
@@ -1933,6 +1956,10 @@ vec2 cx_binom(vec2 a, vec2 b) {
           try { inverse = buildInverse(onOff, built); } catch (e) { inverse = { ok: false, reason: 'inverse: ' + (e && e.message), key: null }; }
         }
         return inverse;
+      },
+      get jet() {
+        if (jet === undefined) { try { jet = buildJet(); } catch (e) { jet = null; } }
+        return jet;
       },
       slots,
       fill(out) { const v = values(); for (let i = 0; i < v.length; i++) out[i] = v[i]; return out; },
