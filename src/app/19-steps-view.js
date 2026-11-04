@@ -1401,7 +1401,7 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    if (typeof ResizeObserver === 'function') { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitAdd(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
+    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitAdd(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
