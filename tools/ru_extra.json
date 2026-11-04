@@ -660,5 +660,6 @@
  "Hold ▶ to open Playback: its speed select sets how long each step takes, and clicking Loop starts over at the end instead of stopping.": "Удерживайте ▶, чтобы открыть «Воспроизведение»: выбор скорости задаёт, сколько длится каждый шаг, а нажатие «Повтор» начинает сначала в конце, а не останавливается.",
  "Hold ▶ to open Playback: its speed select sets how long each step takes, and tapping Loop starts over at the end instead of stopping.": "Удерживайте ▶, чтобы открыть «Воспроизведение»: выбор скорости задаёт, сколько длится каждый шаг, а касание «Повтор» начинает сначала в конце, а не останавливается.",
  "Colouring of {p} (the colour plane)": "Раскраска плоскости %{p} (плоскость цвета)",
- "Go to {p}": "Перейти к %{p}"
+ "Go to {p}": "Перейти к %{p}",
+ "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}"
 }
