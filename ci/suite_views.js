@@ -172,13 +172,14 @@ const VIEWS = {
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the rail, inside the strip'),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
-  'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
+  'v151_cmd.js': steps({ pin: true }),
+  'v151_alone_classic_cmd.js': classic('the language switch with a step shown alone (v15.1 verify-8): "Show alone" is the classic view\'s; v151_cmd has the steps view\'s equivalent'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
-  'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
-  'export_cmd.js': port('export', 'the shown plane and the filmstrip'),
+  'complex_lang_export_cmd.js': steps({ pin: true }),
+  'export_cmd.js': port('export', 'the figures of the shown plane: pinned to the steps view its first third fails on the article, homework and phase captions, the paths figure and the filmstrip (eight checks), and the rest of it reads the classic right pane (canvasR, the right plane\'s view)'),
   'export_fit_cmd.js': steps({ pin: true }),
-  'export_sheet_cmd.js': port('export'),
+  'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
