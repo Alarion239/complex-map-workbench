@@ -152,7 +152,8 @@ const VIEWS = {
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
-  'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
+  'split_cmd.js': steps({ pin: true }),
+  'split_deform_cmd.js': port('interact', 'the Split with the Deformation open, the alone walk ‹ › and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play) and no ‹ › walk of a step shown alone'),
   'tour_audit_cmd.js': port('words', 'every step visited: the steps-view tour walks 38 steps and it expects at least 43; it waits on the tour chapters (#717)'),
   'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (#717):'
     + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
@@ -174,13 +175,14 @@ const VIEWS = {
   'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the Video format (UX60), the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu (UX97, UX99), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the rail, inside the strip'),
-  'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
+  'v151_cmd.js': steps({ pin: true }),
+  'v151_alone_classic_cmd.js': classic('the language switch with a step shown alone (v15.1 verify-8): "Show alone" is the classic view\'s; v151_cmd has the steps view\'s equivalent'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
-  'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
-  'export_cmd.js': port('export', 'the shown plane and the filmstrip'),
+  'complex_lang_export_cmd.js': steps({ pin: true }),
+  'export_cmd.js': port('export', 'the figures of the shown plane: pinned to the steps view its first third fails on the article, homework and phase captions, the paths figure and the filmstrip (eight checks), and the rest of it reads the classic right pane (canvasR, the right plane\'s view)'),
   'export_fit_cmd.js': steps({ pin: true }),
-  'export_sheet_cmd.js': port('export'),
+  'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
