@@ -1199,6 +1199,7 @@
       u1f(P, 'uFogNear', fogNear);
       u1f(P, 'uFogFar', fogFar);
       u1f(P, 'uFlat', flat);
+      u3(P, 'uPaper', col3(st.carry && st.carry.paper, C.floor));
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
