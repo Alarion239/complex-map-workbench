@@ -546,7 +546,7 @@
   // surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so its two surfaces are
   // one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
   // The distinct sheets among the K combos of map m (window W): the first combo of each class of combos whose values
-  // agree at every probe point; null when no combo repeats an earlier one (all K are distinct) or a map has no combos.
+  // agree at every probe point (all of 0..K-1 when none repeats an earlier one).
   // The sheets of √ then log coincide in pairs, so the surfaces drawn are these combos only. Cached per chain, map, focus, window.
   const sheetUniqCache = new Map();
   function sheetUniq(m, W, K) {
@@ -561,22 +561,23 @@
       const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
       if (!reps.some((x) => x.every((w, i) => same(w, v[i])))) { reps.push(v); list.push(c); }
     }
-    r = { list: list.length < K ? list : null, D: list.length };
+    r = { list };
     if (sheetUniqCache.size > 32) sheetUniqCache.delete(sheetUniqCache.keys().next().value);
     sheetUniqCache.set(key, r);
     return r.list;
   }
-  // sheetUniq for map m as GLR.sheetInfo counts it: the combos drawn instead of 0..K-1, or null when all K are
+  // sheetUniq for map m as GLR.sheetInfo counts it (callers hold a multiSheet map, so GLR.sheetInfo exists)
   function sheetUniqOf(m, W) {
-    const si = GLR.ok && typeof GLR.sheetInfo === 'function' ? GLR.sheetInfo(m, W) : null;
-    return si ? sheetUniq(m, W, si.K) : null;
+    const si = GLR.sheetInfo(m, W);
+    return si ? sheetUniq(m, W, si.K) : [0];
   }
   function multiSheet() {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
+    // (a map GLR.sheetInfo cannot describe throws: no sheets)
     try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const m = endMap(), list = sheetUniq(m, ms.W, ms.K), D = list ? list.length : ms.K;
+    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
@@ -646,6 +647,7 @@
   // the title says "on the sheets of F" and the caption names the path on a sheet of each deformed root, power or log.
   function sheetsClause(sh, fmt, F) {
     const win = sh.pieces.some((q) => !(q.n > 0)), html = fmt === 'html', D = sh.D || sh.K, capped = sh.total > sh.K;
+    const nd = win ? D : sh.K;   // (the surfaces drawn: a window's coinciding combinations are one sheet)
     // (v16.1 verify-5: the window as drawn, centred on the step's own branch kb when every window piece has the same)
     const kbs = [...new Set(sh.pieces.filter((q) => !(q.n > 0)).map((q) => q.kb || 0))], kb = kbs.length === 1 ? kbs[0] : 0;
     const k = html ? `<i>k</i> = ${I18N.num(kb - sh.W).replace('-', '−')}…${I18N.num(kb + sh.W).replace('-', '−')}` : `k=${kb - sh.W},\\dots,${kb + sh.W}`;
@@ -654,15 +656,15 @@
       const Fh = fnHtml();
       if (capped) return win ? $t(', on {K} of the {total} sheet combinations of {F}, {k}', { K: sh.K, total: sh.total, F: Fh, k }) : $t(', on {K} of the {total} sheet combinations of {F}', { K: sh.K, total: sh.total, F: Fh });
       if (!win) return D === 2 ? $t(', on both sheets of {F}', { F: Fh }) : $tn(', on all {n} sheets of {F}', ', on all {n} sheets of {F}', D, { F: Fh });
-      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', sh.K, { k, F: Fh });
+      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', nd, { k, F: Fh });
     }
     if (html) {
       if (capped) return win ? $t(', {K} of {total} sheet combinations, {k}', { K: sh.K, total: sh.total, k }) : $t(', {K} of {total} sheet combinations', { K: sh.K, total: sh.total });
       if (!win) return D === 2 ? $t(', both sheets') : $tn(', all {n} sheets', ', all {n} sheets', D);
-      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', sh.K, { k });
+      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', nd, { k });
     }
     if (sh.hom) {
-      const p = { H: 'H_t', F: F || 'F', n: sh.K };
+      const p = { H: 'H_t', F: F || 'F', n: nd };
       const dk = sh.dk || {};
       // the paths on a sheet (a second sentence): z^alpha along z^sigma e^{2 pi i k sigma}, log along (z^u e^{2 pi i k u} - 1)/u + u,
       // in the caption's t when every piece deforms in it, else in the time s of the piece's own step (v16.1 verify-1:
@@ -681,7 +683,7 @@
     if (capped) return win ? { src: '; %{K} of the %{total} sheet combinations in the window %{k} are shown.', p: { K: sh.K, total: sh.total, k } } : { src: '; %{K} of the %{total} sheet combinations are shown.', p: { K: sh.K, total: sh.total } };
     if (!win) return D === 2 ? { src: '; both sheets are shown.', p: {} } : { src: null, p: { text: $tn('; all {n} sheets are shown.', '; all {n} sheets are shown.', D) } };
     if (sh.pieces.length === 1) return Number.isFinite(N) ? { src: '; the sheets %{k} of %{N} are shown.', p: { k, N } } : { src: '; the sheets %{k} of infinitely many are shown.', p: { k } };
-    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: sh.K, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: sh.K, k } };
+    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: nd, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: nd, k } };
   }
   // the Landscape title's sheets suffix, as both views' titles say it: which sheets are drawn (", both sheets"), or that one
   // is while a deformation with no sheet form shows; '' for the principal branch
