@@ -25,24 +25,18 @@ await load('svstrokes' + Date.now(), ST);
 await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
 ok('the page shows the steps view', await isSteps(), null);
 await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane' }), 1`);
-// (the left canvas's pixels, with the shapes' strokes drawn or hidden)
+const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// (the left canvas's still pixels, with the shapes' strokes drawn or hidden, kept in __heldPx[tag])
 const snap = async (tag, hide) => {
   await ev(`__cmwHideStrokes(${!!hide}), __cmwSteps({ bare: false }), 1`);
   await settled({ max: 20000 });
-  await ev(`(() => {
-    const c = document.getElementById('canvasL'), x = document.createElement('canvas');
-    x.width = c.width; x.height = c.height;
-    const g = x.getContext('2d', { willReadFrequently: true });
-    g.drawImage(c, 0, 0);
-    (window.__px || (window.__px = {}))[${JSON.stringify(tag)}] = g.getImageData(0, 0, c.width, c.height).data;
-    return 1;
-  })()`);
+  ok(`the frame ${tag} settles`, await grab(tag), null);
   if (hide) { await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); }
 };
 const at = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-9 && GLR.pendingLinks === 0` }); };
 // a shape's strokes in the parked frame P (P0: strokes hidden) carried by the glide's H_u into the moving frame M (M0)
 const carried = (id) => ev(`(() => {
-  const g = __cmwSteps().glide, K = window.__px, P = K.P, P0 = K.P0, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
+  const g = __cmwSteps().glide, K = window.__heldPx, P = K.P, P0 = K.P0, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
   const W = c.width, H = c.height, dpr = W / g.w, v = g.view, hex = __cmwLook(${JSON.stringify(id)}, 'L').edge.replace('#', '');
   const ink = [0, 2, 4].map((k) => parseInt(hex.slice(k, k + 2), 16));
   const near = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2])) <= ${INK_TOL};

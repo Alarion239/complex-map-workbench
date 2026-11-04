@@ -9,9 +9,12 @@
 //   pixels more than DIFF_TOL apart (frac), the largest (max) and the mean (mean); and each frame's mean luminance
 //   (lum, Rec. 601 weights) and mean alpha (alpha);
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
-//   uses it too): __giRef(P, F, tol = 6) samples the frame F every 10 px; at each pixel w it solves H_u(z) = w by
+//   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window (H_u and the front sheet's key from the glide's record,
-//   __cmwSteps().glide), takes the front z and colours w as P, plane z's parked frame, colours z (bilinear). Pixels next
+//   __cmwSteps().glide), takes the front z among the roots in the regions (where P is not the paper: a map many-to-one
+//   onto w under Inside regions; every root when none is, or with window.__giAllRoots) and colours w as P, plane z's
+//   parked frame, colours z (bilinear). A pixel whose front covered root could be one off P's canvas (whose cover P
+//   cannot show) counts as none. Pixels next
 //   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
@@ -20,15 +23,26 @@
 (() => {
   // (the page script of the exact reference, as written for steps_glide_inverse_cmd.js)
   const RANGE = `window.__giRange = (P, W, x, y) => { let r = 0; for (let c = 0; c < 3; c++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = P[4 * ((y + dy) * W + x + dx) + c]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };`;
-  const REF = `window.__giRef = (P, F, tol = 6) => {
+  const REF = `window.__giRef = (P, F, tol = 6, step = 10) => {
   const g = __cmwSteps().glide, H = g.H, v = g.view, W = F.W, Ht = F.H, dpr = W / g.w, C = (re, im) => ({ re, im });
   const s2w = (x, y) => C(v.cx + (x / dpr - g.w / 2) / v.s, v.cy - (y / dpr - g.h / 2) / v.s);
   const x0 = v.cx - g.w / 2 / v.s, x1 = v.cx + g.w / 2 / v.s, y0 = v.cy - g.h / 2 / v.s, y1 = v.cy + g.h / 2 / v.s, seeds = [];
   for (let i = 0; i < 8; i++) for (let j = 0; j < 6; j++) seeds.push(C(x0 + (i + 0.5) * (x1 - x0) / 8, y0 + (j + 0.5) * (y1 - y0) / 6));
+  // (the parked frame's paper, where Inside regions leaves a pixel outside the regions; null: none known)
+  const sh = (__cmwShapes().shapes || [])[0], ph = sh && !window.__giAllRoots ? __cmwLook(sh.id, 'L').plane : null;
+  const paper = ph && /^#[0-9a-f]{6}$/i.test(ph) ? [1, 3, 5].map((i) => parseInt(ph.slice(i, i + 2), 16)) : null;
+  // (true / false: z in the regions or on the paper; null: z off P's canvas, where P cannot tell)
+  const covers = (z) => {
+    if (!paper) return true;
+    const x = Math.round(((z.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), y = Math.round((g.h / 2 - (z.im - v.cy) * v.s) * dpr - 0.5);
+    if (x < 0 || y < 0 || x >= W || y >= Ht) return null;
+    const i = 4 * (y * W + x);
+    return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
+  };
   let n = 0, over = 0, none = 0, max = 0;
-  for (let py = 4; py < Ht - 4; py += 10) for (let px = 4; px < W - 4; px += 10) {
+  for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5);
-    let best = null, bk = Infinity;
+    let best = null, bk = Infinity, bcv = false, kOff = Infinity;
     for (const s0 of seeds) {
       let z = s0;
       for (let it = 0; it < 40 && z; it++) {
@@ -45,10 +59,13 @@
       if (!z) continue;
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
-      const k = g.key(z);
-      if (k < bk) { bk = k; best = z; }
+      const k = g.key(z), cv = covers(z);
+      if (cv === null) { kOff = Math.min(kOff, k); continue; }
+      if (best === null || (cv && !bcv) || (cv === bcv && k < bk)) { bk = k; best = z; bcv = cv; }
     }
-    if (!best) { none++; continue; }
+    // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one
+    // the renderer colours w by: the regions run past the canvas, so w's colour is not known)
+    if (!best || kOff < (bcv ? bk : Infinity)) { none++; continue; }
     const fx = ((best.re - v.cx) * v.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (best.im - v.cy) * v.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
     if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { none++; continue; }
     if (__giRange(P.d, W, qx, qy) > 12 || __giRange(F.d, W, px, py) > 12) continue;
@@ -196,5 +213,20 @@ ${REF}`;
     }
     return out;
   })()`);
-  return { hold, grab, compare, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  // two kept frames pixel by pixel away from the colour lines (__giRange: pixels whose 4 x 4 neighbourhood spans more
+  // than 12 levels in either frame are left out): { n compared, max, over: the share of n more than tol apart in a
+  // channel }
+  const sameAway = (a, b, tol) => ev(`(() => {
+    ${RANGE}
+    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height;
+    if (!A || !B || A.length !== B.length) return null;
+    let n = 0, over = 0, max = 0;
+    for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) {
+      if (__giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
+      const i = 4 * (y * W + x), m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
+      n++; if (m > max) max = m; if (m > ${tol}) over++;
+    }
+    return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
+  })()`);
+  return { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()

@@ -100,7 +100,7 @@
     let role;
     if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') { const shw = sheetsShown(); role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: shw ? sheetsClause(shw, 'html') : '' }); }
+    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
@@ -760,6 +760,9 @@
     const paths = list.map((x) => (u == null ? pathOf(x, stageMap(b), 'L', kind, { recs, budget: false }) : invHomPath(x, 0, b, u)));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return null; }
+    // (a homotopy inverted by Newton finds two of H_t's points over w; Everywhere asks for the front one of all of them
+    // over the whole plane, where H_t can have more, so that frame keeps the carried mesh)
+    if (u != null && list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) { why.r = 'Everywhere under a Newton inverse'; return null; }
     const carry = svCarryStyle(T);
     return list.map((x, i) => ({ map: paths[i].m, plan: paths[i].plan, prep: paths[i].prep, inv: paths[i].inv, shape: x, dpr: pane.dpr, look: SV_CARRY_LOOK, carry, half: false, motion: false, coldOk: true }));
   }
@@ -780,7 +783,7 @@
       // (a shape drawn already stays: the next path draws over it)
       if (res !== 'drawn') return false;
     }
-    return true;
+    return 'drawn';
   }
   // A frame between planes a and b as svCarryExact draws a plane: per pixel, by the inverse pass, the front point z of
   // plane 0 with H_u(F_{b-1}(z)) = w (invHomPath: step b's homotopy at u inverted by its own ops), in the colour
@@ -794,7 +797,10 @@
       let res = 'error';
       try {
         res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, arg));
-      } catch (e) { console.error('steps view glide colour', e); }
+      } catch (e) {
+        // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
+        console.error('steps view glide colour', e);
+      }
       if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     }
     return true;
@@ -1199,10 +1205,10 @@
   function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
     for (const s of hideStrokes ? [] : S.shapes) {
-      if (s.visible === false || kindType(s) === 'point' || (col && !S.outline && s.id !== selected)) continue;
+      if (!outlineShown(s, !col)) continue;
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
-      const dash = r.open ? { dash: [5, 3.5], arc: arcOf(r, cpuMap(map), mapKeyOf(map)) } : null;
+      const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
@@ -1482,7 +1488,7 @@
   // a step shown alone has a "Whole chain" chip at its left)
   function svBuildTrack() {
     const E = SV.els, P = svPlanes(), T = svT(), al = svAloneOk();
-    const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + repeatBlocks().map((r) => `${r.a}-${r.b}x${r.by || r.n}`).join(',') + '|' + document.documentElement.lang;
+    const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + repeatBlocks().map((r) => `${r.a}-${r.b}x${r.by || r.n}`).join(',') + '|' + document.documentElement.lang + '|' + document.documentElement.classList.contains('ph');
     if (sig === E.sig) return;
     E.sig = sig;
     // (the thread is drawn again from the chain: a control with the focus on it, a chip, its ⋯, a plane's node or Whole chain, is
@@ -1518,6 +1524,9 @@
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
     E.wholeMap.hidden = !!al || !S.steps.length;
+    // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
+    if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
+    else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
   }
@@ -1530,7 +1539,9 @@
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
     const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,
-      SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
+      SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
+      // (the relief's title names its height and the sheets drawn)
+      SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
@@ -1579,7 +1590,7 @@
     // ring is centred on a node, clear of its name): measured with the centres)
     if (!E.centres || E.centresSig !== E.sig) {
       const pl = [...E.track.querySelectorAll('.sv-plane')];
-      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
+      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
       const nd = pl[0] && pl[0].querySelector('.sv-node');
       if (nd) E.thumb.style.setProperty('--sv-node-y', `${(pl[0].offsetTop + nd.offsetTop + nd.offsetHeight / 2).toFixed(1)}px`);
       svFades();
@@ -1599,7 +1610,9 @@
     if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
     else if (E.trackW > E.railW + 1) {
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
-      const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
+      const toEnd = E.wholeMap.parentNode === E.rail && j >= c.length - 1;
+      const want = toEnd ? E.trackW : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
@@ -1783,7 +1796,7 @@
     rail.addEventListener('pointerdown', dismissToast, true);
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
-    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
+    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
     // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
     // press must not act on a plane the user cannot see; its own buttons keep their action)
     const th = document.getElementById('toastHost');
@@ -1804,7 +1817,7 @@
       return ns.length - 1;
     };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-wholemap, .sv-add, .sv-whole, .sv-bandx')) return;
       const d = SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
       svRangeDown(d, e, rail, posX);
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
@@ -1812,7 +1825,7 @@
     // (a press on the thread away from the planes and the chips goes there too)
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
-      if (e.target.closest('.sv-fwrap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
       svOutsideBand(posX(e));
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
@@ -1932,10 +1945,12 @@
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
         return;
       }
-      // (K or M plays and pauses; Esc pauses, or else clears the range, #438)
-      if ((e.key === 'k' || e.key === 'K' || e.key === 'm' || e.key === 'M') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
+      // (K or M plays and pauses; Esc pauses, or else clears the range, #438. By the Latin letter of the physical key, so
+      // that a Russian layout's Л, Ь, З and С work as K, M, P and C)
+      const lk = (I18N.keyOf(e) || e.key || '').toLowerCase();
+      if ((lk === 'k' || lk === 'm') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
       // (P: the paths, as in the classic deformation)
-      if ((e.key === 'p' || e.key === 'P') && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
+      if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
@@ -1943,7 +1958,7 @@
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
-      } else if ((e.key === 'c' || e.key === 'C') && !e.shiftKey) {
+      } else if (lk === 'c' && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
         svSetT(svStage());
       }

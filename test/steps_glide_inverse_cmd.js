@@ -55,7 +55,7 @@ await park(0); await ev('window.__gi.p0 = __giGrab(), 1');
 await park(1); await ev('window.__gi.p1 = __giGrab(), 1');
 for (const u of [0.25, 0.5, 0.75]) {
   const g = await at(u, 'inverse');
-  const r = await ev('__giRef(window.__gi.p0, __giGrab())');
+  const r = await ev('__giRef(window.__gi.p0, __giGrab(), 6, 8)');
   info[`default u ${u}`] = { g, r };
   ok(`default, z → w₁ at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === 1, g);
   ok(`default, z → w₁ at u = ${u}: the CPU reference's colours away from the lines (> 6 on <= 0.2 %)`, r.n > 2000 && r.over <= 0.002, r);
