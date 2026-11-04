@@ -402,7 +402,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && !o.clip ? 'out vec2 vW;\nflat out float vWTol;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -423,7 +423,20 @@ ${o.points ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0
 ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
   vec2 wm = FT(3, dMid);` : `  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
   vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);`}` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
-  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet && o.clip ? `
+  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet && !o.clip ? `
+  // (uKPass 1: the triangle again, continued from a vertex where its centre's sheet is not the map's own (the place
+  // continued from the centre is off the map's by more than the triangle's interpolation can be), so its part on that
+  // vertex's side of the cut is drawn too; a triangle with no such vertex is not drawn. In both passes the fragment
+  // stage keeps only the fragments the map itself sends there, vW)
+  if (uKPass == 1) {
+    vec2 p0 = W(aIdx.x, s0), p1 = W(aIdx.y, s1), p2 = W(aIdx.z, s2);
+    float te = uKPx + 0.25 * max(max(len2(w1 - w0), len2(w2 - w1)), len2(w0 - w2));
+    bool o0 = !(len2(w0 - p0) <= te), o1 = !(len2(w1 - p1) <= te), o2 = !(len2(w2 - p2) <= te);
+    if (!(o0 || o1 || o2)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    zc = srcOf(o0 ? s0 : (o1 ? s1 : s2));
+    w0 = onCentreSheet(zc, s0, d0); w1 = onCentreSheet(zc, s1, d1); w2 = onCentreSheet(zc, s2, d2);
+    wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);
+  }` : ''}${o.sheet && o.clip ? `
   // (uKPass 1: only a triangle with a vertex past a clipped cut, on that vertex's branch, which colours the triangle's
   // part past the cut, the part the pass 0 draw clipped)
   if (uKPass == 1) {
@@ -435,7 +448,11 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
   int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && o.clip ? `  vSide = c == 0 ? d0 : (c == 1 ? d1 : d2);
+${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && !o.clip ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+  // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
+  vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
+  vWTol = uKPx + 0.25 * max(max(len2(w1 - w0), len2(w2 - w1)), len2(w0 - w2));
+` : ''}${o.sheet && o.clip ? `  vSide = c == 0 ? d0 : (c == 1 ? d1 : d2);
   // (a side value interpolated across the triangle is off by up to h^2 / 4 for |z|^2 - 1, h its longest source edge:
   // the fragments that close to the cut are kept, so the two sides meet without a gap)
   vec2 q0 = srcOf(s0), q1 = srcOf(s1), q2 = srcOf(s2);
@@ -1175,13 +1192,15 @@ void main() {
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
-  // triangle's branch was continued across left out)
-  const CARRY_FS = (id, key = true, pre = false, clip = false) => `
+  // triangle's branch was continued across left out; own: REGION_VS's sheet option without clip, a fragment kept only
+  // where the map sends its own source point vP, within vWTol of the place vW drawn: the seam where a triangle torn
+  // across a cut meets the other side is the cut's image, pixel for pixel)
+  const CARRY_FS = (id, key = true, pre = false, clip = false, own = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}in vec2 vP;
-${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}${own ? 'in vec2 vW;\nflat in float vWTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}${own ? '  vec2 dw = mapPoint(vP) - vW;\n  if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;

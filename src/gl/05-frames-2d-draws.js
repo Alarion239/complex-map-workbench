@@ -417,7 +417,7 @@
   function drawRegionCarry(res, st, prep) {
     if (prep == null) prep = carryPrep(res, st);
     if (typeof prep === 'boolean') return prep;
-    const { L, e, P, fill, fp, full, clip } = prep;
+    const { L, e, P, fill, fp, full } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     const set = (Q) => {
@@ -429,7 +429,7 @@
       u1f(Q, 'uKLim', st.lim || 1e30);
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
-      if (clip) u1i(Q, 'uKPass', 0);
+      if (Q === fill || Q === full) u1i(Q, 'uKPass', 0);
       if (fp && Q === fill) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
@@ -441,7 +441,8 @@
       if (!carryProbe.noKCDraw) scissored(st.scissors, drawAll);
       const sheet = fill || full;
       if (fill) { set(fill); scissored(st.scissors, drawAll); }
-      if (sheet && clip) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
+      // (the sheet program's pass 1: the parts of its triangles past the cut, on the branch there)
+      if (sheet) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
     });
     gl.bindVertexArray(null);
     return true;

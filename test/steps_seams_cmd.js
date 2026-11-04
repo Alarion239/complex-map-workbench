@@ -46,7 +46,8 @@ const park = async (x, scope) => {
     // (the worst 20 rows in a row: the teeth of a sawtooth stand where the torn triangles are, not along the whole seam)
     let worst = 0, worstY = -1;
     for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
-    return { label: __cmwSteps().label, rows: per.length, perRow: +worst.toFixed(2), worstY, W, H };
+    const g = __cmwSteps().glide || {};
+    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: +worst.toFixed(2), worstY, W, H };
   })()`);
   info.teeth = await teeth();
   // (the same frame without the cut fill: what the seam looks like where no torn triangle is drawn; for reference)
@@ -83,7 +84,8 @@ const park = async (x, scope) => {
         }
         out[a0] = { samples, cracks, first };
       }
-      return { label: __cmwSteps().label, O: O.map(Math.round), out };
+      const g = __cmwSteps().glide || {};
+      return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
