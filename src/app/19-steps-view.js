@@ -1206,6 +1206,31 @@
     if (!frame) GLR.blit(pane.ctx);
   }
   // a pane that draws into canvas cv instead (the same size and view)
+  // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
+  // plane's 2D picture colours (svMask): {cv, key, box, paper}, a canvas over box (512 pixels on its longer side, row 0
+  // at its top), opaque inside the set and clear outside; the surface is plain paper (paper) there. One per chain,
+  // plane, box and shapes; null with the colour everywhere (Everywhere)
+  let svLandMaskC = null;
+  function svLandMask(k, box) {
+    if (!svMaskOn() || !paneL) return null;
+    const W = box.x1 - box.x0, H = box.y1 - box.y0, n = 512;
+    const pw = W >= H ? n : Math.max(8, Math.round(n * W / H)), ph = W >= H ? Math.max(8, Math.round(n * H / W)) : n;
+    const key = [svSigNow(), chainSig[nSteps()], k, box.x0, box.x1, box.y0, box.y1, pw, ph].concat(S.shapes.map((x) => shapeKey(x))).join('|');
+    if (svLandMaskC && svLandMaskC.key === key) return svLandMaskC;
+    const cv = (svLandMaskC && svLandMaskC.cv) || document.createElement('canvas');
+    cv.width = pw; cv.height = ph;
+    const cc = cv.getContext('2d');
+    cc.setTransform(1, 0, 0, 1, 0, 0);
+    cc.fillStyle = '#fff';
+    cc.fillRect(0, 0, pw, ph);
+    // (a pane over box at one pixel a CSS pixel: the 2D plane's own mask, cut out of the white)
+    // (own values over the pane's getters)
+    const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
+    const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
+    svMask(over, stageMap(k), k, { cc });
+    svLandMaskC = { cv, key, box: Object.assign({}, box), paper: TH.planeRGB };
+    return svLandMaskC;
+  }
   function svProxy(pane, cv) {
     const p = Object.create(pane);
     p.ctx = cv.getContext('2d');

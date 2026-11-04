@@ -260,6 +260,15 @@
   // (#846) the steps view's carried landscape in the last frame: {u, s (plane a), mu, box}, or null for a surface at
   // rest; box: the last frame's block, carried or not
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
+  // (#846) the last Landscape frame's Inside-regions mask at the point (x, y) of its plane: 0 to 1 (1: in the carried
+  // region set), null outside its box or with no mask
+  window.__cmwLandMask = (x, y) => {
+    const m = render3D.mask;
+    if (!m) return null;
+    const u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
+    if (!(u >= 0 && u < 1 && v >= 0 && v < 1)) return null;
+    return m.cv.getContext('2d').getImageData(Math.floor(u * m.cv.width), Math.floor(v * m.cv.height), 1, 1).data[3] / 255;
+  };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
   // TEMP-DEBUG-HOOK

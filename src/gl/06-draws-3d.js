@@ -275,6 +275,28 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return landC;
   }
+  // (the steps view's Inside regions) st.mask {cv, key, box, paper}: a canvas over box (plane coordinates), opaque on the
+  // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
+  // passes' scratch unit); paper: the plain surface's colour outside it; null: the colour everywhere
+  let maskTex = null, maskKey = null;
+  function maskUniforms(P, m) {
+    u1f(P, 'uMaskOn', m ? 1 : 0);
+    if (!m || !P.loc.uMask) return;
+    gl.activeTexture(gl.TEXTURE15);
+    if (!maskTex) maskTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    if (maskKey !== m.key) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.cv);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      maskKey = m.key;
+    }
+    u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
+    u3(P, 'uPaper', col3(m.paper, [1, 1, 1]));
+  }
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
   function lwRead(tex, w, h) {
@@ -1173,6 +1195,7 @@
       u1f(P, 'uFogNear', fogNear);
       u1f(P, 'uFogFar', fogFar);
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
+      maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
