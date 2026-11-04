@@ -2463,7 +2463,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
+  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
