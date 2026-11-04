@@ -1,8 +1,8 @@
-// The steps view's Landscape chrome (#846, ux's rule on it, 7): the Height key, the title and the readout describe
+// The steps view's Landscape chrome: the Height key, the title and the readout describe
 // h(F), the same quantity on every plane. The default page (z, exp, Möbius) on the Landscape, with T = w₁ (plane w₂
 // past it) and T = w₂ (the default):
 // - on every plane at rest and between planes, held at u = 0.5: the Height key is the key, captioned "height log |F|";
-// - the title names the relief's height by the map to the last plane: log|F| on z, log|f₂| on w₁, with either T;
+// - the title names the relief's height, log|F|, on every plane with either T;
 // - at rest the probe at the pane's centre reads the point, F there (but on the last plane, where F is the point) and
 //   the height |F|, the same value of a point of z as of its image in w₁ and w₂.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -38,8 +38,7 @@ for (const T of [1, 2]) {
     const rows = await probeRows();
     r.rest[i] = { k, role, rows };
     ok(`T = ${T}, plane ${i} at rest: the Height key, of F`, k.kind === '3d' && k.caption === 'height log |F|', k);
-    if (i === 0) ok(`T = ${T}, plane z: the title's height is log|F|`, /log\|<i>F<\/i>\|/.test(role), role);
-    if (i === 1) ok(`T = ${T}, plane w₁: the title's height is log|f₂|`, /log\|<i>f<\/i>₂\|/.test(role), role);
+    ok(`T = ${T}, plane ${i}: the title's height is log|F|`, /log\|<i>F<\/i>\|/.test(role), role);
     const lab = rows.map((x) => x[0].trim());
     ok(`T = ${T}, plane ${i} at rest: the readout reads |F|`, lab.includes('|F|'), rows);
     ok(`T = ${T}, plane ${i} at rest: the readout reads F ${i === 2 ? 'not again (it is w₂)' : ''}`, lab.includes('F') === (i !== 2), rows);

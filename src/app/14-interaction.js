@@ -1311,8 +1311,7 @@
       // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
       // (the steps view's colour plane reads its own variable above: no second row for the identity)
       // (the steps view's Landscape reads F at the point, the whole chain's value, and the height it stands at, h(F),
-      // the same quantities on every plane: ux's rule on #846, 7; F is not repeated on the last plane, where it is the
-      // plane's own variable)
+      // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
       const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
       const hRow = (dp) => {
         const fin = CX.isFin(hF), hv = !fin ? NaN : S.height === 're' ? hF.re : S.height === 'im' ? hF.im : CX.abs(hF);
