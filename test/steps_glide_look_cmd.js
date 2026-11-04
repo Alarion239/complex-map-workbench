@@ -16,7 +16,7 @@
 //   leave) than the rest frame of either plane, at most SAME_FRAC of the pixels more.
 // The device pixel ratio is the kit's (CMW_DPR); LOOK_CASES (a preamble) names the cases a run makes, all by default:
 // ci/browser_suites.js runs the default example Inside regions, the Joukowski airfoil and the Mountain King at 1, and the
-// default example Everywhere at 2.
+// default example Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
