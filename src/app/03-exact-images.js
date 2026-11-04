@@ -684,13 +684,9 @@
       }
       let smOld = null, smOut = null;
       if (smd && smd.old && smRes(smd.old)) {
-        const sc = GLR.scissorOf(smd.old.guardBox, pane.view, pane.dpr, 0);
-        if (sc === null) { GLR.drawPreMapped(smd.old.res, smLook(s, pane, alpha, map)); continue; }
-        if (sc[2] > 0) {
-          smOld = sc;
-          // the pane around the guard box: up to four rects
-          smOut = [[0, 0, pane.pw, sc[1]], [0, sc[1] + sc[3], pane.pw, pane.ph - sc[1] - sc[3]], [0, sc[1], sc[0], sc[3]], [sc[0] + sc[2], sc[1], pane.pw - sc[0] - sc[2], sc[3]]].filter((q) => q[2] > 0 && q[3] > 0);
-        }
+        const so = GLR.standInOf(smd.old.guardBox, pane.view, pane.dpr);
+        if (so === 'whole') { GLR.drawPreMapped(smd.old.res, smLook(s, pane, alpha, map)); continue; }
+        if (so) { smOld = so.sc; smOut = so.around; }
       }
       const pf = pairFor(s, r, role), pm = pf.p, fx = pf.fx;
       if (!pm.meshRes) { if (smOld) GLR.drawPreMapped(smd.old.res, Object.assign(smLook(s, pane, alpha, map), { scissor: smOld })); continue; }
