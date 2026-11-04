@@ -9,26 +9,16 @@
 // The Paths toggle and the order select have their own suites (steps_paths_cmd, steps_order_cmd); the classic
 // Deformation dock's version of all this is deform_nat_classic_cmd. A command file for a CDP daemon (test/cdp_kit
 // README); prints { pass, fails, paths }.
-const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
 const fails = [], errs = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
 const NS = 'svnat' + Date.now();
 const SV = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
-const S = () => ev('__cmwSteps()');
 const base = (sc, extra) => Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, pattern: 'checker' }, sc, extra);
 const open = async (st, ns) => {
-  await go(`${BASE}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await loadView('steps', ns, st, { lang: 'en' });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip')` });
 };
-// (parked at x, until a frame has drawn the paths of the finished selection, at most 20 s on a software renderer)
-const parked = async (x) => {
-  await SV({ park: x });
-  await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.ready && p.heads > 0 && Math.abs(p.T - p.src.T) < 1e-9; })()` });
-  return (await S()).paths;
-};
+const { S, parked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_paths_kit.js'), 'utf8'))({ ev, settled });
 const zsAt = async () => JSON.stringify((await ev('__cmwMorphCache()')).zs);
 
 // 1. an old save with the straight line: migrated to the natural paths, the order select off for one step

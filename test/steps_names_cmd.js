@@ -137,6 +137,27 @@ for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
   ok(`${lang} ${pw} phone: the probing readout is two lines, none cut`, cut.n === 2 && cut.cut === 0, cut);
   info[`${lang} ${pw} phone`] = { h0, h1, cut };
 }
+// the Landscape's title carries the sheets clause when All sheets is on, as the classic title and the caption do
+const SHEETS = [
+  ['en', [{ type: 'root', params: { n: 2, cut: 180 } }], /, both sheets$/],
+  ['en', [{ type: 'root', params: { n: 3, cut: 180 } }], /, all 3 sheets$/],
+  ['ru', [{ type: 'root', params: { n: 2, cut: 180 } }], /, оба листа$/],
+  ['it', [{ type: 'root', params: { n: 2, cut: 180 } }], /, entrambi i fogli$/],
+];
+for (const [lang, steps, want] of SHEETS) {
+  await view(1440, 900, false);
+  const ns = `stepsheets-${lang}-${steps[0].params.n}-${Date.now()}`;
+  await nav(`${U}/gl-helpers.html`); await sleep(300);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify({ v3: true, v4: true, nextId: 50, focus: 0, steps, sheets: true, height: 'im', shapes: [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }] }))}); 1`);
+  await nav(`${U}/test.html?ns=${ns}&view=steps&lang=${lang}`);
+  for (let i = 0; i < 80 && !(await ev('typeof __cmwSteps === "function" && __cmwSteps().on')); i++) await sleep(250);
+  await ev(`__cmwSteps({ T: 1 }); __cmwSteps({ go: 0, now: true }); __cmwSteps({ surf: 'land' }); 1`);
+  for (let i = 0; i < 40 && !(await ev(`__cmwSteps().main === 'land' && /sheets|листа|fogli/.test(document.querySelector('.sv-title').textContent)`)); i++) await sleep(250);
+  const t = await txt('.sv-title');
+  const st = await ev('(() => { const s = __cmwSteps(); return { surf: s.surf, main: s.main, T: s.T, i: s.i, planes: s.planes }; })()');
+  ok(`${lang} ${steps[0].params.n} sheets: the steps view's Landscape title says which sheets`, want.test(t || ''), { t, st });
+}
+
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors', errs.length === 0, errs.slice(0, 3));
 return { pass: fails.length === 0, fails, info };

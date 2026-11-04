@@ -998,7 +998,7 @@
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));
       if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
         try {
-          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
         } catch (e) { console.error('globe region mask', e); }
       }
       return info;
@@ -1221,14 +1221,15 @@
     return out.length ? out : null;
   }
   function renderSphereLeft(pane) {
-    // ((#366 prototype) the steps view's Inside regions on the globe, 19)
-    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L' });
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
     // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
     // view, in both paints (over the portrait, area fills at half strength)
     const pre = typeof hasTargets === 'function' && hasTargets() && typeof preimageTargets === 'function'
       ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null;
+    // ((#366 prototype) the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
+    // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
+    if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false) });
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));

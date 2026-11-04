@@ -829,16 +829,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // current pane (bottom-left origin), padded by pad device px; null when it covers the pane (no scissor needed);
     // [0, 0, 0, 0] when it misses the pane (nothing to draw)
     globeScissorOf: (b, MVP, eye, pad = 4) => globeScissorOf(b, MVP, eye, pad),
-    scissorOf(b, view, dpr = 1, pad = 4) {
-      if (!b || !view || ![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return null;
-      const k = view.s * dpr;
-      const x0 = Math.floor(fw / 2 + (b.x0 - view.cx) * k) - pad, x1 = Math.ceil(fw / 2 + (b.x1 - view.cx) * k) + pad;
-      const y0 = Math.floor(fh / 2 + (b.y0 - view.cy) * k) - pad, y1 = Math.ceil(fh / 2 + (b.y1 - view.cy) * k) + pad;
-      const cx0 = Math.max(0, x0), cy0 = Math.max(0, y0), cx1 = Math.min(fw, x1), cy1 = Math.min(fh, y1);
-      if (cx1 <= cx0 || cy1 <= cy0) return [0, 0, 0, 0];
-      if (cx0 <= 0 && cy0 <= 0 && cx1 >= fw && cy1 >= fh) return null;
-      return [cx0, cy0, cx1 - cx0, cy1 - cy0];
-    },
+    scissorOf: (b, view, dpr = 1, pad = 4) => scissorOf(b, view, dpr, pad),
+    // the current frame around scissor sc [x, y, w, h]: up to four rects [x, y, w, h] in device px, each of positive size
+    scissorAround: (sc) => scissorAround(sc),
+    // where an old SphereMesh stands in for a rebuilding one, its guard box b in the current frame: 'whole' (the box
+    // covers the frame: the old mesh alone), {sc, around} (the old mesh inside scissor sc, the new meshes in the rects
+    // around it, scissorAround), or null (the box misses the frame: no stand-in)
+    standInOf: (b, view, dpr = 1) => standInOf(b, view, dpr),
     // the current chain's inverse structure: {ok, key, reason, nOps} (null without a chain)
     get inverseInfo() { const v = cur.info && cur.info.inverse; return v ? { ok: !!v.ok, key: v.key, reason: v.reason || null, nOps: v.nOps || 0 } : null; },
     // draws made with an inverse program since load (tests, perf counters)
