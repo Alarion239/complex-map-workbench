@@ -18,5 +18,7 @@ ok('svPlay sends play-started', /tourEmit\('play-started'/.test(body('svPlay')))
 
 ok('svSetLoop sends loop-changed with the new state', /tourEmit\('loop-changed', \{ on/.test(body('svSetLoop')));
 
+ok('a committed range sends range-set', /tourEmit\('range-set'/.test(body('svSetRange')) && /tourEmit\('range-set'/.test(body('svRangeUp')));
+
 if (fails.length) { for (const f of fails.slice(0, 40)) console.log('FAIL', f.name, JSON.stringify(f.got)); console.log(`${n - fails.length}/${n} passed`); process.exit(1); }
 console.log(`${n}/${n} passed`);

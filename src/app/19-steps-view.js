@@ -1991,6 +1991,7 @@
     lo = Math.max(0, lo); hi = Math.min(P.length - 1, hi);
     setHomRange(lo === hi ? null : { a: P[lo] + 1, b: P[hi] }, { preview, force: !preview });
     svSync();
+    if (!preview && lo !== hi) tourEmit('range-set', { lo, hi });
   }
   function svClearRange() {
     if (!svRange()) return;
@@ -2055,7 +2056,7 @@
     rail.classList.remove('hold', 'arm');
     if (d.rangeFrom == null) return false;
     SV.dragEndT = performance.now();
-    if (d.rangeMoved) { const R = svRange(); setHomRange(R ? { a: R.a, b: R.b } : null, { force: true }); svSync(); const live = SV.els.live; if (live) live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, ''); }
+    if (d.rangeMoved) { const R = svRange(); setHomRange(R ? { a: R.a, b: R.b } : null, { force: true }); svSync(); if (R) tourEmit('range-set', { lo: R.lo, hi: R.hi }); const live = SV.els.live; if (live) live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, ''); }
     return true;
   }
   // the speed, one for the glide and for play (S.sv.speed, saved with the state; the device's setting is the default of a
