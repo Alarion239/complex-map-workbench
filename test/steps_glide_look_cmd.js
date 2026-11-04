@@ -1,10 +1,10 @@
 // The steps view's glide looks like its planes: the frames of a glide from plane z to the next, held still on the rail
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
-// regions, and Everywhere: a homotopy inverted by Newton, every point over w) and the Mountain King Everywhere (the
-// whole plane carried forward). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// regions, and Everywhere: a homotopy inverted by Newton, every point over w) the Mountain King Everywhere (the
+// whole plane carried forward), and a polynomial: Roots as preimages (a cubic) Everywhere. Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks four things, each in checks of their own:
-// - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
+// - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
 //   than LOOK_TOL apart (3 levels on 99.5 %). A frame drawn
@@ -13,7 +13,7 @@
 //   that stroke shows, at least MIN_LINE_PX pixels, at most SAME_FRAC more off it than plane z's rest frame read the
 //   same way), and each open set's outline dashed (outlines: its ink in pieces no wider than a dash, the share in wider
 //   ones at most the rest frame's + SAME_FRAC); a case with no open set's outline on the plane has no dash to check;
-// - the ends: the frames at x = END_X from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
+// - the ends: the frames at x = END_X (a case's end, if it names one) from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
 //   SAME_FRAC more than LOOK_TOL apart);
 // - the same overlays: a moving frame a hair from a plane (x = EDGE from either end) draws what that plane's rest frame
@@ -31,7 +31,7 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways and the Mountain King at 1, and the default example Inside regions and
+// Inside regions, the Joukowski airfoil both ways, the Mountain King and Roots as preimages at 1, and the default example Inside regions and
 // Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -88,6 +88,11 @@ const CASES = [
   { tag: 'Joukowski airfoil, Everywhere', example: 'Joukowski airfoil', scope: 'all', seeds: [24, 16] },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
+  // (a polynomial: a cubic Everywhere with its targets on w; its same look also at u = 0.002 and 0.998, a glide's first and last frames against the exact picture there;
+  // the cubic's colour lines leave too few samples every 10 px away from them, so it samples every 5 px: step; its
+  // chain's first half runs z^3's exponent at 1 + 4u, four times the speed of a step's own path, so its ends are a
+  // tenth as far from the planes: end)
+  { tag: 'Roots as preimages, Everywhere', example: 'Roots as preimages', scope: 'all', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], step: 5, end: 1e-4 },
 ];
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
@@ -111,12 +116,12 @@ async function look(c, r) {
   ok(`${c.tag}: plane z's parked frame settles`, r.rest0, null);
   // ---- the same look as the exact picture at the same u ----
   r.step = 'the same look';
-  const look = {}, lines = {};
-  for (const u of LOOK_U) {
+  const look = {}, lines = {}, US = c.lookU || LOOK_U;
+  for (const u of US) {
     const held = (await hold(u)).ok, still = await grab('M' + u);
     ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
     if (c.seeds) await ev(`window.__giSeeds = ${JSON.stringify(c.seeds)}, 1`);
-    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL));
+    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL, c.step));
     if (c.seeds) await ev('delete window.__giSeeds, 1');
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
@@ -125,23 +130,23 @@ async function look(c, r) {
   }
   r.look = look;
   r.lines = lines;
-  for (const u of LOOK_U) {
+  for (const u of US) {
     const L = look[u], R = L.ref;
     ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${LOOK_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
   }
   // ---- the lines over the colour, as the rest renderer draws them ----
   // (the rest frame of plane z read the same way is the model's own fit: its share off is the floor)
   const g0 = lines.rest.grid, gridOk = (q) => !!q && !!g0 && q.n >= MIN_LINE_PX && q.over - g0.over <= SAME_FRAC;
-  ok(`${c.tag}: the grid over the colour at u = ${LOOK_U.join(' and ')}, as at rest (its major lines at --dc-line-a over the colour where they show: at least ${MIN_LINE_PX} such pixels, at most ${SAME_FRAC * 100} % more > ${DIFF_TOL}/255 off than plane z's rest frame)`, LOOK_U.every((u) => gridOk(lines[u].grid)), { moving: LOOK_U.map((u) => lines[u].grid), rest: lines.rest.grid });
+  ok(`${c.tag}: the grid over the colour at u = ${US.join(' and ')}, as at rest (its major lines at --dc-line-a over the colour where they show: at least ${MIN_LINE_PX} such pixels, at most ${SAME_FRAC * 100} % more > ${DIFF_TOL}/255 off than plane z's rest frame)`, US.every((u) => gridOk(lines[u].grid)), { moving: US.map((u) => lines[u].grid), rest: lines.rest.grid });
   // (an open set's outline: dashed at rest, so in pieces no wider than a dash; its share of wider pieces is the rest
   // frame's, at most SAME_FRAC more)
   const dashed = (lines.rest.outlines || []).filter((o) => o.open && o.px > 0);
   const dashOk = (u) => dashed.every((o0) => { const o = (lines[u].outlines || []).find((q) => q.id === o0.id); return !!o && o.px > 0 && o.long - o0.long <= SAME_FRAC; });
-  ok(`${c.tag}: the open sets' outlines dashed at u = ${LOOK_U.join(' and ')}, as at rest (the share of their ink in pieces wider than a dash at most the rest frame's + ${SAME_FRAC * 100} %)`, LOOK_U.every(dashOk), { dashedAtRest: dashed.length, moving: LOOK_U.map((u) => lines[u].outlines), rest: lines.rest.outlines });
+  ok(`${c.tag}: the open sets' outlines dashed at u = ${US.join(' and ')}, as at rest (the share of their ink in pieces wider than a dash at most the rest frame's + ${SAME_FRAC * 100} %)`, US.every(dashOk), { dashedAtRest: dashed.length, moving: US.map((u) => lines[u].outlines), rest: lines.rest.outlines });
   // ---- the ends: the glide's first and last frames are the planes' parked frames ----
   r.step = 'the ends';
-  const ends = {};
-  for (const [x, k] of [[END_X, 0], [1 - END_X, 1]]) {
+  const ends = {}, ex = c.end || END_X;
+  for (const [x, k] of [[ex, 0], [1 - ex, 1]]) {
     await rest(k);
     const restOk = await grab('E' + k);
     await ev(`__cmwSteps({ x: ${x} }), 1`);
@@ -151,7 +156,7 @@ async function look(c, r) {
     await rest(0);
   }
   r.ends = ends;
-  for (const [x, k] of [[END_X, 0], [1 - END_X, 1]]) {
+  for (const [x, k] of [[ex, 0], [1 - ex, 1]]) {
     const E = ends[x];
     ok(`${c.tag}: the glide's frame at x = ${x} is plane ${k}'s parked frame (away from the colour lines: at least ${MIN_SAME} pixels, at most ${SAME_FRAC * 100} % > ${LOOK_TOL}/255 apart)`, E.restOk && E.still && E.n >= MIN_SAME && E.over <= SAME_FRAC, E);
   }
