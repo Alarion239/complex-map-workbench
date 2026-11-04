@@ -2156,17 +2156,18 @@ void ixAncTan(vec2 w) {
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
       // (Inverse's opNewt walks: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
       // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0. A Newton step takes
-      // H' by a forward difference that reuses H_t(u), two evaluations of H, and is capped at a quarter of 1 + |u|; the
-      // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
+      // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is capped at a quarter of
+      // 1 + |u|; the members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not
+      // walk again)
       case 'NEWT': {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
         return `vec2 chainHom(int i, vec2 z, float t);
 vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
+vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 bool ${P}_step(inout vec2 u, vec2 w, float t) {
   vec2 hu = ${H('u', 't')};
-  float h = 1e-3 * (1.0 + cx_abs(u));
-  vec2 d = (${H('u + vec2(h, 0.0)', 't')} - hu) / h;
+  vec2 d = ${P}_fd(u, hu, t);
   if (!(dot(d, d) > 0.0)) return false;
   vec2 st = cdiv(hu - w, d);
   float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
@@ -2194,8 +2195,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec2 v = 2.0 * w - u;
   for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
     vec2 hv = ${H('v', 't')};
-    float h = 1e-3 * (1.0 + cx_abs(v));
-    vec2 g = cdiv((${H('v + vec2(h, 0.0)', 't')} - hv) / h, hv - w) - cinv(v - u);
+    vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
     if (!(dot(g, g) > 0.0)) return false;
     v -= cinv(g);
     if (!ixFin(v)) return false;
