@@ -2,12 +2,16 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions) and the Mountain King Everywhere (the whole plane carried forward). Paths are off: the glide's paths are drawn over the
-// colour, which is what is read. Each case checks three things, each its own failure:
+// colour, which is what is read. Each case checks four things, each its own failure:
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
 //   than DIFF_TOL apart (the tolerance of steps_sm_standin_cmd.js, a frame and the rest frame after it). A frame drawn
 //   by the carried mesh has no sheet key in its record, so no reference: it fails as such;
+// - the same overlays: a moving frame a hair from a plane (x = EDGE from either end) draws what that plane's rest frame
+//   draws over the colour, which the same look's comparison skips (it leaves out the pixels by lines): as many graph
+//   paper draws (GLR.drawGrid), as many dashed outlines (open sets: GLR.drawLines with a dash), and the colour plot's
+//   grid (its 2D strokes: the major grid, the axes' casing, the axes) when the rest frame has it;
 // - no fade: the first and the last frames of a glide (x = FIRST from either end, a 60 fps frame of a Normal glide)
 //   draw no plane's colour at a partial opacity over the moving picture (a crossfade), and their mean luminance and
 //   alpha are reported beside the rest frame's;
@@ -26,7 +30,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { hold, grab, compare, edgeRuns, refOf, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005;
-const LOOK_U = [0.25, 0.75], MIN_COMPARED = 1000, FIRST = 0.02;
+const LOOK_U = [0.25, 0.75], MIN_COMPARED = 1000, FIRST = 0.02, EDGE = 0.005;
 const EDGE_RUN = 16;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
@@ -35,6 +39,35 @@ const ready = () => settled({ max: 60000, until: 'typeof __cmwSteps === "functio
 // (at rest on plane i, its frame drawn)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
 // (let go of the thread held a hair from a plane: it settles there; then back on plane z)
+// the overlays of the left pane's frame drawn next (a redraw asked for): {grid: GLR.drawGrid's draws, dashed:
+// GLR.drawLines' draws with a dash, colourGrid: the colour plot's grid in 2D on the left pane (the major grid in --dc-line at 1 px, then the
+// axes' casing in --dc-casing at 2.5 px and the axes in --dc-line at 1.25 px, three strokes in a row)}
+const overlays = async () => {
+  await ev(`(() => {
+    if (!window.__ovWrap) {
+      window.__ovWrap = 1;
+      const g = GLR.drawGrid, l = GLR.drawLines, cx = document.getElementById('canvasL').getContext('2d'), st = cx.stroke;
+      // (the whole stack: the mask's outlines are drawn deep inside drawScene)
+      const left = () => { const n = Error.stackTraceLimit; Error.stackTraceLimit = 100; const st = new Error().stack || ''; Error.stackTraceLimit = n; return st.includes('renderLeft'); };
+      GLR.drawGrid = function () { if (window.__ov && left()) window.__ov.grid++; return g.apply(this, arguments); };
+      GLR.drawLines = function (res, o) { if (window.__ov && o && o.dash && left()) window.__ov.dashed++; return l.apply(this, arguments); };
+      cx.stroke = function () { if (window.__ov) window.__ov.strokes.push([String(this.strokeStyle).toLowerCase(), this.lineWidth]); return st.apply(this, arguments); };
+    }
+    window.__ov = { grid: 0, dashed: 0, strokes: [] };
+    __cmwHideStrokes(false);
+    return 1;
+  })()`);
+  await settled({ max: 20000, panes: false, until: 'window.__ov.strokes.length > 0 || window.__ov.grid > 0' });
+  await ev('await new Promise((r) => setTimeout(r, 300)), 1');
+  return ev(`(() => {
+    const o = window.__ov, css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
+    const line = css('--dc-line', '#ffffff'), casing = css('--dc-casing', '#0b1114'), S = o.strokes;
+    let colourGrid = false;
+    for (let i = 0; i + 2 < S.length; i++) if (S[i][0] === line && S[i][1] === 1 && S[i + 1][0] === casing && S[i + 1][1] === 2.5 && S[i + 2][0] === line && S[i + 2][1] === 1.25) colourGrid = true;
+    window.__ov = null;
+    return { grid: o.grid, dashed: o.dashed, colourGrid, strokes: S.length };
+  })()`);
+};
 const letGo = async () => { await ev('window.__svScrubUp(), 1'); await rest(0); };
 const CASES = [
   { tag: 'Strip to disk', example: null, scope: 'in' },
@@ -72,6 +105,21 @@ async function look(c, r) {
   for (const u of LOOK_U) {
     const L = look[u], R = L.ref;
     ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${DIFF_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
+  }
+  // ---- the same overlays a hair from each plane ----
+  r.step = 'the same overlays';
+  const over = {};
+  for (const [x, k] of [[EDGE, 0], [1 - EDGE, 1]]) {
+    await rest(k);
+    const atRest = await overlays();
+    const held = (await hold(x)).ok, moving = await overlays();
+    over[x] = { held, rest: atRest, moving };
+    await letGo();
+  }
+  r.over = over;
+  for (const [x, k] of [[EDGE, 0], [1 - EDGE, 1]]) {
+    const O = over[x], R = O.rest, M = O.moving;
+    ok(`${c.tag}: a moving frame a hair from plane ${k} (x = ${x}) draws that plane's overlays: its graph paper draws, its dashed outlines and the colour plot's grid (rest, moving)`, O.held && !!R && !!M && R.grid === M.grid && R.dashed === M.dashed && (!R.colourGrid || M.colourGrid), O);
   }
   // ---- no fade at a glide's ends ----
   r.step = 'no fade';
