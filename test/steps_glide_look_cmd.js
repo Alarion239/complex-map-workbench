@@ -2,8 +2,8 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
-// whole plane carried forward) and the logarithm of an annulus Everywhere (a glide with no inverse, drawn by the
-// carried mesh). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// whole plane carried forward) and the logarithm Everywhere, of an annulus and its sheets (a glide with no inverse,
+// drawn by the carried mesh). Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
@@ -14,9 +14,9 @@
 //   that stroke shows, at least MIN_LINE_PX pixels, at most SAME_FRAC more off it than plane z's rest frame read the
 //   same way), and each open set's outline dashed (outlines: its ink in pieces no wider than a dash, the share in wider
 //   ones at most the rest frame's + SAME_FRAC); a case with no open set's outline on the plane has no dash to check;
-// - the logarithm's same look, exact for its homotopy: the moving frame at u (LOOK_U) is plane 1's parked frame, the
-//   colour plane, read at the place (1/s) Log(1 + s (w - s)) of each pixel w's point (logLook: at least MIN_COMPARED
-//   pixels, at most SAME_FRAC more than LOOK_TOL apart);
+// - the logarithm's colour has no speck: the colour layer of the frames at u (LOOK_U) inside H_u's image has no run of
+//   pixel more than SPECK_TOL off each of its 8 neighbours, which agree (a cell dropped or misplaced, as where two
+//   meshes meet);
 // - the logarithm's coverage (the moving frame has no sheet key, so no reference by Newton's method either): the
 //   colour layer alone (__cmwSteps({ bare })) of the frames at u (LOOK_U and COVER_U) sampled every 3 device px, the
 //   pixels more than 3 CSS px from the edge of H_u's image (the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t,
@@ -40,7 +40,7 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways, the Mountain King and the logarithm at 1, and the default example Inside regions and
+// Inside regions, the Joukowski airfoil both ways, the Mountain King and the two logarithm cases at 1, and the default example Inside regions and
 // Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -50,7 +50,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005;
 const LOOK_U = [0.25, 0.5, 0.75], LOOK_TOL = 3, END_X = 0.001, MIN_SAME = 20000, MIN_COMPARED = 1000, MIN_LINE_PX = 100, FIRST = 0.02, EDGE = 0.005;
-const EDGE_RUN = 16, COVER_U = [0.02, 0.98, 0.999], COVER_TOL = 0.001;
+const EDGE_RUN = 16, COVER_U = [0.02, 0.98, 0.999], COVER_TOL = 0.001, SPECK_TOL = 24;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
@@ -98,6 +98,7 @@ const CASES = [
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
   { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true },
+  { tag: 'Sheets of the logarithm, Everywhere', example: 'Sheets of the logarithm', scope: 'all', cover: true },
 ];
 // (the page's __logSector(): for the glide's last frame, where its device pixel (x, y) is against H_u's image, the
 // sector the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut along (-inf, 0] onto: 1 inside
@@ -130,32 +131,25 @@ const coverage = async (tag) => {
   await ev('__cmwSteps({ bare: false }), 1');
   return Object.assign({ still }, r);
 };
-// the logarithm's exact picture at u: the frame kept as tag against plane 1's parked frame (R1, the colour plane,
-// each pixel the colour of its own place) read at the place each pixel w's point has on plane 1, (1/s) Log(1 + s (w - s)),
-// bilinear; every 2 device px inside H_u's image, leaving out the pixels by a colour line (a 4 x 4 neighbourhood spanning
-// more than 12 levels in either frame) and those whose place is off R1's canvas: {n compared, over: the share of n more
-// than LOOK_TOL apart in a channel, max}
-const logLook = (tag) => ev(`(() => {
-  const g = __cmwSteps().glide, v = g.view, c = document.getElementById('canvasL'), W = c.width, H = c.height, dpr = W / g.w, s = 1 - g.u;
-  const F = window.__heldPx[${JSON.stringify(tag)}], P = window.__heldPx.R1, K = __logSector();
-  const range = (A, x, y) => { let r = 0; for (let k = 0; k < 3; k++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const q = A[4 * ((y + dy) * W + x + dx) + k]; lo = Math.min(lo, q); hi = Math.max(hi, q); } r = Math.max(r, hi - lo); } return r; };
-  let n = 0, over = 0, max = 0;
-  for (let y = 3; y < H - 3; y += 2) for (let x = 3; x < W - 3; x += 2) {
-    if (K(x, y) <= 0 || range(F, x, y) > 12) continue;
-    const wr = v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s, wi = v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s;
-    const ar = 1 + s * (wr - s), ai = s * wi, or = Math.log(Math.hypot(ar, ai)) / s, oi = Math.atan2(ai, ar) / s;
-    const px = ((or - v.cx) * v.s + g.w / 2) * dpr - 0.5, py = (g.h / 2 - (oi - v.cy) * v.s) * dpr - 0.5, ix = Math.floor(px), iy = Math.floor(py);
-    if (ix < 3 || iy < 3 || ix >= W - 4 || iy >= H - 4 || range(P, ix, iy) > 12) continue;
-    const fx = px - ix, fy = py - iy, i = 4 * (y * W + x);
-    let m = 0;
-    for (let k = 0; k < 3; k++) {
-      const at = (a, b) => P[4 * ((iy + b) * W + ix + a) + k];
-      const ref = (at(0, 0) * (1 - fx) + at(1, 0) * fx) * (1 - fy) + (at(0, 1) * (1 - fx) + at(1, 1) * fx) * fy;
-      m = Math.max(m, Math.abs(F[i + k] - ref));
-    }
-    n++; if (m > max) max = Math.round(m); if (m > ${LOOK_TOL}) over++;
+// the specks in the logarithm's colour layer kept as tag (coverage's), inside H_u's image and 16 CSS px clear of the
+// canvas's edges (the rulers' ticks): single device pixels more than SPECK_TOL off each of their 8 neighbours, which
+// agree among themselves within SPECK_TOL (a cell dropped or misplaced in a smooth colour; a band edge or a line of the
+// colour's grid is not one, in whatever direction it runs: it goes on in a neighbour): {n pixels tested, specks, at: the
+// first few [x, y]}
+const specks = (tag) => ev(`(() => {
+  const c = document.getElementById('canvasL'), W = c.width, H = c.height, F = window.__heldPx[${JSON.stringify(tag)}], K = __logSector();
+  const d = (i, j) => Math.max(Math.abs(F[i] - F[j]), Math.abs(F[i + 1] - F[j + 1]), Math.abs(F[i + 2] - F[j + 2]));
+  const e = Math.round(16 * W / c.clientWidth), N = [-4 * W - 4, -4 * W, -4 * W + 4, -4, 4, 4 * W - 4, 4 * W, 4 * W + 4];
+  let n = 0, k = 0; const at = [];
+  for (let y = e; y < H - e; y++) for (let x = e; x < W - e; x++) {
+    if (K(x, y) <= 0) continue;
+    n++;
+    const i = 4 * (y * W + x);
+    if (!N.every((o) => d(i, i + o) > ${SPECK_TOL})) continue;
+    if (!N.every((o) => N.every((p) => d(i + o, i + p) <= ${SPECK_TOL}))) continue;
+    k++; if (at.length < 6) at.push([x, y]);
   }
-  return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
+  return { n, specks: k, at };
 })()`);
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
@@ -190,7 +184,7 @@ async function look(c, r) {
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
     if (!lines.rest) lines.rest = { grid: await gridOver('R0'), outlines: await outlines('R0') };
-    if (c.cover) { look[u].exact = await logLook('M' + u); look[u].cover = await coverage(u); }
+    if (c.cover) { look[u].cover = await coverage(u); look[u].specks = await specks('C' + u); }
     await letGo();
   }
   if (c.cover) for (const u of COVER_U) { const held = (await hold(u)).ok; look[u] = { held, cover: await coverage(u) }; await letGo(); }
@@ -198,7 +192,7 @@ async function look(c, r) {
   r.lines = lines;
   for (const u of c.cover ? LOOK_U.concat(COVER_U) : []) {
     const V = look[u].cover;
-    if (look[u].exact) ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane 1's parked frame, the colour plane, read where H_u's inverse sends each pixel: at least ${MIN_COMPARED} pixels compared, at most ${SAME_FRAC * 100} % > ${LOOK_TOL}/255 apart)`, look[u].exact.n >= MIN_COMPARED && look[u].exact.over <= SAME_FRAC, look[u].exact);
+    if (look[u].specks) ok(`${c.tag}: the moving frame at u = ${u} has no speck in its colour (a pixel more than ${SPECK_TOL}/255 off each of its 8 neighbours, which agree, inside H_u's image)`, look[u].specks.n > 1000 && look[u].specks.specks === 0, look[u].specks);
     ok(`${c.tag}: the frame at u = ${u} covers H_u's image and nothing past it (its colour layer: at most ${COVER_TOL * 100} % of the pixels inside on the paper and of those outside drawn)`, look[u].held && V.still && V.ins > 1000 && V.outs > 0 && V.holes <= COVER_TOL * V.ins && V.strays <= COVER_TOL * V.outs, look[u]);
   }
   for (const u of c.cover ? [] : LOOK_U) {

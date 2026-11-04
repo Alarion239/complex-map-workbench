@@ -1064,12 +1064,19 @@
     if (m && m.polar && m.ring) svRingWarm(m.ring);
     const ring = svRingShape(m), r = ring ? svRingGPU(ring) : null;
     if (r && r.meshRes && GLR.carryReserve) GLR.carryReserve(r.meshRes, SV_CARRY_L);
-    // (a polar ring's share of the plane: its own skip flags and the whole plane's mesh's, with their vertex arrays)
+    // (a polar ring's share of the plane: its own skip flags, with their vertex arrays, and the whole plane's mesh's)
     if (r && r.meshRes && ring.polar && GLR.carryReserve) {
       GLR.carryReserve(r.meshRes, SV_CARRY_L, svPolarOwnSkip(r, ring));
-      const a = svCarryGPU(SV_ALL), P = a && a.meshRes ? svPolarSkip(a, ring, null) : null;
-      if (P) GLR.carryReserve(a.meshRes, SV_CARRY_L, P.skip);
+      svPolarWarmRing = ring;
+      svPolarWarmAll();
     }
+  }
+  // the whole plane's mesh's skip flags under the polar ring made last (svPolarWarmRing), with their vertex arrays, once
+  // that mesh is built (the frame or svMeshAhead builds it; it is not built for this alone, its strokes with it)
+  let svPolarWarmRing = null;
+  function svPolarWarmAll() {
+    const a = svPolarWarmRing ? gpu.get(SV_ALL.id) : null, P = a && a.meshRes ? svPolarSkip(a, svPolarWarmRing, null) : null;
+    if (P) GLR.carryReserve(a.meshRes, SV_CARRY_L, P.skip);
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
@@ -1156,6 +1163,7 @@
       const r = svCarryGPU(x);
       if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
     }
+    svPolarWarmAll();
     return true;
   }
   // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
