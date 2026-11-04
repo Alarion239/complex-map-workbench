@@ -775,15 +775,24 @@
   // the carried colour of the shapes list by their inverse paths (pathOf's or invHomPath's, all 'inverse'; a path's inv:
   // its own inverse program), into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse
   // answer that was not ('error' when it threw). A shape drawn already stays: the next path draws over it
-  function svDrawInverse(pane, list, paths, T, gl) {
-    const carry = svCarryStyle(T);
+  // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
+  // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
+  function svDrawInverse(pane, list, paths, T, gl, t) {
+    const carry = svCarryStyle(T), p0 = paths[0];
+    let nr = 0;
+    if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
+      try {
+        const r = GLR.newtRoots({ map: p0.m, plan: p0.plan, prep: p0.prep, inv: p0.inv, view: pane.view, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, t });
+        if (r.state === 'drawn') nr = r.token;
+      } catch (e) { console.error('steps view NEWT roots', e); }
+    }
     if (!gl.open) { GLR.begin(pane.pw, pane.ph); gl.open = true; }
     for (let i = 0; i < list.length; i++) {
       const p = paths[i];
       let res = 'error';
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true, nr });
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -810,7 +819,7 @@
     // when its step's own exact ops seed walks back from t = 1 (InvOps.opNewt's back); without them it finds two, so
     // that frame keeps the carried mesh)
     if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return false; }
-    const res = svDrawInverse(pane, list, paths, T, frame);
+    const res = svDrawInverse(pane, list, paths, T, frame, u);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
