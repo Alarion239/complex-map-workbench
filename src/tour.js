@@ -2232,13 +2232,14 @@ const Tour = (() => {
       await frames(1); if (stale()) return;
     }
     const want = sceneAt(ch, si);
+    const sceneLoaded = want != null && r.scene !== want;
     const ok = want == null ? true : loadScene(r, want);
     // a step that does not ask for the panel: a phone's sheet that an earlier step opened closes (optional)
     if (r.scenes && !(step.before || []).some((a) => a[0] === 'panel')) call('closeSheet');
     for (const a of step.before || []) {
       if (a[0] === 'scene') continue;
       // (the steps view takes a scene just loaded a frame or two later and sets its place back: the placement waits for that)
-      if (a[0] === 'svPlace' && want != null) { await frames(2); if (stale()) return; }
+      if (a[0] === 'svPlace' && sceneLoaded) { await frames(2); if (stale()) return; }
       act(r, a);
       await null;
       if (stale()) return;
