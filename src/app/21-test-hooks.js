@@ -90,7 +90,7 @@
   window.__cmwLook = (id, side = 'R') => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); const L = side === 'L'; return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, view: Object.assign({}, L ? leftView() : V.right), win: Object.assign({}, clipWin), dpr: (L ? paneL : paneR).dpr, W: (L ? paneL : paneR).pw, H: (L ? paneL : paneR).ph, stage: L ? leftStage() : rightStage() }; };
   // P3: the z-globe's point under a pane pixel (as __cmwSphereW for the w-globe), and a globe's camera set directly
   // P3b: the shapes and targets as stored; the CSS pixel of the plane point (x, y) on a side's globe (null behind it)
-  window.__cmwShapes = () => JSON.parse(JSON.stringify({ shapes: S.shapes, targets: S.targets, selected }, noRuntime));
+  window.__cmwShapes = () => JSON.parse(JSON.stringify({ shapes: S.shapes, targets: S.targets, selected }, noRuntime)); window.__cmwStroke = (id, opt) => { const s = S.shapes.concat(S.targets).find((q) => q.id === id); const k = s && shapeStroke(s, 1, opt || {}); return k && { width: k.width, alpha: k.alpha, casing: k.casing && k.casing.width, casingAlpha: k.casing && k.casing.alpha }; };
   window.__cmwGlobeXY = (side, x, y) => { const gc = globeCam(side); if (!gc) return null; const P = Number.isFinite(x) ? Region.Globe.lift(x, y) : [0, 0, 1]; return gScreen(gc, P); };
   window.__cmwGlobeSnap = (side, x, y, role) => { const gc = globeCam(side), g = pickGlobe(side === 'L' ? paneL : paneR, camOf(side), x, y); const r = g && gc ? globeSnap(gc, side, g, role) : null; gSnapMark = null; return r ? { z: r.z && [r.z.re, r.z.im], snapped: !!r.snapped, g: g.z && [g.z.re, g.z.im], R: gc.R } : null; };
   window.__cmwSelect = (id) => { selected = id; if (id) zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); };
@@ -276,8 +276,9 @@
     return { carried: !!(leftSphereInfo && leftSphereInfo.carried), path: (leftSphereInfo && leftSphereInfo.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null };
   };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
-  // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe), the selection's
-  // size and whether it is this source's
+  // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe), the selection's size and
+  // whether it is this source's; ahead: how many neighbouring segments' re-traces are made ahead for the selection (none
+  // while that job runs)
   const svPathsHook = () => {
     const src = svPathsSource(), d = mfDrawn;
     let err = 0;
@@ -294,7 +295,7 @@
     const kept = mfCache.sel ? mfCache.sel.kept.length : 0;
     const heads = d ? d.heads.length : 0;
     const globeHeads = mfGlobeDrawn ? mfGlobeDrawn.heads : 0;
-    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, err, kept, ready };
+    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, err, kept, ready, ahead: mfAhead.sel === mfCache.sel && !mfAhead.job ? mfAhead.done.size : 0 };
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone); glide: the last glide frame's record (svGlideRec)

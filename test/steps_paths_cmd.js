@@ -8,8 +8,6 @@
 // - a glide from plane z to plane w₂ is one run of two steps (a bar where they meet), and paths are drawn during it;
 // - a d/dz in the chain turns the toggle off, with its reason.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // z → w₁ = z² → w₂ = i w₁ (a quarter turn: its paths are arcs), a disc of z
@@ -17,19 +15,10 @@ const chain = (extra) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, 
   shapes: [{ id: 'd1', kind: 'disc', c: [0.3, 0.2], r: 1.4, ci: 0, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'affine', params: { a: 'i', b: '0' }, on: true }].concat(extra || []) });
 const open = async (st) => {
-  const ns = 'svpa' + Date.now();
-  await go(`${BASE}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await loadView('steps', 'svpa' + Date.now(), st, { lang: 'en' });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip')` });
 };
-const S = () => ev('__cmwSteps()');
-// (parked at x: until a frame has drawn the paths of the finished selection, at most 20 s on a software renderer)
-const parked = async (x) => {
-  await ev(`__cmwSteps({ park: ${x} }), 1`);
-  await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.ready && p.heads > 0 && Math.abs(p.T - p.src.T) < 1e-9; })()` });
-  return (await S()).paths;
-};
+const { S, parked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_paths_kit.js'), 'utf8'))({ ev, settled });
 const btn = () => ev(`(() => {
   const b = document.querySelector('#svStrip .sv-playpop .sv-paths');
   if (!b) return null;
@@ -47,6 +36,21 @@ const p1 = await parked(0.5);
 info.p1 = p1;
 ok('parked between z and w₁: the run is that step, from the identity', !!p1.src && Math.abs(p1.src.T - 0.5) < 1e-9 && p1.src.Tend === 1 && p1.src.startId === true && p1.src.seq === false, p1.src);
 ok('parked between z and w₁: paths drawn, each moving point at H_T(z) of its start', p1.heads >= 3 && p1.err < 1.5, p1);
+// (the next step's run is re-traced ahead, off the frame: crossing into it re-traces nothing in a frame)
+const ah = await settled({ max: 20000, until: '__cmwSteps().paths.ahead >= 1' });
+ok('parked between z and w₁: the next step\'s run is re-traced ahead', ah.ok, ah);
+await ev(`(() => { const f = MorphPaths.pathRetrace; window.__svRetrace = f; window.__svRetraceIn = 0; MorphPaths.pathRetrace = function (...a) { if ((new Error().stack || '').includes('morphSelScreen')) window.__svRetraceIn++; return f.apply(this, a); }; return 1; })()`);
+// (the spy is taken off whatever the waits and reads do)
+let cross;
+try {
+  await ev(`__cmwSteps({ park: 1.5 }), 1`);
+  await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.heads > 0 && !p.src.startId && Math.abs(p.T - 0.5) < 1e-9; })()` });
+  cross = Object.assign(await S().then((s) => s.paths), { inFrame: await ev('window.__svRetraceIn') });
+} finally {
+  await ev('MorphPaths.pathRetrace = window.__svRetrace, 1');
+}
+info.cross = cross;
+ok('crossing into the next step: its first frames draw the paths re-traced ahead (none in a frame), each moving point at H_T(z)', cross.inFrame === 0 && cross.heads >= 3 && cross.err < 1.5, cross);
 const p2 = await parked(1.5);
 info.p2 = p2;
 ok('parked between w₁ and w₂: the run is the second step, from plane w₁ (H_0 = z²)', !!p2.src && Math.abs(p2.src.T - 0.5) < 1e-9 && p2.src.Tend === 1 && p2.src.startId === false, p2.src);
