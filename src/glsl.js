@@ -2155,25 +2155,47 @@ void ixAncTan(vec2 w) {
     switch (o.kind) {
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
       // (Inverse's opNewt walks: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
-      // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0)
+      // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0. A Newton step takes
+      // H' by a forward difference that reuses H_t(u), two evaluations of H, and is capped at a quarter of 1 + |u|; the
+      // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
       case 'NEWT': {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
         return `vec2 chainHom(int i, vec2 z, float t);
 vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
+bool ${P}_step(inout vec2 u, vec2 w, float t) {
+  vec2 hu = ${H('u', 't')};
+  float h = 1e-3 * (1.0 + cx_abs(u));
+  vec2 d = (${H('u + vec2(h, 0.0)', 't')} - hu) / h;
+  if (!(dot(d, d) > 0.0)) return false;
+  vec2 st = cdiv(hu - w, d);
+  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
+  u -= sl > mx ? st * (mx / sl) : st;
+  return ixFin(u);
+}
+bool ${P}_has = false, ${P}_ok = false;
+vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
+bool ${P}_root(vec2 w, float t, out vec2 u) {
+  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
+  u = w;
+  bool ok = true;
+  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) if (ok) ok = ${P}_step(u, w, t * float(k) / ${Inverse.NEWT_K}.0);
+  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
+  ok = ok && ${P}_hit(u, w, t);
+  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
+  return ok;
+}
 int ${P}_nb(Lf L) { return ixFin(L.u) ? 2 : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
-  vec2 w = L.u, u = w;
+  vec2 w = L.u, u;
   float t = ${U(0)}.x;
-  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) {
-    float tk = t * float(k) / ${Inverse.NEWT_K}.0;
-    for (int it = 0; it < ${Inverse.NEWT_IT}; it++) { vec2 d = ${P}_d(u, tk); if (!(dot(d, d) > 0.0)) return false; vec2 st = cdiv(${H('u', 'tk')} - w, d); float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u)); u -= sl > mx ? st * (mx / sl) : st; }
-  }
-  if (!${P}_hit(u, w, t)) return false;
+  if (!${P}_root(w, t, u)) return false;
   if (b == 0) return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
   vec2 v = 2.0 * w - u;
   for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
-    vec2 g = cdiv(${P}_d(v, t), ${H('v', 't')} - w) - cinv(v - u);
+    vec2 hv = ${H('v', 't')};
+    float h = 1e-3 * (1.0 + cx_abs(v));
+    vec2 g = cdiv((${H('v + vec2(h, 0.0)', 't')} - hv) / h, hv - w) - cinv(v - u);
     if (!(dot(g, g) > 0.0)) return false;
     v -= cinv(g);
     if (!ixFin(v)) return false;
