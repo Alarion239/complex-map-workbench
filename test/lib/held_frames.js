@@ -213,5 +213,20 @@ ${REF}`;
     }
     return out;
   })()`);
-  return { hold, grab, compare, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  // two kept frames pixel by pixel away from the colour lines (__giRange: pixels whose 4 x 4 neighbourhood spans more
+  // than 12 levels in either frame are left out): { n compared, max, over: the share of n more than tol apart in a
+  // channel }
+  const sameAway = (a, b, tol) => ev(`(() => {
+    ${RANGE}
+    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height;
+    if (!A || !B || A.length !== B.length) return null;
+    let n = 0, over = 0, max = 0;
+    for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) {
+      if (__giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
+      const i = 4 * (y * W + x), m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
+      n++; if (m > max) max = m; if (m > ${tol}) over++;
+    }
+    return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
+  })()`);
+  return { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
