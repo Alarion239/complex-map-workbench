@@ -1136,7 +1136,7 @@
     if (paths) {
       try {
         const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }, paths, S.srcView);
-        drawMorphPathsX(pane, sel, F, globePathP(pane, info), { T: paths.T, side: 'L' });
+        drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
       } catch (e) { console.error('steps view globe paths', e); }
     }
     leftSphereInfo = info;
