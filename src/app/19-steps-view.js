@@ -2070,6 +2070,7 @@
   }
   function svSetLoop(on) {
     SV.loop = on;
+    tourEmit('loop-changed', { on });
     try { localStorage.setItem('cmw-sv-loop', on ? '1' : '0'); } catch (_) { /* (no storage) */ }
     svSync();
   }
