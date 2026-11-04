@@ -100,7 +100,7 @@
     let role;
     if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') { const shw = sheetsShown(); role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: shw ? sheetsClause(shw, 'html') : '' }); }
+    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
@@ -872,19 +872,27 @@
     const map = stageMap(a), recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
     const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
     if (paths.some((p) => p.path !== 'inverse')) return false;
+    return svDrawInverse(pane, list, paths, T, frame) === 'drawn';
+  }
+  // the carried colour of the shapes list by their inverse paths (pathOf's or invHomPath's, all 'inverse'; a path's inv:
+  // its own inverse program), into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse
+  // answer that was not ('error' when it threw). A shape drawn already stays: the next path draws over it
+  function svDrawInverse(pane, list, paths, T, gl) {
     const carry = svCarryStyle(T);
-    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
+    if (!gl.open) { GLR.begin(pane.pw, pane.ph); gl.open = true; }
     for (let i = 0; i < list.length; i++) {
       const p = paths[i];
       let res = 'error';
       try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
           look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
-      } catch (e) { console.error('steps view exact colour', e); }
-      // (a shape drawn already stays: the next path draws over it)
-      if (res !== 'drawn') return false;
+      } catch (e) {
+        // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
+        console.error('steps view carried colour', e);
+      }
+      if (res !== 'drawn') return res;
     }
-    return true;
+    return 'drawn';
   }
   // A frame between planes a and b as svCarryExact draws a plane: per pixel, by the inverse pass, the front point z of
   // plane 0 with H_u(F_{b-1}(z)) = w (invHomPath: step b's homotopy at u inverted by its own ops), in the colour
@@ -899,21 +907,16 @@
     const paths = list.map((x) => invHomPath(x, 0, b, u));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return false; }
-    const carry = svCarryStyle(T);
-    if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-    for (let i = 0; i < list.length; i++) {
-      const p = paths[i];
-      let res = 'error';
-      try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
-      } catch (e) { console.error('steps view glide colour', e); }
-      if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
-    }
+    // (a homotopy inverted by Newton finds two of H_t's points over w; Everywhere asks for the front one of all of them
+    // over the whole plane, where H_t can have more, so that frame keeps the carried mesh)
+    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) { why.r = 'Everywhere under a Newton inverse'; return false; }
+    const res = svDrawInverse(pane, list, paths, T, frame);
+    if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
-  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), view, w, h (the pane's css size)}
+  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
+  // (H_u on the glide's first plane), view, w, h (the pane's css size)}
   // (read by the test hooks)
   let svGlideRec = null;
   const SV_CARRY_L = 2;
@@ -1155,7 +1158,7 @@
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const { a, b, u, map, F, H: Hb } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const { a, b, u, map, F, H: Hb, near } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
@@ -1163,10 +1166,14 @@
     svPolesWatch();
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
-    paper(pane);
+    // (col: the frame looks like the coloured plane it is nearest to, as renderColor draws it: plain, no paper or graph
+    // paper, the outlines as Outlines says and open sets dashed, the colour plot's grid over it all; else like a plane
+    // past the colour plane, which this function draws at rest: the paper and its graph paper under the colour)
+    const col = svColoured(near);
+    if (!col) paper(pane);
     // (SV.bare, a test hook's: the colour layer alone, without the grid, the outlines and the points)
     const bare = !!SV.bare;
-    const grid = (under) => !bare && svGrid(pane, under);
+    const grid = (under) => !bare && !col && svGrid(pane, under);
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
@@ -1184,7 +1191,7 @@
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+        svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
       // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
@@ -1215,7 +1222,7 @@
       // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
       // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
       paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
-      after: () => { grid(true); svOutlines(pane, map, frame); frame.open = false; frame.keep = false; },
+      after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
     } else {
@@ -1226,19 +1233,20 @@
       if (!svMaskOn() && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        if (!bare) svOutlines(pane, map, frame);
+        if (!bare) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
         if (svMaskOn()) svMask(pane, map, still ? a : undefined, { cc });
-        if (GLR.drawGrid) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
+        if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
-        svOutlines(pane, map);
+        svOutlines(pane, map, null, col);
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (bare) return;
+    if (col) colourGrid(pane);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
     const paths = svPathsSource();
@@ -1297,15 +1305,17 @@
     GLR.writeMask(true, true);
     return onPage;
   }
-  // the shapes' outlines under map, as the colour plot draws them (renderColor); into the open GL frame frame, if given
-  // (the caller copies it), else a frame of their own
-  function svOutlines(pane, map0, frame) {
+  // the shapes' outlines under map, open sets dashed (spec 6.5), along the curve under map; col: as the colour plot draws
+  // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
+  // caller copies it), else a frame of their own
+  function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
     for (const s of hideStrokes ? [] : S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
-      const map = shapeMap(s, map0), r = map && shapeGPU(s);
+      if (!outlineShown(s, !col)) continue;
+      const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
-      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() })));
+      const dash = openDash(r, map);
+      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
@@ -1333,6 +1343,16 @@
     svMask(over, stageMap(k), k, { cc });
     svLandMaskC = { cv, key, box: Object.assign({}, box) };
     return svLandMaskC;
+  }
+  // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
+  // h_{hi,t} after the steps before hi; mode 3: h_{b,t} ... h_{a+1,t} after the steps to a) for a shape of plane k > 0
+  // at or before the glide's first plane, the same map from plane k (its base), so it moves as plane k's picture does.
+  // Null: a shape the frame does not draw (a later plane's, or one behind a d/dz step on the way)
+  function svShapeMap(s, map0) {
+    const m = map0.mode || 0, k = shapeStage(s);
+    if (!k || (m !== 1 && m !== 3) || (map0.base || 0) !== 0) return shapeMap(s, map0);
+    const lo = m === 1 ? (map0.hi || 0) - 1 : (map0.a || 0);
+    return k <= lo && !derivIn(k, lo) ? Object.assign({}, map0, { base: k }) : null;
   }
   // a pane that draws into canvas cv instead (the same size and view)
   function svProxy(pane, cv) {
@@ -1615,7 +1635,9 @@
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
     const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,
-      SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig].join('|');
+      SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
+      // (the relief's title names its height and the sheets drawn)
+      SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
@@ -2019,10 +2041,12 @@
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
         return;
       }
-      // (K or M plays and pauses; Esc pauses, or else clears the range, #438)
-      if ((e.key === 'k' || e.key === 'K' || e.key === 'm' || e.key === 'M') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
+      // (K or M plays and pauses; Esc pauses, or else clears the range, #438. By the Latin letter of the physical key, so
+      // that a Russian layout's Л, Ь, З and С work as K, M, P and C)
+      const lk = (I18N.keyOf(e) || e.key || '').toLowerCase();
+      if ((lk === 'k' || lk === 'm') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
       // (P: the paths, as in the classic deformation)
-      if ((e.key === 'p' || e.key === 'P') && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
+      if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
@@ -2030,7 +2054,7 @@
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
-      } else if ((e.key === 'c' || e.key === 'C') && !e.shiftKey) {
+      } else if (lk === 'c' && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
         svSetT(svStage());
       }
