@@ -44,7 +44,7 @@ await laptop(1440, 900);
 await fresh('ux165w'); await settle(1500);
 // (a fresh page on a slow runner: the app up before the tour starts, and the step lit before it is read)
 await ready();
-await ev(`Tour.start({ chapter: 'views' })`); await settle(1500);
+await ev(`Tour.start({ chapter: 'planes' })`); await settle(1500);
 for (let i = 0; i < 20 && !(await ev('!!Tour.lit()')); i++) await sleep(250);
 check('#250: no sheet at 1440 x 900 either', (await ev('Tour.lit() && Tour.lit().why')) === false && (await ev(`!document.querySelector('#tourWhy') || !document.querySelector('#tourWhy').isConnected`)));
 await ev('Tour.stop()'); await settle(300);

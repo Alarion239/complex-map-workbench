@@ -45,7 +45,6 @@ for (const s of P.steps) {
 for (const en of strings) {
   const v = RU[en];
   ok(`ru: "${en.slice(0, 40)}" has an entry`, typeof v === 'string' && v.length > 0, en);
-  if (typeof v !== 'string') continue;
   ok(`ru: "${en.slice(0, 40)}" keeps its keys`, keys(en) === keys(v), [keys(en), keys(v)]);
   ok(`ru: "${en.slice(0, 40)}" is not the English`, v !== en, v);
 }
