@@ -37,6 +37,7 @@ const VIEWS = {
   'steps_carry_inregion_cmd.js': steps(),
   'steps_carry_far_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
+  'steps_seams_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
