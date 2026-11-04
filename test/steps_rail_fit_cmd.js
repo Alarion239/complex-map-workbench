@@ -1,6 +1,7 @@
-// The steps view's rail fits its thread by ux's rule: when the thread with the chips' names fits, every step takes the same
-// width; when it fits only with the letters (fₖ) every chip drops its name together, the name staying in the chip's aria-label,
-// and every plane's node lies whole inside the rail; when even the letters do not fit the rail scrolls.
+// The steps view's rail fits its thread by what gives way first: "+ Add function" folds to its round +, then the steps stop
+// sharing one width (each takes what its chip needs, the names whole), then every chip drops its name together for its letters
+// (fₖ, the name staying in the chip's aria-label), and only then does the rail scroll. While the names fit with every step as
+// wide as the widest chip, the steps are all that width; every plane's node lies whole inside the rail unless it scrolls.
 // The default chain at 1440 and 1280 px in en, ru and it, and a six-step chain at 1280.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -27,16 +28,18 @@ const probe = `(() => {
   const nodes = [...rail.querySelectorAll('.sv-plane .sv-node')].map((n) => n.getBoundingClientRect());
   return { letters: strip.classList.contains('sv-letters'), steps, spread: Math.max(...steps) - Math.min(...steps),
     namesShown: chips.map((c) => c.querySelector('.sv-fn').offsetWidth > 0), named: chips.map((c) => /f\\S*\\s+\\S+/.test(c.getAttribute('aria-label') || '')),
-    nodesIn: nodes.every((b) => b.left >= rr.left - 0.5 && b.right <= rr.right + 0.5), scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rail.clientWidth, scrollW: rail.scrollWidth };
+    addFolded: getComputedStyle(strip.querySelector('.sv-add-t')).display === 'none', nodesIn: nodes.every((b) => b.left >= rr.left - 0.5 && b.right <= rr.right + 0.5), scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rail.clientWidth, scrollW: rail.scrollWidth };
 })()`;
-// (letters: true or false is the mode the rule gives; null is either, as long as what the mode promises holds)
-for (const [w, lang, letters] of [[1440, 'en', false], [1440, 'it', null], [1440, 'ru', true], [1280, 'en', true], [1280, 'ru', true], [1280, 'it', true]]) {
+// (the tier each width gives: equal widths with names, the names at their own widths, or the letters)
+for (const [w, lang, tier] of [[1440, 'en', 'equal'], [1440, 'it', 'names'], [1440, 'ru', 'letters'], [1280, 'en', 'letters'], [1280, 'ru', 'letters'], [1280, 'it', 'letters']]) {
   const tag = `${lang} ${w}`;
   ok(`${tag}: the steps view is up`, await open(w, lang), null);
   const p = await ev(probe);
   info[tag] = { letters: p.letters, railW: p.railW, scrollW: p.scrollW };
-  if (letters === false || (letters === null && !p.letters)) {
-    ok(`${tag}: the chain fits with names, and every step takes the same width`, !p.letters && p.namesShown.every(Boolean) && p.spread <= 1, p);
+  ok(`${tag}: + Add function is the round +`, p.addFolded, p);
+  if (tier !== 'letters') {
+    ok(`${tag}: the chain shows every chip's name whole and does not scroll`, !p.letters && p.namesShown.every(Boolean) && !p.scrolls && p.nodesIn, p);
+    if (tier === 'equal') ok(`${tag}: every step takes the same width`, p.spread <= 1, p);
   } else {
     ok(`${tag}: the chain shows the letters of every chip, together, and no name`, p.letters && p.namesShown.every((v) => !v), p);
     ok(`${tag}: every chip's aria-label keeps its name`, p.named.every(Boolean), p);

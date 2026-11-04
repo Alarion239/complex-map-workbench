@@ -83,7 +83,7 @@ for (const lang of ['en', 'ru', 'it']) {
     // chips' letters shows them, so it is whole either way)
     ok(`1440 ${lang}, ${what}: the Playback ⋯ ends the strip, and the words of + Add function never make the thread scroll`, w.moreLast && (w.addFolded || !w.scrolls), w);
     if (what === '1 step') ok(`1440 ${lang}, 1 step: + Add function keeps its words beside the short thread, which does not scroll`, !w.addFolded && !w.scrolls && w.addOnTop, w);
-    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: the chain z … w₂ shows whole and does not scroll, + Add function whole and on top (in en it is the round +, the words would not fit beside the thread and the Playback controls)`, w.addOnTop && !w.scrolls && (lang !== 'en' || w.addFolded), w);
+    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: + Add function is the round + (the words would not fit beside the thread and the Playback controls), whole and on top, and the chain z … w₂ shows whole and does not scroll`, w.addFolded && w.addOnTop && !w.scrolls, w);
     else if (what === '12 steps') ok(`1440 ${lang}, 12 steps: + Add function is the round + (its words would make the thread scroll more), whole and on top`, w.addFolded && w.addOnTop, w);
   }
 }

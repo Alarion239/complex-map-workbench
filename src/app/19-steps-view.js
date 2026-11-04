@@ -1573,17 +1573,19 @@
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
   // after the fold (the rail grows by exactly that width): no flicker at the edge.
-  // the thread's fit to the rail: every step takes the same width, the widest chip's need. When the thread with the chips'
-  // names is wider than the rail but fits with their letters alone (fₖ), every chip drops its name together (the chip's tooltip
-  // and its aria-label keep it); when even the letters do not fit, the rail scrolls. Measured again only when the rail's width,
-  // the chain, the fonts or the language change, never while the view moves, and the names return only once they fit with
-  // SV_RAIL_HYST px to spare, so a window at the edge does not flicker. A phone's chips are the letters already
+  // the thread's fit to the rail, by what gives way first: "+ Add function" folds to its round + (svFitAdd), then the steps stop
+  // sharing one width (each takes what its chip needs: the names stay whole), then every chip drops its name together for its
+  // letters (fₖ; the chip's tooltip and its aria-label keep the name), and only then does the rail scroll. While the names fit
+  // with every step as wide as the widest chip, the steps are all that width, so the planes sit evenly. Measured again only when
+  // the rail's width, the chain, the fonts or the language change, never while the view moves, and a richer tier returns only
+  // once it fits with SV_RAIL_HYST px to spare, so a window at the edge does not flicker. A phone's chips are the letters already
   const SV_RAIL_HYST = 8;
+  const SV_RAIL_EQUAL = 0, SV_RAIL_OWN = 1, SV_RAIL_LETTERS = 2;
   function svFitRail() {
     const E = SV.els;
     if (!E || !E.track.firstElementChild || SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const steps = /** @type {HTMLElement[]} */ ([...E.track.querySelectorAll('.sv-step')]);
-    // (the room is the rail's with "+ Add function" folded to its round +, which svFitAdd does when the thread is wider than the rest)
+    // (the room is the rail's with "+ Add function" folded, which svFitAdd does when the names would not fit beside its words)
     const room = E.rail.clientWidth + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
     const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
     if (key === E.railKey) return;
@@ -1591,23 +1593,26 @@
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
-      E.railLetters = false;
+      E.railMode = SV_RAIL_EQUAL;
       return;
     }
     const fixed = [...E.track.children].reduce((a, c) => a + (c.classList.contains('sv-step') ? 0 : /** @type {HTMLElement} */ (c).offsetWidth), 0);
-    // (the widest step when each takes the width its chip needs, with the names or with the letters alone)
+    // (the steps' widths when each takes the width its chip needs, with the names or with the letters alone)
     const measure = (letters) => {
       E.strip.classList.add('sv-measure');
       E.strip.classList.toggle('sv-letters', letters);
-      const w = Math.max(...steps.map((st) => st.offsetWidth));
+      const ws = steps.map((st) => st.offsetWidth), w = Math.max(...ws);
       E.strip.classList.remove('sv-measure');
-      return { w, total: fixed + w * steps.length };
+      return { w, equal: fixed + w * ws.length, own: fixed + ws.reduce((a, b) => a + b, 0) };
     };
     const names = measure(false), letters = measure(true);
-    const on = E.railLetters ? names.total + SV_RAIL_HYST > room : names.total > room;
-    E.railLetters = on;
-    E.strip.classList.toggle('sv-letters', on);
-    E.track.style.setProperty('--sv-step-w', `${on ? letters.w : names.w}px`);
+    const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
+    const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
+    const mode = fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
+    E.railMode = mode;
+    E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
+    if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
+    else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
   }
   function svFitAdd() {
     const E = SV.els; if (!E || !E.add || !E.track.firstElementChild) return;
@@ -1618,7 +1623,8 @@
     const first = E.track.firstElementChild, last = E.track.lastElementChild;
     const thread = last.offsetLeft + last.offsetWidth - first.offsetLeft;
     const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
-    add.classList.toggle('fold', thread > room);
+    // (and while the chips are their letters: the room their names needed is not given back to the words)
+    add.classList.toggle('fold', thread > room || E.railMode === SV_RAIL_LETTERS);
   }
   // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
   // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
