@@ -149,7 +149,8 @@ const VIEWS = {
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
-  'split_cmd.js': port('words', 'the formula-in-steps Split, as fix152; plus the Deformation and the alone walk'),
+  'split_cmd.js': steps({ pin: true }),
+  'split_deform_cmd.js': port('interact', 'the Split with the Deformation open, the alone walk ‹ › and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play) and no ‹ › walk of a step shown alone'),
   'tour_audit_cmd.js': port('words', 'every step visited: the steps-view tour walks 38 steps and it expects at least 43; it waits on the tour chapters (#717)'),
   'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (#717):'
     + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
