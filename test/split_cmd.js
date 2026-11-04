@@ -41,7 +41,7 @@ const steps = () => ev('__cmwP().steps');
 const sel = () => ev('__cmwCards().sel');
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
 // (a step's chip on the thread opens it in the Inspector; F is the last plane of the thread)
-const chip = (k) => clickSel(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`);
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
 const toF = () => ev(`(() => { const n = __cmwSteps().planes.length - 1; __cmwSteps({ go: n, now: true, T: n, scope: 'in' }); return 1; })()`);
 // (the plane's picture without the colour legend in its top right corner, whose label names the plane (w₃ or w₁), and without
 // the thread's strip under it: LEGEND_W is the legend's width (about 150 px) and its margin, STRIP_H the strip (64 px) and the
@@ -119,7 +119,7 @@ await grab();
 
 // ---------------- 2–3. the offer and the split ----------------
 await open('fsB', { steps: [F1('\\sin(z^2+1)')] });
-await chip(1); await settle(900);
+await selectStep(1); await settle(900);
 {
   const b = await block();
   ok('offer: 4 rows and the button', b && !b.hidden && b.rows === 4 && b.btn === 'Split into 3 steps', b);
@@ -144,7 +144,7 @@ await chip(1); await settle(900);
   for (const main of ['plane', 'sphere', 'land']) {
     await ev(`__cmwSteps({ surf: '${main}' }), 1`); await settle(1200);
     const p0 = await planes();
-    await chip(1); await settle(500);
+    await selectStep(1); await settle(500);
     await clickSel('#propsPanel .split-offer .so-btn'); await settle(500);
     const s = await steps();
     if (main === 'plane') {
@@ -177,7 +177,7 @@ await grab();
 const CH3 = [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }];
 await open('fsC', { steps: CH3 });
 {
-  await chip(2); await settle(700);
+  await selectStep(2); await settle(700);
   const p0 = await planes();
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(500);
   const s = await steps();
@@ -192,7 +192,7 @@ await grab();
 // ---------------- 6. a shared number ----------------
 await open('fsD', { steps: [F1('(z-a)^3')], params: [{ name: 'a', value: 0.7, min: -2, max: 2, step: 0.01 }] });
 {
-  await chip(1); await settle(700);
+  await selectStep(1); await settle(700);
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(700);
   const s = await steps();
   ok('shared: c₁ reads -a', s[0].type === 'add' && s[0].params.c === '-a' && s[1].type === 'pown' && +s[1].params.n === 3, s);
@@ -215,7 +215,7 @@ await grab();
 // ---------------- 7. a one-step formula step ----------------
 await open('fsE', { steps: [F1('sin z')] });
 {
-  await chip(1); await settle(700);
+  await selectStep(1); await settle(700);
   const b = await block();
   ok('one: "This is the step “Sine”." with Replace', b && !b.hidden && /This is the step “Sine”\./.test(b.sum) && b.btn === 'Replace with “Sine”', b);
   await shot('split-one-en', { x: 1140, y: 40, width: 300, height: 360 });
@@ -233,7 +233,7 @@ await open('fsE', { steps: [F1('sin z')] });
   ok('one: Undo', JSON.stringify(await steps()) === before);
   // a refusal: the ⋯ item is disabled with its reason
   await open('fsE2', { steps: [F1('z^2+\\sin z')] });
-  await chip(1); await settle(600);
+  await selectStep(1); await settle(600);
   await clickSel('#propsPanel .insp-step .ihead .more'); await settle(300);
   const it = await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /Split into steps/.test(x.textContent)); return b ? { dis: b.disabled, tip: b.getAttribute('aria-description') } : null; })()`);
   ok('refusal: Split into steps disabled with its reason', it && it.dis && it.tip === 'Not a chain of catalog steps', it);
@@ -255,7 +255,7 @@ await open('fsR', { steps: [] }, '&lang=ru');
 }
 await open('fsR', { steps: [F1('\\operatorname{tg}(z^2+1)')] }, '&lang=ru');
 {
-  await chip(1); await settle(900);
+  await selectStep(1); await settle(900);
   const b = await block();
   ok('ru: the offer', b && !b.hidden && b.rows === 4 && b.btn === 'Разложить на 3 шага' && /^Составлена из 3 шагов/.test(b.sum), b);
   ok('ru: no English in the offer', latin(b.text).length === 0, latin(b.text));
@@ -279,7 +279,7 @@ await grab();
 // ---------------- 10. dark ----------------
 await view(1440, 900, true, false);
 await open('fsB', { steps: [F1('\\sin(z^2+1)')] });
-await chip(1); await settle(900);
+await selectStep(1); await settle(900);
 await shot('split-offer-en-dark', { x: 1140, y: 40, width: 300, height: 520 });
 { const bb = await block(); ok('dark: the offer', bb && !bb.hidden, bb); }
 
@@ -287,7 +287,7 @@ await shot('split-offer-en-dark', { x: 1140, y: 40, width: 300, height: 520 });
 for (const [w, h] of [[1024, 768], [768, 1024]]) {
   await view(w, h, false, false);
   await open('fsT', { steps: [F1('\\sin(z^2+1)')], hideRight: false });
-  await chip(1); await settle(900);
+  await selectStep(1); await settle(900);
   const b = await block();
   ok(`tablet ${w}: the offer in the docked Inspector, no sideways overflow`, b && !b.hidden && b.rows === 4 && b.overflow <= 0 && b.r[0] + b.r[2] <= w, b);
   ok(`tablet ${w}: clear of the planes`, await clearOfPlanes() === true);
@@ -351,15 +351,12 @@ await grab();
 // ---------------- 15. export ----------------
 for (const lang of ['en', 'ru']) {
   await open('fsX', { steps: [F1('\\sin(z^2+1)')] }, lang === 'ru' ? '&lang=ru' : '');
-  await chip(1); await settle(600);
+  await selectStep(1); await settle(600);
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(1200);
   const r = await ev(`await (async () => { try { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? { cap: f.captionTex, n: f.captionTex.length } : null; } catch (e) { return { err: String(e).slice(0, 300) }; } })()`, 180000);
   ok(`export ${lang}: a figure with a caption ≤ 700 characters`, r && !r.err && r.cap && r.n <= 700 && !/undefined|NaN|null/.test(r.cap), r);
   info['cap_' + lang] = r && r.cap;
 }
-await grab();
-ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
-return { pass, fails, info };
 await grab();
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
 return { pass, fails, info };

@@ -11,7 +11,6 @@ const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got 
 const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
-const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const DESKUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
 const F1 = (expr, cut = 180) => ({ type: 'custom', params: { expr, cut }, on: true });
@@ -23,7 +22,6 @@ async function open(ns, st, q = '') {
   await nav(U(ns, q)); await settle(2200);
 }
 const steps = () => ev('__cmwP().steps');
-const sel = () => ev('__cmwCards().sel');
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
 // the planes (below their heads, whose titles name the step count), as pixels
 const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; const ft = p.querySelector('.pane-foot, .opts'); out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4, height: Math.round(r.bottom - top - 44) }); } return out; })()`);
@@ -34,20 +32,6 @@ function diff(a, b) {
   for (let i = 0; i < a.length; i++) { const p = a[i], q = b[i]; if (p.w !== q.w || p.h !== q.h) return -1; for (let j = 0; j < p.data.length; j += p.ch) if (Math.abs(p.data[j] - q.data[j]) > 8 || Math.abs(p.data[j + 1] - q.data[j + 1]) > 8 || Math.abs(p.data[j + 2] - q.data[j + 2]) > 8) n++; }
   return n;
 }
-// the palette: type q, read the rows (group headers start with #)
-async function pal(q, fnOnly) {
-  await ev(`document.querySelector('.pop.palette') ? 1 : 0`) && await key('Escape');
-  const r = await clickSel(fnOnly ? '#addStepBtn' : '#cmdBtn'); await settle(200);
-  if (typeof r === 'string') return null;
-  await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); return 1; })()`);
-  await settle(150);
-  return ev(`[...document.querySelectorAll('#palList .pal-group, #palList .pal-item')].slice(0, 8).map((e) => e.classList.contains('pal-group') ? '#' + e.textContent : e.querySelector('.pal-label').textContent)`);
-}
-const rowsOf = (list) => (list || []).filter((x) => x[0] !== '#');
-const block = () => ev(`(() => { const b = document.querySelector('#propsPanel .split-offer'); if (!b) return null; const r = b.getBoundingClientRect(); const btn = b.querySelector('.so-btn'), sm = b.querySelector('summary'); const lh = (e) => { if (!e) return 0; const cs = getComputedStyle(e); const l = parseFloat(cs.lineHeight) || 16; return Math.round((e.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / l); };
-  return { hidden: b.hidden || !b.getClientRects().length, open: b.open, rows: b.querySelectorAll('.so-row').length, sum: sm ? sm.textContent : '', btn: btn ? btn.textContent : '', btnDisabled: btn ? btn.disabled : null, btnH: btn ? Math.round(btn.getBoundingClientRect().height) : 0, btnW: btn ? Math.round(btn.getBoundingClientRect().width) : 0, btnLines: lh(btn), sumLines: sm ? Math.round(sm.querySelector('span:not([hidden])') ? sm.getBoundingClientRect().height / 18 : 1) : 0, text: b.innerText, r: [r.left, r.top, r.width, r.height], overflow: (() => { const p = document.getElementById('propsPanel'); return p ? p.scrollWidth - p.clientWidth : 0; })() }; })()`);
-const clearOfPlanes = () => ev(`(() => { const b = document.querySelector('#propsPanel .split-offer'); if (!b) return null; const r = b.getBoundingClientRect(); return [...document.querySelectorAll('#paneL canvas, #paneR canvas')].filter((c) => c.getClientRects().length).every((c) => { const q = c.getBoundingClientRect(); return r.right <= q.left || r.left >= q.right || r.bottom <= q.top || r.top >= q.bottom; }); })()`);
-const latin = (s) => (String(s || '').replace(/\\[a-zA-Z]+/g, '').match(/\b[A-Za-z]{2,}\b/g) || []).filter((w) => !['sin', 'cos', 'tg', 'sh', 'ch', 'th', 'arctg', 'ln', 'log', 'exp', 'Re', 'Im', 'arg', 'Esc', 'Enter', 'Shift', 'Tab', 'mod', 'Ctrl'].includes(w));
 
 await send('Emulation.setUserAgentOverride', { userAgent: DESKUA, acceptLanguage: 'en-US,en' });
 await view(1440, 900, false, false);
@@ -68,8 +52,6 @@ await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2
   await shot('split-morph');
   await ev('__cmwMorph({ open: false })'); await settle(300);
 }
-await grab();
-
 await grab();
 
 // ---------------- 8. the alone walk ----------------
