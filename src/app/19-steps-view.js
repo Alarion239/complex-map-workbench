@@ -40,7 +40,7 @@
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
-  // (ux's rule on #846, 2) every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
+  // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
   // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
   // no map from w_k (then the colour plane, or past it w_k itself)
   function svHT(k) { const P = svPlanes(), L = P[P.length - 1]; return k === 0 || !derivIn(k, L) ? L : Math.max(k, svT()); }
@@ -104,11 +104,15 @@
     return hit.length ? hit[0].z : null;
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
-  // colour plane the colour is carried by the points, which the role says
+  // colour plane the colour is carried by the points, which the role says. A Landscape names its height, h(F) on every
+  // plane (svHeightF), then the carried colour past T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role;
-    if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
+    if (SV.surf === 'land' && svMain(k) === 'land') {
+      const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
+      role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+    } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
     else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
     else role = $t('phase of {ofV}', { ofV: map });
@@ -287,7 +291,7 @@
     if (still) { SV.g.last = 0; svArrive(); return false; }
     return true;
   }
-  // (#846, ux's rule on it) The Landscape as the points of a source plane s carried (render3D's carry): s is the plane
+  // The Landscape as the points of a source plane s carried (render3D's carry): s is the plane
   // the frame starts from, or the colour plane T when that is before it, so every point past T keeps T's colour. Each
   // point is placed by `map` (from plane s), at its height h(F) (the stages (s, hT]) and in its colour (the stages
   // (s, T]); the block goes from plane a's to plane b's over u (b null: a's). vs, va, vb: the views of s, a and b
@@ -305,7 +309,7 @@
     if (k <= T) return svHT(k) === T ? undefined : svLandCarry({ mode: 0, a: k, b: k }, k, k, null, 0, k);
     return svLandCarry({ mode: 0, a: T, b: k }, T, T, k, 1, k);
   }
-  // (#846) The Landscape between two planes a and b: the points of plane s = min(a, T) carried by the glide's map, each
+  // The Landscape between two planes a and b: the points of plane s = min(a, T) carried by the glide's map, each
   // at its height and colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s =
   // F_b ∘ (the map s → b). At a plane, or across a d/dz step (no map), the nearer plane's surface at rest. False when
   // the Landscape is not on the pane (the X → Y view a glide from a plane with no Landscape starts in)
