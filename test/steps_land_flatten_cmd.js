@@ -6,7 +6,7 @@
 //   of plane w₁ flattened by u (__cmwLandCarry's flat), each farther from w₁ at rest than the one before (compared
 //   where the two canvases overlap on the page);
 // - held at u = 0.0002 and 0.9998 (the rail's place set, not let go): the frame against w₁ and w₂ at rest, where the
-//   canvases overlap on the page, within #859's tolerance (at most 0.5 % of pixels more than 32/255 apart), Inside
+//   canvases overlap on the page, within the moving frames' tolerance (at most 0.5 % of pixels more than 32/255 apart), Inside
 //   regions and Everywhere;
 // - a glide back from w₂ to w₁ draws flattened carried frames at three or more places on its way;
 // - under reduced motion the glide from w₁ to w₂ changes plane at once: no flattened frame.
