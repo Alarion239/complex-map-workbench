@@ -242,6 +242,60 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
+  // (#846) The steps view's carried landscape (st.carry {map, s, T, lim, src}): plane s's grid over its box src (default
+  // the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box, each
+  // vertex at the height of G = the stages (s, T] at its point
+  // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
+  // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
+  // frame's, when the glide arrives
+  let landC = null;
+  // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
+  const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
+  const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
+  function carryHeights(st, N, mode, H, mu, aspect) {
+    const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
+    const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
+    if (!landC || landC.N !== N) {
+      if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
+      landC = { N, tex1: floatTex(), tex2: floatTex() };
+    }
+    use(P1, c.map);
+    u1i(P1, 'uN', N);
+    u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.T);
+    runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, landC.tex1, N, N, gl.RGBA32F, gl.RGBA);
+    use(P2);
+    u1i(P2, 'uN', N);
+    u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    u2f(P2, 'uAspect', aspect[0], aspect[1]);
+    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, landC.tex1);
+    gl.activeTexture(gl.TEXTURE15);
+    runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
+    return landC;
+  }
+  // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
+  // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
+  // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
+  let maskTex = null, maskKey = null;
+  function maskUniforms(P, m) {
+    u1f(P, 'uMaskOn', m ? 1 : 0);
+    if (!m || !P.loc.uMask) return;
+    gl.activeTexture(gl.TEXTURE15);
+    if (!maskTex) maskTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    if (maskKey !== m.key) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.cv);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      maskKey = m.key;
+    }
+    u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
+  }
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
   function lwRead(tex, w, h) {
@@ -1034,6 +1088,8 @@
     if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
     // TEMP-DEBUG-HOOK
     lvCollect();
+    // (#846) the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
+    if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -1056,7 +1112,7 @@
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
-    const sp = st.sheets ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
+    const sp = st.sheets && !st.carry ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
     // A step card's Landscape (st.card) waits for the pane's: its programs start once the pane has drawn this chain's
     // surface, and are taken into use once they have settled (r3: compiled alongside the pane's All sheets, they slowed
     // its link, and their first draws in later frames stalled the GPU process again, r2 review verify-2)
@@ -1108,7 +1164,7 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drew its principal branch with programs of
     // its own first, and the GPU process stalled once for them and once more for the sheets', r2 review verify-2)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    const hd = st.carry ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
     if (!st.card) {
@@ -1138,6 +1194,7 @@
       u1f(P, 'uFogNear', fogNear);
       u1f(P, 'uFogFar', fogFar);
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
+      maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
@@ -1165,7 +1222,21 @@
     if (!below) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
-    const Lp = hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
+    const Lp = st.carry ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
+    if (st.carry) {
+      const Pc = program('landCarry', st.carry.map);
+      use(Pc, st.carry.map);
+      common(Pc);
+      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+      u3(Pc, 'uCut', C.cut);
+      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u2f(Pc, 'uClipA', aspect[0], aspect[1]);
+      const sb = st.carry.src || box;
+      u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+      info.refine = null;
+      info.carried = true;
+    }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
     // (moving, the principal surface: its steep base triangles by landB, once the refinement's programs have run, STEEP;

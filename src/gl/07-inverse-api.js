@@ -127,7 +127,8 @@
   // the carried colour's variant of the inverse program (extra = INV_CARRY): each covering sheet's point z on
   // plane uGs is shaded with the colour plane's colour of it, dcolor(G(z)), G the stages (uGs, uGt] (the forward
   // chain's chainRange, compiled in beside the walker), its footprints from the walk's dz across and down a pixel
-  // (dcolorD: the screen's derivatives mean nothing inside the walk)
+  // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
+  // footprint down is G'(z) dY from the one across, else G at z + dY too
   const INV_CARRY = { carry: true, pre: '', main: '' };
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
@@ -135,12 +136,12 @@
   }
   function invCarryFns() {
     return DCOLOR.replace('uniform float uDpr;', '') + `
-uniform int uGs; uniform int uGt;
+uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   if (uGs >= uGt) return dcolorD(z, dX, dY);
-  vec2 w = chainRange(z, uGs, uGt);
-  return dcolorD(w, chainRange(z + dX, uGs, uGt) - w, chainRange(z + dY, uGs, uGt) - w);
+  vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
+  return dcolorD(w, wx, uGan && dot(dX, dX) > 0.0 ? cmul(cdiv(wx, dX), dY) : chainRange(z + dY, uGs, uGt) - w);
 }
 `;
   }
@@ -536,7 +537,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
       u1i(P, 'uPattern', 9);
-      u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T);
+      u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
       bindLut(P);
     }
