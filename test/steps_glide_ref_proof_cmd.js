@@ -9,14 +9,21 @@ const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', '
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=proof${Date.now()}`);
 await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && !!window.GLR' });
 await ev(`__cmwExample(${names.indexOf('Joukowski airfoil')}); 1`); await settled({ max: 60000 });
-await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'in', surf: 'plane' }), 1`);
+const SCOPE = process.env.GI_SCOPE || 'in';
+await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: '${SCOPE}', surf: 'plane' }), 1`);
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
 const cam = () => ev(`(() => { const v = (window.paneL || {}).view; const g = __cmwSteps().glide; return JSON.stringify(g && g.view); })()`);
-for (const u of [0.25, 0.75, 0.999]) {
+for (const u of SCOPE === 'all' ? [0.25, 0.5, 0.75] : [0.25, 0.75, 0.999]) {
   // (plane 0's parked frame under the camera the glide then uses: the camera can change between visits)
   await rest(0); await grab('R0');
   out['held' + u] = (await hold(u)).ok; await grab('M' + u);
   const cm = await cam();
+  if (SCOPE === 'all') {
+    // (a frame the carried mesh draws has no sheet key in its record: the inverse pass's key of the glide's frame at u)
+    out['path' + u] = await ev(`(() => { const g = __cmwSteps().glide; if (!g.key) { const k = __cmwSvKey(g.b, g.u), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) }; g.key = (z) => Inverse.sheetKey(prep, z, null); } return { path: g.path, b: g.b, u: g.u, why: g.reason }; })()`);
+    await ev('window.__giAllRoots = false, 1');
+    for (const tol of [3, 32]) out[`Everywhere u${u} vs the moving frame at ${tol}`] = await refOf('R0', 'M' + u, tol);
+  } else
   for (const all of [true, false]) { await ev(`window.__giAllRoots = ${all}, 1`); out[`u${u} ${all ? 'old (all roots)' : 'new (roots in the region)'} vs the moving frame`] = await refOf('R0', 'M' + u, DIFF_TOL); }
   if (process.env.GI_IMG && u < 0.9) {
     await ev(fs.readFileSync(process.env.GI_DIAG, 'utf8') + '; 1');
@@ -28,7 +35,7 @@ for (const u of [0.25, 0.75, 0.999]) {
   }
   await ev('window.__svScrubUp(), 1');
   await rest(0); await grab('R0b'); out['base unchanged ' + u] = await compare('R0', 'R0b');
-  if (u === 0.999) {
+  if (u === 0.999 && SCOPE !== 'all') {
     await hold(u); await grab('M2'); out.cam = [cm, await cam()];
     await ev('window.__svScrubUp(), 1'); await rest(1); await grab('R1');
     out.movingVsParked = await compare('M2', 'R1');
