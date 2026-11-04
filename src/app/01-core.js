@@ -865,7 +865,9 @@
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)
-  const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
+  const landMaterial = () => (!lPhase() ? 'plaster' : svLandMaterial());
+  // (the phase-coloured relief's: also the steps view's flatten, which draws the Landscape in X → Y's pane)
+  const svLandMaterial = () => (S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
   const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)

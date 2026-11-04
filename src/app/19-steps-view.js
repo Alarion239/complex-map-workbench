@@ -107,9 +107,9 @@
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
-  // (on the Landscape, a glide from the colour plane to the plane after it flattens the surface into that plane:
-  // the Landscape until it arrives, svFlattening)
-  const svMain = (k = svStage()) => (SV.surf === 'land' && (svColoured(k) || svFlattening()) ? 'land' : svColoured(k) ? 'phase' : 'xy');
+  // (on the Landscape, a glide from the colour plane to the plane after it flattens the surface into that plane
+  // (svFlattening): X → Y's from the glide's start, with the Landscape drawn on it, svLandMoving)
+  const svMain = (k = svStage()) => (!svColoured(k) || svFlattening() ? 'xy' : SV.surf === 'land' ? 'land' : 'phase');
   function svViewFix() {
     const k = svStage(), col = svColoured(k), v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
     const main = svMain(k);
@@ -285,18 +285,61 @@
   // (the X → Y view a glide from past the colour plane starts in)
   // From the colour plane T to the plane after it (T + 1, which shows T's colour carried, flat), the carried surface
   // flattens into plane b's flat view over u (render3D's carry.flat): its height, the camera, the light and the fog
-  // go from the Landscape's to plane b's top-down picture at u = 1. A glide that starts on plane b (in X → Y) takes the
-  // Landscape back first (svViewFix)
+  // go from the Landscape's to plane b's top-down picture at u = 1. The pane has X → Y's layout over the whole glide,
+  // and the picture goes from where it stood on the Landscape canvas to X → Y's place over u (carry.land, flatPlace),
+  // while the rulers and the colour key come in (svFlatChrome)
   function svLandMoving(pane) {
     if (SV.surf !== 'land') return false;
     const g = svBetween(), flat = svFlattening(g);
-    if (flat && !lLand() && svViewFix()) setTimeout(svApply, 0);
-    if (!lLand()) return false;
+    svFlatChrome(flat ? g.u : 1);
+    // (the flatten's first frame is still drawn on the Landscape's canvas: where it is, svLandRect)
+    if (flat && lLand()) render3D.landRect = svRectOf(pane.canvas);
+    if (flat && svViewFix()) setTimeout(svApply, 0);
+    if (!flat && !lLand()) return false;
     if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
     const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
     const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, flat: flat ? g.u : 0, va: leftView(g.a), vb: leftView(g.b) });
+    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, flat: flat ? g.u : 0, land: flat ? svLandRect(pane) : null, va: leftView(g.a), vb: leftView(g.b) });
+    if (flat && lFlat()) { pane.setView(leftView(g.b)); drawRulers(pane, 'L'); }
     return true;
+  }
+  // the Landscape canvas's rectangle (page CSS px) that the flatten starts from: the last one the Landscape had at rest
+  // in this window (render3D.landRect); else this canvas while it is still the Landscape's, or X → Y's canvas with its
+  // rulers' strips added back (the Landscape's pane has no rulers)
+  function svLandRect(pane) {
+    const L = render3D.landRect, c = pane.canvas.getBoundingClientRect();
+    if (L && L.iw === innerWidth && L.ih === innerHeight && Math.abs(L.x + L.w - c.right) < 0.5) return L;
+    if (lLand()) return svRectOf(pane.canvas);
+    const ry = $('rulerLY'), rx = $('rulerLX'), dw = ry ? ry.getBoundingClientRect().width : 0, dh = rx ? rx.getBoundingClientRect().height : 0;
+    return { x: c.left - dw, y: c.top, w: c.width + dw, h: c.height + dh };
+  }
+  // the plane's grid paper in the open GL frame, at the pane's view (under: under what the frame holds already)
+  const svGrid = (pane, under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
+  // (the flatten, render3D) plane b's grid paper, at its view, over the pane at opacity a, under the Landscape's frame:
+  // the plate gives way to it as the surface flattens (GLR.drawLandscape's carry.flat), so at a = 1 the surface lies on
+  // X → Y's paper
+  function svFlatPaper(pane, view, a) {
+    if (!GLR.drawGrid || SV.bare) return;
+    const v = pane.view;
+    pane.setView(view);
+    GLR.begin(pane.pw, pane.ph); svGrid(pane, false);
+    pane.ctx.save(); pane.ctx.globalAlpha = a; GLR.blit(pane.ctx); pane.ctx.restore();
+    pane.setView(v);
+  }
+  // an element's rectangle in page CSS px, with the window's size it was taken at
+  function svRectOf(el) {
+    const r = el.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height, iw: innerWidth, ih: innerHeight };
+  }
+  // the 2D chrome that X → Y has and the Landscape has not (the rulers, their corner and the colour key on the plot) at
+  // opacity a: it comes in over the flatten's glide (ux on #846: annotation with no 3D twin ramps in over the same span),
+  // and is whole (a = 1) everywhere else
+  let svChromeA = 1;
+  function svFlatChrome(a) {
+    if (a === svChromeA) return;
+    svChromeA = a;
+    const op = a >= 1 ? '' : String(+a.toFixed(3));
+    for (const id of ['rulerLX', 'rulerLY', 'cornerL', 'leftLegend']) { const e = $(id); if (e) e.style.opacity = op; }
   }
   // between the colour plane and the plane after it, one step's glide on the Landscape (g: svBetween's)
   function svFlattening(g = svBetween()) {
@@ -1074,7 +1117,7 @@
     paper(pane);
     // (SV.bare, a test hook's: the colour layer alone, without the grid, the outlines and the points)
     const bare = !!SV.bare;
-    const grid = (under) => !bare && GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
+    const grid = (under) => !bare && svGrid(pane, under);
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;

@@ -1127,10 +1127,12 @@ void main() {
 ${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
-  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = facetW(w0);
+  float la = 1.0 - uFlat;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = facetW(w0);
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
-  float la = ht.y > 0.5 ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
+  float la = (ht.y > 0.5 ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0) * (1.0 - uFlat);`}
+  // (la: the lines' strength; flattening into the plane after the colour plane, the relief's contours, its cut banks
+  // and its rim, which the flat plane does not draw, go with the height: times 1 - uFlat)
   float r = wabs(w);
   float q = TAU / max(uSectors, 1.0);
   // (the lines' widths: the smaller of w's and F's as it is. On a silhouette the helper fragments of a quad sit off the
@@ -1149,8 +1151,11 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), la * uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
   a = mix(a, vec3(1.0), la * uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
   // (outside the carried region set: plain, under the sheet cue, the cut's banks and the rim as everywhere; flattening
-  // into the plane after the colour plane, its colour eases to that plane's paper with the plate, uPaper)
-  a = mix(mix(toLin(uPlaster), toLin(uPaper), uFlat), a, inRegions(vZ));
+  // into the plane after the colour plane, its colour eases to that plane's paper and it gives way to the paper drawn
+  // under the frame, as the plate does: its opacity is 1 - uFlat there)
+  float inR = inRegions(vZ);
+  a = mix(mix(toLin(uPlaster), toLin(uPaper), uFlat), a, inR);
+  float op = 1.0 - uFlat * (1.0 - inR);
 ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
   // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
@@ -1165,7 +1170,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   float cliff = max(max(vEdge.x * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.x)),
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
-  a = mix(a, toLin(uCut), cliff);
+  a = mix(a, toLin(uCut), cliff * (1.0 - uFlat));
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile
   vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
@@ -1173,7 +1178,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
                          vBoxE.y * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.y))),
-                         vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z))));
+                         vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z)))) * (1.0 - uFlat);
   // an open surface, seen from both sides: the underside (the camera below the sheet, by the triangle's winding)
   vec3 n = normalize(vNor);
   vec3 v = normalize(uEye - vPos);
@@ -1187,7 +1192,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
     a = mix(a, ml, 0.65 * rim);
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
-  o = vec4(toSrgb(fogged(c, vPos)), 1.0);
+  o = vec4(toSrgb(fogged(c, vPos)) * op, op);
 }
 `;
   const FLOOR_VS = `

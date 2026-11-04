@@ -95,7 +95,7 @@
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
     if (SV.on) mfDrawn = null;
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
-    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf !== 'sphere' && lFlat()) { svRenderMoving(pane); return; } }
+    if (SV.on) { svFlatChrome(1); svCheck(); svPolesWatch(); if (!svColoured() && SV.surf !== 'sphere' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
@@ -532,15 +532,16 @@
   function dcGridStep() { return S.dcGrid || 0.5; }
   // backdrop for 3D views (spec 6.9): vertical gradient --land-top -> --land-bottom, times a vignette 1 - 0.06 r^2
   // (r = 1 at the corners)
-  function backdrop(pane) {
+  // (R {x, y, w, h}: the picture's rectangle in the pane, default the whole pane; the backdrop fills the pane)
+  function backdrop(pane, R = { x: 0, y: 0, w: pane.w, h: pane.h }) {
     const ctx = pane.ctx;
     if (figMode) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pane.w, pane.h); return; } // print: plain paper
-    const g = ctx.createLinearGradient(0, 0, 0, pane.h);
+    const g = ctx.createLinearGradient(0, R.y, 0, R.y + R.h);
     g.addColorStop(0, TH.landTop); g.addColorStop(1, TH.landBottom);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, pane.w, pane.h);
-    const r = Math.hypot(pane.w, pane.h) / 2;
-    const vg = ctx.createRadialGradient(pane.w / 2, pane.h / 2, 0, pane.w / 2, pane.h / 2, r);
+    const r = Math.hypot(R.w, R.h) / 2, cx = R.x + R.w / 2, cy = R.y + R.h / 2;
+    const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
     for (let i = 0; i <= 8; i++) { const t = i / 8, v = Math.round(255 * (1 - 0.06 * t * t)); vg.addColorStop(t, `rgb(${v},${v},${v})`); }
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
@@ -570,10 +571,12 @@
   }
   // the landscape's domain: the left view box, aspect preserved (spec 6.9), trimmed to at most 2:1 about its centre
   // (v: a view of the left plane, default its own: the steps view's glide asks for both planes')
-  function landBox(v) {
+  // (dims {w, h}: the pane's size to fit, default the pane's own: the flatten fits plane a's block to the Landscape
+  // canvas it left, flatPlace)
+  function landBox(v, dims) {
     // (a figure's art: the window figure.js chose, snapped to round numbers; the screen never takes this path)
     if (artMode && artLandBox) return artLandBox;
-    const vb = leftPaneBox(v);
+    const vb = leftPaneBox(v, dims);
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
@@ -587,8 +590,9 @@
   // light, fog and plate's print to none, so at 1 the frame is that plane's flat view. va, vb: the two planes' views
   // p to q at f in log (p, q > 0)
   const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
-  function carryBox(c) {
-    const A = landBox(c.va), B = c.flat ? leftPaneBox(c.vb) : c.b == null ? A : landBox(c.vb), u = c.u;
+  // (place: flatPlace's, while the surface flattens: plane a's block is the one it had on the Landscape canvas)
+  function carryBox(c, place) {
+    const A = landBox(c.va, place && place.A), B = c.flat ? leftPaneBox(c.vb) : c.b == null ? A : landBox(c.vb), u = c.u;
     const mid = (p, q) => (1 - u) * p + u * q, geo = (p, q) => logLerp(p, q, u);
     const cx = mid((A.x0 + A.x1) / 2, (B.x0 + B.x1) / 2), cy = mid((A.y0 + A.y1) / 2, (B.y0 + B.y1) / 2);
     const hw = geo(A.x1 - A.x0, B.x1 - B.x0) / 2, hh = geo(A.y1 - A.y0, B.y1 - B.y0) / 2;
@@ -606,11 +610,25 @@
     return { yaw: view.yaw + f * dy, pitch: lin(view.pitch, pitch1), dist: logLerp(view.dist, dist1, f), tx: lin(view.tx, 0), ty: lin(view.ty, 0), tz: lin(view.tz, 0), fov: view.fov };
   }
   const mix3 = (p, q, f) => p.map((x, i) => (1 - f) * x + f * q[i]);
+  // (carry.land, the flatten: the pane has X → Y's canvas from the glide's start, and the picture is placed on it)
+  // land: the Landscape canvas's rectangle at rest, {x, y, w, h} in page CSS px. The picture's rectangle R (CSS px of
+  // this pane) goes from that rectangle, where the picture stood at rest, to the whole pane over f, so nothing moves
+  // when the canvas changes, and at f = 1 the picture is X → Y's. A: the Landscape canvas's size (plane a's block is
+  // fitted to it); ndc: [sx, sy, bx, by], the map from R's clip space to the pane's (GLR.drawLandscape's screen)
+  function flatPlace(pane, land, f) {
+    const c = pane.canvas.getBoundingClientRect(), lin = (p, q) => (1 - f) * p + f * q;
+    const R = { x: lin(land.x - c.left, 0), y: lin(land.y - c.top, 0), w: lin(land.w, pane.w), h: lin(land.h, pane.h) };
+    return { R, A: { w: land.w, h: land.h }, ndc: [R.w / pane.w, R.h / pane.h, (2 * R.x + R.w) / pane.w - 1, 1 - (2 * R.y + R.h) / pane.h] };
+  }
   function render3D(pane, carry) {
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
-    backdrop(pane);
-    const box = carry ? carryBox(carry) : landBox();
+    const place = carry && carry.flat && carry.land ? flatPlace(pane, carry.land, carry.flat) : null;
+    backdrop(pane, place ? place.R : undefined);
+    if (place) svFlatPaper(pane, carry.vb, carry.flat);
+    // (the steps view on the Landscape's canvas: where it is, which the flatten starts from, svLandRect)
+    if (SV.on && lLand()) render3D.landRect = svRectOf(pane.canvas);
+    const box = carry ? carryBox(carry, place) : landBox();
     // the Morph transport (homView): the surface of H_t; All sheets (S.sheets, window S.sheetW): the whole covering
     // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
     // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
@@ -620,7 +638,7 @@
     const sheets = !carry && S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
-      const ma = medianAbs(landBox(carry.va), svColourMap(carry.s), svF(carry.s));
+      const ma = medianAbs(landBox(carry.va, place && place.A), svColourMap(carry.s), svF(carry.s));
       const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svColourMap(carry.b), svF(carry.b));
       mu = logLerp(ma, mb, carry.u);
     }
@@ -732,12 +750,12 @@
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
-    refitCam(cam, CAM3, landFitDist(geo, pane));
+    refitCam(cam, CAM3, landFitDist(geo, place ? place.R : pane));
     let view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     if (carry && carry.flat) view = flatCam(view, geo, carry.flat);
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
-    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.va)) : svLandMask(svStage(), box)) : null;
+    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.va, place && place.A)) : svLandMask(svStage(), box)) : null;
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
@@ -751,7 +769,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va), flat: carry.flat || 0, paper: TH.planeRGB } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va, place && place.A), flat: carry.flat || 0, paper: TH.planeRGB } : null, box, cam: view, screen: place ? place.ndc : null, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: carry && carry.flat ? svLandMaterial() : landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
@@ -770,14 +788,14 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, flat: carry.flat || 0, mu, box } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, flat: carry.flat || 0, place: place && place.R, mu, box } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     render3D.pick = carry ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined; render3D.landRect = undefined;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -1285,9 +1303,9 @@
   // null off the globe or at the north pole (infinity).
   function pickSphereLeft(x, y) { return pickSphere(paneL, camL, x, y); }
   let leftSphereInfo = null;   // the left globe's last frame {MVP, eye}: overlays lift their marks onto it
-  // (v: a view of the left plane, default its own)
-  function leftPaneBox(v = leftView()) {
-    const P = solo() === 'R' ? paneR : paneL;
+  // (v: a view of the left plane, default its own; dims {w, h}: a pane size, default the pane's)
+  function leftPaneBox(v = leftView(), dims) {
+    const P = dims || (solo() === 'R' ? paneR : paneL);
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options

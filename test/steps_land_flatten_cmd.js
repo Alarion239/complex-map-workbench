@@ -2,9 +2,12 @@
 // flattens into plane T+1's flat view. The default page (z, exp, Möbius), colour plane w₁, Everywhere:
 // - plane w₂ at rest is the same picture on the Landscape surface as on the Plane surface (both draw X → Y with the
 //   colour carried from w₁ over the whole plane, at most 2 % of the pane's pixels more than 32/255 apart);
-// - parked at u = 0.25, 0.5 and 0.75 between w₁ and w₂: the Landscape is shown, and each frame is a carried frame of
-//   plane w₁ flattened by u (__cmwLandCarry's flat), each farther from w₁ at rest than the one before (the canvas is
-//   the Landscape's until the glide arrives, so w₁ at rest is the frame on the same canvas);
+// - parked at u = 0.25, 0.5 and 0.75 between w₁ and w₂: the pane has X → Y's layout, and each frame is a carried frame
+//   of plane w₁ flattened by u (__cmwLandCarry's flat), each farther from w₁ at rest than the one before (compared
+//   where the two canvases overlap on the page);
+// - held at u = 0.0002 and 0.9998 (the rail's place set, not let go): the frame against w₁ and w₂ at rest, where the
+//   canvases overlap on the page, within #859's tolerance (at most 0.5 % of pixels more than 32/255 apart), Inside
+//   regions and Everywhere;
 // - a glide back from w₂ to w₁ draws flattened carried frames at three or more places on its way;
 // - under reduced motion the glide from w₁ to w₂ changes plane at once: no flattened frame.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -14,10 +17,12 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-// the left pane's pixels, kept in the page under tag
-const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); window.__ss = window.__ss || {}; window.__ss[${JSON.stringify(tag)}] = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; return [cv.width, cv.height]; })()`);
-// the share of pixels of a more than 32/255 apart from b in a channel (null: different sizes)
-const diff = (a, b) => ev(`(() => { const A = window.__ss[${JSON.stringify(a)}], B = window.__ss[${JSON.stringify(b)}]; if (!A || !B || A.length !== B.length) return null; let n = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { n++; const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])); if (d > 32) n32++; } return +(n32 / n).toFixed(4); })()`);
+// the left pane's pixels and where its canvas is on the page (device px), kept in the page under tag
+const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), k = cv.width / r.width; window.__ss = window.__ss || {}; window.__ss[${JSON.stringify(tag)}] = { d: cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, x: Math.round(r.left * k), y: Math.round(r.top * k), w: cv.width, h: cv.height }; return [cv.width, cv.height]; })()`);
+// the share of pixels more than 32/255 apart in a channel, over the part of the page both canvases cover
+const diff = (a, b) => ev(`(() => { const A = window.__ss[${JSON.stringify(a)}], B = window.__ss[${JSON.stringify(b)}]; if (!A || !B) return null; const x0 = Math.max(A.x, B.x), y0 = Math.max(A.y, B.y), x1 = Math.min(A.x + A.w, B.x + B.w), y1 = Math.min(A.y + A.h, B.y + B.h); let n = 0, n32 = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = ((y - A.y) * A.w + x - A.x) * 4, j = ((y - B.y) * B.w + x - B.x) * 4; n++; if (Math.max(Math.abs(A.d[i] - B.d[j]), Math.abs(A.d[i + 1] - B.d[j + 1]), Math.abs(A.d[i + 2] - B.d[j + 2])) > 32) n32++; } return n ? +(n32 / n).toFixed(4) : null; })()`);
+// held on the rail at x: its place set and the frame drawn, as a press that has not let go
+const hold = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const carried = async () => { const c = await ev('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)'); return c ? JSON.parse(c) : null; };
@@ -45,10 +50,29 @@ for (const x of [1.25, 1.5, 1.75]) {
   await grab('x' + x);
   const d = await diff('x' + x, 'land1');
   info.parked[x] = { main, flat: c && c.flat, d };
-  ok(`parked at ${x}: the Landscape, plane w₁'s surface flattened by ${(x - 1).toFixed(2)}`, main === 'land' && !!c && c.s === 1 && Math.abs(c.flat - (x - 1)) < 1e-6, info.parked[x]);
+  ok(`parked at ${x}: X → Y's layout, plane w₁'s surface flattened by ${(x - 1).toFixed(2)}`, main === 'xy' && !!c && c.s === 1 && Math.abs(c.flat - (x - 1)) < 1e-6, info.parked[x]);
   ok(`parked at ${x}: farther from w₁ at rest than the frame before`, d != null && (last == null || d > last), { d, last });
   last = d;
 }
+// ---- the ends, held: against the rest frames ----
+info.ends = {};
+for (const scope of ['in', 'all']) {
+  await ev(`__cmwSteps({ scope: '${scope}' }); 1`);
+  await rest(1);
+  await grab('e1');
+  await hold(1.0002);
+  await grab('h1');
+  await rest(2);
+  await grab('e2');
+  await rest(1);
+  await hold(1.9998);
+  await grab('h2');
+  const d0 = await diff('h1', 'e1'), d1 = await diff('h2', 'e2');
+  info.ends[scope] = { start: d0, end: d1 };
+  ok(`${scope}: held at u = 0.0002, the frame is w₁'s at rest (≤ 0.5 % of pixels > 32/255)`, d0 != null && d0 <= 0.005, d0);
+  ok(`${scope}: held at u = 0.9998, the frame is w₂'s at rest (≤ 0.5 % of pixels > 32/255)`, d1 != null && d1 <= 0.005, d1);
+}
+await ev(`__cmwSteps({ scope: 'all' }); 1`);
 // ---- a glide back from w₂ to w₁ ----
 await rest(2);
 await ev(`window.__lf = null; new Promise((done) => {

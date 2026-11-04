@@ -1090,12 +1090,17 @@
     lvCollect();
     // (#846) the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
     if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
-    const { MVP, eye } = camera(st.cam, fw, fh);
+    // (st.screen [sx, sy, bx, by]: the picture drawn in a rectangle of the canvas, not the whole of it (the steps view's
+    // flatten, flatPlace): the camera takes that rectangle's aspect, and its clip space is scaled by (sx, sy) and moved
+    // by (bx, by) into the canvas's)
+    const sc = st.screen;
+    let { MVP, eye } = camera(st.cam, sc ? sc[0] * fw : fw, sc ? sc[1] * fh : fh);
+    if (sc) MVP = M4.mul(new Float32Array([sc[0], 0, 0, 0, 0, sc[1], 0, 0, 0, 0, 1, 0, sc[2], sc[3], 0, 1]), MVP);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
     const geom = landGeom(box, st.scale), { aspect, H, Mx } = geom;
     // (the carry's flat, 0 to 1: the plate rises to just under the flattened surface and spreads over the whole pane,
-    // opaque, its print and its contact shadow gone: plane b's paper at 1)
+    // its print and its contact shadow going, and gives way to plane b's paper, which the caller draws under the frame)
     const flat = st.carry ? st.carry.flat || 0 : 0;
     const floorZ = flat ? (1 - flat) * geom.floorZ - flat * 1e-3 : geom.floorZ;
     const modeName = st.heightMode || 'log';
@@ -1223,7 +1228,7 @@
       u3(Fp, 'uFloorCol', C.floor); u3(Fp, 'uMinor', C.minor); u3(Fp, 'uMed', C.medium); u3(Fp, 'uMajor', C.major);
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', (1 - flat) * C.shadowA);
       u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1 - flat);
-      u1f(Fp, 'uPlateA', alpha + flat * (1 - alpha));
+      u1f(Fp, 'uPlateA', alpha * (1 - flat));
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     if (!below) floorPass(0.8);
