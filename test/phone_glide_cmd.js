@@ -12,9 +12,8 @@ const fnv = (b) => { let h = 0x811c9dc5; for (let i = 0; i < b.length; i++) { h 
 const ns = 'pg' + Date.now();
 await view(390, 844, false, true);
 await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'k1', kind: 'disc', c: [0.3, 0], r: 0.6, ci: 0, visible: true }],
-  steps: [{ type: 'affine', params: { a: '1', b: '0.5' }, on: true }, { type: 'sin', params: {}, on: true }, { type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+const { STATE } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'fig_kit.js'), 'utf8'))({ ev });
+await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE))}); 1`);
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en` }); await sleep(3000); await settle(500);
 ok('the phone layout', await ev('!!Phone._state().on'), null);
 // (Y large: the swap button of the inset)
