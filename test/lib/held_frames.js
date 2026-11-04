@@ -11,7 +11,9 @@
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6) samples the frame F every 10 px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window (H_u and the front sheet's key from the glide's record,
-//   __cmwSteps().glide), takes the front z and colours w as P, plane z's parked frame, colours z (bilinear). Pixels next
+//   __cmwSteps().glide), takes the front z among the roots in the regions (where P is not the paper: a map many-to-one
+//   onto w under Inside regions; every root when none is, or with window.__giAllRoots) and colours w as P, plane z's
+//   parked frame, colours z (bilinear). Pixels next
 //   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
@@ -25,10 +27,20 @@
   const s2w = (x, y) => C(v.cx + (x / dpr - g.w / 2) / v.s, v.cy - (y / dpr - g.h / 2) / v.s);
   const x0 = v.cx - g.w / 2 / v.s, x1 = v.cx + g.w / 2 / v.s, y0 = v.cy - g.h / 2 / v.s, y1 = v.cy + g.h / 2 / v.s, seeds = [];
   for (let i = 0; i < 8; i++) for (let j = 0; j < 6; j++) seeds.push(C(x0 + (i + 0.5) * (x1 - x0) / 8, y0 + (j + 0.5) * (y1 - y0) / 6));
+  // (the parked frame's paper, where Inside regions leaves a pixel outside the regions; null: none known)
+  const sh = (__cmwShapes().shapes || [])[0], ph = sh && !window.__giAllRoots ? __cmwLook(sh.id, 'L').plane : null;
+  const paper = ph && /^#[0-9a-f]{6}$/i.test(ph) ? [1, 3, 5].map((i) => parseInt(ph.slice(i, i + 2), 16)) : null;
+  const covers = (z) => {
+    if (!paper) return true;
+    const x = Math.round(((z.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), y = Math.round((g.h / 2 - (z.im - v.cy) * v.s) * dpr - 0.5);
+    if (x < 0 || y < 0 || x >= W || y >= Ht) return false;
+    const i = 4 * (y * W + x);
+    return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
+  };
   let n = 0, over = 0, none = 0, max = 0;
   for (let py = 4; py < Ht - 4; py += 10) for (let px = 4; px < W - 4; px += 10) {
     const w = s2w(px + 0.5, py + 0.5);
-    let best = null, bk = Infinity;
+    let best = null, bk = Infinity, bcv = false;
     for (const s0 of seeds) {
       let z = s0;
       for (let it = 0; it < 40 && z; it++) {
@@ -45,8 +57,8 @@
       if (!z) continue;
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
-      const k = g.key(z);
-      if (k < bk) { bk = k; best = z; }
+      const k = g.key(z), cv = covers(z);
+      if (best === null || (cv && !bcv) || (cv === bcv && k < bk)) { bk = k; best = z; bcv = cv; }
     }
     if (!best) { none++; continue; }
     const fx = ((best.re - v.cx) * v.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (best.im - v.cy) * v.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
