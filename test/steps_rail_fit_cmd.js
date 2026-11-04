@@ -27,7 +27,7 @@ const probe = `(() => {
   const chips = [...rail.querySelectorAll('.sv-step .sv-fchip')];
   const nodes = [...rail.querySelectorAll('.sv-plane .sv-node')].map((n) => n.getBoundingClientRect());
   return { letters: strip.classList.contains('sv-letters'), steps, spread: Math.max(...steps) - Math.min(...steps),
-    namesShown: chips.map((c) => c.querySelector('.sv-fn').offsetWidth > 0), named: chips.map((c) => /f\\S*\\s+\\S+/.test(c.getAttribute('aria-label') || '')),
+    namesShown: chips.map((c) => c.querySelector('.sv-fn').offsetWidth > 0), chipsW: chips.map((c) => Math.round(c.getBoundingClientRect().width * 10) / 10), named: chips.map((c) => /f\\S*\\s+\\S+/.test(c.getAttribute('aria-label') || '')),
     addFolded: getComputedStyle(strip.querySelector('.sv-add-t')).display === 'none', nodesIn: nodes.every((b) => b.left >= rr.left - 0.5 && b.right <= rr.right + 0.5), scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rail.clientWidth, scrollW: rail.scrollWidth };
 })()`;
 // (the tier each width gives: equal widths with names, the names at their own widths, or the letters)
@@ -43,6 +43,7 @@ for (const [w, lang, tier] of [[1440, 'en', 'equal'], [1440, 'it', 'names'], [14
   } else {
     ok(`${tag}: the chain shows the letters of every chip, together, and no name`, p.letters && p.namesShown.every((v) => !v), p);
     ok(`${tag}: every chip's aria-label keeps its name`, p.named.every(Boolean), p);
+    ok(`${tag}: every letters chip is a target of at least 24 px beside its ⋯`, p.chipsW.every((cw) => cw >= 24), p);
     ok(`${tag}: every plane's node lies whole inside the rail, and the rail does not scroll`, p.nodesIn && !p.scrolls, p);
   }
 }
