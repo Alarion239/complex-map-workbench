@@ -582,11 +582,11 @@
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
     return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
   }
-  // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, lim, u, a, b, vs, va, vb}: plane
+  // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, lim, u, a, b, vs, va, vb, rest}: plane
   // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of
   // (s, T]; its block and its height scale go from plane a's to plane b's over u (the box's centre linearly, its size
   // and the scale in log; b null: plane a's), so the block, its floor and its axes move smoothly from one plane's rest
-  // frame to the other's. vs, va, vb: the views of planes s, a and b
+  // frame to the other's. vs, va, vb: the views of planes s, a and b; rest: the plane at rest the frame is, or null
   // p to q at f in log (p, q > 0)
   const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
   function carryBox(c) {
@@ -779,7 +779,8 @@
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
-    render3D.pick = carry ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
+    // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
+    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
   render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;

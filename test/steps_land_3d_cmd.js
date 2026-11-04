@@ -1,7 +1,8 @@
 // The steps view's Landscape stays 3D on every plane (#846, ux's rule on it): before, at and past the colour plane T,
 // at rest and in every frame between two planes. The default page (z, exp, Möbius) on the Landscape with T = w₁, so
 // plane w₂ is past it, and with T = w₂ (the default):
-// - at rest on each plane: the Landscape is the view, its Height key is shown, and the camera's pitch is the user's;
+// - at rest on each plane: the Landscape is the view, its Height key is shown, the camera's pitch is the user's, and
+//   the probe finds the point under the pane's centre;
 // - held at u = 0.25, 0.5, 0.75 between each two planes: carried frames (__cmwLandCarry), the Landscape and its Height
 //   key still on, the pitch unchanged;
 // - held by either end of each glide (a scrub on the rail, not let go, at u = 0.001 and 0.999; the difference from the rest frame grows with u, as the points move): the plane at rest
@@ -23,7 +24,8 @@ const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await set
 const state = async () => JSON.parse(await ev(`JSON.stringify((() => {
   const l = document.getElementById('leftLegend'), st = __cmwSteps();
   const name = l ? [l.title, l.getAttribute('aria-label'), l.textContent].join(' ') : '';
-  return { main: st.main, key: !!l && !l.hidden && /Height key/.test(name), pitch: __cmwCam('L').pitch, carry: typeof __cmwLandCarry === 'function' ? __cmwLandCarry() : null };
+  const r = document.getElementById('canvasL').getBoundingClientRect(), pk = __cmwSound({ pick: [r.left + r.width / 2, r.top + r.height / 2] });
+  return { main: st.main, key: !!l && !l.hidden && /Height key/.test(name), pitch: __cmwCam('L').pitch, pick: pk, carry: typeof __cmwLandCarry === 'function' ? __cmwLandCarry() : null };
 })())`));
 async function hold(x) {
   await ev(`(() => {
@@ -58,6 +60,7 @@ for (const T of [1, 2]) {
     ok(`T = ${T}, plane ${i} at rest: the Landscape`, s.main === 'land', s);
     ok(`T = ${T}, plane ${i} at rest: the Height key`, s.key, s);
     ok(`T = ${T}, plane ${i} at rest: the user's pitch`, Math.abs(s.pitch - pitch0) < 1e-9, s);
+    ok(`T = ${T}, plane ${i} at rest: the probe finds the point under the pane's centre`, Array.isArray(s.pick) && s.pick.every(Number.isFinite), s);
   }
   ok(`T = ${T}: plane w₂ at rest`, T === 2 ? !r.rest[2].carry : !!r.rest[2].carry && r.rest[2].carry.s === 1 && r.rest[2].carry.u === 1, r.rest[2].carry);
   for (const j of [0, 1]) {

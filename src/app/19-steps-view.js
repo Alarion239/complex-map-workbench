@@ -291,9 +291,10 @@
   // the frame starts from, or the colour plane T when that is before it, so every point past T keeps T's colour. Each
   // point is placed by `map` (from plane s), at its height h(F) (the stages (s, hT]) and in its colour (the stages
   // (s, T]); the block goes from plane a's to plane b's over u (b null: a's). vs, va, vb: the views of s, a and b
-  function svLandCarry(map, s, a, b, u) {
+  // rest: the plane at rest the frame is (the probe picks on its relief), else null
+  function svLandCarry(map, s, a, b, u, rest = null) {
     const T = svT(), lim = 0.35 * Math.max(paneL.w, paneL.h) / S.srcView.s;
-    return { map, s, T, hT: svHT(s), lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b) };
+    return { map, s, T, hT: svHT(s), lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
   }
   // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
   // when its heights are of that map too; else plane k's points (k at or before T) or T's (past it) carried to plane k
@@ -301,8 +302,8 @@
   function svLandRest(k = svStage()) {
     const T = svT();
     if (!SV.on || !svLandOk(k)) return undefined;
-    if (k <= T) return svHT(k) === T ? undefined : svLandCarry({ mode: 0, a: k, b: k }, k, k, null, 0);
-    return svLandCarry({ mode: 0, a: T, b: k }, T, T, k, 1);
+    if (k <= T) return svHT(k) === T ? undefined : svLandCarry({ mode: 0, a: k, b: k }, k, k, null, 0, k);
+    return svLandCarry({ mode: 0, a: T, b: k }, T, T, k, 1, k);
   }
   // (#846) The Landscape between two planes a and b: the points of plane s = min(a, T) carried by the glide's map, each
   // at its height and colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s =
