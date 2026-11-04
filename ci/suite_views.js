@@ -23,6 +23,7 @@ const AREAS = ['interact', 'phone', 'words', 'export', 'geometry', 'render', 'so
 const VIEWS = {
   // already in the steps view
   'example_lane_cut_cmd.js': steps(),
+  'sv_cut_curve_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
@@ -40,6 +41,7 @@ const VIEWS = {
   'steps_seams_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
+  'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
@@ -165,7 +167,7 @@ const VIEWS = {
   'fix152_classic_cmd.js': classic('the Split offer in the classic views: focus on a card, f₂ shown alone; fix152_cmd.js runs the offer in the steps view'),
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': steps({ pin: true }),
-  'i18n_classic_cmd.js': classic('the Deformation\'s keys on a Russian layout (Ь, З), the digit keys that pick X → Y, Phase and Landscape, and the Landscape title of the logarithm\'s example: the steps view has none of them (its plane head does not name the sheets yet, #888) (its play and Paths keys are in i18n_cmd)'),
+  'i18n_classic_cmd.js': classic('the Deformation\'s keys on a Russian layout (Ь, З), the digit keys that pick X → Y, Phase and Landscape, and the classic Landscape title of the logarithm\'s example: the steps view has none of those keys (its play and Paths keys and its plane head\'s sheets are in i18n_cmd)'),
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; its steps-view walk (planes, surfaces, the thread) is a new pass, not started'),
   'raw_tex_cmd.js': steps({ pin: true }),
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
@@ -235,7 +237,7 @@ const VIEWS = {
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
-  'p5_accept_cmd.js': port('render'),
+  'p5_accept_cmd.js': steps({ pin: true }),
   'regions_phase_cmd.js': steps({ pin: true }),
   'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
   'sphere_light_cmd.js': steps({ pin: true }),

@@ -12,8 +12,11 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await view(1200, 800, false, false);
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && typeof GLR.fillPointsOn === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); 1`); await settled({ max: 20000 }); };
-// canvasL's pixels kept in the page as __fpx[tag] once two reads 100 ms apart agree
+// canvasL's pixels kept in the page as __fpx[tag] once two reads 100 ms apart agree, both taken after the panes' frames
+// are drawn (two equal reads can both precede a frame still pending)
 const grab = async (tag) => {
+  await settled({ max: 30000 });
+  await ev('(window.__fpx || (window.__fpx = {}))._prev = null; 1');
   for (let n = 0; n < 100; n++) {
     const same = await ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__fpx || (window.__fpx = {}), p = g._prev;
       g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false; g[${JSON.stringify(tag)}] = d; return true; })()`);
@@ -27,6 +30,8 @@ const diff = (a, b) => ev(`(() => { const A = window.__fpx[${JSON.stringify(a)}]
   return { px, max, of: A.length / 4 }; })()`);
 // (a redraw of both panes under the setting just made)
 const redraw = () => ev('__cmwHideStrokes(false), 1');
+// (at rest: the tiling's fix-up landed and no SphereMesh job is running or queued)
+const rest = '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length';
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   const ex = names.indexOf(name);
@@ -40,8 +45,11 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     const tag = `${name} ${scope} ${x}`;
     await steps({ scope, surf: 'plane', go: 0, now: true });
     await steps({ scope, surf: 'plane', park: x });
-    // (parked: the tiling's fix-up lands once, changing the frame, so both settings are read after it)
-    await settled({ max: 30000, until: '__cmwSvFixed()' });
+    // (parked: the tiling's fix-up lands once and the region mask's SphereMesh after it, each changing the frame, so
+    // both settings are read after them; the redraw between the two waits asks for a mesh the parked frame did not)
+    await settled({ max: 60000, until: rest });
+    await redraw();
+    await settled({ max: 60000, until: rest });
     // (and the fill's own-option program with the point pass made, which draws in the plain one's place once linked:
     // both settings are then read with own-option programs, the reference waiting for its own)
     await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
