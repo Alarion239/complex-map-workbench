@@ -486,8 +486,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
   // The NEWT roots pass of a flat inverse draw st (drawInverse's: map, plan, prep, inv, view, dpr; t: the NEWT op's t;
   // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
-  // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
-  // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
+  // (the frame's framebuffer, viewport, scissor, blending and colour mask are restored). -> {state: 'drawn', token}
+  // (pass token as st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
   function newtRoots(st) {
     const inv = st && st.inv, nr = inv && inv.nr, n = ok ? nrCount(nr) : 0;
     if (!n || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return { state: 'none' };
@@ -508,8 +508,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
     gl.drawBuffers(Array.from({ length: n }, (_, k) => gl.COLOR_ATTACHMENT0 + k));
     gl.viewport(0, 0, W, H);
-    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
-    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+    // every channel is written: a target's .w carries a root, and the frame's mask may leave alpha off
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND), cm = gl.getParameter(gl.COLOR_WRITEMASK);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
     if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
     else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
     if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
@@ -527,6 +528,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.viewport(vpX, vpY, fw, fh);
     if (scOn) gl.enable(gl.SCISSOR_TEST);
     if (blOn) gl.enable(gl.BLEND);
+    gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
