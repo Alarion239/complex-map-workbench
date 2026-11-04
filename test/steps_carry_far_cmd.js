@@ -3,8 +3,8 @@
 // exact colour pulled back pixel by pixel as steps_carry_inregion_cmd.js reads it, the reference zoomed out for points
 // past the camera.
 // Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
-// - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (the outer ring of carried points,
-//   svRingFor; the front point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
+// - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (drawn by the inverse pass; the front
+//   point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
 // - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -159,7 +159,10 @@ async function farFrames(P0, J) {
     // (of the 1536 points, about 1450 are kept and about 900 of them have their front point past the camera's window:
     // at least 200 such points, so the case is about them, and at least 800 points compared in all)
     ok(`${tag}: front points past the camera's window are checked`, farN > 200 && hidden === 0, info[tag]);
-    ok(`${tag}: the ring of carried points past the whole plane's mesh is drawn`, !!ring && ring.m >= 1.5 && ring.m <= 4, ring);
+    // (Joukowski's homotopy is inverted by Newton seeded from its own points over w: the inverse pass draws the frame
+    // pixel by pixel, every point past the window included, so no ring of carried points is drawn; tan z's case below
+    // keeps one)
+    ok(`${tag}: the inverse pass draws the frame`, !!state.glide && state.glide.path === 'inverse', { glide: state.glide, ring });
     ok(`${tag}: the front point's colour, at most 1 % wrong`, n > 800 && wrong <= 0.01 * n, info[tag]);
     ok(`${tag}: no point on the bare paper`, paper === 0, info[tag]);
   }

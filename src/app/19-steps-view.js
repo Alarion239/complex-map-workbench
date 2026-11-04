@@ -802,12 +802,14 @@
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return false; }
     if (derivIn(0, b)) { why.r = 'a d/dz step'; return false; }
     packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
-    const paths = list.map((x) => invHomPath(x, 0, b, u));
+    const singAt = () => svSheetKeyAt(b, u).sing;
+    const paths = list.map((x) => invHomPath(x, 0, b, u, singAt));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return false; }
-    // (a homotopy inverted by Newton finds two of H_t's points over w; Everywhere asks for the front one of all of them
-    // over the whole plane, where H_t can have more, so that frame keeps the carried mesh)
-    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) { why.r = 'Everywhere under a Newton inverse'; return false; }
+    // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
+    // when its step's own exact ops seed walks back from t = 1 (InvOps.opNewt's back); without them it finds two, so
+    // that frame keeps the carried mesh)
+    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return false; }
     const res = svDrawInverse(pane, list, paths, T, frame);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
@@ -1091,7 +1093,7 @@
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
-        const kp = drew ? invHomPath(SV_ALL, 0, b, u) : null;
+        const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
         svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
@@ -1152,6 +1154,7 @@
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
+    cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
@@ -1169,7 +1172,9 @@
   // - o.cc (the 2D path): the picture already in the 2D context o.cc is cut to the regions (drawn opaque into a canvas
   //   the pane's size, destination-in). True
   function svMask(pane, map, k, o) {
-    const opt = k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k };
+    // (sm: the regions' SphereMesh in the steps view's slot, SPEC 8, where the tiling would draw them from one)
+    const opt = k == null ? { noGrid: true, fills: true, cache: false, sm: 'SV' }
+      : { noGrid: true, fills: true, domain: k === 0, plane: k, sm: 'SV' };
     if (o.cc) {
       svMaskCv = svCanvas(svMaskCv, pane);
       const mp = svProxy(pane, svMaskCv);

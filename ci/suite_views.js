@@ -23,6 +23,7 @@ const AREAS = ['interact', 'phone', 'words', 'export', 'geometry', 'render', 'so
 const VIEWS = {
   // already in the steps view
   'example_lane_cut_cmd.js': steps(),
+  'sv_cut_curve_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
@@ -37,8 +38,10 @@ const VIEWS = {
   'steps_carry_inregion_cmd.js': steps(),
   'steps_carry_far_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
+  'steps_seams_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
+  'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
@@ -234,7 +237,7 @@ const VIEWS = {
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
-  'p5_accept_cmd.js': port('render'),
+  'p5_accept_cmd.js': steps({ pin: true }),
   'regions_phase_cmd.js': steps({ pin: true }),
   'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
   'sphere_light_cmd.js': steps({ pin: true }),

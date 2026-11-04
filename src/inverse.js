@@ -35,7 +35,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -51,9 +51,14 @@ const Inverse = (() => {
       if (!st || st.on === false) return 'off';
       if (!b || b.error || !b.def) return 'err';
       const r = stepOps(b);
-      return r.ok ? r.ops.map((o) => o.kind) : 'X';
+      return r.ok ? r.ops.map(opSig) : 'X';
     });
     return JSON.stringify(['inv2', sigs]);
+  }
+  // an op's part of the key: its kind, and a NEWT op's seeding ops with their member counts (they shape its program)
+  function opSig(o) {
+    const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
+    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind;
   }
   // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
   function planChain(steps, built, a = 0, b = steps.length) {
@@ -1617,11 +1622,13 @@ const Inverse = (() => {
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
-  // step has its f). A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
+  // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
+  // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
   function newtOps(b, t, reason) {
     if (!(b.props && b.props.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
-    return { ok: true, ops: [opNewt(t, H)] };
+    const own = stepOps(b);
+    return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
   }
   // a stand-in for built step b whose ops are its homotopy's at t (stepOps reads them)
   function homBuilt(b, t) { return Object.assign({}, b, { __homOps: () => homOps(b, t) }); }
@@ -1634,8 +1641,8 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

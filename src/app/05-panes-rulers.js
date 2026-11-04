@@ -606,7 +606,7 @@
     const hv = !carry && typeof homView === 'function' ? homView() : null;
     // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
-    const sheets = !carry && S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
+    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svColourMap(carry.s), svF(carry.s));
@@ -628,17 +628,24 @@
     const fm = focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
-      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}`;
-      const c = render3D.muS || (render3D.muS = { key: '', mu: 1 });
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
-      const zAt = (i, j) => C(box.x0 + (i + 0.5) / 12 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 12 * (box.y1 - box.y0));
+      const mu0 = mu;
+      const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
+      const zAt = zAtIn(box);
       const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
-      if (c.key !== key) {
+      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}`;
+      // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
+      const scaleOf = (fmK, K, bx) => {
+        const ck = `${chainSig[nSteps()]}|${mapKeyOf(fmK)}|${S.focus}|${bx.x0},${bx.x1},${bx.y0},${bx.y1}|${S.height}|${sheets.W}|${K}`;
+        const cache = render3D.muScales || (render3D.muScales = new Map());
+        let r = cache.get(ck);
+        if (r) return r;
+        const zAtB = zAtIn(bx);
         const vals = [], sv = [], sv0 = [];
-        for (let k = 0; k < si.K; k++) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
-          const z = zAt(i, j);
+        for (let k = 0; k < K; k++) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
+          const z = zAtB(i, j);
           let w = null;
-          try { w = Funcs.sheetEval(S.steps, built, fm.b, z, z, k, sheets.W, { a: fm.a || 0 }); } catch (e) { w = null; }
+          try { w = Funcs.sheetEval(S.steps, built, fmK.b, z, z, k, sheets.W, { a: fmK.a || 0 }); } catch (e) { w = null; }
           const x = hOf(w);
           if (!Number.isFinite(x)) continue;
           vals.push(Math.abs(x)); sv.push(x);
@@ -646,10 +653,19 @@
         }
         for (const a of [vals, sv, sv0]) a.sort((x, y) => x - y);
         // linear heights over all sheets: the scale is (nearly) the largest value, so the surfaces fill the block
-        c.key = key; c.mu = vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu;
         const s0 = sv0.length ? q(sv0, 0.95) - q(sv0, 0.05) : 0, s1 = sv.length ? q(sv, 0.95) - q(sv, 0.05) : 0;
-        c.boost = lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1;
-      }
+        r = { mu: vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu0, boost: lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1 };
+        if (cache.size > 16) cache.delete(cache.keys().next().value);
+        cache.set(ck, r);
+        return r;
+      };
+      // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
+      // frames' are, so a frame depends on u alone
+      const ofPlane = (k, v) => { const m = svColourMap(k), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
+      const c = carry ? (() => {
+        const ra = ofPlane(carry.s, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
+        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
+      })() : scaleOf(fm, si.K, box);
       mu = c.mu;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
@@ -758,14 +774,14 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     render3D.pick = carry ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
