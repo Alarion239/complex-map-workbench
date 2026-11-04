@@ -1,4 +1,4 @@
-// All sheets in the steps view (#630): on Landscape, a map with a multivalued step has the All sheets check in the plane's
+// All sheets in the steps view: on Landscape, a map with a multivalued step has the All sheets check in the plane's
 // options (the head's ⋯ when it is not inline); ticking it draws every sheet, as the classic Landscape does pixel for pixel,
 // switches a modulus height to Im with its toast, and the title says which sheets are drawn. The label counts the
 // combinations when they are capped. Plane and Sphere have no check, nor does a map with no multivalued step. The
@@ -11,16 +11,18 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const READY = "typeof __cmwLandSheets === 'function' && typeof __cmwSteps === 'function' && typeof __cmwState === 'function'";
 const quiet = () => settled({ floor: 400, max: 15000, until: `${READY} && !__cmwSteps().moving` });
 const open = async (view, ns, st) => { await loadView(view, ns, st); await quiet(); };
+// opens the head's ⋯ when the All sheets check is not inline (the pattern button shares the class)
+const OPEN_OPTS = `if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); }`;
 // the check as the plane's options show it, opening the head's ⋯ when it is not inline: { lab, checked } or null
 const check = () => ev(`(() => {
-  if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn'); if (b) b.click(); }
+  ${OPEN_OPTS}
   const c = /** @type {HTMLInputElement} */ (document.getElementById('sheetsChk'));
   const r = c ? { lab: c.closest('label').textContent.trim(), checked: c.checked, type: c.type } : null;
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   return r;
 })()`);
 const tick = () => ev(`(() => {
-  if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn'); if (b) b.click(); }
+  ${OPEN_OPTS}
   const c = document.getElementById('sheetsChk'); if (c) c.click();
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   return !!c;
