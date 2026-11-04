@@ -440,7 +440,7 @@ const Tour = (() => {
         body: 'The speed select sets how long each step takes. Loop starts over at the end instead of stopping.',
         deskTouch: 'The speed select sets how long each step takes. Loop starts over at the end instead of stopping.', phoneFine: 'Hold ▶ to open Playback: its speed select sets how long each step takes, and Loop starts over at the end instead of stopping.',
         touch: 'Hold ▶ to open Playback: its speed select sets how long each step takes, and Loop starts over at the end instead of stopping.',
-        try: { text: 'Press Loop.', deskTouch: 'Tap Loop.', phoneFine: 'Hold ▶, then click Loop.', touch: 'Hold ▶, then tap Loop.', on: 'loop-changed', ctl: ['svLoop'] } },
+        try: { text: 'Click Loop.', deskTouch: 'Tap Loop.', phoneFine: 'Hold ▶, then click Loop.', touch: 'Hold ▶, then tap Loop.', on: 'loop-changed', ctl: ['svLoop'] } },
       { id: 'range', anchor: 'svRail', also: ['svStrip'], title: 'Part of the chain', before: [['svPlace', { i: 0 }]],
         body: 'A band over the thread plays only the steps inside it. Esc clears it.',
         deskTouch: 'A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.', phoneFine: 'A band over the thread plays only the steps inside it. Shift-drag across two chips; Esc clears it.',

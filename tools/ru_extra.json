@@ -648,13 +648,13 @@
  "Tap ▶.": "Коснитесь ▶.",
  "The speed select sets how long each step takes. Loop starts over at the end instead of stopping.": "Выбор скорости задаёт, сколько длится каждый шаг. «Повтор» начинает сначала в конце, а не останавливается.",
  "Hold ▶ to open Playback: its speed select sets how long each step takes, and Loop starts over at the end instead of stopping.": "Удерживайте ▶, чтобы открыть «Воспроизведение»: выбор скорости задаёт, сколько длится каждый шаг, а «Повтор» начинает сначала в конце, а не останавливается.",
- "Press Loop.": "Нажмите «Повтор».",
+ "Click Loop.": "Нажмите «Повтор».",
  "Tap Loop.": "Коснитесь «Повтор».",
  "Hold ▶, then click Loop.": "Удерживайте ▶, затем нажмите «Повтор».",
  "Hold ▶, then tap Loop.": "Удерживайте ▶, затем коснитесь «Повтор».",
  "A band over the thread plays only the steps inside it. Esc clears it.": "Полоса над нитью воспроизводит только шаги внутри неё. Esc убирает её.",
- "A band over the thread plays only the steps inside it. Shift-drag across two chips; Esc clears it.": "Полоса над нитью воспроизводит только шаги внутри неё. Перетащите с Shift через две фишки; Esc убирает её.",
- "A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.": "Полоса над нитью воспроизводит только шаги внутри неё. Удерживайте нить, затем перетащите через две фишки.",
- "Shift-drag across two chips.": "Перетащите с Shift через две фишки.",
- "Hold the thread, then drag across two chips.": "Удерживайте нить, затем перетащите через две фишки."
+ "A band over the thread plays only the steps inside it. Shift-drag across two chips; Esc clears it.": "Полоса над нитью воспроизводит только шаги внутри неё. Перетащите с Shift через две метки; Esc убирает её.",
+ "A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.": "Полоса над нитью воспроизводит только шаги внутри неё. Удерживайте нить, затем перетащите через две метки.",
+ "Shift-drag across two chips.": "Перетащите с Shift через две метки.",
+ "Hold the thread, then drag across two chips.": "Удерживайте нить, затем перетащите через две метки."
 }
