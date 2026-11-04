@@ -1223,13 +1223,27 @@
   let svFadeCv = null;
   function svSphereMoving(pane) {
     const { a, b, u, map, F, near } = svBetween();
-    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L', colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F } });
+    // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
+    // the outlines are, sphereView's inRegions)
+    const look = (k) => ({
+      imageMode: !svColoured(near), inRegions: svMaskOn() && svColoured(k), stage: k, plane: !!xView().eq, role: 'L',
+      colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F },
+    });
     const info = sphereView(pane, camL, CAML, look(a));
     // (plane b's globe fades in when it has its own paint: coloured, or the shapes on paper past the colour plane)
     if (u > 0.01 && b !== a && (svColoured(b) || !svColoured(near))) {
       svFadeCv = svCanvas(svFadeCv, pane);
       sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
       pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
+    }
+    // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
+    // the plane's camera, drawn lifted to the sphere)
+    const paths = info ? svPathsSource() : null;
+    if (paths) {
+      try {
+        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }, paths, S.srcView);
+        drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
+      } catch (e) { console.error('steps view globe paths', e); mfGlobeDrawn = { T: paths.T, heads: 0, error: String((e && e.message) || e) }; }
     }
     leftSphereInfo = info;
   }
