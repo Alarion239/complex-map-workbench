@@ -242,7 +242,7 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // (#846) The steps view's carried landscape (st.carry {map, s, T, hT, lim, src}): plane s's grid over its box src
+  // The steps view's carried landscape (st.carry {map, s, T, hT, lim, src}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
   // each vertex at the height of the stages (s, hT] at its point (hT default T) and coloured by G = the stages (s, T]
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
