@@ -2171,7 +2171,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   }
   if (!${P}_hit(u, w, t)) return false;
   if (b == 0) return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
-  vec2 v = dot(u, u) > 0.0 ? -u : vec2(1.0, 0.0);
+  vec2 v = 2.0 * w - u;
   for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
     vec2 g = cdiv(${P}_d(v, t), ${H('v', 't')} - w) - cinv(v - u);
     if (!(dot(g, g) > 0.0)) return false;

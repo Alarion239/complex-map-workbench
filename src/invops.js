@@ -200,7 +200,8 @@ const InvOps = (() => {
   }
   // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). Two members:
   // m = 0, continued in t from u = w (H(0) is the identity): NEWT_K stages t/K, 2t/K, ..., t, NEWT_IT Newton steps each;
-  // m = 1, another root at t, by Newton deflated by the first (its seed -u0, NEWT_DEF steps). A member is dropped when
+  // m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1 one about w puts
+  // it; NEWT_DEF steps). A member is dropped when
   // H_t(u) misses w (a central difference for H'). glsl.js's NEWT runs the same walks with chainHom
   const NEWT_K = 32, NEWT_IT = 4, NEWT_DEF = 24;
   function opNewt(t, H) {
@@ -217,7 +218,7 @@ const InvOps = (() => {
         }
         if (!hits(u, w)) return [];
         const out = [ONEM(u, CX.inv(dH(Ht, u)), { m: 0 })];
-        let v = isZero(u) ? ONE : neg(u);
+        let v = sub(scale(w, 2), u);
         for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
         if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         return out;
