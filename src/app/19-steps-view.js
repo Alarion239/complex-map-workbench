@@ -1962,8 +1962,8 @@
     SV.g.max = P.length - 1;
     svLetGo();
   }
-  // ← → move through the planes, C makes the shown plane the colour plane (not while typing, nor on a focused plane,
-  // whose arrows move the probe)
+  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it), C makes the shown
+  // plane the colour plane (not while typing)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1991,9 +1991,9 @@
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
-      // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows there only while no shape is selected: they nudge it)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && t && t.closest && t.closest('canvas')) return;
+      if (!page && selected && t && t.closest && t.closest('canvas')) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
