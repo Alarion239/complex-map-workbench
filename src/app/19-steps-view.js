@@ -367,10 +367,10 @@
     for (const id of ['rulerLX', 'rulerLY', 'cornerL', 'leftLegend']) { const e = $(id); if (e) e.style.opacity = op; }
     svHkeyGhost(a);
   }
-  // the Height key chip as the Landscape's pane head shows it: {el}, a copy of the chip with no ids, no canvas and
-  // folded, at its place from the head's top left. Taken while the chip is in the head and shown: at rest on
-  // the Landscape (once, while there is none) and on each flatten's first frame, still in the Landscape's layout. A glide
-  // back from T + 1 uses the last one taken; with none taken yet it shows no copy
+  // the Height key chip as the Landscape's pane head shows it: {el}, a copy of the chip and its key's pixels with no
+  // ids, folded or open as the chip is, at its place from the head's top left. Taken while the chip is in the head and
+  // shown: at rest on the Landscape (once, while there is none) and on each flatten's first frame, still in the
+  // Landscape's layout. A glide back from T + 1 uses the last one taken; with none taken yet it shows no copy
   let svHkeyC = null;
   function svHkeyTake() {
     const L = $('leftLegend'), head = L && /** @type {HTMLElement} */ (L.parentNode);
@@ -379,8 +379,9 @@
     if (!r.width) return;
     const el = /** @type {HTMLElement} */ (L.cloneNode(true));
     for (const e of [el, ...el.querySelectorAll('[id]')]) e.removeAttribute('id');
-    for (const e of el.querySelectorAll('canvas')) e.remove();
-    el.classList.remove('open');
+    // (a chip pinned open shows its key: the copy keeps the key's pixels, which cloneNode leaves out)
+    const src = L.querySelectorAll('canvas'), dst = el.querySelectorAll('canvas');
+    dst.forEach((c, i) => { const g = c.getContext('2d'); if (g && src[i].width) g.drawImage(src[i], 0, 0); });
     el.classList.add('sv-hkey-ghost');
     el.removeAttribute('tabindex'); el.removeAttribute('aria-label');
     el.setAttribute('aria-hidden', 'true');
