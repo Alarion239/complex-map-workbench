@@ -222,7 +222,7 @@ const VIEWS = {
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': port('render'),
-  'p3b_accept_cmd.js': port('render'),
+  'p3b_accept_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
   'p5_accept_cmd.js': port('render'),
   'regions_phase_cmd.js': steps({ pin: true }),
