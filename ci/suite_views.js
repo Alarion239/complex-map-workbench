@@ -172,7 +172,8 @@ const VIEWS = {
   'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the Video format (UX60), the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu (UX97, UX99), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the rail, inside the strip'),
-  'v151_cmd.js': port('words', 'Show alone is lost on reload; fixed by saves'),
+  'v151_cmd.js': steps({ pin: true }),
+  'v151_alone_classic_cmd.js': classic('the language switch with a step shown alone (v15.1 verify-8): "Show alone" is the classic view\'s; v151_cmd has the steps view\'s equivalent'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': port('export', 'the shown plane\'s export'),
