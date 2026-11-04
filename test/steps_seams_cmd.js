@@ -9,6 +9,7 @@
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
 const ready = () => settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof __cmwHideStrokes === "function"' });
 // the left pane drawn: two reads of its pixels 100 ms apart agree (the glide's meshes are made in idle moments after
@@ -34,7 +35,9 @@ const park = async (x, scope) => {
 // teeth: exp then log
 {
   const shapes = [{ id: 's1', kind: 'disc', c: [0, 0], r: 2, ci: 0, visible: true }, { id: 's2', kind: 'rect', a: [-1.5, -1.2], b: [1.2, 1.4], ci: 1, visible: true }];
-  await loadView('steps', 'seams' + Date.now(), { steps: [{ id: 'f1', type: 'exp', params: {} }, { id: 'f2', type: 'log', params: { cut: 180, k: 0 } }], shapes, focus: 2 });
+  const ns = 'seams' + Date.now();
+  await seed(ns, { steps: [{ id: 'f1', type: 'exp', params: {} }, { id: 'f2', type: 'log', params: { cut: 180, k: 0 } }], shapes, focus: 2 });
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
   await ready();
   ok('teeth: the page shows the steps view', await isSteps(), null);
   await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });

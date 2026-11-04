@@ -404,7 +404,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && !o.clip ? 'out vec2 vW;\nflat out float vWTol;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && !o.clip ? 'out vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -431,9 +431,12 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
   // negative, the part the pass 0 draw clipped. Another sheet cut: a vertex where the centre's sheet is not the map's
   // own (the place continued from the centre is off the map's by more than the triangle's interpolation can be); in
   // both passes the fragment stage keeps only the fragments the map itself sends there, vW)
+${o.clip ? `  bool o0 = d0 < 0.0, o1 = d1 < 0.0, o2 = d2 < 0.0;` : `  float te = uKPx + 0.25 * longest(w0, w1, w2);
+  bool o0 = !(len2(w0 - W(aIdx.x, s0)) <= te), o1 = !(len2(w1 - W(aIdx.y, s1)) <= te), o2 = !(len2(w2 - W(aIdx.z, s2)) <= te);
+  // (a triangle with a vertex past the cut is torn: only its fragments test the map's own place, so one the cut does
+  // not reach costs what it did)
+  vTorn = o0 || o1 || o2 ? 1.0 : 0.0;`}
   if (uKPass == 1) {
-${o.clip ? `    bool o0 = d0 < 0.0, o1 = d1 < 0.0, o2 = d2 < 0.0;` : `    float te = uKPx + 0.25 * longest(w0, w1, w2);
-    bool o0 = !(len2(w0 - W(aIdx.x, s0)) <= te), o1 = !(len2(w1 - W(aIdx.y, s1)) <= te), o2 = !(len2(w2 - W(aIdx.z, s2)) <= te);`}
     if (!(o0 || o1 || o2)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
     zc = srcOf(o0 ? s0 : (o1 ? s1 : s2));
     w0 = onCentreSheet(zc, s0, d0); w1 = onCentreSheet(zc, s1, d1); w2 = onCentreSheet(zc, s2, d2);
@@ -1186,15 +1189,15 @@ void main() {
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
-  // triangle's branch was continued across left out; own: REGION_VS's sheet option without clip, a fragment kept only
-  // where the map sends its own source point vP, within vWTol of the place vW drawn: the seam where a triangle torn
+  // triangle's branch was continued across left out; own: REGION_VS's sheet option without clip, a fragment of a torn
+  // triangle (vTorn) kept only where the map sends its own source point vP, within vWTol of the place vW drawn: the seam where a triangle torn
   // across a cut meets the other side is the cut's image, pixel for pixel)
   const CARRY_FS = (id, key = true, pre = false, clip = false, own = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}in vec2 vP;
-${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}${own ? 'in vec2 vW;\nflat in float vWTol;\n' : ''}out vec4 o;
+${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}${own ? 'in vec2 vW;\nflat in float vWTol;\nflat in float vTorn;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}${own ? '  vec2 dw = mapPoint(vP) - vW;\n  if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}${own ? '  if (vTorn > 0.5) {\n    vec2 dw = mapPoint(vP) - vW;\n    if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;\n  }\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
