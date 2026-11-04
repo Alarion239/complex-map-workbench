@@ -295,7 +295,7 @@
     if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
     const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
     const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, flat: flat ? g.u : 0, dc: flat ? svCarryStyle(svT()) : null, va: leftView(g.a), vb: leftView(g.b) });
+    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, flat: flat ? g.u : 0, va: leftView(g.a), vb: leftView(g.b) });
     return true;
   }
   // between the colour plane and the plane after it, one step's glide on the Landscape (g: svBetween's)

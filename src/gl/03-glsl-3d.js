@@ -1051,9 +1051,8 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
   const LAND_COMMON = `
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
-// (the steps view's glide into the plane after the colour plane, 0 to 1: the light and the fog go, and the carried
-// surface's colour goes to that plane's own (dcolor in its style), as the surface flattens into that plane's flat
-// picture; 0 everywhere else)
+// (the steps view's glide into the plane after the colour plane, 0 to 1: the light and the fog go, the surface's own
+// colours kept, as it flattens into that plane's flat picture; 0 everywhere else)
 uniform float uFlat;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
 // mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain paper, uPaper)
@@ -1179,7 +1178,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   vec3 c;
   if (gl_FrontFacing) {
     a = mix(a, ml, 0.55 * rim);
-    c = ${carry ? "mix(shade(a, n, v, vAO), toLin(dcolor(w)), uFlat)" : 'shade(a, n, v, vAO)'};
+    c = mix(shade(a, n, v, vAO), a, uFlat);
   } else {
     // its own colouring, darker, under a soft headlight (the key light never reaches the underside): a sheet reads
     // as one surface from both sides, its contours and sea level kept (r2: round 1 desaturated it to a grey)
