@@ -54,6 +54,7 @@ const VIEWS = {
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
+  'steps_glide_inverse_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
@@ -63,6 +64,7 @@ const VIEWS = {
   'sv_globe_draw_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
+  'shape_stroke_cmd.js': classic('the stroke rule of the classic globes\' lines and of the target outlines drawn on the canvas'),
   'sv_construct_plane_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
   'toasts_515_cmd.js': steps(),
@@ -181,7 +183,8 @@ const VIEWS = {
 
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': steps({ pin: true }),
-  'export_cmd.js': port('export', 'the figures of the shown plane: pinned to the steps view its first third fails on the article, homework and phase captions, the paths figure and the filmstrip (eight checks), and the rest of it reads the classic right pane (canvasR, the right plane\'s view)'),
+  'export_cmd.js': steps({ pin: true }),
+  'export_deform_cmd.js': port('export', 'the deformation\'s export in every view and its video: the glide\'s export (#620 item 8)'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
