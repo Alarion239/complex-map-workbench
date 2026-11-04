@@ -278,24 +278,34 @@
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
-  let maskTex = null, maskKey = null;
-  let marksTex = null;   // (the flatten's marks, drawLandscape's st.marks: uploaded each frame on unit 13)
+  // a 2D canvas as a texture on unit u: o {tex, key}, uploaded again when key changes (key null: every call)
+  function canvasTex(o, u, cv, key) {
+    gl.activeTexture(gl.TEXTURE0 + u);
+    if (!o.tex) o.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, o.tex);
+    if (key != null && o.key === key) return;
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    o.key = key;
+  }
+  const maskT = {}, marksT = {}, paperT = {};   // (the mask on unit 15, the flatten's marks on 13 and paper on 11)
   function maskUniforms(P, m) {
     u1f(P, 'uMaskOn', m ? 1 : 0);
     if (!m || !P.loc.uMask) return;
-    gl.activeTexture(gl.TEXTURE15);
-    if (!maskTex) maskTex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, maskTex);
-    if (maskKey !== m.key) {
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.cv);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      maskKey = m.key;
-    }
+    canvasTex(maskT, 15, m.cv, m.key);
     u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
+  }
+  // (the flatten, st.paper {cv, box, key}: the flat plane's grid paper, LAND_COMMON's paperAt)
+  function paperUniforms(P, m) {
+    u1f(P, 'uGridOn', m ? 1 : 0);
+    if (!m || !P.loc.uGridTex) return;
+    canvasTex(paperT, 11, m.cv, m.key);
+    u1i(P, 'uGridTex', 11);
+    u4f(P, 'uGridBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
   }
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
@@ -1101,7 +1111,7 @@
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
     const geom = landGeom(box, st.scale), { aspect, H, Mx } = geom;
     // (the carry's flat, 0 to 1: the plate rises to just under the flattened surface and spreads over the whole pane,
-    // its print and its contact shadow going, and gives way to plane b's paper, which the caller draws under the frame)
+    // opaque, its print and its contact shadow gone, taking on plane b's grid paper (st.paper): plane b's paper at 1)
     const flat = st.carry ? st.carry.flat || 0 : 0;
     const floorZ = flat ? (1 - flat) * geom.floorZ - flat * 1e-3 : geom.floorZ;
     // (the floor's outlines and the flatten's marks: on the plate, rising with it to just over the flattened surface)
@@ -1210,6 +1220,7 @@
       u3(P, 'uPaper', col3(st.carry && st.carry.paper, C.floor));
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
+      paperUniforms(P, st.paper);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
@@ -1229,15 +1240,7 @@
       common(Fp);
       u2f(Fp, 'uExt', ext[0], ext[1]); u1f(Fp, 'uFloorZ', marksZ);
       u1f(Fp, 'uShadowA', 0); u1f(Fp, 'uPrint', 0); u1f(Fp, 'uPlateA', 0);
-      gl.activeTexture(gl.TEXTURE13);
-      if (!marksTex) marksTex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, marksTex);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.cv);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      canvasTex(marksT, 13, m.cv, null);
       u1i(Fp, 'uMarks', 13);
       u4f(Fp, 'uMarksBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
       u1f(Fp, 'uMarksA', flat);
@@ -1256,7 +1259,7 @@
       u3(Fp, 'uFloorCol', C.floor); u3(Fp, 'uMinor', C.minor); u3(Fp, 'uMed', C.medium); u3(Fp, 'uMajor', C.major);
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', (1 - flat) * C.shadowA);
       u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1 - flat);
-      u1f(Fp, 'uPlateA', alpha * (1 - flat));
+      u1f(Fp, 'uPlateA', alpha + flat * (1 - alpha));
       u1f(Fp, 'uMarksA', 0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };

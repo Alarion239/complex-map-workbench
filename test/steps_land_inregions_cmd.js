@@ -1,4 +1,4 @@
-// The steps view's Landscape with Inside regions (#846, ux's ruling): at rest, the plot's colour only on the carried
+// The steps view's Landscape with Inside regions: at rest, the plot's colour only on the carried
 // region set, the set the plane's 2D picture colours, and plain paper elsewhere, with the heights kept; between two
 // planes the mask moves with the carried points. The default page (z, exp, Möbius; the region |Im z| < π/2):
 // - plane z at rest, Inside regions: the mask is 1 at z = 0 and 2 - i (in the strip) and 0 at 3i and -1 - 2.5i (out);

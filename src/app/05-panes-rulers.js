@@ -589,11 +589,12 @@
   // the block goes to plane vb's whole pane, the camera to straight above it at the pane's scale, and the heights,
   // light, fog and plate's print to none, so at 1 the frame is that plane's flat view. va, vb: the two planes' views
   // p to q at f in log (p, q > 0)
-  const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
+  const lerp = (p, q, f) => (1 - f) * p + f * q;
+  const logLerp = (p, q, f) => Math.exp(lerp(Math.log(p), Math.log(q), f));
   // (place: flatPlace's, while the surface flattens: plane a's block is the one it had on the Landscape canvas)
   function carryBox(c, place) {
     const A = landBox(c.va, place && place.A), B = c.flat ? leftPaneBox(c.vb) : c.b == null ? A : landBox(c.vb), u = c.u;
-    const mid = (p, q) => (1 - u) * p + u * q, geo = (p, q) => logLerp(p, q, u);
+    const mid = (p, q) => lerp(p, q, u), geo = (p, q) => logLerp(p, q, u);
     const cx = mid((A.x0 + A.x1) / 2, (B.x0 + B.x1) / 2), cy = mid((A.y0 + A.y1) / 2, (B.y0 + B.y1) / 2);
     const hw = geo(A.x1 - A.x0, B.x1 - B.x0) / 2, hh = geo(A.y1 - A.y0, B.y1 - B.y0) / 2;
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
@@ -606,17 +607,17 @@
   function flatCam(view, geo, f) {
     const yaw1 = -Math.PI / 2, pitch1 = Math.PI / 2 - 1e-4, dist1 = geo.aspect[1] / Math.tan(view.fov / 2);
     const dy = yaw1 - view.yaw - 2 * Math.PI * Math.round((yaw1 - view.yaw) / (2 * Math.PI));
-    const lin = (p, q) => (1 - f) * p + f * q;
+    const lin = (p, q) => lerp(p, q, f);
     return { yaw: view.yaw + f * dy, pitch: lin(view.pitch, pitch1), dist: logLerp(view.dist, dist1, f), tx: lin(view.tx, 0), ty: lin(view.ty, 0), tz: lin(view.tz, 0), fov: view.fov };
   }
-  const mix3 = (p, q, f) => p.map((x, i) => (1 - f) * x + f * q[i]);
+  const mix3 = (p, q, f) => p.map((x, i) => lerp(x, q[i], f));
   // (carry.land, the flatten: the pane has X → Y's canvas from the glide's start, and the picture is placed on it)
   // land: the Landscape canvas's rectangle at rest, {x, y, w, h} in page CSS px. The picture's rectangle R (CSS px of
   // this pane) goes from that rectangle, where the picture stood at rest, to the whole pane over f, so nothing moves
   // when the canvas changes, and at f = 1 the picture is X → Y's. A: the Landscape canvas's size (plane a's block is
   // fitted to it); ndc: [sx, sy, bx, by], the map from R's clip space to the pane's (GLR.drawLandscape's screen)
   function flatPlace(pane, land, f) {
-    const c = pane.canvas.getBoundingClientRect(), lin = (p, q) => (1 - f) * p + f * q;
+    const c = pane.canvas.getBoundingClientRect(), lin = (p, q) => lerp(p, q, f);
     const R = { x: lin(land.x - c.left, 0), y: lin(land.y - c.top, 0), w: lin(land.w, pane.w), h: lin(land.h, pane.h) };
     return { R, A: { w: land.w, h: land.h }, ndc: [R.w / pane.w, R.h / pane.h, (2 * R.x + R.w) / pane.w - 1, 1 - (2 * R.y + R.h) / pane.h] };
   }
@@ -625,7 +626,6 @@
     if (!GLR.ok) { noGL(pane); return; }
     const place = carry && carry.flat && carry.land ? flatPlace(pane, carry.land, carry.flat) : null;
     backdrop(pane, place ? place.R : undefined);
-    if (place) svFlatPaper(pane, carry.vb, carry.flat);
     // (the steps view on the Landscape's canvas: where it is, which the flatten starts from, svLandRect)
     if (SV.on && lLand()) render3D.landRect = svRectOf(pane.canvas);
     const box = carry ? carryBox(carry, place) : landBox();
@@ -758,12 +758,12 @@
     // (the carried grid: over plane a's block)
     const src = carry ? landBox(carry.va, place && place.A) : null;
     const mask = SV.on ? (carry ? svLandMask(carry.s, src) : svLandMask(svStage(), box)) : null;
-    const marks = place ? svFlatMarks(pane, carry.vb) : null;
+    const marks = place ? svFlatMarks(pane, carry.vb) : null, paper = place ? svFlatPaper(pane, carry.vb) : null;
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     // (the flatten: the shapes at their places along the glide, and each one's stroke going from the print's to the
-    // flat plane's outline over u, its width and its casing (shapeStroke), one stroke throughout)
+    // flat plane's outline over u, its width, colour and casing (shapeStroke), one stroke throughout)
     const outlines = [];
     const fl = carry && carry.flat ? carry.flat : 0;
     const omap0 = fl ? svBetween().map : stageMap(leftStage());
@@ -775,15 +775,16 @@
       if (!r.lineRes) continue;
       const o = { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: fl ? null : `${r.lineKey}|${mapKeyOf(omap)}` };
       if (fl) {
-        const k = shapeStroke(s, pane.dpr, { plane: carry.b == null ? svStage() : carry.b }), lin = (p, q) => (1 - fl) * p + fl * q;
-        o.width = lin(1.25 * pane.dpr, k.width);
+        const k = shapeStroke(s, pane.dpr, { plane: carry.b == null ? svStage() : carry.b });
+        o.width = lerp(1.25 * pane.dpr, k.width, fl);
+        o.color = mix3(o.color, k.color, fl);
         if (k.casing) o.casing = Object.assign({}, k.casing, { width: fl * k.casing.width, alpha: fl * k.casing.alpha });
       }
       outlines.push(o);
     }
     const info = GLR.drawLandscape({
       map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src, flat: carry.flat || 0, paper: TH.planeRGB } : null, box, cam: view, screen: place ? place.ndc : null, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: carry && carry.flat ? svLandMaterial() : landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, marks, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      cells, sheets, mask, marks, paper, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
       colors: {

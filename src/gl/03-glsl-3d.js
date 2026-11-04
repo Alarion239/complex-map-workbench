@@ -1062,6 +1062,15 @@ float inRegions(vec2 z) {
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
   return texture(uMask, vec2(uv.x, 1.0 - uv.y)).a;
 }
+// (the flatten: the flat plane's grid paper, an opaque canvas over its rectangle uGridBox (row 0 at its top), which the
+// plate and the surface's plain part take on over uFlat; c where there is none)
+uniform sampler2D uGridTex; uniform float uGridOn; uniform vec4 uGridBox;
+vec3 paperAt(vec2 z, vec3 c) {
+  if (uGridOn < 0.5) return c;
+  vec2 g = (z - uGridBox.xy) / uGridBox.zw;
+  if (g.x < 0.0 || g.y < 0.0 || g.x > 1.0 || g.y > 1.0) return c;
+  return texture(uGridTex, vec2(g.x, 1.0 - g.y)).rgb;
+}
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
   if (uMaterial == 1) return dcolor(w);
@@ -1151,11 +1160,9 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), la * uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
   a = mix(a, vec3(1.0), la * uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
   // (outside the carried region set: plain, under the sheet cue, the cut's banks and the rim as everywhere; flattening
-  // into the plane after the colour plane, its colour eases to that plane's paper and it gives way to the paper drawn
-  // under the frame, as the plate does: its opacity is 1 - uFlat there)
-  float inR = inRegions(vZ);
-  a = mix(mix(toLin(uPlaster), toLin(uPaper), uFlat), a, inR);
-  float op = 1.0 - uFlat * (1.0 - inR);
+  // into the plane after the colour plane, it takes on that plane's grid paper at the point it has reached, as the
+  // plate does)
+${carry ? '  vec2 zNow = uBox.xy + (vPos.xy / (2.0 * uClipA) + 0.5) * uBox.zw;\n' : '  vec2 zNow = vZ;\n'}  a = mix(mix(toLin(uPlaster), toLin(paperAt(zNow, uPaper)), uFlat), a, inRegions(vZ));
 ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
   // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
@@ -1192,7 +1199,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
     a = mix(a, ml, 0.65 * rim);
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
-  o = vec4(toSrgb(fogged(c, vPos)) * op, op);
+  o = vec4(toSrgb(fogged(c, vPos)), 1.0);
 }
 `;
   const FLOOR_VS = `
@@ -1262,6 +1269,7 @@ void main() {
     }
   }
   lin = mix(lin, toLin(uShadow), clamp(0.7 * uShadowA * contact, 0.0, 1.0));
+  lin = mix(lin, toLin(paperAt(z, uFloorCol)), uFlat);   // (the flatten: the plate takes on the flat plane's paper)
   vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out
   float a = uPlateA * smoothstep(0.0, 1.0, min(e.x, e.y));
   o = vec4(toSrgb(fogged(lin, vPos)) * a, a);

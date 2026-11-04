@@ -1,4 +1,4 @@
-// The steps view's Landscape between two planes (#846): plane a's surface carried by the glide's map, each point at its
+// The steps view's Landscape between two planes: plane a's surface carried by the glide's map, each point at its
 // height and colour on plane a, which at u = 1 is plane b's surface. The default page (z, exp, Möbius) on the
 // Landscape:
 // - parked at u = 0.25, 0.5, 0.75 between z and w₁: carried frames (__cmwLandCarry), each unlike both planes at rest

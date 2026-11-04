@@ -1,4 +1,4 @@
-// The steps view's Landscape from the colour plane T to the plane after it (#846, option B): the carried surface
+// The steps view's Landscape from the colour plane T to the plane after it: the carried surface
 // flattens into plane T+1's flat view. The default page (z, exp, Möbius), colour plane w₁, Everywhere:
 // - plane w₂ at rest is the same picture on the Landscape surface as on the Plane surface (both draw X → Y with the
 //   colour carried from w₁ over the whole plane, at most 2 % of the pane's pixels more than 32/255 apart);

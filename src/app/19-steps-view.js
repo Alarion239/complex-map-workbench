@@ -315,16 +315,21 @@
   }
   // the plane's grid paper in the open GL frame, at the pane's view (under: under what the frame holds already)
   const svGrid = (pane, under) => GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
-  // (the flatten, render3D) plane b's grid paper, at its view, over the pane at opacity a, under the Landscape's frame:
-  // the plate gives way to it as the surface flattens (GLR.drawLandscape's carry.flat), so at a = 1 the surface lies on
-  // X → Y's paper
-  function svFlatPaper(pane, view, a) {
-    if (!GLR.drawGrid || SV.bare) return;
-    const v = pane.view;
+  // (the flatten, render3D) plane b's grid paper as X → Y draws it at view, in a canvas the pane's size: {cv, box, key},
+  // box the plane's rectangle it covers. The plate and the surface's plain part take it on as they flatten
+  // (GLR.drawLandscape's st.paper), so at u = 1 the surface lies on X → Y's paper. One per view, size and theme: it
+  // stands for the whole glide. Drawn before the Landscape's frame begins, as it takes a GL frame of its own
+  let svPaperC = null;
+  function svFlatPaper(pane, view) {
+    if (!GLR.drawGrid || SV.bare) return null;
+    const key = [view.cx, view.cy, view.s, pane.pw, pane.ph, pane.dpr, TH.plane, TH.gridMajor, S.unit].join('|');
+    if (svPaperC && svPaperC.key === key) return svPaperC;
+    const cv = svCanvas(svPaperC && svPaperC.cv, pane), v = pane.view;
     pane.setView(view);
-    GLR.begin(pane.pw, pane.ph); svGrid(pane, false);
-    pane.ctx.save(); pane.ctx.globalAlpha = a; GLR.blit(pane.ctx); pane.ctx.restore();
+    GLR.begin(pane.pw, pane.ph); svGrid(pane, false); GLR.blit(cv.getContext('2d'));
     pane.setView(v);
+    svPaperC = { cv, key, box: leftPaneBox(view) };
+    return svPaperC;
   }
   // (the flatten, render3D) plane b's marks that the Landscape draws no twin of: the points at their places along the
   // glide, as X → Y draws them over plane b's view (view), into a canvas the pane's size: {cv, box}, box the plane's
