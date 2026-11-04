@@ -61,8 +61,9 @@ const overlays = async () => {
     __cmwHideStrokes(false);
     return 1;
   })()`);
-  await settled({ max: 20000, panes: false, until: 'window.__ov.strokes.length > 0 || window.__ov.grid > 0' });
-  await ev('await new Promise((r) => setTimeout(r, 300)), 1');
+  // (until the frame has drawn and its counts hold still from one poll to the next: the frame's draws are all in)
+  await ev('window.__ovN = -1, 1');
+  await settled({ max: 20000, panes: false, until: '(() => { const n = window.__ov.strokes.length + window.__ov.grid + window.__ov.dashed, same = n === window.__ovN; window.__ovN = n; return n > 0 && same; })()' });
   return ev(`(() => {
     const o = window.__ov, css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
     const line = css('--dc-line', '#ffffff'), casing = css('--dc-casing', '#0b1114'), S = o.strokes;
