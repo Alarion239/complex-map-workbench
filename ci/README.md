@@ -53,7 +53,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   (`20-init.js`) keeps only the start-up: an area's wiring is in that area's part (`19-shell.js` the header, menus and
   panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). A row can also
   select by the diff's lines: `src/page.html`'s export dialog CSS (`.xf-…`, `.modal.xf`, `#xf…`) runs the export shards
-  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. Every GLSL page whose inputs
+  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. `ci/suite_views.js` runs the shards of the suites whose entry differs from the reference's (a pin flip, a note; `suites`; with no diff to read, every suite's). Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -85,6 +85,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   Failed, cancelled or none: the run is the usual one, so a green Gate never stands on a commit before a gate passed
   there. Either way it has a concurrency group of its own and never cancels the push's run (#379,
   `test/t_gate_ready.js`).
+- **A stack** (#787): PRs into the integration branch are often stacked, each head holding the lower PRs, so every
+  push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
+  request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
+  takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed or is still going, this
+  PR gets tier `none` like a ready-for-review mirror: nothing runs, and its Gate check waits for the top's run and carries
+  its verdict (so it is never green before that run passed). A failed, cancelled or missing run of the top means this PR
+  runs its own tier. A push to the top cancels its run, so the Gate checks that carried it fail: re-run them (or push)
+  once the top's new run is going. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
+  summary says which run would have gated this head, and every PR still runs its tier.
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
@@ -290,8 +299,9 @@ npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head 
 `node ci/standards.js --ref REV` (the Plan job runs it against the paired gates' reference) reads the lines a change
 adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and reports what CONTRIBUTING.md's Code rules
 let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
-item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it
-adds (`asserts`). It reports in the job summary and as warning annotations on the lines, and never fails the job; with
+item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it adds
+(`asserts`; assertions moved into a test file the diff creates, a split, are not counted as dropped). The words `was`, `now` and
+`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines, and never fails the job; with
 `--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
@@ -433,6 +443,7 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
