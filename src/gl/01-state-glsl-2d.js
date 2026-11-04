@@ -1222,11 +1222,13 @@ void main() {
   // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
-  // triangle's branch was continued across left out)
+  // mesh), turned back into the source point; PRE_VS writes it without centroid, and the two stages' qualifiers must
+  // match for the program to link. Otherwise vP is read at the centroid of the pixel's covered samples, so a pixel a
+  // triangle only partly covers takes its colour inside it; clip: REGION_VS's sheet option's vSide, a fragment past a
+  // cut its triangle's branch was continued across left out)
   const CARRY_FS = (id, key = true, pre = false, clip = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}centroid in vec2 vP;
+${key ? PRE_KEY_DECL : ''}${pre ? 'in' : 'centroid in'} vec2 vP;
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};

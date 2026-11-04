@@ -3,7 +3,8 @@
 // GLChain.build(...).inverse (SPEC 4.1): the key is Inverse.inverseKey, the program's op list is Inverse.stepOps of
 // every live step in order, the uInv allocator covers every op's parameters, a parameter change keeps the key, an
 // eligibility flip changes it without touching the forward key or layout, and the walker nests one loop per
-// multivalued op. The GPU side is test/glsl_inverse_test.js. Run: node test/t_gl_inverse.js
+// multivalued op; and every program's two stages agree on their varyings' centroid qualifier (GLR._src.DEFS). The GPU
+// side is test/glsl_inverse_test.js. Run: node test/t_gl_inverse.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
@@ -309,6 +310,25 @@ for (const t of TYPES) {
   // pattern 8 in both footprint modes
   check('pattern 8 in the fwidth and analytic patterns', /uPattern == 8/.test(GLR._src.PATTERN_SRC('fwidth')) && /vec2 sl = sl8, slw = slw8;/.test(GLR._src.PATTERN_SRC('analytic')));
   check('GLR.PATTERNS.sphere is 8', GLR.PATTERNS && GLR.PATTERNS.sphere === 8);
+}
+// ---- every program's stages agree on their varyings' centroid qualifier (GLSL ES 3.00 4.3.9: a mismatch fails the link) ----
+{
+  const decls = (src, dir) => {
+    const m = new Map();
+    for (const x of src.matchAll(new RegExp(`(?<![\\w(,]\\s*)((?:flat|smooth|centroid|invariant)\\s+)*\\b${dir}\\s+\\w+\\s+(\\w+)\\s*;`, 'g'))) m.set(x[2], /\bcentroid\b/.test(x[0]));
+    return m;
+  };
+  const bad0 = [];
+  let pairs = 0;
+  for (const [name, d] of Object.entries(GLR._src.DEFS)) {
+    if (typeof d.vs !== 'function' || typeof d.fs !== 'function') continue;
+    let vs, fsrc;
+    try { vs = d.vs(); fsrc = d.fs(); } catch (e) { continue; }
+    if (typeof vs !== 'string' || typeof fsrc !== 'string') continue;
+    const out = decls(vs, 'out'), inn = decls(fsrc, 'in');
+    for (const [v, c] of inn) if (out.has(v)) { pairs++; if (out.get(v) !== c) bad0.push(`${name}.${v}: vs ${out.get(v) ? 'centroid' : 'plain'}, fs ${c ? 'centroid' : 'plain'}`); }
+  }
+  check('every program\'s vertex outputs and fragment inputs agree on centroid', pairs > 20 && bad0.length === 0, JSON.stringify({ pairs, bad: bad0 }));
 }
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
