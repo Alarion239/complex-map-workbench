@@ -1161,13 +1161,16 @@ async function svInteractUnit(scene) {
 // frame p95 (frame_ms, 60 fps budget 14 ms), the frames presented per second (throughput, at least 55), the longest
 // stall (jank_ms) and the rAF intervals over 25 ms (info), GLR.blit calls per frame drawn (limit SV_COPIES_LIMIT: one
 // copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
-// no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
+// no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot). o: {id: the
+// unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere'), scope
+// ('all': Everywhere | 'in': Inside regions)}
 const SV_GLIDE_JANK_MS = 25;
-async function svGlideUnit(scene) {
+async function svGlideUnit(scene, o = {}) {
+  const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all';
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
-  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.glide.${scene}`, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
-  const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === `sv.glide.${scene}`)) * 1000;
+  const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === id)) * 1000;
   // one glide from where the view rests to plane `to`, its window from the call to the landing
   const glide = async (to) => {
     const c0 = await B.ev('__perf.counters().links'), bl0 = await B.ev('__svBl.n'), a = await pageNow();
@@ -1180,7 +1183,7 @@ async function svGlideUnit(scene) {
     return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, labels: lbl.map((p) => p.ms), jank: await jankIn(a, b), a, b });
   };
   for (const dpr of [1, 2]) {
-    const pre = `sv.glide.${scene}${dpr === 2 ? '.dpr2' : ''}`;
+    const pre = `${id}${dpr === 2 ? '.dpr2' : ''}`;
     const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
@@ -1195,7 +1198,7 @@ async function svGlideUnit(scene) {
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
-        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }), 1`);
+        await B.ev(`__cmwSteps({ scope: '${scope}', surf: '${surf}', go: 0, now: true }), 1`);
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
@@ -1220,7 +1223,10 @@ async function svGlideUnit(scene) {
     put(`${pre}.fps`, 'throughput', 'frames/s', R.map((r) => r.fps));
     put(`${pre}.jank_ms`, 'jank_ms', 'ms', R.map((r) => r.jank));
     put(`${pre}.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, longInt);
-    put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
+    // (on the globe the copies are info: the globe's glide composites a second globe over the first where it has no
+    // carried colour, so its copies are what the probe reports, not a limit)
+    if (surf === 'sphere') put(`${pre}.gl_copies`, 'info', 'copies/frame', copies.map(r3));
+    else put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
   }
@@ -2002,6 +2008,8 @@ unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, 
 unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
+unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default', { id: 'sv.glide.globe', surf: 'sphere' }));
+unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));

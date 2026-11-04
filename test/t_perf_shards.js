@@ -20,21 +20,21 @@ ok('a part beside its own shard is covered by the shard', matrix(['steps', 'step
 ok('a repeated id runs once', matrix(['phone-open', 'phone-open'], null).join() === 'phone-open');
 ok('skip removes ids', !matrix(['all'], ['phone']).includes('phone') && matrix(null, ['steps']).length === ids.length - 1);
 // the GPU gate (--leaves): a split shard stands for its parts
-const steps4 = 'steps-first,steps-default,steps-zeta,steps-king,steps-cold,steps-long';
-ok('leaves: nothing or all is the shards with steps as its six parts', leaves(null).join() === ids.filter((i) => i !== 'steps').concat(steps4.split(',')).join() && leaves(['all']).join() === leaves(null).join());
-ok('leaves: steps is its six parts (an existing dispatch keeps working)', leaves(['steps']).join() === steps4);
+const steps4 = 'steps-first,steps-default,steps-zeta,steps-king,steps-globe,steps-cold,steps-long';
+ok('leaves: nothing or all is the shards with steps as its seven parts', leaves(null).join() === ids.filter((i) => i !== 'steps').concat(steps4.split(',')).join() && leaves(['all']).join() === leaves(null).join());
+ok('leaves: steps is its seven parts (an existing dispatch keeps working)', leaves(['steps']).join() === steps4);
 ok('leaves: classic is the shards that are not split', leaves(['classic']).join() === ids.filter((i) => i !== 'steps').join());
 ok('leaves: a part is one job, a shard that is not split runs whole', leaves(['steps-king']).join() === 'steps-king' && leaves(['pointer']).join() === 'pointer');
 ok('leaves: a part beside its own whole shard runs once', leaves(['pointer', 'pointer-drag', 'steps', 'steps-king']).join() === 'pointer,' + steps4);
 ok('leaves: skip removes a leaf', !leaves(null, ['steps-king']).includes('steps-king') && leaves(null, ['steps-king']).includes('steps-zeta'));
-ok('skip expands a split shard as only does: its id leaves out its parts, a part leaves out itself', leaves(null, ['steps']).join() === ids.filter((i) => i !== 'steps').join() && matrix(null, ['steps']).join() === ids.filter((i) => i !== 'steps').join() && leaves(['steps'], ['steps-king']).join() === 'steps-first,steps-default,steps-zeta,steps-cold,steps-long');
+ok('skip expands a split shard as only does: its id leaves out its parts, a part leaves out itself', leaves(null, ['steps']).join() === ids.filter((i) => i !== 'steps').join() && matrix(null, ['steps']).join() === ids.filter((i) => i !== 'steps').join() && leaves(['steps'], ['steps-king']).join() === 'steps-first,steps-default,steps-zeta,steps-globe,steps-cold,steps-long');
 ok('skip: a whole shard named beside its parts takes them with it', matrix(['steps', 'phone-open'], ['steps']).join() === 'phone-open' && leaves(['pointer-drag', 'phone'], ['pointer']).join() === 'phone');
 ok('an unknown id is an error', throws(() => matrix(null, ['steps-kng'])) &&  throws(() => matrix(['steps-kng'], null)) && throws(() => leaves(['nope'])));
 // the steps leaves select exactly the units `^sv\.` does (run.js --list), each once
 const units = execFileSync(process.execPath, [path.join(__dirname, '..', 'test', 'regress', 'perf', 'run.js'), '--list'], { encoding: 'utf8' }).split('\n').map((l) => l.split(/\s+/)[0]).filter(Boolean);
 const sv = units.filter((u) => /^sv\./.test(u));
 const byLeaf = steps4.split(',').flatMap((id) => units.filter((u) => new RegExp(find(id).re).test(u)));
-ok('the six steps leaves select the sv units, each once', sv.length === 9 && byLeaf.length === 9 && new Set(byLeaf).size === 9 && byLeaf.every((u) => sv.includes(u)), byLeaf);
+ok('the seven steps leaves select the sv units, each once', sv.length === 11 && byLeaf.length === 11 && new Set(byLeaf).size === 11 && byLeaf.every((u) => sv.includes(u)), byLeaf);
 ok('steps-king is the King pair alone', units.filter((u) => new RegExp(find('steps-king').re).test(u)).join() === 'sv.interact.king,sv.glide.king');
 ok('find: a shard and a part', find('steps').re === SHARDS.find((s) => s.id === 'steps').re && find('steps-king').of === 'steps' && !find('nope'));
 ok('the CLI exits 2 on an unknown id', (() => { try { execFileSync(process.execPath, [path.join(__dirname, '..', 'ci', 'perf_shards.js'), 'matrix', '--only', 'nope'], { stdio: 'pipe' }); return false; } catch (e) { return e.status === 2; } })());
