@@ -888,11 +888,11 @@
   // doubling, then halving the last gap; K when none does
   function* svLeastK(test, K) {
     if (yield* test(0)) return 0;
-    let lo = 0, hi = 1;
-    while (hi < K && !(yield* test(hi))) { lo = hi; hi = Math.min(K, 2 * hi); }
-    if (hi >= K && !(yield* test(K))) return K;
-    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (yield* test(mid)) hi = mid; else lo = mid; }
-    return hi;
+    let no = 0, yes = 1;
+    while (yes < K && !(yield* test(yes))) { no = yes; yes = Math.min(K, 2 * yes); }
+    if (yes >= K && !(yield* test(K))) return K;
+    while (yes - no > 1) { const mid = (no + yes) >> 1; if (yield* test(mid)) yes = mid; else no = mid; }
+    return yes;
   }
   function svRingSet(key, m) {
     if (svRingSizes.size >= SV_RING_SIZES_MAX) svRingSizes.clear();
@@ -935,9 +935,10 @@
   // round in the map's picture as on the plane, whatever its radius. Its seam, the edge between its first and its last
   // column of cells, is the ray from c at angle pi, a hair either side (SV_POLAR_EPS), the principal cut of a logarithm
   // or a root about c: no cell straddles it. Relative to c (meshInstances' origin), so float32 keeps its points near c.
-  // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes, builds}
+  // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes}; svPolarBuilds counts the builds
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KEEP = 6;
   const svPolarRes = new Map();
+  let svPolarBuilds = 0;
   function svPolarGPU(ring) {
     let r = svPolarRes.get(ring.id);
     if (r) { svPolarRes.delete(ring.id); svPolarRes.set(ring.id, r); return r; }
@@ -961,7 +962,8 @@
       }
     }
     out.origin = ring.c.slice();
-    r = { meshRes: GLR.createMesh(out), builds: 1 };
+    r = { meshRes: GLR.createMesh(out) };
+    svPolarBuilds++;
     while (svPolarRes.size >= SV_POLAR_KEEP) {
       const [k, o] = svPolarRes.entries().next().value;
       svPolarRes.delete(k);
