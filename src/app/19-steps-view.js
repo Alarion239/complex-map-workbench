@@ -327,6 +327,18 @@
     else { lo = Math.floor(x + 1e-9); hi = lo + 1; }
     lo = Math.max(0, lo); hi = Math.min(n, hi);
     if (!(hi > lo) || (x - lo < 1e-6 && !SV.anim && !SV.play) || derivIn(P[lo], P[hi])) return null;
+    const src = svPathsSeg(P, lo, hi, x);
+    // (parked or dragged between two planes: the segments on either side, whose paths a scrub across a plane draws
+    // next; the deformation re-traces them ahead, off the frame)
+    if (!SV.play && !SV.anim) {
+      // (svBetween reads SV.span, the glide's run of planes)
+      src.aheadKey = SV.span ? `${SV.span.x0},${SV.span.x1}` : '';
+      src.near = () => [[lo - 1, lo], [hi, hi + 1]].filter(([l, h]) => l >= 0 && h <= n && !derivIn(P[l], P[h])).map(([l, h]) => svPathsSeg(P, l, h, x));
+    }
+    return src;
+  }
+  // the source for the planes' run [lo, hi] with the thread at x
+  function svPathsSeg(P, lo, hi, x) {
     const start = P[lo];
     return {
       Fat: (T) => svBetween(lo + T).F, T: Math.max(0, Math.min(hi - lo, x - lo)), Tend: hi - lo, seq: hi - lo > 1,
