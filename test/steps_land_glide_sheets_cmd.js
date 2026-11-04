@@ -52,12 +52,19 @@ for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]
   ok(`held at ${x}: a carried frame that draws the sheets`, !!c && Math.abs(c.u - x) < 0.002 && c.sheets === true, c);
   ok(`held at ${x}: the plane at rest there (<= 2 % of pixels > 32/255)`, info.ends[tag].d != null && info.ends[tag].d <= 0.02, info.ends[tag]);
 }
+await rest(0); await hold(0.5);
+const heldMid = await carry();
+await grab('heldMid');
+await ev('window.__svScrubUp(), 1');
+await settled({ max: 60000 });
 await rest(0); await park(0.5);
 const mid = await carry();
 await grab('mid');
 info.mid = { carry: mid, from0: await diff('mid', 'rest0'), from1: await diff('mid', 'rest1') };
 ok('parked at 0.5: a carried frame that draws the sheets', !!mid && mid.sheets === true, mid);
 ok('parked at 0.5: unlike both planes at rest', info.mid.from0 > 0.01 && info.mid.from1 > 0.01, info.mid);
+info.heldMid = { mu: [heldMid && heldMid.mu, mid && mid.mu], d: await diff('mid', 'heldMid') };
+ok('the same u gives the same frame, held or parked (<= 2 % of pixels > 32/255, one height scale)', !!heldMid && Math.abs(heldMid.mu / mid.mu - 1) < 1e-6 && info.heldMid.d != null && info.heldMid.d <= 0.02, info.heldMid);
 // (the same page with All sheets ticked off, from the plane's options)
 await ev(`(() => {
   if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); }
