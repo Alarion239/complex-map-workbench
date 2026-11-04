@@ -1190,8 +1190,8 @@ void main() {
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out; own: REGION_VS's sheet option without clip, a fragment of a torn
-  // triangle (vTorn) kept only where the map sends its own source point vP, within vWTol of the place vW drawn: the seam where a triangle torn
-  // across a cut meets the other side is the cut's image, pixel for pixel)
+  // triangle (vTorn) kept only where the map sends its own source point vP, within vWTol of the place vW drawn: the
+  // seam where a triangle torn across a cut meets the other side is the cut's image, pixel for pixel)
   const CARRY_FS = (id, key = true, pre = false, clip = false, own = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}in vec2 vP;
