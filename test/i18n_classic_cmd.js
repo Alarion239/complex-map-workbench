@@ -1,6 +1,6 @@
 // The classic views' part of the language checks (i18n_cmd.js is the steps view's): on a Russian layout (ЙЦУКЕН) the
 // Deformation's keys work through e.code (Ь → the Deformation, З → its Paths), the digit keys pick the X → Y, Phase and
-// Landscape views, and the logarithm's example names its Landscape window of sheets in Russian. A command file for a CDP
+// Landscape views, С → the Circle tool, and the logarithm's example names its Landscape window of sheets in Russian. A command file for a CDP
 // daemon (test/cdp_kit README); prints { pass, of, fails }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -20,6 +20,9 @@ await view(1440, 900, false, false);
 await nav(`${U}?ns=i18nc-keys-${Date.now()}&lang=ru`); await loaded(3500);
 await ev(`document.activeElement && document.activeElement.blur(), 1`);
 const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await sleep(300); };
+const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
+await press('с', 'KeyC'); check('ЙЦУКЕН С (KeyC) → Circle', (await tool()) === 'circle');
+await press('м', 'KeyV');
 await press('ь', 'KeyM'); await settle(600); check('ЙЦУКЕН Ь (KeyM) → deformation on', !!(await ev(`!!document.getElementById('morphPlay')`)));
 const paths = `(document.getElementById('pathsBtn') || {}).getAttribute ? document.getElementById('pathsBtn').getAttribute('aria-pressed') : null`;
 const p0 = await ev(paths);

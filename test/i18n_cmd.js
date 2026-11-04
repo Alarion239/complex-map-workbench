@@ -175,7 +175,10 @@ for (const w of [1024, 1440]) {
   await ev(`document.activeElement && document.activeElement.blur(), 1`);
   const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await sleep(300); };
   const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
-  await press('с', 'KeyC'); check('ЙЦУКЕН С (KeyC) → Circle', (await tool()) === 'circle');
+  // (С is C: the colour plane, as on a Latin layout; the thread is taken to the first plane, then С sets it as the colour plane)
+  await ev(`__cmwSteps({ go: 0, now: true }), 1`);
+  const T0 = await ev(`__cmwSteps().T`);
+  await press('с', 'KeyC'); await settled({ max: 5000, only: true, until: `__cmwSteps().T === 0` }); check('ЙЦУКЕН С (KeyC) → the shown plane is the colour plane', T0 !== 0 && (await ev(`__cmwSteps().T`)) === 0, T0);
   await press('в', 'KeyD'); check('ЙЦУКЕН В (KeyD) → Disc', (await tool()) === 'disc');
   await press('и', 'KeyB'); check('ЙЦУКЕН И (KeyB) → Rectangle', (await tool()) === 'rect');
   await press('ы', 'KeyS'); check('ЙЦУКЕН Ы (KeyS) → Segment', (await tool()) === 'segment');
@@ -184,23 +187,25 @@ for (const w of [1024, 1440]) {
   await press('.', 'Slash'); await settle(300); check('ЙЦУКЕН «.» on the / key → palette', await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`)); await press('Escape', 'Escape');
   // (K and M play and pause the thread, P toggles its Paths; the thread is idle first)
   await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` });
-  const playLabel = () => ev(`document.querySelector('#svStrip .sv-play').getAttribute('aria-label')`);
-  const idleLabel = await playLabel();
-  // (the label follows the key by a frame or more on a software renderer: it is read for up to 3 s until it is the one asked)
-  const playing = async (want) => { let on = false; for (let i = 0; i < 30; i++) { on = (await playLabel()) !== idleLabel; if (on === want) break; await sleep(100); } return on; };
-  await press('ь', 'KeyM'); check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playing(true));
-  await press('ь', 'KeyM'); check('ЙЦУКЕН Ь again → the thread pauses', !(await playing(false)));
+  // (a play on a short thread ends within a few frames: the page counts the times the Play button's label changes, and
+  // a key plays when the count goes up)
+  await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n !== window.__idleLabel) window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); window.__idleLabel = was; })(), 1`);
+  const playsTo = async (k, code, n) => { await press(k, code); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
+  await settled({ max: 20000, until: `!__cmwSteps().moving` });
+  check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
+  await settled({ max: 20000, until: `!__cmwSteps().moving` });
   const paths = `document.querySelector('#svStrip .sv-paths').getAttribute('aria-pressed')`;
   const p0 = await ev(paths);
-  await press('з', 'KeyP'); await settle(400); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
-  await press('з', 'KeyP'); await settle(300);
+  await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} !== ${JSON.stringify(p0)}` }); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
+  await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} === ${JSON.stringify(p0)}` });
   await press('у', 'KeyE', 4); await settle(1500); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
   await press('Escape', 'Escape'); await settle(500);
   // a text field keeps its letters: the region formula field
   await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
   await press('м', 'KeyV'); await press('с', 'KeyC'); await press('ь', 'KeyM');
-  const typed = await ev(`({ v: document.getElementById('formulaInput').value, tool: (document.querySelector('.tool.on') || { dataset: {} }).dataset.tool, playing: document.querySelector('#svStrip .sv-play').getAttribute('aria-label') !== ${JSON.stringify(idleLabel)} })`);
-  check('typing in a text field is never taken', typed.v === 'мсь' && typed.tool === 'select' && !typed.playing, typed);
+  const typed = await ev(`({ v: document.getElementById('formulaInput').value, tool: (document.querySelector('.tool.on') || { dataset: {} }).dataset.tool, starts: window.__starts })`);
+  check('typing in a text field is never taken', typed.v === 'мсь' && typed.tool === 'select' && typed.starts === 2, typed);
   await ev(`document.getElementById('formulaInput').value = '', document.activeElement.blur(), 1`);
 }
 // ---- 6: detection ----
