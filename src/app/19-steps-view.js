@@ -99,7 +99,7 @@
     let role;
     if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: '' });
+    else if (SV.surf === 'land') { const shw = sheetsShown(); role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: shw ? sheetsClause(shw, 'html') : '' }); }
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
@@ -922,17 +922,16 @@
     if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
     // (a stand-in as drawScene's: the old mesh alone where its guard box covers the pane, else inside the box with the
-    // tessellated meshes, which cover clipWin's window alone, around it; a box off the pane, none. The frame is open:
-    // GLR.scissorOf reads its size)
+    // tessellated meshes, which cover clipWin's window alone, around it; a box off the pane, none: GLR.standInOf. The
+    // frame is open: it reads the frame's size)
     const lay = [];
     for (let i = 0; i < draws.length; i++) {
       const d = draws[i], o = d.stand, end = !o || i + 1 >= draws.length || draws[i + 1].stand !== o;
-      if (o && o.sc === undefined) o.sc = GLR.scissorOf(o.box, pane.view, pane.dpr, 0);
-      if (!o || (o.sc && !(o.sc[2] > 0))) { lay.push(d); continue; }
-      if (o.sc === null) { if (end) lay.push({ res: o.res, pre: true }); continue; }
-      const sc = o.sc;
-      lay.push(Object.assign({}, d, { scissors: [[0, 0, pane.pw, sc[1]], [0, sc[1] + sc[3], pane.pw, pane.ph - sc[1] - sc[3]], [0, sc[1], sc[0], sc[3]], [sc[0] + sc[2], sc[1], pane.pw - sc[0] - sc[2], sc[3]]].filter((q) => q[2] > 0 && q[3] > 0) }));
-      if (end) lay.push({ res: o.res, pre: true, scissor: sc });
+      if (o && o.so === undefined) o.so = GLR.standInOf(o.box, pane.view, pane.dpr);
+      if (!o || !o.so) { lay.push(d); continue; }
+      if (o.so === 'whole') { if (end) lay.push({ res: o.res, pre: true }); continue; }
+      lay.push(Object.assign({}, d, { scissors: o.so.around }));
+      if (end) lay.push({ res: o.res, pre: true, scissor: o.so.sc });
     }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
     // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
@@ -1043,6 +1042,8 @@
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
     if (rest) drawRulers(pane, 'L');
+    // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
+    glStatusNote(pane);
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
