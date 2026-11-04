@@ -212,6 +212,7 @@
       // (a pending re-choice for a view that has come back within reach is dropped)
       if (mfCache.timer) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
+      mfAheadStart(pane, src, vkey);
       return mfCache.sel;
     }
     const want = key + '\n' + vkey;
@@ -230,18 +231,54 @@
       }
     }
     if (!mfCache.sel) return null;
-    if (mfCache.key === key) return mfCache.sel;
-    // the chain or the shapes changed: the kept start points, re-traced under the current homotopy (cheap)
+    if (mfCache.key === key) { mfAheadStart(pane, src, vkey); return mfCache.sel; }
+    // the chain or the shapes changed: the kept start points, re-traced under the current homotopy, taken from the
+    // re-traces made ahead when this is a neighbouring segment's
     if (mfCache.rkey !== key) {
-      const Fc = new Map();
-      const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
-      const P = (w) => pane.w2s(w);
-      const N = Math.max(24, 24 * Math.ceil(m));
-      const kept = [];
-      for (const k of mfCache.sel.kept) { const r = pathRetrace(k, Fat, m, P, N, src.seq); if (r) kept.push(r); }
-      mfCache.rkey = key; mfCache.rsel = Object.assign({}, mfCache.sel, { kept, Tend: m });
+      const a = mfAhead.sel === mfCache.sel && mfAhead.vkey === vkey && mfAhead.akey === src.aheadKey ? mfAhead.done.get(key) : null;
+      mfCache.rkey = key; mfCache.rsel = a || genDrain(mfRetraceGen(pane, mfCache.sel, src, m));
     }
+    mfAheadStart(pane, src, vkey);
     return mfCache.rsel;
+  }
+  // the selection's kept start points re-traced under src's homotopy, one path per step of the generator
+  function* mfRetraceGen(pane, sel, src, m) {
+    const Fc = new Map();
+    const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
+    const P = (w) => pane.w2s(w);
+    const N = Math.max(24, 24 * Math.ceil(m));
+    const kept = [];
+    for (const k of sel.kept) { const r = pathRetrace(k, Fat, m, P, N, src.seq); if (r) kept.push(r); yield; }
+    return Object.assign({}, sel, { kept, Tend: m });
+  }
+  const genDrain = (g) => { for (;;) { const r = g.next(); if (r.done) return r.value; } };
+  // The re-traces of the segments next to the one drawn (src.near(): the steps view's, parked or dragged between two
+  // planes), made in slices off the frame for the selection and the view of the moment: a scrub that crosses a plane
+  // changes the source's segment, and re-tracing every kept path inside that frame cost a 30 to 60 ms frame on the
+  // Mountain King. A frame that crosses before they are done re-traces in the frame.
+  // (src.aheadKey: what else the near sources' homotopies depend on; made again when it changes)
+  const mfAhead = { sel: null, vkey: '', akey: '', from: '', done: new Map(), job: null };
+  function mfAheadStart(pane, src, vkey) {
+    const sel = mfCache.sel;
+    if (!src.near || !sel) return;
+    if (mfAhead.sel !== sel || mfAhead.vkey !== vkey || mfAhead.akey !== src.aheadKey) {
+      if (mfAhead.job) mfAhead.job.alive = false;
+      mfAhead.job = null; mfAhead.sel = sel; mfAhead.vkey = vkey; mfAhead.akey = src.aheadKey; mfAhead.from = ''; mfAhead.done = new Map();
+    }
+    // (once per source: its neighbours' keys are made once, not in every frame)
+    if (mfAhead.job || mfAhead.from === src.key) return;
+    mfAhead.from = src.key;
+    const done = mfAhead.done;
+    const todo = src.near().map((n) => ({ n, key: mfScreenKey(pane, n).key })).filter((q) => q.key !== mfCache.key && !done.has(q.key));
+    if (!todo.length) return;
+    const job = { alive: true };
+    mfAhead.job = job;
+    const alive = () => job.alive && mfAhead.done === done && src.alive();
+    const g = (function* () {
+      for (const q of todo) { const r = yield* mfRetraceGen(pane, sel, q.n, q.n.Tend); if (!alive()) return; done.set(q.key, r); }
+    })();
+    // (its first slice too waits for the frame to end)
+    nextMacrotask().then(() => (alive() ? runGenSliced(g, alive, 3) : null)).catch((e) => console.error('deformation paths ahead', e)).finally(() => { if (mfAhead.job === job) mfAhead.job = null; });
   }
   // The merged globe's live paths (merged-views review: the design's "one plane (or one globe)" both carry them): the
   // same selection, chosen off the frame in the deformation's own flat frame at the globe pane's size (defFitView,
