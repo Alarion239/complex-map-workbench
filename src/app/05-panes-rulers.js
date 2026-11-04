@@ -1049,8 +1049,9 @@
     }
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
-      // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map (none in a homotopy)
-      const sm = hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
+      // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map: in the
+      // steps view's glide (o.lineMap) the glide's map from its plane (svShapeMap), in another homotopy none
+      const sm = o.lineMap ? svShapeMap(s, map) : hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
       if (!sm) continue;
       const smk = sm === map ? mk : mapKeyOf(sm), recsOf = shapeStage(s) ? null : recs;   // (the packed records hold the z-plane's shapes only)
       const r = shapeGPU(s);

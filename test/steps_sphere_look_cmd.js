@@ -11,7 +11,7 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const TOL = 16, OVER_MAX = 0.01, N_MIN = 300, RANGE = 12, LOOK_U = [0.25, 0.5, 0.75];
+const TOL = 8, OVER_MAX = 0.005, N_MIN = 300, RANGE = 12, LOOK_U = [0.25, 0.5, 0.75];
 await view(1200, 800);
 const ST = {
   pattern: 'phase', outline: true, lines: false, unit: false, alpha: 1, v3: true, v4: true, v5: true, v6: true, nextId: 50,
@@ -98,17 +98,78 @@ for (const scope of ['all', 'in']) {
   await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere', scope: ${JSON.stringify(scope)}, T: 1 }); 1`);
   await settled({ max: 60000, until: '!__cmwSteps().moving && GLR.pendingLinks === 0' });
   await grab('P');
-  if (process.env.SL_DUMP) fs.writeFileSync(`${process.env.SL_DUMP}/${scope}-rest.png`, Buffer.from((await ev(`document.getElementById('canvasL').toDataURL()`)).split(',')[1], 'base64'));
   for (const u of LOOK_U) {
     await ev(`__cmwSteps({ x: ${u} }); 1`);
     await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${u}) < 1e-9 && GLR.pendingLinks === 0 && __cmwSvGlobe(0, 0).path === 'inverse'` });
     await grab('F');
-    if (process.env.SL_DUMP) fs.writeFileSync(`${process.env.SL_DUMP}/${scope}-${u}.png`, Buffer.from((await ev(`document.getElementById('canvasL').toDataURL()`)).split(',')[1], 'base64'));
     const r = await compare('P', 'F');
     R[`${scope} ${u}`] = r;
     ok(`${scope === 'all' ? 'Everywhere' : 'Inside regions'}, u = ${u}: the moving globe is the exact picture at u (at most ${OVER_MAX * 100} % of ≥ ${N_MIN} points over ${TOL} levels)`,
       r.path === 'inverse' && r.n >= N_MIN && r.over <= OVER_MAX, r);
   }
+}
+// The strokes: with two Möbius steps, a curve and a region's border of plane z and of plane w1, held at u = 0.25 and
+// 0.75 of the glide w1 -> w2, are where H_u carries them from the parked globe of w1: each stroke pixel of the parked
+// globe (where the frame with the strokes hidden differs by more than 60 levels in sum) is picked to its point z of w1
+// (__cmwGlobeSnap's raw pick), carried to w = H_u(z), and the moving globe has a stroke pixel within STROKE_R px of w's
+// pixel, for at least HIT_MIN of at least MIN_SAMPLES of them, for plane w1's circle and for every stroke together.
+const HIT_MIN = 0.9, MIN_SAMPLES = 40, STROKE_R = 3;
+const ST2 = {
+  pattern: 'phase', outline: true, lines: false, unit: false, alpha: 1, v3: true, v4: true, v5: true, v6: true, nextId: 50,
+  focus: 0, rightMode: 'image',
+  steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'mobius', params: { a: '1', b: '0.5', c: '0', d: '1' }, on: true }],
+  shapes: [
+    { id: 'l0', kind: 'line', a: [-2, 0.6], b: [2, 0.9], ci: 0, visible: true },
+    { id: 'd0', kind: 'disc', c: [-0.3, -0.3], r: 0.5, ci: 1, visible: true },
+    { id: 'c1', kind: 'circle', c: [0.1, 0.2], r: 0.5, ci: 2, visible: true, stage: 1 },
+    { id: 'd1', kind: 'disc', c: [-0.4, -0.3], r: 0.3, ci: 3, visible: true, stage: 1 },
+  ],
+  targets: [],
+};
+const C1 = ST2.shapes[2];
+await loadView('steps', 'svslook2' + Date.now(), ST2);
+await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvGlobe === "function" && !!window.GLR && GLR.pendingLinks === 0' });
+await ev(`__cmwSet('morphPaths', false), 1`);
+await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere', scope: 'all', T: 2 }); 1`);
+await settled({ max: 60000, until: '!__cmwSteps().moving && GLR.pendingLinks === 0' });
+// (the frame as it is and with the strokes hidden)
+const grab2 = async (tag) => {
+  await grab(tag);
+  await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000, until: 'GLR.pendingLinks === 0' });
+  await grab(tag + '0');
+  await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000, until: 'GLR.pendingLinks === 0' });
+};
+await grab2('S');
+for (const u of [0.25, 0.75]) {
+  await ev(`__cmwSteps({ x: ${1 + u} }); 1`);
+  await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${1 + u}) < 1e-9 && GLR.pendingLinks === 0` });
+  await grab2('M');
+  const r = await ev(`(() => {
+    const K = window.__sl, P = K.S, P0 = K.S0, M = K.M, M0 = K.M0, W = P.W, Hh = P.H, k = P.k, g = __cmwSvGlobe(0, 0), H = g.H;
+    const drawn = (D, D0, i) => Math.abs(D.d[i] - D0.d[i]) + Math.abs(D.d[i + 1] - D0.d[i + 1]) + Math.abs(D.d[i + 2] - D0.d[i + 2]) > 60;
+    const R = Math.round(${STROKE_R} * k), c1 = ${JSON.stringify(C1)};
+    const all = { n: 0, hit: 0 }, own = { n: 0, hit: 0 };
+    let back = 0;
+    for (let y = 2; y < Hh - 2; y += 2) for (let x = 2; x < W - 2; x += 2) {
+      const i = 4 * (y * W + x);
+      if (!drawn(P, P0, i)) continue;
+      const q = __cmwGlobeSnap('L', (x + 0.5) / k, (y + 0.5) / k);
+      if (!q || !q.g) continue;
+      const z = { re: q.g[0], im: q.g[1] }, w = H(z), s = w && __cmwGlobeXY('L', w.re, w.im);
+      if (!s) { back++; continue; }
+      const wx = Math.round(s[0] * k - 0.5), wy = Math.round(s[1] * k - 0.5);
+      if (!(wx >= R && wy >= R && wx < W - R && wy < Hh - R)) { back++; continue; }
+      let found = false;
+      for (let dy = -R; dy <= R && !found; dy++) for (let dx = -R; dx <= R && !found; dx++) { const j = 4 * ((wy + dy) * W + wx + dx); if (drawn(M, M0, j)) found = true; }
+      const mine = Math.abs(Math.hypot(z.re - c1.c[0], z.im - c1.c[1]) - c1.r) < 0.03;
+      all.n++; if (found) all.hit++;
+      if (mine) { own.n++; if (found) own.hit++; }
+    }
+    return { all, own, back, path: g.path };
+  })()`);
+  R[`strokes ${u}`] = r;
+  ok(`strokes, u = ${u}: every stroke is where H_u carries it (≥ ${HIT_MIN * 100} % of ≥ ${MIN_SAMPLES})`, r.all.n >= MIN_SAMPLES && r.all.hit >= HIT_MIN * r.all.n, r);
+  ok(`strokes, u = ${u}: plane w1's circle is where H_u carries it (≥ ${HIT_MIN * 100} % of ≥ ${MIN_SAMPLES})`, r.own.n >= MIN_SAMPLES && r.own.hit >= HIT_MIN * r.own.n, r);
 }
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
