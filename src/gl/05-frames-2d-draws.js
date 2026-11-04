@@ -367,15 +367,16 @@
     // (without parallel compiles the links run one by one in idle moments: the cut fill's own-option programs come last
     // in that line, ahead of the idle job, whose scratch textures a later main-thread link would leave unused for long
     // enough to be freed; with them, prestartOwn starts those after the warm draw)
-    const own = cuts && !clip && !pcExt ? (rtOK ? ['regionKSCpto', 'regionKSCo'] : ['regionKSo']) : [];
+    const own = cuts && !clip && !pcExt ? [rtOK ? 'regionKSCpto' : 'regionKSo'] : [];
     return prestartNames((clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts'] : ['regionKC']).concat(own), [1]);
   }
   // the cut fill's own-option programs (seams pixel for pixel), started once the glide's carried colour has drawn
   // (the steps view's warm draw, svWarmCarry), so the links the first frames wait on are the plain ones alone; with
-  // parallel compiles only (without, prestartCarry lines them up)
+  // parallel compiles only (without, prestartCarry lines them up). The one without the point pass (regionKSCo) is the
+  // tests' reference only: carryPrep waits for it there
   function prestartOwn() {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = k.some((c) => c && c.h === 'sheet');
-    return cuts && !clip && pcExt ? prestartNames(rtOK ? ['regionKSCpto', 'regionKSCo'] : ['regionKSo'], [1]) : 0;
+    return cuts && !clip && pcExt ? prestartNames([rtOK ? 'regionKSCpto' : 'regionKSo'], [1]) : 0;
   }
   // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
   let fillPtsOn = true;
@@ -419,13 +420,14 @@
     // (a sheet program drawing: its own-option version in its place once linked, so the seams are drawn pixel for
     // pixel (prestartOwn starts it); a clipped cut's has its own side test)
     let own = false;
-    const ownOf = (name, R) => {
+    // (where the point pass is off, the tests' reference, the fill's own-option program is waited for as the plain one is)
+    const ownOf = (name, R, wait) => {
       if (!R || clip) return R;
-      const O = linked(name + 'o', st.map);
+      const O = (wait ? program : linked)(name + 'o', st.map);
       if (O) own = true;
       return O || R;
     };
-    if (fill) fill = ownOf(fp ? 'regionKSCpt' : 'regionKSC', fill);
+    if (fill) fill = ownOf(fp ? 'regionKSCpt' : 'regionKSC', fill, !fillPtsOn);
     let full = null;
     if (cuts && !fill && !carryProbe.noFill) {
       P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
