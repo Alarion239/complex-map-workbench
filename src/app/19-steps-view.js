@@ -947,6 +947,10 @@
   // or a root about c: no cell straddles it. Relative to c (meshInstances' origin), so float32 keeps its points near c.
   // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes, NR rings, NT cells a ring, dl
   // the log of a ring's ratio}; svPolarBuilds counts the builds
+  // (SV_POLAR_BEHIND: the ring's depth offset, in polygonOffset units, about a step of the sheet key (2^-24 a unit):
+  // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
+  // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
+  const SV_POLAR_BEHIND = 16384;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
@@ -956,8 +960,10 @@
   // (clipWin's larger side / 80), and, about a singular point c the ring reaches in to past rho - h, outside the disc
   // of radius rho = h (SV_POLAR_NT / 2 pi - 1) about it, a cell inside the radius within which the ring's cells are the
   // finer (beside a logarithm's branch point a whole-plane cell spans radii the map sends far apart); the ring's
-  // everywhere else. Each keeps its triangles that reach into its share: the whole plane's whose centre is in it, the
-  // ring's cells with a corner outside clipWin or within rho + h of c, so the two overlap by a cell along the edge.
+  // everywhere else. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
+  // stretched outer cell, placed worse than the ring's), the ring every cell that reaches within 2h of the ring's share
+  // (a corner outside clipWin shrunk by 2h, or within rho + 2h of c), so the two overlap along the edge, the ring's
+  // drawn behind there (SV_POLAR_BEHIND).
   // svPolarShare: the radius rho about the ring's centre (0: none)
   function svPolarShare(ring) {
     const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
@@ -974,22 +980,20 @@
     let P = r.polarSkip;
     if (P && P.key === key && P.extraRes === (ex ? fx.extraRes : null)) return P;
     const [cx, cy] = ring.c;
-    // (a triangle whose three corners add up to (x, y): its centre outside the whole plane's share)
-    const out = (x, y) => { x /= 3; y /= 3; return x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho; };
+    // (a point outside the whole plane's share)
+    const out = (x, y) => x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho;
     const T = r.mesh.tri, P0 = r.mesh.src, n = T.length / 3, flags = base ? Float32Array.from(base) : new Float32Array(n);
     for (let t = 0; t < n; t++) {
-      let x = 0, y = 0;
-      for (let k = 0; k < 3; k++) { x += P0[2 * T[3 * t + k]]; y += P0[2 * T[3 * t + k] + 1]; }
-      if (out(x, y)) flags[t] = 1;
+      for (let k = 0; k < 3; k++) if (out(P0[2 * T[3 * t + k]], P0[2 * T[3 * t + k] + 1])) { flags[t] = 1; break; }
     }
     if (!P || P.res !== r.meshRes) P = r.polarSkip = { res: r.meshRes, skip: null };
     P.skip = svSkipSet(P.skip, r.meshRes, flags);
-    // (the fix-up's pieces: [ax, ay, bx, by, cx, cy] a piece, on the plane)
+    // (the fix-up's pieces: [ax, ay, bx, by, cx, cy] a piece, on the plane, each inside its triangle)
     P.extraRes = ex ? fx.extraRes : null;
     P.extra = null;
     if (ex) {
       const m = ex.length / 6, fe = new Float32Array(m);
-      for (let t = 0; t < m; t++) if (out(ex[6 * t] + ex[6 * t + 2] + ex[6 * t + 4], ex[6 * t + 1] + ex[6 * t + 3] + ex[6 * t + 5])) fe[t] = 1;
+      for (let t = 0; t < m; t++) if (out(ex[6 * t], ex[6 * t + 1]) || out(ex[6 * t + 2], ex[6 * t + 3]) || out(ex[6 * t + 4], ex[6 * t + 5])) fe[t] = 1;
       P.extra = GLR.createSkip(fx.extraRes, fe);
     }
     P.key = key;
@@ -1008,10 +1012,10 @@
     const w = clipWin, { h, rho } = svPolarShare(ring), key = [w.x0, w.x1, w.y0, w.y1, rho].join('|');
     if (r.share && r.share.key === key) return r.share.skip;
     const { NR, NT, dl } = r, [cx, cy] = ring.c, flags = new Float32Array(2 * NR * NT);
-    const inWin = (rr, th) => { const x = cx + rr * Math.cos(th), y = cy + rr * Math.sin(th); return x > w.x0 && x < w.x1 && y > w.y0 && y < w.y1; };
+    const inWin = (rr, th) => { const x = cx + rr * Math.cos(th), y = cy + rr * Math.sin(th); return x > w.x0 + 2 * h && x < w.x1 - 2 * h && y > w.y0 + 2 * h && y < w.y1 - 2 * h; };
     for (let i = 0; i < NR; i++) {
       const ra = ring.r1 * Math.exp(i * dl), rb = ring.r1 * Math.exp((i + 1) * dl);
-      if (ra < rho + h) continue;
+      if (ra < rho + 2 * h) continue;
       for (let j = 0; j < NT; j++) {
         const ta = -Math.PI + 2 * Math.PI * j / NT, tb = ta + 2 * Math.PI / NT;
         if (inWin(ra, ta) && inWin(ra, tb) && inWin(rb, ta) && inWin(rb, tb)) flags[2 * (i * NT + j)] = flags[2 * (i * NT + j) + 1] = 1;
@@ -1178,7 +1182,7 @@
       const r = x === ring ? svRingGPU(ring) : svCarryGPU(x);
       if (!r || !r.meshRes) return false;
       // (the polar ring's cells are already the map's own: no fix-up, no pre-mapped mesh)
-      if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: svPolarOwnSkip(r, x), stand: null }); continue; }
+      if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: svPolarOwnSkip(r, x), stand: null, behind: SV_POLAR_BEHIND }); continue; }
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
       // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
@@ -1212,7 +1216,7 @@
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, behind: d.behind || 0 };
     });
     // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
     for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
@@ -1267,7 +1271,8 @@
         svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
-      let carried = false;
+      // (meshed: drawn by the carried meshes, which nothing is drawn under or blended over)
+      let carried = false, meshed = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
       // svCarryExact; the carried grid only where neither path can draw)
@@ -1275,7 +1280,7 @@
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
       // travel on, each fragment its point's colour; Everywhere with the outer meshes, they cover the pane, so no
       // plane's colour is drawn under them or blended over them)
-      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = 'mesh';
+      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = meshed = true;
       else {
         // (under the rest, the two planes' exact colours cross-faded: where no carried point of the grid lands, and
         // the whole picture of a d/dz step's glide)
@@ -1288,7 +1293,7 @@
       // grid, blended in over the first and the last 15 % of a glide)
       const near = (w) => Math.max(0, Math.min(1, w));
       if (still) plot(a, 1);
-      else if (carried === true) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
+      else if (carried && !meshed) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)

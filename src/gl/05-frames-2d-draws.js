@@ -437,11 +437,15 @@
     set(P);
     // (st.scissors: only inside these rects, as drawRegion's; the depth's clears stay whole)
     const drawAll = () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    // (st.behind: its depth pushed back that many units (polygonOffset), so where another mesh in the same depth draws
+    // the same points, that mesh's are in front, not whichever placement lands a hair nearer)
     carryDraw(k, st.depth, () => {
+      if (st.behind) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, st.behind); }
       if (!carryProbe.noKCDraw) scissored(st.scissors, drawAll);
       const sheet = fill || full;
       if (fill) { set(fill); scissored(st.scissors, drawAll); }
       if (sheet && clip) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
+      if (st.behind) gl.disable(gl.POLYGON_OFFSET_FILL);
     });
     gl.bindVertexArray(null);
     return true;
