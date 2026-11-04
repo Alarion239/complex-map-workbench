@@ -440,6 +440,7 @@ Settings (environment variables):
 |---|---|
 | `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
+| `CMW_DPR` | the device pixel ratio the browser daemon's `view()` emulates (default 1; `steps_glide_look_cmd.js` runs at 1 and at 2, ci/browser_suites.js) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
 | `CMW_GLSL_CACHE` | a folder kept between runs for `ci/glsl.js`'s Chrome profile, with the GPU program cache on: a shader program compiled before (same source) is not compiled again. The GPU gate sets it on its machines ([RUNNERS.md](RUNNERS.md)); delete the folder to start cold |
 | `CMW_GLSL_STALL_MIN` | minutes without CPU in the browser after which `ci/glsl.js` closes it and reports the page as stalled (default: never; the GPU gate sets 20) |
