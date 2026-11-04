@@ -1,7 +1,9 @@
 // The steps view's carried colour mid-glide with the cut fill's values from its point pass (GLR.fillPointsOn, on by
 // default: the chain once per point of a torn sub-triangle) against the fill evaluating its own (off): the left pane's
 // pixels identical, Inside regions and Everywhere, held at x = 1/4 and 1/2, on two chains whose path has a cut the
-// sheets continue (Sheets of the logarithm, Square root and its sheets); and the point pass ran (GLR.fillPointsRuns).
+// sheets continue (Sheets of the logarithm, Square root and its sheets). Everywhere the carried mesh draws the frame
+// (a Newton inverse covers two of H_t's points, not all of them) and the point pass ran (GLR.fillPointsRuns); Inside
+// regions the inverse pass draws it (the homotopy inverted by Newton), the exact picture with no mesh fill.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -44,7 +46,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     // both settings are then read with own-option programs, the reference waiting for its own)
     await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
     // (the count read before the redraw is asked for: the frame may be drawn before the next evaluation)
-    const n0 = await ev('GLR.fillPointsRuns()');
+    const n0 = await ev('GLR.fillPointsRuns()'), path = await ev('(() => { const g = __cmwSteps().glide; return g && g.path; })()');
     await ev('GLR.fillPointsOn(true), 1'); await redraw();
     const a = await grab('on');
     const n1 = await ev('GLR.fillPointsRuns()');
@@ -52,9 +54,10 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     const b = await grab('off');
     await ev('GLR.fillPointsOn(true), 1'); await redraw();
     const d = a && b ? await diff('on', 'off') : null;
-    info[tag] = { d, runs: n1 - n0 };
+    info[tag] = { d, runs: n1 - n0, path };
     ok(`${tag}: the left pane settles under each setting`, a && b, { a, b });
-    ok(`${tag}: the fill took its values from its point pass`, n1 > n0, info[tag]);
+    if (scope === 'all') ok(`${tag}: the carried mesh draws the frame, its fill taking its values from its point pass`, path === 'mesh' && n1 > n0, info[tag]);
+    else ok(`${tag}: the inverse pass draws the frame`, path === 'inverse', info[tag]);
     ok(`${tag}: the pixels are the same as the fill evaluating its own`, !!d && d.px === 0, info[tag]);
   }
 }

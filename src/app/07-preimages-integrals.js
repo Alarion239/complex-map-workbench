@@ -109,7 +109,7 @@
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.globalAlpha = sk.casing.alpha; ctx.strokeStyle = TH.halo; ctx.lineWidth = sk.casing.width; ctx.stroke();
       ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = sk.width;
-      if (area && Region.isOpen(s)) ctx.setLineDash([5, 3.5]);
+      if (area && Region.isOpen(s)) ctx.setLineDash(OPEN_DASH);
       ctx.stroke();
       ctx.restore();
     }
