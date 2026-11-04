@@ -33,6 +33,8 @@ const PARTS = [
   { id: 'steps-default', of: 'steps', re: '^sv\\.(interact|glide)\\.default$', what: 'the steps view on the default page: the interactions and the warm glide' },
   { id: 'steps-zeta', of: 'steps', re: '^sv\\.(interact|glide)\\.zeta$', what: 'the steps view on the zeros of zeta: the interactions and the warm glide' },
   { id: 'steps-king', of: 'steps', re: '^sv\\.(interact|glide)\\.king$', what: 'the steps view on the Mountain King: the interactions and the warm glide' },
+  { id: 'steps-cold', of: 'steps', re: '^sv\\.cold_glide$', what: 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added' },
+  { id: 'steps-long', of: 'steps', re: '^sv\\.long_session$', what: 'the steps view: the Mountain King scrubbed 20 times on one page' },
   { id: 'pointer-hover', of: 'pointer', re: '^pointer\\.(hover_point|hover_orth|probe_x)$', what: 'the pointer: the hovers and the probe' },
   { id: 'pointer-drag', of: 'pointer', re: '^pointer\\.(snap_drag|glider)$', what: 'the pointer: the snap drag and the glider' },
   { id: 'pointer-morph', of: 'pointer', re: '^pointer\\.roots_morph_pan$', what: 'the pointer: panning with the deformation playing' },

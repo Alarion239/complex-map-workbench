@@ -37,7 +37,7 @@ on:
         options: [mac, both, windows, windows-hosted]
         default: mac
       shards:
-        description: 'Only these perf shards (comma-separated ids of ci/perf_shards.js; empty or all = every shard; classic = the shards that are not split; steps = its parts steps-first, steps-default, steps-zeta, steps-king, one job each; another part, e.g. pointer-drag, is its own job)'
+        description: 'Only these perf shards (comma-separated ids of ci/perf_shards.js; empty or all = every shard; classic = the shards that are not split; steps = its parts steps-first, steps-default, steps-zeta, steps-king, steps-cold, steps-long, one job each; another part, e.g. pointer-drag, is its own job)'
         required: false
         default: ''
       reps:
