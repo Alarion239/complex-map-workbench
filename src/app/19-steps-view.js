@@ -1727,6 +1727,7 @@
     if (o.T != null) SV.T = o.T < 0 || o.T >= P.length - 1 ? -1 : P[o.T];
     if (o.scope) SV.scope = o.scope;
     if (o.surf) SV.surf = o.surf;
+    if (o.i != null) svPause(false);
     if (o.i != null) { const i = Math.max(0, Math.min(P.length - 1, o.i | 0)); SV.anim = null; SV.g.max = P.length - 1; SV.g.set(i); SV.i = i; SV.at = i; }
     svApply();
     save();
@@ -2012,6 +2013,7 @@
     lo = Math.max(0, lo); hi = Math.min(P.length - 1, hi);
     setHomRange(lo === hi ? null : { a: P[lo] + 1, b: P[hi] }, { preview, force: !preview });
     svSync();
+    if (!preview && lo !== hi) tourEmit('range-set', { lo, hi });
   }
   function svClearRange() {
     if (!svRange()) return;
@@ -2076,7 +2078,7 @@
     rail.classList.remove('hold', 'arm');
     if (d.rangeFrom == null) return false;
     SV.dragEndT = performance.now();
-    if (d.rangeMoved) { const R = svRange(); setHomRange(R ? { a: R.a, b: R.b } : null, { force: true }); svSync(); const live = SV.els.live; if (live) live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, ''); }
+    if (d.rangeMoved) { const R = svRange(); setHomRange(R ? { a: R.a, b: R.b } : null, { force: true }); svSync(); if (R) tourEmit('range-set', { lo: R.lo, hi: R.hi }); const live = SV.els.live; if (live) live.textContent = (svRangeText() || $t('Range cleared')).replace(/^, /, ''); }
     return true;
   }
   // the speed, one for the glide and for play (S.sv.speed, saved with the state; the device's setting is the default of a
@@ -2091,6 +2093,7 @@
   }
   function svSetLoop(on) {
     SV.loop = on;
+    tourEmit('loop-changed', { on });
     try { localStorage.setItem('cmw-sv-loop', on ? '1' : '0'); } catch (_) { /* (no storage) */ }
     svSync();
   }
@@ -2138,6 +2141,7 @@
     }
     svSync();
     requestRender('L');
+    tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
   }
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on

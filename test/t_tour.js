@@ -161,6 +161,7 @@ for (const s of steps) {
 }
 // (#442: the steps view's chapter, which only a page with ?view=steps has among its chapters)
 for (const s of T.PLANES.steps) for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`planes/${s.id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
+for (const s of T.PLAYING.steps) for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`playing/${s.id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
 // (an event only an example's Try line waits for, not a tour step: the examples are in src/app/15-examples-guide.js, and the
 // exemption holds while one of them names it)
 const EXAMPLE_ONLY = ['step-moved'];
