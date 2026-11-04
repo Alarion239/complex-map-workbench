@@ -10,9 +10,10 @@
 //   (lum, Rec. 601 weights) and mean alpha (alpha);
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
-//   Newton's method from seeds over the window (H_u and the front sheet's key from the glide's record,
-//   __cmwSteps().glide), takes the front z among the roots in the regions (where P is not the paper: a map many-to-one
-//   onto w under Inside regions; every root when none is, or with window.__giAllRoots) and colours w as P, plane z's
+//   Newton's method from seeds over the window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u and the
+//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z among the roots in the regions
+//   (where P is not the paper: a map many-to-one onto w under Inside regions; every root when none is, or with
+//   window.__giAllRoots) and colours w as P, plane z's
 //   parked frame, colours z (bilinear). A pixel whose front covered root could be one off P's canvas (whose cover P
 //   cannot show) counts as none. Pixels next
 //   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
@@ -27,7 +28,8 @@
   const g = __cmwSteps().glide, H = g.H, v = g.view, W = F.W, Ht = F.H, dpr = W / g.w, C = (re, im) => ({ re, im });
   const s2w = (x, y) => C(v.cx + (x / dpr - g.w / 2) / v.s, v.cy - (y / dpr - g.h / 2) / v.s);
   const x0 = v.cx - g.w / 2 / v.s, x1 = v.cx + g.w / 2 / v.s, y0 = v.cy - g.h / 2 / v.s, y1 = v.cy + g.h / 2 / v.s, seeds = [];
-  for (let i = 0; i < 8; i++) for (let j = 0; j < 6; j++) seeds.push(C(x0 + (i + 0.5) * (x1 - x0) / 8, y0 + (j + 0.5) * (y1 - y0) / 6));
+  const [SX, SY] = window.__giSeeds || [8, 6];
+  for (let i = 0; i < SX; i++) for (let j = 0; j < SY; j++) seeds.push(C(x0 + (i + 0.5) * (x1 - x0) / SX, y0 + (j + 0.5) * (y1 - y0) / SY));
   // (the parked frame's paper, where Inside regions leaves a pixel outside the regions; null: none known)
   const sh = (__cmwShapes().shapes || [])[0], ph = sh && !window.__giAllRoots ? __cmwLook(sh.id, 'L').plane : null;
   const paper = ph && /^#[0-9a-f]{6}$/i.test(ph) ? [1, 3, 5].map((i) => parseInt(ph.slice(i, i + 2), 16)) : null;
