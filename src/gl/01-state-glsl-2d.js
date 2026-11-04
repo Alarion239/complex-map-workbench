@@ -372,7 +372,10 @@ float longest(vec2 a, vec2 b, vec2 c) { return max(max(len2(b - a), len2(c - b))
   // the pane: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
   // each triangle continued from its centre's sheet (chainSheetHom, the landscape's evalAt), so a triangle across a cut
   // of the deformation's path is continued, not torn and left out; clip (read only with sheet, whose side values it
-  // uses), a cut a path's dom marks
+  // uses), a cut a path's dom marks; own (with sheet, not clip), the place drawn at each vertex (vW) and whether its
+  // triangle is torn across the cut (vTorn), which CARRY_MASK_FS reads, and the pass uKPass 1 for the triangle's part
+  // past the cut; its position invariant, so the colour program and the mask program of one fill draw the same depth
+  // at the same pixel (drawRegionCarry's depth pre-pass)
   // (cutKinds' clip): each vertex's side of it (vSide) for CARRY_FS's clip, and the pass uKPass 1 for the part of a
   // triangle past it (only the programs of a chain with such a cut: CARRY_FS's discard costs every fragment its early
   // depth test)
@@ -390,7 +393,8 @@ float longest(vec2 a, vec2 b, vec2 c) { return max(max(len2(b - a), len2(c - b))
   // REGION_VS's points option (with sheet and 'tex', the fill): the fill's four centre-sheet values per sub-triangle
   // (corners 0..2, centroid 3) and their side values come from the fill's point pass (FILL_PTS_VS) in the RGBA32F
   // texture uFT, texel instance * uFTP + 4 * sub-triangle + k, and a sub-triangle is evaluated when that pass marked
-  // it (.w of its texel 0); the uKPass 1 pass evaluates its own (on another centre)
+  // it (.w of its texel 0). Its uKPass 1 pass: a clipped cut's evaluates its own places (on another centre); another
+  // cut's reads the point pass's second run, bound in the first's place
   const FILL_PTS_FETCH = `uniform highp sampler2D uFT; uniform int uFTW; uniform int uFTP;
 float FTon() { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4; return texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0).w; }
 vec2 FT(int k, out float side) { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4 + k; vec4 v = texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0); side = v.z; return v.xy; }
@@ -404,7 +408,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && !o.clip ? 'out vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -423,29 +427,46 @@ ${o.points ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0
 ` : ''}${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   float d0, d1, d2, dMid;
 ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
-  vec2 wm = FT(3, dMid);` : `  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
+  vec2 wm = FT(3, dMid);` : o.own ? `  vec2 w0, w1, w2, wm;
+  bool o0 = false, o1 = false, o2 = false;
+  // (the four places evaluated at one place in the code, in a loop to the pass drawn: pass 1 re-centres on pass 0's
+  // first vertex past the cut and evaluates them again, and the stage holds one copy of the chain, not two)
+  for (int p = 0; p <= uKPass; p++) {
+    if (p == 1) {
+      if (!(o0 || o1 || o2)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+      zc = srcOf(o0 ? s0 : (o1 ? s1 : s2));
+    }
+    w0 = onCentreSheet(zc, s0, d0); w1 = onCentreSheet(zc, s1, d1); w2 = onCentreSheet(zc, s2, d2);
+    wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);
+    if (p == 0) {
+      float te = uKPx + 0.25 * longest(w0, w1, w2);
+      o0 = !(len2(w0 - W(aIdx.x, s0)) <= te); o1 = !(len2(w1 - W(aIdx.y, s1)) <= te); o2 = !(len2(w2 - W(aIdx.z, s2)) <= te);
+    }
+  }
+  vTorn = o0 || o1 || o2 ? 1.0 : 0.0;` : `  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
   vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);`}` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
-  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet ? `
+  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet && o.clip ? `
   // (uKPass 1: the triangle again, continued from a vertex past the cut, so its part on that vertex's side shows on
-  // that vertex's branch; a triangle with no vertex past it is not drawn. A clipped cut: a vertex whose side value is
-  // negative, the part the pass 0 draw clipped. Another sheet cut: a vertex where the centre's sheet is not the map's
-  // own (the place continued from the centre is off the map's by more than the triangle's interpolation can be); in
-  // both passes the fragment stage keeps only the fragments the map itself sends there, vW)
-${o.clip ? `  bool o0 = d0 < 0.0, o1 = d1 < 0.0, o2 = d2 < 0.0;` : `  float te = uKPx + 0.25 * longest(w0, w1, w2);
-  bool o0 = !(len2(w0 - W(aIdx.x, s0)) <= te), o1 = !(len2(w1 - W(aIdx.y, s1)) <= te), o2 = !(len2(w2 - W(aIdx.z, s2)) <= te);
-  // (a triangle with a vertex past the cut is torn: only its fragments test the map's own place, so one the cut does
-  // not reach costs what it did)
-  vTorn = o0 || o1 || o2 ? 1.0 : 0.0;`}
+  // that vertex's branch; a triangle with no vertex past it is not drawn: a vertex whose side value is negative, the
+  // part the pass 0 draw clipped)
+  bool o0 = d0 < 0.0, o1 = d1 < 0.0, o2 = d2 < 0.0;
   if (uKPass == 1) {
     if (!(o0 || o1 || o2)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
     zc = srcOf(o0 ? s0 : (o1 ? s1 : s2));
     w0 = onCentreSheet(zc, s0, d0); w1 = onCentreSheet(zc, s1, d1); w2 = onCentreSheet(zc, s2, d2);
     wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);
-  }` : ''}
-  int c = int(aTpl1.z + 0.5);
+  }
+` : ''}${o.sheet && o.own && o.points ? `
+  // (torn: a vertex where the centre's sheet is not the map's own, the place continued from the centre off the map's
+  // by more than the triangle's interpolation can be. Pass 1's places, re-centred on the first vertex past the cut,
+  // come from the point pass's second run (uFT bound to it), which marks only the torn sub-triangles)
+  float te = uKPx + 0.25 * longest(w0, w1, w2);
+  bool o0 = !(len2(w0 - W(aIdx.x, s0)) <= te), o1 = !(len2(w1 - W(aIdx.y, s1)) <= te), o2 = !(len2(w2 - W(aIdx.z, s2)) <= te);
+  vTorn = uKPass == 1 || o0 || o1 || o2 ? 1.0 : 0.0;
+` : ''}  int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && !o.clip ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
   vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
   vWTol = uKPx + 0.25 * longest(w0, w1, w2);
@@ -769,7 +790,8 @@ void main() { emit(mapPoint(srcOf(bary(aT)))); }
   // draws from the cache is not evaluated and its four points are written as 0, one it fills as point k = 0..3, its
   // onCentreSheet(zc, s_k) with zc its centroid's source point (s_3 the centroid), written as (w, side, 1) into texel
   // instance * uP + 4 t + k of an RGBA32F texture. The fill culls by that .w, so the two never disagree; the chain runs
-  // once per point of a torn sub-triangle, not once per point of each of its three vertices
+  // once per point of a torn sub-triangle, not once per point of each of its three vertices. A second run (uFPass 1,
+  // the first run's texture as uFA) writes the places of the fill's pass 1 the same way, from another centre
   const FILL_PTS_VS = `
 layout(location = 2) in vec4 aAB;
 layout(location = 3) in vec2 aC;
@@ -780,10 +802,12 @@ uniform float uKPx; uniform float uKLim;
 uniform highp sampler2D uW; uniform int uCW; uniform int uCP;
 flat out vec4 tfOut4;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
+uniform int uFPass; uniform highp sampler2D uFA;
 ${SRC}
 ${BARY}
 ${VALID}
 vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
+vec4 FA(int i) { return texelFetch(uFA, ivec2(i % uRtW, i / uRtW), 0); }
 ${ON_CENTRE}${FILL_DRAWN}void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;
   int i = gl_InstanceID * uP + v;
@@ -793,6 +817,16 @@ ${ON_CENTRE}${FILL_DRAWN}void main() {
   if (aSkip > 0.5 || fillDrawn(WC(I.x), WC(I.y), WC(I.z), WC(I.w))) { tfOut4 = vec4(0.0); return; }
   vec2 s0 = bary(uSub[3 * t]), s1 = bary(uSub[3 * t + 1]), s2 = bary(uSub[3 * t + 2]);
   vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
+  if (uFPass == 1) {
+    // (the second run: a torn sub-triangle's places continued from its first vertex past the cut, for the fill's
+    // pass 1; torn as REGION_VS's own option tests it, on the first run's places (uFA))
+    int b = gl_InstanceID * uP + 4 * t;
+    vec4 a0 = FA(b), a1 = FA(b + 1), a2 = FA(b + 2);
+    float te = uKPx + 0.25 * longest(a0.xy, a1.xy, a2.xy);
+    bool o0 = !(len2(a0.xy - WC(I.x)) <= te), o1 = !(len2(a1.xy - WC(I.y)) <= te), o2 = !(len2(a2.xy - WC(I.z)) <= te);
+    if (a0.w < 0.5 || !(o0 || o1 || o2)) { tfOut4 = vec4(0.0); return; }
+    zc = srcOf(o0 ? s0 : (o1 ? s1 : s2));
+  }
   float side;
   vec2 w = onCentreSheet(zc, k == 0 ? s0 : (k == 1 ? s1 : (k == 2 ? s2 : (s0 + s1 + s2) / 3.0)), side);
   tfOut4 = vec4(w, side, 1.0);
@@ -1189,16 +1223,32 @@ void main() {
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
-  // triangle's branch was continued across left out; own: REGION_VS's sheet option without clip, a fragment of a torn
-  // triangle (vTorn) kept only where the map sends its own source point vP, within vWTol of the place vW drawn: the
-  // seam where a triangle torn across a cut meets the other side is the cut's image, pixel for pixel)
-  const CARRY_FS = (id, key = true, pre = false, clip = false, own = false) => `
+  // triangle's branch was continued across left out)
+  const CARRY_FS = (id, key = true, pre = false, clip = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}in vec2 vP;
-${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}${own ? 'in vec2 vW;\nflat in float vWTol;\nflat in float vTorn;\n' : ''}out vec4 o;
+${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}${own ? '  if (vTorn > 0.5) {\n    vec2 dw = mapPoint(vP) - vW;\n    if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;\n  }\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+}
+`;
+  // the cut fill's mask: REGION_VS's own option's fragments, drawn into the depth alone (no colour) before the fill's
+  // colour program draws the same triangles with the depth test EQUAL. A fragment of a torn triangle (vTorn) is kept
+  // only where the map sends its own source point vP, within vWTol of the place vW drawn, so the seam where a triangle
+  // torn across a cut meets the other side is the cut's image, pixel for pixel; the depth, the sheet key of the
+  // fragment's source point, then lets the colour program draw only the fragment kept in front. One chain (mapPoint),
+  // none of the colour's: a fragment stage with two inlined chains links many times slower
+  const CARRY_MASK_FS = `
+in vec2 vP; in vec2 vW;
+flat in float vWTol; flat in float vTorn;
+out vec4 o;
+void main() {
+  if (vTorn > 0.5) {
+    vec2 dw = mapPoint(vP) - vW;
+    if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;
+  }
+  o = vec4(0.0);
 }
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the
