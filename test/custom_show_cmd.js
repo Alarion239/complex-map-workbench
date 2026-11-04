@@ -35,7 +35,7 @@ const relang = async (lang, sel) => {
   const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
   // (while the page reloads an evaluation can fail with the old page gone: that is "not yet")
   for (let i = 0; i < 100; i++) { let r = false; try { r = await ev(there); } catch (e) { r = false; } if (r === true) break; await sleep(200); }
-  await settled({ max: 8000, until: there });
+  ok(`${lang}: the page reloaded in ${lang} and shows ${sel}`, (await settled({ max: 8000, until: there })).ok, { lang, sel });
 };
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
