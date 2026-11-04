@@ -356,7 +356,9 @@
   // opacity a: it comes in over the flatten's glide (annotation with no 3D twin ramps in over the same span),
   // and is whole (a = 1) everywhere else
   // The Landscape's Height key chip, which X → Y has not, goes the other way: a copy of it stays where it stood in the
-  // Landscape's pane head, over the picture, at opacity 1 - a, and is gone at a = 1 (svHkeyGhost)
+  // Landscape's pane head, over the picture, at opacity max(0, 1 - 2a), and is gone at a = 1 (svHkeyGhost). X → Y's
+  // readout chip (its scale, "2 / div") lies on that spot, so it takes the spot over in the glide's second half, at
+  // opacity max(0, 2a - 1): at most one of the two is ever shown
   let svChromeA = 1;
   function svFlatChrome(a) {
     if (a >= 1 && svChromeA >= 1) { if (!svHkeyC) svHkeyTake(); return; }
@@ -365,6 +367,8 @@
     svChromeA = a;
     const op = a >= 1 ? '' : String(+a.toFixed(3));
     for (const id of ['rulerLX', 'rulerLY', 'cornerL', 'leftLegend']) { const e = $(id); if (e) e.style.opacity = op; }
+    const ro = $('leftReadout');
+    if (ro) ro.style.opacity = a >= 1 ? '' : String(+Math.max(0, 2 * a - 1).toFixed(3));
     svHkeyGhost(a);
   }
   // the Height key chip as the Landscape's pane head shows it: {el}, a copy of the chip and its key's pixels with no
@@ -388,13 +392,13 @@
     Object.assign(el.style, { position: 'absolute', left: (r.left - hr.left) + 'px', top: (r.top - hr.top) + 'px', margin: '0', pointerEvents: 'none' });
     svHkeyC = { el };
   }
-  // the copy of the Height key in the left pane's head at opacity 1 - a (a < 1), none at a = 1
+  // the copy of the Height key in the left pane's head at opacity max(0, 1 - 2a) (a < 1), none at a = 1
   function svHkeyGhost(a) {
     const head = document.querySelector('#paneL > .pane-head'), el = svHkeyC && svHkeyC.el;
     if (!el) return;
     if (a >= 1 || !head) { el.remove(); return; }
     if (el.parentNode !== head) head.appendChild(el);
-    el.style.opacity = String(+(1 - a).toFixed(3));
+    el.style.opacity = String(+Math.max(0, 1 - 2 * a).toFixed(3));
   }
   // between the colour plane and the plane after it, one step's glide on the Landscape (g: svBetween's)
   function svFlattening(g = svBetween()) {
