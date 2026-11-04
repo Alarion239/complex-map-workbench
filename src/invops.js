@@ -198,6 +198,33 @@ const InvOps = (() => {
       },
     });
   }
+  // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). Two members:
+  // m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each of the NEWT_K stages t/K, 2t/K,
+  // ..., t, then NEWT_POL more at t; m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where
+  // a map near a 2:1 one about w puts it; NEWT_DEF steps). A member is dropped when H_t(u) misses w (a central
+  // difference for H'). glsl.js's NEWT runs the same walks with chainHom. (One step per stage, as every pixel of a
+  // glide frame walks: on a 41 x 41 grid of w at five t, more steps per stage change the root found only where the walk
+  // passes near a critical point: nowhere for Joukowski, under 0.6 % of the points for z^2 + 1/z, z + z^3/3, cos z, ζ)
+  const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24;
+  function opNewt(t, H) {
+    const Ht = H(t);
+    const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+    const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
+    return op('NEWT', { t }, Ht, {
+      fam: { type: 'fin', count: 2 },
+      pre: (w) => {
+        let u = w;
+        for (let s = 1; s <= NEWT_K && isFin(u); s++) { const f = H(t * s / NEWT_K); u = sub(u, div(sub(f(u), w), dH(f, u))); }
+        for (let it = 0; it < NEWT_POL && isFin(u); it++) u = sub(u, div(sub(Ht(u), w), dH(Ht, u)));
+        if (!hits(u, w)) return [];
+        const out = [ONEM(u, CX.inv(dH(Ht, u)), { m: 0 })];
+        let v = sub(scale(w, 2), u);
+        for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+        if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
+        return out;
+      },
+    });
+  }
   const opConj = () => op('CONJ', {}, CX.conj, { pre: (w) => [{ u: conj(w), anti: true, lvl: Infinity, lg: null, lam: null, dlam: null }] });
   // a u^2 + b u + c = w (stable quadratic)
   function opQuad(a, b, c, fwd) {
@@ -804,7 +831,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';
