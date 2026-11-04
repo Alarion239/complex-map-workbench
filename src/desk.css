@@ -782,3 +782,7 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
 .pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
+
+/* the colouring's picker in the phone's Display sheet: every row a 44 px target */
+html.ph .cp-pop .check, html.ph .cp-pop .cp-go, html.ph .cp-pop .seg button, html.ph .cp-pop select.sel { min-height: 44px; }
+html.ph .cp-pop .seg { overflow-x: auto; }

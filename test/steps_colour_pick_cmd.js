@@ -3,7 +3,8 @@
 //   (no grid step, chevrons or opacity rows): a header naming the colour plane, a way to it, the style row, and the
 //   grid lines' toggle;
 // - picking a style there is the one colouring's: the colour plane's own style row shows it;
-// - the way to the colour plane glides there and closes the picker.
+// - the way to the colour plane glides there and closes the picker;
+// - on a phone the Display sheet holds the same picker, its rows 44 px tall, and not the regions' display.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -11,17 +12,20 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const ns = 'svcp' + Date.now();
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
   steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
-await view(1440, 900, false, false);
-await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
-await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 const S = () => ev('__cmwSteps()');
 // the colour plane is z, and the view is on the last plane
-await ev(`document.querySelector('.sv-cp').click(); 1`);
-await settled({});
-await ev(`document.querySelector('#svStrip .sv-plane[data-i="2"]').click(); 1`);
-await settled({ max: 15000, until: `__cmwSteps().stage === 2 && !__cmwSteps().moving` });
+const openPast = async (w, h, touch) => {
+  await view(w, h, false, touch);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+  await ev(`document.querySelector('.sv-cp').click(); 1`);
+  await settled({});
+  await ev(`document.querySelector('#svStrip .sv-plane[data-i="2"]').click(); 1`);
+  await settled({ max: 15000, until: `__cmwSteps().stage === 2 && !__cmwSteps().moving` });
+};
+await openPast(1440, 900, false);
 const s0 = await S();
 ok('the view is on the last plane, past the colour plane z', s0.stage === 2 && s0.T === 0, { stage: s0.stage, T: s0.T });
 const btn = await ev(`(() => { const b = document.querySelector('.pane-head .pat-btn'); return b ? { label: b.getAttribute('aria-label') } : null; })()`);
@@ -42,4 +46,12 @@ const s1 = await S();
 ok('Go to z takes the view to the colour plane and closes the picker', s1.stage === 0 && !(await ev(`!!document.querySelector('.cp-pop')`)), { stage: s1.stage });
 const own = await ev(`(() => { const o = document.querySelector('#dcSeg .on'); return o ? o.dataset.v : null; })()`);
 ok('the colour plane\'s own style row shows the style picked from the later plane', own === 'modulus', own);
+
+// a phone: the Display sheet
+await openPast(390, 780, true);
+await ev(`(document.querySelector('button[aria-label*="isplay"]') || document.querySelector('#dispBtn')).click(); 1`);
+await settled({ floor: 600 });
+const ph = await ev(`(() => { const p = document.querySelector('.cp-pop'); if (!p || !p.getClientRects().length) return null; const h = (e) => Math.round(e.getBoundingClientRect().height); return { text: p.innerText, regions: !!document.querySelector('#regionsBox') && document.querySelector('#regionsBox').getClientRects().length > 0, style: h(p.querySelector('#dcSegPop button')), go: h(p.querySelector('.cp-go')), lines: h(p.querySelector('#linesChkPop').closest('label')) }; })()`);
+ok('a phone\'s Display sheet holds the colour picker, not the regions\' display', !!ph && /Colouring of z/.test(ph.text) && !ph.regions, ph);
+ok('its rows are 44 px tall', !!ph && ph.style >= 44 && ph.go >= 44 && ph.lines >= 44, ph);
 return { pass: fails.length === 0, fails, info };
