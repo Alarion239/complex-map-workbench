@@ -1,4 +1,4 @@
-// The steps view's carried colour where two sheets meet along a cut (#890): the seam is the cut's image, drawn per
+// The steps view's carried colour where two sheets meet along a cut: the seam is the cut's image, drawn per
 // pixel, so it is as smooth as the cut's image and nothing is left uncovered along it.
 //  - teeth: exp then log, coloured from z (T 0), Everywhere, parked half-way between w1 and w2. In a band 40 device px
 //    wide from the colour's left edge, a smooth seam changes colour between vertically adjacent pixels about once a row
@@ -15,17 +15,32 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return c
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
 const ready = () => settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof __cmwHideStrokes === "function"' });
-// parked at x with the scope given, the region lines and the strokes off (they cross the seam), the frame settled
+// the left pane drawn: two reads of its pixels 100 ms apart agree (the glide's meshes are made in idle moments after
+// the page is settled, and each lands in a later frame)
+const drawn = async () => {
+  for (let n = 0; n < 100; n++) {
+    const same = await ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + 7 * d[i + 1] + 13 * d[i + 2]) | 0;
+      const same = window.__seamsH === h; window.__seamsH = h; return same; })()`);
+    if (same) return true;
+    await sleep(100);
+  }
+  return false;
+};
+// parked at x with the scope given, the region lines and the strokes off (they cross the seam), the frame drawn
 const park = async (x, scope) => {
   await ev(`__cmwSet('lines', false); __cmwHideStrokes(true); 1`);
   await ev(`__cmwSteps({ scope: '${scope}', surf: 'plane', go: 0, now: true }); __cmwSteps({ scope: '${scope}', surf: 'plane', park: ${x} }); 1`);
-  await settled({ max: 20000 }); await sleep(1500);
+  await settled({ max: 20000 });
+  ok(`parked at ${x}: the frame is drawn`, await drawn(), null);
 };
 
 // teeth: exp then log
 {
   const shapes = [{ id: 's1', kind: 'disc', c: [0, 0], r: 2, ci: 0, visible: true }, { id: 's2', kind: 'rect', a: [-1.5, -1.2], b: [1.2, 1.4], ci: 1, visible: true }];
-  await loadView('steps', 'seams' + Date.now(), { steps: [{ id: 'f1', type: 'exp', params: {} }, { id: 'f2', type: 'log', params: { cut: 180, k: 0 } }], shapes, focus: 2 });
+  const ns = 'seams' + Date.now();
+  await seed(ns, { steps: [{ id: 'f1', type: 'exp', params: {} }, { id: 'f2', type: 'log', params: { cut: 180, k: 0 } }], shapes, focus: 2 });
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
   await ready();
   ok('teeth: the page shows the steps view', await isSteps(), null);
   await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
@@ -51,7 +66,8 @@ const park = async (x, scope) => {
   })()`);
   info.teeth = await teeth();
   // (the same frame without the cut fill: what the seam looks like where no torn triangle is drawn; for reference)
-  await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 }); await sleep(800);
+  await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
+  ok('without the fill: the frame is drawn', await drawn(), null);
   info.teethNoFill = await teeth();
   await ev('GLR.carryProbes({}); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('teeth: the colour has a left edge in most rows', info.teeth.rows > info.teeth.H * 0.8, info.teeth);
