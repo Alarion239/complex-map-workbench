@@ -322,9 +322,7 @@ for (const t of TYPES) {
   let pairs = 0;
   for (const [name, d] of Object.entries(GLR._src.DEFS)) {
     if (typeof d.vs !== 'function' || typeof d.fs !== 'function') continue;
-    let vs, fsrc;
-    try { vs = d.vs(); fsrc = d.fs(); } catch (e) { continue; }
-    if (typeof vs !== 'string' || typeof fsrc !== 'string') continue;
+    const vs = d.vs(), fsrc = d.fs();
     const out = decls(vs, 'out'), inn = decls(fsrc, 'in');
     for (const [v, c] of inn) if (out.has(v)) { pairs++; if (out.get(v) !== c) bad0.push(`${name}.${v}: vs ${out.get(v) ? 'centroid' : 'plain'}, fs ${c ? 'centroid' : 'plain'}`); }
   }
