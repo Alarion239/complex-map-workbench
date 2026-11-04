@@ -201,8 +201,10 @@ const InvOps = (() => {
   }
   // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). back: the step's
   // own exact ops (forward order, every one single-valued or a finite family, NEWT_SEEDS members in all at most) or null.
-  // Members: m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each of the NEWT_K stages t/K,
-  // 2t/K, ..., t, then NEWT_POL more at t. With back, m = 1 + i, continued back in t from the i-th of f = H(1)'s points
+  // Members: m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each stage k/K of the fixed grid
+  // up to t (k = 1 ... newtGridK(t), K = NEWT_K), one at t, then NEWT_POL more at t. (The grid is fixed so that the
+  // roots pass of a glide's next frame, which stores the root at its last grid stage, resumes the same walk: the
+  // member it finds is the full walk's, bit for bit.) With back, m = 1 + i, continued back in t from the i-th of f = H(1)'s points
   // over w (back's members, mixed radix with the last op's member least significant): one step at each of
   // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every earlier one.
   // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
@@ -215,6 +217,8 @@ const InvOps = (() => {
   // ones they cannot reach)
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4;
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
+  // the last stage k of member 0's grid walk at t (k / NEWT_K <= t), of t as float32: the GPU's
+  const newtGridK = (t) => Math.min(NEWT_K, Math.floor(NEWT_K * Math.fround(t)));
   // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
   // JOUK, QUAD, RAT2) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
   // or a log family's, which prepare sets: a principal member alone would seed one sheet of many)
@@ -313,11 +317,15 @@ const InvOps = (() => {
         },
       });
     }
+    // (member 0's grid: H at k / NEWT_K, k = 1 ... k0)
+    const k0 = newtGridK(t), grid = [null];
+    for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
     return op('NEWT', counts ? { t, back } : { t }, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 },
       pre: (w) => {
         let u = w;
-        for (let s = 1; s <= NEWT_K && isFin(u); s++) u = step(u, w, H(t * s / NEWT_K));
+        for (let s = 1; s <= k0 && isFin(u); s++) u = step(u, w, grid[s]);
+        if (isFin(u)) u = step(u, w, Ht);
         u = polishAt(u, w);
         const out = [];
         if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
@@ -945,7 +953,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';
