@@ -6,6 +6,7 @@
 //  2. a display form: the well shows it (in w for a second step), whole, at 70 % or more; the note says so; the f(z) field
 //     holds the formula unchanged; F's line and the offer's last row use it;
 //  3. the formula edited (one character): the display form is gone (stale key), the long note is back; Undo returns it.
+// The steps are picked on the steps view's thread (a step's chip, the whole-map chip for F), each pick asserted.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/custom_show_cmd.js
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -25,10 +26,8 @@ async function open(ns, steps) {
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}`); await settle(2200);
 }
-async function select(k) {
-  await ev(`(() => { const c = ${k === 'F' ? `document.querySelector('#pipeline .ftile')` : `document.querySelector('#pipeline .card[data-k="${k}"]')`}; if (c) c.click(); return !!c; })()`);
-  await settle(1200);
-}
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
+const select = async (k) => { await selectStep(k); await settle(1200); };
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
