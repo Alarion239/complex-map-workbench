@@ -1409,7 +1409,7 @@
   // a step shown alone has a "Whole chain" chip at its left)
   function svBuildTrack() {
     const E = SV.els, P = svPlanes(), T = svT(), al = svAloneOk();
-    const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + repeatBlocks().map((r) => `${r.a}-${r.b}x${r.by || r.n}`).join(',') + '|' + document.documentElement.lang;
+    const sig = P.join(',') + '|' + T + '|' + al + '|' + S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',') + '|' + repeatBlocks().map((r) => `${r.a}-${r.b}x${r.by || r.n}`).join(',') + '|' + document.documentElement.lang + '|' + document.documentElement.classList.contains('ph');
     if (sig === E.sig) return;
     E.sig = sig;
     // (the thread is drawn again from the chain: a control with the focus on it, a chip, its ⋯, a plane's node or Whole chain, is
@@ -1445,6 +1445,9 @@
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
     E.wholeMap.hidden = !!al || !S.steps.length;
+    // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
+    if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
+    else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
   }
@@ -1506,7 +1509,7 @@
     // ring is centred on a node, clear of its name): measured with the centres)
     if (!E.centres || E.centresSig !== E.sig) {
       const pl = [...E.track.querySelectorAll('.sv-plane')];
-      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
+      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
       const nd = pl[0] && pl[0].querySelector('.sv-node');
       if (nd) E.thumb.style.setProperty('--sv-node-y', `${(pl[0].offsetTop + nd.offsetTop + nd.offsetHeight / 2).toFixed(1)}px`);
       svFades();
@@ -1526,7 +1529,9 @@
     if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
     else if (E.trackW > E.railW + 1) {
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
-      const want = tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
+      const toEnd = E.wholeMap.parentNode === E.rail && j >= c.length - 1;
+      const want = toEnd ? E.trackW : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
@@ -1710,7 +1715,7 @@
     rail.addEventListener('pointerdown', dismissToast, true);
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
-    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
+    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
     // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
     // press must not act on a plane the user cannot see; its own buttons keep their action)
     const th = document.getElementById('toastHost');
@@ -1731,7 +1736,7 @@
       return ns.length - 1;
     };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-wholemap, .sv-add, .sv-whole, .sv-bandx')) return;
       const d = SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
       svRangeDown(d, e, rail, posX);
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
@@ -1739,7 +1744,7 @@
     // (a press on the thread away from the planes and the chips goes there too)
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
-      if (e.target.closest('.sv-fwrap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
       svOutsideBand(posX(e));
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
