@@ -613,5 +613,8 @@
  "Each plane is shown in its own window where it fits.": "Каждая плоскость показана в своём окне, где она помещается.",
  "On": "Вкл",
  "Off": "Выкл",
- "Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.": "Попробуйте: у шага d/dz ⋯ → «Сдвинуть влево» (Alt+←): картина изменится."
+ "Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.": "Попробуйте: у шага d/dz ⋯ → «Сдвинуть влево» (Alt+←): картина изменится.",
+ "Click the chip $d/dz$.": "Нажмите на метку $d/dz$.",
+ "Tap the chip $d/dz$.": "Нажмите на метку $d/dz$.",
+ "The Inspector shows the step that differentiates the chain so far.": "Инспектор показывает шаг, который дифференцирует цепочку до него."
 }
