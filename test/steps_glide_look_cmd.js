@@ -6,12 +6,15 @@
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
-//   than DIFF_TOL apart (the tolerance of steps_sm_standin_cmd.js, a frame and the rest frame after it). A frame drawn
+//   than LOOK_TOL apart (#843's bar: 3 levels on 99.5 %). A frame drawn
 //   by the carried mesh has no sheet key in its record, so no reference: it fails as such. And the lines over the
 //   colour in those frames are the rest renderer's: its major grid over the colour (held_frames.js's gridOver: where
 //   that stroke shows, at least MIN_LINE_PX pixels, at most SAME_FRAC more off it than plane z's rest frame read the
 //   same way), and each open set's outline dashed (outlines: its ink in pieces no wider than a dash, the share in wider
 //   ones at most the rest frame's + SAME_FRAC); a case with no open set's outline on the plane has no dash to check;
+// - the ends: the frames at x = END_X from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
+//   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
+//   SAME_FRAC more than LOOK_TOL apart);
 // - the same overlays: a moving frame a hair from a plane (x = EDGE from either end) draws what that plane's rest frame
 //   draws over the colour, which the same look's comparison skips (it leaves out the pixels by lines): as many graph
 //   paper draws (GLR.drawGrid), as many dashed outlines (open sets: GLR.drawLines with a dash), and the colour plot's
@@ -24,7 +27,8 @@
 //   on the default example, it has no more straight hard edges (steps over DIFF_TOL to the next row or column in runs
 //   of at least EDGE_RUN CSS pixels, as the rows of the whole plane's stretched outer cells and the ring's coarse cells
 //   leave) than the rest frame of either plane, at most SAME_FRAC of the pixels more.
-// The device pixel ratio is the kit's (CMW_DPR); LOOK_CASES (a preamble) names the cases a run makes, all by default:
+// The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
+// CSS px (the views shard's time; #843 names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR); LOOK_CASES (a preamble) names the cases a run makes, all by default:
 // ci/browser_suites.js runs the default example Inside regions, the Joukowski airfoil and the Mountain King at 1, and the
 // default example Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -32,9 +36,9 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { hold, grab, compare, edgeRuns, refOf, gridOver, outlines, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005;
-const LOOK_U = [0.25, 0.75], MIN_COMPARED = 1000, MIN_LINE_PX = 100, FIRST = 0.02, EDGE = 0.005;
+const LOOK_U = [0.25, 0.5, 0.75], LOOK_TOL = 3, END_X = 0.001, MIN_SAME = 20000, MIN_COMPARED = 1000, MIN_LINE_PX = 100, FIRST = 0.02, EDGE = 0.005;
 const EDGE_RUN = 16;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
@@ -105,7 +109,7 @@ async function look(c, r) {
   for (const u of LOOK_U) {
     const held = (await hold(u)).ok, still = await grab('M' + u);
     ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
-    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, DIFF_TOL));
+    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL));
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
     if (!lines.rest) lines.rest = { grid: await gridOver('R0'), outlines: await outlines('R0') };
@@ -115,7 +119,7 @@ async function look(c, r) {
   r.lines = lines;
   for (const u of LOOK_U) {
     const L = look[u], R = L.ref;
-    ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${DIFF_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
+    ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${LOOK_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
   }
   // ---- the lines over the colour, as the rest renderer draws them ----
   // (the rest frame of plane z read the same way is the model's own fit: its share off is the floor)
@@ -126,6 +130,23 @@ async function look(c, r) {
   const dashed = (lines.rest.outlines || []).filter((o) => o.open && o.px > 0);
   const dashOk = (u) => dashed.every((o0) => { const o = (lines[u].outlines || []).find((q) => q.id === o0.id); return !!o && o.px > 0 && o.long - o0.long <= SAME_FRAC; });
   ok(`${c.tag}: the open sets' outlines dashed at u = ${LOOK_U.join(' and ')}, as at rest (the share of their ink in pieces wider than a dash at most the rest frame's + ${SAME_FRAC * 100} %)`, LOOK_U.every(dashOk), { dashedAtRest: dashed.length, moving: LOOK_U.map((u) => lines[u].outlines), rest: lines.rest.outlines });
+  // ---- the ends: the glide's first and last frames are the planes' parked frames ----
+  r.step = 'the ends';
+  const ends = {};
+  for (const [x, k] of [[END_X, 0], [1 - END_X, 1]]) {
+    await rest(k);
+    const restOk = await grab('E' + k);
+    await ev(`__cmwSteps({ x: ${x} }), 1`);
+    await settled({ max: 60000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 1e-9 && __cmwSteps().moving` });
+    const still = await grab('E' + x), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
+    ends[x] = Object.assign({ restOk, still, g }, await sameAway('E' + x, 'E' + k, LOOK_TOL));
+    await rest(0);
+  }
+  r.ends = ends;
+  for (const [x, k] of [[END_X, 0], [1 - END_X, 1]]) {
+    const E = ends[x];
+    ok(`${c.tag}: the glide's frame at x = ${x} is plane ${k}'s parked frame (away from the colour lines: at least ${MIN_SAME} pixels, at most ${SAME_FRAC * 100} % > ${LOOK_TOL}/255 apart)`, E.restOk && E.still && E.n >= MIN_SAME && E.over <= SAME_FRAC, E);
+  }
   // ---- the same overlays a hair from each plane ----
   r.step = 'the same overlays';
   const over = {};
