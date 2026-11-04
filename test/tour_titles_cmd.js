@@ -3,6 +3,7 @@
 // infinitive), a title that starts in lower case (Cauchy integral) is capitalised in every language, and the Phase
 // portrait step of Views now has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it. It runs in
 // the steps view (ci/suite_views.js: steps({ pin: true })); a step is found by its id, not by its place in the chapter.
+// (Tour.start returns a promise that ev would await, so the call ends in a value and the strip is read as it shows.)
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -24,7 +25,7 @@ for (const lang of ['en', 'ru', 'it']) {
   if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.auto(false); 1');
   const w = WANT[lang];
-  const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`window.__shown = null; Tour.start(${JSON.stringify({ chapter, step })})`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}' && (() => { const g = ${READ}; if (!g.title) return false; window.__shown = window.__shown || g; return true; })()` }); return ev(`window.__shown`); };
+  const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`window.__shown = null; Tour.start(${JSON.stringify({ chapter, step })}); 1`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}' && (() => { const g = ${READ}; if (!g.title) return false; window.__shown = window.__shown || g; return true; })()` }); return ev(`window.__shown`); };
   let g = await at('basics', 'draw');
   ok(`${lang}: Draw a shape reads as a task`, g.cur === 'draw' && g.title === w.draw, g);
   g = await at('basics', 'add');

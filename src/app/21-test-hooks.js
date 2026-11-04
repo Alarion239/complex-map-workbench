@@ -269,8 +269,9 @@
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
-  // and how far in px the farthest is from H_T(z) of its start z), the selection's size and whether it is this source's;
-  // ahead: how many neighbouring segments' re-traces are made ahead for the selection (none while that job runs)
+  // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe; globeError: what
+  // the globe's paths threw, or null), the selection's size and whether it is this source's; ahead: how many
+  // neighbouring segments' re-traces are made ahead for the selection (none while that job runs)
   const svPathsHook = () => {
     const src = svPathsSource(), d = mfDrawn;
     let err = 0;
@@ -286,7 +287,8 @@
     const ready = !!(src && mfCache.sel && mfCache.key === mfScreenKey(paneL, src).key);
     const kept = mfCache.sel ? mfCache.sel.kept.length : 0;
     const heads = d ? d.heads.length : 0;
-    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, err, kept, ready, ahead: mfAhead.sel === mfCache.sel && !mfAhead.job ? mfAhead.done.size : 0 };
+    const globeHeads = mfGlobeDrawn ? mfGlobeDrawn.heads : 0, globeError = (mfGlobeDrawn && mfGlobeDrawn.error) || null;
+    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, globeError, err, kept, ready, ahead: mfAhead.sel === mfCache.sel && !mfAhead.job ? mfAhead.done.size : 0 };
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone); glide: the last glide frame's record (svGlideRec)
