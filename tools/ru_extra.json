@@ -616,5 +616,9 @@
  "Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.": "Попробуйте: у шага d/dz ⋯ → «Сдвинуть влево» (Alt+←): картина изменится.",
  "Click the chip $d/dz$.": "Нажмите на метку $d/dz$.",
  "Tap the chip $d/dz$.": "Нажмите на метку $d/dz$.",
- "The Inspector shows the step that differentiates the chain so far.": "Инспектор показывает шаг, который дифференцирует цепочку до него."
+ "The Inspector shows the step that differentiates the chain so far.": "Инспектор показывает шаг, который дифференцирует цепочку до него.",
+ "Try: on the chip f₁, ⋯ → Repeat…, then raise N in the Inspector: the image stays the same set.": "Попробуйте: у шага f₁ ⋯ → Повтор…, затем увеличьте N в Инспекторе: образ остаётся тем же множеством.",
+ "Try: on the chip f₁, ⋯ → Repeat…, N = 3 in the Inspector: each ear goes round the three and comes back to itself.": "Попробуйте: у шага f₁ ⋯ → Повтор…, N = 3 в Инспекторе: каждое ухо обходит все три и возвращается на место.",
+ "Try: lower N in the Inspector's Repeat row of f₁ to 1, 2, 3 and watch the basins form.": "Попробуйте: уменьшите N в строке «Повтор» Инспектора у шага f₁ до 1, 2, 3 и посмотрите, как складываются бассейны.",
+ "Try: on the chip f₂, ⋯ → Repeat → f₁–f₂, twice, then N = 3 in the Inspector: the image is the curve |u₅| = 2, three levels out.": "Попробуйте: у шага f₂ ⋯ → Повторить → f₁–f₂, дважды, затем N = 3 в Инспекторе: образ — кривая |u₅| = 2, на три уровня дальше."
 }
