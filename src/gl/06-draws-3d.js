@@ -263,7 +263,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.T);
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.T); u1f(P1, 'uFlat', c.flat || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, landC.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
@@ -1072,7 +1072,11 @@
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
-    const { aspect, H, floorZ, Mx } = landGeom(box, st.scale);
+    const geom = landGeom(box, st.scale), { aspect, H, Mx } = geom;
+    // (the carry's flat, 0 to 1: the plate rises to just under the flattened surface and spreads over the whole pane,
+    // opaque, its print and its contact shadow gone: plane b's paper at 1)
+    const flat = st.carry ? st.carry.flat || 0 : 0;
+    const floorZ = flat ? (1 - flat) * geom.floorZ - flat * 1e-3 : geom.floorZ;
     const modeName = st.heightMode || 'log';
     const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[modeName] ?? 0;
     const mu = st.mu > 0 ? st.mu : 1;
@@ -1151,7 +1155,8 @@
       else if (landS && landS.lvTex) { rfFree(landS); freeScratch(landS); }
     }
     if (hs) info.sheets = { K: hs.K, total: sp.total, W: sp.W, N: hs.N, infinite: sp.infinite, hom: !!sp.hom };
-    const ext = [aspect[0] + 0.16, aspect[1] + 0.16];
+    // (the plate's outer 12 % fades: flattened, the fade starts at the block's edge, the pane's)
+    const ext = aspect.map((x) => (1 - flat) * (x + 0.16) + flat * x / 0.88);
     const camD = Math.hypot(eye[0] - (st.cam.tx || 0), eye[1] - (st.cam.ty || 0), eye[2] - (st.cam.tz || 0));
     const fogNear = Math.max(0.01, camD - 1.6), fogFar = camD + 1.6;
     const common = (P) => {
@@ -1172,6 +1177,7 @@
       u3(P, 'uFogCol', C.landBottom);
       u1f(P, 'uFogNear', fogNear);
       u1f(P, 'uFogFar', fogFar);
+      u1f(P, 'uFlat', flat);
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); }
@@ -1192,9 +1198,9 @@
       common(Fp);
       u2f(Fp, 'uExt', ext[0], ext[1]);
       u3(Fp, 'uFloorCol', C.floor); u3(Fp, 'uMinor', C.minor); u3(Fp, 'uMed', C.medium); u3(Fp, 'uMajor', C.major);
-      u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', C.shadowA);
-      u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1);
-      u1f(Fp, 'uPlateA', alpha);
+      u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', (1 - flat) * C.shadowA);
+      u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1 - flat);
+      u1f(Fp, 'uPlateA', alpha + flat * (1 - alpha));
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     if (!below) floorPass(0.8);

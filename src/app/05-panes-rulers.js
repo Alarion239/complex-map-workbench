@@ -579,19 +579,33 @@
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
     return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
   }
-  // carry (the steps view's glide, svLandMoving): {map, s, T, lim, u, b, va, vb}: plane s's surface moved by the glide's
-  // map (GLR.drawLandscape's carry); its block and its height scale go from plane s's to plane b's over u (the box's
-  // centre linearly, its size and the scale in log; b null: plane s's), so the block, its floor and its axes move
-  // smoothly from one plane's rest frame to the other's. va, vb: the two planes' views
+  // carry (the steps view's glide, svLandMoving): {map, s, T, lim, u, b, flat, va, vb}: plane s's surface moved by the
+  // glide's map (GLR.drawLandscape's carry); its block and its height scale go from plane s's to plane b's over u (the
+  // box's centre linearly, its size and the scale in log; b null: plane s's), so the block, its floor and its axes move
+  // smoothly from one plane's rest frame to the other's. flat (0 to 1, the glide into the plane after the colour plane):
+  // the block goes to plane vb's whole pane, the camera to straight above it at the pane's scale, and the heights,
+  // light, fog and plate's print to none, so at 1 the frame is that plane's flat view. va, vb: the two planes' views
   // p to q at f in log (p, q > 0)
   const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
   function carryBox(c) {
-    const A = landBox(c.va), B = c.b == null ? A : landBox(c.vb), u = c.u;
+    const A = landBox(c.va), B = c.flat ? leftPaneBox(c.vb) : c.b == null ? A : landBox(c.vb), u = c.u;
     const mid = (p, q) => (1 - u) * p + u * q, geo = (p, q) => logLerp(p, q, u);
     const cx = mid((A.x0 + A.x1) / 2, (B.x0 + B.x1) / 2), cy = mid((A.y0 + A.y1) / 2, (B.y0 + B.y1) / 2);
     const hw = geo(A.x1 - A.x0, B.x1 - B.x0) / 2, hh = geo(A.y1 - A.y0, B.y1 - B.y0) / 2;
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
+  // (carry.flat) the camera from view to straight above the block (yaw -90 degrees: x to the right, y up), at the
+  // distance where the block's height fills the pane's (the block is then the pane's box, so the plane's own scale), at
+  // f; the yaw the short way round, the distance in log. A plane at right angles to the line of sight projects without
+  // distortion, so at f = 1 the flat surface is the plane's picture. (The pitch stops 1e-4 short of 90 degrees: lookAt's
+  // up is +z)
+  function flatCam(view, geo, f) {
+    const yaw1 = -Math.PI / 2, pitch1 = Math.PI / 2 - 1e-4, dist1 = geo.aspect[1] / Math.tan(view.fov / 2);
+    const dy = yaw1 - view.yaw - 2 * Math.PI * Math.round((yaw1 - view.yaw) / (2 * Math.PI));
+    const lin = (p, q) => (1 - f) * p + f * q;
+    return { yaw: view.yaw + f * dy, pitch: lin(view.pitch, pitch1), dist: logLerp(view.dist, dist1, f), tx: lin(view.tx, 0), ty: lin(view.ty, 0), tz: lin(view.tz, 0), fov: view.fov };
+  }
+  const mix3 = (p, q, f) => p.map((x, i) => (1 - f) * x + f * q[i]);
   function render3D(pane, carry) {
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
@@ -719,7 +733,8 @@
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
     refitCam(cam, CAM3, landFitDist(geo, pane));
-    const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
+    let view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
+    if (carry && carry.flat) view = flatCam(view, geo, carry.flat);
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
@@ -733,12 +748,12 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va), flat: carry.flat || 0 } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
       colors: {
-        floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
+        floor: carry && carry.flat ? mix3(GLR.hexRGB(TH.landFloor), TH.planeRGB, carry.flat) : GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
         shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
         minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), landBottom: GLR.hexRGB(TH.landBottom),
         cut: GLR.hexRGB(TH.cut), probe: GLR.hexRGB(TH.probe),

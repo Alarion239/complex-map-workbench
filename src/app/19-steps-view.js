@@ -106,7 +106,9 @@
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
-  const svMain = (k = svStage()) => (SV.surf === 'land' && svColoured(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
+  // (on the Landscape, a glide from the colour plane to the plane after it flattens the surface into that plane:
+  // the Landscape until it arrives, svFlattening)
+  const svMain = (k = svStage()) => (SV.surf === 'land' && (svColoured(k) || svFlattening()) ? 'land' : svColoured(k) ? 'phase' : 'xy');
   function svViewFix() {
     const k = svStage(), col = svColoured(k), v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
     const main = svMain(k);
@@ -280,14 +282,24 @@
   // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
   // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
   // (the X → Y view a glide from past the colour plane starts in)
+  // From the colour plane T to the plane after it (T + 1, which shows T's colour carried, flat), the carried surface
+  // flattens into plane b's flat view over u (render3D's carry.flat): its height, the camera, the light and the fog
+  // go from the Landscape's to plane b's top-down picture at u = 1. A glide that starts on plane b (in X → Y) takes the
+  // Landscape back first (svViewFix)
   function svLandMoving(pane) {
-    if (SV.surf !== 'land' || !lLand()) return false;
-    const g = svBetween();
+    if (SV.surf !== 'land') return false;
+    const g = svBetween(), flat = svFlattening(g);
+    if (flat && !lLand() && svViewFix()) setTimeout(svApply, 0);
+    if (!lLand()) return false;
     if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
     const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
     const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: leftView(g.a), vb: leftView(g.b) });
+    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, flat: flat ? g.u : 0, va: leftView(g.a), vb: leftView(g.b) });
     return true;
+  }
+  // between the colour plane and the plane after it, one step's glide on the Landscape (g: svBetween's)
+  function svFlattening(g = svBetween()) {
+    return SV.surf === 'land' && !g.all && !!g.H && g.u > 1e-6 && svColoured(g.a) && !svColoured(g.b);
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)

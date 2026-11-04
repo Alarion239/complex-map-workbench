@@ -535,16 +535,17 @@ void main() {
 `;
   // (#846) The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of G = the stages (s, T] there (uGs,
-  // uGt), so every point keeps its height and colour while the plane moves. tfOut: (place x, y, height, finite).
+  // uGt), so every point keeps its height and colour while the plane moves; the height times 1 - uFlat (the glide into
+  // the plane after the colour plane flattens it). tfOut: (place x, y, height, finite).
   const LAND_CARRY_TF_VS = `
-uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
+uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform float uFlat;
 out vec4 tfOut;
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   vec2 z = uSrc.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uSrc.zw;
   vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
-  tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
+  tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x * (1.0 - uFlat), 1.0) : vec4(0.0);
 }
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
@@ -1050,13 +1051,16 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
   const LAND_COMMON = `
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
+// (the steps view's glide into the plane after the colour plane, 0 to 1: the light and the fog go, as the surface
+// flattens into that plane's flat picture; 0 everywhere else)
+uniform float uFlat;
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
   if (uMaterial == 1) return dcolor(w);
   float th = wang(w);
   return pwheel(th, 0.72, 0.72, uPal == 0 ? vec3(0.0) : arbc(th, log(clamp(wabs(w), 1e-37, 3e38))));
 }
-vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smoothstep(uFogNear, uFogFar, length(uEye - pos))); }
+vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), (1.0 - uFlat) * 0.15 * smoothstep(uFogNear, uFogFar, length(uEye - pos))); }
 `;
   // sheet: the covering surface (All sheets): F on the triangle's own sheet, with the cuts of its cell (chainSheet).
   // The mesh follows the true surface to a quarter of a pixel where it is refined (REFINE), so F at the fragment's own
@@ -1165,7 +1169,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   vec3 c;
   if (gl_FrontFacing) {
     a = mix(a, ml, 0.55 * rim);
-    c = shade(a, n, v, vAO);
+    c = mix(shade(a, n, v, vAO), a, uFlat);
   } else {
     // its own colouring, darker, under a soft headlight (the key light never reaches the underside): a sheet reads
     // as one surface from both sides, its contours and sea level kept (r2: round 1 desaturated it to a grey)
