@@ -1256,15 +1256,7 @@ float wabs(vec2 w) {
     const alloc = !f || f.W !== W || f.H !== H;
     if (!f) f = res.fillPts = { tex: floatTex(), W: 0, H: 0, P: per };
     f.W = W; f.H = H; f.P = per;
-    const skip = gate.skip || res.skip0, vk = 'fillPts|' + skip.id;
-    let vao = res.vaos.get(vk);
-    if (!vao) {
-      vao = gl.createVertexArray();
-      gl.bindVertexArray(vao);
-      instanceAttribs(res, skip);
-      gl.bindVertexArray(null);
-      res.vaos.set(vk, vao);
-    }
+    const vao = fillPtsVAO(res, gate.skip || res.skip0);
     use(P, map);
     originUniforms(P, res.org);
     if (P.loc.uSub) gl.uniform2fv(P.loc.uSub, tpl.subs);
@@ -1277,9 +1269,24 @@ float wabs(vec2 w) {
     fillPtsRuns++;
     return f;
   }
-  // A mesh's carried-colour textures made before its first draw (the steps view's idle job, for the outer ring's sizes):
-  // its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose cuts the fill draws,
-  // its point pass's (fillPoints), each at the size its draw asks for, so that draw allocates neither
+  // the point pass's vertex array of mesh res with skip buffer skip (instance attributes only)
+  function fillPtsVAO(res, skip) {
+    const vk = 'fillPts|' + skip.id;
+    let vao = res.vaos.get(vk);
+    if (!vao) {
+      vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      instanceAttribs(res, skip);
+      gl.bindVertexArray(null);
+      res.vaos.set(vk, vao);
+    }
+    return vao;
+  }
+  // A mesh's carried-colour textures and vertex arrays made before its first draw (the steps view's idle job, for the
+  // outer ring's sizes): its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose
+  // cuts the fill draws, its point pass's (fillPoints), each at the size its draw asks for; and the vertex arrays of its
+  // map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO, meshVAO; no cells skipped), so that draw
+  // creates none of them
   function carryReserve(res, L) {
     if (!ok || !rtOK || !res || !res.n) return false;
     const tpl = regionTemplate(L), W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(tpl.P * res.n / W));
@@ -1300,6 +1307,9 @@ float wabs(vec2 w) {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, FH, 0, gl.RGBA, gl.FLOAT, null);
       }
     }
+    meshTFVAO(res, L);
+    if (res.fillPts) fillPtsVAO(res, res.skip0);
+    meshVAO(res, L);
     return true;
   }
   // (how many point passes have run: the tests' proof that the fill took its values from one)
