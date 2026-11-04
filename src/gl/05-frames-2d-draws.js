@@ -364,19 +364,8 @@
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   function prestartCarry() {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
-    // (without parallel compiles the links run one by one in idle moments: the cut fill's own-option programs come last
-    // in that line, ahead of the idle job, whose scratch textures a later main-thread link would leave unused for long
-    // enough to be freed; with them, prestartOwn starts those after the warm draw)
-    const own = cuts && !clip && !pcExt ? [rtOK ? 'regionKSCpto' : 'regionKSo'] : [];
-    return prestartNames((clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts'] : ['regionKC']).concat(own), [1]);
-  }
-  // the cut fill's own-option programs (seams pixel for pixel), started once the glide's carried colour has drawn
-  // (the steps view's warm draw, svWarmCarry), so the links the first frames wait on are the plain ones alone; with
-  // parallel compiles only (without, prestartCarry lines them up). The one without the point pass (regionKSCo) is the
-  // tests' reference only: carryPrep waits for it there
-  function prestartOwn() {
-    const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = k.some((c) => c && c.h === 'sheet');
-    return cuts && !clip && pcExt ? prestartNames([rtOK ? 'regionKSCpto' : 'regionKSo'], [1]) : 0;
+    // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
+    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'], [1]);
   }
   // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
   let fillPtsOn = true;
@@ -388,7 +377,7 @@
   // The carried colour of mesh res in two steps: carryPrep runs its off-screen passes (its map cache's, its fill's point
   // pass) and picks its programs; drawRegionCarry draws it on the frame's framebuffer. A frame of several meshes
   // (svCarryRegions) prepares them all before it draws any, so its framebuffer is left once, not once a mesh.
-  // -> {L, e, P, fill, fp, full, clip, pass1}; true: nothing to draw (the probes' noCarry); false: nothing can draw
+  // -> {L, e, P, fill, fp, full, clip, mask}; true: nothing to draw (the probes' noCarry); false: nothing can draw
   function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
@@ -411,41 +400,42 @@
     let P = e ? program('regionKC', st.map) : null;
     // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
     // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
-    let fill = null, fp = null;
+    // (a sheet program without a clipped cut, under the key: drawn only with its mask (regionKS*m) of the same chain
+    // version and map mode, so no frame shows a torn triangle whole; until the mask has linked, the frame draws as
+    // while the sheet program itself links. Without the key (no depth to draw the mask into), the sheet program alone)
+    const masked = !!(st.key && st.key.win) && !clip;
+    const maskOf = (name, R, get) => {
+      const M = get(name + 'm', st.map);
+      return M && M.ch === R.ch && M.mode === R.mode ? M : null;
+    };
+    let fill = null, fp = null, mask = null;
     if (cuts && P && !carryProbe.noFill) {
       const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
-      fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
-      fill = fp ? Q : (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
+      const QM = Q && masked ? maskOf('regionKSCpt', Q, program) : null;
+      // (with the mask, the point pass's second run too: the places of the fill's pass 1)
+      fp = Q && (!masked || QM) ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30, two: !!QM }) : null;
+      if (fp) { fill = Q; mask = QM; } else {
+        fill = (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
+        if (fill && masked && !(mask = maskOf('regionKSC', fill, program))) fill = null;
+      }
     }
-    // (a sheet program drawing: its own-option version in its place once linked, so the seams are drawn pixel for
-    // pixel (prestartOwn starts it); a clipped cut's has its own side test)
-    let own = false;
-    // (where the point pass is off, the tests' reference, the fill's own-option program is waited for as the plain one is)
-    const ownOf = (name, R, wait) => {
-      if (!R || clip) return R;
-      const O = (wait ? program : linked)(name + 'o', st.map);
-      if (O) own = true;
-      return O || R;
-    };
-    if (fill) fill = ownOf(fp ? 'regionKSCpt' : 'regionKSC', fill, !fillPtsOn);
     let full = null;
     if (cuts && !fill && !carryProbe.noFill) {
       P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
+      if (P && masked && !(mask = maskOf('regionKS', full, cache ? linked : program))) P = full = null;
       if (P) e = null;
-      if (P && !cache) P = full = ownOf('regionKS', full);
     }
     if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
-    // (pass1: the sheet program's second pass, the parts of its torn triangles past the cut on the branch there: a
-    // clipped cut's, and an own-option program's)
-    return P ? { L, e, P, fill, fp, full, clip, pass1: clip || own } : false;
+    return P ? { L, e, P, fill, fp, full, clip, mask } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)
   function drawRegionCarry(res, st, prep) {
     if (prep == null) prep = carryPrep(res, st);
     if (typeof prep === 'boolean') return prep;
-    const { L, e, P, fill, fp, full, pass1 } = prep;
+    const { L, e, P, fill, fp, full, clip, mask } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    const sheet = fill || full;
     const set = (Q) => {
       use(Q, st.map);
       if (e) bindCache(Q, e);
@@ -455,19 +445,41 @@
       u1f(Q, 'uKLim', st.lim || 1e30);
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
-      if (Q === fill || Q === full) u1i(Q, 'uKPass', 0);
-      if (fp && Q === fill) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
+      if (Q === sheet || Q === mask) u1i(Q, 'uKPass', 0);
+      if (fp && Q !== P) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
+    };
+    // (pass p of the sheet program Q: its uKPass, and with the point pass, the run that holds that pass's places)
+    const passOf = (Q, p) => {
+      set(Q); u1i(Q, 'uKPass', p);
+      if (fp && p === 1 && !clip) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex1); }
     };
     gl.bindVertexArray(meshVAO(res, L, st.skip));
     const n = regionTemplate(L).count;
     set(P);
     // (st.scissors: only inside these rects, as drawRegion's; the depth's clears stay whole)
     const drawAll = () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    // (the sheet program's passes: 0, every triangle on its centre's sheet; 1, a triangle again on the branch of its
+    // first vertex past the cut, for its part there. A clipped cut's program cuts each pass at the cut itself. Another
+    // cut's, under the key, draws each pass twice: its mask into the depth alone, the fragments of a torn triangle
+    // the map sends there; then its colour with the depth test EQUAL, so each pixel takes the one fragment the mask
+    // kept in front, and the colour's chain runs once a pixel)
+    const sheetPass = (pass) => {
+      if (!clip && !(mask && k && !carryProbe.noMask)) { if (pass === 0) { set(sheet); scissored(st.scissors, drawAll); } return; }
+      if (clip) { passOf(sheet, pass); scissored(st.scissors, drawAll); return; }
+      passOf(mask, pass);
+      gl.colorMask(false, false, false, false);
+      scissored(st.scissors, drawAll);
+      gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+      passOf(sheet, pass);
+      gl.depthFunc(gl.EQUAL);
+      scissored(st.scissors, drawAll);
+      gl.depthFunc(gl.LEQUAL);
+    };
     carryDraw(k, st.depth, () => {
-      if (!carryProbe.noKCDraw) scissored(st.scissors, drawAll);
-      const sheet = fill || full;
-      if (fill) { set(fill); scissored(st.scissors, drawAll); }
-      if (sheet && pass1) { u1i(sheet, 'uKPass', 1); scissored(st.scissors, drawAll); }
+      // (the map cache's pass; without the cache, P is the sheet program itself, drawn by its passes)
+      if (!carryProbe.noKCDraw && P !== full) scissored(st.scissors, drawAll);
+      if (!sheet) return;
+      sheetPass(0); sheetPass(1);
     });
     gl.bindVertexArray(null);
     return true;

@@ -42,7 +42,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     await settled({ max: 30000, until: '__cmwSvFixed()' });
     // (and the fill's own-option program with the point pass made, which draws in the plain one's place once linked:
     // both settings are then read with own-option programs, the reference waiting for its own)
-    await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCpto")' });
+    await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
     // (the count read before the redraw is asked for: the frame may be drawn before the next evaluation)
     const n0 = await ev('GLR.fillPointsRuns()');
     await ev('GLR.fillPointsOn(true), 1'); await redraw();

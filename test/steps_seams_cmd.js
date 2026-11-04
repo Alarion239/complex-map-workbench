@@ -4,7 +4,8 @@
 //    wide from the colour's left edge, a smooth seam changes colour between vertically adjacent pixels about once a row
 //    (a seam of slope s px per row crosses |s| pixels of a row); a sawtooth along it, a torn triangle drawn whole on one
 //    sheet, crosses it at every tooth's slanted edge. In the worst 20 rows the mean count of such jumps per row is at
-//    most 1.5
+//    most 1.5. The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
+//    w2 and w3), while the fill's programs link: the fill draws only with its mask, never a torn triangle whole
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -42,11 +43,10 @@ const park = async (x, scope) => {
   ok('teeth: the page shows the steps view', await isSteps(), null);
   await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
   await park(1.5, 'all');
-  // (the fill draws seams pixel for pixel with its own-option program, started after the steps view's warm draw:
-  // that program made, then a frame drawn with it)
-  await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCpto")' });
+  // (the fill draws through its mask, started with it: that program made, then a frame drawn with it)
+  await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
   await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
-  ok('teeth: the frame is drawn with the fill\'s own-option program', await drawn(), null);
+  ok('teeth: the frame is drawn with the fill\'s mask', await drawn(), null);
   const teeth = () => ev(`(() => {
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
@@ -71,9 +71,28 @@ const park = async (x, scope) => {
   await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('without the fill: the frame is drawn', await drawn(), null);
   info.teethNoFill = await teeth();
+  // (and with the fill drawn without its mask: the sawtooth; for reference)
+  await ev('GLR.carryProbes({ noMask: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
+  ok('without the mask: the frame is drawn', await drawn(), null);
+  info.teethNoMask = await teeth();
   await ev('GLR.carryProbes({}); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('teeth: the colour has a left edge in most rows', info.teeth.rows > info.teeth.H * 0.8, info.teeth);
   ok('teeth: exp then log, parked between w1 and w2: the seam along the cut is smooth (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', info.teeth.perRow != null && info.teeth.perRow <= 1.5, info.teeth);
+  // (the first frames after a chain change: a step put first, the same seam now between w2 and w3, parked there at
+  // once; 8 frames over 2 s, while the new chain's programs link)
+  await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
+  await settled({ max: 20000, panes: false, until: '__cmwSteps().planes.length === 4' });
+  await ev(`__cmwSteps({ T: 0 }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 }); 1`);
+  const after = [];
+  for (let i = 0; i < 8; i++) { await sleep(250); after.push(await teeth()); }
+  info.afterChange = after.map((t) => [t.label, t.rows, t.perRow]);
+  const worst = after.reduce((w, t) => (t.perRow > w.perRow ? t : w), after[0]);
+  ok('teeth: in the 2 s after a chain change, no frame shows a sawtooth along the seam (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', worst.perRow <= 1.5, worst);
+  // (and once settled, the seam is drawn: the colour reaches it in most rows)
+  await settled({ max: 30000 }); await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
+  ok('after the chain change: the frame is drawn', await drawn(), null);
+  info.afterSettled = await teeth();
+  ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
 }
 
 return { pass: fails.length === 0, fails, info };
