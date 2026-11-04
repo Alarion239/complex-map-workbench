@@ -1080,24 +1080,27 @@
         svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
-      // (under it, gliding toward a plane at or before the colour plane, plane a's exact colour, whole: no plane's
-      // colour is blended in at a partial opacity, so where no carried point lands the plane's paper shows)
-      if (!still && svColoured(b)) plot(a, 1);
+      // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
+      // the window would, the picture is not left blank)
+      if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
+      let carried = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
       // svCarryExact; the carried grid only where neither path can draw)
-      if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) { /* drawn exactly */ }
+      if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
       // travel on, each fragment its point's colour)
-      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) { /* drawn by the regions' meshes */ }
+      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
       // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
       // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling)
       else if (still ? !svColoured(a) : !isDeriv(b)) {
-        svCarry(pane, cc, src, a, still ? null : Hb, frame);
+        carried = svCarry(pane, cc, src, a, still ? null : Hb, frame);
       }
-      // (over it, at rest on a plane at or before the colour plane, its exact colour, all of it; a glide's frames are
-      // the carried mesh's alone)
+      // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
+      // first and the last 15 % of a glide)
+      const near = (w) => Math.max(0, Math.min(1, w));
       if (still) plot(a, 1);
+      else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
