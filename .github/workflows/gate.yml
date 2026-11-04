@@ -39,7 +39,7 @@ on:
         type: boolean
         default: false
       shards:
-        description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
+        description: Only these perf shards or parts of them (comma-separated ids of ci/perf_shards.js; empty or all = every shard)
         required: false
         default: ''
       glsl:
