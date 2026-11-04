@@ -446,7 +446,9 @@ const Tour = (() => {
       touch: reorderBody + ' Move one from its menu: hold the chip.', phoneFine: reorderBody + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
       try: { text: reorderMenu, deskTouch: reorderMenu, touch: 'Hold the chip $f_2$, then choose Move left.', phoneFine: 'Right-click the chip $f_2$, then choose Move left.', on: 'step-moved', test: (/** @type {any} */ e) => !e || e.from === 2, ctl: ['svMenu2'], then: 'The planes after this step changed with the order.' } };
     const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
-    edit[edit.findIndex((/** @type {any} */ st) => st.id === 'cards')] = reorderStep;
+    const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
+    if (cardsAt < 0) throw new Error('the tour has no cards step to replace');
+    edit[cardsAt] = reorderStep;
     const bi = CHAPTERS.findIndex((c) => c.id === 'basics'), di = CHAPTERS.findIndex((c) => c.id === 'deform');
     if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
     if (di >= 0) chs.splice(di, 1);
