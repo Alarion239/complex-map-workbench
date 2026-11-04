@@ -630,9 +630,9 @@
  "Click the chip $d/dz$.": "Нажмите на метку $d/dz$.",
  "Tap the chip $d/dz$.": "Нажмите на метку $d/dz$.",
  "The Inspector shows the step that differentiates the chain so far.": "Инспектор показывает шаг, который дифференцирует цепочку до него.",
- "Shapes on a later plane": "Фигуры на дальней плоскости",
- "A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane's regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.": "Фигура, нарисованная на дальней плоскости, принадлежит ей. В режиме «Внутри областей» каждая плоскость окрашена только внутри своих областей, а области дальних плоскостей переносятся назад: на $z$ цвет отмечает все точки, которые отображение переводит в них, все их прообразы сразу.",
- "On $w_1$, draw a disc, then press ‹, or ←.": "На $w_1$ нарисуйте диск, затем нажмите ‹ или ←.",
- "On $w_1$, draw a disc, then tap ‹.": "На $w_1$ нарисуйте диск, затем нажмите ‹.",
- "Plane z shows where the disc comes from.": "Плоскость z показывает, откуда взялся диск."
+ "Shapes on a later plane": "Фигуры на следующих плоскостях",
+ "A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane's regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.": "Фигура, нарисованная на следующей плоскости, принадлежит ей. В режиме «Внутри областей» каждая плоскость окрашена только внутри своих областей, а области следующих плоскостей переносятся назад: на $z$ цвет отмечает все точки, которые отображение переводит в них, все их прообразы сразу.",
+ "On $w_1$, draw a disc, then click ‹ (or press ←).": "На $w_1$ нарисуйте круг, затем нажмите ‹ или ←.",
+ "On $w_1$, draw a disc, then tap ‹.": "На $w_1$ нарисуйте круг, затем нажмите ‹.",
+ "Plane $z$ shows where the disc comes from.": "Плоскость $z$ показывает, откуда взялся круг."
 }

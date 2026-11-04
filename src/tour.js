@@ -454,7 +454,7 @@ const Tour = (() => {
     Object.assign(svStep('analysis', 'targets'), { anchor: 'paneL', also: ['svStrip'], title: 'Shapes on a later plane',
       before: [['svPlace', { i: 1, T: -1, scope: 'in', surf: 'plane' }]], lead: undefined,
       body: 'A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane\'s regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.',
-      try: { text: 'On $w_1$, draw a disc, then press ‹, or ←.', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane z shows where the disc comes from.' } });
+      try: { text: 'On $w_1$, draw a disc, then click ‹ (or press ←).', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane $z$ shows where the disc comes from.' } });
     const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
     edit[edit.findIndex((/** @type {any} */ st) => st.id === 'cards')] = reorderStep;
     const bi = CHAPTERS.findIndex((c) => c.id === 'basics'), di = CHAPTERS.findIndex((c) => c.id === 'deform');

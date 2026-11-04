@@ -77,7 +77,7 @@ check('targets: the result line says X shades its preimage', /X shades its preim
     await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
   };
   const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await settle(1200); };
-  await task('targets', 'On w₁, draw a disc, then press ‹, or ←.', async () => {
+  await task('targets', 'On w₁, draw a disc, then click ‹ (or press ←).', async () => {
     await drawDisc();
     check('targets: a disc alone does not tick it', !(await l2()).done, await l2());
     await press('#svStrip .sv-prev');
