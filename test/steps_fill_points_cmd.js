@@ -27,6 +27,8 @@ const diff = (a, b) => ev(`(() => { const A = window.__fpx[${JSON.stringify(a)}]
   return { px, max, of: A.length / 4 }; })()`);
 // (a redraw of both panes under the setting just made)
 const redraw = () => ev('__cmwHideStrokes(false), 1');
+// (at rest: the tiling's fix-up landed and no SphereMesh job is running or queued)
+const rest = '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length';
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   const ex = names.indexOf(name);
@@ -40,8 +42,11 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     const tag = `${name} ${scope} ${x}`;
     await steps({ scope, surf: 'plane', go: 0, now: true });
     await steps({ scope, surf: 'plane', park: x });
-    // (parked: the tiling's fix-up lands once, changing the frame, so both settings are read after it)
-    await settled({ max: 30000, until: '__cmwSvFixed()' });
+    // (parked: the tiling's fix-up lands once and the region mask's SphereMesh after it, each changing the frame, so
+    // both settings are read after them; the redraw between the two waits asks for a mesh the parked frame did not)
+    await settled({ max: 60000, until: rest });
+    await redraw();
+    await settled({ max: 60000, until: rest });
     // (and the fill's own-option program with the point pass made, which draws in the plain one's place once linked:
     // both settings are then read with own-option programs, the reference waiting for its own)
     await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
