@@ -686,9 +686,9 @@
         while (left() > 0) {
           const P = svPolesLeft();
           if (P) svPoleMake(P, left(), 'idle');
-          else if (!svRingAhead(left())) break;
+          else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
         }
-        if (svPolesLeft() || svRingLeft()) { idle(next); return; }
+        if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
       } catch (e) { /* (a map that cannot be evaluated: nothing more to make) */ }
       svPoleBusy = false;
     };
@@ -696,7 +696,7 @@
   }
   // the idle job started again where its inputs changed since it ended (a frame of the view calls it)
   function svPolesWatch() {
-    if (!svPoleBusy && (svPolesLeft() || svRingLeft())) svPolesAhead();
+    if (!svPoleBusy && (svPolesLeft() || svRingLeft() || svMeshNext())) svPolesAhead();
   }
   // the key of the glide's frame at t in (0, 1) to plane b (svSheetKey(b) at rest)
   function svSheetKeyAt(b, t) {
@@ -917,6 +917,42 @@
       if (performance.now() - t0 >= ms) return true;
     }
   }
+  // a carried shape's tessellated mesh (shapeGPU; the whole plane's at 80 base cells a side, not 140: it has no edge
+  // to draw)
+  const svCarryGPU = (x) => shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+  // The carried meshes of a chain with a step whose glide has no inverse plan (Inverse.homOps of its homotopy fails:
+  // its frames, and those of the glides after it, draw svCarryRegions): built, and their carried colour's textures
+  // reserved, by the idle job, so the first frame of such a glide builds and allocates nothing. svMeshNext: the key of
+  // the meshes left to make (the chain, clipWin and the carried shapes), or null
+  let svMeshDone = null, svMeshFalls = null;
+  function svMeshNext() {
+    if (!SV.on || !paneL || !GLR.ok || !GLR.carryReserve) return null;
+    const sig = chainSig[nSteps()];
+    if (!svMeshFalls || svMeshFalls.sig !== sig) {
+      let falls = false;
+      for (let b = 1; b <= nSteps() && !falls; b++) {
+        try { falls = !isDeriv(b) && !Inverse.homOps(built[b - 1], 0.5).ok; } catch (e) { falls = true; }
+      }
+      svMeshFalls = { sig, falls };
+    }
+    if (!svMeshFalls.falls) return null;
+    const L = svCarryShapes();
+    if (!L || !L.length) return null;
+    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope].concat(L.map((x) => shapeKey(x))).join('|');
+    return key === svMeshDone ? null : key;
+  }
+  // the idle job's share of those meshes: all of them at once (each built whole), only with at least half a slice's
+  // time left; false when there are none to make or too little time
+  function svMeshAhead(ms) {
+    const key = svMeshNext();
+    if (!key || ms < SV_POLE_BUDGET / 2) return false;
+    svMeshDone = key;
+    for (const x of svCarryShapes() || []) {
+      const r = svCarryGPU(x);
+      if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
+    }
+    return true;
+  }
   // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
   // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
   // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
@@ -938,8 +974,7 @@
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
     for (const x of shapes) {
-      // (the whole plane's mesh coarser than a region's: 80 base cells a side, not 140; it has no edge to draw)
-      const r = x === ring ? svRingGPU(ring) : shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+      const r = x === ring ? svRingGPU(ring) : svCarryGPU(x);
       if (!r || !r.meshRes) return false;
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
