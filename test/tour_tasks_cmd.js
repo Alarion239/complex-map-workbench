@@ -72,7 +72,8 @@ check('targets: the result line says X shades its preimage', /X shades its preim
   // targets in the steps view: a disc drawn on w₁, then ‹ to z. A disc drawn on z, then › and ‹, does not tick it
   const drawDisc = async () => {
     const d = await center('#tools > .tool[data-tool="disc"], #railTools > .tool[data-tool="disc"]');
-    await mdrag(d[0], d[1], d[0], d[1]); await sleep(300);
+    await mdrag(d[0], d[1], d[0], d[1]);
+    check('targets: the disc tool is on before the drag', (await until(`!!document.querySelector('.tool[data-tool="disc"].on')`, 3000)) != null);
     const b = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
     await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
   };
