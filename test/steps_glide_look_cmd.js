@@ -3,9 +3,11 @@
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions) and the Mountain King Everywhere (the whole plane carried forward). Paths are off: the glide's paths are drawn over the
 // colour, which is what is read. Each case checks three things, each its own failure:
-// - the same look: a moving frame a hair from a plane (x = EDGE from either end) is that plane's rest frame, at most
-//   SAME_FRAC of the pixels more than DIFF_TOL apart (the tolerance of steps_sm_standin_cmd.js, a frame and the rest
-//   frame after it), with its largest and mean difference reported;
+// - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
+//   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
+//   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
+//   than DIFF_TOL apart (the tolerance of steps_sm_standin_cmd.js, a frame and the rest frame after it). A frame drawn
+//   by the carried mesh has no sheet key in its record, so no reference: it fails as such;
 // - no fade: the first and the last frames of a glide (x = FIRST from either end, a 60 fps frame of a Normal glide)
 //   draw no plane's colour at a partial opacity over the moving picture (a crossfade), and their mean luminance and
 //   alpha are reported beside the rest frame's;
@@ -22,9 +24,9 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { hold, grab, compare, edgeRuns, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { hold, grab, compare, edgeRuns, refOf, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005;
-const EDGE = 0.005, FIRST = 0.02;
+const LOOK_U = [0.25, 0.75], MIN_COMPARED = 1000, FIRST = 0.02;
 const EDGE_RUN = 16;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
@@ -58,18 +60,19 @@ async function look(c, r) {
   r.rest1 = await grab('R1');
   await rest(0);
   r.rest0 = await grab('R0');
-  // ---- the same look a hair from each plane ----
+  // ---- the same look as the exact picture at the same u ----
   r.step = 'the same look';
   const look = {};
-  for (const [x, end] of [[EDGE, 'R0'], [1 - EDGE, 'R1']]) {
-    look[x] = { held: (await hold(x)).ok, still: await grab('M' + x) };
-    look[x].diff = await compare('M' + x, end);
+  for (const u of LOOK_U) {
+    const held = (await hold(u)).ok, still = await grab('M' + u);
+    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, DIFF_TOL));
     await letGo();
   }
   r.look = look;
-  const lookOk = (x) => look[x].held && look[x].still && look[x].diff && look[x].diff.frac <= SAME_FRAC;
-  ok(`${c.tag}: a moving frame a hair from plane z (x = ${EDGE}) is plane z's rest frame (at most ${SAME_FRAC * 100} % of pixels > ${DIFF_TOL}/255 apart)`, lookOk(EDGE), look[EDGE]);
-  ok(`${c.tag}: a moving frame a hair from the next plane (x = ${1 - EDGE}) is that plane's rest frame (at most ${SAME_FRAC * 100} % of pixels > ${DIFF_TOL}/255 apart)`, lookOk(1 - EDGE), look[1 - EDGE]);
+  for (const u of LOOK_U) {
+    const L = look[u], R = L.ref;
+    ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${DIFF_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
+  }
   // ---- no fade at a glide's ends ----
   r.step = 'no fade';
   const fade = {};
