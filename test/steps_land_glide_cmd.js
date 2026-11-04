@@ -87,7 +87,9 @@ const A = anim ? JSON.parse(anim) : null;
 const us = [];
 for (let k = 1; A && k <= 4; k++) {
   await ev(`window.__clk = ${A.t0 + (A.ms * k) / 5}; 1`);
-  await ev(rAF2);
+  // (awaited in the page: a promise that is the expression's value comes back unawaited (H.ev's REPL mode), so the
+  // clock would step on before the glide drew a frame at it)
+  await ev(`await ${rAF2}; 1`);
   const c = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null');
   if (c && c.u > 0 && c.u < 1 && !us.includes(c.u.toFixed(3))) us.push(c.u.toFixed(3));
 }
