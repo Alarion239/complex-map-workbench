@@ -34,7 +34,7 @@ ok('an unknown id is an error', throws(() => matrix(null, ['steps-kng'])) &&  th
 const units = execFileSync(process.execPath, [path.join(__dirname, '..', 'test', 'regress', 'perf', 'run.js'), '--list'], { encoding: 'utf8' }).split('\n').map((l) => l.split(/\s+/)[0]).filter(Boolean);
 const sv = units.filter((u) => /^sv\./.test(u));
 const byLeaf = steps4.split(',').flatMap((id) => units.filter((u) => new RegExp(find(id).re).test(u)));
-ok('the seven steps leaves select the sv units, each once', sv.length === 11 && byLeaf.length === 11 && new Set(byLeaf).size === 11 && byLeaf.every((u) => sv.includes(u)), byLeaf);
+ok('the seven steps leaves select the sv units, each once', sv.length === 12 && byLeaf.length === 12 && new Set(byLeaf).size === 12 && byLeaf.every((u) => sv.includes(u)), byLeaf);
 ok('steps-king is the King pair alone', units.filter((u) => new RegExp(find('steps-king').re).test(u)).join() === 'sv.interact.king,sv.glide.king');
 ok('find: a shard and a part', find('steps').re === SHARDS.find((s) => s.id === 'steps').re && find('steps-king').of === 'steps' && !find('nope'));
 ok('the CLI exits 2 on an unknown id', (() => { try { execFileSync(process.execPath, [path.join(__dirname, '..', 'ci', 'perf_shards.js'), 'matrix', '--only', 'nope'], { stdio: 'pipe' }); return false; } catch (e) { return e.status === 2; } })());

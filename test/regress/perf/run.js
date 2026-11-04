@@ -1163,13 +1163,13 @@ async function svInteractUnit(scene) {
 // copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot). o: {id: the
 // unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere'), scope
-// ('all': Everywhere | 'in': Inside regions)}
+// ('all': Everywhere | 'in': Inside regions), info: its rows are info}
 const SV_GLIDE_JANK_MS = 25;
 async function svGlideUnit(scene, o = {}) {
   const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all';
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
-  const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King' };
+  const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King', jouk: 'Joukowski airfoil' };
   const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === id)) * 1000;
   // one glide from where the view rests to plane `to`, its window from the call to the landing
   const glide = async (to) => {
@@ -1229,6 +1229,8 @@ async function svGlideUnit(scene, o = {}) {
     else put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
+    // (o.info: every row but dpr_ok is info: the unit measures a cost, it gates nothing)
+    if (o.info) for (const [k, m] of Object.entries(RES.metrics)) if (k.startsWith(pre + '.') && k !== `${pre}.dpr_ok`) m.kind = 'info';
   }
 }
 async function cardsStartupUnit() {
@@ -2010,6 +2012,7 @@ unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zet
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default', { id: 'sv.glide.globe', surf: 'sphere' }));
 unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
+unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
