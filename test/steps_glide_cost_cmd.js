@@ -28,6 +28,17 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+// the calls of the named methods of target (a page expression) whose stack holds every one of the frames named, kept in
+// the page as window[into]: each a line "name at < ... <" of the stack's first frames
+const GL_CREATES = ['createTexture', 'createBuffer', 'createVertexArray'];
+const watchCalls = (target, methods, frames, into) => ev(`(() => {
+  const o = ${target}, A = window[${JSON.stringify(into)}] = [];
+  for (const name of ${JSON.stringify(methods)}) {
+    const f = o[name];
+    o[name] = function (...a) { const st = new Error().stack || ''; if (${JSON.stringify(frames)}.every((k) => st.includes(k))) A.push(name + ' ' + st.split('\\n').slice(2, 6).map((l) => l.trim()).join(' < ')); return f.apply(this, a); };
+  }
+  return 1;
+})()`);
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvKey === "function" && !!window.GLR' }); };
 // the thread held at x mid-glide: a scrub on the rail, not let go (window.__svScrubUp lets it go)
 // (links: wait for every program to have linked too; false while links are held)
@@ -118,11 +129,11 @@ async function hold(x, links = true) {
   const ex = names.indexOf('Square root and its sheets');
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gm${Date.now()}`);
   await ready();
-  // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
   // (the buffers, textures and vertex arrays a frame creates for the ring: their stack passes through svRingGPU from
   // svCarryRegions, the frame's draw; the idle job's builds pass through svRingWarm)
-  await ev(`(() => { const P = WebGL2RenderingContext.prototype; window.__ringFrameAlloc = 0; for (const name of ['createTexture', 'createBuffer', 'createVertexArray']) { const f = P[name]; P[name] = function (...a) { const st = new Error().stack || ''; if (st.includes('svRingGPU') && st.includes('svCarryRegions')) window.__ringFrameAlloc++; return f.apply(this, a); }; } return 1; })()`);
-  await ev(`(() => { const f = GLR.createLines; window.__ringLines = 0; GLR.createLines = function (...a) { if ((new Error().stack || '').includes('svRingGPU')) window.__ringLines++; return f.apply(this, a); }; return 1; })()`);
+  await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svRingGPU', 'svCarryRegions'], '__ringFrameAlloc');
+  // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
+  await watchCalls('GLR', ['createLines'], ['svRingGPU'], '__ringLines');
   await ev(`__cmwExample(${ex}); 1`);
   await settled({ max: 20000 });
   // (from here, the work counted: the idle job's after the page settles on plane 0, before any frame between planes)
@@ -145,7 +156,7 @@ async function hold(x, links = true) {
   for (let k = 0; k < 2; k++) for (const x of xs.concat(xs.slice().reverse())) { await park(x); ms.push((await ev('__cmwSvRing()') || { m: null }).m); }
   const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
   const builds = (await ev('__cmwSvRing(true)')) - r0, sizes = new Set(ms.filter((m) => m != null)).size;
-  const warm = (ahead.ringOver || []).concat(ps.ringOver || []), lines = await ev('window.__ringLines'), frameAlloc = await ev('window.__ringFrameAlloc');
+  const warm = (ahead.ringOver || []).concat(ps.ringOver || []), lines = (await ev('window.__ringLines')).length, frameAlloc = (await ev('window.__ringFrameAlloc')).length;
   info['the ring'] = { ms, sizes, builds, ahead: ahead.ringIdle || 0, firstFrames: ahead.ringFrame || 0, ringFrame: ps.ringFrame || 0, warm, lines, frameAlloc };
   ok('the ring: the scrubs draw a ring', sizes > 0, info['the ring']);
   ok('the ring: the idle job makes the glide\'s ring sizes, those of the page\'s first glide too', ahead.ringIdle > 0 && !(ahead.ringFrame > 0), info['the ring']);
@@ -196,14 +207,7 @@ async function hold(x, links = true) {
   const idle = await settled({ max: 30000, until: '!__cmwSvKey().busy' });
   ok('before the scrubs: the idle job ends (the outer ring\'s sizes and meshes made)', idle.ok, idle);
   // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
-  await ev(`(() => {
-    const P = WebGL2RenderingContext.prototype, A = window.__svAlloc = [];
-    for (const name of ['createTexture', 'createBuffer', 'createVertexArray']) {
-      const f = P[name];
-      P[name] = function (...a) { const st = new Error().stack || ''; if (st.includes('svCarryRegions')) A.push(name + ' ' + st.split('\\n').slice(2, 6).map((l) => l.trim()).join(' < ')); return f.apply(this, a); };
-    }
-    return 1;
-  })()`);
+  await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svCarryRegions'], '__svAlloc');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a
   // framebuffer of its own, the map cache's or a point pass's; frames counted by a rAF loop)
   await ev(`(() => {
