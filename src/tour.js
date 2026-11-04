@@ -435,9 +435,9 @@ const Tour = (() => {
     // the thread's Add function button and a reorder step, in place of the classic chain's add card and "Cards follow the view"
     const svStep = (/** @type {string} */ ch, /** @type {string} */ id) => chs.find((/** @type {any} */ c) => c.id === ch).steps.find((/** @type {any} */ st) => st.id === id);
     const addBody = 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.';
-    const addMenuTouch = addBody + ' A chip\'s menu, opened by a long press or a right-click, moves it, bypasses it or removes it.';
     Object.assign(svStep('basics', 'add'), { anchor: 'svAdd', also: ['svStrip'],
-      body: addBody + ' A chip\'s ⋯ menu moves it, bypasses it or removes it.', deskTouch: undefined, touch: addMenuTouch, phoneFine: addMenuTouch,
+      body: addBody + ' Click a chip\'s ⋯ menu to move it, bypass it or remove it.', deskTouch: addBody + ' Tap a chip\'s ⋯ menu to move it, bypass it or remove it.',
+      touch: addBody + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: addBody + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
       try: { text: 'Click + Add function.', touch: 'Tap + Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
     const reorderBody = 'A step\'s place in the chain decides what every plane after it shows.';
     const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
