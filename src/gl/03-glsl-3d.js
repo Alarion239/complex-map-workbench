@@ -1055,6 +1055,14 @@ uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // surface's colour goes to that plane's own (dcolor in its style), as the surface flattens into that plane's flat
 // picture; 0 everywhere else)
 uniform float uFlat;
+// (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
+// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain paper, uPaper)
+uniform sampler2D uMask; uniform float uMaskOn; uniform vec4 uMaskBox; uniform vec3 uPaper;
+float inRegions(vec2 z) {
+  if (uMaskOn < 0.5) return 1.0;
+  vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
+  return texture(uMask, vec2(uv.x, 1.0 - uv.y)).a;
+}
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
   if (uMaterial == 1) return dcolor(w);
@@ -1156,6 +1164,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
+  a = mix(toLin(uPaper), a, inRegions(vZ));
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile
   vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));

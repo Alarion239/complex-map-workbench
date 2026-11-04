@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);

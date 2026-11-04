@@ -736,6 +736,9 @@
     refitCam(cam, CAM3, landFitDist(geo, pane));
     let view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     if (carry && carry.flat) view = flatCam(view, geo, carry.flat);
+    // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
+    // landscape's frame begins, as it takes a GL frame of its own)
+    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.va)) : svLandMask(svStage(), box)) : null;
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
@@ -750,7 +753,7 @@
     }
     const info = GLR.drawLandscape({
       map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va), flat: carry.flat || 0, dc: carry.flat ? carry.dc : null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
       colors: {
@@ -770,11 +773,12 @@
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, flat: carry.flat || 0, mu, box } : null;   // (the last frame's carry: tests)
     render3D.box = box;
+    render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     render3D.pick = carry ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -1060,7 +1064,6 @@
     // ((#366 prototype) o.lineMap: the steps view's glide moves the shapes in either paint, 19)
     const map = o.lineMap || (hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage));   // shapes live in the z-plane
     const cell = patternCell();
-    const halo = GLR.hexRGB(TH.halo);
     // the same map cache keys as drawScene: orbiting the globe re-evaluates nothing (spec 8.1); homotopy frames go
     // to GLR's per-resource scratch evaluation instead (no cache entry per t)
     const cache = map.mode === 0, mk = mapKeyOf(map);
@@ -1125,8 +1128,11 @@
       }
       const rl = linesOf(r, pf.p);
       if (rl.lineRes && !hideStrokes && !(artMode && artSkip && artSkip.has(s.id))) {
-        const area = kindType(s) === 'area';
-        lines.push({ res: rl.lineRes, st: { map: sm, dpr: pane.dpr, M: 8, width: (area ? 1.5 : 2) * pane.dpr, color: imageMode ? GLR.hexRGB(ink.edge) : GLR.hexRGB(TH.dcCasing), alpha: 1, casing: { color: imageMode ? halo : [1, 1, 1], alpha: 0.85, width: (area ? 3.5 : 4) * pane.dpr }, cacheKey: cache ? `${rl.lineKey}|${smk}` : null } });
+        // (the globe's lines: the stroke of a shape's curve, without the selection's or the hover's emphasis; a phase portrait takes the
+        // dc line colour on a white casing)
+        const sk = shapeStroke(s, pane.dpr, { still: true });
+        if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
