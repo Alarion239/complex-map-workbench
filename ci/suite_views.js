@@ -38,6 +38,7 @@ const VIEWS = {
   'steps_fill_points_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
+  'steps_land_flatten_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_chain_cmd.js': steps(),
