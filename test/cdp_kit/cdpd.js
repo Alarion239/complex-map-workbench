@@ -81,8 +81,10 @@ H.ev = async (expr, timeout = 20000) => {
     send('Runtime.releaseObjectGroup', { objectGroup: group }, S).catch(() => {});
   }
 };
+// (the device pixel ratio: CMW_DPR, 1 by default; 2 is the Mac's screen)
+const DPR = +process.env.CMW_DPR || 1;
 H.view = async (w, h, dark, mobile) => {
-  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!mobile }, S);
+  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: DPR, mobile: !!mobile }, S);
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }] }, S);
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!mobile, maxTouchPoints: mobile ? 5 : 1 }, S);
 };
