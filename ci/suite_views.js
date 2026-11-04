@@ -235,7 +235,7 @@ const VIEWS = {
   'p3_review_cmd.js': port('render'),
   'p3b_accept_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
-  'p5_accept_cmd.js': port('render'),
+  'p5_accept_cmd.js': steps({ pin: true }),
   'regions_phase_cmd.js': steps({ pin: true }),
   'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
   'sphere_light_cmd.js': steps({ pin: true }),

@@ -1170,7 +1170,9 @@
   // - o.cc (the 2D path): the picture already in the 2D context o.cc is cut to the regions (drawn opaque into a canvas
   //   the pane's size, destination-in). True
   function svMask(pane, map, k, o) {
-    const opt = k == null ? { noGrid: true, fills: true, cache: false } : { noGrid: true, fills: true, domain: k === 0, plane: k };
+    // (sm: the regions' SphereMesh in the steps view's slot, SPEC 8, where the tiling would draw them from one)
+    const opt = k == null ? { noGrid: true, fills: true, cache: false, sm: 'SV' }
+      : { noGrid: true, fills: true, domain: k === 0, plane: k, sm: 'SV' };
     if (o.cc) {
       svMaskCv = svCanvas(svMaskCv, pane);
       const mp = svProxy(pane, svMaskCv);
