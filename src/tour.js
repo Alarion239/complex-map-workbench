@@ -434,16 +434,14 @@ const Tour = (() => {
     const chs = /** @type {any[]} */ (CHAPTERS);
     // the thread's Add function button and a reorder step, in place of the classic chain's add card and "Cards follow the view"
     const svStep = (/** @type {string} */ ch, /** @type {string} */ id) => chs.find((/** @type {any} */ c) => c.id === ch).steps.find((/** @type {any} */ st) => st.id === id);
-    const addBody = 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.';
     Object.assign(svStep('basics', 'add'), { anchor: 'svAdd', also: ['svStrip'],
-      body: addBody + ' Click a chip\'s ⋯ to move it, bypass it or remove it.', deskTouch: addBody + ' Tap a chip\'s ⋯ to move it, bypass it or remove it.',
-      touch: addBody + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: addBody + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
+      body: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Click a chip\'s ⋯ to move it, bypass it or remove it.', deskTouch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Tap a chip\'s ⋯ to move it, bypass it or remove it.',
+      touch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
       try: { text: 'Click + Add function.', touch: 'Tap + Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
-    const reorderBody = 'A step\'s place in the chain decides what every plane after it shows.';
     const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
     const reorderStep = { id: 'reorder', anchor: 'svMenu2', also: ['svStrip'], title: 'Reorder steps', before: [['svPlace', { i: 0, surf: 'plane' }]],
-      body: reorderBody + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: reorderBody + ' Move one with its ⋯ menu.',
-      touch: reorderBody + ' Move one from its menu: hold the chip.', phoneFine: reorderBody + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
+      body: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu.',
+      touch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu: hold the chip.', phoneFine: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
       try: { text: reorderMenu, deskTouch: reorderMenu, touch: 'Hold the chip $f_2$, then choose Move left.', phoneFine: 'Right-click the chip $f_2$, then choose Move left.', on: 'step-moved', test: (/** @type {any} */ e) => !e || e.from === 2, ctl: ['svMenu2'], then: 'The planes after this step changed with the order.' } };
     const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
     const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
