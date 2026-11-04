@@ -22,6 +22,16 @@ ok('a plane canvas has focus', await ev(`document.activeElement && document.acti
 const i0 = await at();
 ok('→ on the focused plot steps to the next plane', (await keyTo('ArrowRight', i0 + 1)) === i0 + 1, [i0, await at()]);
 ok('← on the focused plot steps back', (await keyTo('ArrowLeft', i0)) === i0, [i0, await at()]);
+// sound on: the plane is the keyboard probe, whose arrows move the probe, not the thread
+await ev(`document.getElementById('soundBtn').click(), 1`);
+await settled({ max: 8000, only: true, until: `document.getElementById('soundBtn').getAttribute('aria-pressed') === 'true' && !!document.querySelector('#paneL canvas[aria-keyshortcuts]')` });
+ok('sound on makes the plane the keyboard probe', await ev(`!!document.querySelector('#paneL canvas[aria-keyshortcuts~="ArrowLeft"]')`), null);
+await ev(`document.querySelector('#paneL canvas[aria-keyshortcuts]').focus(), 1`);
+await press('ArrowRight');
+await settled({ max: 1500 });
+ok('→ on the sound probe plane leaves the thread where it is', (await at()) === i0, await at());
+await ev(`document.getElementById('soundBtn').click(), 1`);
+await settled({ max: 8000, only: true, until: `document.getElementById('soundBtn').getAttribute('aria-pressed') !== 'true'` });
 // typing: a text field keeps its arrows
 await ev(`(() => { const f = document.createElement('input'); f.id = 'zzField'; f.value = 'abc'; document.body.append(f); f.focus(); })()`);
 await press('ArrowRight');
