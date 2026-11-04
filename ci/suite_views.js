@@ -145,7 +145,10 @@ const VIEWS = {
   // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
-  'example_try_events_cmd.js': port('words', 'the Try lines left (those that need a card\'s menu)'),
+  'example_try_events_cmd.js': steps({ pin: true }),
+  'example_try_events_classic_cmd.js': classic('the classic cards\' Try lines: the sheet buttons, the formula field and the Add ray button on a card; example_try_events_cmd asks the same in the steps view'),
+  'example_try_repeat_cmd.js': steps({ pin: true }),
+  'example_try_repeat_classic_cmd.js': classic('the classic cards\' Repeat Try lines: the card ⋯ menu and the bracket\'s N field; example_try_repeat_cmd asks the same in the steps view'),
   'fix152_cmd.js': steps({ pin: true }),
   'fix152_classic_cmd.js': classic('the Split offer in the classic views: focus on a card, f₂ shown alone; fix152_cmd.js runs the offer in the steps view'),
   'guide_nav_cmd.js': steps({ pin: true }),
