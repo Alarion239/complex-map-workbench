@@ -392,9 +392,6 @@
       invHoms.set(ck, h);
     }
     if (!h.plan.ok) return F(h.plan.reason);
-    // (a homotopy inverted by Newton finds two of H_t's points over w; Everywhere asks for the front one of all of them
-    // over the whole plane, where H_t can have more, so that frame keeps the carried mesh)
-    if (s === SV_ALL && h.plan.ops.some((o) => o.kind === 'NEWT')) return F('Everywhere under a Newton inverse');
     const wk = winKey() + '|' + shapeKey(s);
     let prep = h.preps.get(wk);
     if (!prep) {

@@ -785,6 +785,9 @@
     const paths = list.map((x) => invHomPath(x, 0, b, u));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return false; }
+    // (a homotopy inverted by Newton finds two of H_t's points over w; Everywhere asks for the front one of all of them
+    // over the whole plane, where H_t can have more, so that frame keeps the carried mesh)
+    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) { why.r = 'Everywhere under a Newton inverse'; return false; }
     const res = svDrawInverse(pane, list, paths, T, frame);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
