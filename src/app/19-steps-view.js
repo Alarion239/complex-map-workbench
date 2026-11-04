@@ -345,10 +345,12 @@
   // the source for the planes' run [lo, hi] with the thread at x
   function svPathsSeg(P, lo, hi, x) {
     const start = P[lo];
+    // (all at once, the glide is one homotopy over [0, 1] of the whole run, as the classic dock's: its time is the run's share)
+    const all = hi - lo > 1 && !!SV.span && SV.span.x0 === lo && SV.span.x1 === hi && svAllOk(lo, hi), len = all ? hi - lo : 1;
     return {
-      Fat: (T) => svBetween(lo + T).F, T: Math.max(0, Math.min(hi - lo, x - lo)), Tend: hi - lo, seq: hi - lo > 1,
+      Fat: (T) => svBetween(lo + T * len).F, T: Math.max(0, Math.min(hi - lo, x - lo)) / len, Tend: (hi - lo) / len, seq: !all && hi - lo > 1,
       startId: start === 0,
-      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P]),
+      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all]),
       alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
     };
   }
