@@ -28,13 +28,13 @@ await settled({ max: 8000, only: true, until: `document.getElementById('soundBtn
 ok('sound on makes the plane the keyboard probe', await ev(`!!document.querySelector('#paneL canvas[aria-keyshortcuts~="ArrowLeft"]')`), null);
 await ev(`document.querySelector('#paneL canvas[aria-keyshortcuts]').focus(), 1`);
 await press('ArrowRight');
-await settled({ max: 1500 });
+await settled({ max: 4000, until: '!__cmwSteps().moving' });
 ok('→ on the sound probe plane leaves the thread where it is', (await at()) === i0, await at());
 await ev(`document.getElementById('soundBtn').click(), 1`);
 await settled({ max: 8000, only: true, until: `document.getElementById('soundBtn').getAttribute('aria-pressed') !== 'true'` });
 // typing: a text field keeps its arrows
 await ev(`(() => { const f = document.createElement('input'); f.id = 'zzField'; f.value = 'abc'; document.body.append(f); f.focus(); })()`);
 await press('ArrowRight');
-await settled({ max: 1500 });
+await settled({ max: 4000, until: '!__cmwSteps().moving' });
 ok('→ in a text field leaves the thread where it is', (await at()) === i0, await at());
 return { pass: fails.length === 0, fails, info };
