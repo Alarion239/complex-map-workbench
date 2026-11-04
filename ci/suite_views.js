@@ -182,7 +182,8 @@ const VIEWS = {
 
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': steps({ pin: true }),
-  'export_cmd.js': port('export', 'the figures of the shown plane: pinned to the steps view its first third fails on the article, homework and phase captions, the paths figure and the filmstrip (eight checks), and the rest of it reads the classic right pane (canvasR, the right plane\'s view)'),
+  'export_cmd.js': steps({ pin: true }),
+  'export_deform_cmd.js': port('export', 'the deformation\'s export in every view and its video: the glide\'s export (#620 item 8)'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
