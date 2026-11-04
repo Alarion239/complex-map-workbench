@@ -816,7 +816,8 @@
   // under the same key, its corners over the whole plane's mesh are the same points in the same colour. m is the glide's
   // at its nearest twentieth (svRingSize), kept while the planes, the window, the view and that twentieth stay
   // (svRingSizes): made ahead in idle moments for the glides into and out of the plane the thread is at (svRingAhead),
-  // else in the frame. null: none needed; {c, k1, k2}: the polar annulus
+  // else in the frame. null: none needed; {c, k1, k2, ring}: the polar annulus while gliding, the ring of size ring
+  // (null: none) parked
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
   // (the sizes kept: 21 a glide, two glides beside the plane, so 400 holds those of about nine views or windows; each
@@ -853,13 +854,21 @@
     try {
       // (the cells beside c are the whole plane's, a cell of its mesh across: they hold the view's points unless the
       // circle of that radius about c lands past the view)
+      // (ring: the ring's size, which a parked map draws in place of the polar ring; fits: one of its sizes, or none,
+      // does)
+      let ring = null, fits = true;
+      if (!(yield* all(side))) {
+        ring = SV_RING_M[SV_RING_M.length - 1]; fits = false;
+        for (const x of SV_RING_M) if (yield* all((i) => circ(x * R, i))) { ring = x; fits = true; break; }
+      }
       const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / 80)));
-      if (!deep && (yield* all(side))) return null;
-      if (!deep) for (const x of SV_RING_M) if (yield* all((i) => circ(x * R, i))) return x;
+      if (!deep && fits) return ring;
       const o = c || C(cx, cy);
       // (outward: the least k with the circle of radius R 2^k about o past the view; inward from c: the least k with
       // that of R 2^-k, down to where float32 places the points relative to c; without c, the inscribed circle)
-      const k2 = yield* svLeastK((k) => all(about(o, R * Math.pow(2, k))), SV_POLAR_KOUT);
+      // (each rounded out to a multiple of SV_POLAR_KQ, so a glide's twentieths share a few meshes)
+      const kq = (k, K) => Math.min(K, Math.ceil(k / SV_POLAR_KQ) * SV_POLAR_KQ);
+      const k2 = kq(yield* svLeastK((k) => all(about(o, R * Math.pow(2, k))), SV_POLAR_KOUT), SV_POLAR_KOUT);
       let k1 = null;
       if (c) {
         // (or where the circle's points land within a pixel of each other: the disc inside it is one point of the view,
@@ -878,9 +887,10 @@
           }
           return far || (x1 >= x0 && Math.max(x1 - x0, y1 - y0) * v.s < 1);
         };
-        k1 = yield* svLeastK(inner, Math.max(1, Math.floor(Math.log2(R / floor))));
+        const K1 = Math.max(1, Math.floor(Math.log2(R / floor)));
+        k1 = kq(yield* svLeastK(inner, K1), K1);
       }
-      m = { c: [o.re, o.im], k1, k2 };
+      m = { c: [o.re, o.im], k1, k2, ring };
     } catch (e) { m = SV_RING_M[0]; }
     return m;
   }
@@ -911,7 +921,8 @@
       const ps = globalThis.__svPathStats;
       if (ps) ps.ringFrame = (ps.ringFrame || 0) + 1;
     }
-    const ring = svRingShape(m);
+    // (a parked map draws the ring: its fix-ups and pre-mapped meshes refine the whole plane's mesh, not the polar ring's)
+    const ring = svRingShape(m && typeof m === 'object' && !map.mode ? m.ring : m);
     svRingMemo = { key, ring, m };
     return ring;
   }
@@ -938,7 +949,7 @@
   // or a root about c: no cell straddles it. Relative to c (meshInstances' origin), so float32 keeps its points near c.
   // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes, NR rings, NT cells a ring, dl
   // the log of a ring's ratio}; svPolarBuilds counts the builds
-  const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KEEP = 6;
+  const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
   // Under a polar ring the whole plane's mesh and the ring's share the plane, each where its cells are the finer, so
@@ -967,10 +978,10 @@
     const [cx, cy] = ring.c;
     // (a triangle whose three corners add up to (x, y): its centre outside the whole plane's share)
     const out = (x, y) => { x /= 3; y /= 3; return x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho; };
-    const T = r.mesh.tri, S = r.mesh.src, n = T.length / 3, flags = base ? Float32Array.from(base) : new Float32Array(n);
+    const T = r.mesh.tri, P0 = r.mesh.src, n = T.length / 3, flags = base ? Float32Array.from(base) : new Float32Array(n);
     for (let t = 0; t < n; t++) {
       let x = 0, y = 0;
-      for (let k = 0; k < 3; k++) { x += S[2 * T[3 * t + k]]; y += S[2 * T[3 * t + k] + 1]; }
+      for (let k = 0; k < 3; k++) { x += P0[2 * T[3 * t + k]]; y += P0[2 * T[3 * t + k] + 1]; }
       if (out(x, y)) flags[t] = 1;
     }
     if (P && P.res === r.meshRes) GLR.setSkip(P.skip, flags);
@@ -1043,8 +1054,15 @@
   // a ring size's mesh and its carried colour's textures, made by the idle job once it has made the size, so the frame
   // that first draws the ring builds and allocates nothing
   function svRingWarm(m) {
+    if (m && typeof m === 'object' && m.ring) svRingWarm(m.ring);
     const ring = svRingShape(m), r = ring ? svRingGPU(ring) : null;
     if (r && r.meshRes && GLR.carryReserve) GLR.carryReserve(r.meshRes, SV_CARRY_L);
+    // (a polar ring's share of the plane: its own skip flags and the whole plane's mesh's, with their vertex arrays)
+    if (r && r.meshRes && ring.polar && GLR.carryReserve) {
+      GLR.carryReserve(r.meshRes, SV_CARRY_L, svPolarOwnSkip(r, ring));
+      const a = svCarryGPU(SV_ALL), P = a && a.meshRes ? svPolarSkip(a, ring, null) : null;
+      if (P) GLR.carryReserve(a.meshRes, SV_CARRY_L, P.skip);
+    }
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's

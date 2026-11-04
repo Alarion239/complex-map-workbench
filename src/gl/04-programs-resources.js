@@ -1285,9 +1285,9 @@ float wabs(vec2 w) {
   // A mesh's carried-colour textures and vertex arrays made before its first draw (the steps view's idle job, for the
   // outer ring's sizes): its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose
   // cuts the fill draws, its point pass's (fillPoints), each at the size its draw asks for; and the vertex arrays of its
-  // map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO, meshVAO; no cells skipped), so that draw
-  // creates none of them
-  function carryReserve(res, L) {
+  // map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO, meshVAO) with the cells skip leaves out (none
+  // without it), so that draw creates none of them
+  function carryReserve(res, L, skip) {
     if (!ok || !rtOK || !res || !res.n) return false;
     const tpl = regionTemplate(L), W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(tpl.P * res.n / W));
     if (H > maxTex) return false;
@@ -1308,8 +1308,8 @@ float wabs(vec2 w) {
       }
     }
     meshTFVAO(res, L);
-    if (res.fillPts) fillPtsVAO(res, res.skip0);
-    meshVAO(res, L);
+    if (res.fillPts) fillPtsVAO(res, skip || res.skip0);
+    meshVAO(res, L, skip);
     return true;
   }
   // (how many point passes have run: the tests' proof that the fill took its values from one)
