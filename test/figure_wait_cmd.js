@@ -8,6 +8,7 @@ await view(1440, 900, false, false);
 await load('xwait' + Date.now(), { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
 await sleep(1500);
 await ev('__cmwExample(1); 1'); await sleep(1800);
+ok('the dialog opens from the steps view', await ev('!!window.__cmwSteps && __cmwSteps().on'), null);
 const had = await ev(`(() => { window.__mj = window.MathJax; window.MathJax = undefined; return !!(window.__mj && typeof window.__mj.tex2svg === 'function'); })()`);
 await key('e', 2); await sleep(1500);
 const w = await ev(`(() => { const e = document.querySelector('.xf-wait'); return e ? { vis: !!e.getClientRects().length, txt: e.textContent } : null; })()`);
