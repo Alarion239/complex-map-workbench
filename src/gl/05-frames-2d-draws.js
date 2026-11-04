@@ -364,7 +364,18 @@
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   function prestartCarry() {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
-    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts'] : ['regionKC'], [1]);
+    // (without parallel compiles the links run one by one in idle moments: the cut fill's own-option programs come last
+    // in that line, ahead of the idle job, whose scratch textures a later main-thread link would leave unused for long
+    // enough to be freed; with them, prestartOwn starts those after the warm draw)
+    const own = cuts && !clip && !pcExt ? (rtOK ? ['regionKSCpto', 'regionKSCo'] : ['regionKSo']) : [];
+    return prestartNames((clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts'] : ['regionKC']).concat(own), [1]);
+  }
+  // the cut fill's own-option programs (seams pixel for pixel), started once the glide's carried colour has drawn
+  // (the steps view's warm draw, svWarmCarry), so the links the first frames wait on are the plain ones alone; with
+  // parallel compiles only (without, prestartCarry lines them up)
+  function prestartOwn() {
+    const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = k.some((c) => c && c.h === 'sheet');
+    return cuts && !clip && pcExt ? prestartNames(rtOK ? ['regionKSCpto', 'regionKSCo'] : ['regionKSo'], [1]) : 0;
   }
   // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
   let fillPtsOn = true;
@@ -405,16 +416,26 @@
       fp = Q ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30 }) : null;
       fill = fp ? Q : (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
     }
+    // (a sheet program drawing: its own-option version in its place once linked, so the seams are drawn pixel for
+    // pixel (prestartOwn starts it); a clipped cut's has its own side test)
+    let own = false;
+    const ownOf = (name, R) => {
+      if (!R || clip) return R;
+      const O = linked(name + 'o', st.map);
+      if (O) own = true;
+      return O || R;
+    };
+    if (fill) fill = ownOf(fp ? 'regionKSCpt' : 'regionKSC', fill);
     let full = null;
     if (cuts && !fill && !carryProbe.noFill) {
       P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
       if (P) e = null;
+      if (P && !cache) P = full = ownOf('regionKS', full);
     }
     if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
-    // (pass1: the sheet program's second pass, the parts of its torn triangles past the cut on the branch there: the
-    // fill's, a clipped cut's, and the whole-mesh sheet program's where it is the way the frame draws (no map cache);
-    // where it only stands in while the fill's programs link, it is left out, so a frame on a busy GPU stays one pass)
-    return P ? { L, e, P, fill, fp, full, clip, pass1: !!fill || clip || (!!full && !cache) } : false;
+    // (pass1: the sheet program's second pass, the parts of its torn triangles past the cut on the branch there: a
+    // clipped cut's, and an own-option program's)
+    return P ? { L, e, P, fill, fp, full, clip, pass1: clip || own } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)
   function drawRegionCarry(res, st, prep) {

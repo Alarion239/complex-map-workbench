@@ -372,7 +372,9 @@ float longest(vec2 a, vec2 b, vec2 c) { return max(max(len2(b - a), len2(c - b))
   // the pane: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
   // each triangle continued from its centre's sheet (chainSheetHom, the landscape's evalAt), so a triangle across a cut
   // of the deformation's path is continued, not torn and left out; clip (read only with sheet, whose side values it
-  // uses), a cut a path's dom marks
+  // uses), a cut a path's dom marks; own (with sheet, not clip), each fragment of a triangle torn across the cut kept
+  // only where the map sends its source point (CARRY_FS's own), and the pass uKPass 1 for the triangle's part past the
+  // cut: programs of their own, so the fill's own link is not made longer by the chain its fragment stage adds
   // (cutKinds' clip): each vertex's side of it (vSide) for CARRY_FS's clip, and the pass uKPass 1 for the part of a
   // triangle past it (only the programs of a chain with such a cut: CARRY_FS's discard costs every fragment its early
   // depth test)
@@ -404,7 +406,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && !o.clip ? 'out vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'out vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -425,7 +427,7 @@ ${o.points ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0
 ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
   vec2 wm = FT(3, dMid);` : `  vec2 w0 = onCentreSheet(zc, s0, d0), w1 = onCentreSheet(zc, s1, d1), w2 = onCentreSheet(zc, s2, d2);
   vec2 wm = onCentreSheet(zc, (s0 + s1 + s2) / 3.0, dMid);`}` : `  vec2 w0 = W(aIdx.x, s0), w1 = W(aIdx.y, s1), w2 = W(aIdx.z, s2);
-  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet ? `
+  vec2 wm = W(aIdx.w, (s0 + s1 + s2) / 3.0);`}${o.sheet && (o.clip || o.own) ? `
   // (uKPass 1: the triangle again, continued from a vertex past the cut, so its part on that vertex's side shows on
   // that vertex's branch; a triangle with no vertex past it is not drawn. A clipped cut: a vertex whose side value is
   // negative, the part the pass 0 draw clipped. Another sheet cut: a vertex where the centre's sheet is not the map's
@@ -445,7 +447,7 @@ ${o.clip ? `  bool o0 = d0 < 0.0, o1 = d1 < 0.0, o2 = d2 < 0.0;` : `  float te =
   int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && !o.clip ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
   vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
   vWTol = uKPx + 0.25 * longest(w0, w1, w2);

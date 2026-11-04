@@ -42,6 +42,11 @@ const park = async (x, scope) => {
   ok('teeth: the page shows the steps view', await isSteps(), null);
   await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
   await park(1.5, 'all');
+  // (the fill draws seams pixel for pixel with its own-option program, started after the steps view's warm draw:
+  // that program made, then a frame drawn with it)
+  await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCpto")' });
+  await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
+  ok('teeth: the frame is drawn with the fill\'s own-option program', await drawn(), null);
   const teeth = () => ev(`(() => {
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);

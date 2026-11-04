@@ -85,7 +85,7 @@
   // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
   // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
-  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip });
+  const REGION_K_VS = (fetch, sheet, clip, own) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!own });
   const REGION_K_FS = (clip, own) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip, !!own);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
@@ -98,14 +98,20 @@
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
-    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS(false, true) },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
     // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
-    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS(false, true) },
+    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS() },
     // (regionKS and regionKSC for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
     regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
     regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
     // (regionKSC and regionKSCclip with the fill's values from its point pass, fillPts: drawRegionCarry, fillPoints)
-    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true }), fs: REGION_K_FS(false, true) },
+    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true }), fs: REGION_K_FS() },
+    // (regionKS, regionKSC and regionKSCpt with REGION_VS's own option: a torn triangle's fragments kept only where the
+    // map sends them, and its part past the cut in pass 1; started after the plain ones have drawn, prestartOwn, and
+    // drawn in their place once linked: carryPrep)
+    regionKSo: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, false, true), fs: REGION_K_FS(false, true) },
+    regionKSCo: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, false, true), fs: REGION_K_FS(false, true) },
+    regionKSCpto: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS(false, true) },
     regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
     fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
