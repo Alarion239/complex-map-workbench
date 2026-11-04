@@ -1,4 +1,4 @@
-// The steps view's glide on the Sphere surface carries the colour with the points, as the plane does (#846): between
+// The steps view's glide on the Sphere surface carries the colour with the points, as the plane does: between
 // plane z and plane w1 of z^2, coloured from w1, a point z0 of plane z keeps its colour as it moves to H_u(z0). Parked
 // at u = 0.25, 0.5 and 0.75:
 //  - the globe's last frame drew the carried colour per pixel, through the inverse pass (__cmwSvGlobe(): path
@@ -14,8 +14,6 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
 const quiet = () => settled({
   floor: 400, max: 20000,
   until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
@@ -38,16 +36,13 @@ const cdist = (p, q) => {
 const sat = (p) => Math.max(...p) - Math.min(...p);
 await view(1200, 800, false, false);
 const ns = 'svsc' + Date.now();
-await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
 const st = {
   v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
   shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }],
 };
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
-const ready = `typeof __cmwSteps === 'function' && typeof __cmwSvGlobe === 'function'`;
-for (let i = 0; i < 40 && !(await ev(ready)); i++) await sleep(250);
+await loadView('steps', ns, st);
+await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && typeof __cmwSvGlobe === 'function'` });
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere', scope: 'all', T: 1 }); 1`); await quiet();
 const Z = [[0.3, 0.3], [0.6, 0.2], [0.4, -0.2], [0.2, 0.5]];
 const rest = [];
@@ -74,7 +69,6 @@ const differ = (a, b) => ev(`(() => {
   return { mean: +(sum / n).toFixed(3), over32: +(m / n).toFixed(5) }; })()`);
 await grab('rest');
 await ev(`__cmwSteps({ x: 0.002 }); 1`);
-await sleep(300);
 await quiet();
 for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
 await grab('start');
@@ -84,7 +78,6 @@ ok('just past plane z the moving globe is the resting globe (a mean within 1.5 l
 R.parked = {};
 for (const u of [0.25, 0.5, 0.75]) {
   await ev(`__cmwSteps({ park: ${u} }); 1`);
-  await sleep(300);
   await quiet();
   let g = null;
   for (let i = 0; i < 40; i++) {
@@ -106,7 +99,6 @@ for (const u of [0.25, 0.5, 0.75]) {
 await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
 await grab('rest1');
 await ev(`__cmwSteps({ x: 0.998 }); 1`);
-await sleep(300);
 await quiet();
 for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
 await grab('end');

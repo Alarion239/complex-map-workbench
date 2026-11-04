@@ -746,25 +746,36 @@
     return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
   }
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark });
+  // The steps view's carried colour by the inverse pass: drawInverse's arguments (without the view), one per region
+  // (svCarryShapes), each pixel the front point z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on
+  // plane b (u null) through the map into b (pathOf, kind 'flat' or 'globe'); between planes through step b's homotopy
+  // at u (invHomPath). Null, why.r the first reason, unless every region takes that path
+  const SV_CARRY_LOOK = { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false };
+  function svInvRecs(pane, b, u, T, kind, why = { r: null }) {
+    const list = svCarryShapes();
+    if (!list || !list.length) { why.r = 'a region of a later plane'; return null; }
+    if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
+    if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
+    const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
+    const paths = list.map((x) => (u == null ? pathOf(x, stageMap(b), 'L', kind, { recs, budget: false }) : invHomPath(x, 0, b, u)));
+    const no = paths.find((p) => p.path !== 'inverse');
+    if (no) { why.r = no.reason; return null; }
+    const carry = svCarryStyle(T);
+    return list.map((x, i) => ({ map: paths[i].m, plan: paths[i].plan, prep: paths[i].prep, inv: paths[i].inv, shape: x, dpr: pane.dpr, look: SV_CARRY_LOOK, carry, half: false, motion: false, coldOk: true }));
+  }
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
   // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape takes that path: a region of a later plane, a
   // map with no inverse, a program still compiling
   function svCarryExact(pane, a, T, frame) {
-    const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || a <= T || derivIn(0, a)) return false;
-    const map = stageMap(a), recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
-    const paths = list.map((x) => pathOf(x, map, 'L', 'flat', { recs, budget: false }));
-    if (paths.some((p) => p.path !== 'inverse')) return false;
-    const carry = svCarryStyle(T);
+    const args = a > T ? svInvRecs(pane, a, null, T, 'flat') : null;
+    if (!args) return false;
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-    for (let i = 0; i < list.length; i++) {
-      const p = paths[i];
+    for (const arg of args) {
       let res = 'error';
       try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, arg));
       } catch (e) { console.error('steps view exact colour', e); }
       // (a shape drawn already stays: the next path draws over it)
       if (res !== 'drawn') return false;
@@ -776,22 +787,13 @@
   // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
   // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why) {
-    const list = svCarryShapes();
-    if (!list || !list.length) { why.r = 'a region of a later plane'; return false; }
-    if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return false; }
-    if (derivIn(0, b)) { why.r = 'a d/dz step'; return false; }
-    packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
-    const paths = list.map((x) => invHomPath(x, 0, b, u));
-    const no = paths.find((p) => p.path !== 'inverse');
-    if (no) { why.r = no.reason; return false; }
-    const carry = svCarryStyle(T);
+    const args = svInvRecs(pane, b, u, T, 'flat', why);
+    if (!args) return false;
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-    for (let i = 0; i < list.length; i++) {
-      const p = paths[i];
+    for (const arg of args) {
       let res = 'error';
       try {
-        res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, arg));
       } catch (e) { console.error('steps view glide colour', e); }
       if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     }
@@ -1231,16 +1233,8 @@
   // the map into b (svCarryExact's). A point of the plane shown is walked back to plane 0 and coloured as the colour
   // plane colours it. Null when a region has no inverse plan
   function svGlobeCarryInv(pane, b, u, T) {
-    const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawInverse || !GLR.packShapes || derivIn(0, b)) return null;
-    const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
-    const paths = list.map((x) => (u == null ? pathOf(x, stageMap(b), 'L', 'globe', { recs, budget: false }) : invHomPath(x, 0, b, u)));
-    if (paths.some((p) => p.path !== 'inverse')) return null;
-    const carry = svCarryStyle(T), look = { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false };
-    return list.map((x, i) => ({
-      inv: { map: paths[i].m, plan: paths[i].plan, prep: paths[i].prep, inv: paths[i].inv, shape: x, dpr: pane.dpr, look, carry, half: false, motion: false, coldOk: true },
-      onResult: (res) => { if (res === 'pending') requestRender('L'); },
-    }));
+    const args = svInvRecs(pane, b, u, T, 'globe');
+    return args && args.map((inv) => ({ inv, onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
   }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
   // homotopy), the plane's shapes and what the globe draws over them at rest (leftGlobeOver). Null when a region has

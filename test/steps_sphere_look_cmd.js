@@ -1,6 +1,6 @@
-// The steps view's glide on the Sphere surface looks as the exact picture at the same u (#846, option A): held at
+// The steps view's glide on the Sphere surface looks as the exact picture at the same u: held at
 // u = 0.25, 0.5 and 0.75 of a glide between two coloured planes, each pixel of the globe shows the colour that plane
-// z's parked globe shows at the point the glide's map H_u carries there, lit where it now is.
+// z's parked globe shows at the point the glide's map H_u carries there, lit for its place on the moving globe.
 // The reference, per sample point w of the sphere's front side (a lattice of the sphere, its pixel P on the moving
 // globe): z0 = H_u^-1(w) by Newton's method (the step is a Möbius map, so z0 is the one point), and its pixel Q on the
 // parked globe of plane z, where it shows on the front side. The globe's light (SHADE_GLOBE: c = alb k(n, v) + spec(n,

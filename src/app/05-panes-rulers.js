@@ -1218,8 +1218,7 @@
   const leftNet = () => (globeEdit('L') ? globeNet() : 'plain');
   // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
   // view, in both paints (over the portrait, area fills at half strength)
-  const leftPre = () => (typeof hasTargets === 'function' && hasTargets() && typeof preimageTargets === 'function'
-    ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null);
+  const leftPre = () => (hasTargets() ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null);
   // what the left globe draws over its picture at rest: the net, the targets pulled back, the probe and a shape draft
   // drawn on the globe (P3b) over the shapes (sphereView's options)
   const leftGlobeOver = () => ({ net: leftNet(), pre: preAll(leftPre(), false), probeW: probe || null, post: [globeDraftPass('L')] });
