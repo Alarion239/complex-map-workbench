@@ -113,8 +113,11 @@ const LOG_SECTOR = `window.__logSector = () => {
 }, 1`;
 // the logarithm's coverage of the frame held at u: its colour layer alone read every 3 device px, against the sector:
 // {u, ins, holes (inside it, on the paper), outs, strays (outside it, drawn)}
+// (grab's first read is compared with the frame grabbed before, the held frame with its grid: it waits here for a
+// frame drawn bare, whose glide record is a new one, so a frame drawn before the hook took effect is never the one read)
 const coverage = async (tag) => {
-  await ev('__cmwSteps({ bare: true }), 1');
+  await ev('window.__bareRec = __cmwSteps().glide, __cmwSteps({ bare: true }), 1');
+  await settled({ max: 60000, until: '__cmwSteps().glide !== window.__bareRec' });
   const still = await grab('C' + tag);
   const r = await ev(`(() => {
     const g = __cmwSteps().glide, c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data, K = __logSector(), ins = [], outs = [];
