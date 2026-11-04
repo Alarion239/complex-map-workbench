@@ -83,6 +83,22 @@ await task('deriv', SV ? 'Click the chip d/dz.' : 'Double-click the card d/dz.',
 });
 check('deriv: the result line says what the step is', SV ? /Inspector shows the step that differentiates/.test((await l2()).text) : /input and output/.test((await l2()).text), await l2());
 
+// the steps view's Add function and Reorder steps (the classic add card has no such line; its chain has no reorder step)
+if (SV) {
+  await task('add', 'Click + Add function.', async () => {
+    const c = await center('#svStrip .sv-add');
+    await mdrag(c[0], c[1], c[0], c[1]);
+  });
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await task('reorder', 'In the ⋯ menu of f₂, choose Move left.', async () => {
+    const m = await center('#svStrip .sv-step[data-k="2"] .sv-more');
+    await mdrag(m[0], m[1], m[0], m[1]); await settle(400);
+    const it = await ev(`(() => { const e = [...document.querySelectorAll('#popHost [role="menuitem"], #popHost button, .menu button')].find((x) => /^Move left/.test(x.textContent.trim())); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+    await mdrag(it[0], it[1], it[0], it[1]);
+  });
+  check('reorder: the result line says the planes changed with the order', /changed with the order/.test((await l2()).text), await l2());
+}
+
 // cauchy: drag the circle gamma (Select is on); a fresh page, as the focus the double-click above left on a card is no part of it
 await open('tt2', 1440, 900, false, false);
 await task('cauchy', 'Drag the circle γ.', async () => {

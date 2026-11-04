@@ -6,23 +6,15 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+const { STATE, fig, noMathJax } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'fig_kit.js'), 'utf8'))({ ev });
 const ns = 'pse' + Date.now();
 await view(390, 844, false, true);
 await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'k1', kind: 'disc', c: [0.3, 0], r: 0.6, ci: 0, visible: true }],
-  steps: [{ type: 'affine', params: { a: '1', b: '0.5' }, on: true }, { type: 'sin', params: {}, on: true }, { type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE))}); 1`);
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
 await settled({ until: '!!window.__cmwSteps && !!window.__cmwFig && __cmwSteps().on', max: 30000 });
-const until = async (expr, max = 10000) => { const r = await settled({ until: expr, max }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails, max: 10000 });
 const park = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true })`); await until(`__cmwSteps().i === ${i} && !__cmwSteps().moving`); };
-// (the figure's pictures are the data: images embedded in the svg, hashed in the page; the svg's own ids differ from build to build)
-const fig = async () => ev(`await (async () => { try {
-  const f = await __cmwFig.build({ for: 'article', cols: 1 }); if (!f) return { none: 1 };
-  const hs = (t) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(16); };
-  const imgs = [...f.svg.matchAll(/xlink:href="(data:[^"]*)"/g)].map((m) => m[1].length + ':' + hs(m[1]));
-  return { svg: f.svg.replace(/xlink:href="data:[^"]*"/g, ''), imgs: imgs.join(','), n: imgs.length, cap: f.captionTex || '' };
-} catch (e) { return { err: String(e && e.stack || e).slice(0, 400) }; } })()`, 180000);
 const shown = () => ev(`(() => { const s = __cmwSteps();
   return { i: s.i, x: s.x, stage: s.stage, moving: s.moving, name: s.names.title.name, role: s.names.title.role,
     title: document.getElementById('leftTitle').textContent }; })()`);
@@ -31,7 +23,7 @@ const S0 = await shown();
 ok('at rest the shown plane is z: stage 0, the variable z', S0.i === 0 && S0.stage === 0 && S0.name === '<i>z</i>', S0);
 const F1 = await fig();
 // (the figure needs MathJax: where the page can't load it, only the state is checked)
-const noMJ = !!(F1.err && /MathJax/.test(F1.err));
+const noMJ = noMathJax(F1);
 if (noMJ) info.figure = 'MathJax did not load here: the figure is not built';
 else {
   ok('the figure at z builds, with its pictures', !F1.err && !F1.none && F1.svg && F1.svg.length > 1000 && F1.n > 0, F1.err || F1.none || F1.n);

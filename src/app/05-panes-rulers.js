@@ -1018,7 +1018,6 @@
     // ((#366 prototype) o.lineMap: the steps view's glide moves the shapes in either paint, 19)
     const map = o.lineMap || (hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage));   // shapes live in the z-plane
     const cell = patternCell();
-    const halo = GLR.hexRGB(TH.halo);
     // the same map cache keys as drawScene: orbiting the globe re-evaluates nothing (spec 8.1); homotopy frames go
     // to GLR's per-resource scratch evaluation instead (no cache entry per t)
     const cache = map.mode === 0, mk = mapKeyOf(map);
@@ -1083,8 +1082,11 @@
       }
       const rl = linesOf(r, pf.p);
       if (rl.lineRes && !hideStrokes && !(artMode && artSkip && artSkip.has(s.id))) {
-        const area = kindType(s) === 'area';
-        lines.push({ res: rl.lineRes, st: { map: sm, dpr: pane.dpr, M: 8, width: (area ? 1.5 : 2) * pane.dpr, color: imageMode ? GLR.hexRGB(ink.edge) : GLR.hexRGB(TH.dcCasing), alpha: 1, casing: { color: imageMode ? halo : [1, 1, 1], alpha: 0.85, width: (area ? 3.5 : 4) * pane.dpr }, cacheKey: cache ? `${rl.lineKey}|${smk}` : null } });
+        // (the globe's lines: the stroke of a shape's curve, without the selection's or the hover's emphasis; a phase portrait takes the
+        // dc line colour on a white casing)
+        const sk = shapeStroke(s, pane.dpr, { still: true });
+        if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
