@@ -738,6 +738,43 @@
     return true;
   }
 
+  // (#846) drawCarried on the globe, inside drawSphere's frame (sph: its camera and key light): the whole sphere of
+  // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
+  // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
+  // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
+  // False when the program is not ready
+  function drawCarriedGlobe(st, sph) {
+    if (!ok) return false;
+    const P = program(st.s === st.T ? 'carryGId' : 'carryG', st.map);
+    if (!P) return false;
+    use(P, st.map);
+    uM4(P, 'uMVP', sph.MVP); u3(P, 'uEye', sph.eye);
+    globeLight(P, sph);
+    const g = st.mesh;
+    u2i(P, 'uN', g.nx, g.ny);
+    u1f(P, 'uLim', st.lim);
+    u1f(P, 'uPole', 1e-3);
+    u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
+    dcUniforms(P, st, st.dpr || 1);
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    u1i(P, 'uKeyOn', k ? 1 : 0);
+    if (k) {
+      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
+      sing.forEach((q, i) => { sv[2 * i] = q.re; sv[2 * i + 1] = q.im; });
+      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
+      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
+      u1i(P, 'uKSingN', sing.length);
+    }
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+    gl.bindVertexArray(null);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    return true;
+  }
+
   // ---------------- preimages (Preimage mode) ----------------
   const TKIND = { disc: 1, rect: 2, polygon: 3, halfplane: 4, annulus: 5, sector: 6, formula: 7, segment: 11, line: 12, ray: 13, circle: 14, arc: 15, curve: 16, cgrid: 17, pgrid: 18, fcurve: 19 };
   // v16 (notes/constructions-v16/SPEC.md 2.2): a gcircle disc or circle (s._g, A != 0) packs its exact form instead of

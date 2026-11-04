@@ -346,6 +346,14 @@
   let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
   // (#439 I) frame: the GL frame the caller composes the colour layer in ({open}); the GPU path draws into it (opening
   // it if need be) and leaves the copy to the caller; the CPU path first copies what it holds into cc
+  // the sheet key of the points of plane s carried from plane a (svCarry's and the globe's, svSphereMoving): the window
+  // of the camera every plane shares (S.srcView) at the pane's size, and the plan's accumulation set of the map from s
+  // to a, as smKeyOf for the forward meshes
+  function svCarryKey(pane, s, a) {
+    const v = S.srcView, hw = pane.w / 2 / v.s, hy = pane.h / 2 / v.s, R = Math.hypot(hw, hy);
+    const plan = a > s ? invPlan(s, a) : null;
+    return { win: { x0: v.cx - hw, y0: v.cy - hy, x1: v.cx + hw, y1: v.cy + hy }, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+  }
   function svCarry(pane, cc, s, a, H, frame) {
     const T = svT();
     if (s > 0 && derivIn(s, T)) return false;
@@ -355,11 +363,7 @@
     if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
       const map = H ? (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u }) : { mode: 0, a: s, b: a };
-      // (the sheet key of the points of plane s: its window, the camera's, and the plan's accumulation set of the map
-      // to plane a, as smKeyOf for the forward meshes)
-      const win = { x0: v.cx - hw / ext, y0: v.cy - hy / ext, x1: v.cx + hw / ext, y1: v.cy + hy / ext }, R = Math.hypot(hw, hy) / ext;
-      const plan = a > s ? invPlan(s, a) : null;
-      const key = { win, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+      const key = svCarryKey(pane, s, a);
       if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
       if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
         style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
@@ -1157,14 +1161,42 @@
   // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
   let svFadeCv = null;
   function svSphereMoving(pane) {
-    const { a, b, u, map, F, near } = svBetween();
-    const look = (k) => ({ imageMode: !svColoured(near), stage: k, plane: !!xView().eq, role: 'L', colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F } });
-    const info = sphereView(pane, camL, CAML, look(a));
-    // (plane b's globe fades in when it has its own paint: coloured, or the shapes on paper past the colour plane)
-    if (u > 0.01 && b !== a && (svColoured(b) || !svColoured(near))) {
+    const { a, b, u, map, F, near, all } = svBetween();
+    // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
+    // the outlines are, sphereView's inRegions)
+    const look = (k) => ({
+      imageMode: !svColoured(near), inRegions: svMaskOn() && svColoured(k), stage: k, plane: !!xView().eq, role: 'L',
+      colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F },
+    });
+    // (between two coloured planes, the colour carried by plane a's points along the glide, as the plane carries it
+    // (svCarry): over the whole sphere of plane a, each fragment its point's colour in the colour plane)
+    const T = svT(), glide = b !== a && (all || map.mode === 1);
+    const carried = glide && svColoured(a) && svColoured(b) ? {
+      map: all ? { mode: 3, a, b, t: u, base: a } : { mode: 1, base: a, hi: b, t: u }, s: a, T, mesh: { nx: 192, ny: 96 },
+      lim: 0.5, key: svCarryKey(pane, a, a), style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB,
+      ink: TH.inkRGB, dark: TH.dark,
+    } : null;
+    const info = sphereView(pane, camL, CAML, Object.assign(look(a), { carried }));
+    // (over it, a plane's own globe: with the carried colour, each end's exact globe over the first and the last 15 %
+    // of the glide, as the plane blends its exact colours in; without it, plane b's globe fading in, when it has its
+    // own paint: coloured, or the shapes on paper past the colour plane)
+    const near1 = (w) => Math.max(0, Math.min(1, w));
+    const fades = info && info.carried ? [[a, near1(1 - u / 0.15)], [b, near1((u - 0.85) / 0.15)]]
+      : b !== a && (svColoured(b) || !svColoured(near)) ? [[b, u]] : [];
+    for (const [k, al] of fades) {
+      if (!(al > 0.01)) continue;
       svFadeCv = svCanvas(svFadeCv, pane);
-      sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
-      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
+      sphereView(svProxy(pane, svFadeCv), camL, CAML, look(k));
+      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = al; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
+    }
+    // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
+    // the plane's camera, drawn lifted to the sphere)
+    const paths = info ? svPathsSource() : null;
+    if (paths) {
+      try {
+        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }, paths, S.srcView);
+        drawMorphPathsX(pane, sel, F, globePathP(pane, info), { T: paths.T, side: 'L' });
+      } catch (e) { console.error('steps view globe paths', e); }
     }
     leftSphereInfo = info;
   }

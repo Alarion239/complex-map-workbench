@@ -248,18 +248,20 @@
   // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere
   // The globe's paths are chosen on the sphere under the camera of the moment (globeSelP); an orbit that turns more than
   // one kept start (or a quarter of them) away from the camera chooses again (epoch), after the same 150 ms of stillness.
+  // src: the deformation source (default the classic transport's); fit: the flat view the choice is made in (default
+  // the deformation's fitted frame, defFitView; the steps view passes its one camera, S.srcView)
   const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
-  function morphSelGlobe(pane, cam) {
+  function morphSelGlobe(pane, cam, src = classicSource(), fit = null) {
     if (cam) mfGlobe.cam = cam;
-    const k = mfScreenKey(pane, classicSource()).key + `|${pane.w}x${pane.h}`;
+    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}` + (fit ? `|${fit.cx},${fit.cy},${fit.s}` : '');
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
       vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
-      vp.view = defFitView(vp, false);
+      vp.view = fit ? { cx: fit.cx, cy: fit.cy, s: fit.s } : defFitView(vp, false);
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
-    const sel = morphSelScreen(mfGlobe.vp);
-    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, classicSource()).key) {
+    const sel = morphSelScreen(mfGlobe.vp, src);
+    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, src).key) {
       const P = globeSelP(cam, pane.w, pane.h, 0.2);
       const off = sel.kept.filter((q) => !P(q.sp.z)).length;
       if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
@@ -307,6 +309,8 @@
   const PATHS = { sep: 24, dTest: 14, dS: 34, dE: 26, maxN: 18, minN: 8, area: 110, edgeShare: 0.55, figK: 0.7, figMax: 12, globeMax: 9, globeK: 1.4, shortK: 0.7, ink: 2.5, longK: 3, longShare: 0.2, longD: 2.2, stubK: 1.2, arrowMin: 60, globeFace: 0.35, sharp: 0.75, vee: 120, small: 500, fade: 150 };
   // the last frame's moving points on the merged plane, [x, y, z.re, z.im] (a test hook compares them with H_T(z))
   let mfDrawn = null;
+  // the last frame's moving points on a globe: how many (the steps view's paths hook)
+  let mfGlobeDrawn = null;
   // what the deformation's paths (src/morphpaths.js) need from the app: its functions and constants, and the state
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
@@ -329,6 +333,7 @@
       get figMode() { return figMode; },
       get figVec() { return figVec; },
       get mfDrawn() { return mfDrawn; }, set mfDrawn(v) { mfDrawn = v; },
+      get mfGlobeDrawn() { return mfGlobeDrawn; }, set mfGlobeDrawn(v) { mfGlobeDrawn = v; },
       get motionInT() { return motionInT; },
       get paneR() { return paneR; },
     };

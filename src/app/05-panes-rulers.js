@@ -92,7 +92,7 @@
     // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
-    if (SV.on) mfDrawn = null;
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
     if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
@@ -778,6 +778,18 @@
     const p = at(t1);
     return Math.abs(p[2] - z0) < 1e-6 * Math.max(1, Math.abs(z0)) + 1e-9 ? toZ(p) : null;
   }
+  // the deformation paths' projection on a globe frame info ({MVP, eye}): a point w of the plane lifted onto the
+  // sphere, just above it, in the pane's CSS px; null for a non-finite w or on the far side (the normal more than
+  // acos 0.02 from the camera)
+  function globePathP(pane, info) {
+    return (w) => {
+      if (!w || !CX.isFin(w)) return null;
+      const p = liftC(w.re, w.im), tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]];
+      const l = Math.hypot(...tv) || 1;
+      if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / l <= 0.02) return null;
+      return project(pane, info.MVP, p.map((v) => v * 1.01));
+    };
+  }
   function project(pane, MVP, p) {
     const c = GLR.M4.apply(MVP, p);
     if (c[3] <= 1e-6) return null;
@@ -965,20 +977,24 @@
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
-  // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
+  // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
+  // globe (GLR.drawSphere's st.carried). Returns the frame's {MVP, eye, carried} (carried: that colour was drawn) or
+  // null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
     // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
     // (a frame or two) the regions' globe alone; the frame is asked again when it has)
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
-      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));
+      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
+      let carried = false;
       if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
         try {
-          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true })));
+          carried = !!(mi && mi.carried);
         } catch (e) { console.error('globe region mask', e); }
       }
-      return info;
+      return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
     // backdrop, shadow or marks of its own, #440)
@@ -1099,7 +1115,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain',
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
@@ -1151,8 +1167,8 @@
     // the deformation's live paths t -> H_t(z) on the merged globe, over the sphere's front side
     if (hom && imageMode && role === 'R' && !figMode && S.morphPaths !== false && !morphHasDeriv()) {
       try {
-        const Pg = (w) => { if (!w || !CX.isFin(w)) return null; const p = lift(w.re, w.im); return facing(p) > 0.02 ? project(pane, info.MVP, p.map((v) => v * 1.01)) : null; };
-        drawMorphPathsX(pane, morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }), hom.imageF || hom.F, Pg);
+        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye });
+        drawMorphPathsX(pane, sel, hom.imageF || hom.F, globePathP(pane, info));
       } catch (e) { console.error('deformation paths', e); }
     }
     if (labels.length) placeLabels(ctx, pane, labels);

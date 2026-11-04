@@ -268,8 +268,15 @@
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());
+  // (#846) the steps view's globe: whether its last frame drew the carried colour, and where the point (re, im) of the
+  // glide's plane a is at the glide's u (H_u of svBetween; the point itself at rest)
+  window.__cmwSvGlobe = (re, im) => {
+    const g = svBetween(), z = C(re, im), w = g.H ? g.H(z) : z;
+    return { carried: !!(leftSphereInfo && leftSphereInfo.carried), a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null };
+  };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
-  // and how far in px the farthest is from H_T(z) of its start z), the selection's size and whether it is this source's
+  // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe), the selection's
+  // size and whether it is this source's
   const svPathsHook = () => {
     const src = svPathsSource(), d = mfDrawn;
     let err = 0;
@@ -285,7 +292,8 @@
     const ready = !!(src && mfCache.sel && mfCache.key === mfScreenKey(paneL, src).key);
     const kept = mfCache.sel ? mfCache.sel.kept.length : 0;
     const heads = d ? d.heads.length : 0;
-    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, err, kept, ready };
+    const globeHeads = mfGlobeDrawn ? mfGlobeDrawn.heads : 0;
+    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, err, kept, ready };
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone); glide: the last glide frame's record (svGlideRec)
