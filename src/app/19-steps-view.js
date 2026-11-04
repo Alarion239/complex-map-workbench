@@ -2117,6 +2117,7 @@
     }
     svSync();
     requestRender('L');
+    tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
   }
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
