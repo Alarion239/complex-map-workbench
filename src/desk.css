@@ -606,7 +606,12 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
 .disp-pop.pat-pop { width: 300px; }
 .cp-pop > .lbl { white-space: normal; text-wrap: pretty; }
-.disp-pop.pat-pop.cp-wide { width: 500px; max-width: calc(100vw - 24px); }
+.disp-pop.pat-pop.cp-wide { width: max-content; min-width: 300px; max-width: calc(100vw - 24px); }
+/* the style row wraps: all six styles show, the thumb that slides along a one-line row is off and the checked one is filled */
+.cp-pop .seg { height: auto; flex-wrap: wrap; overflow: visible; row-gap: 2px; }
+.cp-pop .seg::before { display: none; }
+.cp-pop .seg > button { min-height: 28px; }
+.cp-pop .seg[style] > button.on { background: var(--seg-on); border-color: var(--line-strong); }
 .cp-pop > .cp-go { align-self: flex-start; justify-self: start; width: auto; }
 .cp-pop > .cp-rows { display: flex; flex-direction: column; gap: 8px; }
 /* (the ⋯ pop-up shows the words: each style's under its glyph, each toggle's beside its check) */
@@ -785,4 +790,4 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 
 /* the colouring's picker in the phone's Display sheet: every row a 44 px target */
 html.ph .cp-pop .check, html.ph .cp-pop .cp-go, html.ph .cp-pop .seg button, html.ph .cp-pop select.sel { min-height: 44px; }
-html.ph .cp-pop .seg { overflow-x: auto; }
+html.ph .cp-pop .seg { display: grid; grid-template-columns: repeat(3, 1fr); }

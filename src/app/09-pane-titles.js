@@ -530,6 +530,8 @@
     const kids = colour ? [...rest, colour.el] : regions ? [...rest, ...regionsHead, regions] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : '') + (colour ? ' cp-wide' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
+    // (the colouring's picker grows to fit its style row, up to the plot pane's width less a margin each side, then wraps)
+    if (colour) { const pn = btn.closest('.pane'); if (pn) pop.style.maxWidth = Math.max(300, pn.clientWidth - 32) + 'px'; }
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
