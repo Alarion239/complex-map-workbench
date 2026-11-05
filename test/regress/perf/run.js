@@ -1008,11 +1008,13 @@ const SV_PASSES = `(() => { if (window.__pp) return; const PP = window.__pp = { 
     PP.rec = []; return JSON.stringify({ mode: PP.mode, rec: out }); };
 })()`;
 // test-only probe of the lines pass (#1025): variant window.__lv of GLR.drawLines: 'normal', 'discard' (the draws'
-// fragments discarded: vertex work only), 'nocasing' (the stroke pass alone); every call's CPU time is recorded as
+// fragments discarded), 'nocasing' (the stroke pass alone), 'tiny' / 'half' (one instance / half of them), 'fin' (gl.finish before each draw); every call's CPU time is recorded as
 // the label 'drawLines CPU' (program lookup, cache lookup and uniforms included)
 const SV_LINES = `(() => { window.__lv = 'normal';
   const G = WebGL2RenderingContext.prototype, o = G.drawArraysInstanced;
   G.drawArraysInstanced = function () {
+    if (window.__inLines && (window.__lv === 'tiny' || window.__lv === 'half')) { arguments[3] = window.__lv === 'tiny' ? 1 : Math.ceil(arguments[3] / 2); return o.apply(this, arguments); }
+    if (window.__inLines && window.__lv === 'fin') { this.finish(); return o.apply(this, arguments); }
     if (window.__lv !== 'discard' || !window.__inLines) return o.apply(this, arguments);
     this.enable(this.RASTERIZER_DISCARD); const r = o.apply(this, arguments); this.disable(this.RASTERIZER_DISCARD); return r;
   };
@@ -1025,7 +1027,7 @@ const SV_LINES = `(() => { window.__lv = 'normal';
 })()`;
 async function svGlidePassesUnit() {
   const EX = { jouk: 'Joukowski airfoil' };
-  for (const [scene, variant] of [['default', 'normal'], ['jouk', 'normal'], ['jouk', 'discard'], ['jouk', 'nocasing'], ['default', 'discard']]) {
+  for (const [scene, variant] of [['default', 'normal'], ['jouk', 'normal'], ['jouk', 'tiny'], ['jouk', 'half'], ['jouk', 'fin'], ['default', 'tiny'], ['default', 'fin']]) {
     await B.nav(`${BASE}test.html?ns=perfsvp${process.pid}_${++nsCounter}&view=steps`);
     await B.ev(SV_PASSES);
     await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
