@@ -322,15 +322,22 @@
   //   tear limit and are left out;
   // - past the box (past = 1, last): about the box's centre, from the circle inside the box to a thousand times the
   //   box's size, plane s outside the box, which the map can carry into the block (a Möbius step takes it to a disc
-  //   about the image of ∞)
+  //   about the image of ∞).
+  // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
+  // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
+  // from frame to frame, and a step's own poles (a Möbius step's) not at all
+  const svLandPoleMemo = { key: '', poles: [] };
   function svLandPatches(map, src, N) {
     const F = cpuMap(map);
     if (!F) return [];
-    const E = { n: 0, at: 0 }, it = svPolesIn(F, src, 16, src, E);
-    let r = it.next();
-    while (!r.done) r = it.next();
+    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
+    const drain = (it) => { let r = it.next(); while (!r.done) r = it.next(); return r.value; };
+    let poles;
+    if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => drain(svPoleAt(F, p, src, E)) || p);
+    else poles = drain(svPolesIn(F, src, 16, src, E));
     const W = src.x1 - src.x0, H = src.y1 - src.y0, cell = Math.max(W, H) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
-    const near = r.value.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
+    const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
+    Object.assign(svLandPoleMemo, { key, poles: near });
     return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8, 0]).concat([[cx, cy, Math.min(W, H) / 2, 1000 * Math.max(W, H), 1]]);
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
