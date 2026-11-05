@@ -2285,7 +2285,7 @@ void ${P}_roots(vec2 w, float t) {
     ${P}_k[1] = okv && ${P}_hit(v, w, t) && cx_abs(v - u) > 1e-3 * (1.0 + cx_abs(u));
     ${P}_r[1] = v;
   }
-  vec2 c0 = w / (1.0 - t);
+  vec2 c0 = vec2(uInv[${c}].y > 0.5 ? uInv[${c}].z : w.x / (1.0 - t), w.y / (1.0 - t));
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(1)).join(', ')});
   for (int i = 0; i < ${NL}; i++) {
     vec2 v = c0 + vec2(0.0, lad[i]);
@@ -2546,7 +2546,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       case 'LOG': put(c, p.lo, p.hi, 0, 0); break;
       case 'IJOUK': put(c, p.sg, 0, 0, 0); break;
       case 'NEWT': {
-        put(c, p.t, 0, 0, 0);
+        put(c, p.t, p.anchor ? 1 : 0, p.anchor ? p.anchor.re : 0, 0);
         let cell = c + IX_SLOTS.NEWT;
         for (const q of p.back || []) { invOpValues(q, put, cell); cell += IX_SLOTS[q.kind] || 0; }
         break;

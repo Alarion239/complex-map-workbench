@@ -213,6 +213,9 @@ const InvOps = (() => {
   // and from f's points find every point of H_t over w on a 40 x 26 grid of Joukowski's, z^2 + 1/z's and ijouk's
   // windows at t = .25, .5, .75 but where it lies on the homotopy's cut: points born and lost between 0 and 1 are the
   // ones they cannot reach)
+  // the centre of the ladder's seeds for w: w / (1 - t), where (1 - t) u + t f(u) = w puts a root when t f(u) is small
+  // against w, with its real part moved to the anchor's (a point of the shape's preimage: roots that count lie by it)
+  const ladderCentre = (w, t, anchor) => C(anchor ? anchor.re : w.re / (1 - t), w.im / (1 - t));
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10, NEWT_LADDER = [-2, -1, 0, 1, 2];
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
   // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
@@ -224,7 +227,7 @@ const InvOps = (() => {
     const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
     return n.every((k) => k > 0) && n.reduce((a, k) => a * k, 1) <= NEWT_SEEDS ? n : null;
   }
-  function opNewt(t, H, back) {
+  function opNewt(t, H, back, anchor) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
@@ -242,7 +245,7 @@ const InvOps = (() => {
       }
       return u;
     };
-    return op('NEWT', counts ? { t, back } : { t }, Ht, {
+    return op('NEWT', counts ? { t, back } : { t, anchor: anchor || null }, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
       pre: (w) => {
         let u = w;
@@ -266,7 +269,7 @@ const InvOps = (() => {
           if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         }
         // members 2 + i: Newton from the ladder's seed i about w / (1 - t), kept when it hits w and is new
-        const c0 = scale(w, 1 / (1 - t));
+        const c0 = ladderCentre(w, t, anchor);
         for (let i = 0; i < NEWT_LADDER.length; i++) {
           let v = add(c0, C(0, NEWT_LADDER[i]));
           for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);

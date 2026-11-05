@@ -1573,7 +1573,7 @@ const Inverse = (() => {
   // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
   // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
   // (newtOps). {ok, ops} | {ok: false, reason}
-  function homOps(b, t) {
+  function homOps(b, t, anchor) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
     if (t >= 1) return stepOps(b);
@@ -1583,12 +1583,12 @@ const Inverse = (() => {
     if (nat && nat.kind === 'chain' && b.rec) {
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
       for (let i = 0; i < j; i++) { const r = stepOps(sub[i]); if (!r.ok) return r; ops.push(...r.ops); }
-      const r = homOps(sub[j], x - j);
+      const r = homOps(sub[j], x - j, anchor);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(r.ops) };
     }
     const own = stepOps(b);
-    if (!own.ok) return newtOps(b, t, own.reason);
+    if (!own.ok) return newtOps(b, t, own.reason, anchor);
     const one = own.ops.length === 1 ? own.ops[0] : null;
     // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path
     if (one && (one.kind === 'MOB' || one.kind === 'AFF') && (!nat || nat.kind === 'mob')) {
@@ -1639,20 +1639,43 @@ const Inverse = (() => {
       const rp = Object.assign(opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), { glideKey: true });
       return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), rp, opMob([k, ONE, neg(k), ONE])] };
     }
-    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
+    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`, anchor);
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
   // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
   // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
-  function newtOps(b, t, reason) {
+  function newtOps(b, t, reason, anchor) {
     if (!(b.props && b.props.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
     const own = stepOps(b);
-    return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
+    return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null, anchor)] };
+  }
+  // A point of the plane after the ops of plan (the prefix of a glide's chain, forward), where a point of area shape
+  // sh lies: the deepest point (greatest Region level) of a 25 x 25 grid over win (the shape's bounding box widened by
+  // a half when it has one; the one nearest the window's centre among equals), pushed through the ops; null when it
+  // is not finite or the shape has no point of positive level there. A NEWT op's seeds are placed about it
+  function shapeAnchor(plan, sh, win) {
+    let L;
+    try { L = RG().levelOf(sh); } catch (e) { return null; }
+    const bb = RG().bboxOf(sh);
+    const w = bb ? { x0: bb.x0, x1: bb.x1, y0: bb.y0, y1: bb.y1 } : { x0: win.x0, x1: win.x1, y0: win.y0, y1: win.y1 };
+    const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, N = 25;
+    let best = null, bl = 0, bd = Infinity;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const z = C(w.x0 + (w.x1 - w.x0) * (i + 0.5) / N, w.y0 + (w.y1 - w.y0) * (j + 0.5) / N);
+      const l = L(z);
+      if (!(l > 0)) continue;
+      const d = Math.hypot(z.re - cx, z.im - cy);
+      if (l > bl + 1e-12 || (Math.abs(l - bl) <= 1e-12 && d < bd)) { best = z; bl = l; bd = d; }
+    }
+    if (!best) return null;
+    let u = best;
+    for (const o of plan.ops) u = o.fwd(u);
+    return isFin(u) ? u : null;
   }
   // a stand-in for built step b whose ops are its homotopy's at t (stepOps reads them)
-  function homBuilt(b, t) { return Object.assign({}, b, { __homOps: () => homOps(b, t) }); }
+  function homBuilt(b, t, anchor) { return Object.assign({}, b, { __homOps: () => homOps(b, t, anchor) }); }
   // catalog types whose homotopy satisfies H_0 = id and H_1 = f (to 1e-12 (1 + |f|)): a paused morph at t = 0 or 1
   // may be drawn as the mode-0 map of the stage it equals
   const HOM_EXACT = new Set(['mul', 'add', 'affine', 'recip', 'mobius', 'blaschke', 'pown', 'root', 'powa', 'exp', 'log',
@@ -1663,7 +1686,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, newtBackK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, newtBackK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
