@@ -14,7 +14,7 @@ const T = `document.querySelector('#toastHost .toast')`;
 const has = (extra = '') => ev(`!!${T}${extra}`);
 const show = (msg, label, o) => ev(`(__cmwToast(${JSON.stringify(msg)}, ${label ? JSON.stringify(label) : 'null'}, ${JSON.stringify(o || {})}), 1)`);
 const gone = async (ms) => { for (const t0 = Date.now(); Date.now() - t0 < ms; await sleep(50)) if (!(await has())) return true; return false; };
-const key = async (k, code, vk, mods = 0) => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: vk }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods, windowsVirtualKeyCode: vk }); };
+const press = async (k, code, vk, mods = 0) => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: vk }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods, windowsVirtualKeyCode: vk }); };
 // a lifetime: from the message's showing to its removal, in ms (the page measures it)
 const life = async (msg, label, o, max) => {
   await ev(`(() => { window.__life = null; const h = document.getElementById('toastHost'), t0 = performance.now(); new MutationObserver((_, ob) => { if (!h.querySelector('.toast')) { window.__life = performance.now() - t0; ob.disconnect(); } }).observe(h, { childList: true }); })()`);
@@ -27,17 +27,17 @@ const life = async (msg, label, o, max) => {
 await show('Hello');
 ok('a message is shown', await has(), null);
 ok('it enters with the 150 ms slide and fade', JSON.stringify(await ev(`(() => { const s = getComputedStyle(${T}); return [s.animationName, s.animationDuration]; })()`)) === '["toast-in","0.15s"]', await ev(`getComputedStyle(${T}).animationName`));
-await key('Escape', 'Escape', 27);
+await press('Escape', 'Escape', 27);
 ok('Esc starts its exit (the slide and fade out)', await ev(`(() => { const t = ${T}; return !t || (t.classList.contains('toast-out') && getComputedStyle(t).animationName === 'toast-out'); })()`), null);
 ok('Esc closes the message', await gone(1000), null);
 
 // Esc is a dialog's or a menu's first
 await show('Kept', null, { ms: 20000 });
-await key('k', 'KeyK', 75, 4); await settled({ max: 4000, only: true, until: `!!document.querySelector('#popHost .palette, .pop.palette')` });
+await press('k', 'KeyK', 75, 4); await settled({ max: 4000, only: true, until: `!!document.querySelector('#popHost .palette, .pop.palette')` });
 ok('the palette opens over the message', await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`), null);
-await key('Escape', 'Escape', 27); await settled({ max: 4000, only: true, until: `!document.querySelector('#popHost .palette, .pop.palette')` });
+await press('Escape', 'Escape', 27); await settled({ max: 4000, only: true, until: `!document.querySelector('#popHost .palette, .pop.palette')` });
 ok('Esc closes the palette and keeps the message', (await has()) && !(await ev(`!!document.querySelector('#popHost .palette, .pop.palette')`)), null);
-await key('Escape', 'Escape', 27);
+await press('Escape', 'Escape', 27);
 ok('the next Esc closes the message', await gone(1000), null);
 
 // how long it stays
