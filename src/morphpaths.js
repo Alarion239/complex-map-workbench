@@ -565,6 +565,7 @@ const MorphPaths = (() => {
     circles(heads, 2.8); ctx.fill();
     ctx.restore();
     if (flat && o.hook !== false) A.mfDrawn = { T, heads: drawnZ };
+    else if (o.hook !== false) A.mfGlobeDrawn = { T, heads: heads.length };
   }
   // the live paths with the cross-fade between two sets (verify fix path-3: a new choice after a pan, a zoom or an
   // orbit swapped the whole set in one frame): for PATHS.fade ms after a choice replaced a set under the same chain and

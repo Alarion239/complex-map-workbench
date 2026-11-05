@@ -81,13 +81,13 @@
       steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
     },
     {
-      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), trySv: $t('Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.'), tryDoneSv: [[{ on: 'step-moved' }]], tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: choose Landscape and follow the cut of the logarithm.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: click the chip f₁, then Show all sheets in the Inspector.'), tryDoneSv: [[{ on: 'sheets-shown' }, { on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -156,22 +156,22 @@
       steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('A Julia set that its map keeps'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 2 }], [{ on: 'repeat-changed', test: (e) => e.n > 2 }]], try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('A Julia set that its map keeps'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 2 }], [{ on: 'repeat-changed', test: (e) => e.n > 2 }]], try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), trySv: $t('Try: on the chip f₁, ⋯ → Repeat…, then raise N in the Inspector: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.75, u, z, 64)|\\le 2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.75' } }],
     },
     {
-      name: $t('Douady’s rabbit'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 }]], try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('Douady’s rabbit'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 }]], try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), trySv: $t('Try: on the chip f₁, ⋯ → Repeat…, N = 3 in the Inspector: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.1226+0.7449i, u, z, 96)|\\le 2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.1226+0.7449i' } }],
     },
     {
-      name: $t('Newton’s method for z³ − 1'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 1 && e.n <= 3 }]], try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
+      name: $t('Newton’s method for z³ − 1'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 1 && e.n <= 3 }]], try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), trySv: $t('Try: lower N in the Inspector\'s Repeat row of f₁ to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
       shapes: [{ kind: 'rect', a: [-2, -2], b: [2, 2] }],
       steps: [{ type: 'custom', params: { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }, repeat: { n: 20, len: 1 } }], rightMode: 'color',
     },
     {
-      name: $t('The Julia set of z² + i'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 && e.len === 2 }]], try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('The Julia set of z² + i'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 && e.len === 2 }]], try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), trySv: $t('Try: on the chip f₂, ⋯ → Repeat → f₁–f₂, twice, then N = 3 in the Inspector: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
     },
@@ -576,13 +576,6 @@
     const u = $('unitChk');
     if (u && u.checked !== !!S.unit) u.checked = !!S.unit;
   }
-  // P4: a drawing tool pressed in X at focus k >= 2 draws nothing; the Whole chain button pulses once
-  function pulseWhole() {
-    const b = $('viewAllBtn');
-    if (!b) return;
-    b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
-    clearTimeout(/** @type {any} */ (pulseWhole).t); /** @type {any} */ (pulseWhole).t = setTimeout(() => b.classList.remove('pulse'), 900);
-  }
   // resizable gutters between the planes and above the chain (sizes are per viewer)
   function setupGutters() {
     const stage = $('stage'), panes = $('panes');
@@ -924,26 +917,20 @@
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
-    // (#515, ux's choice A on the layout check: in the steps view a message takes only the thread's rail, whose planes and
-    // steps step aside while it shows; the < > and the speed stay live, and going on through the thread dismisses it)
-    const strip = $('svStrip'), stripAway = (on) => { if (strip) strip.classList.toggle('sv-toast', on); };
-    stripAway(false);
     // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
     if (document.documentElement.classList.contains('ph')) { clear(); return; }
     if (!host.firstElementChild) return;
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
-    const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
-    // (the F chip and "+ Add function" beside the rail step aside with the planes, and the message takes their room too)
-    const aside = rail ? [strip.querySelector('.sv-wholemap'), strip.querySelector('.sv-add')].map(box).filter(Boolean) : [];
-    const room = rail ? Math.max(rail.right, ...aside.map((b) => b.right)) - rail.left : 0;
-    if (rail && rail.width >= 160 && host.children.length === 1) {
-      stripAway(true);
-      host.setAttribute('data-placed', 'rail');
-      st.left = Math.round(rail.left + room / 2) + 'px';
-      st.maxWidth = Math.round(room - 8) + 'px';
-      const tw = host.firstElementChild.getBoundingClientRect();
-      st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
+    // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
+    // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it replaces nothing)
+    const plot = document.documentElement.classList.contains('sv') ? box($('plotL')) : null;
+    if (plot && plot.width >= 240) {
+      const sb = box($('svStrip')), floor = sb && sb.top > plot.top ? Math.min(plot.bottom, sb.top) : plot.bottom;
+      host.setAttribute('data-placed', 'plot');
+      st.left = Math.round(plot.left + plot.width / 2) + 'px';
+      st.maxWidth = Math.round(plot.width - 128) + 'px';
+      st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
     const chain = box(document.querySelector('.pipe-wrap'));

@@ -77,9 +77,6 @@
     draft = null;
     Construct.toolChanged();   // (v16)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
-    // plane at any focus)
-    if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
     if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
@@ -115,7 +112,7 @@
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
-    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
+    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', stage: s.stage || 0, bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
   }
   // [issue #260] an external ray (theta: '1/3') or an equipotential (r > 1) of step k's set: M for Φ_M, the Julia set of
   // z² + c for φ_c (its c, by name when it is a shared number), as a shape of the plane the step reads (stage k − 1)
