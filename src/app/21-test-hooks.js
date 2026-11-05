@@ -307,6 +307,22 @@
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone); glide: the last glide frame's record (svGlideRec)
+  // the steps view's paths figure without the typesetting: the paths chosen for the shown plane's step at a figure's size,
+  // and how far their ends are from the planes' images of their starts (the previous plane's, and the shown one's)
+  /** @type {any} */ (window).__cmwSvPaths = async () => {
+    const f = svPathsFig();
+    if (!f || f.i == null) return f;
+    const P = svPlanes(), box = paneBox(paneL, leftView()), w = 600, h = w * (box.y1 - box.y0) / (box.x1 - box.x0);
+    const r = await figMorphPaths({ src: f.src, z: f.z, end: f.end, box, w, h, lang: 'en' });
+    if (!r) return null;
+    const F0 = rangeF(0, P[f.i - 1]), F1 = rangeF(0, P[f.i]), Fa = f.Fat(0), Fb = f.Fat(1);
+    let e0 = 0, e1 = 0;
+    for (const k of r.kept) {
+      const z = C(k.z[0], k.z[1]), d = (a, b) => Math.hypot(a.re - b.re, a.im - b.im) / Math.max(1, Math.hypot(b.re, b.im));
+      e0 = Math.max(e0, d(Fa(z), F0(z))); e1 = Math.max(e1, d(Fb(z), F1(z)));
+    }
+    return { i: f.i, n: r.kept.length, e0, e1, sentence: r.sentenceTex, caption: r.captionTex };
+  };
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && o.span) SV.span = svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1 } : null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, planes: svPlanes(), stage: leftStage(), main: S.view.main, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });

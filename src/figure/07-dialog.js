@@ -195,10 +195,14 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]];
+    // (Paths: the plane with the paths of the step that leads to it; off, with its reason, where there is no such step)
+    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')], ['paths', $t('Paths')]];
+    const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
+    const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'paths' && svpOk ? 'paths' : 'plane');
     const svPicRow = A.svOn()
-      ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
+      ? row($t('Picture'), segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
       : null;
+    if (svPicRow && !svpOk) { const pb = svPicRow.querySelector('[data-v="paths"]'); if (pb) { pb.disabled = true; pb.title = svp && svp.why === 'deriv' ? $t('A d/dz step has no paths.') : $t('The first plane has no step before it, so no paths.'); } }
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();

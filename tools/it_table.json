@@ -3385,5 +3385,7 @@
  "Tap ▶ and listen as the loop winds round the zero.": "Tocca ▶ e ascolta la curva che gira intorno allo zero.",
  "Click ▶ to turn sound on and hear the loop wind round the zero.": "Clicca ▶ per attivare il suono e ascoltare la curva che gira intorno allo zero.",
  "Go to {p}": "Vai a %{p}",
- "Plane {p}, {i} of {n}": "Piano {p}, {i} di {n}"
+ "Plane {p}, {i} of {n}": "Piano {p}, {i} di {n}",
+ "A d/dz step has no paths.": "Un passo d/dz non ha percorsi.",
+ "The first plane has no step before it, so no paths.": "Prima del primo piano non c'è nessun passo, quindi non ci sono percorsi."
 }
