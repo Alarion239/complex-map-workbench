@@ -2,7 +2,7 @@
 // exactly (the Sphere checker on the globes against the truth, the Checker on the left plane at stage 1 against
 // Inverse.renderCPU), a two-globe 300 dpi export against the truth, and the main thread during a two-globe export and
 // the first switch to X Sphere at dpr 2. The steps view colours regions by the carried phase, not by their pattern
-// (#719), and has one pane, so these stay classic; p3_review_cmd.js has the stroke check and the steps view's own.
+// and has one pane, so these stay classic; p3_review_cmd.js has the stroke check and the steps view's own.
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/p3_review_classic_cmd.js
 // Prints {pass, fails, results}; pass is true when every check holds.

@@ -1,5 +1,5 @@
 // P3 review checks that hold in the steps view (notes/sphere-design/SPEC.md 13.16): strokes on a globe are continuous (on
-// screen size and at 300 dpi), and a region's pattern is not drawn there (#719: the carried phase colours it). The
+// screen size and at 300 dpi), and a region's pattern is not drawn there (the carried phase colours it). The
 // pattern drawn exactly, the two-globe exports and the main thread during them are p3_review_classic_cmd.js's.
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/p3_review_cmd.js
@@ -146,15 +146,17 @@ await shot('p3rv_stroke');
 }
 
 
-// ---- 2. a region's own pattern is not drawn in the steps view (#719): H under [z^i, z^2], plane w1 with the Checker
+// ---- 2. a region's own pattern is not drawn in the steps view: H under [z^i, z^2], plane w1 with the Checker
 // (a saved state's pattern) is the same picture as with the Solid pattern, the carried phase of the colour plane z
 // (its exactness against the pulled-back colour is steps_carry_inregion_cmd.js's), and the region's pixels show more
 // than one colour
 const base1 = { pattern: 'sphere', alpha: 1, lines: false, unit: false };
 await load('p3rvG' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base1, { pattern: 'checker' }));
-await ev('__cmwSteps({ T: 0, go: 2, now: true }); 1'); await settle(3000);
+await ev('__cmwSteps({ T: 0, go: 2, now: true }); 1'); await settled({ max: 30000, until: '__cmwSteps().i === 2 && !__cmwSteps().moving' });
 R.gChk = await ev(`await (async () => {
-  const wait = () => new Promise((r) => setTimeout(r, 1500));
+  // (two animation frames after a change, then until the pane's GL frame is neither pending nor compiling)
+  const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const wait = async () => { for (let i = 0; i < 600; i++) { await frames(); const st = __cmwPaneStatus('L'); if (!(st && (st.pending || st.compiling))) { await frames(); return; } } };
   __cmwSet('pattern', 'checker'); await wait();
   const A = __rv.grab('L');
   __cmwSet('pattern', 'solid'); await wait();

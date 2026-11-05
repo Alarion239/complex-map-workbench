@@ -241,7 +241,7 @@ const VIEWS = {
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': steps({ pin: true }),
-  'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase (#719) and has one pane'),
+  'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
   'p3b_accept_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
   'p5_accept_cmd.js': steps({ pin: true }),
