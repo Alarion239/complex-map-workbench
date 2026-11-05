@@ -53,18 +53,18 @@
       pop.style.left = px + 'px'; pop.style.top = py + 'px';
     });
     // (v16.5 UX80) a message is placed clear of the planes' controls when it shows and when the layout changes
-    { const th = $('toastHost'); if (th) new MutationObserver(() => placeToasts()).observe(th, { childList: true }); window.addEventListener('resize', () => requestAnimationFrame(placeToasts));
+    { const th = $('toastHost'); if (th) new MutationObserver(() => refreshToasts()).observe(th, { childList: true }); window.addEventListener('resize', () => requestAnimationFrame(refreshToasts));
       // ([v16.5 fix regress-2] and whenever the layout under a toast changes while it stays up: the deformation's dock
       // opening or closing, the learning lane showing or hiding, a panel: each resizes a plot or the chain; one rAF, and
       // only while a toast shows)
       if (th) {
         let q = 0;
-        const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); });
+        const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); });
         for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);
         // (a phone's sheet opening or closing moves the message between the plot and the sheet's row)
-        new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         // (a dialog opening or closing under a message decides whether the message is live)
-        new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); }).observe(document.body, { childList: true });
+        new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); }).observe(document.body, { childList: true });
       } }
     // crossing a drawer breakpoint: a drawer starts closed, a docked panel follows the user's choice
     let drawerWas = { L: isDrawer('L'), R: isDrawer('R') }, wideWas = window.innerWidth >= 768, oneWas = oneDock();

@@ -915,7 +915,7 @@
     if (!liftSheet) { liftSheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, liftSheet]; }
     liftSheet.replaceSync(px == null ? '' : ':root { --ph-toast-h: ' + px + 'px; }');
   }
-  function placeToastBox() {
+  function placeToasts() {
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
@@ -1014,7 +1014,7 @@
     }
     host.toggleAttribute('data-clear-of-dialog', live);
   }
-  function placeToasts() { placeToastBox(); syncToastLive(); }
+  function refreshToasts() { placeToasts(); syncToastLive(); }
   // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
   const TOAST_OUT_MS = 150;
   function closeToast(t) {
@@ -1030,6 +1030,7 @@
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
+  const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -1060,8 +1061,8 @@
         t.style.removeProperty('translate');
         hold(-1);
         // (a drag is no press: the click that follows it does not reach the host's press-to-dismiss)
-        if (dy > 8) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), 100); }
-        if (u.type === 'pointerup' && dy >= 32) closeToast(t); else t.style.removeProperty('--drag');
+        if (dy > TOAST_DRAG_NO_PRESS_PX) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), TOAST_CLICK_EAT_MS); }
+        if (u.type === 'pointerup' && dy >= TOAST_DRAG_DISMISS_PX) closeToast(t); else t.style.removeProperty('--drag');
       };
       t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
     });
