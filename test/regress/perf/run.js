@@ -1200,9 +1200,9 @@ function svAttrFrames(drawn, prev, snaps) {
   });
   return out;
 }
-// SV_PROF=1: a CPU profile (CDP Profiler) around each timed scrub/pan/orbit leg of sv.interact.*, logged as the top
+// A CPU profile (off with SV_PROF=0) (CDP Profiler) around each timed scrub/pan/orbit leg of sv.interact.*, logged as the top
 // self times in ms and, from the WebGL call hook SV_GLT, the synchronous ms of compile/link/status calls in the leg
-const SV_PROF_ON = !!process.env.SV_PROF;
+const SV_PROF_ON = process.env.SV_PROF !== '0';
 async function svProfLog(label, a, b) {
   const { profile: P } = await B.send('Profiler.stop');
   const dt = new Map(), byId = new Map(P.nodes.map((n) => [n.id, n])), self = new Map();
