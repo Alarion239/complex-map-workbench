@@ -1,7 +1,7 @@
 'use strict';
 // Issue #297, the reproduction from outside the page: N cold loads, each in a fresh headless Chrome with the perf
 // suite's flags (no GPU program cache), of example 7 (Square root and its sheets) and then example 8 (Cayley, then
-// cube) with ci/equiv.js's waits between scenes; then X's overlay is read in the box of example 7's cut handle. A ghost:
+// cube) with ci/equiv.js's waits between scenes, in the steps view; then X's overlay is read in the box of example 7's cut handle. A ghost:
 // pixels left there while __cmwCutHandles() is empty. Nothing is instrumented in the page (instrumentation there hid the
 // race). Before the fix, 14 of 16 loads showed it on SwiftShader (7641815); test/overlay_ghost_cmd.js runs it too.
 //   node test/overlay_ghost_repro.js [N=20] [--shot]     (python3 build.py first; CHROME_BIN, CMW_CHROME_ARGS as for CI)
@@ -24,17 +24,17 @@ async function coldLoads(base, n, { shot = false, log = () => {} } = {}) {
   for (let i = 0; i < n; i++) {
     const B = await launch({ width: 1280, height: 800, dpr: 1 });
     try {
-      // ci/equiv.js's waits between scenes: a moment, a playing deformation stopped, the programs linked, the cards
-      // drawn, a moment
+      // ci/equiv.js's waits between scenes: a moment, a playing glide stopped, the programs linked, the view
+      // at rest, a moment
       const settle = async () => {
         await sleep(1500);
-        await B.ev(`(() => { try { const m = __cmwState().morph; if (m && m.open) __cmwMorph({ playing: false, T: 0.5 }); } catch (e) { /* */ } return 1; })()`);
+        await B.ev(`(() => { try { __cmwSteps({ play: false }); } catch (e) { /* */ } return 1; })()`);
         for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
-        for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
+        for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwSteps().moving; } catch (e) { return false; } })()`); k++) await sleep(250);
         await sleep(1500);
       };
-      await B.nav(base + 'test.html');
-      try { await B.until(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`, 30000, 250); } catch (e) {
+      await B.nav(base + 'test.html?view=steps');
+      try { await B.until(`document.readyState === 'complete' && typeof __cmwSteps === 'function' && __cmwSteps().on`, 30000, 250); } catch (e) {
         out.push({ i, err: 'the page did not start within 30 s' }); log(`load ${i}: the page did not start within 30 s`); continue;
       }
       await sleep(3000);
