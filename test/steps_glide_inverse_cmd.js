@@ -106,7 +106,6 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
   for (const x of [0.25, 0.5, 0.75]) {
     const g = await at(x, 'inverse', 600000);
-    await ev('await new Promise((r) => setTimeout(r, 2000)), 1');
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta x ${x}`] = { g, share };
     ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });

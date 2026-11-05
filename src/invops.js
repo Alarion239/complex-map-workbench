@@ -224,7 +224,7 @@ const InvOps = (() => {
     const c = w.im / (1 - t);
     return C(w.re / (1 - t), c - NEWT_SPAN + f * 2 * NEWT_SPAN);
   };
-  // two members closer than this (relative to 1 + |u|) are one
+  // two members closer than this (relative to 1 + |u|) are one (the CPU's; glsl.js has the float32 one)
   const NEWT_SAME = 1e-6;
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10;
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));

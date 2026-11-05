@@ -1573,7 +1573,7 @@ const Inverse = (() => {
   // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
   // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
   // (newtOps). {ok, ops} | {ok: false, reason}
-  function homOps(b, t, anchor) {
+  function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
     if (t >= 1) return stepOps(b);
@@ -1583,12 +1583,12 @@ const Inverse = (() => {
     if (nat && nat.kind === 'chain' && b.rec) {
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
       for (let i = 0; i < j; i++) { const r = stepOps(sub[i]); if (!r.ok) return r; ops.push(...r.ops); }
-      const r = homOps(sub[j], x - j, anchor);
+      const r = homOps(sub[j], x - j);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(r.ops) };
     }
     const own = stepOps(b);
-    if (!own.ok) return newtOps(b, t, own.reason, anchor);
+    if (!own.ok) return newtOps(b, t, own.reason);
     const one = own.ops.length === 1 ? own.ops[0] : null;
     // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path
     if (one && (one.kind === 'MOB' || one.kind === 'AFF') && (!nat || nat.kind === 'mob')) {
@@ -1639,17 +1639,17 @@ const Inverse = (() => {
       const rp = Object.assign(opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), { glideKey: true });
       return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), rp, opMob([k, ONE, neg(k), ONE])] };
     }
-    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`, anchor);
+    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
   // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
   // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
-  function newtOps(b, t, reason, anchor) {
+  function newtOps(b, t, reason) {
     if (!(b.props && b.props.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
     const own = stepOps(b);
-    return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null, anchor)] };
+    return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
   }
   // the image of z under the forward ops of plan
   function fwdOps(plan, z) { for (const o of plan.ops) z = o.fwd(z); return z; }
