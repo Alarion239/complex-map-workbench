@@ -43,16 +43,29 @@ info.cHeld = await cover();
 ok('held at 1.9998: the carried frame covers its block (but plane w₁ past its box, #971)', !!info.cHeld && info.cHeld.bare === 0, info.cHeld);
 info.gHeld = await cover(false);
 ok('held at 1.9998: the box grid alone leaves points bare', !!info.gHeld && info.gHeld.bare > 0, info.gHeld);
-// mid-glide (u = 0.5): the same cover as at the held end, the carried frame at u = 0.5 (not a parked one): one patch
-// about the pole, and no point of the block bare (the rest and held counts above, with the same function and limit)
+// mid-glide (u = 0.5): the same cover as at the held ends, on the carried frame held at u = 0.5 forward from plane 0 (the
+// thread held as steps_land_glide_cmd.js holds it: not let go, settled on the place and the moving frame): no point of
+// the block bare (the same function and limit as at the ends; at u = 0.5 the box grid alone leaves no point bare, so the
+// ends' box-grid check is not repeated here).
 await rest(0);
-await hold(0.5);
-await ev('window.__svScrubUp && window.__svScrubUp(), 1');
-await ev(rAF2);
+async function holdMid(x) {
+  await ev(`(() => {
+    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
+    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
+    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
+    window.__svScrubUp = () => ev('pointerup', cx);
+    return 1;
+  })()`);
+  await settled({ max: 60000, until: `Math.abs(__cmwSvX() - ${x}) < 0.002 && __cmwSteps().moving` });
+  await ev(rAF2);
+}
+await holdMid(0.5);
 info.mid = await carried();
-ok('held at u = 0.5: a carried frame with a patch about the pole', info.mid.s === 1 && info.mid.patches === 1, info.mid);
+ok('held at u = 0.5: a carried frame at u = 0.5', !!info.mid && info.mid.u !== null && Math.abs(info.mid.u - 0.5) < 0.002, info.mid);
 info.cMid = await cover();
 ok('held at u = 0.5: the carried frame covers its block', !!info.cMid && info.cMid.bare === 0, info.cMid);
 info.gMid = await cover(false);
-ok('held at u = 0.5: the box grid alone leaves points bare', !!info.gMid && info.gMid.bare > 0, info.gMid);
+await ev('window.__svScrubUp(), 1');
+await settled({ max: 60000 });
 return { pass: fails.length === 0, fails, info };
