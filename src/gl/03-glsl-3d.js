@@ -1218,11 +1218,12 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
-  // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile
-  vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
-  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
+  // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile. The carried
+  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it
+${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
-${carry ? '  rim *= 1.0 - uPatch;   // (a patch of the carried grid (CARRY_Z) has no domain edge of its own)\n' : ''}  // where the block's top or bottom clips the surface: the same rim as the domain's edges
+  // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
                          vBoxE.y * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.y))),
                          vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z))));
