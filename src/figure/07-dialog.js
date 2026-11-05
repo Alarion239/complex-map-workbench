@@ -51,7 +51,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}#xfSvPic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
+  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -188,6 +188,11 @@
     // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, the paths (plane and
     // globe), or one frame at the current t (the earlier one-panel figure of Phase, Landscape and the globes)
     const defo = defoOf(view);
+    // the steps view's glide along its thread: a video of it where it has a step on the plane surface
+    const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
+    // the steps view without a glide to record: why Video is not offered (no step yet, or a surface with no video)
+    const svSurf = A.svOn() && A.svSurf ? A.svSurf() : 'plane';
+    const noGlide = A.svOn() && !glide ? (svSurf === 'land' ? $t('Video of the Landscape is not ready yet') : svSurf === 'sphere' ? $t('Video of the sphere is not ready yet') : $t('Add a step to make a video')) : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
     if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);
@@ -195,15 +200,22 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    // (Two planes needs a flat surface: the Landscape's picture is 3D, and a 2D figure never stands in for it)
-    const svPics = [['plane', $t('Shown plane')], ['two', $t('Two planes')], ['film', $t('Filmstrip')]];
+    // (Two planes needs a flat surface: the Landscape's picture is 3D, and a 2D figure never stands in for it. Paths: the plane
+    // with the paths of the step that leads to it; off, with its reason, where there is no such step)
+    const svPics = [['plane', $t('Shown plane')], ['paths', $t('Paths')], ['two', $t('Two planes')], ['film', $t('Filmstrip')]];
     const svFlat = () => A.svSurf() !== 'land';
-    const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'two' && svFlat() ? 'two' : 'plane');
+    const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
+    const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'two' && svFlat() ? 'two' : set.svPic === 'paths' && svpOk ? 'paths' : 'plane');
     // the planes of the thread to draw: the Play range's ends when one is marked, else z and the last plane
     const svNames = A.svOn() ? A.svPlaneNames() : [], svEnds = A.svOn() ? A.svRangeEnds() : null;
     if (A.svOn()) { set.svFrom = svEnds ? svEnds[0] : 0; set.svTo = svEnds ? svEnds[1] : svNames.length - 1; }
     const svPicSeg = A.svOn() ? segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; syncPlanes(); changed(); }, $t('Picture')) : null;
     const svPicRow = svPicSeg ? row($t('Picture'), svPicSeg) : null;
+    if (svPicRow && !svpOk) {
+      const pb = svPicRow.querySelector('[data-v="paths"]');
+      const why = svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
+      if (pb) { pb.setAttribute('aria-disabled', 'true'); pb.dataset.tip = why; pb.setAttribute('aria-description', why); }
+    }
     if (svPicRow) svPicRow.classList.add('wide');
     if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the flat surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
     const planeSel = (id, label, onchange) => { const el = h('select', { class: 'xf-select xf-plane', id, 'aria-label': label, onchange: () => onchange(+el.value) }); return el; };
@@ -222,7 +234,7 @@
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
     const canVideo = typeof VideoEncoder !== 'undefined';
-    const fmtOf = () => (set.fmt === 'video' ? (defo && canVideo ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
+    const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
     // (v16.5 UX60: Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
     // opens again on Video: a video records the deformation)
@@ -232,7 +244,7 @@
     const dpiSel = h('select', { class: 'xf-select', id: 'xfDpi', 'aria-label': $t('Resolution'), onchange: () => { set.dpiFor = Object.assign({}, set.dpiFor, { [set.for]: +dpiSel.value }); set.dpi = +dpiSel.value; saveSet(set); syncFmt(); } }, ...[300, 600].map((v) => h('option', { value: String(v) }, `${v} dpi`)));
     dpiSel.value = String(dpiOf());
     const fmtSeg = segB('xfFmt', fmtOf(), fOpts, (v) => {
-      if (v === 'video' && !defo) {
+      if (v === 'video' && !defo && !glide) {
         if (!(A.deformOn && A.deformOn())) { syncFmt(); return; }
         set.fmt = 'video'; saveSet(set); close();
         toast($t('A video records the deformation: it is on now.'));
@@ -244,7 +256,8 @@
     const fmtRow = row($t('Format'), h('div', { class: 'xf-fmtrow' }, fmtSeg, dpiSel)); fmtRow.classList.add('wide');
     { const vb = fmtSeg.querySelector('[data-v="video"]');
       if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
-      else if (vb && !defo) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
+      else if (vb && noGlide) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noGlide; vb.setAttribute('aria-description', noGlide); }
+      else if (vb && !defo && !glide) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
@@ -266,7 +279,11 @@
       vfr($t('Ends'), vseg('xfVEnds', 'ends', [['once', $t('Once')], ['loop', $t('Loop')], ['bounce', $t('Bounce')]], $t('Ends'))),
       vfr($t('Look'), vseg('xfVLook', 'look', [['light', $tx('video look', 'Light')], ['print', $tx('video look', 'Print')]], $t('Look'))),
       ...(defo === 'plane' || defo === 'deriv' || defo === 'phase' ? [vfr($t('Window'), vseg('xfVWin', 'win', [['screen', $t('As on screen')], ['fit', $t('Fit the motion')]], $t('Window')))] : []),
-      h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', $t('t label'))));
+      h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
+    // (the steps view: where the video goes and how long it is, kept current by posterSoon)
+    const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
+    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = `${glide.from} → ${glide.to} · ${I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1)} s`; };
+    if (vSum) { vSumSet(); vidBox.prepend(vSum); }
     const vidRow = row($t('Video'), vidBox); vidRow.classList.add('wide');
     // Fine-tune
     const ftBody = h('div', { class: 'xf-ft', hidden: !set.fine });
@@ -407,6 +424,7 @@
     // (an option changed: the frames in view are stale; the preview stops, the poster dims until the new one is drawn)
     // (the bar is dimmed and says nothing of the old video; the button shows the wish: review vp-2)
     const posterSoon = () => {
+      vSumSet();
       clearTimeout(posterTimer); pv.stop(); pvCv.hidden = true; posterImg.hidden = false; pvBox.classList.add('busy');
       pvBtnSet(pvWant); pvTime.textContent = ''; pvTt.data = ''; pvRange.max = '0'; pvRange.value = '0'; pvRange.removeAttribute('aria-valuetext');
       pvNote.textContent = pvSize ? $t('Preview: drawing the frames, {p} %', { p: 0 }) : '';
@@ -420,7 +438,7 @@
         const plan = await videoPlan(opts({ video: vset, alive: () => my === posterTok && !closed }));
         if (!plan || my !== posterTok) return;
         const c = document.createElement('canvas'); c.width = plan.W; c.height = plan.H;
-        const t = Math.max(0, Math.min(plan.m, A.defo().T));
+        const t = plan.gl ? Math.max(0, Math.min(plan.m, A.svGlide().at - plan.gl.lo)) : Math.max(0, Math.min(plan.m, A.defo().T));
         if (!(await videoFrame(plan, t, c.getContext('2d', { alpha: false }))) || my !== posterTok) return;
         const k = Math.min(1, 960 / plan.W), s2 = document.createElement('canvas');
         s2.width = Math.round(plan.W * k); s2.height = Math.round(plan.H * k);
@@ -631,7 +649,7 @@
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && A.canDeform && !A.canDeform())));
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && !glide && !noGlide && A.canDeform && !A.canDeform())));
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);
@@ -711,7 +729,7 @@
   return {
     attach: (api) => { A = api; },
     build, pdf, png, svgBlob, greyProof, latex, captionSVG, copyImage, open, again,
-    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), shortCaption,
+    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), shortCaption,
     settings: loadSet, saveSettings: saveSet, sizes: SIZES, presets: PRESET,
     dialog: () => dlg, last: () => lastFig, segsOf, plainOf, XD,
     geom: { senseAt, chevronAt, fitBox },

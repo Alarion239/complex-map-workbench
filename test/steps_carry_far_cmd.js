@@ -14,35 +14,31 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await view(1200, 800, false, false);
 // (quiet: no GL frame pending, and the tiling's fix-up landed under a parked map)
 const wait = async () => { await settled({ max: 20000, until: '__cmwSvFixed()' }); };
-const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwCards === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function"' }); };
+// every hook the suite calls is defined, and the page is quiet: a page still starting fails here, not in a later read
+const HOOKS = ['__cmwSet', '__cmwSteps', '__cmwExample', '__cmwCards', '__cmwSvKey', '__cmwSvFixed', '__cmwSvRing', '__cmwSvWarm', '__cmwSvX', '__cmwAddStep'];
+const ready = async () => {
+  const r = await settled({ max: 30000, until: HOOKS.map((h) => `typeof ${h} === "function"`).join(' && ') });
+  if (!r.ok) throw new Error('the page hooks are not up after the navigation: ' + JSON.stringify(r));
+};
+// a navigation with no load event, and an { __exc } answer, fail the suite where they happen: a thrown error is the suite's failure
+const goOk = async (url) => { if (!(await go(url))) throw new Error('no load event for ' + url); };
+const need = (r, what) => { if (r && r.__exc !== undefined) throw new Error(what + ' failed: ' + r.__exc); return r; };
+const setup = async (expr) => need(await ev(expr), expr.slice(0, 60));
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-// the left pane's pixels at plane points (3 x 3 device pixels about each, null off the canvas) and its camera, read
-// from its 2-D canvas (#canvasL) with the main card's view and dpr: {view, pw, ph, dpr, px}
-const LPX = `((pts) => {
-  const m = __cmwCards().main, v = m.view, d = m.dpr, c = document.getElementById('canvasL'), W = c.width, H = c.height;
-  const img = pts.length ? c.getContext('2d').getImageData(0, 0, W, H).data : null;
-  return { view: v, pw: W, ph: H, dpr: d, px: pts.map(([x, y]) => {
-    const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
-    if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
-    const out = [];
-    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
-    return out;
-  }) };
-})`;
-const lpx = (pts) => ev(`${LPX}(${JSON.stringify(pts)})`);
-// the pane's camera and size, and whether z is where plane z's picture shows it
-const paneOf = async () => { const q = await lpx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; };
+// the left pane's pixels (lpx), its camera and size (paneOf), and the pixel compare (nearest, bare): test/lib/carry_kit.js
+const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// whether z is where plane z's picture shows it
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
 // for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
 // the page; sing: the key's points in place of plane b's), -1 for none
-const fronts = async (lists, b, sing) => ev(`(() => {
+const fronts = async (lists, b, sing) => need(await ev(`(() => {
   const k = Object.assign(__cmwSvKey(${b}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'}), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) };
   return ${JSON.stringify(lists)}.map((L) => {
     let bi = -1, bc = null;
     L.forEach((p, i) => { const z = CX.C(p[0], p[1]), c = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!bc || Inverse.front(c, bc)) { bc = c; bi = i; } });
     return bi;
   });
-})()`);
+})()`), 'fronts');
 // a thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user holding it; the
 // frame is read once its programs are linked and the thread is there
 async function hold(x) {
@@ -148,9 +144,8 @@ async function farFrames(P0, J) {
       if (!got[k] || !ref[k]) continue;
       n++;
       const p = got[k][4];
-      if (Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6) paper++;
-      let best = 1e9;
-      for (const q of ref[k]) best = Math.min(best, Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2])));
+      if (bare(p)) paper++;
+      const best = nearest(p, ref[k]);
       worst = Math.max(worst, best);
       if (best > 14) wrong++;
     }
@@ -200,13 +195,13 @@ async function keyAlongT(P0, J) {
 }
 
 // ---- the Joukowski airfoil ----
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
-await go(`http://localhost:${PORT}/test.html?view=steps&ns=cfar${Date.now()}`);
+await goOk(`http://localhost:${PORT}/test.html?view=steps&ns=cfar${Date.now()}`);
 await ready();
-await ev("__cmwSet('morphPaths', false), 1");
-await ev(`__cmwExample(${EX}); 1`);
+await setup("__cmwSet('morphPaths', false), 1");
+await setup(`__cmwExample(${EX}); 1`);
 await wait();
 {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
@@ -225,18 +220,18 @@ await wait();
 {
   const ns = `cextan${Date.now()}`;
   const st = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 60 }, shapes: [], steps: [{ type: 'tan', params: {} }] };
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await goOk(`http://localhost:${PORT}/gl-helpers.html`);
+  await setup(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await goOk(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
-  await ev("__cmwSet('morphPaths', false), 1");
+  await setup("__cmwSet('morphPaths', false), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = [];
   for (let j = 0; j < 30; j++) for (let i = 0; i < 44; i++) pts.push([P.v.cx + (i / 43 - 0.5) * 0.9 * P.w / P.v.s, P.v.cy + (j / 29 - 0.5) * 0.9 * P.h / P.v.s]);
   await steps({ scope: 'all', surf: 'plane', park: 0.5 });
   const k = await ev('(() => { const t0 = performance.now(); const a = __cmwSvKey(1, 0.5); const t1 = performance.now(); __cmwSvKey(1, 0.5); return { sing: a.sing, again: performance.now() - t1, ring: __cmwSvRing() }; })()');
   const px = (await lpx(pts)).px;
-  const paper = px.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) < 6).length;
+  const paper = px.filter((q) => q && bare(q[4])).length;
   info['tan all parked 0.5'] = Object.assign(k, { paper, n: px.filter(Boolean).length });
   ok('tan all parked 0.5: the key has at most 4 points, all finite', Array.isArray(k.sing) && k.sing.length <= 4 && k.sing.every((p) => p.every(Number.isFinite)), k);
   ok('tan all parked 0.5: the ring, if any, reaches at most 4 times the window', !k.ring || (k.ring.m >= 1.5 && k.ring.m <= 4), k.ring);
@@ -249,7 +244,7 @@ await wait();
 // which just after an edit would hold back what the edit shows (phone_toast_chain_cmd's "Added" message)
 {
   const before = await ev('__cmwSvWarm()'), t0 = await ev('performance.now()');
-  await ev(`__cmwAddStep('exp'), 1`);
+  await setup(`__cmwAddStep('exp'), 1`);
   let w = null;
   for (let i = 0; i < 80; i++) { w = await ev('__cmwSvWarm()'); if (w.sig === w.now && w.sig !== before.sig) break; await sleep(250); }
   info.warm = { before, w, after: w ? Math.round(w.at - t0) : null };

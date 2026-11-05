@@ -174,6 +174,8 @@
       const own = fi.ownWin ? ' ' + (fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.')) : '';
       return svTwoSentence(fi) + own;
     }
+    // the steps view's paths figure: the shown plane's caption, then the sentence naming the paths
+    if (fi.svPaths) return captionFor(o, 'xyL', Object.assign({}, body, { info: {} })) + fi.sentence;
     if (fi.svFilm) {
       const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
       const own = fi.ownWin ? ' ' + note : '';
@@ -368,6 +370,7 @@
     if (defo) return `${base}-${tag}-${deform === 'paths' && PATHS_OK.has(defo) ? 'paths' : deform === 'frame' && defo !== 'plane' ? 'frame' : 'film'}`;
     if (view === 'svFilm') return `${base}-filmstrip`;
     if (view === 'svTwo') return `${base}-two-planes`;
+    if (view === 'svPaths') return `${base}-paths`;
     if (view === 'phase') return `${base}-phase`;
     if (view === 'land') return `${base}-landscape`;
     if (view === 'xyL' && A.state().main === 'phase') return `${base}-phase-sphere`;
@@ -423,7 +426,7 @@
     if (o.axes) P.axes = o.axes;
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
-    const view = o.view || (A.svOn() && o.svPic === 'film' ? 'svFilm' : A.svOn() && o.svPic === 'two' ? 'svTwo' : A.viewKind());
+    const view = o.view || (A.svOn() && o.svPic === 'film' ? 'svFilm' : A.svOn() && o.svPic === 'two' ? 'svTwo' : o.svPic === 'paths' && A.svOn() && A.svPathsFig && A.svPathsFig() && A.svPathsFig().i != null ? 'svPaths' : A.viewKind());
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
@@ -436,6 +439,7 @@
     if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
     else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
     else if (view === 'svTwo') body = await figSvTwo(o, P, W, T);
+    else if (view === 'svPaths') body = await figPaths(Object.assign({}, o, { sv: A.svPathsFig() }), P, W, T);
     else if (view === 'phase') body = await figPhase(o, P, W, T);
     else if (view === 'land') body = await figLand(o, P, W, T);
     if (body) { /* made */ }

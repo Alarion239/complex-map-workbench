@@ -23,7 +23,7 @@ await ready(1440, 900, false, 'a');
 await key('e', 4);
 ok('the dialog opens and builds', await built());
 const pics = await ev(`[...document.querySelectorAll('#xfSvPic [data-v]')].map((b) => b.dataset.v)`);
-ok('Picture: Shown plane, Two planes, Filmstrip', JSON.stringify(pics) === JSON.stringify(['plane', 'two', 'film']), pics);
+ok('Picture: Shown plane, Paths, Two planes, Filmstrip', JSON.stringify(pics) === JSON.stringify(['plane', 'paths', 'two', 'film']), pics);
 ok('the planes row is hidden for the Shown plane', await ev(`document.getElementById('xfSvFrom').closest('.xf-row').hidden`) === true);
 await ev(`document.querySelector('#xfSvPic [data-v="two"]').click(); 1`);
 ok('the figure rebuilds for the two planes', (await until(`${ALT} === 'z and w₂, joined by F'`)).ok === true);
