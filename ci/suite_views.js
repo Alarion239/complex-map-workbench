@@ -47,7 +47,7 @@ const VIEWS = {
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
-  'steps_land_specks_cmd.js': steps(),
+  'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
