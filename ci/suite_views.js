@@ -101,6 +101,7 @@ const VIEWS = {
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
   'phone_glide_export_cmd.js': classic('the export while the classic ‹ › glide has Y on a step\'s plane, and the chip over it: the steps view\'s export of a step\'s plane is phone_export_steps_cmd'),
   'phone_glide_cmd.js': classic('the phone\'s ‹ › glide of Y between X and Y: the steps view glides its one plane (steps_view_cmd)'),
+  'phone_plane_cmd.js': steps({ pin: true }),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
