@@ -36,20 +36,30 @@ for (const exN of [1, 18]) {
   ok(`${tag}: 1280 x 720 at 30 fps, H.264 or VP9`, v.W === 1280 && v.H === 720 && v.fps === 30 && /^(avc1|vp0?9|vp8)/.test(v.codec), v);
   ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < 12, v);
   ok(`${tag}: the thread's place is where it was`, v.at0 === v.at1, v);
-  // ruling 2 (#635): the video's first frame, at rest on the first plane, is the still export's PNG of that plane (both at
-  // 320 x 180, so the pixel comparison is of the same picture; the still's framing is its own)
+  // ruling 2 (#635): the video's first frame, at rest on the first plane, shows the still export's picture of that plane:
+  // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
+  // being that window widened to 16:9 (both at 320 px wide, so the pixels compare the same picture)
   const fp = await ev(`await (async () => { try {
-    const chk = await __cmwFig.videoCheck(0, 320, 180);
+    await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
+    const chk = await __cmwFig.videoCheck(0, 640, 360);
     const f = await __cmwFig.build({});
-    if (!f) return { none: 1 };
-    const bmp = await createImageBitmap(await __cmwFig.png(f, 150));
-    const ld = (u) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
-    const dv = await ld(chk.decoded), still = document.createElement('canvas');
-    still.width = 320; still.height = 180; still.getContext('2d').drawImage(bmp, 0, 0, 320, 180);
-    const dc = document.createElement('canvas'); dc.width = 320; dc.height = 180; dc.getContext('2d').drawImage(dv, 0, 0);
-    const a = dc.getContext('2d').getImageData(0, 0, 320, 180).data, b = still.getContext('2d').getImageData(0, 0, 320, 180).data;
-    let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
-    return { mad: s / (320 * 180 * 3), W: f.W, H: f.H, t: chk.t };
+    if (!f || !f.box) return { none: 1 };
+    const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
+    const im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+    const ld = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+    const dv = await ld(chk.decoded), w = 320, h = Math.round(w * im[3] / im[2]);
+    const still = document.createElement('canvas'); still.width = w; still.height = h;
+    still.getContext('2d').drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
+    // the frame's window: f.box widened about its centre to 16:9
+    const b = f.box, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    let bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+    if (bw / bh > 16 / 9) bh = bw * 9 / 16; else bw = bh * 16 / 9;
+    const sx = dv.width / bw, sy = dv.height / bh;
+    const vid = document.createElement('canvas'); vid.width = w; vid.height = h;
+    vid.getContext('2d').drawImage(dv, (b.x0 - (cx - bw / 2)) * sx, ((cy + bh / 2) - b.y1) * sy, (b.x1 - b.x0) * sx, (b.y1 - b.y0) * sy, 0, 0, w, h);
+    const a = vid.getContext('2d').getImageData(0, 0, w, h).data, c = still.getContext('2d').getImageData(0, 0, w, h).data;
+    let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]);
+    return { mad: s / (w * h * 3), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
   ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
