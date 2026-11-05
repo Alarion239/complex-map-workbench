@@ -37,10 +37,11 @@ await press(1); const endTips = [await walk(1)];
 ok('f4 alone: › aria-disabled, tip says no step after f₄', endTips[0].off === 'true' && /No step after f₄/.test(endTips[0].tip), endTips);
 // › from the end plane keeps the picture: f2 alone on its last plane, › shows f4 alone on its first plane
 await press(-1);
-const pl = async () => ev('(() => { const q = __cmwSteps(); return { planes: q.planes, stage: q.stage }; })()');
+const pl = async () => ev('(() => { const q = __cmwSteps(); return { planes: q.planes, stage: q.stage, T: q.T, key: q.names.key, title: q.names.title, win: JSON.stringify(__cmwP().srcView), anim: q.anim }; })()');
 const a = await pl(); await press(1); const b = await pl();
 info.walk = [a, b];
-ok('› from the end plane: the shown plane stays plane 2 (the colour plane is the step\'s own)', a.stage === 2 && b.stage === 2 && b.planes[0] === 2, info.walk);
+ok('› from the end plane: the shown plane stays plane 2 (the colour plane is the step\'s own)', a.stage === 2 && b.stage === 2 && b.planes[0] === 2 && a.win === b.win && !b.anim, info.walk);
+ok('› from the end plane: the colour plane follows the step shown (f₂ → f₄)', a.T === 2 && b.T === 4, info.walk);
 await press(1); await press(-1); await press(-1);
 await clickSel('#svStrip .sv-whole'); await settle(400);
 ok('Whole chain leaves', (await alone()) === 0 && (await walk(1)) === null);
