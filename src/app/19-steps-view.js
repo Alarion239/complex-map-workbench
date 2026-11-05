@@ -1783,6 +1783,8 @@
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
   const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
+  const SV_FOOT_MORE = 4 + 26;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
@@ -1819,7 +1821,7 @@
     E.fitKey = key;
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
     // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is its first word (sv-rs), then the title
-    // loses its role (sv-c2) last; a word is never cut, #721)
+    // loses its role (sv-c2) last; a word is never cut)
     const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-rs', lvl >= 4); E.bar.classList.toggle('sv-c2', lvl >= 5); };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
@@ -1854,7 +1856,7 @@
     for (const c of head.children) {
       if (c === E.bar || !c.getClientRects().length) continue;
       const m = getComputedStyle(c);
-      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : hs && hs.getClientRects().length ? hs.getBoundingClientRect().width : 0) + 4 + 26 : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
+      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : hs && hs.getClientRects().length ? hs.getBoundingClientRect().width : 0) + SV_FOOT_MORE : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
