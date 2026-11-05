@@ -105,7 +105,8 @@ const VIEWS = {
   'card_resize_cmd.js': classic('the chain cards during a resize: no card row in the steps view'),
   'chain_row_cmd.js': classic('the phone\'s chain bar with Deformation and its glide: the steps view\'s phone has the strip'),
   'clear_chain_open_cmd.js': classic('the classic chain head beside the floating Inspector (it names the classic view)'),
-  'deform_range_cmd.js': classic('the Deformation bracket over the card row: the thread\'s range is steps_play_cmd\'s'),
+  'deform_range_classic_cmd.js': classic('the Deformation bracket over the card row, its menu items and chain edits, the phone bar, the sound probe and the morph figure\'s captions: the thread\'s range is deform_range_cmd\'s and steps_play_cmd\'s'),
+  'deform_range_cmd.js': steps({ pin: true }),
   'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which only the classic view has'),
   'land_cards_cmd.js': classic('the Landscape step cards: no card row in the steps view'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
@@ -119,7 +120,7 @@ const VIEWS = {
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
   'v15_desktop_cmd.js': classic('the cards following the view switch (X → Y, Phase, Landscape, the Deformation)'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
-  'deform_range_gl_cmd.js': classic('it drives the Deformation bracket itself (__cmwMorph({ range }), #homOrderSel), which the steps view does not have'),
+  'deform_range_gl_cmd.js': steps({ pin: true }),
   'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
 
   // to port: interact
