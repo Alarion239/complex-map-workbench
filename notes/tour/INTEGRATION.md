@@ -250,7 +250,7 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 | event | payload | emit when |
 |---|---|---|
 | `probe` | `{ pane: 'L' \| 'R', w: [re, im] }` | the pointer (or a held finger) probes a point (the hover preimages); the tour waits for a `'R'` probe inside the unit disc and one outside it (without `w`, any `'R'` probe) |
-| `shape-added` | `{ kind, plane: 'z' \| 'w' }` | a shape or a target is added (drawn, typed, pasted) |
+| `shape-added` | `{ kind, plane: 'z' \| 'w', stage }` (`stage`: the plane of the chain the shape was drawn on, 0 for z) | a shape or a target is added (drawn, typed, pasted) |
 | `shape-moved` | `{ id, plane }` | a drag moves or reshapes a shape or a target (once, at the end of the drag) |
 | `step-focused` | `{ k }` | the focus changes (0 = Whole chain) |
 | `step-selected` | `{ k }` | a card or the F tile is selected for the Inspector (`k` is the step's number, or `'F'` for the F tile) |
@@ -651,12 +651,21 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | anchor | element |
 |---|---|
 | `svStrip` | the thread, `#svStrip` |
+| `svNext` | the thread's › button, `#svStrip .sv-next` |
 | `svRing` | the ring that marks the place on the thread, `#svStrip .sv-thumb` |
 | `svCp` | Colour from here, `#svHead .sv-cp` |
 | `svScope` | the Everywhere / Inside regions choice, `#svHead .sv-scope` |
 | `svSurf` | the surface choice: the segmented control, or on a phone the one button that steps through the three |
 | `svChip` | the first function chip on the thread, `#svStrip .sv-fchip` |
-| `svF` | the F chip, the whole map, `#svStrip .sv-wholemap` |
+| `svChip2` | the second function chip, `#svStrip .sv-step[data-k="2"] .sv-fchip` |
+| `svPrev` | the thread's ‹ button, `#svStrip .sv-prev` |
+| `svAdd` | the thread's Add function button, in its wide and its round form, `#svStrip .sv-add` |
+| `svMenu2` | the second chip's ⋯ button, `#svStrip .sv-step[data-k="2"] .sv-more`; the chip itself where it has none (a phone) |
+| `svF` | the F chip, the whole map, `#svStrip .sv-wholemap`; it is scrolled into view first, as on a phone it is at the end of the scrolling rail |
+| `svPlay` | the ▶ / pause button, `#svStrip .sv-play` |
+| `svRail` | the rail with the band, `#svStrip .sv-rail` |
+| `svSpeed` | the speed select, `#svStrip .sv-speed` (on a phone it is in the Playback sheet, not on the strip) |
+| `svLoop` | the Loop button, `#svStrip .sv-loop` (on a phone, in the Playback sheet) |
 
 ### Events added for the steps view (#442)
 
@@ -668,6 +677,10 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `surface-changed` | `{ s: 'plane' \| 'sphere' \| 'land' }` | the user chooses a surface (the choice, the phone's button, its Sphere key) |
 | `scope-changed` | `{ s: 'all' \| 'in' }` | the user chooses Everywhere or Inside regions |
 | `step-selected` | `{ k }` | a step is selected for the Inspector (a click on a card, or on a function chip of the steps view's thread) |
+| `step-moved` | `{ k, from }` | a step is moved along the chain (`moveStep`: the card's or chip's ⋯ menu, the keyboard); `k` is its new number, `from` the old one. An example's Try line (`tryDoneSv`) waits for it |
+| `play-started` | `{ from }` | ▶ (or K) starts the glide along the chain; `from` is the plane it starts on |
+| `loop-changed` | `{ on }` | Loop is switched, on the strip or in the Playback sheet |
+| `range-set` | `{ lo, hi }` | a range of planes is committed: a drag's end, or the keyboard's extension; `lo` and `hi` are plane numbers |
 | `probe` | `{ pane: 'L', stage, past, z, w, mod }` | (the steps view's own, besides Y's) the pointer reads a point of the shown plane; `w` and `mod` are the map into the colour plane there, undefined past it (`past`: the plane is after the colour plane) |
 
 `sheet-changed` is also sent when a sheet is typed into a step's field (the Inspector's or a card's), not only through ‹ ›.

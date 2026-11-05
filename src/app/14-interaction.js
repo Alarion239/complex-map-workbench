@@ -347,7 +347,6 @@
       : targetsEditable() && !drag && tool !== 'select' ? 'crosshair' : (drag ? 'grabbing' : 'grab');
     else if (lGlobe() && gEditDrag) c = gEditCur('L');
     else if (lGlobe() && gDraw('L') && !drag) c = gDrawCur('L');
-    else if (lGlobe() && leftStage() > 0 && Construct.isTool(tool) && !drag) c = 'not-allowed';
     // the landscape takes no drawing (panels.md 9.1)
     else if (lLand() && tool !== 'select' && tool !== 'formula' && !drag) c = 'not-allowed';
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
@@ -434,11 +433,8 @@
     }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p }; return; }
+      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to }; return; }
     }
-    // ([#253] a shape is drawn in the plane X shows, at its stage; a construction tool works in the z-plane only (P4:
-    // nothing jumps mid-gesture; the Whole chain button pulses once to show the way back)
-    if (leftStage() > 0 && Construct.isTool(tool)) { pulseWhole(); return; }
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
@@ -744,8 +740,8 @@
     const g = pickGlobe(pane, c, x, y);
     if (!gc || !g || e.button === 1 || e.button === 2 || spaceHeld || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y)) { turn(); return; }
     if (GLOBE_OFF.has(tool) || tool === 'formula') { turn(); return; }
-    // (a click picks, onUp; a drag turns; a construction tool picks nothing on a later plane: the Whole chain button pulses)
-    if (Construct.isTool(tool)) { turn(); if (side === 'L' && leftStage() > 0) pulseWhole(); else drag.cmPick = true; return; }
+    // (a click picks, onUp; a drag turns)
+    if (Construct.isTool(tool)) { turn(); drag.cmPick = true; return; }
     if (tool === 'polygon') {
       if (nearInf(gc, x, y)) return;
       const gs = globeSnap(gc, side, g, 'cart');
@@ -1123,7 +1119,12 @@
       pane.setView(drag.target ? V.right : leftView());
       const z = pane.s2w(x, y);
       if (drag.mode === 'cut') {
-        setCut(drag.step, Math.atan2(z.im - drag.p.im, z.re - drag.p.re) / DEG, S.snap);
+        // (in a later plane the pointer is pulled back to the cut's own plane, in an earlier one mapped forward to it; where there
+        // is no such point the cut holds)
+        const zc = drag.fwd ? drag.fwd(z) : drag.F ? cutPull(drag.F, z, drag.q, drag.from, drag.to) : z;
+        if (!zc || !CX.isFin(zc)) return;
+        if (drag.F) drag.q = zc;
+        setCut(drag.step, Math.atan2(zc.im - drag.p.im, zc.re - drag.p.re) / DEG, S.snap);
         return;
       }
       // a zero or a pole follows the pointer (snapped like the shape handles); off the plane it waits at the edge, and
