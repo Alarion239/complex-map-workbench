@@ -1310,7 +1310,15 @@
       // panels.md 2: z, |z|, arg, then F as modulus and angle with its swatch (first, so it is never cut); where the
       // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
       // (the steps view's colour plane reads its own variable above: no second row for the identity)
-      const fv = (dp) => SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
+      // (the steps view's Landscape reads F at the point, the whole chain's value, and the height it stands at, h(F),
+      // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
+      const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
+      const hRow = (dp) => {
+        const fin = CX.isFin(hF), hv = !fin ? NaN : S.height === 're' ? hF.re : S.height === 'im' ? hF.im : CX.abs(hF);
+        const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
+        return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
+      };
+      const fv = (dp) => land ? hRow(dp) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
       const forms = [
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))) + fv(4),
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + fv(4),
@@ -1318,7 +1326,7 @@
       ];
       // (the steps view's readout on a phone is two lines, as the classic one: z on the first, the map into the colour plane on the
       // second, where one line of both was cut at 360–390 px)
-      const two = SV.on && document.documentElement.classList.contains('ph') && svMapName('text') !== null;
+      const two = SV.on && document.documentElement.classList.contains('ph') && (land || svMapName('text') !== null);
       if (two) {
         const z2 = [() => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))), () => rk(vin, fmtCxHtml(z, 4, zTol)), () => rk(vin, fmtCxHtml(z, 3, zTol))];
         const m2 = [() => fv(4), () => fv(4), () => fv(2)];
