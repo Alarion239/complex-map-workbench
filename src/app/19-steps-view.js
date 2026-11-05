@@ -1421,7 +1421,7 @@
     bar.append(title, cp, scope, surf1);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
-    const tnote = h('span', { class: 'head-note sv-tnote', role: 'status', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.paths || '' }), h('span', { class: 'sv-tn-t' }));
+    const tnote = h('span', { class: 'head-note sv-tnote', role: 'note', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.targets }), h('span', { class: 'sv-tn-n', 'aria-hidden': 'true' }), h('span', { class: 'sv-tn-t' }));
     head.insertBefore(tnote, bar.nextSibling);
     // the chain strip: ‹, a segment per plane with the step between, ›
     const play = h('button', { type: 'button', class: 'sv-nav sv-play', 'aria-description': $t('Hold for speed and loop'), onclick: () => { if (SV.sheetHeld) { SV.sheetHeld = false; if (SV.els.sheet && !SV.els.sheet.hidden) SV.els.sheetSpeed.focus(); return; } svTogglePlay(); } });
@@ -1550,6 +1550,7 @@
     if (tn && E.tnote.dataset.sig !== tn.text) {
       E.tnote.dataset.sig = tn.text;
       E.tnote.querySelector('.sv-tn-t').textContent = tn.text;
+      E.tnote.querySelector('.sv-tn-n').textContent = tn.names;
       E.tnote.setAttribute('aria-label', tn.text + '. ' + tn.tip); E.tnote.setAttribute('data-tip', tn.tip);
     }
     if (sig !== E.headSig) {
@@ -1760,7 +1761,7 @@
     }
     set(0);
     const tn = E.tnote.hidden ? null : E.tnote;
-    E.tnote.classList.remove('tn-icon');
+    E.tnote.classList.remove('tn-chip', 'tn-icon');
     const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
     const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     // (what the rest of the head takes at the least: the strip as its style row and a ⋯, every other shown item as it is,
@@ -1776,10 +1777,12 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
-    // (short of room, the targets' note folds to its icon first, before the bar's controls shorten and before any mode chip)
-    if (lvl && tn) {
+    // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
+    // the source planes' names, then to its icon alone)
+    for (const cls of ['tn-chip', 'tn-icon']) {
+      if (!lvl || !tn) break;
       const w0 = tn.getBoundingClientRect().width;
-      tn.classList.add('tn-icon');
+      tn.classList.add(cls);
       keep -= w0 - tn.getBoundingClientRect().width;
       set(0); lvl = 0;
       while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
@@ -1822,13 +1825,13 @@
     svTnKey = key;
     if (!by.size) return (svTnVal = null);
     const stages = [...by.keys()].sort((a, b) => a - b), na = [...by.values()].reduce((n, c) => n + c[0], 0), nc = [...by.values()].reduce((n, c) => n + c[1], 0);
-    const p = stages.map(svName).join(', '), one = stages.length === 1, x = svMapName('plain', j, stages[stages.length - 1]);
+    const names = stages.map(svName), p = new Intl.ListFormat(I18N.lang, { type: 'conjunction' }).format(names), one = stages.length === 1, x = svMapName('plain', j, stages[stages.length - 1]);
     const text = na && nc ? (one ? $t('Shaded and drawn from {p}\'s targets', { p }) : $t('Shaded and drawn from the targets of {p}', { p }))
       : na ? (one ? $t('Shaded from {p}\'s targets', { p }) : $t('Shaded from the targets of {p}', { p }))
         : one ? $t('Drawn from {p}\'s targets', { p }) : $t('Drawn from the targets of {p}', { p });
     const tip = na && nc ? $t('Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.', { x, p })
       : na ? $t('Where {x} lands in the targets of {p} is shaded here.', { x, p }) : $t('The curves that {x} maps onto the targets of {p} are drawn here.', { x, p });
-    return (svTnVal = { text, tip });
+    return (svTnVal = { text, tip, names: p });
   }
   function svPlaceText() {
     const P = svPlanes(), x = SV.g.x;

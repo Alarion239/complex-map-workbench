@@ -790,8 +790,11 @@ html.ph .cp-pop .check, html.ph .cp-pop .cp-go, html.ph .cp-pop .seg button, htm
 html.ph .cp-pop .seg { display: grid; grid-template-columns: repeat(3, 1fr); }
 
 /* the steps view's targets' note: the words in the head; folded, its icon alone (its words are its accessible name and tip) */
-.pane-head > .sv-tnote .sv-tn-i { display: none; width: 16px; height: 16px; }
-.pane-head > .sv-tnote.tn-icon .sv-tn-i { display: inline-flex; }
-.pane-head > .sv-tnote.tn-icon .sv-tn-t { display: none; }
+.pane-head > .sv-tnote .sv-tn-i, .pane-head > .sv-tnote .sv-tn-n { display: none; }
+.pane-head > .sv-tnote .sv-tn-i { width: 16px; height: 16px; }
+.pane-head > .sv-tnote.tn-chip, .pane-head > .sv-tnote.tn-icon { display: inline-flex; align-items: center; gap: 4px; }
+.pane-head > .sv-tnote.tn-chip .sv-tn-i, .pane-head > .sv-tnote.tn-chip .sv-tn-n { display: inline-flex; }
+.pane-head > .sv-tnote.tn-chip .sv-tn-t, .pane-head > .sv-tnote.tn-icon .sv-tn-t, .pane-head > .sv-tnote.tn-icon .sv-tn-n { display: none; }
 .pane-head > .sv-tnote { text-overflow: clip; }
+.pane-head > .sv-tnote[hidden] { display: none; }
 html.ph .ph-tnote { font: var(--t-label); color: var(--muted); padding: 4px 0; white-space: normal; }

@@ -785,7 +785,7 @@ const Phone = (() => {
     const pick = A.colourPick(), kids = A.footKids(side), unit = $('unitBox'), reg = pick || (A.regionsView() ? $('regionsBox') : null);
     homeDisplay();
     const tn = A.targetNote();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'status', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
     for (const old of els.regions.querySelectorAll('.cp-pop')) old.remove();
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg || !!pick;   // (the picker names its own colouring)
