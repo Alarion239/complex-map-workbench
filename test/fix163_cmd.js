@@ -1,4 +1,4 @@
-// Review fixes: the in-app checks of the user- and math-review findings
+// In-app checks of the findings
 // that the node suite cannot see. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/fix163_cmd.js
 //   U1 the unit circle picked as C is fixed (a body drag pans, a toast); Make free unlocks it

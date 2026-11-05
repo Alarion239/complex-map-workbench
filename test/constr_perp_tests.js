@@ -2,7 +2,7 @@
 // src/constr.js). proto/check.js's 41 checks in the house style: the core's exactness (|cos| of the angle between K and
 // C measured in BigInt from the float coefficients, incidence of P and Q), the anchors and the orientation, the graph
 // (creation, drags, the line case, the region family), Use complement on C, chains and curve kinds, gliders, meets,
-// and the plumbing (validate, save and load, the earlier build's validate, plans, describe, speed).
+// and the plumbing (validate, save and load, the frozen copy's validate, plans, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limits are in reference operations measured in the same run (test/lib/speed_ref.js), so they hold on any machine
@@ -10,7 +10,7 @@ const { unitsOf, cpuUnitsOf } = require('./lib/speed_ref');
 const PERP_UNITS = 110, DRAG_UNITS = 19000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
-  // (an earlier build's constr.js, frozen: it reads a saved perpendicular circle)
+  // (a frozen copy of constr.js: it reads a saved perpendicular circle)
   const K161 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.2-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const INF = K.INF, isInf = K.isInf;
   const head = (t) => { if (process.argv.includes('-v')) console.log('== E. ' + t); };
@@ -342,7 +342,7 @@ module.exports = function ({ K, ok }) {
       `speed: perpForm ${per.toFixed(0)} reference operations (limit ${PERP_UNITS}); a drag with 10 dependents ${drag.toFixed(0)} (limit ${DRAG_UNITS})`);
   }
 
-  // ================================================ review fixes
+  // ================================================ checks
   {
     const eq = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]) < 1e-12;
     // [math-2] perp on a touching circle K; Use complement on K: Q's form and a glider on Q stay

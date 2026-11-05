@@ -1,4 +1,4 @@
-// D1, issue #23: the function search can replace as well as insert. A chip in the search row says where the function
+// The function search can replace as well as insert. A chip in the search row says where the function
 // goes (Insert, Replace F, Replace f_k; Tab or a click changes it, and it is remembered); the best match is listed all
 // three ways; "Replace…" is the first item of a card's ⋯; the Inspector's title opens the search ready to replace its
 // step; Clear chain is a word button in the classic chain head (clear_chain_open_cmd.js clicks it) and the palette's command in the steps view. On a laptop (1366×768), a phone (412×860) and in Russian.

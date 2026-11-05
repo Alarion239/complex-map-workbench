@@ -40,7 +40,7 @@ const settle = async (ms = 120000, want = {}) => {
   return s;
 };
 // load() waits a fixed 2.2 s after it navigates; on a busy machine the page has not run its start-up by then and the
-// hooks below are not defined yet (#301: "ReferenceError: __cmwSmVerdict is not defined"). So wait for the hooks this suite
+// hooks below are not defined yet (an early run fails with "ReferenceError: __cmwSmVerdict is not defined"). So wait for the hooks this suite
 // calls, as long as it takes, and fail with the hook that never came rather than a ReferenceError later. Then count what the
 // app draws (watchDraws below).
 const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSmReset', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
@@ -62,7 +62,7 @@ const loadReady = async (ns, st, ms = 120000) => {
 };
 // The app draws at requestAnimationFrame, and on a slow renderer (SwiftShader, a busy machine) a frame comes seconds after
 // the state it shows, so the canvas a moment after settle() can be an older frame: the GPU stand-in drawn before the
-// SphereMesh is published, or the frame before an alpha change (#301). This hook counts the app's frames (GLR.begin) and the
+// SphereMesh is published, or the frame before an alpha change. This hook counts the app's frames (GLR.begin) and the
 // SphereMeshes it draws (GLR.drawPreMapped, with the alpha); meshDrawn() waits for a draw after a change.
 const watchDraws = () => ev(`(() => { if (window.__p5w) return 1; const w = window.__p5w = { frames: 0, pm: 0, alpha: null }; const wrap = (k, f) => { const g = GLR[k]; GLR[k] = function (...a) { f(...a); return g.apply(this, a); }; }; wrap('begin', () => { w.frames++; }); wrap('drawPreMapped', (res, st) => { if (res && res.n) { w.pm++; w.alpha = st.alpha; } }); return 1; })()`);
 // run `trigger` (a statement that makes the app redraw), then wait until the app has drawn a SphereMesh (at `alpha`, when

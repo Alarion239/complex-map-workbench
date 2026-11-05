@@ -759,7 +759,7 @@ await section('I', async () => {
 });
 
 await section('R', async () => {
-  // the review fixes, in the app
+  // the in-app checks
   await view(1440, 900, false, false);
   const RS = {
     shapes: [

@@ -1,8 +1,8 @@
 // The deformation range (notes/deform-range/SPEC.md 13.3, 13.4): the bracket over the chain, H_t = Q o G_t o P. A
 // command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && cp <xv16-merged-snap built>/dist/test.html dist/v16m.html && <runner> test/deform_range_cmd.js
-// (section 1 compares with the reference build, the merged tree before the range, built and served beside this
-// build as v16m.html: constructions change some path choices of the earlier build). Prints {pass, fails, shots,
+// (section 1 compares with the merged v16 tree before the range, work/xv16-merged-snap built and served beside this
+// build as v16m.html: constructions already changed some path choices against v15.2.1, notes/workflows/V16-MERGE.md 5.2). Prints {pass, fails, shots,
 // info}; screenshots go to <daemon folder>/shots/dr-*.png.
 // (fs, path and DIR are the daemon's; png.js through the daemon's own require)
 const PNG = process.mainModule.require(DIR + '/png.js');
@@ -50,8 +50,8 @@ async function menuPick(k, text) {
   return items;
 }
 const st = () => ev('(() => { const s = __cmwState(), h = s.homView; return { focus: s.focus, morph: s.morph, hv: h ? { map: h.map, imageMap: h.imageMap, key: h.key, range: h.range, H0Map: h.H0Map, start: h.start } : null, range: __cmwRange() }; })()');
-// (the deformation's title is in words, "Deformation" + "from A to B"; this reads it back
-// as "A → B" so the maps it names are compared with the reference build)
+// (v16.5 UX103: the deformation's title is in words, "Deformation" + "from A to B", where it read "A → B" + "deformation":
+// read as "A → B" so the maps it names are compared with the reference build as before)
 const title = () => ev(`(() => { const R = document.getElementById('rightTitle'), t = R.querySelector('.ptitle'); if (!t) return R.textContent; const tt = t.textContent.trim(), ro = R.querySelector('.prole'); const m = /^(Deformation|Деформация|Deforming .+|Деформируются .+)$/.test(tt) && ro ? /^(?:from|от)\\s+(.+?)\\s+(?:to|к|до)\\s+(.+)$/.exec(ro.textContent.trim()) : null; return m ? m[1] + ' → ' + m[2] : t.textContent; })()`);
 const probesOf = (n, x0, x1, y0, y1) => { const out = []; let s = 5; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; for (let i = 0; i < n; i++) out.push([x0 + (x1 - x0) * r(), y0 + (y1 - y0) * r()]); return out; };
 const near = (u, v, tol) => (u == null && v == null) || (u && v && Math.hypot(u[0] - v[0], u[1] - v[1]) <= tol * (1 + Math.hypot(v[0], v[1])));
@@ -60,7 +60,7 @@ async function gpuVsCpu(pts, spec) {
   return ev(`(() => { const s = ${spec ? JSON.stringify(spec) : '__cmwState().homView.imageMap'}; const g = GLR.evalMap(s, ${JSON.stringify(pts)}); const c = __cmwEval('cpuMap', s, ${JSON.stringify(pts)}); if (!g) return { err: 'no gpu' }; let worst = 0, n = 0; c.forEach((w, i) => { if (!w) return; const gx = g[2 * i], gy = g[2 * i + 1]; if (!isFinite(gx) || !isFinite(gy)) return; n++; worst = Math.max(worst, Math.hypot(gx - w[0], gy - w[1]) / (1 + Math.hypot(w[0], w[1]))); }); return { worst, n, spec: s }; })()`);
 }
 
-// ---------------- 1. today unchanged (desktop, EN, light): the 8 path scenes against the reference build without the range (v16m.html) ----------------
+// ---------------- 1. today unchanged (desktop, EN, light): the 8 path scenes against the merged v16 tree without the range (v16m.html) ----------------
 if (RUN.includes(1)) {
   await deskView(1440, 900, false);
   const SC = eval(fs.readFileSync(DIR + '/../pa_scenes.js', 'utf8'));
@@ -72,20 +72,20 @@ if (RUN.includes(1)) {
       await load(ns, Object.assign({ pattern: 'checker', homAll: !!sc.homAll }, sc.st));
       if (build === 'v16m') await nav(`${BASE}v16m.html?ns=${ns}`);
       await settle(1000);
-      // (Y's key and its options bar are in the pane head, off the picture, so the paths' starts may use the
+      // (v16.5 UX20: Y's key and its options bar left the picture for the pane head, so the paths' starts may use the
       // room they kept free (mfNogo): in the reference build they are taken off the plot before the deformation opens,
       // so both builds choose their paths in the same free plot)
       if (build === 'v16m') await ev(`(() => { for (const id of ['rightLegend', 'rightFoot']) { const e = document.getElementById(id); if (e) e.style.display = 'none'; } return 1; })()`);
       await ev('__cmwMorph({ open: true, playing: false })'); await settle(700);
       const m = await ev('__cmwState().homView ? (__cmwState().homView.map.mode === 3 ? 1 : null) : null');
-      const len = await ev(`(() => { const s = document.getElementById('morphRange'); return s ? +s.max || 1 : 1; })()`);   // (the readout is in words; the scrubber's max is the length)
+      const len = await ev(`(() => { const s = document.getElementById('morphRange'); return s ? +s.max || 1 : 1; })()`);   // (v16.5 UX103: the readout is in words; the scrubber's max is the length)
       const r = { T: {}, focus: {} };
       for (const T of [0, 0.5 * len, len]) {
         await at(T, 600); await pathsReady(); await settle(300);
         const h = await ev('(() => { const h = __cmwState().homView; return h ? { map: h.map, imageMap: h.imageMap, key: h.key } : null; })()');
         r.T[T] = { h, title: await title() };
         if (T === 0.5 * len) {
-          // (the plane's key is in Y's pane head; the reference build's key box over the plot
+          // (v16.5 UX20: the plane's key left the picture for Y's pane head; the reference build's key box over the plot
           // is hidden for the shot, so the frames compare the maths drawing alone)
           if (build === 'v16m') await ev(`(() => { for (const id of ['leftLegend', 'rightLegend']) { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; } return 1; })()`);
           await snap(`today-${sc.id}-${build}`, await plotClip());
@@ -127,9 +127,9 @@ if (RUN.includes(1)) {
     const d = diffPx(`dr-today-${sc.id}-v16m`, `dr-today-${sc.id}-v16`), dn = diffPx(`dr-today-${sc.id}-v16m-np`, `dr-today-${sc.id}-v16-np`);
     info.today[sc.id] = { paths: d, noPaths: dn };
     ok(`today ${sc.id}: the frame at T = end/2 without the paths as the merged v16 tree without the range (v16m.html) (0 px over 8/255)`, dn.n === 0, dn);
-    // (accepted: chain3, all at once, picks one path differently from v16m because D3 makes
+    // (accepted, review v16 regress-2: chain3, all at once, picks one path differently from v16m because D3 makes
     // hom(0) the exact identity (z^2 at t = 0 differed by 7e-16) and two candidates tied but for that rounding; this
-    // build ranks candidates on a micro-px grid in the seeds' fixed order, so it does not flip on such rounding, but
+    // build ranks candidates on a micro-px grid in the seeds' fixed order, so it no longer flips on such rounding, but
     // v16m, the reference, still does. Every other scene must match with its paths)
     ok(`today ${sc.id}: the frame at T = end/2 as the merged v16 tree without the range (v16m.html) (0 px over 8/255; chain3's paths accepted)`, d.n === 0 || sc.id === 'chain3', d);
   }
@@ -138,7 +138,7 @@ if (RUN.includes(1)) {
   await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
   ok('one active step: no bracket', !(await ev(`(() => { const L = document.getElementById('chainBracket'); return !!L && !L.hidden; })()`)), null);
   await ev('__cmwMorph({ open: false })');
-  // the figure caption without a bracket, as the reference build without the range (v16m.html) (chain3 and expstrip)
+  // the figure caption without a bracket, as the merged v16 tree without the range (v16m.html) (chain3 and expstrip)
   info.capToday = {};
   for (const [id, stt] of [['chain3', { shapes: STRIP, steps: chain3, srcView: { cx: 0, cy: 0, s: 52 } }]]) {
     const caps = {};
@@ -164,7 +164,7 @@ if (RUN.includes(2)) {
   const items = await menuPick(2, 'Steps f2–f3');
   info.pushMenu = items;
   ok('push: the menu on f2 holds four items', items.length === 4 && items[3].t === 'Every step', items);
-  // (the key slot is set in the label's math face, <sub> digits, so its text reads 'from w1')
+  // (review v16 user-2: the key slot is set in the label's math face, <sub> digits, so its text reads 'from w1')
   ok('push: the key slot names the start', items.some((x) => x.t === 'Steps f2–f3' && /^from w(₁|1)$/.test(x.key)), items);
   let s = await st();
   ok('push: S.homRange is {2, 3}', s.range.stored && s.range.stored.a === 2 && s.range.stored.b === 3, s.range.stored);
@@ -173,7 +173,7 @@ if (RUN.includes(2)) {
   ok('push: map mode 1, hi 2, no post', s.hv && s.hv.imageMap.mode === 1 && s.hv.imageMap.hi === 2 && !('post' in s.hv.imageMap), s.hv && s.hv.imageMap);
   ok('push: H_0 is not the identity (start)', s.hv && s.hv.start === true, s.hv);
   ok('push: title w₁ → w', /^w\s*(1|₁)\s*→\s*w$/.test((await title()).replace(/\s+/g, ' ').trim()), await title());
-  // (the title names the bracketed steps in words, and the bracket says the same with an All steps reset)
+  // ([v17 UX64] the title names the bracketed steps in words, and the bracket says the same with an All steps reset)
   const words = await ev(`(() => { const t = document.querySelector('#rightTitle .ptitle'), l = document.querySelector('#chainBracket .br-label'); return { title: t && t.textContent.trim(), label: l && !l.hidden ? l.textContent.trim() : null, tinted: [...document.querySelectorAll('.card.br-in')].map((c) => c.dataset.k) }; })()`);
   ok('push: the title and the bracket read "Deforming f₂–f₃", with All steps; f₂ and f₃ tinted', words.title === 'Deforming f₂–f₃' && words.label === 'Deforming f₂–f₃All steps' && JSON.stringify(words.tinted) === '["2","3"]', words);
   info.pushTitle = await title();
@@ -215,7 +215,7 @@ if (RUN.includes(2)) {
   await snap('push-light');
   await deskView(1440, 900, true); await settle(900); await snap('push-dark'); await deskView(1440, 900, false); await settle(500);
   await grab();
-  // All steps on the bracket's label resets it: every step deformed, the label and the tint gone, and the
+  // ([v17 UX64]) All steps on the bracket's label resets it: every step deformed, the label and the tint gone, and the
   // deformation plays from its start
   await ev(`(() => { const b = document.querySelector('#chainBracket .br-all'); if (b) b.click(); return 1; })()`); await settle(400);
   const reset = await ev(`({ range: __cmwState().homRange || null, label: (() => { const l = document.querySelector('#chainBracket .br-label'); return l ? l.hidden : null; })(), tinted: document.querySelectorAll('.card.br-in').length, playing: __cmwState().morph.playing })`);
@@ -502,7 +502,7 @@ if (RUN.includes(7)) {
   // the Duplicate of f2 lands inside
   await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
   await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Duplicate'); b.click(); return 1; })()`); await settle(600);
-  await ev(`(() => { if (__cmwState().focus) { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); } return 1; })()`); await settle(300);   // (the planes keep F)
+  await ev(`(() => { if (__cmwState().focus) { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); } return 1; })()`); await settle(300);   // (before v16.5 Duplicate showed the copy alone; since UX01 the planes keep F)
   await ev('__cmwMorph({ open: true, playing: false })'); await settle(400);
   r = await ev('__cmwRange()');
   ok('duplicate inside: joins {2, 4}', r.ok && r.ok.a === 2 && r.ok.b === 4, r);
@@ -576,7 +576,7 @@ if (RUN.includes(8)) {
       }
     }
   }
-  // a d/dz in the pre: [z^3, d/dz, e^w, log w], bracket f3 alone. The pre is no composition (G_2 =
+  // (review v16 math-1) a d/dz in the pre: [z^3, d/dz, e^w, log w], bracket f3 alone. The pre is no composition (G_2 =
   // (f_1)' is not f_2 o f_1): it starts from the stage w_2, so H_0 = f_4 o w_2 and H_0(z) = f_4(w_2(z)) = log(3z^2)
   {
     const ns = `${NS}xdpre`;
