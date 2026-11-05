@@ -634,6 +634,7 @@ float wabs(vec2 w) {
   const L_ = (P, n) => P.loc[n] ?? null;
   const u1f = (P, n, v) => gl.uniform1f(L_(P, n), v);
   const u1i = (P, n, v) => gl.uniform1i(L_(P, n), v);
+  const u1iv = (P, n, v) => { const l = L_(P, n); if (l) gl.uniform1iv(l, v); };
   const u2f = (P, n, a, b) => gl.uniform2f(L_(P, n), a, b);
   const u3 = (P, n, v) => gl.uniform3f(L_(P, n), v[0], v[1], v[2]);
   const u4f = (P, n, a, b, c, d) => gl.uniform4f(L_(P, n), a, b, c, d);
