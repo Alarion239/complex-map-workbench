@@ -2143,6 +2143,8 @@ void ixAncTan(vec2 w) {
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
   // float32 tolerances of a NEWT op's members: two are one within NEWT_SAME_F (relative to 1 + |u|); one hits w within NEWT_HIT_F
   const NEWT_SAME_F = '1e-3', NEWT_HIT_F = '1e-3';
+  // a Newton run stops once a step moves u by less than NEWT_CONV_F (1 + |u|): the steps after it change nothing but cost
+  const NEWT_CONV_F = '1e-5';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
@@ -2179,7 +2181,12 @@ bool ${P}_step(inout vec2 u, vec2 w, float t) {
 }
 bool ${P}_polish(inout vec2 u, vec2 w, float t) {
   bool ok = true;
-  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
+  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) {
+    if (!ok) break;
+    vec2 p = u;
+    ok = ${P}_step(u, w, t);
+    if (ok && cx_abs(u - p) <= ${NEWT_CONV_F} * (1.0 + cx_abs(u))) break;
+  }
   return ok;
 }
 bool ${P}_walk0(vec2 w, float t, out vec2 u) {
@@ -2295,7 +2302,12 @@ void ${P}_roots(vec2 w, float t) {
   for (int i = 0; i < ${NL}; i++) {
     vec2 v = lo + vec2(0.0, span * lad[i]);
     bool okv = true;
-    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) if (okv) okv = ${P}_step(v, w, t);
+    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
+      if (!okv) break;
+      vec2 p = v;
+      okv = ${P}_step(v, w, t);
+      if (okv && cx_abs(v - p) <= ${NEWT_CONV_F} * (1.0 + cx_abs(v))) break;
+    }
     okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_SAME_F} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
