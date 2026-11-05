@@ -507,6 +507,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // st.edge {w, a}: the boundary band alone, w device px wide at alpha a
     u1i(P, 'uEdgeOnly', st.edge ? 1 : 0);
     if (st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u1f(P, 'uEdgeA', st.edge.a); }
+    u1f(P, 'uStageGrow', st.grow || 0);
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);

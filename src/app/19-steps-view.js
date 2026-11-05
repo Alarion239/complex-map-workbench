@@ -783,7 +783,7 @@
       let res = 'error';
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, edge: edgeOf ? edgeOf(list[i]) : null, half: false, motion: false, coldOk: true });
+          look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, edge: edgeOf ? edgeOf(list[i]) : null, grow: shapeStage(list[i]) && !edgeOf ? 0.5 * pullBandW(list[i], pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true });
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -1204,7 +1204,7 @@
     const nearer = (x) => shapeStage(x) <= st.g.near;
     svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, (x) => (nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
     const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
-    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => ({ w: Math.max(pane.dpr, PULL_EDGE_MIN * pullWidth(x, pane.dpr)), a: PULL_EDGE_A }));
+    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => ({ w: pullBandW(x, pane.dpr), a: PULL_EDGE_A }));
   }
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
   // when there is none or the pass cannot draw them

@@ -25,6 +25,8 @@
   // a pulled-back region's boundary band (the shader's PRE_FS): its alpha, and the share of its width (at least one css
   // pixel) it is drawn at
   const PULL_EDGE_A = 0.9, PULL_EDGE_MIN = 0.55;
+  // the boundary band's width (device px): PULL_EDGE_MIN of the boundary's width, at least one css pixel
+  const pullBandW = (s, dpr) => Math.max(dpr, PULL_EDGE_MIN * pullWidth(s, dpr));
   // the width (device px) of a pulled-back region's boundary: 2 css px, 2.75 for the selected one
   const pullWidth = (s, dpr) => (s.id === selected ? 2.75 : 2) * dpr;
   function pullTargets(list) {

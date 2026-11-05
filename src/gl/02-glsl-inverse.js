@@ -37,6 +37,8 @@ uniform int uShStage;
 // uEdgeOnly = 1: the pass draws the shape's boundary band alone, not its fill: alpha uEdgeA over the pixels within uEdgeW
 // device px of the boundary of any candidate (the colour channels stay zero: it is drawn into a mask's alpha)
 uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA;
+// uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
+uniform float uStageGrow;
 float ixEdge;
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}out vec4 o;
@@ -652,6 +654,7 @@ float invLeaf(Lf L, out bool cov) {
 #endif
   if (!done) ixShapePx(z, zf, dX, dY, L, dLX, dLY, s, n);
 #ifdef IX_STAGED
+  if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
   if (uEdgeOnly == 1 && s == s) ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0) * uEdgeA);
 #endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
