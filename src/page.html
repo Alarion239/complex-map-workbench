@@ -1580,9 +1580,10 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 }
 .toast.toast-out { animation: toast-out 150ms var(--ease-out) forwards; pointer-events: none; }
 /* over a dialog a message never takes a click meant for the dialog under it (a phone's lies across the dialog's footer, over
-   More formats): only its own buttons (Undo, close) stay live */
+   More formats): only its own action buttons (Undo) stay live; its × does not, and a timed message goes by itself */
 :root:has(.modal-bg) #toastHost .toast { pointer-events: none; }
 :root:has(.modal-bg) #toastHost .toast button { pointer-events: auto; }
+:root:has(.modal-bg) #toastHost .toast .toast-x { pointer-events: none; }
 
 .toast .toast-x { flex: 0 0 auto; width: 24px; height: 24px; margin-left: -8px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; }
