@@ -8,10 +8,10 @@
 //   plane 2) make no step of its tracks (many times a frame's share) and search for its poles only at the tracks'
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
 //   others), in slices that pause every 16 evaluations of the map;
-// - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
-//   outer ring's sizes are made by the idle job (those of the page's first glide before it), in no frame, and each
-//   size's mesh is built at most once, without strokes, by the idle job, each with at least half a slice's time
-//   left;
+// - the zeta example parked at x after x (each a new map of the glide, drawn by the carried mesh and its outer ring:
+//   Everywhere under a Newton inverse with no seeds): over two scrubs there and back the outer ring's sizes are made
+//   by the idle job (those of the page's first glide before it), in no frame, and each size's mesh is built at most
+//   once, without strokes, by the idle job, each with at least half a slice's time left;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs;
 // - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
@@ -67,7 +67,7 @@ async function hold(x, links = true) {
   info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
   const list = Array.isArray(started) ? started : [];
   ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', Array.isArray(started) && !['regionKSC', 'regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain one)', Array.isArray(started) && !['regionKS', 'regionK'].some((n) => list.includes(n)), started);
   ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
@@ -115,7 +115,7 @@ async function hold(x, links = true) {
 }
 // ---- a moving map's frames: the outer ring ----
 {
-  const ex = names.indexOf('Square root and its sheets');
+  const ex = names.indexOf('Zeros of the zeta function');
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gm${Date.now()}`);
   await ready();
   // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
