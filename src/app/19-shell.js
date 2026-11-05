@@ -63,6 +63,8 @@
         for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);
         // (a phone's sheet opening or closing moves the message between the plot and the sheet's row)
         new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        // (a dialog opening or closing under a message decides whether the message is live)
+        new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); }).observe(document.body, { childList: true });
       } }
     // crossing a drawer breakpoint: a drawer starts closed, a docked panel follows the user's choice
     let drawerWas = { L: isDrawer('L'), R: isDrawer('R') }, wideWas = window.innerWidth >= 768, oneWas = oneDock();

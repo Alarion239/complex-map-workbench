@@ -65,8 +65,33 @@ ok('it goes after the focus leaves', await gone(4000), null);
 await press('e', 'KeyE', 69, 4); await settled({ max: 20000, only: true, until: `!!document.querySelector('.modal-bg #xfMore')` });
 await show('Saved strip.png.', null, { ms: 60000 });
 const under = await ev(`(() => { const x = ${T}.querySelector('.toast-x').getBoundingClientRect(), e = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2); return e && e.closest('.toast-x') ? 'x' : e && e.closest('#xfMore') ? 'more' : e && e.tagName; })()`);
-ok('over a dialog a message\'s × leaves the click to what lies under it', under !== 'x', under);
+const dlg = await ev(`(() => { const t = ${T}, r = t.getBoundingClientRect(), host = document.getElementById('toastHost'); const hit = [...document.querySelector('.modal-bg').querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; }).length; return { live: host.hasAttribute('data-clear-of-dialog'), over: hit }; })()`);
+ok('a message is live over a dialog exactly where it lies clear of the dialog\'s controls', dlg.live === (dlg.over === 0), dlg);
+info.dialog = dlg;
+ok('over a dialog a message\'s × leaves the click to what lies under it', under !== 'x' || dlg.live, under);
 await press('Escape', 'Escape', 27); await settled({ max: 5000, only: true, until: `!document.querySelector('.modal-bg')` });
+await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
+// a dialog that opens under a message that is already up decides its liveness too
+await show('Up first', null, { ms: 60000 });
+await press('e', 'KeyE', 69, 4); await settled({ max: 20000, only: true, until: `!!document.querySelector('.modal-bg #xfMore')` });
+await sleep(100);
+const dlg2 = await ev(`(() => { const t = ${T}, r = t.getBoundingClientRect(), host = document.getElementById('toastHost'); const hit = [...document.querySelector('.modal-bg').querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; }).length; return { live: host.hasAttribute('data-clear-of-dialog'), over: hit }; })()`);
+ok('a dialog opened under a message sets its liveness', dlg2.live === (dlg2.over === 0), dlg2);
+await press('Escape', 'Escape', 27); await settled({ max: 5000, only: true, until: `!document.querySelector('.modal-bg')` });
+ok('and the dialog closing clears it', !(await ev(`document.getElementById('toastHost').hasAttribute('data-clear-of-dialog')`)), null);
+await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
+
+// a press on the words closes it; a press on its action does not (the action runs)
+await show('Press the words', 'Do');
+await ev(`(() => { const r = ${T}.querySelector('span').getBoundingClientRect(); window.__px = [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+const px = await ev('window.__px');
+await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: px[0], y: px[1], button: 'left', clickCount: 1 });
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: px[0], y: px[1], button: 'left', clickCount: 1 });
+ok('a press on the words closes it', await gone(1000), null);
+// its words wrap to two lines at most, nothing cut mid-word (an ellipsis only after the second line)
+await show('A longer message than the room for it one line wide, so that it needs a second line to say all of it here and a third that is cut', null, { ms: 60000 });
+const wr = await ev(`(() => { const e = ${T}.querySelector('span'), lh = parseFloat(getComputedStyle(e).lineHeight) || 18; return { lines: Math.round(e.getBoundingClientRect().height / lh), clamp: getComputedStyle(e).webkitLineClamp }; })()`);
+ok('a long message wraps to two lines at most', wr.lines >= 2 && wr.lines <= 2 && wr.clamp === '2', wr);
 await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
 
 // the close button, on a timed message too

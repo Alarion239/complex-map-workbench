@@ -915,7 +915,7 @@
     if (!liftSheet) { liftSheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, liftSheet]; }
     liftSheet.replaceSync(px == null ? '' : ':root { --ph-toast-h: ' + px + 'px; }');
   }
-  function placeToasts() {
+  function placeToastBox() {
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
@@ -1001,6 +1001,20 @@
     st.bottom = Math.round(H - top + 8) + 'px';
     st.maxWidth = Math.round(hi - lo) + 'px';
   }
+  // A message over a dialog takes no click meant for the dialog (page.html): it is live, its × included, only where it lies clear of
+  // every control of the dialog
+  function syncToastLive() {
+    const host = $('toastHost');
+    if (!host) return;
+    const t = host.firstElementChild, modal = document.querySelector('.modal-bg');
+    let live = false;
+    if (t && modal) {
+      const r = t.getBoundingClientRect();
+      live = ![...modal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].some((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; });
+    }
+    host.toggleAttribute('data-clear-of-dialog', live);
+  }
+  function placeToasts() { placeToastBox(); syncToastLive(); }
   // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
   const TOAST_OUT_MS = 150;
   function closeToast(t) {
@@ -1023,8 +1037,10 @@
     host.innerHTML = '';
     const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
     if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
-    // (a phone's timed message keeps its bar's room for the words; the phone dismisses it by a swipe down)
-    if ((o && o.sticky) || !document.documentElement.classList.contains('ph')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
+    // (the classic phone's timed message keeps its bar's room for the words and goes by itself; a press on the words closes any)
+    const rt = document.documentElement.classList;
+    if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
+    t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;

@@ -36,6 +36,8 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   ok(`${at}: the plane's keys are clear`, g.toast && g.keys.every((k) => k.r <= g.toast.l || k.l >= g.toast.r || k.b <= g.toast.t || k.t >= g.toast.b), g.keys);
   ok(`${at}: the root carries no style attribute while the message shows`, await ev(`document.documentElement.getAttribute('style') == null`), await ev(`document.documentElement.getAttribute('style')`));
   ok(`${at}: the bar's height reaches the keys' lift`, await ev(`parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ph-toast-h')) > 0`), null);
+  const gx = await ev(`(() => { const b = ${T}.querySelector('.toast-x'); if (!b) return null; const r = b.getBoundingClientRect(), t = ${T}.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), inside: r.left >= t.left && r.right <= t.right + 0.5 && r.top >= t.top && r.bottom <= t.bottom + 0.5 }; })()`);
+  ok(`${at}: a timed message has a × of 44 px, inside the message`, gx && gx.w >= 44 && gx.h >= 44 && gx.inside, gx);
   ok(`${at}: two lines at most`, g.lines <= 2, g.lines);
   ok(`${at}: its words are not cut`, g.cut <= 0, g.cut);
   // a short drag keeps it, a swipe down dismisses it
