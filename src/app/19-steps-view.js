@@ -794,8 +794,8 @@
   // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
   // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why) {
-    const h = svHomPaths(b, u, why);
-    if (!h) return false;
+    const h = svHomMemo && svHomMemo.b === b && svHomMemo.u === u ? svHomMemo.h : svHomPaths(b, u, why);
+    if (!h) { if (svHomMemo && svHomMemo.b === b && svHomMemo.u === u) why.r = svHomMemo.why.r; return false; }
     const res = svDrawInverse(pane, h.list, h.paths, T, frame);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
@@ -822,10 +822,14 @@
   // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
   // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
   // -> the place to draw instead of the thread's, or null (draw the thread's)
+  // (the paths it builds are kept in svHomMemo for the frame's svCarryExactHom, which asks for the same b and u)
+  let svHomMemo = null;
   function svLinkHold() {
+    svHomMemo = null;
     const g = svBetween();
     if (g.u <= 1e-6 || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
-    const h = svHomPaths(g.b, g.u, { r: null });
+    const why = { r: null }, h = svHomPaths(g.b, g.u, why);
+    svHomMemo = { b: g.b, u: g.u, h, why };
     if (!h || !h.paths.some((p) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); SV.g.set(A.from); requestRender('L'); return A.from; }
