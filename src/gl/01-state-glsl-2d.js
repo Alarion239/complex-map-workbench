@@ -1224,11 +1224,11 @@ void main() {
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
-  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
-  // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
-  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
-  // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
-  // edge, the grid's identity)
+  // (centroid: REGION_VS's carry option's two copies of the source point, vP at the centroid of the pixel's covered
+  // samples and vPm at the pixel centre, and its flat vCut: a triangle a cut tears (vTorn) or clips reads vP, so a pixel
+  // it only partly covers takes its colour inside the triangle, where vPm extrapolated past its edge on a cut would land
+  // on the other sheet; every other triangle reads vPm, exact where the places are linear across its edge. Otherwise vP
+  // at the pixel centre, as CARRY_VS and PRE_VS write it)
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in vec2 vP; in vec2 vPm; flat in float vCut;' : 'in vec2 vP;'}
