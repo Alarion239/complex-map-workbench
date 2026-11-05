@@ -1553,6 +1553,9 @@
       E.tnote.querySelector('.sv-tn-n').textContent = tn.names;
       E.tnote.setAttribute('aria-label', tn.text + '. ' + tn.tip); E.tnote.setAttribute('data-tip', tn.tip);
     }
+    // (the scrubber's spoken value follows the glide and is written only when its words change: never every frame)
+    const said = svReadout() + svRangeText();
+    if (said !== E.said) { E.said = said; E.slider.setAttribute('aria-valuetext', said); }
     if (sig !== E.headSig) {
       E.headSig = sig;
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
@@ -1580,7 +1583,6 @@
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
       E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
-      E.slider.setAttribute('aria-valuetext', svPlaceText() + svRangeText());
       svPlaySync();
       // (#437: an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
       const none = P.length < 2;
@@ -1832,6 +1834,16 @@
     const tip = na && nc ? $t('Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.', { x, p })
       : na ? $t('Where {x} lands in the targets of {p} is shaded here.', { x, p }) : $t('The curves that {x} maps onto the targets of {p} are drawn here.', { x, p });
     return (svTnVal = { text, tip, names: p });
+  }
+  // the thread's place as the scrubber speaks it, in the classic Deformation readout's words: inside a step "Step 1 of 2 · f₁ · 84 %",
+  // across a span that glides all at once "All steps at once · 84 %", on a plane "Plane w₁, 2 of 3"; the percentage is whole, so the
+  // text changes only when it does
+  function svReadout() {
+    const P = svPlanes(), x = Math.max(0, Math.min(P.length - 1, SV.g.x)), r = Math.round(x), sp = SV.span;
+    if (sp && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6) return $t('All steps at once · {p} %', { p: Math.round(100 * (x - sp.x0) / (sp.x1 - sp.x0)) });
+    if (Math.abs(x - r) <= 1e-6) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: r + 1, n: P.length });
+    const a = Math.floor(x), k = P[a + 1];
+    return $t('Step {k} of {m} · {f} · {p} %', { k: a + 1, m: P.length - 1, f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: Math.round(100 * (x - a)) });
   }
   function svPlaceText() {
     const P = svPlanes(), x = SV.g.x;
