@@ -34,6 +34,8 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   ok(`${at}: above the strip`, g.toast && g.strip && g.toast.b <= g.strip.t, g);
   ok(`${at}: the tool row is clear`, g.toast && (!g.tools || g.toast.b <= g.tools.t || g.toast.r <= g.tools.l), g);
   ok(`${at}: the plane's keys are clear`, g.toast && g.keys.every((k) => k.r <= g.toast.l || k.l >= g.toast.r || k.b <= g.toast.t || k.t >= g.toast.b), g.keys);
+  ok(`${at}: the root carries no style attribute while the message shows`, await ev(`document.documentElement.getAttribute('style') == null`), await ev(`document.documentElement.getAttribute('style')`));
+  ok(`${at}: the bar's height reaches the keys' lift`, await ev(`parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ph-toast-h')) > 0`), null);
   ok(`${at}: two lines at most`, g.lines <= 2, g.lines);
   ok(`${at}: its words are not cut`, g.cut <= 0, g.cut);
   // a short drag keeps it, a swipe down dismisses it

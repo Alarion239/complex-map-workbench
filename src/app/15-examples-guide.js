@@ -908,11 +908,18 @@
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
   // on the host) and when the layout changes.
+  // (the bar's height for the plane's keys lives in a stylesheet of its own, so that the root never carries a style attribute)
+  let liftSheet = null;
+  function toastLift(px) {
+    if (px == null && !liftSheet) return;
+    if (!liftSheet) { liftSheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, liftSheet]; }
+    liftSheet.replaceSync(px == null ? '' : ':root { --ph-toast-h: ' + px + 'px; }');
+  }
   function placeToasts() {
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { document.documentElement.style.removeProperty('--ph-toast-h'); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
     // (D1, issue #23) Clear chain gives the chain head's room to a message placed there, and is back when it goes (the
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
@@ -930,7 +937,7 @@
       if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
       host.setAttribute('data-placed', 'phone-plot');
       st.bottom = Math.round(H0() - sb.top + 8) + 'px';
-      document.documentElement.style.setProperty('--ph-toast-h', Math.round(host.firstElementChild.getBoundingClientRect().height) + 'px');   // (the plane's keys ride up above it)
+      toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
