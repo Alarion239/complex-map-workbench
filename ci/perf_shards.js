@@ -29,7 +29,7 @@ const SHARDS = [
 
 // the parts of the larger shards: { id, of: the shard's id, re, what }; the regexes split the shard's units
 const PARTS = [
-  { id: 'steps-first', of: 'steps', re: '^sv\\.first_glide$', what: 'the steps view: the first glide' },
+  { id: 'steps-first', of: 'steps', re: '^sv\\.(first_glide|glide_start)$', what: 'the steps view: the first glide' },
   { id: 'steps-default', of: 'steps', re: '^sv\\.(interact|glide)\\.default$', what: 'the steps view on the default page: the interactions and the warm glide' },
   { id: 'steps-zeta', of: 'steps', re: '^sv\\.(interact|glide)\\.zeta$', what: 'the steps view on the zeros of zeta: the interactions and the warm glide' },
   { id: 'steps-king', of: 'steps', re: '^sv\\.(interact|glide)\\.king$', what: 'the steps view on the Mountain King: the interactions and the warm glide' },

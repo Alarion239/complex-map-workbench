@@ -907,6 +907,68 @@ async function svFirstGlideUnit() {
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
 }
+// The Joukowski airfoil's glide start as felt: a real click on plane 1's button, from the click's timeStamp to the end
+// (GPU sync included) of the first frame that draws after it. Cold-now: the example applied and the click 300 ms later
+// (no settle); cold: after settle, no idle; cold_idle: after settle and SV_IDLE_MS (the glide programs prestarted); warm: the third glide to plane 1 on that page. Per glide: that delay, the
+// click dispatch's main-thread time (to a task posted from the capture phase), the first drawing frame's CPU and GPU,
+// rAF frames with no draws before it, and the GL compile/link/status calls' synchronous time in the window. SV_PROF=1
+// in the environment logs the CPU profile's top self times from the click to the end of its dispatch
+const SV_GLT = `(() => { if (window.__svGlt) return; const L = window.__svGlt = [];
+  const G = WebGL2RenderingContext.prototype;
+  for (const k of ['compileShader', 'linkProgram', 'getProgramParameter', 'getShaderParameter', 'useProgram']) {
+    const f = G[k]; G[k] = function () { const a = performance.now(), r = f.apply(this, arguments), d = performance.now() - a; if (d > 0.2 && L.length < 20000) L.push([k, a, d]); return r; };
+  }
+  addEventListener('click', (e) => { const c = window.__svClk = { ts: e.timeStamp, h0: performance.now(), h1: 0 }; const m = new MessageChannel(); m.port1.onmessage = () => { c.h1 = performance.now(); }; m.port2.postMessage(0); }, true);
+})()`;
+async function svGlideStartUnit() {
+  const R = { cold_now: [], cold: [], cold_idle: [], warm: [] };
+  const clickPlane = async (i) => {
+    const xy = JSON.parse(await B.ev(`(() => { const b = document.querySelector('.sv-plane[data-i="${i}"]'); const r = b.getBoundingClientRect(); return JSON.stringify([r.left + r.width / 2, r.top + r.height / 2]); })()`));
+    await B.ev('window.__svClk = null, 1');
+    await B.mouse('mouseMoved', xy[0], xy[1]);
+    const prof = process.env.SV_PROF ? (await B.send('Profiler.enable'), await B.send('Profiler.setSamplingInterval', { interval: 250 }), await B.send('Profiler.start'), true) : false;
+    await B.mouse('mousePressed', xy[0], xy[1], { button: 'left', buttons: 1, clickCount: 1 });
+    await B.mouse('mouseReleased', xy[0], xy[1], { button: 'left', buttons: 0, clickCount: 1 });
+    await B.until('!!(window.__svClk && __svClk.h1)', 10000, 5);
+    if (prof) {
+      const { profile: P } = await B.send('Profiler.stop');
+      const self = new Map(), dt = new Map(), byId = new Map(P.nodes.map((n) => [n.id, n]));
+      P.samples.forEach((id, j) => dt.set(id, (dt.get(id) || 0) + (P.timeDeltas[j + 1] || 0) / 1000));
+      for (const [id, ms] of dt) { const n = byId.get(id).callFrame, k = `${n.functionName || '(anon)'}:${n.lineNumber}`; self.set(k, (self.get(k) || 0) + ms); }
+      log('  profile top self:', [...self].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', '));
+    }
+    await sleep(50);
+    await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    const c = JSON.parse(await B.ev('JSON.stringify(__svClk)'));
+    const fr = (await B.ev(`__perf.framesSince(${c.ts - 1})`)).filter((f) => f[0] >= c.ts);
+    const k = fr.findIndex((f) => f[3] > 0), f = fr[k] || [0, 0, 0, 0, 0, 0, 0];
+    const gl = JSON.parse(await B.ev(`JSON.stringify(__svGlt.filter((x) => x[1] >= ${c.ts} && x[1] <= ${f[6] || c.ts + 1e5}))`));
+    const sum = (n) => gl.filter((x) => x[0] === n).reduce((s, x) => s + x[2], 0);
+    const r = { delay: (f[6] || NaN) - c.ts, handler: c.h1 - c.ts, cpu: f[1], gpu: f[2], blank: Math.max(0, k), compile: sum('compileShader'), link: sum('linkProgram'), status: sum('getProgramParameter') + sum('getShaderParameter'), use: sum('useProgram'), nlink: gl.filter((x) => x[0] === 'linkProgram').length };
+    await settle(await pageNow());
+    return r;
+  };
+  for (let i = 0; i < REPS; i++) {
+    for (const mode of ['cold_now', 'cold', 'cold_idle']) {
+      await B.nav(`${BASE}test.html?ns=perfsvs${process.pid}_${++nsCounter}&view=steps`);
+      await B.ev(SV_GLT);
+      await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+      await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      await B.ev(`__cmwExample(${exampleIndex('Joukowski airfoil')}), 1`);
+      await B.ev("__cmwSteps({ scope: 'all', go: 0, now: true }), 1");
+      if (mode === 'cold_now') await sleep(300); else await settle(await pageNow());
+      if (mode === 'cold_idle') await sleep(SV_IDLE_MS);
+      const first = await clickPlane(1);
+      R[mode].push(first);
+      if (mode === 'cold') { await clickPlane(0); R.warm.push(await clickPlane(1)); }
+    }
+  }
+  for (const [k, reps] of Object.entries(R)) {
+    const pre = `sv.glide_start.jouk.${k}`;
+    for (const [m, u] of [['delay', 'ms'], ['handler', 'ms'], ['cpu', 'ms'], ['gpu', 'ms'], ['compile', 'ms'], ['link', 'ms'], ['status', 'ms']]) put(`${pre}.${m}_ms`, 'info', u, reps.map((r) => r[m]));
+    log(`${pre}: input->first frame ${reps.map((r) => r.delay.toFixed(1)).join(' / ')} ms; click dispatch ${reps.map((r) => r.handler.toFixed(1)).join(' / ')} ms; first frame cpu ${reps.map((r) => r.cpu.toFixed(1)).join(' / ')} gpu ${reps.map((r) => r.gpu.toFixed(1)).join(' / ')} ms; blank frames ${reps.map((r) => r.blank).join(' / ')}; compile ${reps.map((r) => r.compile.toFixed(1)).join(' / ')} link ${reps.map((r) => r.link.toFixed(1) + 'x' + r.nlink).join(' / ')} status ${reps.map((r) => r.status.toFixed(1)).join(' / ')} useProgram ${reps.map((r) => r.use.toFixed(1)).join(' / ')} ms ms`);
+  }
+}
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
 // idle SV_IDLE_MS, then the first glide to plane 1, and back; then a step added (the same function again,
 // __cmwAddStep) and a glide to plane 1 at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness).
@@ -2013,6 +2075,7 @@ unit('cards.startup', 'the step cards at start-up (a first visit of the default 
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
 unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
+unit('sv.glide_start', 'the steps view: the Joukowski airfoil glide start, from a real click on plane 1 to the first drawn frame, cold (now, settled) and warm, with its GL compile and link time', svGlideStartUnit);
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta, the Joukowski airfoil Everywhere)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
