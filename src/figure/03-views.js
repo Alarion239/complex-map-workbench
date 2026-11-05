@@ -677,6 +677,7 @@
         items.push(XD.at(XD.tex('i', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
         items.push(XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
         items.push(XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
+        // (offsets in pt, tp the tick text's size: the strip lies 1.3 tp under the ring's last label, its factor and "per band" 1.5 pt off it, the caption 2 pt under the last)
         let yy = ky + R + 1.5 + tp * 1.3;
         // (a plane's name "w₂" as TeX, words as text)
         const nm = (t) => String(t).replace(/([A-Za-z])([₀-₉]+)/g, (m, l, d) => `${l}_{${[...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join('')}}`);

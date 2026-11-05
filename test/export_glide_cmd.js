@@ -101,11 +101,11 @@ for (const T of ['null', 0]) {
   const pane = [];
   for (let i = 0; i < nPl; i++) {
     await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
-    await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 800 });
+    await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: 15000 });
     pane.push(JSON.parse(await ev(`JSON.stringify({ cap: __cmwLegend().caption, title: __cmwSteps().names.title.name.replace(/<\\/?i>/g, '').replace(/<sub>(\\d+)<\\/sub>/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[c]).join('')) })`)));
   }
   await ev(`(__cmwSteps({ go: 0, now: true }), 1)`);
-  await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 800 });
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0', max: 15000 });
   for (let i = 0; i < nPl; i++) for (const [dx, at] of [[0, i], [0.4, i], [-0.4, i], [0.6, i + 1], [-0.6, i - 1]]) {
     const x = i + dx, want = pane[Math.max(0, Math.min(nPl - 1, at))];
     if (x < 0 || x > nPl - 1) continue;
@@ -116,6 +116,14 @@ for (const T of ['null', 0]) {
   }
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
+// the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
+// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture, which has no key
+for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
+  await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${go}, now: true }), 1)`);
+  await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${go} && __cmwSteps().T === ${T}`, max: 15000 });
+  const sv = await ev(`await (async () => { const f = await __cmwFig.build({}); return f && f.view; })()`, 60000);
+  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv === want, sv);
+}
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
