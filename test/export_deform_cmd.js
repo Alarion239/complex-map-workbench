@@ -81,7 +81,7 @@ if (part('dialog')) {
   await clickSel('#xfVSize button[data-v="1280x720"]'); await settle(200);
   q = await ev(`(() => ({ win: !!document.getElementById('xfVWin'), paths: !!document.querySelector('#xfVideoBox .xf-checks input[data-k="paths"]'), len: (() => { const s = document.getElementById('xfVLen'); return { aria: s.getAttribute('aria-label'), opts: [...s.options].map((o) => o.value + ':' + o.textContent) }; })(), name: document.getElementById('xfName').value, sum: (document.getElementById('xfVSum') || {}).textContent }))()`);
   ok('dialog Video: no Window choice (the glide is the pane as on screen), the Length menu is per step, the summary line', !q.win && q.len.aria === 'Length of each step' && q.len.opts.join() === '2:2 s per step,3:3 s per step,4:4 s per step,6:6 s per step' && /→.*· [0-9.,]+ s/.test(q.sum || ''), q);
-  ok('dialog Video: the name is a video of the strip', /-video$/.test(q.name), q.name);
+  ok('dialog Video: the name is the scene\'s (the steps view has one video of the thread)', q.name === 'strip-to-disk', q.name);
   await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '2'; s.dispatchEvent(new Event('change')); return 1; })()`);
   for (let i = 0; i < 40; i++) { await sleep(200); if (await ev(`!!document.querySelector('.xf-poster').getAttribute('src')`)) break; }
   q = await ev(`(() => ({ hidden: ['xfOverleaf', 'xfDocs', 'xfMore'].map((id) => document.getElementById(id).hidden), vid: !document.getElementById('xfVideo').hidden, poster: !!document.querySelector('.xf-poster').getAttribute('src'), ext: document.querySelector('.xf-ext').textContent, hint: document.querySelector('.xf-hint').textContent }))()`);
