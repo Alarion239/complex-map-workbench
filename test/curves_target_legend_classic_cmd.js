@@ -8,13 +8,13 @@ const { BASE, settle, addFormula } = K;
 await view(1440, 900);
 
 await load('curves-p5', Object.assign({}, BASE, { shapes: [], targets: [], steps: [{ type: 'pown', params: { n: 2 }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } }));
-await settle(1500);
+await settle();
 
 // the target legend: curve targets are drawn, not shaded
 await addFormula('|w| = 1');
 await addFormula('Re w^2 = 1');
-await settle(1200);
-// (v16.5 UX20: on a desktop the target note is Y's head note, "Preimage in X", and what is shaded or drawn is its
+await settle();
+// (on a desktop the target note is Y's head note, "Preimage in X", and what is shaded or drawn is its
 // tooltip: with curve targets only, it says they are drawn, and nothing is shaded)
 R.legend = await ev(`(() => { const e = document.getElementById('rightNote'); return e && !e.hidden ? [e.textContent, e.dataset.tip || ''] : []; })()`);
 ok('the legend of curve targets says drawn, not shaded', R.legend.some((t) => /drawn/i.test(t)) && !R.legend.some((t) => /shaded/i.test(t)), R.legend);
