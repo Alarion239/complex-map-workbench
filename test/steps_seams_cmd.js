@@ -1,7 +1,7 @@
 // The steps view's carried colour where two sheets meet along a cut: the seam is the cut's image, drawn per
 // pixel, so it is as smooth as the cut's image and nothing is left uncovered along it.
 //  - teeth: exp then log, coloured from z (T 0), Everywhere, parked half-way between w1 and w2. In a band 40 device px
-//    wide from the colour's left edge, a smooth seam changes colour between vertically adjacent pixels about once a row
+//    wide from the colour's left edge, in the rows 10 CSS px or more from the top and bottom, a smooth seam changes colour between vertically adjacent pixels about once a row
 //    (a seam of slope s px per row crosses |s| pixels of a row); a sawtooth along it, a torn triangle drawn whole on one
 //    sheet, crosses it at every tooth's slanted edge. In the worst 20 rows the mean count of such jumps per row is at
 //    most 1.5. The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
@@ -55,8 +55,8 @@ const park = async (x, scope) => {
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
     const dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
-    const per = [];
-    for (let y = 10; y < H - 11; y++) {
+    const per = [], m = Math.round(10 * W / c.clientWidth);
+    for (let y = m; y < H - m - 1; y++) {
       let e = -1;
       for (let x = Math.floor(W * 0.2); x < Math.floor(W * 0.6); x++) if (sat(at(x, y)) > 40) { e = x; break; }
       if (e < 0) continue;
@@ -64,6 +64,8 @@ const park = async (x, scope) => {
       for (let x = e; x < Math.min(W, e + 40); x++) if (dist(at(x, y), at(x, y + 1)) > 60) n++;
       per.push([y, n]);
     }
+    // (rows within 10 CSS px of the top and bottom edge are left out: the frame's own edge crosses the band there, a
+    // horizontal step that is not the seam)
     // (the worst 20 rows in a row: the teeth of a sawtooth stand where the torn triangles are, not along the whole seam)
     let worst = 0, worstY = -1;
     for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
