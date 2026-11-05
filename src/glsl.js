@@ -2282,8 +2282,12 @@ bool ${P}_one_b(inout Lf L, int b) {
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
   // own w, and finds them itself elsewhere and where a root read misses w
+  // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
+  // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
+  // its step is within NEWT_STEP_TOL (1 + |z|))
+  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
   function newtPolyFns(o, j, c, D, H, rd) {
-    const P = `ix${j}`, NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)', T = Math.ceil(D / 2);
+    const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
     const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
     { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
 #endif`).join('\n');
@@ -2330,7 +2334,7 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
       vec2 st = den.x == 0.0 && den.y == 0.0 ? N : cdiv(N, den);
       if (!ixFin(st)) { cv[i] = true; continue; }
       z[i] -= st;
-      if (cx_abs(st) <= 1e-5 * (1.0 + cx_abs(z[i]))) cv[i] = true;
+      if (cx_abs(st) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(z[i]))) cv[i] = true;
       else all = false;
     }
     if (all) return true;
@@ -2351,7 +2355,7 @@ void ${P}_roots(vec2 w, float t) {
 ${fetch('uNrTex')}
     bool good = true;
     for (int i = 0; i < ${D}; i++) {
-      ${P}_r[i] = z[i]; ${P}_k[i] = abs(z[i].x) < 1e37;
+      ${P}_r[i] = z[i]; ${P}_k[i] = abs(z[i].x) < ${NEWT_FINITE};
       if (${P}_k[i] && !${P}_hit(z[i], w, t)) good = false;
     }
     if (good) return;
@@ -2363,7 +2367,7 @@ ${fetch('uNrTex')}
     vec2 z0[${D}];
     ${P}_start(w, de, z0);
 ${fetch('uNrPrev')}
-    for (int i = 0; i < ${D}; i++) if (!(abs(z[i].x) < 1e37)) z[i] = z0[i];
+    for (int i = 0; i < ${D}; i++) if (!(abs(z[i].x) < ${NEWT_FINITE})) z[i] = z0[i];
     got = ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
   }
 #endif
@@ -2374,7 +2378,7 @@ ${fetch('uNrPrev')}
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
     bool ok = i < de && ixFin(v) && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
-    for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= 1e-3 * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
+    for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
 }
