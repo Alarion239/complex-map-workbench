@@ -582,7 +582,7 @@
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
     return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
   }
-  // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, lim, u, a, b, vs, va, vb, rest}: plane
+  // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs, va, vb, rest}: plane
   // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of
   // (s, T]; its block and its height scale go from plane a's to plane b's over u (the box's centre linearly, its size
   // and the scale in log; b null: plane a's), so the block, its floor and its axes move smoothly from one plane's rest
@@ -629,7 +629,7 @@
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
     // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
     // and a log window keeps its pitch instead of the compressed height's plates)
-    const fm = carry ? svHeightMap(carry.s) : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
+    const fm = carry ? carry.hmap : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
@@ -637,11 +637,11 @@
       const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
       const zAt = zAtIn(box);
       const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
-      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq ? sheets.uniq.join(',') : ''}`;
+      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq.join(',')}`;
       // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
-      const scaleOf = (fmK, K, bx) => {
+      const scaleOf = (fmK, bx) => {
         // the combos drawn: the distinct sheets of fmK
-        const combos = sheetUniqOf(fmK, sheets.W) || Array.from({ length: K }, (_, i) => i);
+        const combos = sheetUniqOf(fmK, sheets.W);
         const ck = `${chainSig[nSteps()]}|${mapKeyOf(fmK)}|${S.focus}|${bx.x0},${bx.x1},${bx.y0},${bx.y1}|${S.height}|${sheets.W}|${combos.join(',')}`;
         const cache = render3D.muScales || (render3D.muScales = new Map());
         let r = cache.get(ck);
@@ -668,11 +668,11 @@
       };
       // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
       // frames' are, so a frame depends on u alone
-      const ofPlane = (k, v) => { const m = svHeightMap(k <= carry.T ? k : carry.s), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
+      const ofPlane = (k, v) => scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v));
       const c = carry ? (() => {
         const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
-      })() : scaleOf(fm, si.K, box);
+      })() : scaleOf(fm, box);
       mu = c.mu;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
@@ -693,7 +693,7 @@
           // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
           // stops when this no longer matches, so a value is only ever computed for the state of its key
           const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
-          const cmu = c.mu, combos = sheets.uniq || Array.from({ length: si.K }, (_, i) => i), K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
+          const cmu = c.mu, combos = sheets.uniq, K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
           h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
           // fill time j (from where it stopped); with over(), stop after the row that runs past it and return false
           h.fill = (jt, over) => {
@@ -753,7 +753,7 @@
     const polar = carry ? svLandPatches(carry.map, src, cells) : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
-    const mask = SV.on ? (carry ? svLandMask(carry.s, src) : svLandMask(svStage(), box)) : null;
+    const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
@@ -766,7 +766,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? svHeightMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, lim: carry.lim, src, polar } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
@@ -785,7 +785,7 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, refined: !!(info.refine && info.refine.groups.length), polar, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)

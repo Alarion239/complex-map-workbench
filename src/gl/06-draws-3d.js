@@ -242,9 +242,10 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // The steps view's carried landscape (st.carry {map, s, T, hT, lim, src}): plane s's grid over its box src
+  // The steps view's carried landscape (st.carry {map, s, T, hT, hT2, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
-  // each vertex at the height of the stages (s, hT] at its point (hT default T) and coloured by G = the stages (s, T]
+  // each vertex at the height of the stages (s, hT] at its point (hT default T), blended over u into that of the stages
+  // (s, hT2] (default hT: the glide's two planes read their heights from different planes across a d/dz step), and coloured by G = the stages (s, T]
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
@@ -267,7 +268,8 @@
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.hT == null ? c.T : c.hT);
+    const h1 = c.hT == null ? c.T : c.hT;
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
@@ -867,7 +869,7 @@
   // when it lists some of the K combos, else all K. {K: surfaces drawn, map: Int32Array(SHEET_MAX) surface -> combo}
   function surfaceMap(uniq, K) {
     const map = new Int32Array(SHEET_MAX);
-    const list = Array.isArray(uniq) && uniq.length && uniq.every((c) => Number.isInteger(c) && c >= 0 && c < K) ? uniq : null;
+    const list = Array.isArray(uniq) && uniq.length && uniq.length <= K && uniq.every((c) => Number.isInteger(c) && c >= 0 && c < K) ? uniq : null;
     for (let i = 0; i < SHEET_MAX; i++) map[i] = list ? (list[i] ?? 0) : i;
     return { K: list ? list.length : K, map };
   }
@@ -1273,6 +1275,8 @@
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 1 % of the distance)
+      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-2);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
