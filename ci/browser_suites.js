@@ -90,7 +90,7 @@ const SUITES = {
   'i18n_walk_steps_cmd.js': {
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
-  // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
+  // (one language a run; its pages: the test page without MathJax and with the vendored one)
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
@@ -217,7 +217,7 @@ const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
-  // ([#465] the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
+  // (the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
   // from vendor/, not the CDN, so the typeset page is the same on every runner)
   'mj': (dist, name) => {
     const d = path.join(dist, name);

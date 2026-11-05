@@ -146,7 +146,7 @@ async function openApp(state) {
   if (OPENED) OPENED.push(health);
   return { ns, loadMs: Date.now() - t0, mathjax: mj, settled: !s.timeout, state: st, health };
 }
-// [#292] what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
+// what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
 // have geometry (a mesh or lines). A paired run compares the two sides' (refCannot): a reference that fails where the
 // current build succeeds lacks the feature the unit measures (a formula its parser cannot read draws nothing)
 let OPENED = null;   // the scenes the running unit opened on the running side
@@ -729,7 +729,7 @@ async function morphOpenUnit() {
   }
 }
 
-// [#326] The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
+// The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
 // user would, and the cards redraw on their own schedule (renderThumbs). Per edit, with the CPU profiler on from the
 // edit until every card is fresh again: the time spent drawing the cards (samples under renderThumbs) and their longest
 // unbroken stretch, which is the longest task the cards add (the #326 target: none over 100 ms once they draw in idle
@@ -835,7 +835,7 @@ async function cardsRebuildUnit() {
   put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
 }
 
-// [#326] The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
+// The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
 // drawn: `page`, the default page as a first visit opens it (no saved state; #326's 0.7 s and #350's target), and
 // `chain4`, a saved 4-step chain (many cards). Per scene: the time to the first drawn frame, the cards' longest
 // unbroken stretch under renderThumbs (limit 100 ms: #326 draws them after the first frame, in idle slices), their
@@ -1990,7 +1990,7 @@ unit('mesh', 'CPU mesh build per shape kind (Region.buildMesh) and mesh quality'
 for (const scene of ['default', 'logUHP', 'chain4']) {
   for (const meshN of MESHES) unit(`image.${scene}.m${meshN}`, `Image mode, ${SCENES[scene].label}, mesh ${meshN}: statics, remesh, pan L/R${meshN === 240 ? ', wheel zoom L/R' : ''}`, () => imageUnit(scene, meshN));
 }
-// [#253] shapes of later planes pulled back in X: one pass per plane, one blit
+// shapes of later planes pulled back in X: one pass per plane, one blit
 unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
@@ -2234,7 +2234,7 @@ async function main() {
     }
     OPENED = null;
     RES = RES_B; BASE = BASE_B; B = B_B;
-    // [#292] a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
+    // a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
     // compare_perf.py reports the unit's metrics as NEW instead of comparing them with an empty scene's
     if (RES_A) {
       const why = refCannot(scenes.get(RES_A) || [], scenes.get(RES_B) || [], failed.get(RES_A), failed.get(RES_B));

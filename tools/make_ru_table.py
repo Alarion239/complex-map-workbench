@@ -361,7 +361,7 @@ for key, val in list(resolved.items()):
         del resolved[key]
 table.update(extra)                      # this phase's entries (contexts the call sites of phase 2b will use too)
 table.update(resolved)
-# review eng-13: entries no lookup can reach hide real misses. A plural object under a key without the plural separator
+# entries no lookup can reach hide real misses. A plural object under a key without the plural separator
 # is left out ($tn never finds it; $t would show its 'other' form with a raw {n}). An entry whose key has a placeholder
 # but no literal call site is only listed (tools/ru_report.json, 'orphans'): the tour's copy and other keys are looked
 # up through a variable, which this script cannot see, so it is not dropped

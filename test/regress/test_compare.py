@@ -218,7 +218,7 @@ class Perf(unittest.TestCase):
         self.assertEqual(st['a.f'], 'IMPROVED', out)
 
     def test_vsync_bound_zooms_report_only(self):
-        # [#413] runs 41069254062 and 41074624389: fps 47 -> 29 in one round, +14 % in the next, on the same build pair
+        # runs 41069254062 and 41074624389: fps 47 -> 29 in one round, +14 % in the next, on the same build pair
         pre = ['image.expH.a30.dpr2.zoomR.in', 'image.expH.a50.dpr2.zoomR.out', 'image.ziH.a30.dpr2.zoomR.out', 'image.ziH.a50.dpr2.zoomR.in']
         for p in pre:
             fps, lat, f95 = p + '.fps', p + '.latency_p95_ms', p + '.frame_p95_ms'
@@ -244,7 +244,7 @@ class Perf(unittest.TestCase):
         self.assertEqual((rc, st[m]), (1, 'FAIL'), out)
 
     def test_reference_cannot_run_the_unit(self):
-        # [#292] the reference lacks the feature (phase.mandel: no iter() in its parser, an empty plane):
+        # the reference lacks the feature (phase.mandel: no iter() in its parser, an empty plane):
         # its metrics carry ref_unsupported, and the unit's are NEW, not FAIL, and listed with the reason
         why = 'shape s1 draws nothing there'
         b = {'m.fps': pm(15.1, 'throughput', unit_id='m', ref_unsupported=why), 'm.mem': pm(32768, 'mem_bytes', unit_id='m', ref_unsupported=why),
