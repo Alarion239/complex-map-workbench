@@ -450,6 +450,10 @@
     const titles = (side) => [`\\operatorname{Re} ${vars[side]}`, `\\operatorname{Im} ${vars[side]}`];
     const ah = 4.6;
     const asp = (side) => (boxes[side] ? aspect(boxes[side]) : A.paneAspect(side));
+    // the steps view's plain still of a plane past the colour plane carries the pane's key: the hue ring and the line
+    // saying where the colour is carried from, in a column right of the picture
+    const sk = view0 === 'xyL' && panels.length === 1 && A.svOn() && A.svKey ? A.svKey() : null;
+    const keyW = sk && sk.carried ? Math.min(64, W * 0.2) : 0;
     let mL, gut, mR, top, bottom;
     if (axes === 'box') {
       mL = boxes[panels[0]] ? tickW(boxes[panels[0]], steps[panels[0]], tp) + 3 : 2;
@@ -464,6 +468,7 @@
       const t1 = XD.tex(titles(panels[0])[1], lp);
       top = t1.a + t1.d + ah + 5; bottom = 3;
     }
+    mR += keyW;
     let h = (W - mL - gut - mR) / panels.reduce((a, s) => a + asp(s), 0);
     h = Math.min(h, W * (two ? 0.62 : 0.8), P.maxH - top - bottom);
     const used = mL + gut + mR + h * panels.reduce((a, s) => a + asp(s), 0);
@@ -524,10 +529,25 @@
       const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs.L + h * asp('L'), xn: xs.R, y, h, oys, label: arrowLab, span: arrowSpan, off: ah * 0.3 + 2 + XD.tex(titles('L')[0], lp).w + 8 });
       items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     }
+    if (keyW) {
+      const kx = xs.L + h * asp('L') + 6 + keyW / 2, ky = y + Math.min(h, keyW * 1.6) / 2, R = keyW / 2 - 13, kid = `${XD.ns}-key`;
+      const url = await ringKey(R, 300), r0 = R * 0.55;
+      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0)} ${f2(ky)}a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(2 * r0)} 0a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(-2 * r0)} 0Z" clip-rule="evenodd"/></clipPath>`
+        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
+        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+      items.push(XD.at(XD.tex('1', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'), XD.at(XD.tex('i', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'),
+        XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'), XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
+      // (the line wrapped to the column's width, the plane's name in math)
+      const words = sk.carried.text.split(' '), lns = [];
+      let cur = '';
+      for (const wd of words) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, sk.carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
+      if (cur) lns.push(cur);
+      lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, sk.carried.from), tp), kx, ky + R + 1.5 + tp * 1.3 + 2 + j * tp * 1.3, 'middle', 'top', 'key')));
+    }
     const H = y + h + bottom;
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
     const open = Object.values(panelOut).some((q) => q.lay.dashed > 0);
-    return { items, defs, lines, H, info: { boxes, open, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
+    return { items, defs, lines, H, info: { boxes, open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
   }
 
   // ---------- (2) Phase: colour (hue wheel, level lines, a ring key) and black and white (a contour portrait) ----------
@@ -624,6 +644,10 @@
     if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + 400 }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
+  // a key line as TeX: a plane's name "w₂" as math, the words around it as text
+  const keyNm = (t) => String(t).replace(/([A-Za-z])([₀-₉]+)/g, (m, l, d) => `${l}_{${[...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join('')}}`);
+  const keyTxt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
+  const keyWithName = (line, name) => { const i = name ? line.indexOf(name) : -1; return i < 0 ? keyTxt(line) : `${keyTxt(line.slice(0, i))}${keyNm(name)}${keyTxt(line.slice(i + name.length))}`; };
   async function figPhase(o, P, W, T) {
     const [tp, lp] = T;
     const F = A.plotF();
@@ -688,22 +712,17 @@
         items.push(XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
         // (offsets in pt, tp the tick text's size: the strip lies 1.3 tp under the ring's last label, its factor and "per band" 1.5 pt off it, the caption 2 pt under the last)
         let yy = ky + R + 1.5 + tp * 1.3;
-        // (a plane's name "w₂" as TeX, words as text)
-        const nm = (t) => String(t).replace(/([A-Za-z])([₀-₉]+)/g, (m, l, d) => `${l}_{${[...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join('')}}`);
-        const txt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
-        // (a line's words with the name in math: the pieces around its first occurrence)
-        const withName = (line, name) => { const i = name ? line.indexOf(name) : -1; return i < 0 ? txt(line) : `${txt(line.slice(0, i))}${nm(name)}${txt(line.slice(i + name.length))}`; };
         // (a Phase picture: its key never says "carried from", which the pane's does only off Phase)
         if (!sv.plain) {
           const sw = 2 * R, sx = kx - R, sh = 6, sy = yy + tp * 1.2;
           kdefs += `<linearGradient id="${kid}-g"><stop offset="0" stop-color="${sv.stops[0]}"/><stop offset="1" stop-color="${sv.stops[1]}"/></linearGradient>`;
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
           items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-          items.push(XD.at(XD.tex(txt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          items.push(XD.at(XD.tex(txt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
+          items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
+          items.push(XD.at(XD.tex(keyTxt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
           yy = sy + sh + 1.5 + tp * 1.3;
         }
-        items.push(XD.at(XD.tex(withName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
+        items.push(XD.at(XD.tex(keyWithName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
       } else {
         items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
         items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));

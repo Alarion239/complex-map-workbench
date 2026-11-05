@@ -149,12 +149,14 @@ for (const T of ['null', 0]) {
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
 // the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
-// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture, which has no key
+// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture with the pane's key line
 for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
   await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${go}, now: true }), 1)`);
   await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${go} && __cmwSteps().T === ${T}`, max: 15000 });
-  const sv = await ev(`await (async () => { const f = await __cmwFig.build({}); return f && f.view; })()`, 60000);
-  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv === want, sv);
+  const sv = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ view: f && f.view, key: f && f.info ? f.info.keyLine || null : null, cap: __cmwLegend().caption }); })()`, 60000));
+  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv.view === want, sv);
+  // (a plain plane's still carries the pane's key: its line is the caption the pane's legend shows; a Phase still has none of its own here)
+  ok(`T ${T}, plane ${go}: the still's key line ${want === 'xyL' ? 'is the pane\'s' : 'is absent'}`, want === 'xyL' ? !!sv.key && sv.key === sv.cap : !sv.key, sv);
 }
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
