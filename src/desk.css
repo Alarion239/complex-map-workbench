@@ -299,7 +299,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head.tight :is(#leftTabs, #rightTabs) > button { padding: 0 4px; }
 .pane-head.tight > .led { margin: 0 2px; }
 .pane-head.noled > .led { display: none; }
-.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: -1px; box-sizing: content-box;
+.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: calc(-1px - var(--lg-shift, 0px)); box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
