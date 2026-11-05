@@ -533,6 +533,18 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
+  // Starts the programs a carried-colour flat drawInverse of an inverse op list (st.inv: invHomPath's) would link, with
+  // the NEWT roots program newtRoots draws when it has one, so that the links run before the first frame that draws
+  // them. The current chain and packed shapes (packShapes) are the frame's own: they are part of each program's key.
+  // -> the states of the programs started, 'none' where there is nothing to draw (no inverse program, globe)
+  function prestartInverse(st) {
+    const inv = st && st.inv;
+    if (!ok || !inv || !inv.ok || !pack) return [];
+    const look = st.look || {}, out = [];
+    if (nrCount(inv.nr)) out.push(invProgram(INV_B_MAX, false, true, { carry: true, nrPass: true, pre: '', main: inv.nr.main }, inv).state);
+    out.push(invProgram(invB(look.alphaOwn ?? look.alpha ?? 1), false, true, INV_CARRY, inv).state);
+    return out;
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe';
@@ -924,7 +936,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsOn, fillPointsRuns, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, prestartInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,

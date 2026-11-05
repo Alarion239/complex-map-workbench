@@ -111,4 +111,20 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   info['newt roots'] = log;
   ok('Joukowski: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
 }
+// ---- the glide's inverse programs link before the first glide frame ----
+// (Joukowski's carried-colour inverse programs, its NEWT roots pass and the main one: started at an idle moment once the
+// view has parked, svWarmInverse, not linked by the first scrub or glide frame. ?glprof lists each program's start)
+{
+  const ex = names.indexOf('Joukowski airfoil');
+  await go(`${BASE}/test.html?ns=gw${Date.now()}&lang=en&view=steps&glprof`);
+  await ready();
+  await ev(`__cmwExample(${ex}), 1`);
+  const until = '(() => { const p = GLR.profile().filter((r) => r.inv); return p.some((r) => /\\|nr:/.test(r.key)) && p.some((r) => /\\|carry\\|[^n]/.test(r.key)); })()';
+  let got = true;
+  try { await settled({ max: 60000, until }); } catch (e) { got = false; }
+  const prof = await ev('GLR.profile().filter((r) => r.inv).map((r) => [r.key, r.by, Math.round(r.ms)])');
+  const g = await ev('__cmwSteps().glide');
+  info['warm inverse programs'] = prof;
+  ok('Joukowski: the glide\'s inverse programs (roots pass and carried colour) were started with no glide frame drawn', got && !g, { prof, g });
+}
 return { pass: fails.length === 0, fails, info };

@@ -1422,7 +1422,7 @@
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
-    const scope = seg(null, SV.scope, [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    const scope = seg(null, SV.scope, [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); svWarmInverseSoon(); }, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -2084,8 +2084,35 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
+      if (done) { svWarmSig = sig; svWarmAt = performance.now(); svWarmInverseSoon(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
     });
+  }
+  // The inverse programs of a glide's frames between planes (svCarryExactHom's: step b's homotopy inverted, and its NEWT
+  // roots pass) started at an idle moment, so that the first scrub or glide frame finds them linked instead of linking
+  // them itself: the roots and carried-colour programs of a Newton inverse are large, and a link inside a scrub costs
+  // frames. One program per homotopy plan (the plan's op list is u's own: a frame's u is data).
+  function svWarmInverse() {
+    try {
+      if (!GLR.ok || !GLR.prestartInverse || nSteps() < 1) return;
+      const list = svCarryShapes();
+      if (!list || !list.length) return;
+      packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
+      const seen = new Set();
+      for (let b = 1; b <= nSteps(); b++) {
+        if (derivIn(0, b)) continue;
+        for (const x of list) {
+          const p = invHomPath(x, 0, b, 0.5, () => svSheetKeyAt(b, 0.5).sing);
+          if (p.path !== 'inverse' || !p.inv || seen.has(p.inv.key)) continue;
+          seen.add(p.inv.key);
+          GLR.prestartInverse({ inv: p.inv });
+        }
+      }
+    } catch (e) { /* (the first frame links them) */ }
+  }
+  let svWarmInvT = 0;
+  function svWarmInverseSoon() {
+    clearTimeout(svWarmInvT);
+    svWarmInvT = setTimeout(() => { if (interacting()) svWarmInverseSoon(); else svWarmInverse(); }, SV_WARM_IDLE_MS);
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
   // The speed is the steps view's setting (SV.speed, saved as S.sv.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
