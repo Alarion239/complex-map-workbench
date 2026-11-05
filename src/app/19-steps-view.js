@@ -879,13 +879,22 @@
   // the carried colour of the shapes list by their inverse paths (all 'inverse'; a path's inv: its own inverse program),
   // into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse answer that was
   // not ('error' when it threw). A shape drawn already stays: the next path draws over it
-  function svDrawInverse(pane, list, paths, T, gl) {
-    const carry = svCarryStyle(T);
+  // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
+  // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
+  function svDrawInverse(pane, list, paths, T, gl, t) {
+    const carry = svCarryStyle(T), p0 = paths[0];
+    let nr = 0;
+    if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
+      try {
+        const r = GLR.newtRoots({ map: p0.m, plan: p0.plan, prep: p0.prep, inv: p0.inv, view: pane.view, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, t });
+        if (r.state === 'drawn') nr = r.token;
+      } catch (e) { console.error('steps view NEWT roots', e); }
+    }
     if (!gl.open) { GLR.begin(pane.pw, pane.ph); gl.open = true; }
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry)));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry), { nr }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -901,7 +910,7 @@
   function svCarryExactHom(pane, b, u, T, frame, why) {
     const h = svHomMemo && svHomMemo.b === b && svHomMemo.u === u ? svHomMemo.h : svInvPaths(b, u, 'flat', why);
     if (!h) { if (svHomMemo && svHomMemo.b === b && svHomMemo.u === u) why.r = svHomMemo.why.r; return false; }
-    const res = svDrawInverse(pane, h.list, h.paths, T, frame);
+    const res = svDrawInverse(pane, h.list, h.paths, T, frame, u);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
