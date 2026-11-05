@@ -1784,7 +1784,7 @@
   // the border and rounding). Short of room, a chip's name gives up its width in SV_NAME_STEP px steps (a few letters
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
-  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16, SV_TITLE_MIN = 100;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
@@ -1816,7 +1816,7 @@
     E.fitKey = key;
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
     // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), then the title loses its role (sv-c2) last)
-    const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-c2', lvl >= 4); };
+    const set = (lvl) => { E.title.style.removeProperty('max-width'); E.bar.classList.remove('sv-el'); E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-c2', lvl >= 4); };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
         svChipBare(c, false);
@@ -1854,8 +1854,21 @@
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
-    let lvl = 0;
-    while (lvl < 4 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (the levels as far as they are needed; at the last but one the title's words, the role too, are cut with an ellipsis down to
+    // SV_TITLE_MIN px before the role is dropped)
+    const levels = () => {
+      let l = 0;
+      set(0);
+      while (l < 4 && E.bar.scrollWidth + keep > room) {
+        if (l === 3) {
+          const nat = E.title.getBoundingClientRect().width, over = E.bar.scrollWidth + keep - room;
+          if (nat - over >= SV_TITLE_MIN) { E.bar.classList.add('sv-el'); E.title.style.maxWidth = `${Math.floor(nat - over)}px`; break; }
+        }
+        set(++l);
+      }
+      return l;
+    };
+    let lvl = levels();
     // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
     // the source planes' names, then to its icon alone)
     for (const cls of ['tn-chip', 'tn-icon']) {
@@ -1863,8 +1876,7 @@
       const w0 = tn.getBoundingClientRect().width;
       tn.classList.add(cls);
       keep -= w0 - tn.getBoundingClientRect().width;
-      set(0); lvl = 0;
-      while (lvl < 4 && E.bar.scrollWidth + keep > room) set(++lvl);
+      lvl = levels();
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)

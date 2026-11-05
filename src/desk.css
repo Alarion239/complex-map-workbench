@@ -648,6 +648,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-scope-menu svg { width: 12px; height: 12px; flex: 0 0 12px; }
 .sv-head.sv-sm .sv-seg.sv-scope { display: none; }
 .sv-head.sv-sm .sv-scope-menu { display: inline-flex; }
+.sv-head.sv-el .sv-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .sv-head.sv-si .sv-surf1 .sv-surf-i { display: inline-flex; }
 .sv-head.sv-si .sv-surf1 .sv-surf-t { display: none; }
 .sv-head.sv-c1 .sv-cp .sv-cp-t { display: none; }
