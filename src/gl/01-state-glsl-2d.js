@@ -1240,6 +1240,8 @@ ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}
   // cut or a pole (a non-finite corner, or a chord over uLim on the sphere) is collapsed out of the picture. vP: the
   // point of plane s, where the fragment stage evaluates the map into the colour plane; vNor, vPos: the lifted point
   // (the globe's light, and which side faces the camera).
+  // the radius the carried globe is drawn at, a hair over the unit sphere so it lies over the globe's own line work
+  const GLOBE_SHELL = '1.002';
   const CARRY_GLOBE_VS = LIFT + `
 uniform mat4 uMVP; uniform ivec2 uN; uniform float uLim; uniform float uPole;
 out vec2 vP; out vec3 vNor; out vec3 vPos;
@@ -1262,8 +1264,8 @@ void main() {
   }
   ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
   vec3 q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
-  vP = p; vNor = q; vPos = q * 1.002;
-  gl_Position = ok ? uMVP * vec4(q * 1.002, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  vP = p; vNor = q; vPos = q * ${GLOBE_SHELL};
+  gl_Position = ok ? uMVP * vec4(q * ${GLOBE_SHELL}, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
   // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE): the side away from the camera left out, so the sheet

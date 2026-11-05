@@ -39,6 +39,16 @@
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
   function svT() { const P = svPlanes(); return SV.alone && P.length === 2 && P[1] === SV.alone ? SV.alone : P.includes(SV.T) ? SV.T : P[P.length - 1]; }
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
+  // a glide's u at or under this is its plane's rest frame (the thread sits on a plane, to the precision of a float)
+  const SV_REST_U = 1e-6;
+  // the sheet key's inner radius, as a share of its window's half diagonal R (the region tiling's own: smKeyOf)
+  const SV_KEY_RS = 1 / 8;
+  // the carried globe's mesh (cells along longitude and latitude), and the chord, on the unit sphere, over which a
+  // triangle is torn across a cut or a pole and left out (CARRY_GLOBE_VS)
+  const SV_GLOBE_MESH = { nx: 192, ny: 96 }, SV_GLOBE_CHORD = 0.5;
+  // plane b's globe is cross-faded in over a's only past this u (under it its alpha, u, is below 3 of 255 levels, not
+  // worth a second globe's draw)
+  const SV_FADE_U = 0.01;
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
   // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
@@ -315,7 +325,7 @@
     }
     const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
-    const still = u <= 1e-6 || b === a, jump = !still && isDeriv(b);
+    const still = u <= SV_REST_U || b === a, jump = !still && isDeriv(b);
     const map = still ? stageMap(a) : jump ? stageMap(u < 0.5 ? a : b) : { mode: 1, hi: b, t: u };
     // (its CPU twin, for the points: H_u after the steps before b, as transState)
     const hom = still || jump ? null : homF(b, u);
@@ -375,7 +385,7 @@
   function svCarryKey(pane, s, a) {
     const v = S.srcView, hw = pane.w / 2 / v.s, hy = pane.h / 2 / v.s, R = Math.hypot(hw, hy);
     const plan = a > s ? invPlan(s, a) : null;
-    return { win: { x0: v.cx - hw, y0: v.cy - hy, x1: v.cx + hw, y1: v.cy + hy }, R, rs: R / 8, sing: plan && plan.ok ? invSing(plan) : [] };
+    return { win: { x0: v.cx - hw, y0: v.cy - hy, x1: v.cx + hw, y1: v.cy + hy }, R, rs: R * SV_KEY_RS, sing: plan && plan.ok ? invSing(plan) : [] };
   }
   function svCarry(pane, cc, s, a, H, frame) {
     const T = svT();
@@ -490,7 +500,7 @@
     const k = smKeyOf(stageMap(b));
     if (k) return k;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R / 8, sing: [] };
+    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [] };
   }
   // The sheet key mid-glide (the map h_{b,t} after the steps before b): plane b's key, and the glide's poles at t, which
   // move with t (a path's pole sweeps across the plane, or flies in from infinity): a point beside one is not in front
@@ -830,7 +840,7 @@
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
-    if (g.u <= 1e-6 || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
+    if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
     if (!h || !h.paths.some((p) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true }) === 'pending')) return null;
@@ -1104,7 +1114,7 @@
     const grid = (under) => !bare && !col && GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
-    const T = svT(), src = Math.min(a, T), still = u <= 1e-6 || b === a;
+    const T = svT(), src = Math.min(a, T), still = u <= SV_REST_U || b === a;
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false, cc: false };
@@ -1327,19 +1337,19 @@
     // own globes. A plane past the colour plane shows the colour carried to it, at rest too (u null), as the plane's
     // svCarryExact. For a step with no inverse plan between two coloured planes, the carried mesh of plane a's sphere
     // (drawSphere's st.carried); while neither can draw, plane b's globe fading in over plane a's
-    const T = svT(), still = u <= 1e-6 || b === a, coloured = !still && svColoured(a) && svColoured(b);
+    const T = svT(), still = u <= SV_REST_U || b === a, coloured = !still && svColoured(a) && svColoured(b);
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     const inv = !still && !all && map.mode === 1 && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T) : null;
     const carried = coloured && !inv && (all || map.mode === 1) ? {
-      map: all ? { mode: 3, a, b, t: u, base: a } : { mode: 1, base: a, hi: b, t: u }, s: a, T, mesh: { nx: 192, ny: 96 },
-      lim: 0.5, key: svCarryKey(pane, a, a), style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB,
+      map: all ? { mode: 3, a, b, t: u, base: a } : { mode: 1, base: a, hi: b, t: u }, s: a, T, mesh: SV_GLOBE_MESH,
+      lim: SV_GLOBE_CHORD, key: svCarryKey(pane, a, a), style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB,
       ink: TH.inkRGB, dark: TH.dark,
     } : null;
     const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
       : sphereView(pane, camL, CAML, Object.assign(look(a), { carried }));
-    if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > 0.01) {
+    if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
       svFadeCv = svCanvas(svFadeCv, pane);
       sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
       pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
