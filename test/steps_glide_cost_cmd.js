@@ -8,10 +8,10 @@
 //   plane 2) make no step of its tracks (many times a frame's share) and search for its poles only at the tracks'
 //   seed steps, and their poles are the tracks' once the idle moments made them whole (each within 1e-3 of one of the
 //   others), in slices that pause every 16 evaluations of the map;
-// - the square root example parked at x after x (each a new map of the glide): over two scrubs there and back the
-//   outer ring's sizes are made by the idle job (those of the page's first glide before it), in no frame, and each
-//   size's mesh is built at most once, without strokes, by the idle job, each with at least half a slice's time
-//   left;
+// - the zeta example parked at x after x (each a new map of the glide, drawn by the carried mesh and its outer ring:
+//   Everywhere under a Newton inverse with no seeds): over two scrubs there and back the outer ring's sizes are made
+//   by the idle job (those of the page's first glide before it), in no frame, and each size's mesh is built at most
+//   once, without strokes, by the idle job, each with at least half a slice's time left;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs;
 // - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
@@ -68,7 +68,7 @@ async function hold(x, links = true) {
   info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
   const list = Array.isArray(started) ? started : [];
   ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the fill evaluating its own, the sheet program, the plain one)', Array.isArray(started) && !['regionKSC', 'regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain one)', Array.isArray(started) && !['regionKS', 'regionK'].some((n) => list.includes(n)), started);
   ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
@@ -116,7 +116,7 @@ async function hold(x, links = true) {
 }
 // ---- a moving map's frames: the outer ring ----
 {
-  const ex = names.indexOf('Square root and its sheets');
+  const ex = names.indexOf('Zeros of the zeta function');
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gm${Date.now()}`);
   await ready();
   // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
@@ -223,14 +223,14 @@ async function hold(x, links = true) {
   // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there; it answers once let go. The
   // promise is awaited in the page: ev evaluates in REPL mode, which hands a returned promise back unresolved)
   let scrubs = 0;
-  const scrub = async (from, to) => ok(`scrub ${++scrubs} (plane ${from} to ${to}) is let go`, await ev(`await new Promise((done) => {
+  const scrub = async (from, to, moves = 40, gap = 16) => ok(`scrub ${++scrubs} (plane ${from} to ${to}) is let go`, await ev(`await new Promise((done) => {
     const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
     const x0 = ns[${from} < 0 ? ns.length - 1 : ${from}][0], x1 = ns[${to} < 0 ? ns.length - 1 : ${to}][0], cy = ns[0][1];
     const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 74, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
     ev('pointerdown', x0);
     let i = 0;
-    const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / 40); if (i < 40) setTimeout(step, 16); else { ev('pointerup', x1); done(1); } };
-    setTimeout(step, 16);
+    const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / ${moves}); if (i < ${moves}) setTimeout(step, ${gap}); else { ev('pointerup', x1); done(1); } };
+    setTimeout(step, ${gap});
   })`, 120000) === 1);
   // (at rest: 2 s, and the idle job's work for the plane the thread is at done)
   const rest = async () => {
@@ -280,6 +280,18 @@ async function hold(x, links = true) {
   await ev(`GLR.cacheBudget = ${budget}, 1`);
   info['over the budget'] = { kept0, squeezed };
   ok('over the map cache\'s budget: the kept scratch entries are freed by the next sweep', kept0 && kept0.n > 0 && squeezed && squeezed.n === 0, info['over the budget']);
+  await rest();
+  // (a scrub that outlasts the keep time keeps the entries of the planes it passed: the keep time shortened to 3 s, a
+  // scrub of 6 s to the last plane, then a scrub back: the first planes' entries were last drawn 6 s before, and the
+  // scrub back allocates nothing while the carried colour has been drawn all along)
+  const keepWas = await ev('GLR.carryKeepMs(3000)');
+  await scrub(0, -1, 60, 100);
+  await ev('window.__svAlloc.length = 0, 1');
+  await scrub(-1, 0);
+  const longAlloc = await ev('window.__svAlloc');
+  await ev(`GLR.carryKeepMs(${keepWas}), 1`);
+  info['a long scrub'] = { keepWas, n: Array.isArray(longAlloc) ? longAlloc.length : null, first: Array.isArray(longAlloc) ? longAlloc.slice(0, 3) : longAlloc };
+  ok('a scrub back after a scrub that outlasted the keep time: the first planes\' kept entries are still there, nothing is allocated', Array.isArray(longAlloc) && longAlloc.length === 0, info['a long scrub']);
   await scrub(0, -1);
   await rest();
   // (the scratch entries kept for the next scrub are freed when the chain changes, well inside their 30 s: a step

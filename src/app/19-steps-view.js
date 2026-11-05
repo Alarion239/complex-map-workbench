@@ -12,6 +12,7 @@
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
+    clock: null,     // (a test hook's) ms of glide time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -203,15 +204,8 @@
   }
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
-  // (#515) a message placed over the thread's rail goes, by the message's own close, when the thread is gone through again
-  let svToastWired = false;
-  function svDismissToast() {
-    const th = document.getElementById('toastHost');
-    if (th && th.getAttribute('data-placed') === 'rail') for (const t of th.querySelectorAll(':scope > .toast')) t.remove();
-  }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
-    svDismissToast();
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
@@ -261,7 +255,10 @@
     if (SV.drag && SV.drag.moved) { dirty.L = true; svSync(); return false; }
     if (SV.play && !SV.play.slide) return svPlayFrame();
     if (SV.anim) {
-      const A = SV.anim, v = Math.min(1, (performance.now() - A.t0) / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      // (SV.clock, a test hook's, null in the app: the glide's time advances that many ms a frame instead of by the wall
+      // clock, so a suite reads its frames mid-glide however long each one takes to draw)
+      const A = SV.anim, el = SV.clock ? (A.el = (A.el || 0) + SV.clock) : performance.now() - A.t0;
+      const v = Math.min(1, el / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
       SV.g.set(A.from + (A.to - A.from) * e);
       dirty.L = true;
       svSync();
@@ -1427,6 +1424,9 @@
     const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
     bar.append(title, cp, scope, surf1);
     head.prepend(bar);
+    // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
+    const tnote = h('span', { class: 'head-note sv-tnote', role: 'note', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.targets }), h('span', { class: 'sv-tn-n', 'aria-hidden': 'true' }), h('span', { class: 'sv-tn-t' }));
+    head.insertBefore(tnote, bar.nextSibling);
     // the chain strip: ‹, a segment per plane with the step between, ›
     const play = h('button', { type: 'button', class: 'sv-nav sv-play', 'aria-description': $t('Hold for speed and loop'), onclick: () => { if (SV.sheetHeld) { SV.sheetHeld = false; if (SV.els.sheet && !SV.els.sheet.hidden) SV.els.sheetSpeed.focus(); return; } svTogglePlay(); } });
     const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svStep(-1) }, '‹');
@@ -1476,7 +1476,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1548,6 +1548,18 @@
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
+    // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
+    const tn = svTargetNote(), tnShow = !!tn && !ph;
+    if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;
+    if (tn && E.tnote.dataset.sig !== tn.text) {
+      E.tnote.dataset.sig = tn.text;
+      E.tnote.querySelector('.sv-tn-t').textContent = tn.text;
+      E.tnote.querySelector('.sv-tn-n').textContent = tn.names;
+      E.tnote.setAttribute('aria-label', tn.text + '. ' + tn.tip); E.tnote.setAttribute('data-tip', tn.tip);
+    }
+    // (the scrubber's spoken value follows the glide and is written only when its words change: never every frame)
+    const said = svReadout() + svRangeText();
+    if (said !== E.said) { E.said = said; E.slider.setAttribute('aria-valuetext', said); }
     if (sig !== E.headSig) {
       E.headSig = sig;
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
@@ -1575,7 +1587,6 @@
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
       E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
-      E.slider.setAttribute('aria-valuetext', svPlaceText() + svRangeText());
       svPlaySync();
       // (#437: an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
       const none = P.length < 2;
@@ -1728,7 +1739,7 @@
     const mc = $('modeChips');
     const key = [
       ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
-      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '',
+      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
     ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
@@ -1755,6 +1766,8 @@
       return;
     }
     set(0);
+    const tn = E.tnote.hidden ? null : E.tnote;
+    E.tnote.classList.remove('tn-chip', 'tn-icon');
     const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
     const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     // (what the rest of the head takes at the least: the strip as its style row and a ⋯, every other shown item as it is,
@@ -1770,6 +1783,16 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
+    // the source planes' names, then to its icon alone)
+    for (const cls of ['tn-chip', 'tn-icon']) {
+      if (!lvl || !tn) break;
+      const w0 = tn.getBoundingClientRect().width;
+      tn.classList.add(cls);
+      keep -= w0 - tn.getBoundingClientRect().width;
+      set(0); lvl = 0;
+      while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
     if (mc && !mc.hidden) {
@@ -1791,6 +1814,41 @@
     if (typeof layoutFoot === 'function') layoutFoot(true);
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
+  // the targets' note: what the shown plane draws or shades because of shapes on the planes after it, named by where they come
+  // from ("Drawn from w₂'s targets"), with the map that carries them here in its tooltip; null when nothing of theirs shows here.
+  // The words are made again only when the planes, their shapes' kinds or the shown plane change
+  let svTnKey = '', svTnVal = null;
+  function svTargetNote() {
+    const j = svStage(), by = new Map();
+    for (const q of S.shapes) {
+      const st = shapeStage(q);
+      if (q.visible === false || st <= j || kindType(q) === 'point') continue;
+      if (!by.has(st)) by.set(st, [0, 0]);
+      by.get(st)[kindType(q) === 'area' ? 0 : 1]++;
+    }
+    const key = `${j}|${I18N.lang}|${[...by].map(([st, c]) => st + ':' + c).join(',')}|${chainSig[nSteps()]}`;
+    if (key === svTnKey) return svTnVal;
+    svTnKey = key;
+    if (!by.size) return (svTnVal = null);
+    const stages = [...by.keys()].sort((a, b) => a - b), na = [...by.values()].reduce((n, c) => n + c[0], 0), nc = [...by.values()].reduce((n, c) => n + c[1], 0);
+    const names = stages.map(svName), p = new Intl.ListFormat(I18N.lang, { type: 'conjunction' }).format(names), one = stages.length === 1, x = svMapName('plain', j, stages[stages.length - 1]);
+    const text = na && nc ? (one ? $t('Shaded and drawn from {p}\'s targets', { p }) : $t('Shaded and drawn from the targets of {p}', { p }))
+      : na ? (one ? $t('Shaded from {p}\'s targets', { p }) : $t('Shaded from the targets of {p}', { p }))
+        : one ? $t('Drawn from {p}\'s targets', { p }) : $t('Drawn from the targets of {p}', { p });
+    const tip = na && nc ? $t('Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.', { x, p })
+      : na ? $t('Where {x} lands in the targets of {p} is shaded here.', { x, p }) : $t('The curves that {x} maps onto the targets of {p} are drawn here.', { x, p });
+    return (svTnVal = { text, tip, names: p });
+  }
+  // the thread's place as the scrubber speaks it, in the classic Deformation readout's words: inside a step "Step 1 of 2 · f₁ · 84 %",
+  // across a span that glides all at once "All steps at once · 84 %", on a plane "Plane w₁, 2 of 3"; the percentage is whole, so the
+  // text changes only when it does
+  function svReadout() {
+    const P = svPlanes(), x = Math.max(0, Math.min(P.length - 1, SV.g.x)), r = Math.round(x), sp = SV.span;
+    if (sp && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6) return $t('All steps at once · {p} %', { p: Math.round(100 * (x - sp.x0) / (sp.x1 - sp.x0)) });
+    if (Math.abs(x - r) <= 1e-6) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: r + 1, n: P.length });
+    const a = Math.floor(x), k = P[a + 1];
+    return $t('Step {k} of {m} · {f} · {p} %', { k: a + 1, m: P.length - 1, f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: Math.round(100 * (x - a)) });
+  }
   function svPlaceText() {
     const P = svPlanes(), x = SV.g.x;
     if (!svParked()) return svName(svStage());
@@ -1832,25 +1890,21 @@
     tourEmit('surface-changed', { s: SV.surf });
     return SV.surf;
   }
+  let svToastWired = false;
   // the strip: a press on a plane goes there; a drag along it scrubs through the deformation, and the glide settles on
   // the nearest plane when it is let go
   function svStripWire(strip, track) {
     const rail = strip.querySelector('.sv-rail');
-    // (#515) every way of going on dismisses a message over the rail (svGo, svNudge); a press on the rail also does (a scrub)
-    const dismissToast = svDismissToast;
-    strip.addEventListener('click', (e) => { if (e.target.closest('.sv-nav')) dismissToast(); }, true);
-    rail.addEventListener('pointerdown', dismissToast, true);
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
     rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
-    // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
-    // press must not act on a plane the user cannot see; its own buttons keep their action)
+    // (a press on a message's body dismisses it; its own buttons keep their action)
     const th = document.getElementById('toastHost');
     if (th && !svToastWired) {
       svToastWired = true;
       th.addEventListener('click', (e) => {
         const t = e.target instanceof Element ? e.target.closest('.toast') : null;
-        if (t && th.getAttribute('data-placed') === 'rail' && !(e.target instanceof Element && e.target.closest('button'))) dismissToast();
+        if (t && SV.on && !(e.target instanceof Element && e.target.closest('button'))) t.remove();
       });
     }
     // (the thread's position under the pointer: between the centres of the planes' nodes, in proportion)
@@ -1945,6 +1999,10 @@
     SV.anim = null;
     SV.g.set(x);
     SV.i = r;
+    // (parked nearer a plane past the first, a pan or a zoom changes V.left, which the parked frames hand to the camera
+    // every plane shares (svKeepView): V.left starts as that camera, as svApply sets it, so the parked frame keeps the
+    // view the held one had)
+    if (svStage() > 0) Object.assign(V.left, S.srcView);
     svSync();
     requestRender('L', 'OL');
     const live = SV.els && SV.els.live;
@@ -1959,7 +2017,6 @@
   }
   // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
   function svNudge(d) {
-    svDismissToast();
     const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
     svPause(false);
     SV.anim = null;
@@ -1969,8 +2026,8 @@
     SV.g.max = P.length - 1;
     svLetGo();
   }
-  // ← → move through the planes, C makes the shown plane the colour plane (not while typing, nor on a focused plane,
-  // whose arrows move the probe)
+  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it), C makes the shown
+  // plane the colour plane (not while typing)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1998,9 +2055,10 @@
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
-      // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows there only while no shape is selected, which they nudge, and not
+      // on the plane that is the sound's keyboard probe, whose arrows move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && t && t.closest && t.closest('canvas')) return;
+      if (!page && t && t.closest && ((selected && t.closest('canvas')) || t.closest('canvas[aria-keyshortcuts~="ArrowLeft"]'))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
