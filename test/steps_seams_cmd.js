@@ -1,11 +1,14 @@
 // The steps view's carried colour where two sheets meet along a cut: the seam is the cut's image, drawn per
-// pixel, so it is as smooth as the cut's image.
+// pixel, so it is as smooth as the cut's image and nothing is left uncovered along it.
 //  - teeth: exp then log, coloured from z (T 0), Everywhere, parked half-way between w1 and w2. In a band 40 device px
-//    wide from the colour's left edge, a smooth seam changes colour between vertically adjacent pixels about once a row
+//    wide from the colour's left edge, in the rows 10 CSS px or more from the top and bottom, a smooth seam changes colour between vertically adjacent pixels about once a row
 //    (a seam of slope s px per row crosses |s| pixels of a row); a sawtooth along it, a torn triangle drawn whole on one
 //    sheet, crosses it at every tooth's slanted edge. In the worst 20 rows the mean count of such jumps per row is at
 //    most 1.5. The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
 //    w2 and w3), while the fill's programs link: the fill draws only with its mask, never a torn triangle whole
+//  - cracks: Square root and its sheets, Everywhere, parked half-way between z and w1, where the cut's image is the two
+//    rays from 0 at 135° and 225°: across each ray, no pixel of the paper's grey (max - min channel under 20) between
+//    two coloured ones (max - min channel over 40) 3 px either side
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -25,9 +28,10 @@ const drawn = async () => {
   }
   return false;
 };
-// parked at x with the scope given, the region lines and the strokes off (they cross the seam), the frame drawn
+// parked at x with the scope given, the region lines, the strokes and the deformation's paths off (they cross the
+// seam), the frame drawn
 const park = async (x, scope) => {
-  await ev(`__cmwSet('lines', false); __cmwHideStrokes(true); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); 1`);
   await ev(`__cmwSteps({ scope: '${scope}', surf: 'plane', go: 0, now: true }); __cmwSteps({ scope: '${scope}', surf: 'plane', park: ${x} }); 1`);
   await settled({ max: 20000 });
   ok(`parked at ${x}: the frame is drawn`, await drawn(), null);
@@ -51,8 +55,8 @@ const park = async (x, scope) => {
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
     const dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
-    const per = [];
-    for (let y = 10; y < H - 11; y++) {
+    const per = [], m = Math.round(10 * W / c.clientWidth);
+    for (let y = m; y < H - m - 1; y++) {
       let e = -1;
       for (let x = Math.floor(W * 0.2); x < Math.floor(W * 0.6); x++) if (sat(at(x, y)) > 40) { e = x; break; }
       if (e < 0) continue;
@@ -60,6 +64,8 @@ const park = async (x, scope) => {
       for (let x = e; x < Math.min(W, e + 40); x++) if (dist(at(x, y), at(x, y + 1)) > 60) n++;
       per.push([y, n]);
     }
+    // (rows within 10 CSS px of the top and bottom edge are left out: the frame's own edge crosses the band there, a
+    // horizontal step that is not the seam)
     // (the worst 20 rows in a row: the teeth of a sawtooth stand where the torn triangles are, not along the whole seam)
     let worst = 0, worstY = -1;
     for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
@@ -102,4 +108,44 @@ const park = async (x, scope) => {
   ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
 }
 
+// cracks: Square root and its sheets
+{
+  const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+  const ex = names.indexOf('Square root and its sheets');
+  ok('cracks: the example is found', ex >= 0, names.length);
+  if (ex >= 0) {
+    await go(`http://localhost:${PORT}/test.html?view=steps&ns=seamsq${Date.now()}`);
+    await ready();
+    await ev(`__cmwExample(${ex}); 1`); await settled({ max: 20000 });
+    await park(0.5, 'all');
+    // The ray is scanned from RAY_START px out to RAY_END of the smaller canvas side, over +-RAY_HALF px across it; a pixel is a crack when its
+    // own saturation is under CRACK_SAT while the pixels FLANK px to both sides of the ray are above FLANK_SAT.
+    const RAY_START = 30, RAY_END = 0.45, RAY_HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500;
+    info.cracks = await ev(`(() => {
+      const RAY_START = ${RAY_START}, RAY_END = ${RAY_END}, RAY_HALF = ${RAY_HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT};
+      const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
+      const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), O = [(o[0] - r.left) * k, (o[1] - r.top) * k];
+      const sat = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return -1; const i = (y * W + x) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
+      const out = {};
+      for (const a0 of [135, 225]) {
+        const A = a0 * Math.PI / 180, u = [Math.cos(A), -Math.sin(A)], n = [-u[1], u[0]];
+        let samples = 0, cracks = 0, first = null;
+        for (let rr = RAY_START; rr < Math.min(W, H) * RAY_END; rr++) for (let t = -RAY_HALF; t <= RAY_HALF; t++) {
+          const p = [O[0] + rr * u[0] + t * n[0], O[1] + rr * u[1] + t * n[1]], s = sat(...p);
+          if (s < 0) continue;
+          samples++;
+          if (s < CRACK_SAT && sat(p[0] - FLANK * n[0], p[1] - FLANK * n[1]) > FLANK_SAT && sat(p[0] + FLANK * n[0], p[1] + FLANK * n[1]) > FLANK_SAT) { cracks++; if (!first) first = [Math.round(p[0]), Math.round(p[1])]; }
+        }
+        out[a0] = { samples, cracks, first };
+      }
+      const g = __cmwSteps().glide || {};
+      return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
+    })()`);
+    for (const a0 of ['135', '225']) {
+      const q = info.cracks.out[a0];
+      ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
+      ok(`cracks: Square root, parked half-way: no uncovered pixel along the cut's image at ${a0}°`, q.cracks === 0, q);
+    }
+  }
+}
 return { pass: fails.length === 0, fails, info };

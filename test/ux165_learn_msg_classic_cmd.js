@@ -3,20 +3,8 @@
 // messages are asked in toasts_515_cmd.js (the message over the rail, inside the strip) and ux165_fix_cmd.js. A command
 // file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_msg_classic_cmd.js
 // Prints { pass, of, fails: [[name, false, detail]], exc }.
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const U = `http://localhost:${PORT}/test.html`;
-const R = [];
-const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 600) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const exc = [];
-const grab = () => { for (const l of logs()) if (l.t === 'EXC') exc.push(l.m.slice(0, 300)); };
+const { R, check, settle, exc, grab, UA0, laptop, fresh } = await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ux165_kit.js'), 'utf8'));
 const meet = (a, b) => !!a && !!b && a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
-const UA0 = await ev('navigator.userAgent');
-const laptop = async (w = 1366, h = 768, dark = false) => { await send('Emulation.setUserAgentOverride', { userAgent: UA0 }); await view(w, h, dark, false); };
-// a fresh first visit (no ?ns=, nothing saved): the app's own rule for the first-run line
-// a namespace's saved state is cleared first, so every run starts from the default scene
-// (from another namespace's page: a page saves its own state when it is left)
-const fresh = async (ns, q = '') => { await nav(U + '?ns=ux165clean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
 logs();
 grab();
 let g = null;

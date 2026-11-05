@@ -1135,8 +1135,15 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
     if (!el || (!head && box.classList.contains('collapsed'))) return;
+    // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    if (head && c0.width) {
+      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
+    }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
     for (let i = 0; i < 3; i++) {
       const c = el.getBoundingClientRect();
@@ -1309,7 +1316,9 @@
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
+    // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
+      st.caption = t;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
       let x = LEG.W - 8;
       for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width; }
@@ -1366,7 +1375,8 @@
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
       else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
     }
-    const Fn = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    // (the steps view's Height key describes h(F), the same quantity on every plane)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one

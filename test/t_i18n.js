@@ -144,7 +144,7 @@ ok(keys.size >= 75, 'page.html strings found: ' + keys.size);
 // ---- 4. Russian lookups, plurals, word order ----
 as('ru', () => {
   eq(I18N.t('Fit view'), 'Вписать в окно', 'ru t');
-  // (v15.2.1, review verify-2: the table ships only keys a source holds, so these use the app's own keys)
+  // (the table ships only keys a source holds, so these use the app's own keys)
   eq(I18N.t('Saved {filename}.', { filename: 'a.png' }), 'Файл a.png сохранён.', 'ru fill, word order');
   eq(I18N.tx('pred', 'conformal'), 'конформно', 'context: predicate');
   eq(I18N.t('conformal'), 'конформное', 'context: no context');
@@ -346,7 +346,7 @@ ok(threw, 'sech is still unknown');
 ok(Expr.toTex(Expr.parse('tg z')).s.includes('\\tan'), 'the generator stays English: tg z prints as \\tan z (I18N.notation turns it back)');
 
 // phase 2a: Russian TeX reads back. The decimal comma (CX.texNum in Russian: 0{,}5) and the words for or, and, not
-// (I18N.notation writes \text{или}) parse in either language; before, each was an error, so no formula changed.
+// (I18N.notation writes \text{или}) parse in either language.
 eq(val('0{,}5z'), val('0.5z'), 'parser: 0{,}5 is 0.5');
 eq(val('z^{1{,}25}+2{,}5'), val('z^{1.25}+2.5'), 'parser: decimal commas in an exponent and a sum');
 eq(perr('0{,}z'), "Unexpected ','", 'a comma group without digits after it is still the same error');
@@ -434,12 +434,12 @@ eq(I18N._resolve({ nav: nav(['ru-RU', 'en']) }), 'ru', 'phase 2b: ru-RU resolves
   }
   ok(n >= 20, 'leftovers: ' + n);
   // the strings phase 2b wrapped (they were left in English): each is in the shipped table
-  // (v16.5 UX27: 'Domain plane' and 'Image plane', the canvases' names, are now "X, the z-plane: domain of F" and "Y, the
-  // w-plane: image of F" (notes/i18n/ru/v165-ux-plane.json): no source holds the old two, so the table drops them)
+  // ('Domain plane' and 'Image plane' are not keys: the canvases are named "X, the z-plane: domain of F" and "Y, the
+  // w-plane: image of F" (notes/i18n/ru/v165-ux-plane.json), so no source holds them and the table has none)
   for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Pause', 'Play', 'Show', 'Hide',
     'Radii must be 0 or more', 'Use a whole number from 1 to 60', 'Half-strip to half-plane', 'Principal branch', 'WebGL2 is unavailable, so regions cannot be drawn']) ok(Object.prototype.hasOwnProperty.call(RU_ALL, k), 'phase 2b wrapped string in the table: ' + k);
 }
-// ---------------- phase 2b review fixes (notes/i18n/ledger-2b.json) ----------------
+// ---------------- the review checks (notes/i18n/ledger-2b.json) ----------------
 {
   // english-1: only a non-Latin letter typed without Alt falls back to the physical key
   const k = (key, code, o) => I18N.keyOf(Object.assign({ key, code }, o || {}));
@@ -465,7 +465,7 @@ eq(I18N._resolve({ nav: nav(['ru-RU', 'en']) }), 'ru', 'phase 2b: ru-RU resolves
   let Funcs = null;
   try { global.Expr = Expr; Funcs = require(path.join(XL, 'funcs.js')); } catch (e) { ok(false, 'funcs.js loads: ' + e.message); }
   if (Funcs) {
-    // typed: the text was typed into the field (the card registers it with Funcs.typedList); else it was loaded
+    // typed: the text is typed into the field (the card registers it with Funcs.typedList); else it is loaded
     const zp = (zeros, lang, typed) => as(lang, () => { const st = { type: 'zp', params: { a: '1', zeros, poles: '2' } }; if (typed) Funcs.typedList(st, 'zeros', zeros); const r = Funcs.build(st); return r.error ? 'ERR ' + r.error : r.tex({ s: 'z', p: 4 }).s; });
     ok(/^ERR.*Дробную/.test(zp('0,5, -1', 'ru', true)), 'ru: typed zeros "0,5, -1" is refused, not read as 0, 5, -1: ' + zp('0,5, -1', 'ru', true));
     eq(zp('0,5; -1', 'ru', true), zp('0.5, -1', 'ru'), 'ru: typed zeros "0,5; -1" are 0.5 and -1');
