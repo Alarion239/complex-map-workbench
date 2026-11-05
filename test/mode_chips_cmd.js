@@ -23,4 +23,22 @@ for (const w of [1440, 1024]) {
   ok(`${w}: the Construct tool chip is in the pane, clear of the head's controls, and the head fits`, !!g && g.inPane && g.clear && g.headFits, g);
   await key('Escape'); await settled({ floor: 300 });
 }
+// the Construct tool's chip stays in the head while a glide plays (#941): sampled through the glide, not only at rest.
+// The slowest speed makes the glide long enough to sample from here (about 4.5 s a plane).
+await key('e'); await settled({ floor: 300 });
+await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'slower'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+const i0 = await ev('__cmwSteps().i');
+// (sampled in the page, once a frame, from the glide's start to its rest: a round trip per sample is too slow for it)
+await ev(`(() => { const rec = window.__glide941 = { chips: [], on: true };
+  const frame = () => { if (!rec.on) return; const s = __cmwSteps();
+    if (s.moving) rec.chips.push([...document.querySelectorAll('#modeChips .mode-chip')].map((c) => c.dataset.mode));
+    else if (rec.chips.length) { rec.on = false; return; }
+    requestAnimationFrame(frame); };
+  __cmwSteps({ go: ${i0 + 1} }); requestAnimationFrame(frame); return 1; })()`);
+await new Promise((r) => setTimeout(r, 7000));
+const glide = await ev('window.__glide941.chips');
+ok('the glide ran and was sampled while it moved', glide.length >= 5, { samples: glide.length });
+ok('the Construct tool chip is in the head on every frame of the glide', glide.length >= 5 && glide.every((c) => c.includes('tool')), { missing: glide.filter((c) => !c.includes('tool')).length, samples: glide.length });
+await key('Escape'); await settled({ floor: 300 });
+
 return { pass: fails.length === 0, fails, info };
