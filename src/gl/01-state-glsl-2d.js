@@ -1238,6 +1238,55 @@ ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ =
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
+  // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
+  // tan(theta / 2) e^(i phi) from z = 0 (theta 0) to |z| = 1 / uPole (theta near pi; infinity itself has no finite
+  // point), each cell two triangles, drawn without buffers. A vertex places its triangle's three corners by mapPoint
+  // (the glide's map from plane s) lifted to the sphere, so the triangle is the same in all three; one torn across a
+  // cut or a pole (a non-finite corner, or a chord over uLim on the sphere) is collapsed out of the picture. vP: the
+  // point of plane s, where the fragment stage evaluates the map into the colour plane; vNor, vPos: the lifted point
+  // (the globe's light, and which side faces the camera).
+  // the radius the carried globe is drawn at, a hair over the unit sphere so it lies over the globe's own line work
+  const GLOBE_SHELL = '1.002';
+  const CARRY_GLOBE_VS = LIFT + `
+uniform mat4 uMVP; uniform ivec2 uN; uniform float uLim; uniform float uPole;
+out vec2 vP; out vec3 vNor; out vec3 vPos;
+void main() {
+  int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
+  ivec2 c = ivec2(cell % uN.x, cell / uN.x);
+  vec3 q0 = vec3(0.0), q1 = q0, q2 = q0;
+  vec2 p = vec2(0.0);
+  bool ok = true;
+  for (int k = 0; k < max(3, uNoUnroll); k++) {
+    if (k >= 3) break;
+    ivec2 o = k == 0 ? ivec2(0) : k == 1 ? (hf == 0 ? ivec2(1, 0) : ivec2(1, 1)) : (hf == 0 ? ivec2(1, 1) : ivec2(0, 1));
+    ivec2 g = c + o;
+    float ph = 6.28318531 * float(g.x) / float(uN.x), th = min(float(g.y) / float(uN.y), 1.0) * (3.14159265 - 2.0 * atan(uPole));
+    vec2 pk = tan(0.5 * th) * vec2(cos(ph), sin(ph)), w = mapPoint(pk);
+    if (!cfin(w)) ok = false;
+    vec3 qk = lift(cfin(w) ? w : vec2(0.0));
+    if (k == 0) q0 = qk; else if (k == 1) q1 = qk; else q2 = qk;
+    if (k == cn) p = pk;
+  }
+  ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
+  vec3 q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
+  vP = p; vNor = q; vPos = q * ${GLOBE_SHELL};
+  gl_Position = ok ? uMVP * vec4(q * ${GLOBE_SHELL}, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+}
+`;
+  // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE): the side away from the camera left out, so the sheet
+  // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour in the globe's light
+  const CARRY_GLOBE_FS = (id) => {
+    let t = CARRY_FS(id);
+    for (const [a, b] of [
+      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye;\n'],
+      ['void main() {\n', 'void main() {\n  vec3 vv = normalize(uEye - vPos);\n  if (dot(vNor, vv) < 0.0) discard;\n'],
+      [`  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`, `  o = vec4(shade(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), normalize(vNor), vv, 1.0), 1.0);`],
+    ]) {
+      if (!t.includes(a)) throw new Error('CARRY_GLOBE_FS: ' + a.slice(0, 40));
+      t = t.split(a).join(b);
+    }
+    return t;
+  };
   // the cut fill's mask: REGION_VS's own option's fragments, drawn into the depth alone (no colour) before the fill's
   // colour program draws the same triangles with the depth test EQUAL. A fragment of a torn triangle (vTorn) is kept
   // only where the map sends its own source point vP, within vWTol of the place vW drawn, so the seam where a triangle
