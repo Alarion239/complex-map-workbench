@@ -1,0 +1,13 @@
+diff --git a/src/glsl.js b/src/glsl.js
+index 79acbd62..c3cbb169 100644
+--- a/src/glsl.js
++++ b/src/glsl.js
+@@ -2293,7 +2293,7 @@ void ${P}_roots(vec2 w, float t) {
+     for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) if (okv) okv = ${P}_step(v, w, t);
+     okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+     for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= 1e-3 * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+-    ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
++    ${P}_r[i + 2] = v; ${P}_k[i + 2] = ixFin(v);
+   }
+ }
+ int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }

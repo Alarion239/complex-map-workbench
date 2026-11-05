@@ -1,0 +1,12 @@
+diff --git a/src/glsl.js b/src/glsl.js
+index 79acbd62..bb9d97fb 100644
+--- a/src/glsl.js
++++ b/src/glsl.js
+@@ -2301,6 +2301,7 @@ bool ${P}_one_b(inout Lf L, int b) {
+   vec2 w = L.u;
+   float t = ${U(0)}.x;
+   ${P}_roots(w, t);
++  if (${typeof globalThis.__newtDbg === 'number' ? globalThis.__newtDbg : -1} >= 0 && b != ${typeof globalThis.__newtDbg === 'number' ? globalThis.__newtDbg : -1}) return false;
+   if (!${P}_k[b]) return false;
+   vec2 u = ${P}_r[b];
+   return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
