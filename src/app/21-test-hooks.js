@@ -262,6 +262,60 @@
   // (#846) the steps view's carried landscape in the last frame: {u, s (plane a), mu, box}, or null for a surface at
   // rest; box: the last frame's block, carried or not
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // the last frame's carried landscape over its block, on the CPU: an nx x ny grid of points over the block, each covered
+  // when it lies in the image of a carried triangle the draw keeps (LAND_CARRY_VS: its corners' images finite, its edges at
+  // most lim long), of the box grid (cells x cells vertices over src) or of a pole patch (patchN x patchN vertices,
+  // CARRY_Z; left out with patches false). {n, bare: the points no kept triangle covers, at: the first of them}, or null
+  // with no carry. (The heights'
+  // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
+  window.__cmwLandCover = (nx = 480, ny = 400, patches = true) => {
+    const c = render3D.carried;
+    if (!c || !c.map || c.sheets) return null;
+    const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
+    const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
+    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell)
+    const grid = (n, place) => {
+      const P = new Float64Array(2 * n * n);
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
+        if (CX.isFin(w)) { P[o] = w.re; P[o + 1] = w.im; } else P[o] = P[o + 1] = NaN;
+      }
+      const at = (i, j) => 2 * (j * n + i);
+      for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        tri(P, at(i, j), at(i + 1, j), at(i + 1, j + 1));
+        tri(P, at(i, j), at(i + 1, j + 1), at(i, j + 1));
+      }
+    };
+    const tri = (P, a, d, e) => {
+      const ax = P[a], ay = P[a + 1], bx = P[d], by = P[d + 1], cx = P[e], cy = P[e + 1];
+      if (!(Number.isFinite(ax) && Number.isFinite(bx) && Number.isFinite(cx))) return;
+      if ((ax - bx) ** 2 + (ay - by) ** 2 > lim2 || (bx - cx) ** 2 + (by - cy) ** 2 > lim2 || (cx - ax) ** 2 + (cy - ay) ** 2 > lim2) return;
+      const i0 = Math.max(0, Math.ceil((Math.min(ax, bx, cx) - b.x0) * kx)), i1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx, cx) - b.x0) * kx));
+      const j0 = Math.max(0, Math.ceil((Math.min(ay, by, cy) - b.y0) * ky)), j1 = Math.min(ny - 1, Math.floor((Math.max(ay, by, cy) - b.y0) * ky));
+      const D = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+      if (i0 > i1 || j0 > j1 || D === 0) return;
+      const eps = -1e-9 * Math.abs(D);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const x = b.x0 + i / kx, y = b.y0 + j / ky;
+        const u = ((bx - x) * (cy - y) - (cx - x) * (by - y)) * Math.sign(D), v = ((cx - x) * (ay - y) - (ax - x) * (cy - y)) * Math.sign(D), w = ((ax - x) * (by - y) - (bx - x) * (ay - y)) * Math.sign(D);
+        if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
+      }
+    };
+    const s = c.src, n = c.cells;
+    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)]);
+    for (const [px, py, r0, r1] of patches ? (c.polar || []).slice(0, c.patches || 0) : []) {
+      const m = c.patchN - 1;
+      grid(c.patchN, (i, j) => { const th = (2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return [px + r * Math.cos(th), py + r * Math.sin(th)]; });
+    }
+    let bare = 0;
+    const at = [];
+    for (let k = 0; k < nx * ny; k++) if (!cov[k]) { bare++; if (at.length < 8) at.push([+(b.x0 + (k % nx) / kx).toFixed(3), +(b.y0 + Math.floor(k / nx) / ky).toFixed(3)]); }
+    return { n: nx * ny, bare, at };
+  };
   // (#846) the last Landscape frame's Inside-regions mask at the point (x, y) of its plane: 0 to 1 (1: in the carried
   // region set), null outside its box or with no mask
   window.__cmwLandMask = (x, y) => {

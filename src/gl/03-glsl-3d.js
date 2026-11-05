@@ -537,9 +537,10 @@ void main() {
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of the stages (uGs, uGt] there (s to
   // the plane the heights read, hT), so every point keeps its height while the plane moves. tfOut: (place x, y, height, finite).
   // The carried grid's point of plane s at grid place ij (0 to uN - 1 each way): over the box uSrc, or, with uPolar
-  // (pole x, y, r0, r1; r1 > 0), a patch around a pole of the glide's map: the angle once round with i, the radius from
-  // r0 to r1 geometrically with j, so the far plane the pole's neighbourhood is carried to is covered by small cells
-  // where the box's cells, stretched past uLim, are left out
+  // (centre x, y, r0, r1; r1 > 0), a patch about a point of plane s: the angle once round with i, the radius from r0 to
+  // r1 geometrically with j. About a pole of the glide's map it covers, with small cells, the far plane the pole's
+  // neighbourhood is carried to, where the box's cells stretch past uLim and are left out; about the box's centre, from
+  // inside the box outwards, it covers what the map carries from past the box
   const CARRY_Z = `
 uniform vec4 uPolar;
 vec2 carryZ(vec2 ij) {

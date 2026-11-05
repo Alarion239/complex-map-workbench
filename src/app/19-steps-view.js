@@ -315,11 +315,15 @@
     render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
-  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one around each pole of the
-  // carry's map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to
-  // three cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far
-  // plane, where the box's cells stretch past the tear limit and are left out
-  function svLandPoles(map, src, N) {
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1, past] each, in plane s's carried box src
+  // (plane s's points the box's N x N grid leaves out, which the carry's map, from plane s, takes into the block):
+  // - about each pole of the map in src, from a ten-thousandth of a cell to eight cells, nearest the box's centre first,
+  //   at most 4. Near a pole the map carries a small disc over the far plane, where the box's cells stretch past the
+  //   tear limit and are left out;
+  // - past the box (past = 1, last): about the box's centre, from the circle inside the box to a thousand times the
+  //   box's size, plane s outside the box, which the map can carry into the block (a Möbius step takes it to a disc
+  //   about the image of ∞)
+  function svLandPatches(map, src, N) {
     const F = cpuMap(map);
     if (!F) return [];
     const E = { n: 0, at: 0 }, it = svPolesIn(F, src, 16, src, E);
@@ -327,7 +331,7 @@
     while (!r.done) r = it.next();
     const W = src.x1 - src.x0, H = src.y1 - src.y0, cell = Math.max(W, H) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = r.value.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
-    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 3]);
+    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8, 0]).concat([[cx, cy, Math.min(W, H) / 2, 1000 * Math.max(W, H), 1]]);
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
