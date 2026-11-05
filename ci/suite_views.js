@@ -70,6 +70,7 @@ const VIEWS = {
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),
+  'toast_keys_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),

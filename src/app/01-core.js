@@ -508,7 +508,7 @@
   function histToast(what, undo) {
     const at = hi;
     const msg = undo ? (what ? $t('Undid: {what}.', { what }) : $t('Undone.')) : (what ? $t('Redid: {what}.', { what }) : $t('Redone.'));
-    toast(msg, undo ? $t('Redo') : $t('Undo'), () => { if (hi === at) $(undo ? 'redoBtn' : 'undoBtn').click(); }, true, { ms: 4000 });
+    toast(msg, undo ? $t('Redo') : $t('Undo'), () => { if (hi === at) $(undo ? 'redoBtn' : 'undoBtn').click(); }, true);
   }
   // the Undo and Redo tooltips name the action ("Undo: add f₃ Sine  ⌘Z"), set when the pointer or the keyboard comes
   function undoTip(undo) {
