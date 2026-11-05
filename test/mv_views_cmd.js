@@ -45,7 +45,7 @@ const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .o
 const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn:not(.pat-btn)').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
 const closeOpts = async () => { await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200); };
 await openOpts();
-ok('Phase strip (in the pane head): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
+ok('Phase strip (#247: in the pane head): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
 await closeOpts();
 ok('Phase legend, no Key switch there (review: it acted on a hidden pane)', await ev(`!document.getElementById('leftLegend').hidden && document.getElementById('wKeyRow').hidden`), null);
 await key('3'); await settle(900);
