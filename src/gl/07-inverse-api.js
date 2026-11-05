@@ -495,7 +495,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (pr.state !== 'ready') return { state: pr.state };
     const W = Math.max(1, Math.round(st.pw)), H = Math.max(1, Math.round(st.ph));
     const v = st.view || { cx: 0, cy: 0, s: 1 }, dpr = st.dpr || 1, map = st.map || {};
-    const key = [W, H, v.cx, v.cy, v.s, dpr, inv.key, map.a || 0, map.b || 0, cur.key].join('|');
+    const key = [W, H, v.cx, v.cy, v.s, dpr, inv.key, map.a || 0, map.b || 0, cur.key, cur.hash].join('|');
     const prev = nrLast && nrLast.key === key ? nrLast : null;
     const wi = nrLast ? 1 - nrLast.set : 0, S = nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
     if (!S.ok) return { state: 'error' };
