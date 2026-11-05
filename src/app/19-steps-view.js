@@ -1863,7 +1863,7 @@
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
-    // (the Height key's chip folds to its glyph (sv-lg, which the pane head's own fit keeps) before the bar's controls shorten,
+    // (the Height key's chip folds to its glyph (sv-lg, which the pane head's own fit, fitTitle in 09-pane-titles.js, keeps) before the bar's controls shorten,
     // and after the targets' note; its words stay its accessible name)
     const legFoldable = !!(legend && legend.parentNode === head && legend.getClientRects().length);
     let legFolded = false;
@@ -1894,6 +1894,13 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
+    // (the levels settled, the key is unfolded again if the bar still fits beside it)
+    if (legFolded) {
+      const w1 = legend.getBoundingClientRect().width;
+      legend.classList.remove('glyph'); head.classList.remove('sv-lg');
+      const dw = legend.getBoundingClientRect().width - w1;
+      if (E.bar.scrollWidth + keep + dw > room) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
+    }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
     if (mc && !mc.hidden) {

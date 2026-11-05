@@ -117,15 +117,16 @@ for (const lang of ['en', 'ru', 'it']) {
 }
 // (#1047) the Landscape with All sheets, the chain √, cos, log and Height = Im F, at 1024 × 768: the title keeps its
 // words, whole ("z · landscape of Im F", else "z · landscape"; no word is cut) and is not folded to the plane's letter alone
-for (const lang of ['en', 'ru', 'it']) {
-  const okl = (n, pass, detail) => ok(`${lang} ${n}`, pass, detail);
+// (and at 1440 × 900 in en: the key, folded to its glyph while the bar was short, is unfolded again once the bar fits beside it)
+for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 768], ['en', 1440, 900]]) {
+  const okl = (n, pass, detail) => ok(`${lang} ${W} × ${H} ${n}`, pass, detail);
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
-  await view(1024, 768, false, false);
+  await view(W, H, false, false);
   // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
   const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
-  await seed(ns + 'land' + lang, LAND);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}&lang=${lang}&view=steps` });
+  await seed(`${ns}land${lang}${W}`, LAND);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
   await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
   // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
@@ -133,19 +134,20 @@ for (const lang of ['en', 'ru', 'it']) {
     return __cmwSteps().surf === 'land' && /Im F/.test(b.querySelector('.sv-title').textContent) && !r; })()`);
   const title = await ev(`(() => { const t = document.querySelector('#svHead .sv-title'), r = t.getBoundingClientRect();
     return { surf: __cmwSteps().surf, hh: Math.round(document.querySelector('#paneL .pane-head').getBoundingClientRect().height), w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, full: t.textContent, tip: t.getAttribute('data-tip'), before: getComputedStyle(t.querySelector('.sv-role'), '::before').content.replace(/"/g, ''), cut: [...document.querySelectorAll('#svHead, #svHead *')].filter((e) => { const c = getComputedStyle(e); return c.textOverflow === 'ellipsis' || (/hidden|clip/.test(c.overflowX) && e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0 && !/^(svg|path|canvas)$/i.test(e.tagName)); }).map((e) => e.id || String(e.className).slice(0, 30)), text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
-  info['title1024' + lang] = title;
+  info[`title${W}${lang}`] = title;
   const short = /\bsv-rs\b/.test(title.bar);
-  okl('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its role, whole: "z · landscape of Im F" or "z · landscape"', title.surf === 'land' && !/\bsv-c2\b/.test(title.bar) && /Im F/.test(title.full || '') && (!short || title.before.length > 3), title);
-  okl('1024 × 768 Landscape, All sheets: the head is one row (under 48 px)', title.hh < 48, title);
-  okl('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 40 px or more: the letter, the dot and a word)', title.cw >= 40, title);
-  okl('1024 × 768 Landscape, All sheets: the role as one word has the whole title as its tip', !short || /^z · .*Im F/.test(title.tip || ''), title);
-  okl('1024 × 768 Landscape, All sheets: nothing in the steps bar is ellipsized or cut', title.cut.length === 0, title.cut);
+  okl('Landscape, All sheets, √ cos log: the title keeps its role, whole: "z · landscape of Im F" or "z · landscape"', title.surf === 'land' && !/\bsv-c2\b/.test(title.bar) && /Im F/.test(title.full || '') && (!short || title.before.length > 3), title);
+  okl('Landscape, All sheets: the head is one row (under 48 px)', title.hh < 48, title);
+  okl('Landscape, All sheets: the title is not folded to the plane\'s letter (it is 40 px or more: the letter, the dot and a word)', title.cw >= 40, title);
+  okl('Landscape, All sheets: the role as one word has the whole title as its tip', !short || /^z · .*Im F/.test(title.tip || ''), title);
+  okl('Landscape, All sheets: nothing in the steps bar is ellipsized or cut', title.cut.length === 0, title.cut);
   // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
   const fold = await ev(`(() => { const b = document.getElementById('svHead'), c = b.classList, m = b.querySelector('.sv-scope-menu'), sg = b.querySelector('.sv-scope:not(.sv-scope-menu)');
     const mr = m.getBoundingClientRect(), t = b.querySelector('.sv-title').getBoundingClientRect();
-    return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), glyph: (() => { const lg = document.getElementById('leftLegend'); return !lg || lg.hidden || lg.classList.contains('glyph'); })(), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
+    return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), keyFolded: (() => { const lg = document.getElementById('leftLegend'); return !!lg && !lg.hidden && lg.classList.contains('glyph'); })(), glyph: (() => { const lg = document.getElementById('leftLegend'); return !lg || lg.hidden || lg.classList.contains('glyph'); })(), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
       name: m.getAttribute('aria-label'), popup: m.getAttribute('aria-haspopup'), text: m.textContent.trim() }; })()`);
-  info['fold1024' + lang] = fold;
+  info[`fold${W}${lang}`] = fold;
+  if (W === 1440) okl('Landscape, All sheets: the Height key is unfolded once the bar fits beside it', !fold.keyFolded, fold);
   okl('the fold order: the Height key folds to its glyph before the scope becomes a menu button', !fold.sm || fold.glyph, fold);
   okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si && fold.glyph), fold);
   okl('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
