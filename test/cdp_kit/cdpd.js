@@ -197,7 +197,7 @@ H.load = async (ns, st, extra) => {
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
   H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
   await H.reseed();
-  return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+  return H.ev(`({lamps: __qa.lamps()})`);
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };

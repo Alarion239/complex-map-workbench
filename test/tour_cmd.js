@@ -170,9 +170,9 @@ g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').t
 check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && (g.next === 'Next' || g.next === 'Skip'), g);
 await snap('tour-order-light');
 await ev(`Tour.next()`); await settle(1600);
-// (notes/deform-range/SPEC.md 10.2) Part of the chain: the bracket's left end lit, every step bracketed
-g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, body: (Tour.lit() || {}).body, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
-check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && (g.next === 'Next: Analysis' || g.next === 'Skip') && /The bracket over the cards/.test(g.body) && g.range === null, g);
+// (notes/deform-range/SPEC.md 10.2) Part of the chain: every step deformed
+g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, body: (Tour.lit() || {}).body, range: __cmwState().homView && __cmwState().homView.range })`);
+check('Part of the chain shows: "Next: Analysis"', g.cur && g.cur.id === 'range' && (g.next === 'Next: Analysis' || g.next === 'Skip') && /The bracket over the cards/.test(g.body) && g.range === null, g);
 await snap('tour-range-light');
 await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);

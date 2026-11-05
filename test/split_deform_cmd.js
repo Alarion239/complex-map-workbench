@@ -36,12 +36,11 @@ function diff(a, b) {
 await send('Emulation.setUserAgentOverride', { userAgent: DESKUA, acceptLanguage: 'en-US,en' });
 await view(1440, 900, false, false);
 
-await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }] });
+await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }], sel: 2 });
 {
   // the deformation open at T = 1.5
   await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
   await ev('__cmwMorph({ T: 1.5 })'); await settle(1200);
-  await clickSel('#pipeline .card[data-k="2"]'); await settle(500);
   const q0 = await planes();
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(400);
   const T = (await ev('__cmwMorph({})')).T;
@@ -55,10 +54,8 @@ await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2
 await grab();
 
 // ---------------- 8. the alone walk ----------------
-await open('fsF', { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }, { type: 'sin', params: {}, on: true }] });
+await open('fsF', { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }, { type: 'sin', params: {}, on: true }], sel: 1, focus: 1 });
 {
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(400);
-  await key('l'); await settle(500);
   const st = async () => ev(`({ f: __cmwCards().focus, prev: document.querySelector('#aloneChip .ac-nav.prev').disabled, next: document.querySelector('#aloneChip .ac-nav.next').disabled })`);
   const seq = [await st()];
   for (let i = 0; i < 3; i++) { await clickSel('#aloneChip .ac-nav.next'); await settle(300); seq.push(await st()); }
@@ -71,8 +68,7 @@ await grab();
 // ---------------- 14. frame times: 12 nested sines, the deformation open ----------------
 {
   let e = 'z'; for (let i = 0; i < 12; i++) e = `\\sin(${e})`;
-  await open('fsS', { steps: [F1(e)] });
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(700);
+  await open('fsS', { steps: [F1(e)], sel: 1 });
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(1500);
   ok('12 sines: 12 steps', (await steps()).length === 12);
   await ev('__cmwMorph({ open: true, playing: true })'); await settle(1500);

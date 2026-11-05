@@ -138,13 +138,13 @@ async function probe(base, page, scenes, top) {
     for (const n of await B.ev('Object.getOwnPropertyNames(window)')) GLOBALS0.add(n);
     await B.addInit(INIT);
     await B.nav(base + page);
-    // started: the document loaded and the chain drew its cards (a fixed wait let the published page, 4.9 MB, be
+    // started: the document loaded and the chain drew its thread (a fixed wait let the published page, 4.9 MB, be
     // measured before its app had run now and then: no globals, no worklet, another picture); then a moment to settle
     let started = false;
     for (let t = Date.now(); !started && Date.now() - t < 30000; await sleep(250)) {
-      try { started = await B.ev(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
+      try { started = await B.ev(`document.readyState === 'complete' && !!document.querySelector('#svStrip .sv-add, #pipeline .card')`); } catch (e) { /* still loading */ }
     }
-    if (!started) throw new Error(`${page} did not start within 30 s (no chain card)`);
+    if (!started) throw new Error(`${page} did not start within 30 s (no chain drawn)`);
     await sleep(3000);
     const own = (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n));
     // (a name is there when evaluating it throws no ReferenceError: a top-level `let x;` is there, undefined)
@@ -156,8 +156,6 @@ async function probe(base, page, scenes, top) {
       // (a picture of a moment: a deformation an example plays is stopped at t = 0.5, and the shader compiles land)
       await B.ev(`(() => { try { const m = __cmwState().morph; if (m && m.open) __cmwMorph({ playing: false, T: 0.5 }); } catch (e) { /* a page without the hooks */ } return 1; })()`);
       for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
-      // (and the chain's cards drawn: a card draws in a quiet moment, so one page can be a moment behind the other)
-      for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
       await sleep(1500);
       // (a toast's moment differs with the page's speed: none in the picture)
       await B.ev(`document.querySelectorAll('.toast').forEach((t) => t.remove()); 1`);

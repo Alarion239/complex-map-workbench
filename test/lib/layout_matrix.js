@@ -18,9 +18,8 @@
     { name: 'landscape', go: `__cmwSetMain('land'), 1`, wait: 1500, views: ['classic'] },
     { name: 'deformation', go: `__cmwMorph({ open: true, playing: false }), 1`, wait: 1200, views: ['classic'] },
     // (ready once the Inspector is in place: floated over the stage at 1024 (.temp), it is first drawn off the right edge and
-    // moves in a render later, about a second on software GL, and the chain head's buttons reflow only then; measured
-    // before, Clear chain read as cut, one run in two)
-    { name: 'inspector F', go: `(() => { const e = document.querySelector('#pipeline .ftile'); e && e.click(); return 1; })()`, dev: 'desktop',
+    // moves in a render later, about a second on software GL)
+    { name: 'inspector F', go: `(() => { const e = document.querySelector('#svStrip .sv-wholemap'); e && e.click(); return 1; })()`, dev: 'desktop',
       ready: `(() => { const p = document.getElementById('propsPanel'); return !!p && p.checkVisibility() && p.getBoundingClientRect().right <= innerWidth + 1; })()` },
     { name: 'tour strip', go: `Tour.start({ chapter: 'basics' }), 1`, wait: 1500, ready: `!!Tour.current()` },
     // (#565: the strip at its fullest: for each chapter, the step with the longest lead, text and task in the language
@@ -50,7 +49,7 @@
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
     { name: 'chain of 4', run: async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } },
-      wait: 1500, ready: `document.querySelectorAll('#pipeline .card:not(.region-card)').length >= 4`,
+      wait: 1500, ready: `__cmwP().steps.length >= 4`,
       after: `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()` },
   ].map((s) => (s.click && !s.ready ? Object.assign({ ready: LAYER }, s) : s));
 

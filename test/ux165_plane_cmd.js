@@ -328,7 +328,7 @@ await section('L67', async () => {
   await laptop();
   await load(NS + 'j', { shapes: [], steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } });
   await settle(800);
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(300);
+  await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settle(300);
   info.l67 = await ev(`(() => { const c = document.querySelector('#propsPanel .sheet-ctl'); if (!c) return null; const p = c.parentElement; return { t: p.textContent.replace(/\\s+/g, ' ').trim(), order: [...p.children].map((e) => e.classList.contains('sh-prev') ? '‹' : e.tagName === 'INPUT' ? 'k' : e.classList.contains('sheet-ctl') ? 'ctl' : '?').join(' '), btns: [...p.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') || b.textContent) }; })()`);
   ok('UX67 the step editor has ‹ k of 2 › · Show all sheets', info.l67 && info.l67.order === '‹ k ctl' && /^‹ ?of 2 ?›/.test(info.l67.t) && /Show all sheets/.test(info.l67.t), info.l67);
   const kNow = () => ev(`document.querySelector('#propsPanel .sheet-ctl').parentElement.querySelector('input').value`);

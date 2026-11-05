@@ -24,9 +24,9 @@ const EXACT_SRC = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'zp_kit.js'),
 // ---------------------------------------------------------------------------------------------------------------
 // (v15 review regress-3: the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
 // edges, 16 px, where axis ink is neither fill nor plane)
-// (a step's ⋯ menu and its name: the chain's card in the classic view, the thread's step in the steps view)
-const stepMore = (k) => inSteps ? `#svStrip .sv-step[data-k="${k}"] .sv-more` : `#pipeline .card[data-k="${k}"] .more`;
-const stepName = async (k) => inSteps ? ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"]').textContent`) : (await ev('__qa.cards()'))[k];
+// (a step's ⋯ menu and its name, on the thread)
+const stepMore = (k) => `#svStrip .sv-step[data-k="${k}"] .sv-more`;
+const stepName = (k) => ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"]').textContent`);
 // 1. (z^2 - 1)/z of a disc: handles, the card, exact at rest
 await view(1440, 900, false);
 // (Y, the image, is the classic view's right pane; the steps view shows it as its last plane, so the exactness is read
@@ -167,9 +167,7 @@ await grab();
 await load('zpacc2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [0.5, 1] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '1+i, -1', poles: '' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, { pattern: 'checker' }));
 await settle(1200); await grab();
 ok('whole chain: no handles in X (step 2 acts on w1)', (await zp()).handles.length === 0, await zp());
-// (a click selects; Show alone is a double-click)
-if (inSteps) await toPlane(1);   // (f2's input plane)
-else await ev(`document.querySelector('#pipeline .card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+await toPlane(1);   // (f2's input plane)
 await settle(1200);
 z = await zp();
 ok('f2 focused: its zeros in its input plane', z.k === 2 && z.handles.length === 2, z);

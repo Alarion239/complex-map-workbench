@@ -18,7 +18,7 @@ let ns;
 // verify-3: f1 = (z + 1)/(az + 1) with a = 1 -> constant; then b = -1, a = -1, c = 1, d = 1 (constant -1, z = -1)
 ns = 'pr3' + Date.now();
 await open(ns, { shapes: SH, steps: [{ type: 'mobius', params: { a: '-1', b: '-1', c: '1', d: '1' }, on: true }], sel: 1 });
-await ev('__cmwCardsNow && 1'); await settle(600);
+await settle(600);
 out.v3 = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] .isub'); return e ? { text: e.textContent, html: e.innerHTML } : null; })()`);
 await shot(`pr-${P.tag}-v3`, { x: 1140, y: 40, width: 300, height: 360 });
 await nav(`${base}?ns=${ns}&lang=ru`); await settle(1500);
