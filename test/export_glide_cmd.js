@@ -57,6 +57,16 @@ for (const exN of [1, 18]) {
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
+// UX60 (classic's check, ported to the steps view): Video is listed with no step to record too; it is aria-disabled with
+// the reason "Add a step to make a video", and a click neither chooses it nor opens the dialog on it
+// (a chain of one plane: an empty steps chain saved as the page's state, as steps_empty_cmd.js does)
+await loadView('steps', 'xgl0' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 90 } }, { lang: 'en' });
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+const bare = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; const n = __cmwSteps().planes.length; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); const fmts = [...document.querySelectorAll('#xfFmt > button')].map((x) => x.dataset.v); b.click(); return { n, fmts, aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
+info['video with no step'] = bare;
+ok('no step: the chain has one plane and Video is listed in the Format row', bare && bare.n < 2 && bare.fmts && bare.fmts.includes('video'), bare);
+ok('no step: Video is aria-disabled with "Add a step to make a video" as its tip, a click does not choose it', bare && bare.aria === 'true' && bare.tip === 'Add a step to make a video' && bare.checked === 'false' && bare.still && !bare.vsum, bare);
+await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 // the sphere: no silent 2D
 await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 await open(1, 'sphere');
