@@ -1717,7 +1717,6 @@
  "Turn on Phase key.": "Attiva «Legenda della fase».",
  "Turn on and listen": "Attiva e ascolta",
  "Turn on sound": "Attiva il suono",
- "Turn sound, or Hear the function, on or off here.": "Qui attivi o disattivi il suono e «Ascolta la funzione».",
  "Turn the deformation off": "Disattiva la deformazione",
  "Turn the deformation off and draw  M": "Disattiva la deformazione e disegna  M",
  "Turn this step back on": "Riattiva questo passo",
@@ -3278,7 +3277,7 @@
  "Try: choose Landscape and look for the zeros on the line Re z = 1/2.": "Prova: scegli Paesaggio e cerca gli zeri sulla retta Re z = 1/2.",
  "Try: hover near a pole: |Γ| grows without bound.": "Prova: passa vicino a un polo: |Γ| cresce senza limite.",
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Prova: ingrandisci dove un raggio tocca M, oppure clicca su f₁ e aggiungi un tuo raggio (θ = 1/7, 2/7, …); oltre circa 10⁻⁵ il float32 della GPU sfoca l'immagine.",
- "Go to {p}": "Vai a {p}",
+ "Go to {p}": "Vai a %{p}",
  "key line\u0004colour carried from {p}": "colore trasportato da {p}",
  "Planes": "Piani",
  "One plane at a time": "Un piano alla volta",
@@ -3379,5 +3378,10 @@
  "Try: on the chip f₁, ⋯ → Repeat…, then raise N in the Inspector: the image stays the same set.": "Prova: sul chip f₁, ⋯ → Ripeti…, poi aumenta N nell'Ispettore: l'immagine resta lo stesso insieme.",
  "Try: on the chip f₁, ⋯ → Repeat…, N = 3 in the Inspector: each ear goes round the three and comes back to itself.": "Prova: sul chip f₁, ⋯ → Ripeti…, N = 3 nell'Ispettore: ogni orecchio fa il giro delle tre e torna su sé stesso.",
  "Try: lower N in the Inspector's Repeat row of f₁ to 1, 2, 3 and watch the basins form.": "Prova: abbassa N nella riga «Ripeti» dell'Ispettore di f₁ a 1, 2, 3 e guarda formarsi i bacini.",
- "Try: on the chip f₂, ⋯ → Repeat → f₁–f₂, twice, then N = 3 in the Inspector: the image is the curve |u₅| = 2, three levels out.": "Prova: sul chip f₂, ⋯ → Ripeti → f₁–f₂, due volte, poi N = 3 nell'Ispettore: l'immagine è la curva |u₅| = 2, tre livelli più in fuori."
+ "Try: on the chip f₂, ⋯ → Repeat → f₁–f₂, twice, then N = 3 in the Inspector: the image is the curve |u₅| = 2, three levels out.": "Prova: sul chip f₂, ⋯ → Ripeti → f₁–f₂, due volte, poi N = 3 nell'Ispettore: l'immagine è la curva |u₅| = 2, tre livelli più in fuori.",
+ "Colouring of {p} (the colour plane)": "Colorazione di %{p} (il piano del colore)",
+ "Switch Sound and Hear the function on or off here.": "Attiva o disattiva qui il suono e «Ascolta la funzione».",
+ "Click ▶ and listen as the loop winds round the zero.": "Clicca ▶ e ascolta la curva che gira intorno allo zero.",
+ "Tap ▶ and listen as the loop winds round the zero.": "Tocca ▶ e ascolta la curva che gira intorno allo zero.",
+ "Click ▶ to turn sound on and hear the loop wind round the zero.": "Clicca ▶ per attivare il suono e ascoltare la curva che gira intorno allo zero."
 }
