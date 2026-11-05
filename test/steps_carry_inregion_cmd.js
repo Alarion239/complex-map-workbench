@@ -24,7 +24,7 @@ const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() &&
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the points of a grid over the inner 80 % of the pane, and whether z is where plane z's picture shows it
-const { paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const grid = (P, nx, ny) => { const out = []; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push([P.v.cx + (i / (nx - 1) - 0.5) * 0.8 * P.w / P.v.s, P.v.cy + (j / (ny - 1) - 0.5) * 0.8 * P.h / P.v.s]); return out; };
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
 // for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
@@ -53,9 +53,9 @@ async function hold(x) {
 }
 async function compare(at, W, Z) {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
-  const ref = await ev(`__cmwLPx(${JSON.stringify(Z)}).px`);
+  const ref = (await lpx(Z)).px;
   if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
-  const state = await ev('__cmwSteps()'), got = await ev(`__cmwLPx(${JSON.stringify(W)}).px`);
+  const state = await ev('__cmwSteps()'), got = (await lpx(W)).px;
   if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   let n = 0, wrong = 0, paper = 0, worst = 0;
   const ex = [];
@@ -126,7 +126,7 @@ await wait();
   await check('Joukowski in rest', { scope: 'in', go: 1, now: true }, 1, P, pts, (w) => both(w).filter((e) => outside(e.z) > 0), 400);
   // (Inside regions: every region point coloured, past the reference's window too)
   const A = pts.filter((w) => both(w).some((e) => outside(e.z) > 0.12) && !labelAt(w));
-  const all = await ev(`__cmwLPx(${JSON.stringify(A)}).px`);
+  const all = (await lpx(A)).px;
   const paper = all.filter((q) => q && bare(q[4])).length;
   info['Joukowski in rest'].regionPoints = { n: all.length, paper };
   ok('Joukowski in rest: every region point is coloured, past the window too', all.length > 1500 && paper === 0, { n: all.length, paper });
