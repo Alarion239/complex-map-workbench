@@ -1203,9 +1203,11 @@
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
-      // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
-      // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
-      paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
+      // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
+      // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
+      // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
+      // carried colour's CPU mesh, which needs a frame of its own, waits)
+      paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
       after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
