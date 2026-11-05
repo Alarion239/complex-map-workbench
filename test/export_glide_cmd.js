@@ -87,6 +87,25 @@ for (const exN of [1, 18]) {
   ok(`${tag}: a frame at x = 0.5 matches the screen parked there`, s && s.mad < 14 && Math.abs(s.x - 0.5) < 1e-6, s);
 }
 // the dialog: Video is listed, with where it goes and how long it is
+// the key the still and the video draw is the pane's own: on every plane of the chain, at rest and either side of the midpoint
+// between two planes, svKey's words are those of the pane's key (the caption, or the line saying where the colour is carried from)
+await open(1, 'plane');
+const nPl = await ev('__cmwSteps().planes.length');
+let carriedSeen = 0;
+// (T at the last plane, where each plane is coloured by its own map, and T = 0, where the later planes carry z's colour)
+for (const T of ['null', 0]) {
+  if (T !== 'null') { await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: 0, now: true }), 1)`); await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 1200 }); info.T = await ev('__cmwSteps().T'); }
+  for (const x of [0, 0.4, 0.6, 1, 1.4, 1.6, nPl - 1]) {
+    await ev(`(${Number.isInteger(x) ? `__cmwSteps({ go: ${x}, now: true })` : `__cmwSteps({ x: ${x} })`}, 1)`);
+    await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 600 });
+    const kk = JSON.parse(await ev(`JSON.stringify({ pane: __cmwLegend().caption, k: __cmwFig.svKey(${x}) })`));
+    const want = kk.k && (kk.k.carried ? kk.k.carried.text : kk.k.caption);
+    if (kk.k && kk.k.carried) carriedSeen++;
+    info[`key T ${T} at ${x}`] = kk;
+    ok(`T ${T}, thread position ${x}: the figure's key words are the pane's key (${kk.pane})`, !!kk.pane && kk.pane === want, kk);
+  }
+}
+ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);

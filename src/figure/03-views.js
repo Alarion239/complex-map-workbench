@@ -678,18 +678,22 @@
         items.push(XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
         items.push(XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
         let yy = ky + R + 1.5 + tp * 1.3;
+        // (a plane's name "w₂" as TeX, words as text)
+        const nm = (t) => String(t).replace(/([A-Za-z])([₀-₉]+)/g, (m, l, d) => `${l}_{${[...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join('')}}`);
+        const txt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
+        // (a line's words with the name in math: the pieces around its first occurrence)
+        const withName = (line, name) => { const i = name ? line.indexOf(name) : -1; return i < 0 ? txt(line) : `${txt(line.slice(0, i))}${nm(name)}${txt(line.slice(i + name.length))}`; };
+        // (a Phase picture: its key never says "carried from", which the pane's does only off Phase)
         if (!sv.plain) {
-          const sw = 2 * R, sx = kx - R, sh = 6, sy = yy + tp * 1.2, g0 = '#9aa4ab', g1 = '#eef2f4';
-          kdefs += `<linearGradient id="${kid}-g"><stop offset="0" stop-color="${g0}"/><stop offset="1" stop-color="${g1}"/></linearGradient>`;
+          const sw = 2 * R, sx = kx - R, sh = 6, sy = yy + tp * 1.2;
+          kdefs += `<linearGradient id="${kid}-g"><stop offset="0" stop-color="${sv.stops[0]}"/><stop offset="1" stop-color="${sv.stops[1]}"/></linearGradient>`;
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
           items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-          items.push(XD.at(XD.tex(`\\times ${+Math.exp(2 * Math.PI / sv.n).toPrecision(3)}`, tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          items.push(XD.at(XD.tex(`\\text{${$t('per band')}}`, tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
+          items.push(XD.at(XD.tex(txt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
+          items.push(XD.at(XD.tex(txt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
           yy = sy + sh + 1.5 + tp * 1.3;
         }
-        const cap = sv.plain ? 'arg \u0001' : $t('arg and |{Fn}|', { Fn: '\u0001' }), [pre, post] = cap.split('\u0001');
-        const txt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
-        items.push(XD.at(XD.tex(`${txt(pre)}${A.fname()}${txt(post)}`, tp), kx, yy + 2, 'middle', 'top', 'key'));
+        items.push(XD.at(XD.tex(withName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
       } else {
         items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
         items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));

@@ -199,6 +199,8 @@
     }
     return tw;
   };
+  // the width of such parts at size fs
+  const vWidth = (ctx, parts, fs) => { const fam = '"Latin Modern Roman", "CMU Serif", "Times New Roman", serif'; return parts.reduce((a, [t, it, sub]) => { ctx.font = `${it ? 'italic ' : ''}${sub ? Math.round(0.7 * fs) : fs}px ${fam}`; return a + ctx.measureText(t).width; }, 0); };
   // the glide's chrome, the same on every frame but for its words: the plane's name as the axis title and the pane's key
   // (ring, modulus bands unless the style is plain, the caption), top right on a pale ground; the words are those of the
   // plane the thread position shows, so they change where the screen's do
@@ -219,16 +221,26 @@
     vText(ctx, [['i', true]], cx, ry - 0.25 * fs, fs, 'center');
     vText(ctx, [['−', false], ['i', true]], cx, ry + n + 1.0 * fs, fs, 'center');
     let y = ry + n + 1.6 * fs;
+    // (a line's words with the plane's name in italic: the pieces around its first occurrence)
+    const withName = (line, name) => { const i = name ? line.indexOf(name) : -1; return i < 0 ? [[line, false]] : [[line.slice(0, i), false], ...parts(name), [line.slice(i + name.length), false]].filter((q) => q[0]); };
+    if (k.carried) {
+      // (past the colour plane: where the colour is carried from, in lines as wide as the key's ring)
+      const words = k.carried.text.split(' '), width = (ln) => vWidth(ctx, withName(ln, k.carried.from), fs), lines = [];
+      let cur = '';
+      for (const wd of words) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && width(nx) > bw - 0.6 * fs) { lines.push(cur); cur = wd; } else cur = nx; }
+      if (cur) lines.push(cur);
+      lines.forEach((ln, j) => vText(ctx, withName(ln, k.carried.from), cx, y + (0.9 + 1.25 * j) * fs, fs, 'center'));
+      return;
+    }
     if (!k.plain) {
       const sw = n, sy = y + 1.1 * fs, sh = 0.5 * fs;
-      for (let j = 0; j < 3; j++) { const g = ctx.createLinearGradient(cx - sw / 2 + j * sw / 3, 0, cx - sw / 2 + (j + 1) * sw / 3, 0); g.addColorStop(0, '#9aa4ab'); g.addColorStop(1, '#eef2f4'); ctx.fillStyle = g; ctx.fillRect(cx - sw / 2 + j * sw / 3, sy, sw / 3, sh); }
+      for (let j = 0; j < 3; j++) { const g = ctx.createLinearGradient(cx - sw / 2 + j * sw / 3, 0, cx - sw / 2 + (j + 1) * sw / 3, 0); g.addColorStop(0, k.stops[0]); g.addColorStop(1, k.stops[1]); ctx.fillStyle = g; ctx.fillRect(cx - sw / 2 + j * sw / 3, sy, sw / 3, sh); }
       ctx.strokeStyle = '#555555'; ctx.lineWidth = 1; ctx.strokeRect(cx - sw / 2, sy, sw, sh);
-      vText(ctx, [[(I18 ? I18.num : (v) => v)(`×${(+Math.exp(2 * Math.PI / k.n).toPrecision(3))}`), false]], cx, sy - 0.25 * fs, fs, 'center');
-      vText(ctx, [[$t('per band'), false]], cx, sy + sh + 1.1 * fs, fs, 'center');
+      vText(ctx, [[k.factor, false]], cx, sy - 0.25 * fs, fs, 'center');
+      vText(ctx, [[k.perBand, false]], cx, sy + sh + 1.1 * fs, fs, 'center');
       y = sy + sh + 1.7 * fs;
     }
-    const cap = k.plain ? 'arg \u0001' : $t('arg and |{Fn}|', { Fn: '\u0001' }), [pre, post] = cap.split('\u0001');
-    vText(ctx, [[pre, false], ...parts(k.name), [post, false]].filter((q) => q[0]), cx, y + 0.9 * fs, fs, 'center');
+    vText(ctx, withName(k.caption, k.name), cx, y + 0.9 * fs, fs, 'center');
   }
   // one frame of the video at time t, drawn into the 2D context ctx (W x H device px)
   async function videoFrame(plan, t, ctx) {

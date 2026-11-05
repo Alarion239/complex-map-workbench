@@ -331,13 +331,17 @@
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
-    // the pane's key: its style's strip (none in the plain Phase style), the bands' count, the plane the colour is carried
-    // from, and the words the key and the axis title use for the plane the thread position x (default: where it is) shows
+    // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
+    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
+    // plane the line saying where the colour is carried from; and the plane's name for the axis title
     svKey: (x) => {
       if (!SV.on) return null;
       const keep = { x: SV.g.x, span: SV.span };
       if (x != null) { SV.span = null; SV.g.set(x); }
-      try { return { plain: S.dc === 'phase', n: S.sectors || 12, carried: svCarriedFrom(), name: svKeyName(), title: svName(svStage()) }; } finally { if (x != null) { SV.g.set(keep.x); SV.span = keep.span; } }
+      try {
+        const plain = S.dc === 'phase', n = S.sectors || 12, name = svKeyName(), from = !lPhase() ? svCarriedFrom() : '';
+        return { plain, n, name, title: svName(svStage()), stops: keyStops(false), factor: keyFactor(n), perBand: $t('per band'), caption: keyCaption(plain, name), carried: from ? { from, text: $tx('key line', 'colour carried from {p}', { p: from }) } : null };
+      } finally { if (x != null) { SV.g.set(keep.x); SV.span = keep.span; } }
     },
     svFrameF: (i) => rangeF(0, svPlanes()[i]),
     shapes: () => S.shapes.filter((s) => s.visible !== false),
