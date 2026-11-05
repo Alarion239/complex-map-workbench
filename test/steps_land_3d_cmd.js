@@ -107,9 +107,7 @@ for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
 {
   const ns = `land3dd${Date.now()}`, step = (type, params) => ({ type, params: params || {}, on: true });
   const st0 = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [step('pown', { n: 2 }), step('deriv'), step('exp')], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st0))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+  await loadView('steps', ns, st0);
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
   await settled({ max: 60000 });
