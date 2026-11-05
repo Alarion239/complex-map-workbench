@@ -25,7 +25,8 @@
     const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const legIn = !!(leg && hd && leg.parentNode === hd);
     const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
-    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    // (the steps view's head fit folds the chip itself, sv-lg: it stays folded)
+    if (legIn) { leg.classList.toggle('glyph', SV.on && hd.classList.contains('sv-lg')); hd.classList.remove('tight', 'noled'); }
     if (legIn && !leg.hidden && tabsCut()) {
       leg.classList.add('glyph');
       if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }

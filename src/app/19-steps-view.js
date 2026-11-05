@@ -1834,6 +1834,9 @@
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
     E.bar.classList.remove('sv-c3', 'sv-c4');
+    const legend = $('leftLegend');
+    E.head.classList.remove('sv-lg');
+    if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
       // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
@@ -1860,13 +1863,25 @@
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
-    const levels = () => {
+    // (the Height key's chip folds to its glyph (sv-lg, which the pane head's own fit keeps) before the bar's controls shorten,
+    // and after the targets' note; its words stay its accessible name)
+    const legFoldable = !!(legend && legend.parentNode === head && legend.getClientRects().length);
+    let legFolded = false;
+    const levels = (legOk) => {
       let l = 0;
       set(0);
-      while (l < 5 && E.bar.scrollWidth + keep > room) set(++l);
+      while (l < 5 && E.bar.scrollWidth + keep > room) {
+        if (legOk && legFoldable && !legFolded) {
+          const w0 = legend.getBoundingClientRect().width;
+          legend.classList.add('glyph'); head.classList.add('sv-lg'); legFolded = true;
+          keep -= w0 - legend.getBoundingClientRect().width;
+          continue;
+        }
+        set(++l);
+      }
       return l;
     };
-    let lvl = levels();
+    let lvl = levels(!tn);
     svTitleTip(lvl >= 4);
     // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
     // the source planes' names, then to its icon alone)
@@ -1875,9 +1890,10 @@
       const w0 = tn.getBoundingClientRect().width;
       tn.classList.add(cls);
       keep -= w0 - tn.getBoundingClientRect().width;
-      lvl = levels();
+      lvl = levels(false);
       svTitleTip(lvl >= 4);
     }
+    if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
     if (mc && !mc.hidden) {

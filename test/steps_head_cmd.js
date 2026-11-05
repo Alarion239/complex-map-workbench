@@ -143,10 +143,11 @@ for (const lang of ['en', 'ru', 'it']) {
   // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
   const fold = await ev(`(() => { const b = document.getElementById('svHead'), c = b.classList, m = b.querySelector('.sv-scope-menu'), sg = b.querySelector('.sv-scope:not(.sv-scope-menu)');
     const mr = m.getBoundingClientRect(), t = b.querySelector('.sv-title').getBoundingClientRect();
-    return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
+    return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), glyph: (() => { const lg = document.getElementById('leftLegend'); return !lg || lg.hidden || lg.classList.contains('glyph'); })(), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
       name: m.getAttribute('aria-label'), popup: m.getAttribute('aria-haspopup'), text: m.textContent.trim() }; })()`);
   info['fold1024' + lang] = fold;
-  okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si), fold);
+  okl('the fold order: the Height key folds to its glyph before the scope becomes a menu button', !fold.sm || fold.glyph, fold);
+  okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si && fold.glyph), fold);
   okl('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
     fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Scope: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
   if (lang === 'en' && fold.sm) {
