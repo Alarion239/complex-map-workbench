@@ -12,6 +12,7 @@
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
+    clock: null,     // (a test hook's) ms of glide time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -254,7 +255,10 @@
     if (SV.drag && SV.drag.moved) { dirty.L = true; svSync(); return false; }
     if (SV.play && !SV.play.slide) return svPlayFrame();
     if (SV.anim) {
-      const A = SV.anim, v = Math.min(1, (performance.now() - A.t0) / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      // (SV.clock, a test hook's, null in the app: the glide's time advances that many ms a frame instead of by the wall
+      // clock, so a suite reads its frames mid-glide however long each one takes to draw)
+      const A = SV.anim, el = SV.clock ? (A.el = (A.el || 0) + SV.clock) : performance.now() - A.t0;
+      const v = Math.min(1, el / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
       SV.g.set(A.from + (A.to - A.from) * e);
       dirty.L = true;
       svSync();
