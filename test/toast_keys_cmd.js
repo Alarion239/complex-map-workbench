@@ -61,6 +61,14 @@ ok('the focus in it keeps it past its time', await has(), null);
 await ev(`document.activeElement.blur(), 1`);
 ok('it goes after the focus leaves', await gone(4000), null);
 
+// over a dialog its × is no target: the export dialog's More formats button lies under it
+await press('e', 'KeyE', 69, 4); await settled({ max: 20000, only: true, until: `!!document.querySelector('.modal-bg #xfMore')` });
+await show('Saved strip.png.', null, { ms: 60000 });
+const under = await ev(`(() => { const x = ${T}.querySelector('.toast-x').getBoundingClientRect(), e = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2); return e && e.closest('.toast-x') ? 'x' : e && e.closest('#xfMore') ? 'more' : e && e.tagName; })()`);
+ok('over a dialog a message\'s × leaves the click to what lies under it', under !== 'x', under);
+await press('Escape', 'Escape', 27); await settled({ max: 5000, only: true, until: `!document.querySelector('.modal-bg')` });
+await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
+
 // the close button, on a timed message too
 await show('Timed', 'Do');
 const xt = await ev(`(() => { const b = ${T}.querySelector('.toast-x'); if (!b) return null; const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()`);
