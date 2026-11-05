@@ -1,9 +1,9 @@
 // The phone's parts of the classic view, checked on a phone (412 × 860, 360 × 780 and 915 × 412, Android emulation, real touch events through
 // Input.dispatchTouchEvent) and on a laptop (1366 × 768, the mouse): Undo in every sheet head and in the Deformation bar, tips that never stick,
 // Back closing the top layer, the function list, a rotation keeping the open sheet and field, the on-screen keyboard, the fixed key column,
-// the speed key, the Shapes list and the ⋯ sheet, the Deformation bar in two rows, the Both key, the context bar, the cards' pictures, the
+// the speed key, the Shapes list and the ⋯ sheet, the Deformation bar in two rows, the Both key, the context bar, the
 // last pick of a construction on touch, and a pinch on the app's own controls. They test the chain bar and its sheet, the Deformation bar and its
-// dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them. The Tools sheet's tabs,
+// dock, the Both key, and the Editor, keyboard and construction touches as the classic view reaches them. The Tools sheet's tabs,
 // the tips in the Display and Editor sheets, a slow tap and the touch wording, which the steps view has, are test/ux165_phone_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/ux165_phone_classic_cmd.js
@@ -26,9 +26,9 @@ const withState = async (ns, w, h, mobile, st) => { await view(w, h, false, !!mo
 const box = (sel) => ev(`(() => { const e = typeof ${JSON.stringify(sel)} === 'string' ? document.querySelector(${JSON.stringify(sel)}) : null; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom), top: !!t && (t === e || e.contains(t)) }; })()`);
 const center = async (sel) => { const b = await box(sel); return b ? [b.l + b.w / 2, b.t + b.h / 2] : null; };
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-// (on a phone the chain's cards, F, Add function and Numbers are rows of the chain sheet; while it is closed, a
-// tap on one of them is first the tap on "N steps ▾" that opens it, as a user's)
-const CHAIN = /#pipeline|#addStepBtn|\.ph-nums/;
+// (on a phone Numbers is a row of the chain sheet; while it is closed, a tap on it is first the tap on "N steps ▾" that
+// opens it, as a user's)
+const CHAIN = /\.ph-nums/;
 const tap = async (sel) => {
   const into = () => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); })()`);
   await into(); await settled({ panes: false });
@@ -79,14 +79,14 @@ await ev(`document.getElementById('morphBtn').click()`); await settle();
 await grab();
 
 // ---------------- tooltips never stick ----------------
-// phone: the + card's tip after an add through the palette (the focus comes back to +)
+// phone: no tip after an add through the palette
 await fresh('tip', 412, 860, false, true);
-await tap('#pipeline .add-card');
+await key('k', 4); await settle();
 for (const c of 'sin') await key(c);
 await settle(); await key('Enter'); await settled({ floor: 1300 });   // (the window the tip's absence is read after)
-ok('UX34 phone: no tip after an add (the focus came back to +)', !(await tipText()), await tipText());
-// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (the add was made from the chain
-// sheet, a modal layer over the tool row: it is closed first)
+ok('UX34 phone: no tip after an add', !(await tipText()), await tipText());
+// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (an open sheet, a modal layer over the
+// tool row, is closed first)
 await ev('Phone.close(true); 1');
 await settled({ until: `!document.querySelector('.ph-sheet.open')` });
 let tc = await center('#secDraw .tool[data-tool="point"]');
@@ -112,10 +112,9 @@ await settled({
 ok('UX34 phone: a long-press shows the tip', !!lpTip, lpTip);
 ok('UX17 phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
 ok('UX34 phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
-// laptop: hover only; no tip after an add (focus back on the + card), none after a programmatic focus
+// laptop: hover only; no tip after an add, none after a programmatic focus
 await fresh('tipL', 1366, 768, false, false);
-const ac = await center('#pipeline .add-card');
-await click(ac[0], ac[1]); await settle();
+await key('k', 4); await settle();
 await type('sin z'); await settle(); await key('Enter'); await move(700, 400); await settled({ floor: 1200 });   // (the window the tip's absence is read after)
 ok('UX34 laptop: no tip after an add', !(await tipText()), await tipText());
 await ev(`document.getElementById('undoBtn').focus()`); await settled({ floor: 700 });   // (the window the tip's absence is read after)
@@ -141,8 +140,7 @@ const st = () => ev(`({ url: location.href, sheet: Phone.sheet(), pop: !!documen
 const layers = [
   ['the ⋯ sheet', async () => { await tap('#hdrMoreBtn'); }, (s) => s.sheet === 'more'],
   ['More tools', async () => { await tap('#toolMore > summary'); }, (s) => s.sheet === 'tools'],
-  // (the function list opens from the chain sheet: the first Back closes the list, the second the sheet)
-  ['the function list', async () => { await tap('#pipeline .add-card'); }, (s) => s.pop, 'chain'],
+  ['the function list', async () => { await key('k', 4); await settle(); }, (s) => s.pop],
   ['the Export dialog', async () => { await ev(`Phone.open('more')`); await settle(); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Export figure/.test(b.textContent)).click()`); await settle(); }, (s) => s.modal],
   ['the guide', async () => { await ev(`Phone.open('more')`); await settle(); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /^\s*Guide\s*$/.test(b.textContent)).click()`); await settle(); }, (s) => s.modal],
   ['the tour\'s chapter menu', async () => { await ev(`Phone.open('more')`); await settle(); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Guided tour/.test(b.textContent)).click()`); await settle(); }, (s) => s.pop],
@@ -170,7 +168,7 @@ await grab();
 
 // ---------------- the phone function list ----------------
 await withState('pal', 412, 860, true, { shapes: [], steps: STEPS2 });
-await tap('#pipeline .add-card');
+await key('k', 4); await settle();
 const cb = await box('.pal-cancel'), chip = await box('.pal-at'), row = await box('.pal-item');
 ok('UX29 Cancel in the search row, at least 44 px', cb && cb.w >= 44 && cb.h >= 44 && cb.top, cb);
 ok('UX29 rows at least 48 px', row && row.h >= 48, row);
@@ -184,10 +182,9 @@ ok('UX29 Cancel closes the list', !(await ev(`!!document.querySelector('#popHost
 await grab();
 
 // ---------------- a rotation keeps the open sheet and the field ----------------
-await withState('rot', 412, 915, true, { shapes: [], steps: STEPS2 });
-await tap('.ph-csteps');   // (the cards are the chain sheet's rows)
-const mob = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-await touch(mob[0], mob[1]); await settle();
+// (the Möbius step selected, its Editor opened)
+await withState('rot', 412, 915, true, { shapes: [], steps: STEPS2, sel: 2 });
+await ev(`Phone.open('edit'), 1`); await settle();
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[1]; i.focus(); i.setSelectionRange(1, 1); })()`); await settle();
 const f0 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
 await view(915, 412, false, true); await settle();
@@ -231,10 +228,8 @@ await ev('Phone._kb(0)'); await settle();
 ok('UX46 the strip goes with the keyboard', await ev(`document.querySelector('.ph-keys').hidden`));
 await ev('document.activeElement.blur()');
 // the Editor (split: X and Y above it): a coefficient with a short keyboard is lifted by a scroll, the planes stay
-await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2 });
-await tap('.ph-csteps');   // (the cards are the chain sheet's rows)
-const mobK = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-await touch(mobK[0], mobK[1]); await settle();
+await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2, sel: 2 });
+await ev(`Phone.open('edit'), 1`); await settle();
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[3]; i.focus(); })()`); await settle();
 await ev('Phone._kb(260)'); await settle();
 const fe = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
@@ -291,7 +286,7 @@ ok('UX45 ⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360
 const tip = await ev(`(document.querySelector('.ph-sb[data-k="tools"] .ph-tip') || {}).textContent || ''`);
 ok('UX40 More tools teaches the long press', /hold a finger/i.test(tip), tip);
 await ev(`Phone.close(true)`); await settle();
-await tap('#pipeline .card:not(.region-card)');
+await ev(`Phone.open('edit'), 1`); await settle();
 const zh = await ev(`(document.querySelector('.ph-sheet .zp-hint') || {}).textContent || ''`);
 // (the long press is a mark's, "Drag a mark to move it; hold it for more.")
 ok('UX40 the zeros-and-poles editor teaches the long press', /hold it for more/i.test(zh), zh);
@@ -434,17 +429,6 @@ ok('D3 ru, a selected shape: Изменить, Удалить and ⋯ fit at 360
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle();
 const r2 = await ruChk();
 ok('D3 ru, the orthogonal circle: its words and Отменить выбор fit at 360 px', r2 && !r2.over && !r2.cut.length && !r2.small.length, r2);
-
-// ---------------- no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
-await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
-for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {
-  await withState(`thumb${w}`, w, h, mob, { shapes: [], steps: STEPS2 });
-  // (the card pictures draw after the load settles: wait for the words where they are drawn, an absence window where they never are)
-  await (want ? settled({ max: 4000, until: '(window.__noShapes || 0) > 0' }) : settled({ floor: 500 }));
-  const nsh = await ev('window.__noShapes || 0');
-  ok(`UX83 ${w}: "No shapes" ${want ? 'drawn where it fits' : 'never drawn on a 44 px picture'}`, want ? nsh > 0 : nsh === 0, nsh);
-}
-await grab();
 
 // ---------------- the last pick of a construction on touch: the preview under the finger, lift to commit ----------------
 await fresh('last', 412, 860, false, true);

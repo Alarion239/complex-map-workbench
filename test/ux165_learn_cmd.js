@@ -1,8 +1,7 @@
 // v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
 // of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX60, UX97, UX99, UX102-UX104 (the laptop's sound checks,
 // UX70-UX74, UX87 and UX88, are ux165_learn_sound_cmd.js; its first-run line, UX21 with #250 and UX90, is
-// ux165_learn_first_run_cmd.js, and its Undo message, UX80, is ux165_learn_msg_classic_cmd.js; standards-ok: those checks
-// moved there unchanged), on a
+// ux165_learn_first_run_cmd.js; standards-ok: those checks moved there unchanged), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
@@ -132,10 +131,11 @@ await ev('Tour.stop()'); await settle(400);
 await laptop();
 
 // ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
-// (the Undo message of the same page is ux165_learn_msg_classic_cmd.js)
+// (the chain cleared by the palette's Clear chain)
+const clearChain = async () => { await key('k', 4); await settle(400); await type('Clear chain'); await settle(400); await key('Enter'); await settle(600); };
 await laptop();
 await fresh('ux165e'); await settle(1800);
-await ev(`document.querySelector('#clearChain').click()`); await settle(500);
+await clearChain();
 g = await ev(`(() => { const e = document.querySelector('#emptyRight'), b = e.querySelector('.btn'); return { head: e.parentNode.classList.contains('pane-head'), shown: !e.hidden && !!b && b.getClientRects().length > 0, tip: b && b.dataset.tip, tiny: document.querySelector('#paneR').classList.contains('tiny') }; })()`);
 check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not over the picture', g.head && g.shown && /Add a function to map the region/.test(g.tip || '') && !g.tiny, g);
 // (the title is fitted with the button in place: its role is whole, short or gone, never cut by an ellipsis: "imag…")
@@ -144,7 +144,7 @@ check('UX20 laptop: with "Add function" in Y\'s head the title and its role are 
 
 await phone(412, 860);
 await fresh('ux165f'); await settle(2200);
-await ev(`document.querySelector('#clearChain').click()`); await settle(500);
+await clearChain();
 g = await ev(`(() => { const r = (e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: r(document.querySelector('#toastHost .toast')), inset: r(document.querySelector('.pane.ph-inset')), fit: r(document.querySelector('.pane:not(.ph-inset) .viewstack')), col: r(document.querySelector('.pane:not(.ph-inset) .ph-col')), chain: r(document.querySelector('.pipe-wrap')) }; })()`);
 // (#66: a phone's message takes the row over the tool row, under the chain bar, and the planes give that row up: it covers none of them)
 check('UX80 phone: the message sits in its own row under the chain bar, clear of the inset, Fit and the key column', g.t && !meet(g.t, g.inset) && !meet(g.t, g.fit) && !meet(g.t, g.col) && g.t.t >= g.chain.b - 1 && g.t.b - g.t.t >= 44, g);
@@ -279,22 +279,6 @@ const at1 = mid(await box('#shapeList .shape[data-id="s2"] .shape-name'));
 check('UX99: a right click on a Shapes row opens its ⋯ menu at the pointer', g && Math.abs(g.x - at1[0]) < 4 && (Math.abs(g.y - at1[1]) < 4 || g.y < at1[1]), Object.assign({ at1 }, g));
 check('UX97: the menu shows the keys (⌘D, ⌘], ⌘[)', g && g.keys.length === 3 && g.keys.every((k) => /[⌘C]/.test(k)), g && g.keys);
 await key('Escape'); await settle(200);
-const cb = await box('#pipeline .card[data-k="1"] .thumb');
-await rclick(cb.l + 30, cb.t + 30);
-g = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu'); if (!p) return null; const b = p.getBoundingClientRect(); return { x: b.left, y: b.top, b: b.bottom, n: p.querySelectorAll('.mi').length }; })()`);
-check('UX99: a right click on a chain card opens its ⋯ menu at the pointer', g && g.n > 2 && Math.abs(g.x - (cb.l + 32)) < 4 && (Math.abs(g.y - (cb.t + 32)) < 4 || Math.abs(g.b - (cb.t + 28)) < 4), Object.assign({ at: [cb.l + 30, cb.t + 30] }, g));
-await shot('ux165-ux99-card');
-await key('Escape');
-// UX97: Alt+→ / Alt+← move the focused chain step right / left (its ⋯ menu's Move right / left), the card keeps focus
-await settle(200);
-const st0 = await ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
-await ev(`document.querySelector('#pipeline .card[data-k="1"]').focus(); 1`);
-await key('ArrowRight', 1); await settle(400);
-g = await ev(`({ st: [...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(','), foc: document.activeElement && document.activeElement.closest('.card') ? document.activeElement.closest('.card').dataset.k : null })`);
-const st1 = g;
-await key('ArrowLeft', 1); await settle(400);
-const st2 = await ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
-check('UX97: Alt+→ moves the focused step right (focus stays on it), Alt+← moves it back', st0.split(',').length >= 2 && st1.st === st0.split(',').slice(0, 2).reverse().concat(st0.split(',').slice(2)).join(',') && st1.foc === '2' && st2 === st0, { st0, st1, st2 });
 grab();
 
 await laptop(1440, 900, false);

@@ -99,7 +99,7 @@ const VIEWS = {
   'card_resize_cmd.js': classic('the chain cards during a resize: no card row in the steps view'),
   'chain_row_cmd.js': classic('the phone\'s chain bar with Deformation and its glide: the steps view\'s phone has the strip'),
   'clear_chain_open_cmd.js': classic('the classic chain head beside the floating Inspector (it names the classic view)'),
-  'deform_range_cmd.js': classic('the Deformation bracket over the card row: the thread\'s range is steps_play_cmd\'s'),
+  'deform_range_cmd.js': classic('the classic Deformation with a range set by its hook (its paths, captions and sound): the thread\'s range is steps_play_cmd\'s'),
   'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which only the classic view has'),
   'land_cards_cmd.js': classic('the Landscape step cards: no card row in the steps view'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),

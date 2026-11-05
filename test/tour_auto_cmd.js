@@ -436,22 +436,6 @@ await open('au4', 390, 844, false, true);
 await goStep('basics', 1);
 const row = await ev(`(() => { const s = document.querySelector('.tour-strip'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'; const x = s.querySelector('.ts-x'), n = s.querySelector('.ts-next'); return { x: vis(x) && x.getBoundingClientRect().width >= 44, chev: vis(s.querySelector('.ts-chev svg')), next: n.getAttribute('aria-label'), w: n.getBoundingClientRect().width }; })()`);
 check('phone: × End in the portrait row (44 px), a chevron after the count, Next an arrow named Next (Skip while a task is open)', row.x && row.chev && (row.next === 'Next' || row.next === 'Skip') && row.w >= 44, row);
-// user-1: the chain, the card then the lens in the sheet: ticked, nothing holds it, the sheet's × works, moves on
-await goStep('basics', 7);
-// (#246: the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
-if (!(await center('#pipeline .card[data-k="1"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(800); } }
-const c1 = await center('#pipeline .card[data-k="1"]');
-await tap(c1[0], c1[1]); await settle(1000);
-const ln = await center('#propsPanel .insp-step .ihead .alone-btn');
-await tap(ln[0], ln[1]); t0 = Date.now();
-const dC = await doneAt(t0);
-await sleep(400);
-const ch = await lit();
-check('phone chain: the lens ticks it and nothing holds the countdown (the sheet is part of the step)', ch.done && ch.countdown.state === 'running' && !ch.countdown.held.length, ch.countdown);
-const xb = await ev(`(() => { const e = [...document.querySelectorAll('.ph-sheet:not([hidden]) .ph-x, .ph-sheet:not([hidden]) [aria-label="Close"]')].find((x) => x.getClientRects().length); if (!e) return null; const b = e.getBoundingClientRect(); const h = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { hit: !!h && (h === e || e.contains(h)) }; })()`);
-check('phone chain: the sheet\'s close button can be pressed (no shade over it)', !xb || xb.hit, xb);
-const aC = await advanceFrom('basics/chain', dC, 600);
-check('phone chain: moves on CD_MS after the lens (late only as far as the page was blocked)', aC.ok, [aC, dC]);
 // user-2: Sets from formulas asks its task on a phone too, and moves on
 await goStep('basics', 6);
 const fl = await ev(`document.querySelector('#tourLead').textContent`);

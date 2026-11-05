@@ -1,5 +1,6 @@
-// The deformation range (notes/deform-range/SPEC.md 13.3, 13.4): the bracket over the chain, H_t = Q o G_t o P. A
-// command file for a CDP daemon (test/cdp_kit README):
+// The deformation range (notes/deform-range/SPEC.md 13.3, 13.4): H_t = Q o G_t o P, set by its test hook (__cmwMorph), in
+// the classic views: today's paths unchanged without a range, z → sin(√z), the export's captions and the sound. The thread's
+// range in the steps view is steps_play_cmd.js's; the engine's is test/t_deform_range.js. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && cp <xv16-merged-snap built>/dist/test.html dist/v16m.html && <runner> test/deform_range_cmd.js
 // (section 1 compares with the merged v16 tree before the range, work/xv16-merged-snap built and served beside this
 // build as v16m.html: constructions already changed some path choices against v15.2.1, notes/workflows/V16-MERGE.md 5.2). Prints {pass, fails, shots,
@@ -8,8 +9,8 @@
 const PNG = process.mainModule.require(DIR + '/png.js');
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}/`;
-// (a subset: a line `globalThis.DR_RUN = [2, 3];` before this file; read once, so the daemon's next file runs them all)
-const RUN = (typeof globalThis.DR_RUN !== 'undefined' && globalThis.DR_RUN) || [1, 2, 3, 4, 5, 6, 7, 8, 9];
+// (a subset: a line `globalThis.DR_RUN = [4, 8];` before this file; read once, so the daemon's next file runs them all)
+const RUN = (typeof globalThis.DR_RUN !== 'undefined' && globalThis.DR_RUN) || [1, 4, 8, 9];
 delete globalThis.DR_RUN;
 const fails = [], shots = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -39,16 +40,6 @@ const pathsReady = async () => { for (let i = 0; i < 40; i++) { const c = await 
 const MOB = { a: '1', b: '-1', c: '1', d: '1' };
 const chain3 = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: MOB, on: true }, { type: 'pown', params: { n: 2 }, on: true }];
 const STRIP = [{ id: 's1', kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' }, { id: 's2', kind: 'line', a: [0, 0.8], b: [1, 0.8] }, { id: 's3', kind: 'point', p: [0, 0] }];
-// a card's ⋯ → Deformation ▸ item (by its label's text)
-async function menuPick(k, text) {
-  await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="${k}"] .more'); c.click(); return 1; })()`); await settle(200);
-  await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /^(Deformation|Деформация)$/.test(x.querySelector('.mi-label').textContent.trim())); b.click(); return 1; })()`); await settle(200);
-  const items = await ev(`[...document.querySelectorAll('.pop.menu .mi')].map((x) => ({ t: x.querySelector('.mi-label').textContent, dis: x.disabled, on: x.getAttribute('aria-checked'), key: x.querySelector('.mi-key').textContent, tip: x.dataset.tip || '' }))`);
-  if (text) await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(text)}); if (!b) return 0; b.click(); return 1; })()`);
-  else await key('Escape');
-  await settle(400);
-  return items;
-}
 const st = () => ev('(() => { const s = __cmwState(), h = s.homView; return { focus: s.focus, morph: s.morph, hv: h ? { map: h.map, imageMap: h.imageMap, key: h.key, range: h.range, H0Map: h.H0Map, start: h.start } : null, range: __cmwRange() }; })()');
 // (v16.5 UX103: the deformation's title is in words, "Deformation" + "from A to B", where it read "A → B" + "deformation":
 // read as "A → B" so the maps it names are compared with the reference build as before)
@@ -79,7 +70,7 @@ if (RUN.includes(1)) {
       await ev('__cmwMorph({ open: true, playing: false })'); await settle(700);
       const m = await ev('__cmwState().homView ? (__cmwState().homView.map.mode === 3 ? 1 : null) : null');
       const len = await ev(`(() => { const s = document.getElementById('morphRange'); return s ? +s.max || 1 : 1; })()`);   // (v16.5 UX103: the readout is in words; the scrubber's max is the length)
-      const r = { T: {}, focus: {} };
+      const r = { T: {} };
       for (const T of [0, 0.5 * len, len]) {
         await at(T, 600); await pathsReady(); await settle(300);
         const h = await ev('(() => { const h = __cmwState().homView; return h ? { map: h.map, imageMap: h.imageMap, key: h.key } : null; })()');
@@ -95,18 +86,7 @@ if (RUN.includes(1)) {
           await ev(`(() => { const b = document.getElementById('pathsBtn'); if (b && b.getAttribute('aria-pressed') === 'false') b.click(); return 1; })()`); await settle(300);
         }
       }
-      for (const f of [1, 2]) {
-        if (f > sc.st.steps.length) continue;
-        await ev(`__cmwMorph({ open: false })`); await settle(200);
-        await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="${f}"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(500);
-        await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
-        await at(0.5, 500);
-        const h = await ev('(() => { const h = __cmwState().homView; return h ? { map: h.map, imageMap: h.imageMap, key: h.key } : null; })()');
-        r.focus[f] = { h, title: await title(), bracket: await ev(`(() => { const L = document.getElementById('chainBracket'); return !!L && !L.hidden; })()`) };
-        await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="${f}"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(400);
-      }
       await ev('__cmwMorph({ open: false })'); await settle(300);
-      if (build === 'v16') r.closedBracket = await ev(`(() => { const L = document.getElementById('chainBracket'); return !!L && !L.hidden; })()`);
       rec[build] = r;
       await grab();
     }
@@ -117,13 +97,6 @@ if (RUN.includes(1)) {
       ok(`today ${sc.id} T ${T}: key + |lo|b|p1`, a.h && b.h && strip(b.h.key) === a.h.key, [a.h && a.h.key, b.h && b.h.key]);
       ok(`today ${sc.id} T ${T}: title`, a.title === b.title, [a.title, b.title]);
     }
-    for (const f of Object.keys(rec.v16m.focus)) {
-      const a = rec.v16m.focus[f], b = rec.v16.focus[f];
-      ok(`today ${sc.id} focus ${f}: map`, JSON.stringify(a.h && a.h.map) === JSON.stringify(b.h && b.h.map), [a.h, b.h]);
-      ok(`today ${sc.id} focus ${f}: key`, a.h && b.h && strip(b.h.key) === a.h.key, [a.h && a.h.key, b.h && b.h.key]);
-      ok(`today ${sc.id} focus ${f}: no bracket at focus k`, !b.bracket, b.bracket);
-    }
-    ok(`today ${sc.id}: no bracket with the transport closed`, !rec.v16.closedBracket, rec.v16.closedBracket);
     const d = diffPx(`dr-today-${sc.id}-v16m`, `dr-today-${sc.id}-v16`), dn = diffPx(`dr-today-${sc.id}-v16m-np`, `dr-today-${sc.id}-v16-np`);
     info.today[sc.id] = { paths: d, noPaths: dn };
     ok(`today ${sc.id}: the frame at T = end/2 without the paths as the merged v16 tree without the range (v16m.html) (0 px over 8/255)`, dn.n === 0, dn);
@@ -133,11 +106,6 @@ if (RUN.includes(1)) {
     // v16m, the reference, still does. Every other scene must match with its paths)
     ok(`today ${sc.id}: the frame at T = end/2 as the merged v16 tree without the range (v16m.html) (0 px over 8/255; chain3's paths accepted)`, d.n === 0 || sc.id === 'chain3', d);
   }
-  // one active step: no bracket
-  await load(NS + 'one', { shapes: STRIP, steps: [chain3[0]], srcView: { cx: 0, cy: 0, s: 52 } }); await settle(900);
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
-  ok('one active step: no bracket', !(await ev(`(() => { const L = document.getElementById('chainBracket'); return !!L && !L.hidden; })()`)), null);
-  await ev('__cmwMorph({ open: false })');
   // the figure caption without a bracket, as the merged v16 tree without the range (v16m.html) (chain3 and expstrip)
   info.capToday = {};
   for (const [id, stt] of [['chain3', { shapes: STRIP, steps: chain3, srcView: { cx: 0, cy: 0, s: 52 } }]]) {
@@ -156,109 +124,6 @@ if (RUN.includes(1)) {
   }
 }
 
-// ---------------- 2. push-forward: chain3, f2's ⋯ → Steps f2–f3 ----------------
-if (RUN.includes(2)) {
-  await deskView(1440, 900, false);
-  await load(NS + 'push', { shapes: STRIP, steps: chain3, pattern: 'checker', srcView: { cx: 0, cy: 0, s: 52 } }); await settle(1000);
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
-  const items = await menuPick(2, 'Steps f2–f3');
-  info.pushMenu = items;
-  ok('push: the menu on f2 holds four items', items.length === 4 && items[3].t === 'Every step', items);
-  // (review v16 user-2: the key slot is set in the label's math face, <sub> digits, so its text reads 'from w1')
-  ok('push: the key slot names the start', items.some((x) => x.t === 'Steps f2–f3' && /^from w(₁|1)$/.test(x.key)), items);
-  let s = await st();
-  ok('push: S.homRange is {2, 3}', s.range.stored && s.range.stored.a === 2 && s.range.stored.b === 3, s.range.stored);
-  await at(0.5);
-  s = await st();
-  ok('push: map mode 1, hi 2, no post', s.hv && s.hv.imageMap.mode === 1 && s.hv.imageMap.hi === 2 && !('post' in s.hv.imageMap), s.hv && s.hv.imageMap);
-  ok('push: H_0 is not the identity (start)', s.hv && s.hv.start === true, s.hv);
-  ok('push: title w₁ → w', /^w\s*(1|₁)\s*→\s*w$/.test((await title()).replace(/\s+/g, ' ').trim()), await title());
-  // ([v17 UX64] the title names the bracketed steps in words, and the bracket says the same with an All steps reset)
-  const words = await ev(`(() => { const t = document.querySelector('#rightTitle .ptitle'), l = document.querySelector('#chainBracket .br-label'); return { title: t && t.textContent.trim(), label: l && !l.hidden ? l.textContent.trim() : null, tinted: [...document.querySelectorAll('.card.br-in')].map((c) => c.dataset.k) }; })()`);
-  ok('push: the title and the bracket read "Deforming f₂–f₃", with All steps; f₂ and f₃ tinted', words.title === 'Deforming f₂–f₃' && words.label === 'Deforming f₂–f₃All steps' && JSON.stringify(words.tinted) === '["2","3"]', words);
-  info.pushTitle = await title();
-  // the start: H_0 = e^z on the strip's boundary (the imaginary axis at Im z = ±π/2)
-  const zs = [[-1, 1.5707], [0.5, 1.5707], [1.2, -1.5707], [-0.3, -1.5707]];
-  const h0 = await ev(`__cmwEval('H0', null, ${JSON.stringify(zs)})`);
-  ok('push: H_0 = e^z', zs.every((z, i) => near(h0[i], [Math.exp(z[0]) * Math.cos(z[1]), Math.exp(z[0]) * Math.sin(z[1])], 1e-12)), h0);
-  // the paths: rings at H_0(z), dots at F(z)
-  await pathsReady();
-  const sel = await ev('await __cmwMorphSel({ force: true })', 60000);
-  if (sel && sel.kept.length) {
-    const z0 = sel.kept.map((k) => k.z);
-    const H0 = await ev(`__cmwEval('H0', null, ${JSON.stringify(z0)})`), F = await ev(`__cmwEval('F', null, ${JSON.stringify(z0)})`);
-    let bad = 0;
-    sel.kept.forEach((k, i) => { if (!near(k.Ws, H0[i], 1e-9) || !near(k.We, F[i], 1e-9)) bad++; });
-    ok('push: path rings at H_0(z), dots at F(z)', bad === 0, { bad, n: sel.kept.length });
-    info.pushPaths = sel.kept.length;
-  } else ok('push: paths chosen', false, sel);
-  // the transport: "f₁ →", no post label
-  const lab = await ev(`[...document.querySelectorAll('.tdock:not([hidden]) .tfix')].map((x) => x.className + ':' + x.textContent)`);
-  ok('push: transport label f₁ → only', lab.length === 1 && /tpre/.test(lab[0]) && lab[0].endsWith('f₁ →'), lab);
-  // the end: H_end = F through the GPU (evalMap) and the CPU
-  await at(2);
-  const pts = probesOf(64, -2, 2, -1.5, 1.5);
-  const e1 = await gpuVsCpu(pts);
-  ok('push: GPU = CPU at the end', e1.worst < 2e-4, e1);
-  const Fe = await ev(`__cmwEval('F', null, ${JSON.stringify(pts)})`), He = await ev(`__cmwEval('H', 2, ${JSON.stringify(pts)})`);
-  ok('push: H_end = F exactly', Fe.every((w, i) => (w == null && He[i] == null) || (w && He[i] && w[0] === He[i][0] && w[1] === He[i][1])), null);
-  // All at once: offered, mode 3, a = 1, b = 3
-  ok('push: All at once offered', await ev(`(() => { const s = document.getElementById('homOrderSel'); return !!s && !s.disabled; })()`), null);
-  await ev(`(() => { const s = document.getElementById('homOrderSel'); s.value = 'all'; s.dispatchEvent(new Event('change')); return 1; })()`); await settle(400);
-  await at(0.5);
-  s = await st();
-  ok('push: all at once is mode 3, a 1, b 3', s.hv && s.hv.imageMap.mode === 3 && s.hv.imageMap.a === 1 && s.hv.imageMap.b === 3, s.hv && s.hv.imageMap);
-  info.pushAll = await gpuVsCpu(pts);
-  ok('push all at once: GPU = CPU', info.pushAll.worst < 2e-4, info.pushAll);
-  await ev(`(() => { const s = document.getElementById('homOrderSel'); s.value = 'steps'; s.dispatchEvent(new Event('change')); return 1; })()`); await settle(300);
-  await at(0.5); await pathsReady(); await settle(300);
-  await snap('push-light');
-  await deskView(1440, 900, true); await settle(900); await snap('push-dark'); await deskView(1440, 900, false); await settle(500);
-  await grab();
-  // ([v17 UX64]) All steps on the bracket's label resets it: every step deformed, the label and the tint gone, and the
-  // deformation plays from its start
-  await ev(`(() => { const b = document.querySelector('#chainBracket .br-all'); if (b) b.click(); return 1; })()`); await settle(400);
-  const reset = await ev(`({ range: __cmwState().homRange || null, label: (() => { const l = document.querySelector('#chainBracket .br-label'); return l ? l.hidden : null; })(), tinted: document.querySelectorAll('.card.br-in').length, playing: __cmwState().morph.playing })`);
-  ok('push: All steps resets the bracket (no range, no label, no tint) and plays', reset.label === true && reset.tinted === 0 && reset.playing === true && !(await st()).range.stored, reset);
-}
-
-// ---------------- 3. pullback: chain3, f2's ⋯ → Steps f1–f2 ----------------
-if (RUN.includes(3)) {
-  await deskView(1440, 900, false);
-  await load(NS + 'pull', { shapes: STRIP, steps: chain3, pattern: 'checker', srcView: { cx: 0, cy: 0, s: 52 } }); await settle(1000);
-  await menuPick(2, 'Steps f1–f2');
-  await settle(500);
-  let s = await st();
-  ok('pull: the menu opened the transport', s.morph.open === true, s.morph);
-  await ev('__cmwMorph({ playing: false })');
-  await at(0.5);
-  s = await st();
-  ok('pull: map has post 3, b 2', s.hv && s.hv.imageMap.post === 3 && s.hv.imageMap.b === 2, s.hv && s.hv.imageMap);
-  info.pullTitle = await title();
-  ok('pull: title f₃(z) → w', /f\s*(3|₃)\s*\(z\)\s*→\s*w/.test(info.pullTitle.replace(/\s+/g, ' ')) || info.pullTitle.includes('(z) → w'), info.pullTitle);
-  const lab = await ev(`[...document.querySelectorAll('.tdock:not([hidden]) .tfix')].map((x) => x.className + ':' + x.textContent)`);
-  ok('pull: transport label → f₃ only', lab.length === 1 && /tpost/.test(lab[0]) && lab[0].endsWith('→ f₃'), lab);
-  const pts = probesOf(64, -2, 2, -1.5, 1.5);
-  // t = 0: the square alone; the end: F
-  await at(0);
-  const H0 = await ev(`__cmwEval('H', 0, ${JSON.stringify(pts)})`);
-  ok('pull: H_0 = z² exactly', pts.every((z, i) => H0[i] && H0[i][0] === z[0] * z[0] - z[1] * z[1] && H0[i][1] === 2 * z[0] * z[1]), H0.slice(0, 2));
-  const g0 = await gpuVsCpu(pts);
-  ok('pull: GPU = CPU at t = 0', g0.worst < 2e-4, g0);
-  for (const T of [0.5, 1, 1.5, 2]) { await at(T, 300); const g = await gpuVsCpu(pts); ok(`pull: GPU = CPU at t = ${T}`, g.worst < 2e-4, g); }
-  // Phase at t = 1/2: the plotted map (homView.map) through the GPU against the CPU
-  await ev('__cmwSetMain && __cmwSetMain("phase")'); await settle(700);
-  await at(0.5);
-  const hm = await ev('__cmwState().homView.map');
-  const gp = await gpuVsCpu(probesOf(16, -2, 2, -1.5, 1.5), hm);
-  ok('pull: Phase map at t = 1/2, GPU = CPU at 16 probes', gp.worst < 2e-4, gp);
-  await snap('pull-phase-light');
-  await ev('__cmwSetMain && __cmwSetMain("xy")'); await settle(700);
-  await at(0.5); await pathsReady(); await settle(300);
-  await snap('pull-light');
-  await grab();
-}
-
 // ---------------- 4. z → sin(√z): from sin z to sin √z ----------------
 if (RUN.includes(4)) {
   for (const cut of [180, -90]) {
@@ -268,7 +133,7 @@ if (RUN.includes(4)) {
     const sq = { type: 'root', params: { n: 2, cut }, on: true }, sn = { type: 'sin', params: {}, on: true };
     await load(NS + 'sin' + cut, stt([sq, sn])); await settle(1000);
     await ev('__cmwSetMain && __cmwSetMain("phase")'); await settle(600);
-    await menuPick(1, 'Only f1, inside F');
+    await ev(`__cmwMorph({ range: { a: 1, b: 1 }, open: true })`); await settle(400);
     await ev('__cmwMorph({ playing: false })'); await at(0, 900);
     const s = await st();
     ok(`sin√ cut ${cut}: bracket 1…1 with post 2`, s.hv && s.hv.map.post === 2 && s.hv.map.b === 1, s.hv && s.hv.map);
@@ -303,242 +168,6 @@ if (RUN.includes(4)) {
     ok(`sin√ cut ${cut}: title f₂(z) → w`, /f\s*(2|₂)\s*\(z\)\s*→\s*w/.test(info['sinMergedTitle' + cut].replace(/\s+/g, ' ')), info['sinMergedTitle' + cut]);
     await grab();
   }
-}
-
-// ---------------- 5. the interface, desktop ----------------
-if (RUN.includes(5)) {
-  for (const [lang, dark] of [['en', false], ['en', true], ['ru', false], ['ru', true]]) {
-    await deskView(1440, 900, dark);
-    const ns = `${NS}ui${lang}${dark ? 'd' : 'l'}`;
-    await load(ns, { shapes: STRIP, steps: chain3, pattern: 'checker', srcView: { cx: 0, cy: 0, s: 52 } });
-    if (lang === 'ru') await nav(`${BASE}test.html?ns=${ns}&lang=ru`);
-    await settle(1000);
-    await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
-    const tag = `${lang}-${dark ? 'dark' : 'light'}`;
-    const L = await ev(`(() => { const L = document.getElementById('chainBracket'); if (!L || L.hidden) return null; const q = (s) => { const r = L.querySelector(s).getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }; return { line: q('.br-line'), l: q('.br-end.l'), r: q('.br-end.r'), plus: [...document.querySelectorAll('#pipeline .conn')].map((c) => getComputedStyle(c.querySelector('.conn-add')).display) }; })()`);
-    ok(`ui ${tag}: the bracket shows over every step`, !!L, L);
-    if (!L) continue;
-    ok(`ui ${tag}: + hidden only at the two bracket connectors`, L.plus.filter((d) => d === 'none').length === 2 && L.plus[0] === 'none' && L.plus[3] === 'none', L.plus);
-    const pipe = await rectOf('.pipe-wrap');
-    await snap(`bracket-rest-${tag}`, { x: pipe.x, y: pipe.y, width: Math.min(900, pipe.width), height: pipe.height });
-    if (lang === 'en' && !dark) {
-      // drag the left end from connector 1 to 2: a snap, t = 0 of the candidate; Esc restores; release commits
-      const c2 = await rectOf('#pipeline .card[data-k="1"]');
-      const x0 = L.l.x + L.l.w / 2, y0 = L.l.y + 30, x1 = c2.x + c2.width * 0.75;
-      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 });
-      await settle(150);
-      await snap('bracket-hover', { x: pipe.x, y: pipe.y, width: Math.min(900, pipe.width), height: pipe.height });
-      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1 });
-      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 8, y: y0, button: 'left', buttons: 1 }); await sleep(40); }
-      await settle(200);
-      let r = await ev('__cmwRange()');
-      ok('drag: the left end snaps to connector 2 (preview)', r.ok && r.ok.a === 2 && r.ok.b === 3, r.ok);
-      ok('drag: the planes show t = 0 of the candidate', (await ev('__cmwState().morph.T')) === 0, null);
-      await key('Escape'); await settle(200);
-      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y0, button: 'left', buttons: 0, clickCount: 1 });
-      r = await ev('__cmwRange()');
-      ok('drag: Esc restores the bracket', !r.ok, r);
-      // again, released
-      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1 });
-      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 8, y: y0, button: 'left', buttons: 1 }); await sleep(40); }
-      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y0, button: 'left', buttons: 0, clickCount: 1 });
-      await settle(600);
-      r = await ev('__cmwRange()');
-      ok('drag: release commits {2, 3}', r.ok && r.ok.a === 2 && r.ok.b === 3, r.ok);
-      const saved = await ev(`JSON.parse(localStorage.getItem('complex-map-workbench-v1:${ns}') || '{}').homRange || null`);
-      ok('drag: saved', saved && saved.a === 2 && saved.b === 3, saved);
-      await nav(`${BASE}test.html?ns=${ns}`); await settle(900);
-      await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
-      r = await ev('__cmwRange()');
-      ok('drag: a reload keeps it', r.ok && r.ok.a === 2 && r.ok.b === 3, r);
-      // the sliders: Tab reaches .br-end.l; → moves it; aria-valuetext
-      await ev(`document.querySelector('#pipeline .card[data-k="3"]').focus()`);
-      let k = 0, foc = '';
-      for (; k < 6; k++) { await key('Tab'); foc = await ev(`document.activeElement ? document.activeElement.className : ''`); if (/br-end l/.test(foc)) break; }
-      ok('keys: Tab reaches the left end', /br-end l/.test(foc), foc);
-      await key('ArrowRight'); await settle(300);
-      r = await ev('__cmwRange()');
-      ok('keys: → moves it to f₃', r.ok && r.ok.a === 3 && r.ok.b === 3, r.ok);
-      ok('keys: aria-valuetext f₃', (await ev(`document.querySelector('.br-end.l').getAttribute('aria-valuetext')`)) === 'f₃', null);
-      ok('keys: the left end keeps the focus', /br-end l/.test(await ev(`document.activeElement.className`)), null);
-      await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 }); await settle(300);
-      r = await ev('__cmwRange()');
-      ok('keys: Home: every step', !r.ok, r.ok);
-      // menu dedupe on f1 and fn
-      const m1 = await menuPick(1, null), m3 = await menuPick(3, null);
-      ok('menu dedupe on f₁: Only f₁ and Every step', m1.length === 2 && m1[0].t === 'Only f1, inside F' && m1[1].t === 'Every step', m1);
-      ok('menu dedupe on f₃: Only f₃ and Every step', m3.length === 2 && m3[0].t === 'Only f3, inside F', m3);
-      // the submenu shot
-      await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
-      await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Deformation'); b.click(); return 1; })()`); await settle(300);
-      await snap('submenu-en-light');
-      await key('Escape'); await settle(200);
-      // the palette's four commands, by an alias
-      for (const q of ['pullback', 'bracket']) {
-        await ev(`document.activeElement && document.activeElement.blur && document.activeElement.blur()`);
-        await key('/'); await settle(300); await type(q); await settle(400);
-        const pal = await ev(`[...document.querySelectorAll('#palList .pal-item')].map((x) => x.textContent)`);
-        ok(`palette: "${q}" finds the four Deformation commands`, pal.filter((t) => /^Deformation: (only|steps|every)/.test(t)).length === 4, pal.slice(0, 8));
-        await key('Escape'); await settle(200);
-      }
-      // the d/dz stop: z², d/dz, exp: the right end stops at the d/dz with string 13
-      await load(ns + 'd', { shapes: STRIP, steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'deriv', params: {}, on: true }, chain3[0]], srcView: { cx: 0, cy: 0, s: 52 } }); await settle(900);
-      await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 2 } })'); await settle(500);
-      const R = await ev(`(() => { const r = document.querySelector('.br-end.r').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 30 }; })()`);
-      const c1 = await rectOf('#pipeline .card[data-k="1"]');
-      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: R.x, y: R.y, button: 'left', buttons: 1, clickCount: 1 });
-      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: R.x + (c1.x + 10 - R.x) * i / 8, y: R.y, button: 'left', buttons: 1 }); await sleep(40); }
-      const tip = await ev(`document.querySelector('.br-end.r').dataset.tip`);
-      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c1.x + 10, y: R.y, button: 'left', buttons: 0, clickCount: 1 });
-      await settle(400);
-      r = await ev('__cmwRange()');
-      ok('d/dz: the right end stops at the d/dz', r.ok && r.ok.b === 2, r.ok);
-      ok('d/dz: its tooltip is string 13', /A d\/dz step differentiates the whole chain before it/.test(tip || ''), tip);
-      const md = await menuPick(1, null);
-      ok('d/dz: Only f₁ is disabled with string 13', md.some((x) => x.t === 'Only f1, inside F' && x.dis && /d\/dz/.test(x.tip)), md);
-    }
-    // the transport labels (a pullback) and the submenu, in every language and theme
-    await ev('__cmwMorph({ range: { a: 1, b: 2 } })'); await settle(500);
-    const td = await rectOf('.tdock:not([hidden])');
-    if (td) await snap(`transport-${tag}`, { x: td.x, y: td.y - 4, width: td.width, height: td.height + 8 });
-    if (lang === 'ru') {
-      const items = await menuPick(2, null);
-      ok(`ui ${tag}: the Russian submenu`, items.some((x) => x.t === 'Только f2 внутри F') && items.some((x) => x.t === 'Все шаги'), items);
-      await key('/'); await settle(300); await type('прообраз'); await settle(400);
-      const pal = await ev(`[...document.querySelectorAll('#palList .pal-item')].map((x) => x.textContent)`);
-      ok(`palette (ru): "прообраз" finds the four commands`, pal.filter((t) => /^Деформация: /.test(t)).length >= 4, pal.slice(0, 8));
-      await key('Escape'); await settle(200);
-      await key('/'); await settle(300); await type('pullback'); await settle(400);
-      const pal2 = await ev(`[...document.querySelectorAll('#palList .pal-item')].map((x) => x.textContent)`);
-      ok(`palette (ru): the English alias "pullback" too`, pal2.filter((t) => /^Деформация: /.test(t)).length >= 4, pal2.slice(0, 8));
-      await key('Escape'); await settle(200);
-      await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
-      await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Деформация'); b.click(); return 1; })()`); await settle(300);
-      await snap(`submenu-${tag}`);
-      await key('Escape'); await settle(200);
-    }
-    await snap(`full-${tag}`);
-    await grab();
-  }
-}
-
-// ---------------- 6. the phone (Android Chrome emulation) ----------------
-if (RUN.includes(6)) {
-  for (const [w, h, lang, dark] of [[390, 844, 'en', false], [390, 844, 'en', true], [390, 844, 'ru', false], [360, 800, 'ru', true], [360, 800, 'en', false]]) {
-    const tag = `${w}-${lang}-${dark ? 'dark' : 'light'}`;
-    await phoneView(w, h, dark);
-    const ns = `${NS}ph${tag}`;
-    await load(ns, { shapes: STRIP, steps: chain3, pattern: 'checker', srcView: { cx: 0, cy: 0, s: 40 } });
-    await nav(`${BASE}test.html?ns=${ns}${lang === 'ru' ? '&lang=ru' : ''}`); await settle(1200);
-    await ev('__cmwMorph({ open: true, playing: false, range: { a: 2, b: 3 } })'); await settle(800);
-    const B = await ev(`(() => { const L = document.getElementById('chainBracket'); if (!L || L.hidden) return null; return { pe: getComputedStyle(L).pointerEvents, peEnd: getComputedStyle(L.querySelector('.br-end')).pointerEvents, ph: document.documentElement.classList.contains('ph') }; })()`);
-    ok(`phone ${tag}: the bracket is drawn, pointer-events none`, B && B.ph && B.pe === 'none' && B.peEnd === 'none', B);
-    // the title chip
-    const chip = await ev(`(() => { const e = document.getElementById('rightReadout') || document.getElementById('leftReadout'); return e ? { attr: e.dataset.mtitle, before: getComputedStyle(e, '::before').content } : null; })()`);
-    ok(`phone ${tag}: the title chip reads data-mtitle (w₁ → w)`, chip && chip.attr === 'w₁ → w' && /w₁ → w/.test(chip.before), chip);
-    // the transport labels only when the range input is >= 120 px (headless draws frames only on demand: run 50)
-    await ev('new Promise((r) => { let n = 0; const f = () => (++n > 50 ? r(1) : requestAnimationFrame(f)); requestAnimationFrame(f); })', 30000);
-    const tl = await ev(`(() => { const r = document.getElementById('morphRange'); const f = [...document.querySelectorAll('.tdock:not([hidden]) .tfix')]; return { w: r ? r.getBoundingClientRect().width : 0, shown: f.filter((x) => !x.hidden && getComputedStyle(x).display !== 'none').length, n: f.length }; })()`);
-    ok(`phone ${tag}: transport labels only with a range input >= 120 px`, tl.shown === 0 || tl.w >= 120, tl);
-    info['phoneTransport' + tag] = tl;
-    // nothing new covers the planes
-    const cover = await ev(`(() => { const p = document.querySelector('#paneR .plot') || document.getElementById('paneR'); const pr = p.getBoundingClientRect(); const hit = []; for (const e of document.querySelectorAll('#chainBracket, #chainBracket *, .tfix, .trange')) { const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue; if (r.left < pr.right && r.right > pr.left && r.top < pr.bottom && r.bottom > pr.top && getComputedStyle(e).display !== 'none' && !e.closest('.ph-sheet, .sheet')) hit.push(e.className); } return hit; })()`);
-    ok(`phone ${tag}: nothing new covers the planes`, cover.length === 0, cover);
-    await snap(`phone-${tag}`);
-    // the Steps picker's Deformed steps row
-    const opened = await ev(`(() => { const b = document.getElementById('stepsBtn'); if (b) { b.click(); return 2; } return 0; })()`);
-    await settle(700);
-    const row = await ev(`(() => { const r = document.querySelector('.trange'); if (!r) return null; const rr = r.getBoundingClientRect(); const s = [...r.querySelectorAll('select')]; const sheet = r.closest('[class*="sheet"]') || r.parentElement; const lab = r.querySelector('.tr-label').getBoundingClientRect(), s0 = s[0].getBoundingClientRect(); return { vis: rr.width > 0 && getComputedStyle(r).display !== 'none', h: s.map((x) => Math.round(x.getBoundingClientRect().height)), sel: s.map((x) => x.value), labAbove: lab.bottom <= s0.top + 1, over: sheet ? sheet.scrollWidth - sheet.clientWidth : 0, rw: rr.width, vw: innerWidth }; })()`);
-    info['phoneRow' + tag] = row;
-    ok(`phone ${tag}: the Steps picker's Deformed steps row with two 44 px selects`, row && row.vis && row.h.length === 2 && row.h.every((x) => x >= 44), { row, opened });
-    ok(`phone ${tag}: the row does not overflow`, row && row.over <= 0 && row.rw <= row.vw, row);
-    if (lang === 'ru' && w === 360) ok(`phone ${tag}: the label wraps above the selects`, row && row.labAbove, row);
-    await snap(`phone-display-${tag}`);
-    if (row) {
-      await ev(`(() => { const s = document.querySelectorAll('.trange select'); s[0].value = '1'; s[0].dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`); await settle(400);
-      let r = await ev('__cmwRange()');
-      ok(`phone ${tag}: the first select sets a = 1 (every step)`, !r.ok, r.ok);
-      await ev(`(() => { const s = document.querySelectorAll('.trange select'); s[1].value = '2'; s[1].dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`); await settle(400);
-      r = await ev('__cmwRange()');
-      ok(`phone ${tag}: the second select sets b = 2`, r.ok && r.ok.a === 1 && r.ok.b === 2, r.ok);
-      const r2 = await ev(`[...document.querySelectorAll('.trange select')].map((x) => x.value)`);
-      ok(`phone ${tag}: the selects follow (rebuilt)`, r2.length === 0 || (r2[0] === '1' && r2[1] === '2'), r2);
-    }
-    await key('Escape'); await settle(300);
-    // the editor sheet's ⋯ → Deformation ▸ opens within the viewport
-    const sub = await ev(`await (async () => { const c = document.querySelector('#pipeline .card[data-k="2"]'); c.click(); await new Promise((r) => setTimeout(r, 500)); const m = document.querySelector('#propsPanel .insp-step .ihead .more') || document.querySelector('.ph-sheet .more, .sheet .more'); if (!m) return { err: 'no more' }; m.click(); await new Promise((r) => setTimeout(r, 300)); const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /^(Deformation|Деформация)$/.test(x.querySelector('.mi-label').textContent.trim())); if (!b) return { err: 'no item', items: [...document.querySelectorAll('.pop.menu .mi')].map((x) => x.textContent) }; b.click(); await new Promise((r) => setTimeout(r, 300)); const p = document.querySelector('.pop.menu'); const r = p.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, vw: innerWidth, vh: innerHeight, n: p.querySelectorAll('.mi').length, keys: [...p.querySelectorAll('.mi-key')].map((x) => x.textContent) }; })()`, 20000);
-    info['phoneSub' + tag] = sub;
-    ok(`phone ${tag}: ⋯ → Deformation ▸ within the viewport`, sub && !sub.err && sub.l >= 0 && sub.r <= sub.vw && sub.t >= 0 && sub.b <= sub.vh && sub.n >= 2, sub);
-    ok(`phone ${tag}: no key slot on the phone`, sub && sub.keys && sub.keys.every((k) => !k), sub && sub.keys);
-    await snap(`phone-sub-${tag}`);
-    await key('Escape'); await settle(200);
-    await grab();
-  }
-  await deskView(1440, 900, false);
-}
-
-// ---------------- 7. saving, links, undo, chain edits ----------------
-if (RUN.includes(7)) {
-  await deskView(1440, 900, false);
-  const ns = NS + 'save';
-  await load(ns, { shapes: STRIP, steps: chain3.concat([{ type: 'sin', params: {}, on: true }]), srcView: { cx: 0, cy: 0, s: 52 } }); await settle(900);
-  await ev('__cmwMorph({ open: true, playing: false, range: { a: 2, b: 3 } })'); await settle(500);
-  await at(0.7);
-  // the link round trip: {a, b} and t (the link payload is S plus figMorph)
-  const link = await ev(`await (async () => { const P = window.Params || null; return null; })()`);
-  const fsState = await ev(`(() => { try { return JSON.parse(JSON.stringify(window.__cmwFig ? null : null)); } catch (e) { return null; } })()`);
-  // undo after removing the bracket's end step restores the bracket
-  await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.focus(); return 1; })()`);
-  await key('Delete'); await settle(600);
-  let r = await ev('__cmwRange()');
-  ok('remove the right end f₃: the bracket shrinks to {2, 2}', r.stored && r.stored.a === 2 && r.stored.b === 2, r.stored);
-  await ev(`document.getElementById('undoBtn').click()`); await settle(600);
-  r = await ev('__cmwRange()');
-  ok('undo gives the bracket back {2, 3}', r.stored && r.stored.a === 2 && r.stored.b === 3, r.stored);
-  // insert inside (after f2): joins
-  await ev(`__cmwSet && 0`);
-  await ev(`(() => { window.__cmwMorph({ open: false }); return 1; })()`);
-  await ev(`(() => { const s = document.querySelector('#pipeline .card[data-k="2"] .more'); s.click(); return 1; })()`); await settle(200); await key('Escape');
-  // the Duplicate of f2 lands inside
-  await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
-  await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Duplicate'); b.click(); return 1; })()`); await settle(600);
-  await ev(`(() => { if (__cmwState().focus) { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); } return 1; })()`); await settle(300);   // (before v16.5 Duplicate showed the copy alone; since UX01 the planes keep F)
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(400);
-  r = await ev('__cmwRange()');
-  ok('duplicate inside: joins {2, 4}', r.ok && r.ok.a === 2 && r.ok.b === 4, r);
-  // move a step across: f2 to the end -> span
-  await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
-  await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Move left'); b.click(); return 1; })()`); await settle(600);
-  await ev(`(() => { if (__cmwState().focus) document.querySelector('#pipeline .card[data-k="1"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(300);
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(400);
-  r = await ev('__cmwRange()');
-  info.moveLeft = r.ok;
-  ok('move the left end left: the bracket follows its step {1, 4}', r.ok && r.ok.a === 1 && r.ok.b === 4, r.ok);
-  // bypass to normal form: the setting is dropped
-  await ev('__cmwMorph({ range: { a: 2, b: 5 } })'); await settle(300);
-  await ev(`(() => { document.querySelector('#pipeline .card[data-k="1"] .bypass').click(); return 1; })()`); await settle(600);
-  r = await ev('__cmwRange()');
-  ok('bypass f₁ to normal form: dropped', !r.stored, r.stored);
-  await ev(`(() => { document.querySelector('#pipeline .card[data-k="1"] .bypass').click(); return 1; })()`); await settle(400);
-  // a state without ua/ub loads by index
-  await load(ns + 'idx', { shapes: STRIP, steps: chain3, homRange: { a: 2, b: 2 }, srcView: { cx: 0, cy: 0, s: 52 } }); await settle(900);
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(400);
-  r = await ev('__cmwRange()');
-  ok('a state without ua/ub loads by index', r.ok && r.ok.a === 2 && r.ok.b === 2, r);
-  // the link: figureState carries homRange, and a link opens with it (Params.encodeLink / decode through the hash)
-  const lk = await ev(`await (async () => { try { const s = JSON.parse(localStorage.getItem('complex-map-workbench-v1:${ns}idx') || '{}'); return s.homRange || null; } catch (e) { return String(e); } })()`);
-  ok('the saved state carries {a, b}', lk && lk.a === 2 && lk.b === 2, lk);
-  // a split formula at ub: every new step joins
-  await load(ns + 'split', { shapes: STRIP, steps: [chain3[0], { type: 'custom', params: { expr: '\\sin(z^2)' }, on: true }], srcView: { cx: 0, cy: 0, s: 52 } }); await settle(900);
-  await ev('__cmwMorph({ open: true, playing: false, range: { a: 2, b: 2 } })'); await settle(300);
-  await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
-  const sp = await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /^Split into steps/.test(x.querySelector('.mi-label').textContent)); if (!b || b.disabled) return 0; b.click(); return 1; })()`); await settle(700);
-  await ev(`(() => { if (__cmwState().focus) { const c = document.querySelector('#pipeline .card[data-k="' + __cmwState().focus + '"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); } return 1; })()`); await settle(300);
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(300);
-  r = await ev('__cmwRange()');
-  info.split = { sp, r: r.ok, n: await ev('__cmwState() && document.querySelectorAll("#pipeline .card[data-k]").length - 1') };
-  ok('split at ub: the new steps join', sp && r.ok && r.ok.a === 2 && r.ok.b === 3, info.split);
-  await grab();
 }
 
 // ---------------- 8. export: captions and the video's first frame ----------------

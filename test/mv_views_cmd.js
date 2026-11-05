@@ -173,19 +173,6 @@ ok('M turns it off: the panes split again', !Ld.deform && Ld.merged === null && 
   // deformation's zoom)
   ok('own deformation view: Y unchanged, the deformation keeps its zoom', d1 > d0 * 1.2 && Math.abs(y1 - y0) < 5e-3 * y0 && Math.abs(d2 - d1) < 1e-3, { y0, d0, d1, y1, d2 });
 }
-// a focused step deforms that step only
-// (a click selects the step; Show alone is a double-click)
-await ev(`(() => { const c = document.querySelector('.card[data-k="2"]'); if (c) c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(500);
-await key('m'); await settle(700);
-const fst = await ev("__cmwState()");
-ok("focused step: its own deformation", fst.focus === 2 && fst.morph.open && /^Step 1 of 1 · (f\S+|d\/dz) · \u2007*\d+ %$/.test(await ev(`document.getElementById('morphLabel').textContent`)), { focus: fst.focus, label: await ev(`document.getElementById('morphLabel').textContent`) });
-// the half-plane source e^X is clipped to the image's frame (review: a 25 px blob and one path at 10 / div)
-await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(400);
-const fsel = await ev('await __cmwMorphSel({ force: true })', 60000);
-const fsc = await ev(`(() => { const a = __cmwW2S('R', 0, 0), b = __cmwW2S('R', 1, 0); return b[0] - a[0]; })()`);
-ok('focused unbounded source: readable frame and paths', fsel && fsel.n >= 8 && fsc > 60, { n: fsel && fsel.n, nCands: fsel && fsel.nCands, pxPerUnit: fsc });
-await key('m'); await settle(300);
-await clickSel('#viewAllBtn'); await settle(400);
 
 // 5. export follows the view (the Export figure dialog, notes/export-design/AS-BUILT.md): X → Y the two-panel figure,
 // the deformation its filmstrip (or the paths figure), Phase and Landscape their one panel

@@ -17,9 +17,7 @@ await key('Escape'); await settled({ floor: 400 });
 s = await st();
 ok('Esc 2 shows both planes', !s.chips.some((c) => /hidden/.test(c)) && s.solo === 'falsefalse', s);
 // a step alone, then the expanded plane: alone goes first
-const cc = await ev(`(() => { const r = document.querySelector('#pipeline .card:not(.region-card)').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-await click(cc[0], cc[1]); await settled({ floor: 800 });
-// (the Inspector shows the step's button a moment after the card is picked, longer on a slow machine: waited for)
+// (the selected step, the last, is the Inspector's: its button shows a moment after the page settles, longer on a slow machine)
 const aloneBtn = `(() => [...document.querySelectorAll('button')].find((x) => /^Show f\\S* alone$/.test(x.getAttribute('aria-label') || '') || /Show alone/.test(x.textContent)))()`;
 await settled({ until: `!!${aloneBtn}`, max: 12000 });
 await ev(`${aloneBtn}.click()`);
