@@ -51,4 +51,32 @@ for (const i of [0]) {
   ok(`T = w₁, plane ${i}: the frames show a surface`, !!d && d.surface[1] > 0.03, d);
   ok(`T = w₁, plane ${i}: the sheets stand where h(F)'s do (≤ 1 % of the pane apart)`, !!d && d.apart <= 0.01, d);
 }
+// the relief is h(F) whatever T: with the colour kept to a disc far from the pole (Inside regions, plain paper elsewhere),
+// plane z's frames with T = w₂ and T = w₁ are the same shape about the pole at z = −1 (a window of the pane around it:
+// none of its pixels more than 32/255 apart, DIFF_TOL of held_frames.js: the two frames draw the same cells)
+{
+  const ns2 = 'landsheetshb' + Date.now();
+  await loadView('steps', ns2, { shapes: [{ id: 'd1', kind: 'disc', c: [7, 5], r: 0.4, ci: 0, visible: true }], steps: CHAIN, sheets: true });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns2}&view=steps`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwSteps({ scope: 'in', surf: 'land', T: 2, go: 0, now: true }); 1`);
+  await rest(0);
+  ok('bare, T = w₂: the own relief is still', await grab('bare2'), null);
+  await ev(`__cmwSteps({ T: 1 }); 1`);
+  await rest(0);
+  ok('bare, T = w₁: the carried frame is still', await grab('bare1'), null);
+  const win = info.bare = await ev(`(() => {
+    const A = window.__heldPx.bare2, B = window.__heldPx.bare1, c = document.getElementById('canvasL'), W = c.width, k = W / c.clientWidth;
+    if (!A || !B || A.length !== B.length) return null;
+    const x0 = Math.round(0.28 * c.clientWidth * k), x1 = Math.round(0.62 * c.clientWidth * k), y0 = Math.round(0.2 * c.clientHeight * k), y1 = Math.round(0.6 * c.clientHeight * k);
+    let n = 0, over = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = 4 * (y * W + x);
+      n++;
+      if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 32) over++;
+    }
+    return { n, over: +(over / n).toFixed(5) };
+  })()`);
+  ok('bare: the relief about the pole is the same with T = w₁ as with T = w₂ (none of the window apart)', !!win && win.over === 0, win);
+}
 return { pass: fails.length === 0, fails, info };
