@@ -2141,7 +2141,7 @@ void ixAncTan(vec2 w) {
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
-  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
+  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2 + Inverse.NEWT_LADDER.length, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
@@ -2259,31 +2259,51 @@ bool ${P}_one_b(inout Lf L, int b) {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
         const bk = newtBack(o);
         if (bk) return newtSeededFns(o, j, c, bk, H);
+        const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL;
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H)}bool ${P}_has = false, ${P}_ok = false;
-vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
-bool ${P}_root(vec2 w, float t, out vec2 u) {
-  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
-  bool ok = ${P}_walk0(w, t, u);
-  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
-  return ok;
-}
-int ${P}_nb(Lf L) { return ixFin(L.u) ? 2 : 0; }
-bool ${P}_one_b(inout Lf L, int b) {
-  vec2 w = L.u, u;
-  float t = ${U(0)}.x;
-  if (!${P}_root(w, t, u)) return false;
-  if (b == 0) return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
-  vec2 v = 2.0 * w - u;
-  for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
-    vec2 hv = ${H('v', 't')};
-    vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
-    if (!(dot(g, g) > 0.0)) return false;
-    v -= cinv(g);
-    if (!ixFin(v)) return false;
+${newtCoreFns(P, H)}bool ${P}_has = false;
+vec2 ${P}_w = vec2(0.0);
+vec2 ${P}_r[${NB}];
+bool ${P}_k[${NB}];
+void ${P}_roots(vec2 w, float t) {
+  if (${P}_has && ${P}_w == w) return;
+  ${P}_has = true; ${P}_w = w;
+  vec2 u;
+  ${P}_k[0] = ${P}_walk0(w, t, u);
+  ${P}_r[0] = u;
+  ${P}_k[1] = false; ${P}_r[1] = vec2(0.0);
+  if (${P}_k[0]) {
+    vec2 v = 2.0 * w - u;
+    bool okv = true;
+    for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
+      if (!okv) break;
+      vec2 hv = ${H('v', 't')};
+      vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
+      okv = dot(g, g) > 0.0;
+      if (okv) { v -= cinv(g); okv = ixFin(v); }
+    }
+    ${P}_k[1] = okv && ${P}_hit(v, w, t) && cx_abs(v - u) > 1e-3 * (1.0 + cx_abs(u));
+    ${P}_r[1] = v;
   }
-  if (!${P}_hit(v, w, t) || cx_abs(v - u) <= 1e-3 * (1.0 + cx_abs(u))) return false;
-  return ixApply(L, v, cinv(${P}_d(v, t)), ${NOR});
+  vec2 c0 = w / (1.0 - t);
+  float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(1)).join(', ')});
+  for (int i = 0; i < ${NL}; i++) {
+    vec2 v = c0 + vec2(0.0, lad[i]);
+    bool okv = true;
+    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) if (okv) okv = ${P}_step(v, w, t);
+    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= 1e-3 * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
+  }
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 w = L.u;
+  float t = ${U(0)}.x;
+  ${P}_roots(w, t);
+  if (!${P}_k[b]) return false;
+  vec2 u = ${P}_r[b];
+  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
 }
 `;
       }

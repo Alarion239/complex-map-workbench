@@ -1129,5 +1129,38 @@ section('singularAfter (ζ after an injective plan)');
   }
 }
 
+// The zeros of zeta's homotopy (1 - t) z + t zeta(z), the straight line a glide draws with a NEWT op: the share of the
+// true image the op's members reach. The true image of the strip 0 < Re z < 1 is every w with an in-strip root of
+// H_t(z) = w, found by Newton from a grid of seeds over the strip (40 steps, residual <= 1e-9 (1 + |w|)); the op's
+// members cover a w when one of them lies in the strip. w over [-0.4, 1.4] x [12, 26], 10 x 10 points, at t = .25, .5, .75
+{
+  const b = Funcs.build(St('zeta'));
+  const share = { 0.25: 0.99, 0.5: 0.9, 0.75: 0.9 };
+  for (const t of [0.25, 0.5, 0.75]) {
+    const o = InvOps.opNewt(t, b.hom, null), Ht = b.hom(t);
+    const dH = (u) => { const h = 1e-6; return CX.scale(CX.sub(Ht(C(u.re + h, u.im)), Ht(C(u.re - h, u.im))), 0.5 / h); };
+    const trueRoot = (w) => {
+      for (const re of [0.2, 0.5, 0.8]) {
+        for (let im = 0; im <= 110; im += 2) {
+          let u = C(re, im), ok = true;
+          for (let k = 0; k < 40 && ok; k++) { u = CX.sub(u, CX.div(CX.sub(Ht(u), w), dH(u))); ok = CX.isFin(u) && CX.abs(u) < 1e3; }
+          if (ok && u.re > 0 && u.re < 1 && CX.abs(CX.sub(Ht(u), w)) <= 1e-9 * (1 + CX.abs(w))) return true;
+        }
+      }
+      return false;
+    };
+    let truth = 0, drawn = 0;
+    for (let i = 0; i < 10; i++) {
+      for (let j = 0; j < 10; j++) {
+        const w = C(-0.4 + (i + 0.5) * 1.8 / 10, 12 + (j + 0.5) * 14 / 10);
+        if (!trueRoot(w)) continue;
+        truth++;
+        if (o.pre(w).some((m) => m.u.re > 0 && m.u.re < 1)) drawn++;
+      }
+    }
+    check(`opNewt zeta at t = ${t}: the members reach at least ${share[t]} of the true image of the strip`, truth > 40 && drawn >= share[t] * truth, { truth, drawn, share: drawn / truth });
+  }
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;

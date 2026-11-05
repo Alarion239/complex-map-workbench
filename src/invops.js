@@ -213,7 +213,7 @@ const InvOps = (() => {
   // and from f's points find every point of H_t over w on a 40 x 26 grid of Joukowski's, z^2 + 1/z's and ijouk's
   // windows at t = .25, .5, .75 but where it lies on the homotopy's cut: points born and lost between 0 and 1 are the
   // ones they cannot reach)
-  const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4;
+  const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10, NEWT_LADDER = [-2, -1, 0, 1, 2];
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
   // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
   // JOUK, QUAD, RAT2) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
@@ -243,7 +243,7 @@ const InvOps = (() => {
       return u;
     };
     return op('NEWT', counts ? { t, back } : { t }, Ht, {
-      fam: { type: 'fin', count: counts ? 1 + seeds : 2 },
+      fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
       pre: (w) => {
         let u = w;
         for (let s = 1; s <= NEWT_K && isFin(u); s++) u = step(u, w, H(t * s / NEWT_K));
@@ -260,10 +260,19 @@ const InvOps = (() => {
           }
           return out;
         }
-        if (!out.length) return [];
-        let v = sub(scale(w, 2), u);
-        for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
-        if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
+        if (out.length) {
+          let v = sub(scale(w, 2), u);
+          for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+          if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
+        }
+        // members 2 + i: Newton from the ladder's seed i about w / (1 - t), kept when it hits w and is new
+        const c0 = scale(w, 1 / (1 - t));
+        for (let i = 0; i < NEWT_LADDER.length; i++) {
+          let v = add(c0, C(0, NEWT_LADDER[i]));
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);
+          v = polishAt(v, w);
+          if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > 1e-6 * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 2 + i }));
+        }
         return out;
       },
     });
@@ -874,7 +883,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, newtBackK, newtSeedCounts, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';
