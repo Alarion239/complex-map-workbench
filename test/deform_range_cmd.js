@@ -9,7 +9,6 @@ const MOB = { a: '1', b: '-1', c: '1', d: '1' };
 const chain3 = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: MOB, on: true }, { type: 'pown', params: { n: 2 }, on: true }];
 const STRIP = [{ id: 's1', kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' }, { id: 's2', kind: 'line', a: [0, 0.8], b: [1, 0.8] }, { id: 's3', kind: 'point', p: [0, 0] }];
 const NS = 'deformrange' + Date.now();
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const probesOf = (n, x0, x1, y0, y1) => { const out = []; let s = 5; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; for (let i = 0; i < n; i++) out.push([x0 + (x1 - x0) * r(), y0 + (y1 - y0) * r()]); return out; };
 const near = (u, v, tol) => (u == null && v == null) || (u && v && Math.hypot(u[0] - v[0], u[1] - v[1]) <= tol * (1 + Math.hypot(v[0], v[1])));
 const SJ = JSON.stringify;
@@ -17,7 +16,17 @@ const SJ = JSON.stringify;
 const hook = (o) => ev(`(() => { const s = __cmwSteps(${o ? SJ(o) : ''}); return { on: s.on, planes: s.planes, homRange: s.homRange, range: s.range, x: s.x, all: s.all, homAll: s.homAll, between: s.between, i: s.i }; })()`);
 // the map the thread draws at x: GPU (evalMap) against its CPU twin at pts; the worst relative error
 const gpuVsCpu = (pts) => ev(`(() => { const m = __cmwSteps().between, g = GLR.evalMap(m, ${SJ(pts)}), c = __cmwEval('cpuMap', m, ${SJ(pts)}); if (!g) return { err: 'no gpu', m }; let worst = 0, n = 0; c.forEach((w, i) => { if (!w) return; const gx = g[2 * i], gy = g[2 * i + 1]; if (!isFinite(gx) || !isFinite(gy)) return; n++; worst = Math.max(worst, Math.hypot(gx - w[0], gy - w[1]) / (1 + Math.hypot(w[0], w[1]))); }); return { worst, n, m }; })()`);
-const open = async (name, st) => { await load(NS + name, Object.assign({ shapes: STRIP, srcView: { cx: 0, cy: 0, s: 52 } }, st)); await sleep(1100); await ev("typeof __cmwSteps === 'function' && __cmwSteps().on"); };
+// (opens the state and polls until the steps view is on with the thread's planes: one more than the steps that are on)
+const open = async (name, st) => {
+  await load(NS + name, Object.assign({ shapes: STRIP, srcView: { cx: 0, cy: 0, s: 52 } }, st));
+  const want = st.steps.filter((x) => x.on !== false).length + 1;
+  let ready = false;
+  for (let i = 0; i < 100 && !ready; i++) {
+    ready = await ev(`typeof __cmwSteps === 'function' && typeof GLR !== 'undefined' && GLR.ok && (() => { const s = __cmwSteps(); return s.on && s.planes.length === ${want}; })()`);
+    if (!ready) await sleep(100);
+  }
+  ok(`${name}: the steps view is on with ${want} planes`, ready, await ev("typeof __cmwSteps === 'function' ? __cmwSteps().planes : null"));
+};
 await view(1440, 900, false);
 
 // ---------------- 1. push-forward: chain3, the range f2–f3 (planes 1…3, S.homRange {2, 3}) ----------------
