@@ -74,8 +74,9 @@ await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
 // a dialog that opens under a message that is already up decides its liveness too
 await show('Up first', null, { ms: 60000 });
 await press('e', 'KeyE', 69, 4); await settled({ max: 20000, only: true, until: `!!document.querySelector('.modal-bg #xfMore')` });
-await sleep(100);
-const dlg2 = await ev(`(() => { const t = ${T}, r = t.getBoundingClientRect(), host = document.getElementById('toastHost'); const hit = [...document.querySelector('.modal-bg').querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; }).length; return { live: host.hasAttribute('data-clear-of-dialog'), over: hit }; })()`);
+const LIVE = `(() => { const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), host = document.getElementById('toastHost'); const over = [...document.querySelector('.modal-bg').querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; }).length; return { live: host.hasAttribute('data-clear-of-dialog'), over }; })()`;
+await settled({ max: 3000, only: true, until: `(() => { const d = ${LIVE}; return d.live === (d.over === 0); })()` });
+const dlg2 = await ev(LIVE);
 ok('a dialog opened under a message sets its liveness', dlg2.live === (dlg2.over === 0), dlg2);
 await press('Escape', 'Escape', 27); await settled({ max: 5000, only: true, until: `!document.querySelector('.modal-bg')` });
 ok('and the dialog closing clears it', !(await ev(`document.getElementById('toastHost').hasAttribute('data-clear-of-dialog')`)), null);
