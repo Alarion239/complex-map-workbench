@@ -90,7 +90,7 @@ for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layo
 // (notes/ is read by unit tests at most: a notes-only diff, #516's deletions included, runs no browser shard)
 for (const f of ['notes/i18n/DESIGN.md', 'notes/i18n/ru/phase2b-fixes.json', 'notes/i18n/inventory_tools/build.js', 'notes/i18n/latex/xe.out', 'notes/sound/review-deformation/a.md']) ok(`T0: ${f} -> the unit tests only`, select([f]).tier === 'T0' && !select([f]).browser.length, select([f]));
 ok('T0: a notes-only diff (#516) selects no browser shard', (() => { const p = select(['notes/i18n/inventory_tools/extract.js', 'notes/i18n/latex/pdf.out', 'notes/proto/incremental/x.js', 'notes/v16-user5/review-regress-evidence/cmds/a_cmd.js']); return p.tier === 'T0' && !p.browser.length && !p.glsl.length; })());
-ok('T1: inspector, planemenu, params -> views and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, [...AREAS.views, 'smoke']));
+ok('T1: inspector, planemenu, params -> the three views parts and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views-1', 'views-2', 'views-3', 'formulas', 'smoke']));
 // ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
 ok('T1: desk.css -> the desktop, phone and every layout shard', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
 ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
