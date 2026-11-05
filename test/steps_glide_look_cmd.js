@@ -1,10 +1,12 @@
 // The steps view's glide looks like its planes: the frames of a glide from plane z to the next, held still on the rail
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
-// regions, and Everywhere: a homotopy inverted by Newton, every point over w) and the Mountain King Everywhere (the
-// whole plane carried forward). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
+// whole plane carried forward), and a polynomial: Roots as preimages (a cubic) Everywhere; and the zeros of the zeta
+// function Inside regions, for the parked camera alone. Paths are off: the glide's paths are drawn over the colour, which
+// is what is read.
 // Each case checks four things, each in checks of their own:
-// - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
+// - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
 //   than LOOK_TOL apart (3 levels on 99.5 %). A frame drawn
@@ -13,7 +15,7 @@
 //   that stroke shows, at least MIN_LINE_PX pixels, at most SAME_FRAC more off it than plane z's rest frame read the
 //   same way), and each open set's outline dashed (outlines: its ink in pieces no wider than a dash, the share in wider
 //   ones at most the rest frame's + SAME_FRAC); a case with no open set's outline on the plane has no dash to check;
-// - the ends: the frames at x = END_X from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
+// - the ends: the frames at x = END_X (a case's end, if it names one) from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
 //   SAME_FRAC more than LOOK_TOL apart);
 // - the same overlays: a moving frame a hair from a plane (x = EDGE from either end) draws what that plane's rest frame
@@ -23,6 +25,8 @@
 // - no fade: the first and the last frames of a glide (x = FIRST from either end, a 60 fps frame of a Normal glide)
 //   draw no plane's colour at a partial opacity over the moving picture (a crossfade), and their mean luminance and
 //   alpha are reported beside the rest frame's;
+// - the parked camera (a case's parked: its places u, before any later plane is shown): the frame parked at u once a
+//   scrub held there is let go keeps the held frame's camera;
 // - no mesh: the frame held half-way does not depend on the meshes it is drawn with: drawn again with meshes of half
 //   the resolution (Mesh quality halved), at most SAME_FRAC of the pixels more than DIFF_TOL apart; and, Everywhere
 //   on the default example, it has no more straight hard edges (steps over DIFF_TOL to the next row or column in runs
@@ -31,8 +35,8 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways and the Mountain King at 1, and the default example Inside regions and
-// Everywhere at 2.
+// Inside regions, the Joukowski airfoil both ways, the Mountain King, Roots as preimages and the zeros of the zeta
+// function at 1, and the default example Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -51,7 +55,9 @@ const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); 
 // (let go of the thread held a hair from a plane: it settles there; then back on plane z)
 // the overlays of the left pane's frame drawn next (a redraw asked for): {grid: GLR.drawGrid's draws, dashed:
 // GLR.drawLines' draws with a dash, colourGrid: the colour plot's grid in 2D on the left pane (the major grid in --dc-line at 1 px, then the
-// axes' casing in --dc-casing at 2.5 px and the axes in --dc-line at 1.25 px, three strokes in a row)}
+// axes' casing in --dc-casing at 2.5 px and the axes in --dc-line at 1.25 px, three strokes in a row)}, of one frame:
+// the last one drawn (each draw is filed under its frame's time, document.timeline.currentTime, so a second frame
+// drawn while the counts settle is not added to the first); frames: how many frames drew
 const overlays = async () => {
   await ev(`(() => {
     if (!window.__ovWrap) {
@@ -59,24 +65,26 @@ const overlays = async () => {
       const g = GLR.drawGrid, l = GLR.drawLines, cx = document.getElementById('canvasL').getContext('2d'), st = cx.stroke;
       // (the whole stack: the mask's outlines are drawn deep inside drawScene)
       const left = () => { const n = Error.stackTraceLimit; Error.stackTraceLimit = 100; const st = new Error().stack || ''; Error.stackTraceLimit = n; return st.includes('renderLeft'); };
-      GLR.drawGrid = function () { if (window.__ov && left()) window.__ov.grid++; return g.apply(this, arguments); };
-      GLR.drawLines = function (res, o) { if (window.__ov && o && o.dash && left()) window.__ov.dashed++; return l.apply(this, arguments); };
-      cx.stroke = function () { if (window.__ov) window.__ov.strokes.push([String(this.strokeStyle).toLowerCase(), this.lineWidth]); return st.apply(this, arguments); };
+      // (the record of the frame being drawn)
+      const fr = () => { const o = window.__ov, t = String(document.timeline.currentTime); if (!o.by[t]) { o.by[t] = { grid: 0, dashed: 0, strokes: [] }; o.order.push(t); } o.n++; return o.by[t]; };
+      GLR.drawGrid = function () { if (window.__ov && left()) fr().grid++; return g.apply(this, arguments); };
+      GLR.drawLines = function (res, o) { if (window.__ov && o && o.dash && left()) fr().dashed++; return l.apply(this, arguments); };
+      cx.stroke = function () { if (window.__ov) fr().strokes.push([String(this.strokeStyle).toLowerCase(), this.lineWidth]); return st.apply(this, arguments); };
     }
-    window.__ov = { grid: 0, dashed: 0, strokes: [] };
+    window.__ov = { by: {}, order: [], n: 0 };
     __cmwHideStrokes(false);
     return 1;
   })()`);
   // (until the frame has drawn and its counts hold still from one poll to the next: the frame's draws are all in)
   await ev('window.__ovN = -1, 1');
-  await settled({ max: 20000, panes: false, until: '(() => { const n = window.__ov.strokes.length + window.__ov.grid + window.__ov.dashed, same = n === window.__ovN; window.__ovN = n; return n > 0 && same; })()' });
+  await settled({ max: 20000, panes: false, until: '(() => { const n = window.__ov.n, same = n === window.__ovN; window.__ovN = n; return n > 0 && same; })()' });
   return ev(`(() => {
-    const o = window.__ov, css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
+    const O = window.__ov, o = O.by[O.order[O.order.length - 1]], css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
     const line = css('--dc-line', '#ffffff'), casing = css('--dc-casing', '#0b1114'), S = o.strokes;
     let colourGrid = false;
     for (let i = 0; i + 2 < S.length; i++) if (S[i][0] === line && S[i][1] === 1 && S[i + 1][0] === casing && S[i + 1][1] === 2.5 && S[i + 2][0] === line && S[i + 2][1] === 1.25) colourGrid = true;
     window.__ov = null;
-    return { grid: o.grid, dashed: o.dashed, colourGrid, strokes: S.length };
+    return { grid: o.grid, dashed: o.dashed, colourGrid, strokes: S.length, frames: O.order.length };
   })()`);
 };
 const letGo = async () => { await ev('window.__svScrubUp(), 1'); await rest(0); };
@@ -88,6 +96,14 @@ const CASES = [
   { tag: 'Joukowski airfoil, Everywhere', example: 'Joukowski airfoil', scope: 'all', seeds: [24, 16] },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
+  // (a polynomial: a cubic Everywhere with its targets on w; its same look also at u = 0.002 and 0.998, a glide's first and last frames against the exact picture there;
+  // the cubic's colour lines leave too few samples every 10 px away from them, so it samples every 5 px: step; its
+  // chain's first half runs z^3's exponent at 1 + 4u, four times the speed of a step's own path, so its ends are a
+  // tenth as far from the planes: end)
+  { tag: 'Roots as preimages, Everywhere', example: 'Roots as preimages', scope: 'all', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], step: 5, end: 1e-4 },
+  // (zeta Inside regions: the parked camera alone. The regions' image is a thin strip, where the exact picture finds
+  // fewer than MIN_COMPARED pixels to compare)
+  { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', scope: 'in', parked: [0.3, 0.5, 0.7], only: 'parked' },
 ];
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
@@ -100,6 +116,9 @@ async function look(c, r) {
     await settled({ max: 60000 });
   }
   await ev(`__cmwSet('morphPaths', false), __cmwSteps(${JSON.stringify({ scope: c.scope, surf: 'plane' })}), 1`);
+  // (the parked camera: first, before any plane past z has been shown, as a user who opens the example and scrubs)
+  if (c.parked) await heldParked(c, r);
+  if (c.only === 'parked') return;
   // (the opacity of each colour plot drawn since the last reset: window.__plotAlphas)
   await ev(`(() => { const f = GLR.drawColorPlot; window.__plotAlphas = []; GLR.drawColorPlot = function (o) { window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); }; return 1; })()`);
   r.step = 'the rest frames';
@@ -111,12 +130,12 @@ async function look(c, r) {
   ok(`${c.tag}: plane z's parked frame settles`, r.rest0, null);
   // ---- the same look as the exact picture at the same u ----
   r.step = 'the same look';
-  const look = {}, lines = {};
-  for (const u of LOOK_U) {
+  const look = {}, lines = {}, US = c.lookU || LOOK_U;
+  for (const u of US) {
     const held = (await hold(u)).ok, still = await grab('M' + u);
     ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
     if (c.seeds) await ev(`window.__giSeeds = ${JSON.stringify(c.seeds)}, 1`);
-    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL));
+    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL, c.step));
     if (c.seeds) await ev('delete window.__giSeeds, 1');
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
@@ -125,23 +144,23 @@ async function look(c, r) {
   }
   r.look = look;
   r.lines = lines;
-  for (const u of LOOK_U) {
+  for (const u of US) {
     const L = look[u], R = L.ref;
     ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${LOOK_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
   }
   // ---- the lines over the colour, as the rest renderer draws them ----
   // (the rest frame of plane z read the same way is the model's own fit: its share off is the floor)
   const g0 = lines.rest.grid, gridOk = (q) => !!q && !!g0 && q.n >= MIN_LINE_PX && q.over - g0.over <= SAME_FRAC;
-  ok(`${c.tag}: the grid over the colour at u = ${LOOK_U.join(' and ')}, as at rest (its major lines at --dc-line-a over the colour where they show: at least ${MIN_LINE_PX} such pixels, at most ${SAME_FRAC * 100} % more > ${DIFF_TOL}/255 off than plane z's rest frame)`, LOOK_U.every((u) => gridOk(lines[u].grid)), { moving: LOOK_U.map((u) => lines[u].grid), rest: lines.rest.grid });
+  ok(`${c.tag}: the grid over the colour at u = ${US.join(' and ')}, as at rest (its major lines at --dc-line-a over the colour where they show: at least ${MIN_LINE_PX} such pixels, at most ${SAME_FRAC * 100} % more > ${DIFF_TOL}/255 off than plane z's rest frame)`, US.every((u) => gridOk(lines[u].grid)), { moving: US.map((u) => lines[u].grid), rest: lines.rest.grid });
   // (an open set's outline: dashed at rest, so in pieces no wider than a dash; its share of wider pieces is the rest
   // frame's, at most SAME_FRAC more)
   const dashed = (lines.rest.outlines || []).filter((o) => o.open && o.px > 0);
   const dashOk = (u) => dashed.every((o0) => { const o = (lines[u].outlines || []).find((q) => q.id === o0.id); return !!o && o.px > 0 && o.long - o0.long <= SAME_FRAC; });
-  ok(`${c.tag}: the open sets' outlines dashed at u = ${LOOK_U.join(' and ')}, as at rest (the share of their ink in pieces wider than a dash at most the rest frame's + ${SAME_FRAC * 100} %)`, LOOK_U.every(dashOk), { dashedAtRest: dashed.length, moving: LOOK_U.map((u) => lines[u].outlines), rest: lines.rest.outlines });
+  ok(`${c.tag}: the open sets' outlines dashed at u = ${US.join(' and ')}, as at rest (the share of their ink in pieces wider than a dash at most the rest frame's + ${SAME_FRAC * 100} %)`, US.every(dashOk), { dashedAtRest: dashed.length, moving: US.map((u) => lines[u].outlines), rest: lines.rest.outlines });
   // ---- the ends: the glide's first and last frames are the planes' parked frames ----
   r.step = 'the ends';
-  const ends = {};
-  for (const [x, k] of [[END_X, 0], [1 - END_X, 1]]) {
+  const ends = {}, ex = c.end || END_X;
+  for (const [x, k] of [[ex, 0], [1 - ex, 1]]) {
     await rest(k);
     const restOk = await grab('E' + k);
     await ev(`__cmwSteps({ x: ${x} }), 1`);
@@ -151,7 +170,7 @@ async function look(c, r) {
     await rest(0);
   }
   r.ends = ends;
-  for (const [x, k] of [[END_X, 0], [1 - END_X, 1]]) {
+  for (const [x, k] of [[ex, 0], [1 - ex, 1]]) {
     const E = ends[x];
     ok(`${c.tag}: the glide's frame at x = ${x} is plane ${k}'s parked frame (away from the colour lines: at least ${MIN_SAME} pixels, at most ${SAME_FRAC * 100} % > ${LOOK_TOL}/255 apart)`, E.restOk && E.still && E.n >= MIN_SAME && E.over <= SAME_FRAC, E);
   }
@@ -201,6 +220,25 @@ async function look(c, r) {
   if (c.edges) await straightEdges(c, r, held && a);
   await letGo();
   r.step = 'done';
+}
+// the parked camera: at each u of c.parked, the frame parked at u once a scrub held there is let go has the held
+// frame's camera (the glide record's view: centre and scale)
+async function heldParked(c, r) {
+  r.step = 'the parked camera';
+  await rest(0);
+  const VIEW = '(() => { const g = __cmwSteps().glide, v = g && g.view; return v ? [v.cx, v.cy, v.s] : null; })()';
+  const P = r.parked = {};
+  for (const u of c.parked) {
+    const held = (await hold(u)).ok, vk = await ev(VIEW);
+    await ev('window.__svScrubUp(), 1');
+    const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
+    P[u] = { held, parked, view: [vk, await ev(VIEW)] };
+    await rest(0);
+  }
+  for (const u of c.parked) {
+    const q = P[u];
+    ok(`${c.tag}: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q);
+  }
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more
 async function straightEdges(c, r, held) {
