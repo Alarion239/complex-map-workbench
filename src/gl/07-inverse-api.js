@@ -946,7 +946,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       try { return sources(name, cur, mode || 0); } finally { d.vs = save; }
     },
     // TEMP-DEBUG-HOOK
-    sheetInfo(map, W, end) { const p = ok ? sheetPlan(map, W, end) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },
     onRestore: null, onLost: null, onReady: null,
