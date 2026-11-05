@@ -321,7 +321,9 @@ const Examples = (() => {
   // The guide's sections are the h3 blocks. Each is wrapped, so the contents row can jump to it and the search can fold
   // the others away; a section about something the tour teaches ends in Show me, which starts that chapter
   function guideNav(m, close) {
-    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), 'views'], [$t('Deformation'), 'deform'], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
+    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views and Deformation)
+    const chap = (/** @type {string} */ id, /** @type {string} */ sv) => (Tour.chapters().some((/** @type {any} */ c) => c.id === id) ? id : sv);
+    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), chap('deform', 'playing')], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
       [$t('Zeros and poles'), 'edit'], [$t('Export'), 'export']];
     const secs = [];
     for (const hd of [...m.querySelectorAll('h3')]) {

@@ -28,6 +28,7 @@ const ticks = async (ms = 2500) => until(`document.querySelector('.ts-l2').class
 const px = (side, re, im) => ev(`(() => { const v = __cmwPlaneMenu().view(${JSON.stringify(side)}), b = document.getElementById('plot${side}').getBoundingClientRect(); return [b.left + b.width / 2 + (${re} - v.cx) * v.s, b.top + b.height / 2 - (${im} - v.cy) * v.s]; })()`);
 
 await open('tt1', 1440, 900, false, false);
+const SV = await isSteps();
 const task = async (id, text, fn, ready) => {
   try {
     await goStep(id);
@@ -45,6 +46,7 @@ const task = async (id, text, fn, ready) => {
   } catch (e) { check(`${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } return null; }
 };
 
+if (!SV) {
 // y: a pan of Y (not of X)
 await task('y', 'Scroll to zoom in Y, or drag to pan.', async () => {
   const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
@@ -66,20 +68,57 @@ await task('targets', 'Choose Disc, then drag in Y.', async () => {
   await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
 });
 check('targets: the result line says X shades its preimage', /X shades its preimage/.test((await l2()).text), await l2());
+} else {
+  // targets in the steps view: a disc drawn on w₁, then ‹ to z. A disc drawn on z, then › and ‹, does not tick it
+  const drawDisc = async () => {
+    const d = await center('#tools > .tool[data-tool="disc"], #railTools > .tool[data-tool="disc"]');
+    await mdrag(d[0], d[1], d[0], d[1]);
+    check('targets: the disc tool is on before the drag', (await until(`!!document.querySelector('.tool[data-tool="disc"].on')`, 3000)) != null);
+    const b = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
+    await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
+  };
+  const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await settle(1200); };
+  await task('targets', 'On w₁, draw a disc, then click ‹ (or press ←).', async () => {
+    await drawDisc();
+    check('targets: a disc alone does not tick it', !(await l2()).done, await l2());
+    await press('#svStrip .sv-prev');
+  });
+  check('targets: the result line says z shows where the disc comes from', /z shows where the disc comes from/.test((await l2()).text), await l2());
+  await goStep('targets');
+  await press('#svStrip .sv-prev'); await drawDisc(); await press('#svStrip .sv-next'); await press('#svStrip .sv-prev');
+  check('targets: a disc drawn on z, then › and ‹, does not tick it', !(await l2()).done, await l2());
+}
 
 // domain: click the F tile
 await task('domain', 'Click the F tile.', async () => {
-  const f = await center('#pipeline .ftile');
+  const f = await center(SV ? '#svStrip .sv-wholemap' : '#pipeline .ftile');
   await mdrag(f[0], f[1], f[0], f[1]);
 });
 check('domain: the result line names the Inspector', /Inspector lists where every step is defined/.test((await l2()).text), await l2());
 
-// deriv: double-click the card d/dz (the second card of its scene)
-await task('deriv', 'Double-click the card d/dz.', async () => {
+// deriv: double-click the card d/dz (the second card of its scene); in the steps view, click its chip
+await task('deriv', SV ? 'Click the chip d/dz.' : 'Double-click the card d/dz.', async () => {
+  if (SV) { const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip'); await mdrag(c[0], c[1], c[0], c[1]); return; }
   const c = await center('#pipeline .card[data-k="2"]');
   for (const n of [1, 2]) { await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c[0], y: c[1], button: 'left', clickCount: n }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c[0], y: c[1], button: 'left', clickCount: n }); }
 });
-check('deriv: the result line says X and Y are its input and output', /input and output/.test((await l2()).text), await l2());
+check('deriv: the result line says what the step is', SV ? /Inspector shows the step that differentiates/.test((await l2()).text) : /input and output/.test((await l2()).text), await l2());
+
+// the steps view's Add function and Reorder steps (the classic add card has no such line; its chain has no reorder step)
+if (SV) {
+  await task('add', 'Click + Add function.', async () => {
+    const c = await center('#svStrip .sv-add');
+    await mdrag(c[0], c[1], c[0], c[1]);
+  });
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await task('reorder', 'In the ⋯ menu of f₂, choose Move left.', async () => {
+    const m = await center('#svStrip .sv-step[data-k="2"] .sv-more');
+    await mdrag(m[0], m[1], m[0], m[1]); await settle(400);
+    const it = await ev(`(() => { const e = [...document.querySelectorAll('#popHost [role="menuitem"], #popHost button, .menu button')].find((x) => /^Move left/.test(x.textContent.trim())); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+    await mdrag(it[0], it[1], it[0], it[1]);
+  });
+  check('reorder: the result line says the planes changed with the order', /changed with the order/.test((await l2()).text), await l2());
+}
 
 // cauchy: drag the circle gamma (Select is on); a fresh page, as the focus the double-click above left on a card is no part of it
 await open('tt2', 1440, 900, false, false);

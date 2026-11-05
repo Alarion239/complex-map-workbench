@@ -51,6 +51,7 @@
     sphere: svgI('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
     // the deformation's paths t -> H_t(z): a start dot, a curved path and its arrowhead
     // (the paths' own glyph: an open ring at z, the line, a small arrowhead at its middle, a filled dot at the end)
+    targets: svgI('<circle cx="6" cy="8" r="3.6" stroke-dasharray="2.2 1.7"/><path d="M15 8h-4.3"/><path d="M12.4 6.3L10.7 8l1.7 1.7" stroke-width="1.3"/>'),
     paths: svgI('<circle cx="3.25" cy="12.25" r="1.75" stroke-width="1.25"/><path d="M4.4 10.9C6 6.6 9 4.6 12.2 4.3"/><path d="M5.6 5.4L8.3 5.6L7.1 8.1" stroke-width="1.3"/><circle cx="13" cy="4.25" r="1.7" fill="currentColor" stroke="none"/>'),
   };
   // right-plane mode icons (14px)
@@ -268,16 +269,20 @@
   function setViewOpt(pane, key, v) { if (pane) S.view[pane][key] = v; else S.view[key] = v; }
   function takeId() { return S.nextId++; }
   // the regions drawn as a mask (the steps view's masks, sphereView's inRegions): fn with the regions' look set to
-  // solid, opaque and without lines, then put back
+  // solid, opaque and without lines, then put back. regionLook(): the regions' own look, inside fn too
+  let solidKeep = null;
   function withSolidRegions(fn) {
-    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+    const keep = { pattern: S.pattern, alpha: S.alpha, lines: S.lines }, outer = solidKeep;
     try {
+      solidKeep = outer || keep;
       setOpt('pattern', 'solid'); setOpt('alpha', 1); setOpt('lines', false);
       return fn();
     } finally {
       for (const key of Object.keys(keep)) setOpt(key, keep[key]);
+      solidKeep = outer;
     }
   }
+  const regionLook = () => solidKeep || { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
@@ -503,7 +508,7 @@
   function histToast(what, undo) {
     const at = hi;
     const msg = undo ? (what ? $t('Undid: {what}.', { what }) : $t('Undone.')) : (what ? $t('Redid: {what}.', { what }) : $t('Redone.'));
-    toast(msg, undo ? $t('Redo') : $t('Undo'), () => { if (hi === at) $(undo ? 'redoBtn' : 'undoBtn').click(); }, true, { ms: 4000 });
+    toast(msg, undo ? $t('Redo') : $t('Undo'), () => { if (hi === at) $(undo ? 'redoBtn' : 'undoBtn').click(); }, true);
   }
   // the Undo and Redo tooltips name the action ("Undo: add f₃ Sine  ⌘Z"), set when the pointer or the keyboard comes
   function undoTip(undo) {
