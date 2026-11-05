@@ -38,6 +38,7 @@ const VIEWS = {
   'steps_carry_cmd.js': steps(),
   'steps_carry_inregion_cmd.js': steps(),
   'steps_carry_far_cmd.js': steps(),
+  'steps_rim_inverse_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
   'steps_link_wait_cmd.js': steps(),
   'steps_seams_cmd.js': steps(),
@@ -46,9 +47,13 @@ const VIEWS = {
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
+  'steps_land_3d_cmd.js': steps(),
+  'steps_land_sheets_h_cmd.js': steps(),
+  'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_glide_look_cmd.js': steps({ pin: true }),
+  'steps_glide_black_cmd.js': steps({ pin: true }),
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
@@ -186,20 +191,25 @@ const VIEWS = {
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': steps({ pin: true }),
   'split_deform_cmd.js': port('interact', 'the Split with the Deformation open, the alone walk ‹ › and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play) and no ‹ › walk of a step shown alone'),
-  'tour_audit_cmd.js': port('words', 'every step visited: the steps-view tour has 42 steps, as in the outline (desk at least 42, phone at least 40; classic 43); it waits on the remaining chapters (#717)'),
-  'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (#717):'
-    + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
+  'tour_audit_cmd.js': steps({ pin: true }),
+  'tour_auto_cmd.js': steps({ pin: true }),
+  'tour_auto_classic_cmd.js': classic('the classic views\' tour tasks with real input: the view switch\'s doors, Phase key, X\'s pan,'
+    + ' the chain step, the preimages hint and the Deformation\'s Part of the chain; the steps view\'s are tour_auto_cmd'),
   'tour_chapters_cmd.js': steps({ pin: true }),
-  'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
+  'tour_cmd.js': steps({ pin: true }),
+  'tour_cmd_classic_cmd.js': classic('the classic views\' tour: X\'s pan task and the strip\'s arrow keys, the Views chapter (the view'
+    + ' switch, Phase, Sphere, Phase key) and the Deformation chapter (Paths, All steps at once, Part of the chain); the steps view\'s'
+    + ' is tour_cmd'),
   'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
     + ' chapters (#717), whose tour has 42 steps'),
   'tour_lane_cmd.js': steps({ pin: true }),
-  'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
+  'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
   'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour has 42 steps), and'
     + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
-  'tour_tasks_cmd.js': port('words', 'its Y, Targets and Cauchy cases and the phone cases address classic controls (the Y pane tool row, the chain sheet); the F tile and d/dz cases at 1440 pass; it waits on the tour chapters (#717)'),
+  'tour_tasks_cmd.js': steps({ pin: true }),
+  'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
@@ -219,7 +229,8 @@ const VIEWS = {
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
-  'morphfig_cmd.js': port('export', 'the deformation as one picture: the glide\'s export'),
+  'morphfig_cmd.js': steps({ pin: true }),
+  'morphfig_classic_cmd.js': classic('the classic view\'s deformation as one picture: pathsGen\'s selection on the Y pane, the transport and the 3 prototype cases; the steps view\'s paths figure is morphfig_cmd'),
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
@@ -248,7 +259,8 @@ const VIEWS = {
   'link_standin_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
-  'p3_review_cmd.js': port('render'),
+  'p3_review_cmd.js': steps({ pin: true }),
+  'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
   'p3b_accept_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
   'p5_accept_cmd.js': steps({ pin: true }),

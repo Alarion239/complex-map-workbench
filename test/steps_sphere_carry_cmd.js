@@ -13,14 +13,14 @@
 // a blend of two globes.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
-// (the limits: END_MEAN, the mean over a frame's pixels of the channels' differences (levels of 255) that the moving globe
-// may be from the resting one, as steps_glide_inverse's ends; SAT_MIN, the spread between a sample's largest and smallest
-// channel that makes it coloured and not grey paper; OVER_DIFF, the largest channel difference (levels) under which two
-// pixels count as the same; HUE_TOL, the chromaticity distance within which a point keeps its hue, for HUE_MIN of its
+// (the limits: END_MEAN, the mean over a frame's pixels of the largest channel difference (levels of 255, held_frames'
+// compare) that the moving globe may be from the resting one, as steps_glide_inverse's ends; SAT_MIN, the spread between a sample's largest and smallest
+// channel that makes it coloured and not grey paper; HUE_TOL, the chromaticity distance within which a point keeps its hue, for HUE_MIN of its
 // four samples)
-const END_MEAN = 1.5, SAT_MIN = 40, OVER_DIFF = 32, HUE_TOL = 0.06, HUE_MIN = 3;
+const END_MEAN = 1.5, SAT_MIN = 40, HUE_TOL = 0.06, HUE_MIN = 3;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const quiet = () => settled({
   max: 20000,
   until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
@@ -57,30 +57,12 @@ const rest = [];
 for (const [x, y] of Z) rest.push(await pixelAt(x, y));
 R.rest = rest;
 ok('at rest on plane z: the sample points are in colour on the globe', rest.every((p) => p && sat(p) > SAT_MIN), rest);
-// (the left canvas kept under a name; two kept frames' mean difference per pixel (levels of 255, the channels' mean)
-// and the share of pixels that differ by more than OVER_DIFF)
-const grab = (tag) => ev(`(() => { const c = document.getElementById('canvasL'), s = document.createElement('canvas');
-  s.width = c.width; s.height = c.height;
-  const g = s.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0);
-  (window.__svc = window.__svc || {})[${JSON.stringify(tag)}] = g.getImageData(0, 0, s.width, s.height).data;
-  return 1;
-})()`);
-const differ = (a, b) => ev(`(() => {
-  const A = window.__svc[${JSON.stringify(a)}], B = window.__svc[${JSON.stringify(b)}];
-  let n = 0, m = 0, sum = 0;
-  for (let i = 0; i < A.length; i += 4) {
-    const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
-    n++;
-    sum += (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2])) / 3;
-    if (d > ${OVER_DIFF}) m++;
-  }
-  return { mean: +(sum / n).toFixed(3), over32: +(m / n).toFixed(5) }; })()`);
-await grab('rest');
+ok('the frame rest settles', await grab('rest'), null);
 await ev(`__cmwSteps({ x: 0.002 }); 1`);
 await quiet();
 for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
-await grab('start');
-R.start = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await differ('rest', 'start') };
+ok('the frame start settles', await grab('start'), null);
+R.start = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await compare('rest', 'start') };
 ok(`just past plane z the moving globe is the resting globe (a mean within ${END_MEAN} levels), with no blend`,
   R.start.path === 'inverse' && R.start.differ.mean <= END_MEAN, R.start);
 R.parked = {};
@@ -105,12 +87,12 @@ for (const u of [0.25, 0.5, 0.75]) {
 }
 // (the other end: just before plane w1, against plane w1 at rest)
 await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
-await grab('rest1');
+ok('the frame rest1 settles', await grab('rest1'), null);
 await ev(`__cmwSteps({ x: 0.998 }); 1`);
 await quiet();
 for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
-await grab('end');
-R.end = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await differ('rest1', 'end') };
+ok('the frame end settles', await grab('end'), null);
+R.end = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await compare('rest1', 'end') };
 ok(`just before plane w1 the moving globe is the resting globe of w1 (a mean within ${END_MEAN} levels on the whole frame)`,
   R.end.path === 'inverse' && R.end.differ.mean <= END_MEAN, R.end);
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);

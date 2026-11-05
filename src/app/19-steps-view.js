@@ -12,7 +12,7 @@
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
-    clock: null,     // (a test hook's) ms of glide time a frame (svFrame), else the wall clock
+    clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -38,7 +38,6 @@
   function svPlanes() { const k = svAloneOk(); return k ? [svPrev(k), k] : [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
   function svT() { const P = svPlanes(); return SV.alone && P.length === 2 && P[1] === SV.alone ? SV.alone : P.includes(SV.T) ? SV.T : P[P.length - 1]; }
-  // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   // a glide's u at or under this is its plane's rest frame (the thread sits on a plane, to the precision of a float)
   const SV_REST_U = 1e-6;
   // the sheet key's inner radius, as a share of its window's half diagonal R (the region tiling's own: smKeyOf)
@@ -49,8 +48,19 @@
   // plane b's globe is cross-faded in over a's only past this u (under it its alpha, u, is below 3 of 255 levels, not
   // worth a second globe's draw)
   const SV_FADE_U = 0.01;
+  // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
+  // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
+  // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
+  // no map from w_k (then the colour plane, or past it w_k itself)
+  function svHT(k) { const P = svPlanes(), L = P[P.length - 1]; return k === 0 || !derivIn(k, L) ? L : Math.max(k, svT()); }
+  // the height map of plane k (a map spec of plane k) and its CPU twin
+  const svHeightMap = (k) => ({ mode: 0, a: k, b: svHT(k) });
+  const svHeightF = (k) => { const t = svHT(k); return k === t ? (z) => z : rangeF(k, t); };
+  // plane k has a Landscape: at or before the colour plane T (svColoured), or past it with a map from T (whose points
+  // carry T's colour there)
+  const svLandOk = (k) => { const T = svT(); return svColoured(k) || (k > T && (T === 0 || !derivIn(T, k))); };
   // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
@@ -105,20 +115,23 @@
     return hit.length ? hit[0].z : null;
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
-  // colour plane the colour is carried by the points, which the role says
+  // colour plane the colour is carried by the points, which the role says. A Landscape names its height, h(F) on every
+  // plane (svHeightF), then the carried colour past T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role;
-    if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
-    else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
+    if (SV.surf === 'land' && svMain(k) === 'land') {
+      const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
+      role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+    } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
+    else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
-  const svMain = (k = svStage()) => (SV.surf === 'land' && svColoured(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
+  const svMain = (k = svStage()) => (SV.surf === 'land' && svLandOk(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
   function svViewFix() {
     const k = svStage(), col = svColoured(k), v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
     const main = svMain(k);
@@ -284,17 +297,35 @@
     if (still) { SV.g.last = 0; svArrive(); return false; }
     return true;
   }
-  // (#846) The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
-  // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
-  // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
-  // (the X → Y view a glide from past the colour plane starts in)
+  // The Landscape as the points of a source plane s carried (render3D's carry): s is the plane
+  // the frame starts from, or the colour plane T when that is before it, so every point past T keeps T's colour. Each
+  // point is placed by `map` (from plane s), at its height h(F) (the stages (s, hT]) and in its colour (the stages
+  // (s, T]); the block goes from plane a's to plane b's over u (b null: a's). vs, va, vb: the views of s, a and b
+  // rest: the plane at rest the frame is (the probe picks on its relief), else null
+  function svLandCarry(map, s, a, b, u, rest = null) {
+    const T = svT(), lim = 0.35 * Math.max(paneL.w, paneL.h) / S.srcView.s;
+    return { map, s, T, hT: svHT(s), lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
+  }
+  // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
+  // when its heights are of that map too; else plane k's points (k at or before T) or T's (past it) carried to plane k
+  // at u = 1, so the height is h(F_k) and the colour that of the 2D picture. Undefined for the rest frame
+  function svLandRest(k = svStage()) {
+    const T = svT();
+    if (!SV.on || !svLandOk(k)) return undefined;
+    if (k <= T) return svHT(k) === T ? undefined : svLandCarry({ mode: 0, a: k, b: k }, k, k, null, 0, k);
+    return svLandCarry({ mode: 0, a: T, b: k }, T, T, k, 1, k);
+  }
+  // The Landscape between two planes a and b: the points of plane s = min(a, T) carried by the glide's map, each
+  // at its height and colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s =
+  // F_b ∘ (the map s → b). At a plane, or across a d/dz step (no map), the nearer plane's surface at rest. False when
+  // the Landscape is not on the pane (the X → Y view a glide from a plane with no Landscape starts in)
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
-    if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
-    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
-    const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: leftView(g.a), vb: leftView(g.b) });
+    if (!g.H || !svLandOk(g.a)) { render3D(pane, svLandRest(g.near)); return true; }
+    const s = Math.min(g.a, svT());
+    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u };
+    render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
@@ -859,19 +890,24 @@
   // clipWin's centre, from its inscribed circle out to m times its half-diagonal: the least m of SV_RING_M whose circle
   // the map sends past the view (a tenth wider), the largest when none does, the least when the map cannot be sampled.
   // Its cells are coarser than the whole plane's (SV_RING_BASE a side over its box): the map is near the camera's
-  // window's own there, and the cells beside a pole, where it is not, are the whole plane's. Drawn in the same depth
+  // window's own there, and the cells beside a pole, where it is not, are the whole plane's. Where those do not hold the
+  // view's points (a circle a whole-plane cell across about the singular point c of plane b's key nearest the window
+  // lands in the view, as about a logarithm's branch point), or no ring does (the largest lands in it), a polar annulus
+  // in place of the ring (svPolarGPU): about c (else clipWin's centre), out to the least R 2^k about it that lands past
+  // the view and in to the least R 2^-k (without c, clipWin's inscribed circle). Drawn in the same depth
   // under the same key, its corners over the whole plane's mesh are the same points in the same colour. m is the glide's
   // at its nearest twentieth (svRingSize), kept while the planes, the window, the view and that twentieth stay
   // (svRingSizes): made ahead in idle moments for the glides into and out of the plane the thread is at (svRingAhead),
-  // else in the frame. null: none needed
+  // else in the frame. A number: the ring's size; null: none needed; {polar: true, c, k1, k2, ring}: the polar annulus
+  // while gliding, the ring of size ring
+  // (null: none) parked
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
   // (the sizes kept: 21 a glide, two glides beside the plane, so 400 holds those of about nine views or windows; each
   // is a number, and a full table is dropped whole)
   const SV_RING_SIZES_MAX = 400;
   const svRingSizes = new Map();
-  // (svRingWarmM: a size made whose mesh the idle job builds next, svRingWarm)
-  let svRingMemo = null, svRingJob = null, svRingWarmM = null;
+  let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
   const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
@@ -882,7 +918,7 @@
     const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
     // (the edge of the box: 4 sides of SV_RING_N / 4 points; a circle of radius r: SV_RING_N points)
     const side = (i) => { const f4 = 4 * i / SV_RING_N, k = Math.floor(f4), f = 2 * (f4 - k) - 1; return k === 0 ? C(cx + ax * f, cy - ay) : k === 1 ? C(cx + ax, cy + ay * f) : k === 2 ? C(cx - ax * f, cy + ay) : C(cx - ax, cy - ay * f); };
-    const circ = (r, i) => C(cx + r * Math.cos(2 * Math.PI * i / SV_RING_N), cy + r * Math.sin(2 * Math.PI * i / SV_RING_N));
+    const about = (o, r) => (i) => C(o.re + r * Math.cos(2 * Math.PI * i / SV_RING_N), o.im + r * Math.sin(2 * Math.PI * i / SV_RING_N));
     const all = function* (fn) {
       for (let i = 0; i < SV_RING_N; i++) {
         if (!past(fn(i))) return false;
@@ -892,12 +928,60 @@
     };
     let m = null;
     try {
+      // (the singular point of plane b's key nearest clipWin's centre, within R of its box: the polar mesh's centre)
+      let c = null;
+      for (const p of svSheetKey(g.b).sing || []) if (p && CX.isFin(p) && p.re > w.x0 - R && p.re < w.x1 + R && p.im > w.y0 - R && p.im < w.y1 + R) { c = p; break; }
+      // (the cells beside c are the whole plane's, a cell of its mesh across: they hold the view's points unless the
+      // circle of that radius about c lands past the view)
+      // (ring: the ring's size, which a parked map draws in place of the polar ring; fits: one of its sizes, or none,
+      // does)
+      let ring = null, fits = true;
       if (!(yield* all(side))) {
-        m = SV_RING_M[SV_RING_M.length - 1];
-        for (const x of SV_RING_M) if (yield* all((i) => circ(x * R, i))) { m = x; break; }
+        ring = SV_RING_M[SV_RING_M.length - 1]; fits = false;
+        for (const x of SV_RING_M) if (yield* all(about(C(cx, cy), x * R))) { ring = x; fits = true; break; }
       }
+      const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / 80)));
+      if (!deep && fits) return ring;
+      const o = c || C(cx, cy);
+      // (outward: the least k with the circle of radius R 2^k about o past the view; inward from c: the least k with
+      // that of R 2^-k, down to where float32 places the points relative to c; without c, the inscribed circle)
+      // (each rounded out to a multiple of SV_POLAR_KQ, so a glide's twentieths share a few meshes)
+      const kq = (k, K) => Math.min(K, Math.ceil(k / SV_POLAR_KQ) * SV_POLAR_KQ);
+      const k2 = kq(yield* svLeastK((k) => all(about(o, R * Math.pow(2, k))), SV_POLAR_KOUT), SV_POLAR_KOUT);
+      let k1 = null;
+      if (c) {
+        // (or where the circle's points land within a pixel of each other: the disc inside it is one point of the view,
+        // as a power's about 0 is)
+        const floor = Math.max(1e-36, 1e-6 * CX.abs(c));
+        const inner = function* (k) {
+          const fn = about(c, R * Math.pow(2, -k));
+          let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, far = true;
+          for (let i = 0; i < SV_RING_N; i++) {
+            const p = gq.F(fn(i));
+            if (p && CX.isFin(p)) {
+              x0 = Math.min(x0, p.re); x1 = Math.max(x1, p.re); y0 = Math.min(y0, p.im); y1 = Math.max(y1, p.im);
+              if (Math.abs(p.re - v.cx) <= hw && Math.abs(p.im - v.cy) <= hh) far = false;
+            }
+            if (i % 8 === 7) yield;
+          }
+          return far || (x1 >= x0 && Math.max(x1 - x0, y1 - y0) * v.s < 1);
+        };
+        const K1 = Math.max(1, Math.floor(Math.log2(R / floor)));
+        k1 = kq(yield* svLeastK(inner, K1), K1);
+      }
+      m = { polar: true, c: [o.re, o.im], k1, k2, ring };
     } catch (e) { m = SV_RING_M[0]; }
     return m;
+  }
+  // the least k in [0, K] whose test passes (a generator of the test's own), the tests taken to pass from some k on: by
+  // doubling, then halving the last gap; K when none does
+  function* svLeastK(test, K) {
+    if (yield* test(0)) return 0;
+    let no = 0, yes = 1;
+    while (yes < K && !(yield* test(yes))) { no = yes; yes = Math.min(K, 2 * yes); }
+    if (yes >= K && !(yield* test(K))) return K;
+    while (yes - no > 1) { const mid = (no + yes) >> 1; if (yield* test(mid)) yes = mid; else no = mid; }
+    return yes;
   }
   function svRingSet(key, m) {
     if (svRingSizes.size >= SV_RING_SIZES_MAX) svRingSizes.clear();
@@ -916,23 +1000,164 @@
       const ps = globalThis.__svPathStats;
       if (ps) ps.ringFrame = (ps.ringFrame || 0) + 1;
     }
-    const ring = svRingShape(m);
+    // (a parked map draws the ring: its fix-ups and pre-mapped meshes refine the whole plane's mesh, not the polar ring's)
+    const ring = svRingShape(m && m.polar && !map.mode ? m.ring : m);
     svRingMemo = { key, ring, m };
     return ring;
   }
-  // the outer ring of size m about clipWin, null for 0 (a shape of its own for each m: the rings of a glide's sizes keep
-  // their meshes, not one rebuilt at each change)
+  // the outer ring of size m about clipWin, null for none (a shape of its own for each m: the rings of a glide's sizes
+  // keep their meshes, not one rebuilt at each change); a polar size {polar: true, c, k1, k2}: the polar annulus about c from
+  // R 2^-k1 (k1 null: clipWin's inscribed circle) to R 2^k2, R clipWin's half-diagonal (polar: true; sing: about a
+  // singular point, k1 not null)
   function svRingShape(m) {
-    const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2;
-    return m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * Math.hypot(ax, ay) }) : null;
+    const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
+    if (m && m.polar) {
+      const r1 = m.k1 === null ? Math.min(ax, ay) : R * Math.pow(2, -m.k1);
+      return Object.assign({}, SV_RING, { id: [SV_RING.id, 'polar', m.c[0], m.c[1], r1, m.k2, R].join('|'), polar: true, sing: m.k1 !== null, c: m.c.slice(), r1, r2: R * Math.pow(2, m.k2) });
+    }
+    return m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * R }) : null;
   }
-  // the ring's mesh (shapeGPU at the ring's base, over its own box; no strokes: the ring has no edge drawn)
-  const svRingGPU = (ring) => shapeGPU(ring, { base: SV_RING_BASE, lines: false, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } });
+  // the ring's mesh (shapeGPU at the ring's base, over its own box; no strokes: the ring has no edge drawn); a polar
+  // ring's, svPolarGPU
+  const svRingGPU = (ring) => (ring.polar ? svPolarGPU(ring) : shapeGPU(ring, { base: SV_RING_BASE, lines: false, win: { x0: ring.c[0] - ring.r2, x1: ring.c[0] + ring.r2, y0: ring.c[1] - ring.r2, y1: ring.c[1] + ring.r2 } }));
+  // The polar annulus's mesh: cells uniform in log r and in angle about its centre c (SV_POLAR_NT a turn, as many a
+  // radian of log r), the points the view needs from where the map pulls in what lies very near c or very far from it
+  // (a logarithm's points down to e^-|w| / u, a glide's straight line's out to |w| / (1 - u)): every cell is about as
+  // round in the map's picture as on the plane, whatever its radius. Its seam, the edge between its first and its last
+  // column of cells, is the ray from c at angle pi, a hair either side (SV_POLAR_EPS), the principal cut of a logarithm
+  // or a root about c: no cell straddles it. Relative to c (meshInstances' origin), so float32 keeps its points near c.
+  // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes, NR rings, NT cells a ring, dl
+  // the log of a ring's ratio}; svPolarBuilds counts the builds
+  // (SV_POLAR_BEHIND: the ring's depth offset, in polygonOffset units, about a step of the sheet key (2^-24 a unit):
+  // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
+  // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
+  const SV_POLAR_BEHIND = 16384;
+  const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
+  const svPolarRes = new Map();
+  let svPolarBuilds = 0;
+  // Under a polar ring the whole plane's mesh and the ring's share the plane, each where its cells are the finer, so
+  // no point is drawn twice by two meshes that place it differently (in the same depth, the worse one's straight edges
+  // would cut into the other's picture): the whole plane's inside clipWin, where its cells are uniform, h across
+  // (clipWin's larger side / 80), and, about a singular point c the ring reaches in to past rho - h, outside the disc
+  // of radius rho = h (SV_POLAR_NT / 2 pi - 1) about it, a cell inside the radius within which the ring's cells are the
+  // finer (beside a logarithm's branch point a whole-plane cell spans radii the map sends far apart); the ring's
+  // everywhere else. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
+  // stretched outer cell, placed worse than the ring's), the ring every cell that reaches within 2h of the ring's share
+  // (a corner outside clipWin shrunk by 2h, or within rho + 2h of c), so the two overlap along the edge, the ring's
+  // drawn behind there (SV_POLAR_BEHIND).
+  // svPolarShare: the radius rho about the ring's centre (0: none)
+  function svPolarShare(ring) {
+    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
+    return { h, rho: ring.sing && ring.r1 < rho - h ? rho : 0 };
+  }
+  // the whole plane's mesh r's skip flags under the polar ring: {skip, extra}, extra those of its fix-up fx's refined
+  // pieces (null without them; the triangles fx leaves out are left out too). Kept per mesh (r.polarSkip)
+  function svPolarSkip(r, ring, fx) {
+    if (!r.mesh || !GLR.createSkip) return null;
+    const w = clipWin, { rho } = svPolarShare(ring);
+    const base = fx && fx.res && fx.res.flags && fx.res.flags.length === r.mesh.tri.length / 3 ? fx.res.flags : null;
+    const ex = fx && fx.extraRes && fx.res && fx.res.extra ? fx.res.extra : null;
+    const key = [r.meshKey, ring.c[0], ring.c[1], rho, w.x0, w.x1, w.y0, w.y1, base || ex ? fx.mapKey : ''].join('|');
+    let P = r.polarSkip;
+    if (P && P.key === key && P.extraRes === (ex ? fx.extraRes : null)) return P;
+    const [cx, cy] = ring.c;
+    // (a point outside the whole plane's share)
+    const out = (x, y) => x < w.x0 || x > w.x1 || y < w.y0 || y > w.y1 || Math.hypot(x - cx, y - cy) < rho;
+    const T = r.mesh.tri, P0 = r.mesh.src, n = T.length / 3, flags = base ? Float32Array.from(base) : new Float32Array(n);
+    for (let t = 0; t < n; t++) {
+      for (let k = 0; k < 3; k++) if (out(P0[2 * T[3 * t + k]], P0[2 * T[3 * t + k] + 1])) { flags[t] = 1; break; }
+    }
+    if (!P || P.res !== r.meshRes) P = r.polarSkip = { res: r.meshRes, skip: null };
+    P.skip = svSkipSet(P.skip, r.meshRes, flags);
+    // (the fix-up's pieces: [ax, ay, bx, by, cx, cy] a piece, on the plane, each inside its triangle)
+    P.extraRes = ex ? fx.extraRes : null;
+    P.extra = null;
+    if (ex) {
+      const m = ex.length / 6, fe = new Float32Array(m);
+      for (let t = 0; t < m; t++) if (out(ex[6 * t], ex[6 * t + 1]) || out(ex[6 * t + 2], ex[6 * t + 3]) || out(ex[6 * t + 4], ex[6 * t + 5])) fe[t] = 1;
+      P.extra = GLR.createSkip(fx.extraRes, fe);
+    }
+    P.key = key;
+    return P;
+  }
+  // skip flags on the mesh res: those of skip, made for res, set to flags; a new skip of res when there is none
+  function svSkipSet(skip, res, flags) {
+    if (!skip) return GLR.createSkip(res, flags);
+    GLR.setSkip(skip, flags);
+    return skip;
+  }
+  // the polar ring's own skip flags (its mesh r, svPolarGPU's): its cells within the whole plane's share left out.
+  // Kept per mesh (r.share: {key, skip})
+  function svPolarOwnSkip(r, ring) {
+    if (!GLR.createSkip) return null;
+    const w = clipWin, { h, rho } = svPolarShare(ring), key = [w.x0, w.x1, w.y0, w.y1, rho].join('|');
+    if (r.share && r.share.key === key) return r.share.skip;
+    const { NR, NT, dl } = r, [cx, cy] = ring.c, flags = new Float32Array(2 * NR * NT);
+    const inWin = (rr, th) => { const x = cx + rr * Math.cos(th), y = cy + rr * Math.sin(th); return x > w.x0 + 2 * h && x < w.x1 - 2 * h && y > w.y0 + 2 * h && y < w.y1 - 2 * h; };
+    for (let i = 0; i < NR; i++) {
+      const ra = ring.r1 * Math.exp(i * dl), rb = ring.r1 * Math.exp((i + 1) * dl);
+      if (ra < rho + 2 * h) continue;
+      for (let j = 0; j < NT; j++) {
+        const ta = -Math.PI + 2 * Math.PI * j / NT, tb = ta + 2 * Math.PI / NT;
+        if (inWin(ra, ta) && inWin(ra, tb) && inWin(rb, ta) && inWin(rb, tb)) flags[2 * (i * NT + j)] = flags[2 * (i * NT + j) + 1] = 1;
+      }
+    }
+    r.share = { skip: svSkipSet(r.share && r.share.skip, r.meshRes, flags) };
+    r.share.key = key;
+    return r.share.skip;
+  }
+  function svPolarGPU(ring) {
+    let r = svPolarRes.get(ring.id);
+    if (r) { svPolarRes.delete(ring.id); svPolarRes.set(ring.id, r); return r; }
+    if (!GLR.ok) return null;
+    const NT = SV_POLAR_NT, d = 2 * Math.PI / NT, NR = Math.max(1, Math.ceil(Math.log(ring.r2 / ring.r1) / d)), dl = Math.log(ring.r2 / ring.r1) / NR;
+    // (the points relative to c, rho (cos, sin) theta; two triangles a cell, as meshInstances lays them out)
+    const px = new Float64Array((NR + 1) * (NT + 1)), py = new Float64Array(px.length);
+    for (let i = 0, v = 0; i <= NR; i++) {
+      const rho = ring.r1 * Math.exp(i * dl);
+      for (let j = 0; j <= NT; j++, v++) {
+        const th = -Math.PI + SV_POLAR_EPS + (2 * Math.PI - 2 * SV_POLAR_EPS) * j / NT;
+        px[v] = rho * Math.cos(th); py[v] = rho * Math.sin(th);
+      }
+    }
+    /** @type {Float32Array & {origin?: number[]}} */
+    const out = new Float32Array(12 * NR * NT);
+    for (let i = 0, t = 0; i < NR; i++) {
+      for (let j = 0; j < NT; j++) {
+        const a = i * (NT + 1) + j, b = a + 1, c = a + NT + 1, e = c + 1;
+        for (const v of [a, b, e, a, e, c]) { out[t++] = px[v]; out[t++] = py[v]; }
+      }
+    }
+    out.origin = ring.c.slice();
+    r = { meshRes: GLR.createMesh(out), NR, NT, dl };
+    svPolarBuilds++;
+    while (svPolarRes.size >= SV_POLAR_KEEP) {
+      const [k, o] = svPolarRes.entries().next().value;
+      svPolarRes.delete(k);
+      GLR.destroy(o.meshRes);
+    }
+    svPolarRes.set(ring.id, r);
+    return r;
+  }
   // a ring size's mesh and its carried colour's textures, made by the idle job once it has made the size, so the frame
   // that first draws the ring builds and allocates nothing
   function svRingWarm(m) {
+    if (m && m.polar && m.ring) svRingWarm(m.ring);
     const ring = svRingShape(m), r = ring ? svRingGPU(ring) : null;
     if (r && r.meshRes && GLR.carryReserve) GLR.carryReserve(r.meshRes, SV_CARRY_L);
+    // (a polar ring's share of the plane: its own skip flags, with their vertex arrays, and the whole plane's mesh's)
+    if (r && r.meshRes && ring.polar && GLR.carryReserve) {
+      GLR.carryReserve(r.meshRes, SV_CARRY_L, svPolarOwnSkip(r, ring));
+      svPolarWarmRing = ring;
+      svPolarWarmAll();
+    }
+  }
+  // the whole plane's mesh's skip flags under the polar ring made last (svPolarWarmRing), with their vertex arrays, once
+  // that mesh is built (the frame or svMeshAhead builds it; it is not built for this alone, its strokes with it)
+  let svPolarWarmRing = null;
+  function svPolarWarmAll() {
+    const a = svPolarWarmRing ? gpu.get(SV_ALL.id) : null, P = a && a.meshRes ? svPolarSkip(a, svPolarWarmRing, null) : null;
+    if (P) GLR.carryReserve(a.meshRes, SV_CARRY_L, P.skip);
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
@@ -953,20 +1178,12 @@
     }
     return null;
   }
-  const svRingLeft = () => !!svRingJob || svRingWarmM !== null || !!svRingNext();
-  // the idle job's share of the ring: an m made for at most ms, or the mesh of the last one made (svRingWarm, built whole:
-  // only with at least half a slice's time left); false when this slice's share ends (none left to make, or a mesh to
-  // build and too little time)
+  const svRingLeft = () => !!svRingJob || !!svRingNext();
+  // the idle job's share of the ring: an m made for at most ms, its mesh built (svRingWarm) in the slice that publishes
+  // it, so no frame finds a size whose mesh is not built; that slice can run past ms by the build's time. false when
+  // none is left to make
   function svRingAhead(ms) {
     const t0 = performance.now();
-    if (svRingWarmM !== null) {
-      if (ms < SV_POLE_BUDGET / 2) return false;
-      const m = svRingWarmM, ps = globalThis.__svPathStats;
-      svRingWarmM = null;
-      if (ps) (ps.ringWarmMs || (ps.ringWarmMs = [])).push(ms);
-      svRingWarm(m);
-      return true;
-    }
     if (!svRingJob) {
       const n = svRingNext();
       if (!n) return false;
@@ -975,11 +1192,16 @@
     for (;;) {
       const r = svRingJob.gen.next();
       if (r.done) {
+        const ps = globalThis.__svPathStats, tw = performance.now();
+        if (r.value) svRingWarm(r.value);
         svRingSet(svRingJob.key, r.value);
         svRingJob = null;
-        if (r.value) svRingWarmM = r.value;
-        const ps = globalThis.__svPathStats;
-        if (ps) ps.ringIdle = (ps.ringIdle || 0) + 1;
+        if (ps) {
+          ps.ringIdle = (ps.ringIdle || 0) + 1;
+          // (for each size whose mesh it built: the slice's time past ms and the build's, in ms)
+          const t1 = performance.now();
+          if (r.value) (ps.ringOver || (ps.ringOver = [])).push({ over: +Math.max(0, t1 - t0 - ms).toFixed(2), build: +(t1 - tw).toFixed(2) });
+        }
         return true;
       }
       if (performance.now() - t0 >= ms) return true;
@@ -1019,6 +1241,7 @@
       const r = svCarryGPU(x);
       if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
     }
+    svPolarWarmAll();
     return true;
   }
   // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
@@ -1044,14 +1267,17 @@
     for (const x of shapes) {
       const r = x === ring ? svRingGPU(ring) : svCarryGPU(x);
       if (!r || !r.meshRes) return false;
+      // (the polar ring's cells are already the map's own: no fix-up, no pre-mapped mesh)
+      if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: svPolarOwnSkip(r, x), stand: null, behind: SV_POLAR_BEHIND }); continue; }
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
       if (pre) { draws.push({ res: pre, pre: true }); continue; }
       // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
       const oldRes = smd && smd.old ? smRes(smd.old) : null, stand = oldRes ? { box: smd.old.guardBox, res: oldRes } : null;
       fixed.push(x);
       const fx = F ? carryFix(x, map) : null;
-      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: fx ? fx.skip : null, stand });
-      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: null, stand });
+      const ps = x === SV_ALL && ring && ring.polar ? svPolarSkip(r, ring, fx) : null;
+      draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: ps ? ps.skip : fx ? fx.skip : null, stand });
+      if (fx && fx.extraRes) draws.push({ res: fx.extraRes, L: 1, skip: ps ? ps.extra : null, stand });
     }
     if (F && fixed.length) svWantFix(F, map, fixed);
     if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
@@ -1076,7 +1302,7 @@
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, behind: d.behind || 0 };
     });
     // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
     for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
@@ -1132,34 +1358,38 @@
         svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
-      // (under it, the two planes' exact colours cross-faded: where no carried point lands, as the points from outside
-      // the window would, the picture is not left blank)
-      if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
-      let carried = false;
+      // (meshed: drawn by the carried meshes, which nothing is drawn under or blended over)
+      let carried = false, meshed = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
       // svCarryExact; the carried grid only where neither path can draw)
       if (still && !svColoured(a) && svCarryExact(pane, a, T, frame)) carried = true;
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
-      // travel on, each fragment its point's colour)
-      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = true;
-      // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has no
-      // points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling)
-      else if (still ? !svColoured(a) : !isDeriv(b)) {
-        carried = svCarry(pane, cc, src, a, still ? null : Hb, frame);
+      // travel on, each fragment its point's colour; Everywhere with the outer meshes, they cover the pane, so no
+      // plane's colour is drawn under them or blended over them)
+      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = meshed = true;
+      else {
+        // (under the rest, the two planes' exact colours cross-faded: where no carried point of the grid lands, and
+        // the whole picture of a d/dz step's glide)
+        if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
+        // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has
+        // no points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling)
+        if (still ? !svColoured(a) : !isDeriv(b)) carried = svCarry(pane, cc, src, a, still ? null : Hb, frame);
       }
-      // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest, blended in over the
-      // first and the last 15 % of a glide)
+      // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest; over the carried
+      // grid, blended in over the first and the last 15 % of a glide)
       const near = (w) => Math.max(0, Math.min(1, w));
       if (still) plot(a, 1);
-      else if (carried) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
+      else if (carried && !meshed) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
-      // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
-      // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
-      paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
+      // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
+      // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
+      // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
+      // carried colour's CPU mesh, which needs a frame of its own, waits)
+      paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
       after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
@@ -2390,7 +2620,9 @@
   // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's
   // kind follows it, as at a plane's arrival), and at the end it stops, or starts over
   function svPlayFrame() {
-    const A = SV.play, now = performance.now(), v = Math.min(1, (now - A.t0) / A.ms);
+    // (SV.clock, a test hook's: the play's time advances that many ms a frame, as a glide's, so a suite reads its speed in the
+    // frames drawn however long each takes)
+    const A = SV.play, now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
     // (another chain loaded under the play, an example, a link or an undo: it stops, and the new state's view is adopted)
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return false; }
     SV.g.set(A.from + (A.to - A.from) * v);
@@ -2401,7 +2633,7 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -2412,7 +2644,7 @@
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
   }
   // stop: settle where it is (a plane near, or parked between two), as a scrub let go; quiet: another move took over
   function svPause(settle) {
