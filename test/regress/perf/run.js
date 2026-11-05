@@ -1200,18 +1200,33 @@ function svAttrFrames(drawn, prev, snaps) {
   });
   return out;
 }
-// A CPU profile (off with SV_PROF=0) (CDP Profiler) around each timed scrub/pan/orbit leg of sv.interact.*, logged as the top
-// self times in ms and, from the WebGL call hook SV_GLT, the synchronous ms of compile/link/status calls in the leg
-const SV_PROF_ON = process.env.SV_PROF === '1';
-const SV_GLC_ON = process.env.SV_GLC !== '0';
-async function svProfLog(label, a, b) {
-  const { profile: P } = await B.send('Profiler.stop');
-  const dt = new Map(), byId = new Map(P.nodes.map((n) => [n.id, n])), self = new Map();
-  P.samples.forEach((id, j) => dt.set(id, (dt.get(id) || 0) + (P.timeDeltas[j + 1] || 0) / 1000));
-  for (const [id, ms] of dt) { const n = byId.get(id).callFrame, k = `${n.functionName || '(anon)'}:${n.lineNumber}`; self.set(k, (self.get(k) || 0) + ms); }
-  const gl = JSON.parse(await B.ev(`JSON.stringify((window.__svGlt || []).filter((x) => x[1] >= ${a} && x[1] <= ${b}))`));
-  const sum = (n) => gl.filter((x) => x[0] === n).reduce((s, x) => s + x[2], 0);
-  log(`  [prof] ${label} ${(b - a).toFixed(0)} ms: gl compile ${sum('compileShader').toFixed(1)}, link ${sum('linkProgram').toFixed(1)}, status ${(sum('getProgramParameter') + sum('getShaderParameter')).toFixed(1)} ms; top self: ${[...self].sort((x, y) => y[1] - x[1]).slice(0, 14).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ')}`);
+// SV_PROF=1: a CPU profile (CDP Profiler) around each timed leg of sv.interact.*, its samples assigned to the rAF frames
+// they fall in (profile time mapped to page time at the stop): per frame the callback ms and the self ms by function
+const SV_PROF_ON = process.env.SV_PROF !== '0';
+const SV_GLC_ON = process.env.SV_GLC === '1';
+const PROF_FR = [];
+async function svProfStart() { await B.send('Profiler.enable'); await B.send('Profiler.setSamplingInterval', { interval: 250 }); await B.send('Profiler.start'); }
+async function svProfStop(a, b) {
+  const tPage = await pageNow(), { profile: P } = await B.send('Profiler.stop');
+  const off = tPage - P.endTime / 1000, byId = new Map(P.nodes.map((n) => [n.id, n]));
+  const fr = (await B.ev(`__perf.framesSince(${a}, ${b})`)).map((f) => ({ t0: f[0], t1: f[0] + f[1] + 0.3, cpu: f[1], fn: new Map() }));
+  let t = P.startTime / 1000 + off;
+  P.samples.forEach((id, j) => {
+    t += (P.timeDeltas[j] || 0) / 1000;
+    const d = (P.timeDeltas[j + 1] || 0) / 1000, f = fr.find((x) => t >= x.t0 && t <= x.t1);
+    if (!f) return;
+    const c = byId.get(id).callFrame, k = `${c.functionName || '(anon)'}:${c.lineNumber}`;
+    f.fn.set(k, (f.fn.get(k) || 0) + d);
+  });
+  PROF_FR.push(...fr);
+}
+function svProfFramesLog(label) {
+  const side = typeof BASE_A !== 'undefined' && BASE === BASE_A ? 'ref' : 'cur', fr = PROF_FR.splice(0);
+  const cpus = fr.map((f) => f.cpu).sort((x, y) => x - y), p90 = cpus[Math.floor(0.9 * cpus.length)] || 0;
+  const slow = fr.filter((f) => f.cpu >= p90), rest = fr.filter((f) => f.cpu < p90);
+  const top = (list) => { const m = new Map(); for (const f of list) for (const [k, v] of f.fn) m.set(k, (m.get(k) || 0) + v); return [...m].sort((x, y) => y[1] - x[1]).slice(0, 10).map(([k, v]) => `${k} ${(v / Math.max(1, list.length)).toFixed(2)}`).join(', '); };
+  const mean = (list) => (list.reduce((s, f) => s + f.cpu, 0) / Math.max(1, list.length)).toFixed(2);
+  log(`  [pf ${side}] ${label}: ${fr.length} frames, p90 ${p90.toFixed(1)} ms; slowest ${slow.length} (mean cpu ${mean(slow)}) self ms per frame: ${top(slow)}; | other ${rest.length} (mean ${mean(rest)}): ${top(rest)}`);
 }
 // the GL calls inside the rAF callbacks of the scrub legs in [a, b] ranges, by method: calls and ms per frame, over all
 // the frames and over the slowest tenth, as the top rows by ms and by calls
@@ -1232,10 +1247,10 @@ async function svInteractUnit(scene) {
   const leg = async (fn, rec) => {
     if (rec) await B.ev('(__svAttr.snaps = [], __svAttr.gl = {}, __svAttr.on = true, 1)');
     const bl0 = await B.ev('__svBl.n'), a = await pageNow();
-    const prof = SV_PROF_ON ? (await B.send('Profiler.enable'), await B.send('Profiler.setSamplingInterval', { interval: 250 }), await B.send('Profiler.start'), true) : false;
+    if (SV_PROF_ON) await svProfStart();
     await fn();
     const b = await pageNow(), bl1 = await B.ev('__svBl.n');
-    if (prof) await svProfLog(`sv.interact.${scene} leg`, a, b);
+    if (SV_PROF_ON) await svProfStop(a, b);
     const w = await windowStats(a, b);
     if (rec) {
       const snaps = JSON.parse(await B.ev('(__svAttr.on = false, JSON.stringify(__svAttr.snaps))'));
@@ -1278,6 +1293,7 @@ async function svInteractUnit(scene) {
         const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }), attr);
         const r2 = await stripAt();
         const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }), attr);
+        if (SV_PROF_ON) svProfFramesLog(`sv.scrub.${scope}.${scene}`);
         if (SV_GLC_ON) { await B.ev('(__perf.glc.on = false, 1)'); await svGlcLog(`sv.scrub.${scope}.${scene}`, [[l1.a, l1.b], [l2.a, l2.b]]); }
         if (attr) slow[scope].push([l1, l2].map((l) => l.attr));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
