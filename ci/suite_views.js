@@ -48,6 +48,7 @@ const VIEWS = {
   'steps_sm_standin_cmd.js': steps(),
   'steps_glide_look_cmd.js': steps({ pin: true }),
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
+  'steps_glide_later_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
