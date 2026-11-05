@@ -169,7 +169,7 @@ for (const [id, sc] of Object.entries(PA)) {
   const zs0 = JSON.stringify((await ev('__cmwMorphCache()')).zs);
   // (expstrip: X is a strip 30 px tall at this zoom; its points left of 0 all end at the wedge's apex (one end dot
   // there), those right of about 3 leave the view at once: 3 paths is the honest count, review fixes. chain3: three
-  // long arcs of about 570 px fill the ink cap, which now holds from the second path on: 3, verify fixes)
+  // long arcs of about 570 px fill the ink cap, which holds from the second path on: 3, verify fixes)
   const nMin = id === 'expstrip' || id === 'chain3' ? 3 : 4;
   ok(`paths ${id}: ${nMin} to 18 paths`, c.n >= nMin && c.n <= 18, c.n);
   ok(`paths ${id}: no jump drawn (a segment's mid time within 1 px of its midpoint)`, c.jump < 1, c.jump);
