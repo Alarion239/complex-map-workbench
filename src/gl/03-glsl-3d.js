@@ -1344,12 +1344,12 @@ void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
   // own graph-paper tiers, for the Cartesian kinds; 2: the P3 graticule (meridians every 30 deg, |z| = 1/4 ... 4) of a
   // globe that takes no drawing (Morph open, solo, a focused stage), which panels.md 9.5 leaves as it was. The real
   // great circle and |z| = 1 are drawn in all three.
-  const SPHERE_FS = (phase) => `
-in vec3 vP;
-uniform vec3 uPlaneCol; uniform vec3 uGridMaj; uniform vec3 uAxisCol; uniform vec3 uEye; uniform int uNet;
-out vec4 o;
-void main() {
-  vec3 n = normalize(vP);
+  // The graticule's coverages at the sphere point n (unit): net (the tier of uNet), re (the real great circle) and eq
+  // (|z| = 1), each 0..1, and phaseLines' mix of them over a colour (the globe's phase portrait, and the steps view's
+  // carried colour, which share it). Needs TIERS and UTIL.
+  const SPHERE_LINES = `
+uniform int uNet;
+void sphereLines(vec3 n, out float net, out float re, out float eq) {
   float nz = clamp(n.z, -1.0, 1.0);
   float y = 0.5 * log2(max(1.0 + nz, 1e-12) / max(1.0 - nz, 1e-12));   // log2 |z|
   float fy = fwidth(y);
@@ -1357,22 +1357,32 @@ void main() {
   float th = atan(n.y, n.x) * mk;
   float fa = argWidth(n.xy) * mk;
   float fny = fwidth(n.y);
-  vec2 z = vec2(n.x, -n.y) / max(1.0 - nz, 1e-7);   // S = 0, N = infinity (the conjugate lift's inverse)
-${phase ? `
-  vec3 base = dcolor(mapF(z));` : `
-  vec3 base = uPlaneCol;`}
   float mer = iso(th, fa, 1.0) * dfade(fa);                                        // meridians every 15 (30) deg
   float par = iso(y, fy, 1.0) * dfade(fy) * step(0.5, abs(y)) * step(abs(y), uNet == 2 ? 2.5 : 3.5);  // |z| = 1/8 (1/4) ... 8 (4)
-  float net = max(mer, par);
-  if (uNet == 1) net = tiersOver(z, vec4(0.0), 1.0).a;                             // the lifted lattice (coverage)
-  float eq = iso0(y, fy, 1.5 * uDpr);                                              // |z| = 1
-  float re = iso0(n.y, fny, 1.25 * uDpr);                                          // real great circle
-${phase ? `
+  net = max(mer, par);
+  if (uNet == 1) net = tiersOver(vec2(n.x, -n.y) / max(1.0 - nz, 1e-7), vec4(0.0), 1.0).a;   // the lifted lattice (coverage)
+  eq = iso0(y, fy, 1.5 * uDpr);                                                    // |z| = 1
+  re = iso0(n.y, fny, 1.25 * uDpr);                                                // real great circle
+}
+vec3 phaseLines(vec3 base, float net, float re, float eq) {
   vec3 ink = vec3(0.0431, 0.0667, 0.0784);
   vec3 col = mix(base, ink, 0.18 * net);
   col = mix(col, ink, 0.35 * re);
-  col = mix(col, ink, 0.45 * eq);` : `
-  vec3 col = mix(base, uGridMaj, net);
+  return mix(col, ink, 0.45 * eq);
+}
+`;
+  const SPHERE_FS = (phase) => `
+in vec3 vP;
+uniform vec3 uPlaneCol; uniform vec3 uGridMaj; uniform vec3 uAxisCol; uniform vec3 uEye;
+out vec4 o;
+void main() {
+  vec3 n = normalize(vP);
+  float net, re, eq;
+  sphereLines(n, net, re, eq);
+${phase ? `
+  vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7)));   // S = 0, N = infinity (the conjugate lift's inverse)
+  vec3 col = phaseLines(base, net, re, eq);` : `
+  vec3 col = mix(uPlaneCol, uGridMaj, net);
   col = mix(col, uAxisCol, 0.7 * re);
   col = mix(col, uAxisCol, eq);`}
   vec3 v = normalize(uEye - vP);
