@@ -1221,7 +1221,10 @@
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
-      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); u1iv(P, 'uSheetMap', sp.map); }
+      // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
+      // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
+      const colB = hs && st.carry && st.carry.T < hs.b ? st.carry.T : hs ? hs.b : 0;
+      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
     };

@@ -114,8 +114,7 @@
       const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
-    else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
+    else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
