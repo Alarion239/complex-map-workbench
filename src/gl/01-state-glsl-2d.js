@@ -466,7 +466,7 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
 ` : ''}  int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? `  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n  vPm = vP;\n  vCut = ${o.sheet && o.own ? 'vTorn' : o.clip ? '1.0' : '0.0'};\n` : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+${o.carry ? `  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n  vPm = vP;\n  vCut = 0.0;\n` : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
   vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
   vWTol = uKPx + 0.25 * longest(w0, w1, w2);
