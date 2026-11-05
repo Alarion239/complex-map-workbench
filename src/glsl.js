@@ -2141,7 +2141,7 @@ void ixAncTan(vec2 w) {
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
-  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2 + Inverse.NEWT_LADDER.length, QUAD: 2, RAT2: 2 };
+  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
@@ -2152,10 +2152,10 @@ void ixAncTan(vec2 w) {
     const bk = o.kind === 'NEWT' && newtBack(o);
     return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0);
   };
-  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members
+  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, an unseeded one 2 + the ladder's
   const ixFinMax = (o) => {
     const bk = o.kind === 'NEWT' && newtBack(o);
-    return bk ? 1 + bk.seeds : IX_FIN[o.kind];
+    return bk ? 1 + bk.seeds : o.kind === 'NEWT' ? 2 + Inverse.NEWT_LADDER.length : IX_FIN[o.kind];
   };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
