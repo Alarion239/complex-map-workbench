@@ -932,7 +932,7 @@ const SoundHooks = (() => {
   // menu again, or a pointer move of more than 4 px stop it (on a 12 ms fade, never mid-waveform). listen: a composed
   // curve's own duration, velocities, register and drum (sndListenOf; an example's melody, notes/sea-song), used only
   // while the harp would play exactly its crossings here; a pointer move does not stop a melody. shape: the shape it
-  // plays: it stops when that shape is gone (deleted, another example, undo) or, for a melody, is no longer the melody
+  // plays: it stops when that shape is gone (deleted, another example, undo) or, for a melody, has stopped being the melody
   // (edited, another chain)
   function sndListen(pts, closed, lead, listen, shape, o) {
     if (!A.sndP.on || !A.sndP.events || !SND || !snd.tracker || !pts || pts.length < 2) return false;
