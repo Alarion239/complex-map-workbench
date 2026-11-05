@@ -664,7 +664,21 @@
  "Click ▶ and listen as the loop winds round the zero.": "Нажмите ▶ и слушайте, как петля обходит нуль.",
  "Tap ▶ and listen as the loop winds round the zero.": "Коснитесь ▶ и слушайте, как петля обходит нуль.",
  "Click ▶ to turn sound on and hear the loop wind round the zero.": "Нажмите ▶ — включится звук, и петля обойдёт нуль.",
+ "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}",
+ "Drawn from {p}'s targets": "Нарисовано по целям %{p}",
+ "Shaded from {p}'s targets": "Закрашено по целям %{p}",
+ "Shaded and drawn from {p}'s targets": "Закрашено и нарисовано по целям %{p}",
+ "Drawn from the targets of {p}": "Нарисовано по целям %{p}",
+ "Shaded from the targets of {p}": "Закрашено по целям %{p}",
+ "Shaded and drawn from the targets of {p}": "Закрашено и нарисовано по целям %{p}",
+ "The curves that {x} maps onto the targets of {p} are drawn here.": "Кривые, которые %{x} переводит в цели %{p}, нарисованы здесь.",
+ "Where {x} lands in the targets of {p} is shaded here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено.",
+ "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено; кривые, которые она переводит в них, нарисованы здесь же.",
  "Go to {p}": "Перейти к %{p}",
  "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}",
- "No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw": "Нет шага, ведущего к %{p}, поэтому путей t ↦ Hₜ(z) нет"
+ "No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw": "Нет шага, ведущего к %{p}, поэтому путей t ↦ Hₜ(z) нет",
+ "Label": "Подпись",
+ "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
+ "Video of the Landscape is not ready yet": "Видео рельефа пока не готово",
+ "Video of the sphere is not ready yet": "Видео сферы пока не готово"
 }

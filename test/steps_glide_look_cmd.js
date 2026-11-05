@@ -2,8 +2,8 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w) and the Mountain King Everywhere (the
-// whole plane carried forward). Paths are off: the glide's paths are drawn over the colour, which is what is read.
-// Each case checks four things, each in checks of their own:
+// whole plane carried forward); and the zeros of the zeta function Inside regions, for the parked camera alone. Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
@@ -23,6 +23,8 @@
 // - no fade: the first and the last frames of a glide (x = FIRST from either end, a 60 fps frame of a Normal glide)
 //   draw no plane's colour at a partial opacity over the moving picture (a crossfade), and their mean luminance and
 //   alpha are reported beside the rest frame's;
+// - the parked camera (a case's parked: its places u, before any later plane is shown): the frame parked at u once a
+//   scrub held there is let go keeps the held frame's camera;
 // - no mesh: the frame held half-way does not depend on the meshes it is drawn with: drawn again with meshes of half
 //   the resolution (Mesh quality halved), at most SAME_FRAC of the pixels more than DIFF_TOL apart; and, Everywhere
 //   on the default example, it has no more straight hard edges (steps over DIFF_TOL to the next row or column in runs
@@ -31,8 +33,8 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways and the Mountain King at 1, and the default example Inside regions and
-// Everywhere at 2.
+// Inside regions, the Joukowski airfoil both ways, the Mountain King and the zeros of the zeta function at 1, and the
+// default example Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -92,6 +94,9 @@ const CASES = [
   { tag: 'Joukowski airfoil, Everywhere', example: 'Joukowski airfoil', scope: 'all', seeds: [24, 16] },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
+  // (zeta Inside regions: the parked camera alone. The regions' image is a thin strip, where the exact picture finds
+  // fewer than MIN_COMPARED pixels to compare)
+  { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', scope: 'in', parked: [0.3, 0.5, 0.7], only: 'parked' },
 ];
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
@@ -104,6 +109,9 @@ async function look(c, r) {
     await settled({ max: 60000 });
   }
   await ev(`__cmwSet('morphPaths', false), __cmwSteps(${JSON.stringify({ scope: c.scope, surf: 'plane' })}), 1`);
+  // (the parked camera: first, before any plane past z has been shown, as a user who opens the example and scrubs)
+  if (c.parked) await heldParked(c, r);
+  if (c.only === 'parked') return;
   // (the opacity of each colour plot drawn since the last reset: window.__plotAlphas)
   await ev(`(() => { const f = GLR.drawColorPlot; window.__plotAlphas = []; GLR.drawColorPlot = function (o) { window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); }; return 1; })()`);
   r.step = 'the rest frames';
@@ -205,6 +213,25 @@ async function look(c, r) {
   if (c.edges) await straightEdges(c, r, held && a);
   await letGo();
   r.step = 'done';
+}
+// the parked camera: at each u of c.parked, the frame parked at u once a scrub held there is let go has the held
+// frame's camera (the glide record's view: centre and scale)
+async function heldParked(c, r) {
+  r.step = 'the parked camera';
+  await rest(0);
+  const VIEW = '(() => { const g = __cmwSteps().glide, v = g && g.view; return v ? [v.cx, v.cy, v.s] : null; })()';
+  const P = r.parked = {};
+  for (const u of c.parked) {
+    const held = (await hold(u)).ok, vk = await ev(VIEW);
+    await ev('window.__svScrubUp(), 1');
+    const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
+    P[u] = { held, parked, view: [vk, await ev(VIEW)] };
+    await rest(0);
+  }
+  for (const u of c.parked) {
+    const q = P[u];
+    ok(`${c.tag}: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q);
+  }
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more
 async function straightEdges(c, r, held) {

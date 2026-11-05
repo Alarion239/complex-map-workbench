@@ -93,9 +93,19 @@
     const u0 = Math.min(1 - s, Math.max(0, cx - s / 2)), v0 = Math.min(1 - s, Math.max(0, cy - s / 2));
     return [u0, u0 + s, v0, v0 + s];
   }
+  // the plan of the steps view's glide along its thread (gl: A.svGlide): the left pane at the screen's window widened to
+  // the frame's aspect; video time t is the thread position gl.lo + t, so m is the number of steps. The pane's own
+  // paths and outlines come with its picture (the strip's state), so no vector marks are drawn over it
+  function glidePlan(o, v, gl) {
+    const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo;
+    const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(A.svBox(), W / H), times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
+  }
   // the plan of a video: what is drawn, where, the tracked points
   async function videoPlan(opts) {
     const o = Object.assign(defaults(), opts || {}), v = Object.assign(vdefaults(), o.video || {});
+    const gl = !o.view && A.svOn && A.svOn() && A.svGlide ? A.svGlide() : null;
+    if (gl) return glidePlan(o, v, gl);
     const view = o.view || A.viewKind(), kind = defoOf(view);
     if (!kind) throw new Error('The deformation is off');
     const [Wpx, Hpx] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'];
@@ -191,7 +201,8 @@
     const look = v.look === 'print' ? 'print' : 'light';
     const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'globe' || kind === 'phaseGlobe' };
     let r;
-    if (plan.box) r = await A.art(side, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
+    if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
+    else if (plan.box) r = await A.art(side, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
     else {
       const [u0, u1, v0, v1] = plan.crop, zx = 1 / (u1 - u0), zy = 1 / (v1 - v0);
       r = await A.art(side, Object.assign(base, { wpt: W * zx / dpr * 72 / 96, hpt: H * zy / dpr * 72 / 96, landBox: plan.landBox }));
@@ -213,7 +224,7 @@
     const line = (pts, color, width, dash) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.lineCap = dash ? 'butt' : 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); let pen = false; for (const p of pts) { if (!p) { pen = false; continue; } if (pen) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); pen = true; } ctx.stroke(); ctx.setLineDash([]); };
     const fs = Math.round(0.028 * H);
     // (editor-6) the print look's axes, and tick numbers in both looks: the window is fixed, so they are too
-    if (plan.box) {
+    if (plan.box && kind !== 'glide') {
       const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), dec = XD.decimals(step);
       const ox = Math.min(Math.max(P(C(0, 0))[0], 0), W), oy = Math.min(Math.max(P(C(0, 0))[1], 0), H);
       if (look === 'print') { line([[0, oy], [W, oy]], '#555555', 1.2 * lw); line([[ox, 0], [ox, H]], '#555555', 1.2 * lw); }
@@ -276,7 +287,8 @@
     // the t label: bottom left, an italic t and upright digits (editor-17)
     if (v.tlabel) {
       const f2s = Math.round(0.04 * H), num = I18 ? I18.num(t.toFixed(2)) : t.toFixed(2);
-      vText(ctx, [['t', true], [` = ${num}`, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s);
+      if (kind === 'glide') vText(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s);
+      else vText(ctx, [['t', true], [` = ${num}`, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s);
     }
     ctx.restore();
     if (plan.trace) plan.trace.push(['draw', Math.round(performance.now() - s0)]);
