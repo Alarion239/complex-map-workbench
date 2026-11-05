@@ -384,7 +384,7 @@ float longest(vec2 a, vec2 b, vec2 c) { return max(max(len2(b - a), len2(c - b))
   const ON_CENTRE = `vec2 onCentreSheet(vec2 zc, vec2 s, out float side) { vec2 w = chainSheetHom(zc, srcOf(s), uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); side = cxs0_dom; return w; }
 `;
   // whether the cache's places c0..c2 (and cm, the centroid's) draw a triangle (the cached pass), or the fill takes it:
-  // REGION_VS's fill cull and FILL_PTS_VS's, one test (uKPx, uKLim declared by each)
+  // FILL_PTS_VS's cull, whose result the fill reads (FTon)
   const FILL_DRAWN = `bool fillDrawn(vec2 c0, vec2 c1, vec2 c2, vec2 cm) {
   float ce = longest(c0, c1, c2);
   return cfin(c0) && cfin(c1) && cfin(c2) && cfin(cm) && (midOk(c0, c1, c2, cm) || ce < uKPx) && ce < uKLim;
@@ -416,13 +416,13 @@ ${FETCH(fetch)}
 ${LIFT}
 ${BARY}
 ${VALID}
-${o.sheet ? ON_CENTRE : ''}${o.sheet && fetch === 'tex' ? FILL_DRAWN : ''}${o.points ? FILL_PTS_FETCH : ''}void main() {
+${o.sheet ? ON_CENTRE : ''}${o.points ? FILL_PTS_FETCH : ''}void main() {
   vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
-${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one: a triangle the cached places draw, or a fix-up skips, is culled here, so
-  // only a triangle torn across a cut is evaluated on its centre's sheet)
+${o.sheet && fetch === 'tex' ? `  // (the fill pass after the cached one, its places from the point pass (o.points): a triangle the cached places draw,
+  // or a fix-up skips, is culled here (the point pass culled it, FTon), so only a triangle torn across a cut is drawn
+  // on its centre's sheet)
   {
-${o.points ? `    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : `    bool drawn = fillDrawn(W(aIdx.x, s0), W(aIdx.y, s1), W(aIdx.z, s2), W(aIdx.w, (s0 + s1 + s2) / 3.0));
-    if (aSkip > 0.5 || drawn) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }`}
+    if (aSkip > 0.5 || FTon() < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   }
 ` : ''}${o.sheet ? `  vec2 zc = srcOf((s0 + s1 + s2) / 3.0);
   float d0, d1, d2, dMid;

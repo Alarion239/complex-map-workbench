@@ -231,9 +231,9 @@
   // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here
   // and Cauchy its short word (Russian «Коши», not «Интеграл Коши», which a 54 px button at 360 px broke mid-word), the
   // whole name the tooltip, the accessible name and the header menu's item
-  function styleSeg() {
+  function styleSeg(id = 'dcSeg') {
     const word = (v, name) => (v === 'grid' ? $t('Grid') : v === 'cauchy' ? $tx('style', 'Cauchy') : name);
-    const el = seg('dcSeg', S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, word(v, name))], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
+    const el = seg(id, S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, word(v, name))], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
     el.classList.add('sty-seg');
     for (const b of /** @type {HTMLElement[]} */ ([...el.children])) {
       const d = DC_STYLES.find((p) => p[0] === b.dataset.v);
@@ -489,12 +489,29 @@
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
   // opacity), lent while it is open)
   function patternBtn(side) {
-    const name = $t('Regions');
+    const name = SV.on ? $t('Colouring') : $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
     return b;
+  }
+  // the colouring's picker for a plane past the colour plane: whose colouring it is (with a way to its plane), the style
+  // row, the sectors or grid step the style takes, and the regions' grid lines. The steps view has one colouring, so
+  // every plane follows what is picked; the rows after the style row are made again when the style changes
+  function colourPop() {
+    const T = svT(), P = svPlanes(), p = svNameHtml(T);
+    const rows = h('div', { class: 'cp-rows' });
+    const fill = () => rows.replaceChildren(...colourScrubs(false, 'Pop'),
+      checkEl('linesChkPop', S.lines, $t('Grid lines on regions'), (v) => { setOpt('lines', v); requestRender('L', 'R', 'T'); drawLegend(); save(); }));
+    const style = styleSeg('dcSegPop');
+    for (const b of style.children) b.addEventListener('click', () => fill());
+    fill();
+    const el = h('div', { class: 'field-col cp-pop' },
+      h('div', { class: 'lbl', html: $t('Colouring of {p} (the colour plane)', { p }) }),
+      h('button', { type: 'button', class: 'btn small cp-go', onclick: () => { closePalette(); svGo(P.indexOf(T)); } }, h('span', { html: $t('Go to {p}', { p }) })),
+      style, rows);
+    return { el };
   }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
@@ -504,13 +521,17 @@
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
-    const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
+    // (the steps view's plane past the colour plane: the Regions button opens the colouring's picker, not the regions' display)
+    const colour = regionsOnly && SV.on ? colourPop() : null;
+    const regions = !colour && (regionsOnly || (head && stepsRegions())) ? $('regionsBox') : null;
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
     const regionsHead = regions && !regionsOnly && rest.length
       ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
-    const kids = regions ? [...rest, ...regionsHead, regions] : rest;
-    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
+    const kids = colour ? [...rest, colour.el] : regions ? [...rest, ...regionsHead, regions] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : '') + (colour ? ' cp-wide' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
+    // (the colouring's picker grows to fit its style row, up to the plot pane's width less a margin each side, then wraps)
+    if (colour) { const pn = btn.closest('.pane'); if (pn) pop.style.maxWidth = Math.max(300, pn.clientWidth - 32) + 'px'; }
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -542,26 +563,42 @@
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
-  // (v16.1 review math-6) D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few
-  // generic points (two surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so
-  // its two surfaces are one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
-  let sheetsD = { key: '', D: 0 };
+  // D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few generic points (two
+  // surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so its two surfaces are
+  // one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
+  // The distinct sheets among the K combos of map m (window W): the first combo of each class of combos whose values
+  // agree at every probe point; null when no combo repeats an earlier one (all K are distinct) or a map has no combos.
+  // The sheets of √ then log coincide in pairs, so the surfaces drawn are these combos only. Cached per chain, map, focus, window.
+  const sheetUniqCache = new Map();
+  function sheetUniq(m, W, K) {
+    const key = `${chainSig[nSteps()]}|${mapKeyOf(m)}|${S.focus}|${W}|${K}`;
+    let r = sheetUniqCache.get(key);
+    if (r) return r.list;
+    const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [], list = [];
+    const fin = (u) => Number.isFinite(u.re) && Number.isFinite(u.im);
+    const same = (u, v) => (!u || !v ? u === v : !fin(u) || !fin(v) ? !fin(u) && !fin(v) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
+    for (let c = 0; c < K; c++) {
+      // a point where the sheet cannot be evaluated (a throw) counts as a missing value, which only equals another
+      const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
+      if (!reps.some((x) => x.every((w, i) => same(w, v[i])))) { reps.push(v); list.push(c); }
+    }
+    r = { list: list.length < K ? list : null, D: list.length };
+    if (sheetUniqCache.size > 32) sheetUniqCache.delete(sheetUniqCache.keys().next().value);
+    sheetUniqCache.set(key, r);
+    return r.list;
+  }
+  // sheetUniq for map m as GLR.sheetInfo counts it: the combos drawn instead of 0..K-1, or null when all K are
+  function sheetUniqOf(m, W) {
+    const si = GLR.ok && typeof GLR.sheetInfo === 'function' ? GLR.sheetInfo(m, W) : null;
+    return si ? sheetUniq(m, W, si.K) : null;
+  }
   function multiSheet() {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
     try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const m = endMap(), key = `${chainSig[nSteps()]}|${S.focus}|${ms.W}|${ms.K}`;
-    if (sheetsD.key !== key) {
-      const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [];
-      const same = (u, v) => (!u || !v ? u === v : !(Number.isFinite(u.re) && Number.isFinite(u.im) && Number.isFinite(v.re) && Number.isFinite(v.im)) ? !(Number.isFinite(u.re) && Number.isFinite(u.im)) && !(Number.isFinite(v.re) && Number.isFinite(v.im)) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
-      for (let c = 0; c < ms.K; c++) {
-        const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, ms.W, { a: m.a || 0 }); } catch (e) { return null; } });
-        if (!reps.some((r) => r.every((w, i) => same(w, v[i])))) reps.push(v);
-      }
-      sheetsD = { key, D: reps.length };
-    }
-    return sheetsD.D > 1 ? Object.assign({}, ms, { D: sheetsD.D }) : null;
+    const m = endMap(), list = sheetUniq(m, ms.W, ms.K), D = list ? list.length : ms.K;
+    return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
@@ -885,6 +922,14 @@
   // X's strip (panels.md 4): the paint's part (Phase on: style, n, Δ, Outlines), then the surface's part (Sphere:
   // Equator, Reset camera; Landscape: height, sheets, scale, unit level, view, Reset camera). X Plane with Phase off
   // has none (the strip hides).
+  // the colouring's own scrubs after the style row: n, the sectors per turn, only for the styles it changes (Tiles,
+  // Contours, Cauchy's Tiles, the relief's), and the pulled-back grid's step; idSuffix tells a second copy's ids apart
+  function colourScrubs(land, idSuffix) {
+    const out = [];
+    if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+    if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+    return out;
+  }
   function buildFootL(f) {
     const Fn = fnText();
     // the Landscape view (merged-views.md): its height, then its colouring in one control: the phase colours the relief
@@ -914,9 +959,7 @@
           : $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name });
         f.append(h('span', { class: 'foot-note', html: noteHtml }));
       }
-      // (#247: n, the sectors per turn, only for the styles it changes: Tiles, Contours, Cauchy's Tiles, the relief's)
-      if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+      f.append(...colourScrubs(land, ''));
       if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines));
     }
     if (lGlobe()) {

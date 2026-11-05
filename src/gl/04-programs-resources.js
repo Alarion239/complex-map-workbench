@@ -102,18 +102,15 @@
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
     regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
-    // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
-    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS() },
-    // (regionKS and regionKSC for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
+    // (regionKS for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
     regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
-    regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
-    // (regionKSC and regionKSCclip with the fill's values from its point pass, fillPts: drawRegionCarry, fillPoints)
+    // (the fill after regionKC: only the triangles the cached places tear, on their centre's sheet, each place read from
+    // the fill's point pass, fillPts: drawRegionCarry, fillPoints; regionKSCclippt for a clipped cut)
     regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS() },
-    // (the masks of regionKS, regionKSC and regionKSCpt: their vertex stage, CARRY_MASK_FS's fragments, so a torn
+    // (the masks of regionKS and regionKSCpt: their vertex stage, CARRY_MASK_FS's fragments, so a torn
     // triangle shows only where the map sends its points; started with them, prestartCarry, and drawn once linked:
     // carryPrep)
     regionKSm: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_KM_FS },
-    regionKSCm: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_KM_FS },
     regionKSCptm: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_KM_FS },
     regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
     fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
@@ -634,6 +631,7 @@ float wabs(vec2 w) {
   const L_ = (P, n) => P.loc[n] ?? null;
   const u1f = (P, n, v) => gl.uniform1f(L_(P, n), v);
   const u1i = (P, n, v) => gl.uniform1i(L_(P, n), v);
+  const u1iv = (P, n, v) => { const l = L_(P, n); if (l) gl.uniform1iv(l, v); };
   const u2f = (P, n, a, b) => gl.uniform2f(L_(P, n), a, b);
   const u3 = (P, n, v) => gl.uniform3f(L_(P, n), v[0], v[1], v[2]);
   const u4f = (P, n, a, b, c, d) => gl.uniform4f(L_(P, n), a, b, c, d);
@@ -1258,7 +1256,7 @@ float wabs(vec2 w) {
   // after its map cache pass: gate {e, skip, kpx, lim} is the cache entry, the skip buffer and the uKPx, uKLim the fill
   // draws with; gate.two: the second run too (uFPass 1), the places of the fill's pass 1, into tex1. -> {tex, tex1, W, P}
   // for the fill's uFT (unit 12), uFTW, uFTP; or null (fillPts compiling, no float target, too many points for one
-  // texture), and the fill evaluates its points itself
+  // texture), and the sheet program draws in the fill's place (carryPrep)
   function fillPoints(res, L, map, gate) {
     if (L > 2 || !rtOK) return null;
     const P = program('fillPts', map);
@@ -1323,7 +1321,7 @@ float wabs(vec2 w) {
     if (!res.tmp.get(slot)) {
       const e = { tex: floatTex(), W, H, P: tpl.P, bytes: W * H * 8, res, slot, key: '', t: performance.now(), carry: true };
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
-      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
+      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes; carryTmpT = e.t;
       sweepTmpLater();
     }
     const k = carryKinds();
@@ -1344,9 +1342,15 @@ float wabs(vec2 w) {
     meshVAO(res, L);
     return true;
   }
-  // (how many point passes have run: the tests' proof that the fill took its values from one)
+  // (the tests' record of the fill: runs, how many point passes have run; frames, the fill's frames drawn from the point
+  // pass (points) or with the sheet program standing in (standIn); reverts, frames that stood in after the point pass
+  // had drawn for the same fill program, so a program build switches to the point pass at most once)
   let fillPtsRuns = 0;
-  const fillPointsRuns = () => fillPtsRuns;
+  const fillStats = { points: 0, standIn: 0, reverts: 0 }, fillDrewPts = new WeakSet();
+  function noteFill(Q, pts) {
+    if (pts) { fillStats.points++; fillDrewPts.add(Q); } else if (Q && fillDrewPts.has(Q)) fillStats.reverts++; else fillStats.standIn++;
+  }
+  const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
   // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
   let carryProbe = {};
