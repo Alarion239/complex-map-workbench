@@ -1004,6 +1004,16 @@ section('(k) homotopy end points');
 // injective steps with one: Inverse.singularAfter pulls them back to the z-plane, and the lines break where their jump
 // scan would, along their whole reach. Anything else keeps the scan (Γ's poles run along a line's reach; a periodic
 // prefix has infinitely many preimages)
+// the points over w of an op list, walked back from its last op: each op's pre, or for a log family every member m
+// about its range kept where the member's lambda lies in it
+const preImages = (ops, w) => {
+  let us = [w];
+  for (let i = ops.length - 1; i >= 0; i--) {
+    const o = ops[i], F = o.fam, log = F && F.type === 'log';
+    us = us.flatMap((x) => (log ? [...Array(2 * F.count + 1).keys()].map((m) => F.member(x, m - F.count, F.L0(x))).filter((q) => q.lam.im > F.lo - 1e-12 && q.lam.im <= F.hi + 1e-12) : o.pre(x)).map((m) => m.u));
+  }
+  return us;
+};
 section('singularAfter (ζ after an injective plan)');
 {
   const pts = (out) => out.map((e) => cs(e.z) + ':' + e.kind).join(' ');
@@ -1067,10 +1077,7 @@ section('singularAfter (ζ after an injective plan)');
         let w = z;
         for (const o of h.ops) w = o.fwd(w);
         e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
-        let us = [v];
-        // (a log family's members: m about its range, kept when the member's lambda lies in it)
-        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12) : o.pre(x));
-        for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => pre(h.ops[i], x).map((m) => m.u));
+        const us = preImages(h.ops, v);
         if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
       }
       check(`homOps ${type} ${JSON.stringify(params)} at t = ${t}: exact ops (no NEWT) that compose to H_t and find z over H_t(z)`, h.ok && !/NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
@@ -1093,9 +1100,7 @@ section('singularAfter (ζ after an injective plan)');
   for (const t of [0.25, 0.5, 0.75]) {
     const o = InvOps.opNewt(t, b.hom, Inverse.stepOps(b).ops), Hh = b.hom(t);
     const h = Inverse.homOps(b, t), kinds = h.ok ? h.ops.map((q) => q.kind).join() : h.reason;
-    // (the exact chain's points over w: every member of each op's family, a log family's within its range)
-    const preOf = (q, x) => (q.fam && q.fam.type === 'log' ? [...Array(2 * q.fam.count + 1).keys()].map((m) => q.fam.member(x, m - q.fam.count, q.fam.L0(x))).filter((r) => r.lam.im > q.fam.lo - 1e-12 && r.lam.im <= q.fam.hi + 1e-12) : q.pre(x));
-    const exactPre = (w) => { let us = [w]; for (let k = h.ops.length - 1; k >= 0; k--) us = us.flatMap((x) => preOf(h.ops[k], x).map((r) => r.u)); return us.filter((u) => CX.isFin(u)); };
+    const exactPre = (w) => preImages(h.ops, w).filter((u) => CX.isFin(u));
     // (each branch's points over w: z = tanh((artanh w + i pi (k + t / 2)) / (1 + t)) on the disc, 1 / tanh((artanh(1 / w)
     // + i pi k) / (1 + t)) outside it, kept where H gives w back)
     const pts = (w) => {
