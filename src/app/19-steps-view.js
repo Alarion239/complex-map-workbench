@@ -353,16 +353,24 @@
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
   }
-  // The map from the plane j0 (a cut's own plane) to the picture of a svBetween result bt, for the cuts' image curves: the
-  // chain's steps between, then the glide's homotopy at its u; null where the picture has no image of that plane (past the
-  // plane, or across a d/dz step, or between the planes of an All-at-once run)
-  function svCutMapFor(bt) {
+  // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
+  const SV_CUT_THIN = 4;
+  // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
+  // - mapFor(j0): the map from the plane j0 (a cut's own plane) to the picture, the chain's steps up to the plane the glide
+  //   starts from, then the glide's homotopy at its u; null where the picture has no image of that plane (a plane past
+  //   the glide's, a d/dz step between, a middle plane of an All-at-once run);
+  // - pre: the cuts of the planes past the glide's, drawn as the preimages the plane it starts from shows at rest, carried
+  //   by the homotopy as every point of that plane is, so they meet the planes' own frames at both ends
+  // A picture at rest on a plane (or across a d/dz step) is that plane's
+  function svCutPlan(bt) {
     const P = svPlanes(), { a, b, u, H, all, near } = bt, still = u <= 1e-6 || b === a;
-    return (j0) => {
-      const upto = (k) => (j0 <= k && !derivIn(j0, k) ? rangeF(j0, k) : null);
-      if (still || isDeriv(b)) return upto(still ? a : near);
-      const base = upto(all ? P[bt.x0] : b - 1);
-      return base ? (z) => H(base(z)) : null;
+    if (still || isDeriv(b)) {
+      return { mapFor: (j0) => (j0 <= near && !derivIn(j0, near) ? rangeF(j0, near) : null), pre: { k: near, jMin: 0, H: null } };
+    }
+    const from = all ? P[bt.x0] : b - 1;
+    return {
+      mapFor: (j0) => (j0 <= from && !derivIn(j0, from) ? ((base) => (z) => H(base(z)))(rangeF(j0, from)) : null),
+      pre: { k: from, jMin: (all ? P[bt.x1] : b) + 1, H },
     };
   }
   // The steps view's deformation source for the paths t -> H_t(z) (classicSource's fields): the glide's run of planes
@@ -1222,7 +1230,7 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
-    if (!(still && rest)) drawCutCurvesAt(pane, svCutMapFor(bt));
+    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN); }
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
@@ -1363,7 +1371,7 @@
         drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
       } catch (e) { console.error('steps view globe paths', e); mfGlobeDrawn = { T: paths.T, heads: 0, error: String((e && e.message) || e) }; }
     }
-    if (info) drawCutCurvesAt(pane, svCutMapFor(bt), sphereProj(pane, info));
+    if (info) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, sphereProj(pane, info), cp.pre, u > 1e-6 && b !== a ? SV_CUT_THIN : 1); }
     leftSphereInfo = info;
   }
   // Inside regions: the region mask of plane k, drawn opaque into a canvas the size of the pane's
