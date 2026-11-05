@@ -469,7 +469,7 @@ const SoundHooks = (() => {
   // play crossing half-way; frames run whenever it does): the probe's function is another one, so the point under a still
   // pointer is picked again
   function sndFrame() {
-    if (A.sndP.on && A.sndP.sonify && SND) { const sk = sndSvKey(); if (sk !== snd.svk) { if (snd.svk != null) sndRelayout(); snd.svk = sk; } sndSvFollow(); }
+    if (A.sndP.on && A.sndP.sonify && SND) { const sk = sndSvKey(); if (sk !== snd.svk) { if (snd.svk != null) sndRelayout(); snd.svk = sk; } }
     const q = snd.rp;
     if (!q) return;
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.cxy) { snd.rp = null; return; }
@@ -488,9 +488,11 @@ const SoundHooks = (() => {
   // (#726) The steps view's thread moved (a glide, ▶, a scrub, a swipe) where the probe hears the colour deforming: a
   // resting probe follows it in this frame (sndRetrack, along the path in the point and the thread's place, exact in the
   // place as in the Deformation's t), so each frame the thread moved is heard at its own place, whatever order the page's
-  // frame callbacks run in. Where the colour at the place followed last changed under it (All at once turned on or off
-  // mid-glide) there is no path from it: a change without one
+  // frame callbacks run in. Called by frame() once the thread has moved and before the frame is drawn: on a software
+  // renderer the drawing's own work would slow the probe's 3 ms. Where the colour at the place followed last changed
+  // under it (All at once turned on or off mid-glide) there is no path from it: a change without one
   function sndSvFollow() {
+    if (!A.sndP.on || !A.sndP.sonify || !SND) return;
     const v = stepsView(), x = v ? v.x : null, last = snd.svx;
     if (x === last) return;
     const was = last != null && v ? v.segAt(last) : null;
@@ -1470,7 +1472,7 @@ const SoundHooks = (() => {
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   }
-  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
+  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndSvFollow, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
 })();
 import { $, DEG, TAU, h } from './util.js';
 import { CX } from './cx.js';

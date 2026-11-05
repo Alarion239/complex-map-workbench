@@ -32,7 +32,7 @@
     // (#580) svk, the steps view's plane last seen at the end of a frame (sndFrame): another one re-picks the probe;
     // svSaid, the plane where "no tone past the colour plane" was said last (once a plane)
     svk: /** @type {string | null} */ (null), svSaid: '',
-    // (#726) svx, the thread's place last followed at the end of a frame and svFam, the colour's family there (sndFrame);
+    // (#726) svx, the thread's place last followed and svFam, the colour's family there (sndSvFollow, once a frame);
     // pre, the last point found under a glide's map {fam, q, u, p}, where the next one starts (sndPre)
     svx: /** @type {number | null} */ (null), svFam: '', pre: null,
   };
@@ -46,20 +46,42 @@
   // plane no tone, #727), a d/dz step (no map: the picture jumps at ½), or a step whose homotopy is not analytic (Newton
   // needs its derivative)
   function svSoundSeg(x) {
+    const m = svSoundMemo, st = `${SV.T}|${SV.alone}|${SV.span ? SV.span.x0 + ',' + SV.span.x1 : ''}|${S.homAll ? 1 : 0}|${chainSig[nSteps()]}`;
+    if (m.st !== st) Object.assign(m, { st, x: NaN, seg: null });
+    if (x !== m.x) {
+      const s = m.seg;
+      m.x = x;
+      m.v = s && x > s.lo && x < s.hi ? { fam: s.fam, u: (x - s.x0) / s.len, G: s.G, H: s.H } : svSoundFind(x);
+    }
+    return m.v;
+  }
+  // svSoundSeg's last answer and the last segment between two planes it found, in the state they were found in (st: the
+  // colour plane, the planes, the span and the chain): the calls of an event read one place, and those along a frame's
+  // path differ in x alone. seg: where svBetween gives that segment, lo < x < hi (past plane a's 1e-6; short of plane b, and
+  // of half-way where b, the nearer plane past it, is not coloured), {lo, hi, x0, len, fam, G, H}
+  const svSoundMemo = { st: '', x: NaN, v: null, seg: null };
+  // svSoundSeg's answer at x worked out from svBetween; a segment between two planes is kept in svSoundMemo.seg
+  function svSoundFind(x) {
     const g = svBetween(x);
     if (!svColoured(g.a) || !svColoured(g.near)) return null;
     if (g.u <= 1e-6 || g.b === g.a) return { u: 0, G: svF(g.a) };
     const ks = g.all ? svPlanes().slice(g.x0 + 1, g.x1 + 1) : [g.b];
     if (!g.H || !ks.every((k) => built[k - 1] && built[k - 1].props && built[k - 1].props.analytic)) return null;
-    const map = (u) => (g.all ? { mode: 3, a: g.a, b: g.b, t: u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: u });
-    return { fam: `${g.a}>${g.b}${g.all ? '*' : ''}|${svT()}|${chainSig[nSteps()]}`, u: g.u, G: svF(g.a), H: (u) => cpuMap(map(u)) };
+    const map = (u) => (g.all ? { mode: 3, a: g.a, b: g.b, t: u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: u }), len = g.x1 - g.x0;
+    // (H at the last u asked kept: the probe's order cue reads the colour round it at one u, some fifty points)
+    let hu = NaN, hf = null;
+    const H = (u) => { if (u !== hu) { hu = u; hf = cpuMap(map(u)); } return hf; };
+    const at = { fam: `${g.a}>${g.b}${g.all ? '*' : ''}|${svT()}|${chainSig[nSteps()]}`, u: g.u, G: svF(g.a), H };
+    svSoundMemo.seg = { lo: g.x0 + 1e-6 * len, hi: svColoured(g.b) ? g.x1 - (g.all ? 1e-6 : 1e-9) : g.x0 + len / 2, x0: g.x0, len, fam: at.fam, G: at.G, H: at.H };
+    return at;
   }
   // (#580, #726) the steps view's plane as the sound reads it, null in the classic view. Pietro's calls (1 and 2 Nov): the
   // probe hears what the colours show, the map from the plane into the colour plane, and between two planes the colour as
-  // it deforms (svSoundSeg). k and T, the nearer plane's stage and the colour plane's; past, the colour plane's name when k
-  // is past it (its colour is carried from there, by the points: no tone, #727), else ''; playing, ▶ plays along the
-  // thread; segAt, the colour at a place on the thread. Read only when asked: seg, the colour at the thread's place x
-  // (svSoundSeg's); x, that place while the probe hears that colour, else null; key, what the probe's function is made of:
+  // it deforms (svSoundSeg). playing, ▶ plays along the thread; segAt, the colour at a place on the thread. Read only when
+  // asked (the sound reads a few of them many times an event): k and T, the nearer plane's stage and the colour plane's;
+  // past, the colour plane's name when k is past it (its colour is carried from there, by the points: no tone, #727), else
+  // ''; seg, the colour at the thread's place x (svSoundSeg's); x, that place while the probe hears that colour, else
+  // null; key, what the probe's function is made of:
   // the coloured thread, one function of the point and x, or where it does not deform, the nearer plane's map (the
   // readout's), re-seated where it switches; view, the camera the picture is drawn with: between two planes the one every
   // plane shares (S.srcView, svRenderMoving's), so a glide or ▶ is no view change under a still probe, else the plane's
@@ -67,12 +89,12 @@
   // plane's own variable where svF is the identity)
   const stepsView = () => {
     if (!SV.on) return null;
-    const k = leftStage(), T = svT();
-    let found;
+    let found, k, T;
     const here = () => (found === undefined ? (found = svSoundSeg(SV.g.x)) : found);
-    return { k, T, past: k > T ? svName(T) : '', playing: !!SV.play, segAt: svSoundSeg,
-      get seg() { return here(); }, get x() { return here() ? SV.g.x : null; }, get key() { return here() ? `~${T}|${svPlanes().join(',')}` : `${k}>${T}`; },
-      get view() { return here() && here().H ? S.srcView : leftView(); }, get F() { return svF(k); }, get name() { return svColoured(k) ? svKeyName(k) : svName(k); } };
+    const kk = () => (k === undefined ? (k = leftStage()) : k), tt = () => (T === undefined ? (T = svT()) : T);
+    return { get k() { return kk(); }, get T() { return tt(); }, get past() { return kk() > tt() ? svName(tt()) : ''; }, playing: !!SV.play, segAt: svSoundSeg,
+      get seg() { return here(); }, get x() { return here() ? SV.g.x : null; }, get key() { return here() ? `~${tt()}|${svPlanes().join(',')}` : `${kk()}>${tt()}`; },
+      get view() { return here() && here().H ? S.srcView : leftView(); }, get F() { return svF(kk()); }, get name() { return svColoured(kk()) ? svKeyName(kk()) : svName(kk()); } };
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
@@ -120,6 +142,7 @@
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }
   function sndRelayout(...args) { return SH.sndRelayout(...args); }
   function sndFrame(...args) { return SH.sndFrame(...args); }
+  function sndSvFollow(...args) { return SH.sndSvFollow(...args); }
   function sndOverlay(...args) { return SH.sndOverlay(...args); }
   function sndCollide(...args) { return SH.sndCollide(...args); }
   function sndLoopDone(...args) { return SH.sndLoopDone(...args); }

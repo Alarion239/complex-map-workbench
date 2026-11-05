@@ -446,6 +446,7 @@
     }
     if (tweens.length) { stepTweens(ts); again = true; }
     if (svFrame(ts)) again = true;
+    sndSvFollow();   // (sound: a probe resting on the steps view's plane follows the thread's move, before the frame is drawn)
     if (trans.glide) {
       if (stepPeek(ts)) again = true;
     } else if (trans.k) {
