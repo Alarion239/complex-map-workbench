@@ -150,7 +150,7 @@
   // Inspector on screen, the default ray 1/3 or level 1.1 is added)
   function dhFocusAdd(k, kind) {
     selected = null; zpSel = null;
-    setSel(k); syncSel(); buildShapeList(); requestRender('P');
+    setSel(k); buildShapeList(); requestRender('P');
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = /** @type {HTMLInputElement | null} */ (document.getElementById(`dh${k}_${kind}`));
       if (el && el.getClientRects().length) { el.focus(); el.select(); } else dhAddShape(k, kind, kind === 'dhray' ? '1/3' : '1.1');
@@ -392,7 +392,7 @@
     if (dt) setTargets([]);
     if (ds) shapesChanged(true);
     if (dt) targetsChanged(true);
-    buildPipeline(); commit();
+    chainRebuilt(); commit();
     undoToast(ds && dt ? $t('Shapes and targets cleared.') : ds ? $t('Shapes cleared.') : $t('Targets cleared.'));
   }
   function buildShapeList() {

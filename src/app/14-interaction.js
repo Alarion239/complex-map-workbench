@@ -307,7 +307,7 @@
         clipWin = nb;
         setOpt('clipWin', clipWin);
         if (rightAuto && rImage()) fitRight(true);
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R');
       }
       save();
   };
@@ -1086,7 +1086,7 @@
         requestRender(drag.side === 'L' ? 'L' : 'R');
         return;
       }
-      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R', 'T'); return; }
+      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1466,13 +1466,13 @@
         scheduleFix();
         commit();
       }
-      requestRender('L', 'R', 'T', 'OL');
+      requestRender('L', 'R', 'OL');
       return;
     }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
       if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
-      requestRender('L', 'R', 'T');
+      requestRender('L', 'R');
     }
     if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
@@ -1555,7 +1555,7 @@
       if (morph.open && key === 'k') { e.preventDefault(); togglePlay(); return; }
       if (morph.open && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); morphTick(e.key === 'ArrowRight' ? 1 : -1); return; }
       // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
-      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
+      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
         const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
         if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }
       }

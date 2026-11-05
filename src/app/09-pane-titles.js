@@ -99,7 +99,7 @@
     // (one title for the merged plane and the merged globe)
     // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
     // carry the "Y · " tag)
-    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && bracketWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
+    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && rangeWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
     else if (S.focus === 0) {
       // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
@@ -149,15 +149,12 @@
     $('rightFit').hidden = !rImage();
     $('leftFit').hidden = false;
     buildRightFoot();
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.card'))) c.classList.toggle('focus', +c.dataset.k === S.focus);
-    syncSel();
-    $('viewAllBtn').setAttribute('aria-pressed', String(S.focus === 0));
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
     updateToolHint();
     updateLeds();
     drawLegend();
-    updateBracket();   // (v16: the deformation's bracket shows with the transport on the whole chain)
+    syncRangeRows();
   }
   // segmented controls: mark the selected segment and move the sliding thumb
   // the sliding marker of the segmented controls is placed for every control that changed in one pass at the next
@@ -503,7 +500,7 @@
     const T = svT(), P = svPlanes(), p = svNameHtml(T);
     const rows = h('div', { class: 'cp-rows' });
     const fill = () => rows.replaceChildren(...colourScrubs(false, 'Pop'),
-      checkEl('linesChkPop', S.lines, $t('Grid lines on regions'), (v) => { setOpt('lines', v); requestRender('L', 'R', 'T'); drawLegend(); save(); }));
+      checkEl('linesChkPop', S.lines, $t('Grid lines on regions'), (v) => { setOpt('lines', v); requestRender('L', 'R'); drawLegend(); save(); }));
     const style = styleSeg('dcSegPop');
     for (const b of style.children) b.addEventListener('click', () => fill());
     fill();
@@ -1002,7 +999,6 @@
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
     morph.open = false; morph.playing = false; morph.seg = null; snd.morphArm = false;
     morph.T = morphLen();
-    syncPlaying();
     soundFunctionChanged(); sndRelayout();
     if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
     applyLayout();
@@ -1452,5 +1448,5 @@
   // (#385) the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R'); });
   }

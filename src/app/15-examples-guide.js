@@ -266,7 +266,7 @@
     syncPalBtn();
     if (!changed || !paneL) return;
     drawLegend();
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   function syncPalBtn() {
     const b = $('palBtn');
@@ -394,8 +394,6 @@
     lay.classList.toggle('hide-right', !!S.hideRight);
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
-    $('pipeline').classList.toggle('compact', !!S.compact);
-    setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
     const panes = document.querySelector('.panes');
     // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
     // so it reads as a view of its own, not an expanded pane
@@ -429,7 +427,7 @@
       layoutFoot();
       sourceViewChanged();
       if (rightAuto && rImage() && solo() !== 'L') fitRight();
-      requestRender('L', 'R', 'T');
+      requestRender('L', 'R');
       sndRelayout();   // (sound: the plane under a still pointer moved)
     }
   }
@@ -461,7 +459,7 @@
     $('meshRange').value = meshToPos(n);
     showMeshVal(n);
     if (rightAuto && rImage()) fitRight();
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
     save();
   }
 
@@ -602,7 +600,7 @@
       hgt = Math.max(96, Math.min(r.height * 0.5, hgt));
       for (const snapTo of [96, 188]) if (Math.abs(hgt - snapTo) < 12) hgt = snapTo;
       document.documentElement.style.setProperty('--chain-h', Math.round(hgt) + 'px');
-      setOpt('compact', hgt < 140); $('pipeline').classList.toggle('compact', S.compact); setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
+      setOpt('compact', hgt < 140);
     }, () => store('cmw-chain-h2', parseInt(getComputedStyle(stage).getPropertyValue('--chain-h')) || 188));
     const col = $('gutterCol');
     if (col) {
@@ -781,10 +779,10 @@
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
     }
   }
-  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between the
-  // areas (the top bar, the tools, X, Y, the chain, the Inspector; in the steps view the top bar, the tools, the
-  // plane, the thread, the Inspector). A phone keeps every control a stop
-  const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
+  // a laptop's tool grids are one Tab stop each, the arrows move inside, and F6 moves between the areas (the top bar,
+  // the tools, X, Y, the Inspector; in the steps view the top bar, the tools, the plane, the thread, the Inspector). A
+  // phone keeps every control a stop
+  const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
   const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
@@ -838,7 +836,6 @@
       { id: 'tools', el: () => act('#tools'), has: (el) => !!el.closest('#secDraw, #railTools') },
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
       { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
-      { id: 'chain', el: () => act('#pipeline'), has: (el) => !!el.closest('#pipeline') },
       // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
       { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
@@ -868,26 +865,11 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'pipeline', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
+    for (const id of ['shapeList', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }
     roveRadios(); roveGroups();
-  }
-  // radiogroups without their own handler: arrows (and Home/End) move the checked radio and the focus with it
-  function radioKeys(group) {
-    group.addEventListener('keydown', (e) => {
-      const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-      if (!dir && e.key !== 'Home' && e.key !== 'End') return;
-      const rs = [...group.querySelectorAll('[role="radio"]')];
-      const i = rs.findIndex((r) => r.getAttribute('aria-checked') === 'true');
-      const j = e.key === 'Home' ? 0 : e.key === 'End' ? rs.length - 1 : Math.max(0, Math.min(rs.length - 1, i + dir));
-      e.preventDefault();
-      if (j === i || !rs[j]) return;
-      rs[j].click();
-      const on = group.querySelector('[role="radio"][aria-checked="true"]');
-      if (on) on.focus({ preventScroll: true });
-    });
   }
   // toast with an optional action (used instead of confirmation dialogs).
   // An Undo toast is bound to the history entry it announces: it undoes exactly that action, and the next
@@ -913,10 +895,6 @@
     if (!host) return;
     const st = host.style;
     const clear = () => { if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
-    // (D1, issue #23) Clear chain gives the chain head's room to a message placed there, and is back when it goes (the
-    // message has its own Undo)
-    const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
-    away(false);
     // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
     if (document.documentElement.classList.contains('ph')) { clear(); return; }
     if (!host.firstElementChild) return;
@@ -951,26 +929,6 @@
         for (const r of keys) if (r.bottom > top - 80) hi = Math.min(hi, r.left - 8);
       }
     } else {
-      // ([v16.5 fix regress-3, the user's rule "nothing covers the work area uninvited"] a desktop's message goes in the
-      // chain head's free middle, between its title and Pictures | Names, when it fits there whole on one line: it then
-      // covers neither a plane nor a control. Only a message too long for it goes above the chain, as UX80 placed it)
-      const hd = document.querySelector('.pipe-head'), grow = hd && hd.querySelector(':scope > .grow'), hb = box(hd);
-      if (hb && grow && hb.height > 0 && hb.height < 60 && host.children.length === 1) {
-        away(true);
-        const kids = [...hd.children].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none'), gi = kids.indexOf(grow);
-        const a = gi > 0 ? Math.max(...kids.slice(0, gi).map((e) => e.getBoundingClientRect().right)) : hb.left;
-        const b = gi >= 0 && gi < kids.length - 1 ? Math.min(...kids.slice(gi + 1).map((e) => e.getBoundingClientRect().left)) : hb.right;
-        host.setAttribute('data-placed', 'head'); st.maxWidth = 'none';
-        const tw = host.firstElementChild.getBoundingClientRect(), room = b - a - 24;
-        if (room >= 160 && tw.width <= room && tw.height <= hb.height) {
-          st.left = Math.round((a + b) / 2) + 'px';
-          st.bottom = Math.round(H - hb.bottom + (hb.height - tw.height) / 2) + 'px';
-          st.maxWidth = Math.round(room) + 'px';
-          return;
-        }
-        away(false);
-        host.setAttribute('data-placed', '');
-      }
       // the planes side by side: between X's and Y's button columns; one plane: left of its own
       const stacks = ['paneL', 'paneR'].map((id) => { const p = $(id); return p && p.getClientRects().length ? box(p.querySelector('.viewstack')) : null; });
       const plots = ['plotL', 'plotR'].map((id) => box($(id)));
@@ -1023,7 +981,7 @@
   // they reassign as getters (and setters for the state they write)
   function examplesApi() {
     return {
-      EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette,
+      EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,

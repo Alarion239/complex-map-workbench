@@ -152,9 +152,9 @@
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
-    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R', 'T'); });
+    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R'); });
     GLR.init();
-    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); requestRender('L', 'R', 'T'); };
+    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); requestRender('L', 'R'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
     GLR.onLost = () => requestRender('L', 'R');
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
@@ -182,8 +182,7 @@
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
-      // (thumbnails too: one drawn forward before an inverse program landed is redrawn; the others hit their cache)
-      if (!w || w.main) { requestRender('L', 'R'); requestRender('T'); prestartModesIdle(); }
+      if (!w || w.main) { requestRender('L', 'R'); prestartModesIdle(); }
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
@@ -236,7 +235,6 @@
     setupShell();
     applyLayout();
     setupPaneButtons();
-    setupChainHead();
     setupDrawControls();
     setupHeaderButtons();
     setupEscSound();
@@ -246,7 +244,7 @@
     // (a notice whose theme is the one already read is skipped: the export's one-off read of the light tokens)
     const themeKey = () => `${document.documentElement.getAttribute('data-theme')}|${document.documentElement.className}|${matchMedia('(prefers-color-scheme: dark)').matches}`;
     let themeSeen = themeKey();
-    const themeChanged = () => { const k = themeKey(); if (k === themeSeen) return; themeSeen = k; readTheme(); buildDisplay(); buildShapeList(); drawLegend(); for (const k in rulerCache) rulerCache[k] = null; requestRender('L', 'R', 'T'); };
+    const themeChanged = () => { const k = themeKey(); if (k === themeSeen) return; themeSeen = k; readTheme(); buildDisplay(); buildShapeList(); drawLegend(); for (const k in rulerCache) rulerCache[k] = null; requestRender('L', 'R'); };
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChanged);
     new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
 
@@ -254,7 +252,7 @@
       try {
         rebuild();
         buildShapeList();
-        buildPipeline();
+        chainRebuilt();
         hist = [snap()]; hi = 0;
         // after a language switch, the undo history comes back too (I18N.onSwitch above)
         let swUi = null;
@@ -266,7 +264,7 @@
         // keeps the selection, review russian-6 and verify-8)
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
-        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
+        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { deleteOpt('deform'); openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)

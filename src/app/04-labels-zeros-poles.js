@@ -635,7 +635,7 @@
     const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
     // (two columns while every value fits one, as zpFields lays them out)
     const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
-    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
       const row = el.closest('.zp-item');
       if (row) row.classList.toggle('wide1', wide);
       if (document.activeElement === el) continue;
@@ -644,19 +644,11 @@
       if (v != null && el.value !== zpShow(v)) { el.value = zpShow(v); el.classList.remove('bad'); }
     }
   }
-  // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
-  function refreshZpCard(k) {
+  // the Inspector's parameter fields of step k again (after a zero or pole was added or removed)
+  function refreshZpFields(k) {
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return;
-    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p']]) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      const top = el.scrollTop;
-      el.innerHTML = '';
-      el.append(zpFields(st, k, pre));
-      el.scrollTop = top;
-    }
-    if (insp) insp.refreshParams(k);   // (the Inspector's editor)
+    if (insp) insp.refreshParams(k);
   }
   function zpSet(k, kind, i, v) {
     const st = S.steps[k - 1];
@@ -700,7 +692,7 @@
     zpSel = { k, kind, i: list.length - 1 };
     if (selected) { selected = null; buildShapeList(); }
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     return list.length - 1;
   }
   // the Inspector's Add zero / Add pole (DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
@@ -712,7 +704,7 @@
     commit();
     requestRender('OL');
     sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }));
-    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"], #pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
+    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
     if (inp) inp.scrollIntoView({ block: 'nearest' });
   }
   function zpRemove(k, kind, i) {
@@ -727,7 +719,7 @@
     else if (zpSel && zpSel.k === k && zpSel.kind === kind && zpSel.i > i) zpSel.i--;
     zpHover = null;
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     commit();
     requestRender('OL');
   }
@@ -859,7 +851,7 @@
     // (a field emptied, or holding a list '0.5, 0.5i': the card again, one field per item, so fields and handles
     // keep their indices)
     input.addEventListener('change', () => {
-      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpFields(k); syncZpFields(k); }
       else if (input.value !== zpShow(zpRaw(input))) input.value = zpShow(zpRaw(input));
       commit();
     });
@@ -886,7 +878,7 @@
     setFocus(k);
     commit();
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
-    return cardButton(k);
+    return null;
   }
   // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
   // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger

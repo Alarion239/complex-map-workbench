@@ -2100,7 +2100,7 @@
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
       // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
       // #448; the classic key handler's exclusions, 14-interaction.js): only the thread's own keys pass)
-      if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
+      if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
       if ((e.shiftKey || onRail) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault(); e.stopImmediatePropagation();
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
@@ -2734,17 +2734,15 @@
     setFocus(S.focus);
     setSel(k);
     if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
-    syncSel();
     commit();
     soundCue('stepAdd');
     tourEmit('formula-split', { k, n });
-    bornCards(k, n);
     requestRender('P');
     const shown = alone && !only && n > 1 ? ' ' + (document.documentElement.classList.contains('ph') ? $t('Showing f{k} alone.', { k: sub(k) }) : $t('Showing f{k} alone; › shows the next step.', { k: sub(k) })) : '';
     undoToast((n === 1 ? $t('f{k} is now the step “{name}”.', { k: sub(k), name: Funcs.DEFS[news[0].type].label })
       : $t('Split f{k} into f{k}–f{k2}: {chain}.', { k: sub(k), k2: sub(k + n - 1), chain: sp.names.join(' → ') })) + shown);
-    // (the card, focusable, for the ⋯ menu's focus; true while the chain is still to be drawn; null is a refusal)
-    return document.querySelector(`#pipeline .card[data-k="${k}"]`) || true;
+    // (true: split; null is a refusal)
+    return true;
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);

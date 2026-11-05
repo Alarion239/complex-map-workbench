@@ -13,7 +13,7 @@ const MorphPaths = (() => {
     morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
     patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
     resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-    sub, syncPlaying, trans, transState, tweens, updateCalcChip;
+    sub, trans, transState, tweens, updateCalcChip;
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
   // caption explains them, dots at m/4 and 3m/4); steps one after another have an arrowhead in the middle of each step
   // (t = k - 1/2: never on the corner where the steps meet) and a bar across the path at each step's end inside the
@@ -1060,7 +1060,6 @@ const MorphPaths = (() => {
     // (a phone's transport labels, SPEC 6.6)
     const fs = /** @type {HTMLElement | null} */ (sl && sl.closest('.tscrub[data-fit="1"]'));
     if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of /** @type {NodeListOf<HTMLElement>} */ (fs.querySelectorAll('.tfix'))) x.hidden = true; delete fs.dataset.fit; } }
-    syncPlaying();
     const lab = $('morphLabel');
     if (lab) setText(lab, morphReadout(lab.dataset.short === '1'));
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) {
@@ -1151,7 +1150,7 @@ const MorphPaths = (() => {
 
   function init(api) {
     A = api;
-    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
+    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, trans, transState, tweens, updateCalcChip } = api);
   }
   return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
 })();

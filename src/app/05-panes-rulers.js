@@ -1012,8 +1012,8 @@
   function globeResult(role, s, res, live, fwd) {
     if (live && res === 'pending' && fwd) noteStandIn(role, s.id, fwd.map((f) => [f.res, f.st && f.st.cacheKey]));
     if (live) notePath(role, s.id, res === 'drawn' ? 'inverse' : res === 'pending' ? 'pending' : 'forward');
-    if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
-    else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
+    if (res === 'pending' && live) { invWaiting.add(role); invPendN++; }
+    else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); if (w.length) requestRender(...w); }
     if (res === 'error' && GLR.inverseStatus(S.alpha, 'globe') === 'error') {
       const k = (GLR.inverseInfo || {}).key || '';
       if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
@@ -1327,12 +1327,12 @@
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
     if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
-    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R', 'T'); drawLegend(); save(); });   // (#363: Y's key chip names the grid's cell only while its lines are drawn)
+    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (#363: Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
-    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R', 'T'); save(); });
+    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R'); save(); });
+    $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R'); save(); });
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
-    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
+    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
   }
