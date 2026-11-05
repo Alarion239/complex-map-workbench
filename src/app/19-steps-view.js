@@ -556,10 +556,13 @@
   // dcolor(f_T ∘ … ∘ f_1(z)), wherever the map takes it. Where several points land on one pixel, the one in front is
   // the tiling's own: the one nearest the window's centre, away from the map's poles (Inverse.sheetKey, svSheetKey)
   const SV_ALL = { id: '__svAll', kind: 'disc', c: [1e9, 0], r: 1e-6, complement: true, visible: true };
-  function svCarryShapes() {
+  // hom: a glide's frame, where a region of plane k holds the points z of plane 0 whose F_{0->k}(z) it holds (the inverse
+  // pass tests it there), so the regions of later planes are drawn too. null: a region of a later plane the frame cannot
+  // take (at rest, any; in a glide, one behind a d/dz step)
+  function svCarryShapes(hom) {
     if (SV.scope !== 'in' || !svMaskOn()) return [SV_ALL];
     const areas = visibleAreas();
-    return areas.some((x) => shapeStage(x)) ? null : areas;
+    return areas.some((x) => shapeStage(x) && (!hom || derivIn(0, shapeStage(x)))) ? null : areas;
   }
   // the sheet key's parameters for the image on plane b: the region tiling's own (smKeyOf: clipWin, half its diagonal
   // R, R / 8, Inverse.keySing of the map to b; with no inverse plan to b, the window alone), the one key the inverse
@@ -849,13 +852,16 @@
   // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
   // the first reason unless every shape takes that path
   function svInvPaths(b, u, kind, why) {
-    const list = svCarryShapes();
-    if (!list || !list.length) { why.r = 'a region of a later plane'; return null; }
+    const hom = u != null, list = svCarryShapes(hom);
+    if (!list || !list.length) { why.r = hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
     if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
-    const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
+    const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     const singAt = () => svSheetKeyAt(b, u).sing;
-    const paths = list.map((x) => (u == null ? pathOf(x, stageMap(b), 'L', kind, { recs, budget: false }) : invHomPath(x, 0, b, u, singAt)));
+    // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation)
+    let whole = null;
+    const paths = list.map((x) => (!hom ? pathOf(x, stageMap(b), 'L', kind, { recs, budget: false })
+      : shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, u, singAt)) : invHomPath(x, 0, b, u, singAt)));
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return null; }
     // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
@@ -866,7 +872,14 @@
   }
   // drawInverse's arguments (without the view) for one shape's inverse path p
   const SV_CARRY_LOOK = { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false };
-  const svInvArg = (pane, p, shape, carry) => ({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: SV_CARRY_LOOK, carry, half: false, motion: false, coldOk: true });
+  // alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
+  // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
+  // as the band's outer edge
+  const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf) => {
+    const a = alphaOf ? alphaOf(shape) : 1;
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: alphaOf ? Object.assign({}, SV_CARRY_LOOK, { alpha: a, alphaOwn: a }) : SV_CARRY_LOOK,
+      carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
+  };
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
   // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
@@ -881,7 +894,8 @@
   // not ('error' when it threw). A shape drawn already stays: the next path draws over it
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
   // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
-  function svDrawInverse(pane, list, paths, T, gl, t) {
+  // (alphaOf, edgeOf: svInvArg's)
+  function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
     if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
@@ -894,7 +908,7 @@
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry), { nr }));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf), { nr }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -926,7 +940,7 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true }) === 'pending')) return null;
+    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1479,6 +1493,31 @@
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
   }
+  // Inside regions between two planes: the alpha of the regions of later planes in the open frame, by the inverse pass
+  // (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's map), at the opacity they have
+  // at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA), which writes alpha alone under the
+  // caller's write mask. Nothing when none is visible or the pass cannot draw them
+  function svStagedMask(pane) {
+    const st = svStagedOf();
+    if (!st) return;
+    // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
+    // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
+    // opaque line that drawPreimage draws at rest, so the carried colour shows stronger there)
+    const nearer = (x) => shapeStage(x) <= st.g.near;
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => (nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
+    const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
+    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ w: pullBandW(x, pane.dpr), a: PULL_EDGE_A }));
+  }
+  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
+  // when there is none or the pass cannot draw them
+  function svStagedOf() {
+    const g = svBetween();
+    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
+    const h = svHomMemo && svHomMemo.b === g.b && svHomMemo.u === g.u ? svHomMemo.h : svInvPaths(g.b, g.u, 'flat', { r: null });
+    if (!h) return null;
+    const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
+    return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
+  }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
   // - on the GPU, in one frame and one copy to the page (#545): the regions' fills (drawScene's fills, #561) write the
@@ -1516,6 +1555,7 @@
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
+          else svStagedMask(mp);
           GLR.writeMask(true, false);
           o.paint();
           GLR.writeMask(true, true);

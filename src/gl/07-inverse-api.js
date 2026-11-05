@@ -36,10 +36,13 @@
     for (const s of list || []) {
       if (!s || s.visible === false || !TKIND[s.kind] || TKIND[s.kind] > 10) continue;
       const gk = gKind(s);
-      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
+      // stage: the plane the shape lies on; a shape of plane k > 0 holds the points z of plane 0 whose F_{0->k}(z) it
+      // holds, so its clip primitive and box (in its own plane) say nothing of z
+      const stage = Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
+      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
       recs.set(s.id, rec);
       let prim = null;
-      try { prim = Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
+      try { prim = Region.clipPrimitive && !stage ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
       const pk = packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
@@ -69,7 +72,7 @@
       rec.clipU.set(data.slice(n0 + 4, n0 + 4 + 64));
       // the early-out box (polygons, bounded formulas); x0 > x1: none
       rec.box = [1, 1, 0, 0];
-      if (!s.complement && (s.kind === 'polygon' || s.kind === 'formula')) {
+      if (!stage && !s.complement && (s.kind === 'polygon' || s.kind === 'formula')) {
         let bb = null;
         try { bb = s.kind === 'polygon' ? Region.bboxOf(s) : Region.formulaBox(s); } catch (e) { bb = null; }
         if (bb && [bb.x0, bb.x1, bb.y0, bb.y1].every(Number.isFinite) && bb.x0 <= bb.x1 && bb.y0 <= bb.y1) rec.box = [bb.x0, bb.y0, bb.x1, bb.y1];
@@ -130,6 +133,12 @@
   // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
   // footprint down is G'(z) dY from the one across, else G at z + dY too
   const INV_CARRY = { carry: true, pre: '', main: '' };
+  // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
+  // test adds weigh on the programs that never draw one)
+  const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
+  const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
@@ -164,7 +173,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         : k.map((i) => `uniform highp sampler2D uNrTex${i};\n`).join('') + 'uniform int uNrRead;\n');
   }
   // the part of an inverse program's key that its extra source adds
-  const extraKey = (extra) => (extra ? (extra.carry ? 'carry|' + (extra.nrPass ? 'nr:' + hashStr(extra.main) + '|' : '') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '');
+  const extraKey = (extra) => (extra ? (extra.carry ? carryKey(extra) + '|' + (extra.nrPass ? 'nr:' + hashStr(extra.main) + '|' : '') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '');
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
@@ -225,7 +234,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
-    const ik = inv.key + (extra && extra.carry ? '|carry' : '') + (extra && extra.nrPass ? '|nr' : '');
+    const ik = inv.key + (extra && extra.carry ? '|' + carryKey(extra) : '') + (extra && extra.nrPass ? '|nr' : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
     const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
@@ -261,7 +270,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // build, stalled the GPU process 75-200 ms: P2 review)
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
-    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
+    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|' + carryKey(extra) : ''))) return null;
     const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const order = [3, 5, INV_B_MAX].filter((b) => b !== Bwant).sort((a, b) => (a > Bwant) !== (b > Bwant) ? (a > Bwant ? -1 : 1) : (a > Bwant ? a - b : b - a));
     for (const B of order) {
@@ -533,14 +542,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
-  // the state of the program drawInverse(st) would draw with, nothing drawn: 'ready' (it or a ready B class of it
+  // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
   // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
   // as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? INV_CARRY : st.extra;
+    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
@@ -554,7 +563,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
     // globe)
-    const extra = st.carry ? INV_CARRY : st.extra;
+    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
@@ -603,7 +612,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
-    u1i(P, 'uIxTail', d.tail);
+    u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
+    u1i(P, 'uShStage', rec.stage);
+    // st.edge {w, a}: the boundary band alone, w device px wide at alpha a (a shape of a later plane only: the band and the
+    // grow live in the staged program). uEdgeW is the band's half width: it reaches w / 2 to each side of the boundary
+    const staged = rec.stage > 0;
+    u1i(P, 'uEdgeOnly', staged && st.edge ? 1 : 0);
+    if (staged && st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u1f(P, 'uEdgeA', st.edge.a); }
+    u1f(P, 'uStageGrow', staged ? st.grow || 0 : 0);
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
@@ -652,7 +668,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u4f(P, 'uShBox', ...rec.box);
     // look (regionUniforms with the pattern origin Q = 0: the walk's z is absolute)
     regionUniforms(P, Object.assign({ pattern: 'solid' }, look, { dpr: st.dpr || 1 }), [0, 0]);
-    if (extra === INV_CARRY) {
+    if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
       u1i(P, 'uPattern', 9);
@@ -968,7 +984,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // globe passes drawn with a scissor (globeScissorOf) and their scissored device px (tests)
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
     // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program)
-    _src: { DEFS, warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    _src: { DEFS, warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
     createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, updatePreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
