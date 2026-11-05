@@ -917,26 +917,20 @@
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
-    // (#515, ux's choice A on the layout check: in the steps view a message takes only the thread's rail, whose planes and
-    // steps step aside while it shows; the < > and the speed stay live, and going on through the thread dismisses it)
-    const strip = $('svStrip'), stripAway = (on) => { if (strip) strip.classList.toggle('sv-toast', on); };
-    stripAway(false);
     // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
     if (document.documentElement.classList.contains('ph')) { clear(); return; }
     if (!host.firstElementChild) return;
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
-    const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
-    // (the F chip and "+ Add function" beside the rail step aside with the planes, and the message takes their room too)
-    const aside = rail ? [strip.querySelector('.sv-wholemap'), strip.querySelector('.sv-add')].map(box).filter(Boolean) : [];
-    const room = rail ? Math.max(rail.right, ...aside.map((b) => b.right)) - rail.left : 0;
-    if (rail && rail.width >= 160 && host.children.length === 1) {
-      stripAway(true);
-      host.setAttribute('data-placed', 'rail');
-      st.left = Math.round(rail.left + room / 2) + 'px';
-      st.maxWidth = Math.round(room - 8) + 'px';
-      const tw = host.firstElementChild.getBoundingClientRect();
-      st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
+    // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
+    // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it replaces nothing)
+    const plot = document.documentElement.classList.contains('sv') ? box($('plotL')) : null;
+    if (plot && plot.width >= 240) {
+      const sb = box($('svStrip')), floor = sb && sb.top > plot.top ? Math.min(plot.bottom, sb.top) : plot.bottom;
+      host.setAttribute('data-placed', 'plot');
+      st.left = Math.round(plot.left + plot.width / 2) + 'px';
+      st.maxWidth = Math.round(plot.width - 128) + 'px';
+      st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
     const chain = box(document.querySelector('.pipe-wrap'));

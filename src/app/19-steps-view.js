@@ -203,15 +203,8 @@
   }
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
-  // (#515) a message placed over the thread's rail goes, by the message's own close, when the thread is gone through again
-  let svToastWired = false;
-  function svDismissToast() {
-    const th = document.getElementById('toastHost');
-    if (th && th.getAttribute('data-placed') === 'rail') for (const t of th.querySelectorAll(':scope > .toast')) t.remove();
-  }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
-    svDismissToast();
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
@@ -1548,6 +1541,9 @@
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
+    // (the scrubber's spoken value follows the glide and is written only when its words change: never every frame)
+    const said = svReadout() + svRangeText();
+    if (said !== E.said) { E.said = said; E.slider.setAttribute('aria-valuetext', said); }
     if (sig !== E.headSig) {
       E.headSig = sig;
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
@@ -1575,7 +1571,6 @@
       $('paneL').setAttribute('aria-label', svLabel());
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
       E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
-      E.slider.setAttribute('aria-valuetext', svPlaceText() + svRangeText());
       svPlaySync();
       // (#437: an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
       const none = P.length < 2;
@@ -1791,6 +1786,16 @@
     if (typeof layoutFoot === 'function') layoutFoot(true);
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
+  // the thread's place as the scrubber speaks it, in the classic Deformation readout's words: inside a step "Step 1 of 2 · f₁ · 84 %",
+  // across a span that glides all at once "All steps at once · 84 %", on a plane "Plane w₁, 2 of 3"; the percentage is whole, so the
+  // text changes only when it does
+  function svReadout() {
+    const P = svPlanes(), x = Math.max(0, Math.min(P.length - 1, SV.g.x)), r = Math.round(x), sp = SV.span;
+    if (sp && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6) return $t('All steps at once · {p} %', { p: Math.round(100 * (x - sp.x0) / (sp.x1 - sp.x0)) });
+    if (Math.abs(x - r) <= 1e-6) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: r + 1, n: P.length });
+    const a = Math.floor(x), k = P[a + 1];
+    return $t('Step {k} of {m} · {f} · {p} %', { k: a + 1, m: P.length - 1, f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: Math.round(100 * (x - a)) });
+  }
   function svPlaceText() {
     const P = svPlanes(), x = SV.g.x;
     if (!svParked()) return svName(svStage());
@@ -1832,25 +1837,21 @@
     tourEmit('surface-changed', { s: SV.surf });
     return SV.surf;
   }
+  let svToastWired = false;
   // the strip: a press on a plane goes there; a drag along it scrubs through the deformation, and the glide settles on
   // the nearest plane when it is let go
   function svStripWire(strip, track) {
     const rail = strip.querySelector('.sv-rail');
-    // (#515) every way of going on dismisses a message over the rail (svGo, svNudge); a press on the rail also does (a scrub)
-    const dismissToast = svDismissToast;
-    strip.addEventListener('click', (e) => { if (e.target.closest('.sv-nav')) dismissToast(); }, true);
-    rail.addEventListener('pointerdown', dismissToast, true);
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
     rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
-    // (ux on #460: a press on the message's body only dismisses it and brings the rail back: the rail is hidden under it, so the
-    // press must not act on a plane the user cannot see; its own buttons keep their action)
+    // (a press on a message's body dismisses it; its own buttons keep their action)
     const th = document.getElementById('toastHost');
     if (th && !svToastWired) {
       svToastWired = true;
       th.addEventListener('click', (e) => {
         const t = e.target instanceof Element ? e.target.closest('.toast') : null;
-        if (t && th.getAttribute('data-placed') === 'rail' && !(e.target instanceof Element && e.target.closest('button'))) dismissToast();
+        if (t && SV.on && !(e.target instanceof Element && e.target.closest('button'))) t.remove();
       });
     }
     // (the thread's position under the pointer: between the centres of the planes' nodes, in proportion)
@@ -1959,7 +1960,6 @@
   }
   // a quarter of a step along the thread, at once (it stops between two planes, or settles on one it reaches)
   function svNudge(d) {
-    svDismissToast();
     const P = svPlanes(), from = SV.anim ? SV.anim.to : SV.g.x;
     svPause(false);
     SV.anim = null;
@@ -1969,8 +1969,8 @@
     SV.g.max = P.length - 1;
     svLetGo();
   }
-  // ← → move through the planes, C makes the shown plane the colour plane (not while typing, nor on a focused plane,
-  // whose arrows move the probe)
+  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it), C makes the shown
+  // plane the colour plane (not while typing)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1998,9 +1998,10 @@
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
-      // (PageUp / PageDown on a focused plane too; the arrows not on a plane, where they move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows there only while no shape is selected, which they nudge, and not
+      // on the plane that is the sound's keyboard probe, whose arrows move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && t && t.closest && t.closest('canvas')) return;
+      if (!page && t && t.closest && ((selected && t.closest('canvas')) || t.closest('canvas[aria-keyshortcuts~="ArrowLeft"]'))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
