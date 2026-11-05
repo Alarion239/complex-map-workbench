@@ -969,6 +969,89 @@ async function svGlideStartUnit() {
     log(`${pre}: input->first frame ${reps.map((r) => r.delay.toFixed(1)).join(' / ')} ms; click dispatch ${reps.map((r) => r.handler.toFixed(1)).join(' / ')} ms; first frame cpu ${reps.map((r) => r.cpu.toFixed(1)).join(' / ')} gpu ${reps.map((r) => r.gpu.toFixed(1)).join(' / ')} ms; blank frames ${reps.map((r) => r.blank).join(' / ')}; compile ${reps.map((r) => r.compile.toFixed(1)).join(' / ')} link ${reps.map((r) => r.link.toFixed(1) + 'x' + r.nlink).join(' / ')} status ${reps.map((r) => r.status.toFixed(1)).join(' / ')} useProgram ${reps.map((r) => r.use.toFixed(1)).join(' / ')} ms ms`);
   }
 }
+// The steps view's warm glide split by pass: every WebGL draw is labelled by the app functions that issued it (the
+// first frames of its stack under the GL wrapper, cached per program and caller), and timed on the GPU: with
+// EXT_disjoint_timer_query_webgl2 a TIME_ELAPSED query around the draw (no sync), else a 1-pixel readPixels after it
+// (each draw synchronised: the shape of the split, not the pipelined total). The 2D blits of a WebGL canvas
+// (drawImage) are timed as 'blit'. Per scene: per label, draws and GPU ms per glide frame (median over the glide's
+// frames), logged; the default page and the Joukowski airfoil Everywhere
+const SV_PASSES = `(() => { if (window.__pp) return; const PP = window.__pp = { on: false, rec: [], tq: null, mode: '' };
+  const G = WebGL2RenderingContext.prototype, now = () => performance.now();
+  const lab = new Map();
+  const labelOf = () => { const st = (new Error().stack || '').split('\\n').slice(3, 9).map((l) => (l.match(/at (?:Object\\.)?([\\w$.]+)/) || [])[1]).filter((n) => n && !/^(Array|Map|Function|eval|anonymous)$/.test(n)); return st.slice(0, 3).join('<') || '?'; };
+  for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']) {
+    const f = G[k];
+    G[k] = function () {
+      if (!PP.on) return f.apply(this, arguments);
+      const prog = this.getParameter(this.CURRENT_PROGRAM);
+      let key = lab.get(prog); if (!key) { key = labelOf(); lab.set(prog, key); }
+      if (PP.tq === null) { PP.tq = this.getExtension('EXT_disjoint_timer_query_webgl2') || false; PP.mode = PP.tq ? 'timer' : 'sync'; }
+      if (PP.tq) {
+        const q = this.createQuery(); this.beginQuery(PP.tq.TIME_ELAPSED_EXT, q);
+        const a = now(), r = f.apply(this, arguments); this.endQuery(PP.tq.TIME_ELAPSED_EXT);
+        PP.rec.push({ t: a, k: key, q, gl: this, cpu: now() - a }); return r;
+      }
+      const a = now(), r = f.apply(this, arguments), b = now();
+      this.readPixels(0, 0, 1, 1, this.RGBA, this.UNSIGNED_BYTE, PP.px || (PP.px = new Uint8Array(4)));
+      PP.rec.push({ t: a, k: key, ms: now() - a, cpu: b - a }); return r;
+    };
+  }
+  const di = CanvasRenderingContext2D.prototype.drawImage;
+  CanvasRenderingContext2D.prototype.drawImage = function (src) {
+    if (!PP.on || !(src instanceof HTMLCanvasElement) || !src.__isGL) return di.apply(this, arguments);
+    const a = now(), r = di.apply(this, arguments); PP.rec.push({ t: a, k: 'blit', ms: now() - a, cpu: now() - a }); return r;
+  };
+  const gc = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (t) { const c = gc.apply(this, arguments); if (c && /webgl/.test(t)) this.__isGL = true; return c; };
+  PP.collect = () => { const out = [];
+    for (const r of PP.rec) { if (r.q) { const g = r.gl; const ok = g.getQueryParameter(r.q, g.QUERY_RESULT_AVAILABLE); r.ms = ok && !g.getParameter(PP.tq.GPU_DISJOINT_EXT) ? g.getQueryParameter(r.q, g.QUERY_RESULT) / 1e6 : NaN; g.deleteQuery(r.q); r.q = null; r.gl = null; } out.push([+r.t.toFixed(2), r.k, +r.ms.toFixed(3), +r.cpu.toFixed(3)]); }
+    PP.rec = []; return JSON.stringify({ mode: PP.mode, rec: out }); };
+})()`;
+async function svGlidePassesUnit() {
+  const EX = { jouk: 'Joukowski airfoil' };
+  for (const scene of ['default', 'jouk']) {
+    await B.nav(`${BASE}test.html?ns=perfsvp${process.pid}_${++nsCounter}&view=steps`);
+    await B.ev(SV_PASSES);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
+    if (scene === 'jouk') await B.ev("__cmwSteps({ scope: 'all', go: 0, now: true }), 1");
+    await settle(await pageNow());
+    await sleep(SV_IDLE_MS);
+    // (warm: one glide there and back first)
+    for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); await settle(await pageNow()); }
+    const per = new Map(); let mode = '', nf = 0, cpuF = [], frameF = [];
+    for (let i = 0; i < REPS; i++) {
+      for (const to of [1, 0]) {
+        await B.ev('__pp.on = true, __pp.rec = [], 1');
+        const a = await pageNow();
+        await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+        await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+        await B.ev('__pp.on = false, 1');
+        const b = await pageNow();
+        await sleep(300);
+        const got = JSON.parse(await B.ev('__pp.collect()'));
+        mode = got.mode;
+        const fr = (await B.ev(`__perf.framesSince(${a}, ${b})`)).filter((f) => f[3] > 0);
+        // (the glide's frames: each draw falls in the frame whose [t0, t1] holds it; the first and last frames dropped)
+        const mid = fr.slice(1, -1);
+        for (const f of mid) {
+          nf++; cpuF.push(f[1]); frameF.push(f[1] + f[2]);
+          const inF = got.rec.filter((r) => r[0] >= f[0] && r[0] <= f[6]);
+          const by = new Map();
+          for (const r of inF) { const o = by.get(r[1]) || { n: 0, ms: 0, cpu: 0 }; o.n++; o.ms += r[2]; o.cpu += r[3]; by.set(r[1], o); }
+          for (const [k, o] of by) { const l = per.get(k) || { n: [], ms: [], cpu: [] }; l.n.push(o.n); l.ms.push(o.ms); l.cpu.push(o.cpu); per.set(k, l); }
+        }
+        await settle(await pageNow());
+      }
+    }
+    const med = (a) => quant(a, 0.5) || 0;
+    const rows = [...per].map(([k, l]) => ({ k, frames: l.ms.length, n: med(l.n), ms: med(l.ms), p95: quant(l.ms, 0.95) || 0, cpu: med(l.cpu), tot: l.ms.reduce((s, x) => s + x, 0) / Math.max(1, nf) })).sort((x, y) => y.tot - x.tot);
+    log(`sv.glide_passes.${scene} (${mode}; ${nf} glide frames; frame cpu median ${med(cpuF).toFixed(1)} ms, frame (cpu+sync) median ${med(frameF).toFixed(1)} p95 ${(quant(frameF, 0.95) || 0).toFixed(1)} ms)`);
+    for (const r of rows.slice(0, 14)) log(`  ${r.k.padEnd(60)} in ${r.frames}/${nf} frames; draws ${r.n}; gpu ${r.ms.toFixed(2)} ms median, ${r.p95.toFixed(2)} p95, ${r.tot.toFixed(2)} ms per frame; draw-call cpu ${r.cpu.toFixed(2)} ms`);
+    put(`sv.glide_passes.${scene}.frame_ms`, 'info', 'ms', frameF);
+  }
+}
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
 // idle SV_IDLE_MS, then the first glide to plane 1, and back; then a step added (the same function again,
 // __cmwAddStep) and a glide to plane 1 at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness).
@@ -2076,6 +2159,7 @@ unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 
 unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
 unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
 unit('sv.glide_start', 'the steps view: the Joukowski airfoil glide start, from a real click on plane 1 to the first drawn frame, cold (now, settled) and warm, with its GL compile and link time', svGlideStartUnit);
+unit('sv.glide_passes', 'the steps view: a warm glide split by pass (each draw labelled by its caller and timed on the GPU), the default page and the Joukowski airfoil Everywhere; info only', svGlidePassesUnit);
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta, the Joukowski airfoil Everywhere)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
