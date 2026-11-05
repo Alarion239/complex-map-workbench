@@ -7,7 +7,7 @@
 //  - the traps keep their branches (sqrt(z^2) is not z, log(e^z) is not z, ...), identities that would move a cut
 //    are refused, and a removable point is never filled in;
 //  - a shared exponent or root index keeps one chain and one program key at every value (integers included);
-//  - the review fixes (notes/formula-recognition/ledger.json): the step's CPU values are the formula's bit for bit
+//  - the review checks (notes/formula-recognition/ledger.json): the step's CPU values are the formula's bit for bit
 //    (signed zeros on the cuts, raw cut angles, overflow), the groups replay it exactly, merged Möbius runs never fill a
 //    removable point, a shared number never changes the chain's shape, decimal cancellations are not read as a lower
 //    degree, and factored products are read in product form;

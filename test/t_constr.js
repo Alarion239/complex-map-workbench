@@ -4,7 +4,7 @@
 //  B. its 18 bridge tests (poc/bridge.test.js), against this copy's src/ (region.js, curves.js)
 //  C. the integration and exactness tests of SPEC 18: refs, ids, collinear and continuity, exact levels, sampling,
 //     formOf readers, intersections, gliders, the graph, the plans, save and load, bound numbers
-//  D. the review fixes (constr_review_tests.js)
+//  D. the review checks (constr_review_tests.js)
 //  E. the Perpendicular circle, op perp (constr_perp_tests.js; notes/orthogonal-circle/SPEC.md 7)
 //  F. the Touching circle, ops touch and tangent (constr_touch_tests.js; notes/orthogonal-circle/TANGENT-SPEC.md 7)
 //  G. Inside C only, a perpendicular circle's arc on one side of C (constr_seg_tests.js; orthogonal-circle/segments/SPEC.md 11)
@@ -387,7 +387,7 @@ const subst = (src, vals) => src.replace(/(?<![A-Za-z\\])([A-Za-z])(?![A-Za-z])/
 // =========================================================== C. CORE
 cur = 'C';
 require('./constr_core_tests.js')({ K, ok, near, nearP, Inverse, Curves });
-// =========================================================== D. the review fixes (notes/constructions-v16/ledger.json)   // standards-ok: the name of an existing notes file
+// =========================================================== D. the review checks (notes/constructions-v16/ledger.json)   // standards-ok: the name of an existing notes file
 sect.D = [0, 0]; cur = 'D';
 require('./constr_review_tests.js')({ K, ok, near, nearP });
 

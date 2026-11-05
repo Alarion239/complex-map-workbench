@@ -48,7 +48,7 @@ P._local(list);
   eq(P.namesIn('a, -a; 2k1 + \\beta'), ['a', 'k1', 'β'], 'namesIn a list');
   eq(P.namesIn('principal'), [], 'a word holds no names');
   eq(P.namesIn('sin z'), [], 'sin z holds no names');
-  // [#240] a field's bound letters are never names: a series' n, a recurrence's u
+  // a field's bound letters are never names: a series' n, a recurrence's u
   eq(P.unknownIn('1/n!', { bound: ['n'] }), [], 'unknownIn 1/n! in a_n: no n');
   eq(P.unknownIn('b^n', { bound: ['n'] }), ['b'], 'b^n in a_n: b only');
   eq(P.unknownIn('u^2+z+1', { bound: ['u'] }), [], 'u^2+z+1 in a rule: no u');
@@ -144,7 +144,7 @@ P._local(list);
   const k2 = GLChain.build([cu], [b2]).key;
   ok(k1 === k2, 'GPU key independent of the value (custom)');
   eq([b1.f(C(1, 0)).re, b2.f(C(1, 0)).re], [1.5, 3], 'CPU custom map follows the value');
-  // [#241] a number inside a series' a_n or a recurrence's rule: the CPU map follows its value, the GPU key does not
+  // a number inside a series' a_n or a recurrence's rule: the CPU map follows its value, the GPU key does not
   for (const [what, sq, z] of [['series a_n = a^n', st('series', { kind: 'power', an: 'a^n', c: '0' }), C(0.3, 0.1)], ['recurrence u^2 + a', st('recurrence', { u0: 'z', g: 'u^2+a', N: 5 }), C(0.2, 0.1)]]) {
     P.set('a', 0.5);
     const s1 = Funcs.build(sq), q1 = GLChain.build([sq], [s1]).key;
@@ -154,7 +154,7 @@ P._local(list);
     ok(q1 === q2, `${what}: GPU key independent of the value`);
     ok(CX.abs(CX.sub(s1.f(z), s2.f(z))) > 1e-3, `${what}: CPU map follows the value`);
   }
-  // [#327] a COMPLEX number inside a_n and a recurrence's rule: the CPU maps are the closed forms for each value, the GPU
+  // a COMPLEX number inside a_n and a recurrence's rule: the CPU maps are the closed forms for each value, the GPU
   // key does not depend on the value (real or complex), and the uniforms carry its imaginary part. The Dirichlet
   // coefficients and the recurrence's constant are written as they are, so those are checked as (re, im) pairs; a power
   // or Laurent series scales its coefficients, so there only the change of the uniforms is checked

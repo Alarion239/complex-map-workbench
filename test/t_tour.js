@@ -15,7 +15,7 @@ const ok = (name, cond, info) => { n++; if (!cond) { fails++; console.log('FAIL'
 
 // ---- the contract: the anchor and event names documented in INTEGRATION.md
 // (the user-5 addendum is part of INTEGRATION.md, section 8)
-// (tour r3's addendum, notes/tour-r3/INTEGRATION-v164.md, section 9, is read after it)
+// (the tour's addendum in notes/tour-r3/INTEGRATION-v164.md, section 9, is read after it)
 const DOC = fs.readFileSync(path.join(__dirname, '../notes/tour/INTEGRATION.md'), 'utf8') + '\n' + (() => { try { return fs.readFileSync(path.join(__dirname, '../notes/tour-r3/INTEGRATION-v164.md'), 'utf8'); } catch (e) { return ''; } })();
 function namesIn(section) {
   const i = DOC.indexOf(section);
@@ -230,13 +230,13 @@ check('tex |Im z|<π/2', T.texPlain('|\\operatorname{Im} z|<\\pi/2'), '|Im z| < 
 check('tex frac', T.texPlain('F(z)=\\frac{e^z-1}{e^z+1}'), 'F(z) = (eᶻ-1)/(eᶻ+1)');
 check('tex power', T.texPlain('z^3-1'), 'z³-1');
 // ([issue #260] the shapes of the Douady–Hubbard map: Φ and φ as letters, not the words Phi and varphi)
-check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg ΦM(z) = 2π· 1/3');   // ([#465] no stray _: M has no subscript form)
+check('tex Phi', T.texPlain('\\arg \\Phi_M(z)=2\\pi\\cdot \\tfrac{1}{3}'), 'arg ΦM(z) = 2π· 1/3');   // (no stray _: M has no subscript form)
 check('tex varphi', T.texPlain('|\\varphi_{-1}(z)|=1.05'), '|φ₋₁(z)| = 1.05');
-check('tex nested scripts', T.texPlain('w_{2}=e^{w_{1}}'), 'w₂ = e^(w₁)');   // ([#465] the subscript inside the superscript first)
+check('tex nested scripts', T.texPlain('w_{2}=e^{w_{1}}'), 'w₂ = e^(w₁)');   // (the subscript inside the superscript first)
 check('tex subscript then power', T.texPlain('z_{k}^{2}'), 'zₖ²');
 check('tex inverse', T.texPlain('w_{1}^{-1}'), 'w₁⁻¹');
 check('tex tower', T.texPlain('\\sum_{n=0}^{\\infty} z^{2^{n}}'), 'Σ_(n = 0)^(∞) z^(2ⁿ)');
-// ([#465] a command is read, never shown by its name: the cases of eyes' re-check of cf66d6e)
+// (a command is read, never shown by its name)
 check('tex displaystyle', T.texPlain('\\displaystyle w_{1}=z^{2}'), 'w₁ = z²');
 check('tex the Mountain King', T.texPlain('\\displaystyle w_{2}=c\\,(\\rho w_1)^{s}\\prod_{j=1}^{25}\\left(\\frac{w_1-p_j}{w_1\\left(1-w_1/\\overline{p_j}\\right)}\\right)^{D_j/12}'), 'w₂ = c (ρ w₁)^(s)∏_(j = 1)²⁵((w₁-pⱼ)/(w₁(1-w₁/pⱼ*)))^(Dⱼ/12)');
 check('tex Gamma domain', T.texPlain('z\\notin\\{0,-1,-2,\\dots\\}'), 'z∉{0,-1,-2,…}');
@@ -274,9 +274,9 @@ check('countdown: cancel -> never', fireAt([[0, { type: 'done' }], [1000, { type
 check('countdown: cancelled before done -> never', fireAt([[0, { type: 'cancel' }], [500, { type: 'done' }]]), null);
 check('countdown: a step reached with Back, or the last of a chapter -> never', fireAt([[0, { type: 'done', never: true }]]), null);
 check('countdown: Move on by itself off -> never', [fireAt([[0, { type: 'done', off: true }]]), fireAt([[0, { type: 'done' }], [1000, { type: 'off' }]])], [null, null]);
-// (r3 review regress-6: Move on by itself off applies to doors too)
+// (regress-6: Move on by itself off applies to doors too)
 check('countdown: Move on by itself off -> a door only ticks', [fireAt([[0, { type: 'done', door: true, off: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true, off: true }]])], [null, null]);
-// (r3 review user-2, user-8, user-9: the formula task on a phone too; a listen step names ▶ and says when the tour turns
+// (user-2, user-8, user-9: the formula task on a phone too; a listen step names ▶ and says when the tour turns
 // the sound on; Preimages' touch task names the ring, with a hint when a short hold pans Y)
 { const f = stepOf('basics', 'formula'), s1 = stepOf('sound', 'song'), pr = stepOf('basics', 'preimages');
   ok('basics/formula asks its task on every screen, its example not the field\'s placeholder', !f.tryWide && !/\|z-1\|<2/.test(f.try.text));
@@ -447,7 +447,7 @@ Tour.init({ has: (f) => f !== 'zp' });
 ok('without zeros and poles the harp steps are absent', !T.absent(si0, 0) && T.absent(si0, 1) && T.absent(si0, 2));
 Tour.init({});
 
-// ---- review fixes: the copy of a control found in the ⋯ menu; layout-only steps; place()'s near miss is not 'side'
+// ---- the copy of a control found in the ⋯ menu; layout-only steps; place()'s near miss is not 'side'
 check('copyFor: the ⋯ menu fallback says "in this menu" first', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true, menu: true }), T.copyFor({ body: 'b', touch: 't' }, null, { coarse: true, menu: true })], ['n', 't']);
 // (not wide-only: on a phone Y's options, with the Phase key, are in the Display sheet the step opens)
 ok('views/key opens the Display sheet on a phone (Y large)', !stepOf('views', 'key').wide && JSON.stringify(stepOf('views', 'key').before).includes('["panel","sheet","display"]') && JSON.stringify(stepOf('views', 'key').before).includes('["plane","R"]'));

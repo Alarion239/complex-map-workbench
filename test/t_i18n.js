@@ -439,7 +439,7 @@ eq(I18N._resolve({ nav: nav(['ru-RU', 'en']) }), 'ru', 'phase 2b: ru-RU resolves
   for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Pause', 'Play', 'Show', 'Hide',
     'Radii must be 0 or more', 'Use a whole number from 1 to 60', 'Half-strip to half-plane', 'Principal branch', 'WebGL2 is unavailable, so regions cannot be drawn']) ok(Object.prototype.hasOwnProperty.call(RU_ALL, k), 'phase 2b wrapped string in the table: ' + k);
 }
-// ---------------- phase 2b review fixes (notes/i18n/ledger-2b.json) ----------------
+// ---------------- the review checks (notes/i18n/ledger-2b.json) ----------------
 {
   // english-1: only a non-Latin letter typed without Alt falls back to the physical key
   const k = (key, code, o) => I18N.keyOf(Object.assign({ key, code }, o || {}));
