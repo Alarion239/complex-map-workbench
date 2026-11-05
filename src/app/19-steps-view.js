@@ -1420,6 +1420,9 @@
     const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
     bar.append(title, cp, scope, surf1);
     head.prepend(bar);
+    // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
+    const tnote = h('span', { class: 'head-note sv-tnote', role: 'status', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.paths || '' }), h('span', { class: 'sv-tn-t' }));
+    head.insertBefore(tnote, bar.nextSibling);
     // the chain strip: ‹, a segment per plane with the step between, ›
     const play = h('button', { type: 'button', class: 'sv-nav sv-play', 'aria-description': $t('Hold for speed and loop'), onclick: () => { if (SV.sheetHeld) { SV.sheetHeld = false; if (SV.els.sheet && !SV.els.sheet.hidden) SV.els.sheetSpeed.focus(); return; } svTogglePlay(); } });
     const prev = h('button', { type: 'button', class: 'sv-nav sv-prev', 'aria-label': $t('Previous plane'), 'data-tip': $t('Previous plane  ←'), onclick: () => svStep(-1) }, '‹');
@@ -1469,7 +1472,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1541,6 +1544,14 @@
     // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
     const leg = $('leftLegend');
     if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
+    // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
+    const tn = svTargetNote(), tnShow = !!tn && !ph;
+    if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;
+    if (tn && E.tnote.dataset.sig !== tn.text) {
+      E.tnote.dataset.sig = tn.text;
+      E.tnote.querySelector('.sv-tn-t').textContent = tn.text;
+      E.tnote.setAttribute('aria-label', tn.text + '. ' + tn.tip); E.tnote.setAttribute('data-tip', tn.tip);
+    }
     if (sig !== E.headSig) {
       E.headSig = sig;
       // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
@@ -1721,7 +1732,7 @@
     const mc = $('modeChips');
     const key = [
       ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
-      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '',
+      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
     ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
@@ -1748,6 +1759,8 @@
       return;
     }
     set(0);
+    const tn = E.tnote.hidden ? null : E.tnote;
+    E.tnote.classList.remove('tn-icon');
     const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
     const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     // (what the rest of the head takes at the least: the strip as its style row and a ⋯, every other shown item as it is,
@@ -1763,6 +1776,14 @@
     keep += 2;
     let lvl = 0;
     while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (short of room, the targets' note folds to its icon first, before the bar's controls shorten and before any mode chip)
+    if (lvl && tn) {
+      const w0 = tn.getBoundingClientRect().width;
+      tn.classList.add('tn-icon');
+      keep -= w0 - tn.getBoundingClientRect().width;
+      set(0); lvl = 0;
+      while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
     if (mc && !mc.hidden) {
@@ -1784,6 +1805,31 @@
     if (typeof layoutFoot === 'function') layoutFoot(true);
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
+  // the targets' note: what the shown plane draws or shades because of shapes on the planes after it, named by where they come
+  // from ("Drawn from w₂'s targets"), with the map that carries them here in its tooltip; null when nothing of theirs shows here.
+  // The words are made again only when the planes, their shapes' kinds or the shown plane change
+  let svTnKey = '', svTnVal = null;
+  function svTargetNote() {
+    const j = svStage(), by = new Map();
+    for (const q of S.shapes) {
+      const st = shapeStage(q);
+      if (q.visible === false || st <= j || kindType(q) === 'point') continue;
+      if (!by.has(st)) by.set(st, [0, 0]);
+      by.get(st)[kindType(q) === 'area' ? 0 : 1]++;
+    }
+    const key = `${j}|${I18N.lang}|${[...by].map(([st, c]) => st + ':' + c).join(',')}|${chainSig[nSteps()]}`;
+    if (key === svTnKey) return svTnVal;
+    svTnKey = key;
+    if (!by.size) return (svTnVal = null);
+    const stages = [...by.keys()].sort((a, b) => a - b), na = [...by.values()].reduce((n, c) => n + c[0], 0), nc = [...by.values()].reduce((n, c) => n + c[1], 0);
+    const p = stages.map(svName).join(', '), one = stages.length === 1, x = svMapName('plain', j, stages[stages.length - 1]);
+    const text = na && nc ? (one ? $t('Shaded and drawn from {p}\'s targets', { p }) : $t('Shaded and drawn from the targets of {p}', { p }))
+      : na ? (one ? $t('Shaded from {p}\'s targets', { p }) : $t('Shaded from the targets of {p}', { p }))
+        : one ? $t('Drawn from {p}\'s targets', { p }) : $t('Drawn from the targets of {p}', { p });
+    const tip = na && nc ? $t('Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.', { x, p })
+      : na ? $t('Where {x} lands in the targets of {p} is shaded here.', { x, p }) : $t('The curves that {x} maps onto the targets of {p} are drawn here.', { x, p });
+    return (svTnVal = { text, tip });
+  }
   function svPlaceText() {
     const P = svPlanes(), x = SV.g.x;
     if (!svParked()) return svName(svStage());
