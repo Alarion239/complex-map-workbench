@@ -46,7 +46,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${w}×${h} ${g.id}: Next moves on`, false, before); break; }
   }
 }
-check('every chapter was walked at both sizes', ['basics', 'views', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys'].every((c) => seen.some((x) => x.startsWith('1440:' + c + '/')) && seen.some((x) => x.startsWith('1024:' + c + '/'))), seen);
+check('every chapter was walked at both sizes', (await ev('Tour._t.CHAPTERS.map((c) => c.id)')).every((c) => seen.some((x) => x.startsWith('1440:' + c + '/')) && seen.some((x) => x.startsWith('1024:' + c + '/'))), seen);
 const L = logs().filter((l) => /EXC|\[tour\]/i.test(l.t + l.m)).slice(0, 12);
 check('no exceptions or tour warnings', !L.length, L);
 await view(1440, 900, false, false);
