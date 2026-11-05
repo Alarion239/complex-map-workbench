@@ -181,7 +181,7 @@ const VIEWS = {
   'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
     + ' chapters (#717), whose tour has 42 steps'),
   'tour_lane_cmd.js': steps({ pin: true }),
-  'tour_lit_cmd.js': port('words', 'every step\'s anchor: after the chapters are retargeted'),
+  'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
   'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour has 42 steps), and'
     + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
