@@ -1,9 +1,11 @@
 // The steps view's carried colour mid-glide with the cut fill's values from its point pass (GLR.fillPointsOn, on by
 // default: the chain once per point of a torn sub-triangle) against the fill evaluating its own (off): the left pane's
-// pixels identical, Inside regions and Everywhere, held at x = 1/4 and 1/2, on two chains whose path has a cut the
-// sheets continue (Sheets of the logarithm, Square root and its sheets). Everywhere the carried mesh draws the frame
-// (a Newton inverse covers two of H_t's points, not all of them) and the point pass ran (GLR.fillPointsRuns); Inside
-// regions the inverse pass draws it (the homotopy inverted by Newton), the exact picture with no mesh fill.
+// pixels identical, Inside regions and Everywhere, held a quarter and half way through the glide of a step whose path
+// has a cut the sheets continue (Sheets of the logarithm, Square root and its sheets). Inside regions, on the
+// example's own chain, the inverse pass draws the frame (the step's homotopy inverted by its exact ops), the exact
+// picture with no mesh fill. The inverse pass draws such a glide Everywhere too, so the Everywhere cases put a step
+// it does not invert before the cut's step (z^3 + z: a polynomial of degree 3) and glide through the cut's step
+// (plane 1 to 2): the carried mesh draws the frame, and the fill's point pass runs (GLR.fillPointsRuns).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -43,8 +45,11 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   await settled({ max: 20000 });
   for (const scope of ['in', 'all']) for (const x of [0.25, 0.5]) {
     const tag = `${name} ${scope} ${x}`;
-    await steps({ scope, surf: 'plane', go: 0, now: true });
-    await steps({ scope, surf: 'plane', park: x });
+    // (Everywhere: the cubic put first, once; the cut's step is then step 2)
+    if (scope === 'all' && x === 0.25) { await ev(`__cmwAddStep('custom', { expr: 'z^3+z' }, 0), 1`); await settled({ max: 20000 }); }
+    const p0 = scope === 'all' ? 1 : 0;
+    await steps({ scope, surf: 'plane', go: p0, now: true });
+    await steps({ scope, surf: 'plane', park: p0 + x });
     // (parked: the tiling's fix-up lands once and the region mask's SphereMesh after it, each changing the frame, so
     // both settings are read after them; the redraw between the two waits asks for a mesh the parked frame did not)
     await settled({ max: 60000, until: rest });
