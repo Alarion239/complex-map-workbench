@@ -636,6 +636,7 @@ float wabs(vec2 w) {
   const L_ = (P, n) => P.loc[n] ?? null;
   const u1f = (P, n, v) => gl.uniform1f(L_(P, n), v);
   const u1i = (P, n, v) => gl.uniform1i(L_(P, n), v);
+  const u1iv = (P, n, v) => { const l = L_(P, n); if (l) gl.uniform1iv(l, v); };
   const u2f = (P, n, a, b) => gl.uniform2f(L_(P, n), a, b);
   const u3 = (P, n, v) => gl.uniform3f(L_(P, n), v[0], v[1], v[2]);
   const u4f = (P, n, a, b, c, d) => gl.uniform4f(L_(P, n), a, b, c, d);
@@ -1325,7 +1326,7 @@ float wabs(vec2 w) {
     if (!res.tmp.get(slot)) {
       const e = { tex: floatTex(), W, H, P: tpl.P, bytes: W * H * 8, res, slot, key: '', t: performance.now(), carry: true };
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, null);
-      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
+      res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes; carryTmpT = e.t;
       sweepTmpLater();
     }
     const k = carryKinds();
