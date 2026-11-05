@@ -9,6 +9,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
 const R = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })()`;
 const T = `document.querySelector('#toastHost .toast')`;
+// the message is in, placed, and at rest (full opacity, no slide offset left)
+const SETTLED = `(() => { const e = ${T}; if (!e || document.getElementById('toastHost').getAttribute('data-placed') !== 'phone-plot') return false; const c = getComputedStyle(e); return c.opacity === '1' && (c.transform === 'none' || c.transform === 'matrix(1, 0, 0, 1, 0, 0)'); })()`;
 const show = (msg, o) => ev(`(__cmwToast(${JSON.stringify(msg)}, 'Undo', ${JSON.stringify(o || { ms: 60000 })}), 1)`);
 const touch = async (x, y0, y1) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: y0 }] });
@@ -21,12 +23,10 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   const ns = 'ptb' + w + (Date.now() % 1000000);
   await load(ns, ST);
   await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && !!document.getElementById('svStrip')` });
-  await sleep(1500);
+  await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0 && document.getElementById('plotL').getBoundingClientRect().height > 0` });
   // (English: a long message with one action; Russian: the step added, "Показать отдельно" and "Отменить" beside its words)
   if (lang === 'ru') await ev(`(__cmwAddStep('exp'), 1)`); else await show('Added f₃: Exponential, and a longer second part so that the message needs its second line here');
-  await settled({ max: 3000, panes: false, until: `!!${T}` });
-  await sleep(400);
+  await settled({ max: 3000, panes: false, until: SETTLED });
   const g = await ev(`({ toast: ${R('#toastHost .toast')}, strip: ${R('#svStrip')}, plot: ${R('#plotL')}, tools: ${R('#tools')}, keys: [...document.querySelectorAll('.viewstack, .ph-col')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }), placed: document.getElementById('toastHost').getAttribute('data-placed'), lines: Math.round(${T}.querySelector('span').getBoundingClientRect().height / 18), cut: (() => { const e = ${T}.querySelector('span'); return e.scrollWidth - e.clientWidth; })(), W: innerWidth })`);
   info[at] = g;
   ok(`${at}: placed over the plot`, g.placed === 'phone-plot', g.placed);
@@ -38,7 +38,8 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   ok(`${at}: its words are not cut`, g.cut <= 0, g.cut);
   // a short drag keeps it, a swipe down dismisses it
   const x = Math.round((g.toast.l + g.toast.r) / 2), y = Math.round((g.toast.t + g.toast.b) / 2);
-  await touch(x, y, y + 12); await sleep(300);
+  await touch(x, y, y + 12);
+  await settled({ max: 3000, panes: false, until: SETTLED });
   ok(`${at}: a short drag keeps it`, await ev(`!!${T}`), null);
   await touch(x, y, y + 70);
   for (const t0 = Date.now(); Date.now() - t0 < 2000 && (await ev(`!!${T}`)); await sleep(50));
