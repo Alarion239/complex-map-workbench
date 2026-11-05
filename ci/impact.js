@@ -33,8 +33,8 @@ const AREAS = {
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
   i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
-  views: ['views', 'formulas'],
-  desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
+  views: ['views-1', 'views-2', 'views-3', 'formulas'],
+  desktop: ['views-1', 'views-2', 'views-3', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
   // the layout gate (#470): a change that can move layout runs every language (#611: Russian and Italian have the longest
   // words, where text spills first); the languages' tables alone run Russian and Italian
