@@ -1898,7 +1898,9 @@
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
-      const dw = legend.getBoundingClientRect().width - w1;
+      // (the chip's own width: its words, not the width a squeezed chip is left with)
+      const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
+      const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
       if (E.bar.scrollWidth + keep + dw > room) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a

@@ -117,8 +117,8 @@ for (const lang of ['en', 'ru', 'it']) {
 }
 // (#1047) the Landscape with All sheets, the chain √, cos, log and Height = Im F, at 1024 × 768: the title keeps its
 // words, whole ("z · landscape of Im F", else "z · landscape"; no word is cut) and is not folded to the plane's letter alone
-// (and at 1440 × 900 in en: the key, folded to its glyph while the bar was short, is unfolded again once the bar fits beside it)
-for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 768], ['en', 1440, 900]]) {
+// (and at 1460 × 900 in en: the scope is a menu button and the key, folded to its glyph while the bar was short, is unfolded again, as the bar fits beside it)
+for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 768], ['en', 1460, 900]]) {
   const okl = (n, pass, detail) => ok(`${lang} ${W} × ${H} ${n}`, pass, detail);
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
@@ -147,9 +147,9 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
     return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), keyFolded: (() => { const lg = document.getElementById('leftLegend'); return !!lg && !lg.hidden && lg.classList.contains('glyph'); })(), glyph: (() => { const lg = document.getElementById('leftLegend'); return !lg || lg.hidden || lg.classList.contains('glyph'); })(), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
       name: m.getAttribute('aria-label'), popup: m.getAttribute('aria-haspopup'), text: m.textContent.trim() }; })()`);
   info[`fold${W}${lang}`] = fold;
-  if (W === 1440) okl('Landscape, All sheets: the Height key is unfolded once the bar fits beside it', !fold.keyFolded, fold);
-  okl('the fold order: the Height key folds to its glyph before the scope becomes a menu button', !fold.sm || fold.glyph, fold);
-  okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si && fold.glyph), fold);
+  if (W === 1460) okl('Landscape, All sheets: the scope is a menu button and the Height key is unfolded again, the bar fitting beside it', fold.sm && !fold.keyFolded && title.hh < 48, fold);
+  okl('the fold order: the Height key is a glyph while the scope is a menu button, unless the bar fits beside the unfolded key (one row)', !fold.sm || fold.keyFolded || fold.glyph || title.hh < 48, fold);
+  okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si), fold);
   okl('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
     fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Scope: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
   if (lang === 'en' && fold.sm) {
