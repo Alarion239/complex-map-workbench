@@ -1480,7 +1480,9 @@
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
     const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
-    bar.append(title, cp, scope, surf1);
+    // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two; ux, #1047)
+    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', onclick: () => svScopeMenu() });
+    bar.append(title, cp, scope, scopeBtn, surf1);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
     const tnote = h('span', { class: 'head-note sv-tnote', role: 'note', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.targets }), h('span', { class: 'sv-tn-n', 'aria-hidden': 'true' }), h('span', { class: 'sv-tn-t' }));
@@ -1534,7 +1536,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1636,6 +1638,10 @@
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       setSeg(E.scope, SV.scope);
+      const scName = SV.scope === 'in' ? $t('Inside') : $t('Everywhere');
+      E.scopeBtn.innerHTML = `<span class="sv-surf-t">${scName}</span>${ICONS.chevD || ''}`;
+      E.scopeBtn.setAttribute('aria-label', `${$t('Scope')}: ${SV.scope === 'in' ? $t('Inside regions') : scName}`);
+      E.scopeBtn.dataset.tip = $t('Where colour shows');
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
@@ -1705,6 +1711,13 @@
     const E = SV.els;
     const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); } }));
     openMenu(E.surf1, Object.assign(items, { menuLabel: $t('Surface'), focusChecked: true }));
+  }
+  // the scope's menu: the two, the shown one checked
+  function svScopeMenu() {
+    const E = SV.els;
+    const items = [['all', $t('Everywhere')], ['in', $t('Inside regions')]].map(([v, t]) => ({ label: t, radio: true, checked: SV.scope === v,
+      run: () => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); } }));
+    openMenu(E.scopeBtn, Object.assign(items, { menuLabel: $t('Scope'), focusChecked: true }));
   }
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
@@ -1797,11 +1810,13 @@
     const mc = $('modeChips');
     const key = [
       ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
-      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
+      E.cp.textContent, E.surf1.textContent, E.scopeBtn.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
     ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
-    const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
+    // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
+    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), then the title loses its role (sv-c2) last)
+    const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-c2', lvl >= 4); };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
         svChipBare(c, false);
@@ -1840,7 +1855,7 @@
     }
     keep += 2;
     let lvl = 0;
-    while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    while (lvl < 4 && E.bar.scrollWidth + keep > room) set(++lvl);
     // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
     // the source planes' names, then to its icon alone)
     for (const cls of ['tn-chip', 'tn-icon']) {
@@ -1849,7 +1864,7 @@
       tn.classList.add(cls);
       keep -= w0 - tn.getBoundingClientRect().width;
       set(0); lvl = 0;
-      while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+      while (lvl < 4 && E.bar.scrollWidth + keep > room) set(++lvl);
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)

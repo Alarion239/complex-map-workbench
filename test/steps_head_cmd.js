@@ -34,7 +34,7 @@ const LAYOUT = `(() => {
   for (let i = 1; i < xs.length; i++) if (xs[i].x < xs[i - 1].x + xs[i - 1].w - 0.5) lap.push(xs[i - 1].id + '/' + xs[i].id);
   const inHead = (sel) => { const e = bar.querySelector(sel) || head.querySelector(sel); return !!e && e.getClientRects().length > 0; };
   return { hh: Math.round(hr.height), bar: bar.className, off, lap, cut: bs.filter((b) => b.cut).map((b) => b.id), right: Math.max(...bs.map((b) => b.x + b.w)), hw: Math.round(head.clientWidth),
-    has: { title: inHead('.sv-title'), cp: inHead('.sv-cp'), scope: inHead('.sv-scope'), surf: inHead('.sv-surf1'), styles: inHead('#dcSeg') },
+    has: { title: inHead('.sv-title'), cp: inHead('.sv-cp'), scope: inHead('.sv-scope') || inHead('.sv-scope-menu'), surf: inHead('.sv-surf1'), styles: inHead('#dcSeg') },
     cpName: (bar.querySelector('.sv-cp') || {}).getAttribute && bar.querySelector('.sv-cp').getAttribute('aria-label'),
     surfName: bar.querySelector('.sv-surf1') && bar.querySelector('.sv-surf1').getAttribute('aria-label') };
 })()`;
@@ -131,6 +131,23 @@ for (const lang of ['en', 'ru', 'it']) {
   info.title1024 = title;
   ok('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its words, "z · landscape of …"', title.surf === 'land' && /landscape of/.test(title.text || ''), title);
   ok('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 100 px or more)', title.cw >= 100, title);
+  // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
+  const fold = await ev(`(() => { const b = document.getElementById('svHead'), c = b.classList, m = b.querySelector('.sv-scope-menu'), sg = b.querySelector('.sv-scope:not(.sv-scope-menu)');
+    const mr = m.getBoundingClientRect(), t = b.querySelector('.sv-title').getBoundingClientRect();
+    return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
+      name: m.getAttribute('aria-label'), popup: m.getAttribute('aria-haspopup'), text: m.textContent.trim() }; })()`);
+  info.fold1024 = fold;
+  ok('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si), fold);
+  ok('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
+    fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && fold.name === 'Scope: Everywhere' && fold.text === 'Everywhere' : !fold.menuShown && fold.segShown, fold);
+  if (fold.sm) {
+    await ev(`document.querySelector('.sv-scope-menu').click(); 1`); await settle(300);
+    const sm = await ev(`(() => { const m = document.querySelector('.pop.menu'); return m && { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
+    ok('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Scope' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
+    await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Inside/.test(b.textContent)).click(); 1`); await settle(800);
+    const after = await ev(`(() => { const m = document.querySelector('.sv-scope-menu'); return { scope: __cmwSteps().scope, name: m.getAttribute('aria-label'), text: m.textContent.trim() }; })()`);
+    ok('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Scope: Inside regions' && after.text === 'Inside', after);
+  }
 }
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
 info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';
