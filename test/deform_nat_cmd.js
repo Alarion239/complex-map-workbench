@@ -59,15 +59,24 @@ for (const [id, sc] of Object.entries(PA)) {
   // the same points at every T: parked elsewhere in the run, then while a glide plays
   const xs = sc.steps.length > 1 ? [1.2, 1.8] : [0.15, 0.85];
   for (const x of xs) { await parked(x); ok(`paths ${id}: the same points at x = ${x}`, (await zsAt()) === zs0, null); }
-  // a glide from the first plane to the last: the first frame mid-glide with paths drawn, kept where the wait found it
-  // (the glide moves on meanwhile; the panes are never quiet during one). The run is the chain's own, with the same
-  // points as parked
+  // a glide from the first plane to the last: the first frame mid-glide with paths drawn, kept by a watcher that reads the
+  // state on every animation frame (a poll of the page can step over all of a glide's frames where frames are slow). The
+  // run is the chain's own, with the same points as parked
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
   await settled({ max: 10000, until: `!__cmwSteps().moving` });
   await ev(`(() => { const e = document.querySelector('#svStrip .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
   const last = sc.steps.length;
-  await ev(`window.__svGlide = null; __cmwSteps({ go: ${last} }), 1`);
-  await settled({ panes: false, max: 30000, until: `(() => { const s = __cmwSteps(); if (s.anim && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) window.__svGlide = { paths: s.paths, zs: JSON.stringify(__cmwMorphCache().zs), all: s.all }; return !!window.__svGlide || !s.moving; })()` });
+  await ev(`window.__svGlide = null; window.__svGlideOver = false;
+    const watch = () => {
+      const s = __cmwSteps();
+      if (s.anim && s.paths && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) { window.__svGlide = { paths: s.paths, zs: JSON.stringify(__cmwMorphCache().zs), all: s.all }; return; }
+      if (window.__svGlideOver) return;
+      requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+    __cmwSteps({ go: ${last} }); 1`);
+  await settled({ panes: false, max: 30000, until: `!!window.__svGlide || !__cmwSteps().moving` });
+  await ev('window.__svGlideOver = true, 1');
   const pl = await ev('window.__svGlide || null');
   ok(`paths ${id}: paths are drawn mid-glide, their moving points at H_T(z)`, !!pl && pl.paths.err < 1.5, pl);
   if (pl && last === 1) ok(`paths ${id}: the same points while a glide plays`, pl.zs === zs0, null);
