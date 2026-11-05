@@ -47,11 +47,18 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     const r = await __cmwFig.glideArt(0.5, { wpt: cvs[1].width * 72 / 96, hpt: ${surf === 'plane' ? 'undefined' : 'cvs[1].height * 72 / 96'}, dpi: 96, raw: true, look: 'light' });
     const b = document.createElement('canvas'); b.width = w; b.height = h; b.getContext('2d').drawImage(r.cv, 0, 0, w, h);
     const da = a.getContext('2d').getImageData(0, 0, w, h).data, db = b.getContext('2d').getImageData(0, 0, w, h).data;
-    let sum = 0; for (let i = 0; i < da.length; i += 4) sum += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]);
-    return { mad: sum / (w * h * 3), x: __cmwSteps().x };
+    // (the 3D surfaces: the video's paper is white and the screen's is its tinted ground, so only the pixels the frame draws
+    // something on are compared: the picture and its camera)
+    const three = ${surf !== 'plane'}, bg = [db[0], db[1], db[2]];
+    let sum = 0, n = 0;
+    for (let i = 0; i < da.length; i += 4) {
+      if (three && Math.abs(db[i] - bg[0]) + Math.abs(db[i + 1] - bg[1]) + Math.abs(db[i + 2] - bg[2]) <= 60) continue;
+      sum += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]); n++;
+    }
+    return { mad: sum / (Math.max(1, n) * 3), drawn: n / (w * h), x: __cmwSteps().x };
   })()`, 120000);
   info[tag + ' screen'] = s;
-  ok(`${tag}: a frame at x = 0.5 matches the screen parked there`, s && s.mad < 14 && Math.abs(s.x - 0.5) < 1e-6, s);
+  ok(`${tag}: a frame at x = 0.5 matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > 0.04) && Math.abs(s.x - 0.5) < 1e-6, s);
 }
 // the dialog: Video is listed, with where it goes and how long it is
 await open(1, 'plane');
