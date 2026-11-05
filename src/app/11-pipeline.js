@@ -141,35 +141,6 @@
     repeatMoved(k, st.repeat);
     repeatShowAll();
   }
-  function repeatField(getK) {
-    const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
-    let settle = 0, typedFor = null;
-    const apply = () => {
-      clearTimeout(settle);
-      const t = inp.value.trim(), st = typedFor || S.steps[getK() - 1];
-      typedFor = null;
-      if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
-      const rp = repeatFromText(st, t);
-      if (!rp) return;
-      st.repeat = rp;
-      chainChanged(false);
-      repeatMoved(S.steps.indexOf(st) + 1, rp);
-    };
-    // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
-    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, 400); });
-    inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
-    inp.addEventListener('blur', () => { delete inp.dataset.typing; });
-    // (the arrow keys step a typed N, as a number field does)
-    inp.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-      e.preventDefault();
-      delete inp.dataset.typing; clearTimeout(settle);
-      repeatStep(getK(), e.key === 'ArrowUp' ? 1 : -1);
-    });
-    repFields.push({ inp, getK });
-    return inp;
-  }
   let repRO = null;
   function updateRepeats() {
     const host = $('pipeline');
@@ -443,49 +414,6 @@
   // a step of a type this build does not know still gets a card (its error comes from Funcs.build)
   const defOf = (st) => Funcs.DEFS[st.type] || { label: String(st.type), params: [] };
   const cardButton = (k) => document.querySelector(`#pipeline .card[data-k="${k}"] .nm`);
-  // (#437: stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
-  function stepMenuItems(anchor, k, opt) {
-    const st = S.steps[k - 1], d = defOf(st);
-    // (D1, issue #23: Replace… first: the palette, ready to replace this step)
-    const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
-    // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
-    if (opt && opt.full) {
-      const b0 = built[k - 1];
-      if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
-      items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
-    }
-    items.push(
-      // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
-      // none on a touch screen)
-      { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
-      { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
-      { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
-      { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
-      { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
-      { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
-    // (v16: which steps the deformation deforms, SPEC 6.5)
-    if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
-    // ([issue #6] Repeat × N)
-    if (!isDerivStep(st, built[k - 1])) {
-      const rk = repeatItems(k);
-      // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
-      if (opt && opt.thread && rk.length === 1) items.push({ id: 'repeat', label: $t('Repeat…'), run: rk[0].run });
-      else if (opt && opt.thread && repeatOf(k)) items.push({ id: 'repeat', label: rk[0].label, run: rk[0].run }, { id: 'repeatEnd', label: rk[1].label, run: rk[1].run });
-      else if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk });
-    }
-    if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
-    const bk = built[k - 1];
-    // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
-    if (st.type === 'custom') {
-      const sp = Funcs.splitSteps(st, bk), no = sp.kind === 'none' || !!sp.blocked;
-      items.push({ label: sp.kind === 'one' ? $t('Replace with “{name}”', { name: Funcs.DEFS[sp.steps[0].type].label }) : $t('Split into steps'), disabled: no, tip: no ? Funcs.splitReason(sp) : null, run: () => splitStep(k) });
-    }
-    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
-    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
-    if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
-    items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
-    return items;
-  }
   function stepMenu(anchor, k, opt) { return openMenu(anchor, stepMenuItems(anchor, k, opt)); }
   // v15 (DESIGN.md 2.4): a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
   // the lens in the Inspector's head)
@@ -618,44 +546,6 @@
     if (id) for (const el of /** @type {NodeListOf<HTMLElement>} */ (t.querySelectorAll('.lamp, .fnone'))) el.hidden = true;
     t.setAttribute('aria-label', id ? $t('F = z: no steps yet') : names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
   }
-  // dragging horizontally on a label changes a numeric field
-  function scrubbable(label, input, step, isInt) {
-    label.classList.add('scrub');
-    label.title = (label.title ? label.title + ' · ' : '') + $t('drag to change');
-    label.style.touchAction = 'pan-y'; // a sideways touch scrubs instead of scrolling the chain
-    label.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault(); e.stopPropagation();
-      const x0 = e.clientX, v0 = Number(input.value) || 0;
-      let moved = 0;
-      try { label.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
-      const move = (ev) => {
-        const dx = ev.clientX - x0;
-        moved = Math.max(moved, Math.abs(dx));
-        let v = v0 + Math.round(dx / (ev.shiftKey ? 12 : 4)) * step;
-        if (isInt) v = Math.round(v);
-        if (input.min !== '' && v < +input.min) v = +input.min;
-        if (String(v) !== input.value) { input.value = +v.toFixed(6); input.dispatchEvent(new Event('input')); }
-      };
-      // an ended, cancelled or lost pointer all finish the scrub once: what it applied is committed
-      const ends = ['pointerup', 'pointercancel', 'lostpointercapture'];
-      const up = () => {
-        label.removeEventListener('pointermove', move);
-        for (const t of ends) label.removeEventListener(t, up);
-        // after a real scrub, the click that follows would activate the label and focus the field, where ⌘Z is
-        // the field's own (empty) undo: swallow that one click, so the app's undo takes back the scrub
-        if (moved > 2) {
-          const swallow = (ce) => { ce.preventDefault(); ce.stopPropagation(); };
-          label.addEventListener('click', swallow, { capture: true, once: true });
-          setTimeout(() => label.removeEventListener('click', swallow, { capture: true }), 0);
-          if (document.activeElement === input) input.blur();
-        }
-        input.dispatchEvent(new Event('change'));
-      };
-      label.addEventListener('pointermove', move);
-      for (const t of ends) label.addEventListener(t, up);
-    });
-  }
   // a small Argand diagram to pick a complex value by dragging
   let padEl = null, padOff = null;
   function closePad() {
@@ -745,96 +635,6 @@
   // short symbols for parameter labels (the full name is the tooltip)
   const PSYM = { cut: ['θ', $t('Cut angle, in degrees')], k: ['k', $t('Sheet (branch index)')], branch: ['br', $t('Branch')],
     co: ['aₖ', $t('Coefficients aₙ, …, a₀, highest degree first')], p: ['p', $t('Numerator coefficients, highest degree first')], q: ['q', $t('Denominator coefficients, highest degree first')] };
-  function paramField(st, k, q, pre = 'p') {
-    const val = st.params[q.key] ?? q.def;
-    // (the step now in the chain: an Undo while the field is being typed in replaces the steps and keeps the field)
-    const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
-    const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
-    let input, extra = null, before = null;
-    const id = `${pre}${k}_${q.key}`;
-    if (q.type === 'choice') {
-      input = h('select', { class: 'inp', id, onchange: (e) => { upd(e.target.value); commit(); } }, ...q.choices.map(([v, l]) => h('option', { value: v }, l)));
-      input.value = val;
-    } else if (q.type === 'int' || q.type === 'angle') {
-      input = h('input', { class: 'inp', id, type: 'number', step: '1', value: val, min: q.min });
-      // an empty or unreadable field (Number('') is 0) is flagged and never applied; leaving it shows the value in use again
-      const unread = () => input.value.trim() === '' || !!(input.validity && input.validity.badInput) || !Number.isFinite(Number(input.value));
-      input.addEventListener('input', () => {
-        if (unread()) {
-          input.classList.add('bad'); input.setAttribute('aria-invalid', 'true');
-          input.setAttribute('data-tip', $t('Enter a number; {label} stays {choice}', { label: q.label, choice: st.params[q.key] ?? q.def }));
-          return;
-        }
-        const v = Number(input.value);
-        const okInt = q.type !== 'int' || (Number.isInteger(v) && (q.min == null || v >= q.min));
-        input.classList.toggle('bad', !okInt); input.setAttribute('aria-invalid', String(!okInt));
-        if (!okInt) input.setAttribute('data-tip', $t('Uses {choice}: {label} must be a whole number{choice2}', { choice: Math.max(q.min ?? -Infinity, Math.round(v)), label: q.label, choice2: q.min != null ? ` ≥ ${q.min}` : '' })); else input.removeAttribute('data-tip');
-        upd(q.type === 'int' ? Math.round(v) : v);
-      });
-      input.addEventListener('change', () => {
-        if (unread()) input.value = st.params[q.key] ?? q.def;
-        const v = Number(input.value);
-        if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
-        input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
-        commit();
-        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; #442 Square root's Try line)
-        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
-      });
-      if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
-      // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
-      // with All sheets on, the one view that draws them
-      if (q.key === 'k' && q.type === 'int') {
-        const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
-        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); tourEmit('sheet-changed', { k, sheet: v }); };
-        before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
-        extra = h('div', { class: 'sheet-ctl' },
-          n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
-          h('button', { class: 'icon-btn sh-next', type: 'button', 'aria-label': $t('Next sheet'), 'data-tip': $t('Next sheet'), onclick: (e) => { e.preventDefault(); go(1); } }, '›'),
-          h('button', { class: 'btn ghost small sh-all', type: 'button', 'data-tip': $t('Landscape draws every sheet of the map as one surface'), onclick: (e) => { e.preventDefault(); showAllSheets(); } }, $t('Show all sheets')));
-      }
-    } else {
-      // (review verify-4: a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
-      // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
-      const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
-      const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
-      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
-      if (num) input.dataset.num = '1';
-      // ([#240] the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
-      if (q.bound) input.dataset.bound = q.bound.join(',');
-      // ([#243] a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
-      // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
-      // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
-      // ([#404] the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
-      // the text is dropped, not given by live() to the new chain's step of the same type at k)
-      let due = 0, typedOn = null;
-      const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
-      input.addEventListener('input', () => {
-        // ([#398] the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
-        if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
-        if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
-        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
-        const cost = chainCost();
-        if (q.type !== 'seq' && cost <= 8) { apply(); return; }
-        clearTimeout(due);
-        typedOn = live();
-        due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
-      });
-      input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
-      if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
-    }
-    input.dataset.pkey = q.key;
-    // ([#336] a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
-    if (q.say) input.setAttribute('aria-label', q.say);
-    const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
-    const sym = PSYM[q.key];
-    const labelText = sym ? sym[0] : q.label;
-    // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
-    // says what the field is; the symbol keeps its own span, where a step's index goes)
-    const word = paramWord(st, q);
-    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
-    if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
-    return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
-  }
   // (v16.5 UX33) the word before a field's symbol: the cut, the sheet, the power or root index, the zeros-and-poles factor
   function paramWord(st, q) {
     if (q.key === 'cut') return $t('Cut angle');
@@ -975,44 +775,6 @@
     for (let j = k; j < k + n; j++) { const c = document.querySelector(`#pipeline .card[data-k="${j}"]`); if (c) cards.push(c); }
     if (!still) { for (const c of cards) c.classList.add('born'); setTimeout(() => { for (const c of cards) c.classList.remove('born'); }, 240); }
     if (cards[0]) cards[0].scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still ? 'auto' : 'smooth' });
-  }
-  // v15.2 (notes/formula-steps/DESIGN.md 7): a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
-  // same function, so the planes do not change; one commit, undone by Undo
-  function splitStep(k) {
-    const st = S.steps[k - 1], b = built[k - 1];
-    const sp = st && st.type === 'custom' ? Funcs.splitSteps(st, b) : null;
-    if (!sp || sp.kind === 'none' || sp.blocked) { sndError(); toast(Funcs.splitReason(sp).replace(/\.?$/, '.')); return null; }
-    const news = sp.steps.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: st.on !== false }));
-    const n = news.length;
-    // the deformation (open on the whole chain): the formula's unit [j, j+1) becomes [j, j+n), its own sub-steps
-    let T1 = null;
-    // (all at once: one t for every step, kept as it is; the movie runs the new steps together)
-    if (morph.open && S.focus === 0) { const j = morphRange().steps.indexOf(k); T1 = S.homAll ? morph.T : j >= 0 ? Funcs.splitMorphT(morph.T, j, n) : morph.T; }
-    // the formula shown alone (the palette's flow focuses a new step): the first new step alone is only part of it. With
-    // no other step, F is the formula: show F, so the planes stay the same; otherwise the toast says what is shown
-    // (review steps-1)
-    const alone = S.focus === k, only = S.steps.length === 1;
-    // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
-    const hr = S.homRange ? HR.resolve(S, true) : null;
-    spliceSteps(k - 1, 1, ...news);
-    if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
-    if (S.focus > k) setFocusStep(S.focus + n - 1);
-    else if (alone && only) setFocusStep(0);
-    chainChanged(true);
-    setFocus(S.focus);
-    setSel(k);
-    if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
-    syncSel();
-    commit();
-    soundCue('stepAdd');
-    tourEmit('formula-split', { k, n });
-    bornCards(k, n);
-    requestRender('P');
-    const shown = alone && !only && n > 1 ? ' ' + (document.documentElement.classList.contains('ph') ? $t('Showing f{k} alone.', { k: sub(k) }) : $t('Showing f{k} alone; › shows the next step.', { k: sub(k) })) : '';
-    undoToast((n === 1 ? $t('f{k} is now the step “{name}”.', { k: sub(k), name: Funcs.DEFS[news[0].type].label })
-      : $t('Split f{k} into f{k}–f{k2}: {chain}.', { k: sub(k), k2: sub(k + n - 1), chain: sp.names.join(' → ') })) + shown);
-    // (the card, focusable, for the ⋯ menu's focus; true while the chain is still to be drawn; null is a refusal)
-    return document.querySelector(`#pipeline .card[data-k="${k}"]`) || true;
   }
   function removeStep(k) {
     const name = defOf(S.steps[k - 1]).label;
