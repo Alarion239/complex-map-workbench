@@ -1007,13 +1007,31 @@ const SV_PASSES = `(() => { if (window.__pp) return; const PP = window.__pp = { 
     for (const r of PP.rec) { if (r.q) { const g = r.gl; const ok = g.getQueryParameter(r.q, g.QUERY_RESULT_AVAILABLE); r.ms = ok && !g.getParameter(PP.tq.GPU_DISJOINT_EXT) ? g.getQueryParameter(r.q, g.QUERY_RESULT) / 1e6 : NaN; g.deleteQuery(r.q); r.q = null; r.gl = null; } out.push([+r.t.toFixed(2), r.k, +r.ms.toFixed(3), +r.cpu.toFixed(3)]); }
     PP.rec = []; return JSON.stringify({ mode: PP.mode, rec: out }); };
 })()`;
+// test-only probe of the lines pass (#1025): variant window.__lv of GLR.drawLines: 'normal', 'discard' (the draws'
+// fragments discarded: vertex work only), 'nocasing' (the stroke pass alone); every call's CPU time is recorded as
+// the label 'drawLines CPU' (program lookup, cache lookup and uniforms included)
+const SV_LINES = `(() => { window.__lv = 'normal';
+  const G = WebGL2RenderingContext.prototype, o = G.drawArraysInstanced;
+  G.drawArraysInstanced = function () {
+    if (window.__lv !== 'discard' || !window.__inLines) return o.apply(this, arguments);
+    this.enable(this.RASTERIZER_DISCARD); const r = o.apply(this, arguments); this.disable(this.RASTERIZER_DISCARD); return r;
+  };
+  const d = GLR.drawLines;
+  GLR.drawLines = function (res, st) {
+    const a = performance.now(); window.__inLines = true;
+    if (window.__lv === 'nocasing') st = Object.assign({}, st, { casing: null });
+    try { return d.call(this, res, st); } finally { window.__inLines = false; if (window.__pp && __pp.on) __pp.rec.push({ t: a, k: 'drawLines CPU', ms: performance.now() - a, cpu: performance.now() - a }); }
+  };
+})()`;
 async function svGlidePassesUnit() {
   const EX = { jouk: 'Joukowski airfoil' };
-  for (const scene of ['default', 'jouk']) {
+  for (const [scene, variant] of [['default', 'normal'], ['jouk', 'normal'], ['jouk', 'discard'], ['jouk', 'nocasing'], ['default', 'discard']]) {
     await B.nav(`${BASE}test.html?ns=perfsvp${process.pid}_${++nsCounter}&view=steps`);
     await B.ev(SV_PASSES);
     await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
     await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    await B.ev(SV_LINES);
+    await B.ev(`window.__lv = ${JSON.stringify(variant)}, 1`);
     if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
     if (scene === 'jouk') await B.ev("__cmwSteps({ scope: 'all', go: 0, now: true }), 1");
     await settle(await pageNow());
@@ -1047,9 +1065,9 @@ async function svGlidePassesUnit() {
     }
     const med = (a) => quant(a, 0.5) || 0;
     const rows = [...per].map(([k, l]) => ({ k, frames: l.ms.length, n: med(l.n), ms: med(l.ms), p95: quant(l.ms, 0.95) || 0, cpu: med(l.cpu), tot: l.ms.reduce((s, x) => s + x, 0) / Math.max(1, nf) })).sort((x, y) => y.tot - x.tot);
-    log(`sv.glide_passes.${scene} (${mode}; ${nf} glide frames; frame cpu median ${med(cpuF).toFixed(1)} ms, frame (cpu+sync) median ${med(frameF).toFixed(1)} p95 ${(quant(frameF, 0.95) || 0).toFixed(1)} ms)`);
+    log(`sv.glide_passes.${scene}.${variant} (${mode}; ${nf} glide frames; frame cpu median ${med(cpuF).toFixed(1)} ms, frame (cpu+sync) median ${med(frameF).toFixed(1)} p95 ${(quant(frameF, 0.95) || 0).toFixed(1)} ms)`);
     for (const r of rows.slice(0, 14)) log(`  ${r.k.padEnd(60)} in ${r.frames}/${nf} frames; draws ${r.n}; gpu ${r.ms.toFixed(2)} ms median, ${r.p95.toFixed(2)} p95, ${r.tot.toFixed(2)} ms per frame; draw-call cpu ${r.cpu.toFixed(2)} ms`);
-    put(`sv.glide_passes.${scene}.frame_ms`, 'info', 'ms', frameF);
+    put(`sv.glide_passes.${scene}.${variant}.frame_ms`, 'info', 'ms', frameF);
   }
 }
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
