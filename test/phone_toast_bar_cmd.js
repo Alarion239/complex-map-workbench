@@ -9,8 +9,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
 const R = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })()`;
 const T = `document.querySelector('#toastHost .toast')`;
-// the message is in, placed, and at rest (full opacity, no slide offset left)
-const SETTLED = `(() => { const e = ${T}; if (!e || document.getElementById('toastHost').getAttribute('data-placed') !== 'phone-plot') return false; const c = getComputedStyle(e); return c.opacity === '1' && (c.transform === 'none' || c.transform === 'matrix(1, 0, 0, 1, 0, 0)'); })()`;
+// the message is in, placed, and at rest (full opacity, no slide offset left, the keys' lift done)
+const SETTLED = `(() => { const e = ${T}; if (!e || document.getElementById('toastHost').getAttribute('data-placed') !== 'phone-plot') return false; const c = getComputedStyle(e); return !document.getAnimations().some((a) => a.transitionProperty === 'bottom') && c.opacity === '1' && (c.transform === 'none' || c.transform === 'matrix(1, 0, 0, 1, 0, 0)'); })()`;
 const show = (msg, o) => ev(`(__cmwToast(${JSON.stringify(msg)}, 'Undo', ${JSON.stringify(o || { ms: 60000 })}), 1)`);
 const touch = async (x, y0, y1) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: y0 }] });

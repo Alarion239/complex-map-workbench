@@ -89,10 +89,17 @@ const px = await ev('window.__px');
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: px[0], y: px[1], button: 'left', clickCount: 1 });
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: px[0], y: px[1], button: 'left', clickCount: 1 });
 ok('a press on the words closes it', await gone(1000), null);
-// its words wrap to two lines at most, nothing cut mid-word (an ellipsis only after the second line)
-await show('A longer message than the room for it one line wide, so that it needs a second line to say all of it here and a third that is cut', null, { ms: 60000 });
-const wr = await ev(`(() => { const e = ${T}.querySelector('span'), lh = parseFloat(getComputedStyle(e).lineHeight) || 18; return { lines: Math.round(e.getBoundingClientRect().height / lh), clamp: getComputedStyle(e).webkitLineClamp }; })()`);
-ok('a long message wraps to two lines at most', wr.lines >= 2 && wr.lines <= 2 && wr.clamp === '2', wr);
+// its words wrap and nothing is cut: a long message is shown whole
+await show('A longer message than the room for it one line wide, so that it needs a second line to say all of it here and a third and a fourth to say the rest of it, none of which is cut', null, { ms: 60000 });
+const wr = await ev(`(() => { const e = ${T}.querySelector('span'), cs = getComputedStyle(e); return { cutY: e.scrollHeight - e.clientHeight, cutX: e.scrollWidth - e.clientWidth, ellipsis: cs.textOverflow, clamp: cs.webkitLineClamp, lines: Math.round(e.getBoundingClientRect().height / (parseFloat(cs.lineHeight) || 18)) }; })()`);
+ok('a long message wraps whole, nothing cut', wr.cutY <= 0 && wr.cutX <= 0 && wr.clamp === 'none' && wr.lines >= 2, wr);
+// the same in Russian at 1024 px wide: the words are shown whole
+await view(1024, 768, false, false);
+await settled({ max: 5000, only: true, until: `typeof __cmwToast === 'function'` });
+await show('Добавлен шаг f₃: Экспонента. Показан отдельно от остальных шагов цепочки, чтобы сообщение заняло несколько строк и ни одно слово не было обрезано', 'Отменить', { ms: 60000 });
+await settled({ max: 3000, only: true, until: `!!${T}` });
+const wru = await ev(`(() => { const e = ${T}.querySelector('span'); return { cutY: e.scrollHeight - e.clientHeight, cutX: e.scrollWidth - e.clientWidth, w: innerWidth }; })()`);
+ok('a long Russian message at 1024 is shown whole', wru.cutY <= 0 && wru.cutX <= 0, wru);
 await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
 
 // the close button, on a timed message too
