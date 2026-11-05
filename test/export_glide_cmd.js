@@ -62,4 +62,14 @@ await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').cl
 await open(1, 'sphere');
 const sp = await ev('__cmwFig.glide()');
 ok('on the sphere the plane glide is not offered', sp === null, sp);
+// on the sphere and the Landscape Video stays listed but unavailable, with its reason for the keyboard and screen readers, and a
+// click neither selects it nor turns the deformation on
+for (const [surf, want] of [['sphere', 'Video of the sphere is not ready yet'], ['land', 'Video of the Landscape is not ready yet']]) {
+  await open(1, surf);
+  const q = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b.click(); await new Promise((r) => setTimeout(r, 200)); return { aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, desc: b.getAttribute('aria-description'), disabled: b.disabled, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
+  info['video on ' + surf] = q;
+  ok(`${surf}: Video is aria-disabled, focusable, with the reason as tip and description`, q && q.aria === 'true' && q.disabled === false && q.tip === want && q.desc === want, q);
+  ok(`${surf}: a click on Video does nothing (dialog stays open, Video not chosen)`, q && q.checked === 'false' && q.still && !q.vsum, q);
+  await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
+}
 return { pass: fails.length === 0, fails, info };

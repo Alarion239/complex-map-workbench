@@ -190,6 +190,9 @@
     const defo = defoOf(view);
     // the steps view's glide along its thread: a video of it where it has a step on the plane surface
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
+    // the steps view without a glide to record: why Video is not offered (no step yet, or a surface with no video)
+    const svSurf = A.svOn() && A.svSurf ? A.svSurf() : 'plane';
+    const noGlide = A.svOn() && !glide ? (svSurf === 'land' ? $t('Video of the Landscape is not ready yet') : svSurf === 'sphere' ? $t('Video of the sphere is not ready yet') : $t('Add a step to make a video')) : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
     if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);
@@ -214,7 +217,7 @@
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
     const canVideo = typeof VideoEncoder !== 'undefined';
-    const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
+    const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
     // (v16.5 UX60: Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
     // opens again on Video: a video records the deformation)
@@ -236,6 +239,7 @@
     const fmtRow = row($t('Format'), h('div', { class: 'xf-fmtrow' }, fmtSeg, dpiSel)); fmtRow.classList.add('wide');
     { const vb = fmtSeg.querySelector('[data-v="video"]');
       if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
+      else if (vb && noGlide) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noGlide; vb.setAttribute('aria-description', noGlide); }
       else if (vb && !defo && !glide) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
@@ -626,7 +630,7 @@
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && !glide && A.canDeform && !A.canDeform())));
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && !glide && !noGlide && A.canDeform && !A.canDeform())));
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);

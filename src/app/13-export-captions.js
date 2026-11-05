@@ -296,8 +296,8 @@
     if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
     if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
-    const src = svPathsSeg(P, i - 1, i, i), nm = (k) => (k === 0 ? 'z' : `w_{${k}}`);
-    return { i, m: 1, src, Fat: src.Fat, z: nm(P[i - 1]), end: nm(P[i]) };
+    const src = svPathsSeg(P, i - 1, i, i);
+    return { i, m: 1, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
@@ -322,6 +322,7 @@
         : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
       try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
+    svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes, null without a
     // step or off the plane surface; svGlideArt draws the left pane parked at thread position x, as the screen draws
     // it there (svRenderMoving), and svGlideText is the screen's own words for that place
@@ -337,7 +338,6 @@
       try { return await artRender('L', Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) })); } finally { SV.g.set(keep.x); SV.span = keep.span; }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
-    svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),

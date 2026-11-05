@@ -20,7 +20,8 @@ const open = async (exN, plane) => {
   await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
 };
 const CASES = [{ ex: 1, plane: 1 }, { ex: 1, plane: 2 }, { ex: 3, plane: 1 }];
-const strip = (s) => String(s).replace(/href="data:[^"]+"/g, '');
+// (a build's ids carry its own time-stamped namespace: cmw<hash>-c<n>)
+const strip = (s) => String(s).replace(/href="data:[^"]+"/g, '').replace(/cmw[0-9a-z]+-/g, 'cmw-');
 for (const c of CASES) {
   const tag = `ex ${c.ex} plane ${c.plane}`;
   await open(c.ex, c.plane);
@@ -38,11 +39,11 @@ for (const c of CASES) {
     ok(`${tag} cols ${cols}: the paths are drawn`, /class="mf-paths"/.test(fig.svg), null);
     ok(`${tag} cols ${cols}: a ring and an end dot per path, at most one arrowhead per path`, nRings > 0 && nEnds === nRings && nHeads <= nRings, [nRings, nEnds, nHeads]);
     ok(`${tag} cols ${cols}: the caption names the paths`, /Curves are the paths/.test(fig.cap) && /\(circle\)/.test(fig.cap) && /\(dot\)/.test(fig.cap), String(fig.cap).slice(-300));
-    ok(`${tag} cols ${cols}: no inline \\frac in the caption`, !/\\frac/.test(fig.cap), fig.cap);
+    ok(`${tag} cols ${cols}: no inline \\frac in the caption`, !/\\frac/.test(String(fig.cap).replace(/\\\[[\s\S]*?\\\]/g, '')), fig.cap);
     R[tag][cols] = { n: nRings, caption: fig.cap };
     if (cols === 1) {
       const again = await ev(`await (async () => { const f = await Figure.build({ svPic: 'paths', for: 'article', cols: 1, capInImage: false }); return f ? f.svg : null; })()`, 120000);
-      ok(`${tag}: the same figure twice has the same vectors`, strip(again) === strip(fig.svg), null);
+      ok(`${tag}: the same figure twice has the same vectors`, strip(again) === strip(fig.svg), (() => { const a = strip(again), b = strip(fig.svg); let i = 0; while (i < a.length && a[i] === b[i]) i++; return { at: i, a: a.slice(Math.max(0, i - 80), i + 80), b: b.slice(Math.max(0, i - 80), i + 80) }; })());
     }
   }
   // a dark-theme export has no dark-theme ink
