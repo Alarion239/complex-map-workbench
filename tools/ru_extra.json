@@ -477,6 +477,7 @@
  "Slow": "Медленно",
  "Slower": "Очень медленно",
  "colour carried from {p}": "цвет, перенесённый из %{p}",
+ "landscape of {h}{sheets}, colour carried from {p}": "рельеф функции %{h}%{sheets}, цвет, перенесённый из %{p}",
  "Place on the chain": "Место в цепочке",
  "Play": "Воспроизвести",
  "Pause": "Пауза",

@@ -534,8 +534,8 @@ void main() {
 }
 `;
   // (#846) The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
-  // under the glide's map from plane s (mapPoint: uBase = s) and at the height of G = the stages (s, T] there (uGs,
-  // uGt), so every point keeps its height and colour while the plane moves. tfOut: (place x, y, height, finite).
+  // under the glide's map from plane s (mapPoint: uBase = s) and at the height of the stages (uGs, uGt] there (s to
+  // the plane the heights read, hT), so every point keeps its height while the plane moves. tfOut: (place x, y, height, finite).
   const LAND_CARRY_TF_VS = `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
