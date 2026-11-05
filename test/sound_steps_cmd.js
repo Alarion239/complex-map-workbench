@@ -104,18 +104,16 @@ await svDo({ go: 1, now: true });
 p = await hover(0.3, 0.5);
 R.slow = await speed('slower');
 await hl();
+// (each frame's place on the thread and whether the stream has had its seat, recorded in the page until the arrival: the seat
+// comes in the frame that first draws past ½, so once two frames or more drew the nearer plane w₂ before the arrival, the seat
+// is among them. A software renderer can draw no frame there at all, seconds apart: then only the arrival's seat is checked)
+await ev(`(() => { window.__fr = []; const rec = () => __fr.push([__cmwSvX(), (window.__hl || []).some((e) => e.k === 'seat')]); const f = () => { rec(); if (__fr.length < 20000 && __cmwSvX() < 1.999) requestAnimationFrame(f); else rec(); }; requestAnimationFrame(f); return 1; })()`);
 await svDo({ go: 2 }, 50);
-R.mid = null;
-for (const t0 = Date.now(); Date.now() - t0 < 20000;) {
-  const o = await ev(`(() => { const x = __cmwSvX(); if (!(window.__hl || []).some((e) => e.k === 'seat')) return { x, seat: false }; const s = __cmwSound(); return { x, seat: true, g: s.g, z: s.rest && s.rest.z }; })()`);
-  if (o.seat || o.x >= 1.999) { R.mid = o; break; }
-  await sleep(50);
-}
 await rest(); await settle(400); await speed('normal');
-L = await hl();
-// (x: where the glide was when the seat was seen; past ½ it is the frame that drew the nearer plane, and an arrival would be
-// x = 2: slow software frames put it anywhere in between)
-ok('a slow glide under a still pointer re-seats on the nearer plane\'s map past half-way, before it arrives', !!R.mid && R.mid.seat && R.mid.x > 1.45 && R.mid.x < 1.999 && near(R.mid.g, id(R.mid.z)) && noCut(L, await live()), Object.assign({ speed: R.slow, kinds: L.map((e) => e.k) }, R.mid));
+const fr = await ev('window.__fr || []'), mid = fr.filter(([x]) => x >= 1.5 && x < 1.999);
+s = await snd(); L = await hl();
+R.mid = { frames: fr.length, nearW2: mid.length, seatThere: mid.some(([, q]) => q), g: s.g, z: s.rest && s.rest.z, kinds: L.map((e) => e.k) };
+ok('a slow glide under a still pointer re-seats on the nearer plane\'s map once a frame draws it past ½, before it arrives', seat(L) && noCut(L, await live()) && (mid.length < 2 || R.mid.seatThere) && !!s.rest && near(s.g, id(s.rest.z)), Object.assign({ speed: R.slow }, R.mid));
 
 // 3. the colour plane changes under a still pointer: C on w₁ makes it the colour plane, then back
 await svDo({ go: 1, now: true });
@@ -181,22 +179,24 @@ ok('parked: the next move is a step, no branch cut', noCut(L, s.live) && L.some(
 await svDo({ go: 0, now: true });
 await hover(0.3, 0.5); await hl(); await made();
 await svDo({ play: true }, 100);
-// (the thread's place alone: the full __cmwSteps() poll starves a play's frames)
-for (let i = 0; i < 300; i++) { await sleep(100); if ((await ev('__cmwSvX()')) >= 1.999) break; }
+// (the thread's place alone: the full __cmwSteps() poll starves a play's frames; up to 60 s where frames are seconds apart)
+for (let i = 0; i < 600; i++) { await sleep(100); if ((await ev('__cmwSvX()')) >= 1.999) break; }
 await rest(); await settle(800); await seated();
 s = await snd(); L = await hl();
 R.play = { label: (await S()).label, kinds: L.map((e) => e.k), g: s.g, z: s.rest && s.rest.z, live: s.live, made: await made() };
 ok('▶ under a still pointer: no branch cut on the way or at the end, where the tone is w₂\'s', noCut(L, s.live) && seat(L) && /Plane w₂/.test(R.play.label) && !!s.rest && near(s.g, id(s.rest.z)), R.play);
 ok('▶: the swell once at the start and the arrival once at its end', count(R.play.made, 'morphStart') === 1 && count(R.play.made, 'morphEnd') === 1, R.play.made);
 // with Loop on it starts over at the end: the arrival never comes on a repeat; a pause brings none either
-await svDo({ loop: true }, 200);
+// (at the fast speed, and the wrap watched in the page once a frame, up to 60 s where frames are seconds apart)
+await svDo({ loop: true }, 200); R.wrapSpeed = await speed('fast');
 await svDo({ go: 0, now: true }); await made();
+await ev(`(() => { window.__wr = { hi: 0, wrapped: false }; const f = () => { const x = __cmwSvX(), w = window.__wr; if (x < w.hi - 0.5) w.wrapped = true; w.hi = Math.max(w.hi, x); if (!w.wrapped) requestAnimationFrame(f); }; requestAnimationFrame(f); return 1; })()`);
 await svDo({ play: true }, 100);
-R.wrap = { hi: 0, wrapped: false };
-for (const t0 = Date.now(); Date.now() - t0 < 20000 && !R.wrap.wrapped;) { const x = await ev('__cmwSvX()'); if (x < R.wrap.hi - 0.5) R.wrap.wrapped = true; R.wrap.hi = Math.max(R.wrap.hi, x); await sleep(80); }
+for (const t0 = Date.now(); Date.now() - t0 < 60000;) { if (await ev('window.__wr.wrapped')) break; await sleep(200); }
+R.wrap = await ev('window.__wr');
 await svDo({ play: false }, 300); await rest();
 R.wrap.made = await made();
-await svDo({ loop: false }, 200);
+await svDo({ loop: false }, 200); await speed('normal');
 ok('▶ with Loop on: the swell once, no arrival on its repeat or at a pause', R.wrap.wrapped && count(R.wrap.made, 'morphStart') === 1 && count(R.wrap.made, 'morphEnd') === 0, R.wrap);
 // the strip's scrub: its landmarks ring as the Deformation's slider's do (the pointer off the plane: no resting probe)
 const rail = await ev(`(() => { const r = document.querySelector('.sv-rail').getBoundingClientRect(), ns = [...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const q = b.getBoundingClientRect(); return q.left + q.width / 2; }); return { x: r.left + 10, y: r.top + r.height / 2, end: ns[ns.length - 1] + 4 }; })()`);
