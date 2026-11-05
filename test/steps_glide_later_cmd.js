@@ -1,13 +1,17 @@
-// The steps view's glide draws the shapes of later planes where the exact picture at u puts them (#861): the parked frame
-// of the glide's first plane a draws a shape of a later plane pulled back onto a (its preimage under the steps after a);
-// held still mid-glide at u = 0.002, 0.5 and 0.998 the shape is that pullback carried by the glide's H_u. Each pixel of the
-// parked frame the pullbacks draw (where the frame with the later planes' shapes hidden differs) is moved by H_u to w;
-// the moving frame differs from the same frame with those shapes hidden within STROKE_R px of w, for at least HIT_MIN of
-// them, and has at least MIN_SAMPLES such pixels.
+// Inside regions, the steps view's glide draws a region of a later plane where the exact picture at u puts it (#861,
+// #732): the parked frame of the glide's first plane draws the region pulled back onto that plane (its points z with
+// F_{0->k}(z) in it, coloured from z, at the pullbacks' opacity). Chain of two Möbius steps, a disc on each of planes 1
+// and 2, the glide 0 -> 1 held still at u = 0.002, 0.5 and 0.998:
+// - the frame is the inverse pass's (__cmwSteps().glide.path);
+// - it is the exact picture at u (held_frames refOf): the parked frame's colours through H_u's inverse, within REF_TOL
+//   on all but SAME_FRAC of at least MIN_COMPARED pixels;
+// - each pixel of the parked frame the regions draw (where the same frame with no shapes differs) is drawn within
+//   STROKE_R px of its image under H_u in the moving frame (where the same frame with no shapes differs), for at least
+//   HIT_MIN of at least MIN_SAMPLES of them. The frames with no shapes are another page's, carried over as bytes.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const HIT_MIN = 0.9, MIN_SAMPLES = 40, STROKE_R = 3, DIFF_MIN = 24, LOOK_U = [0.002, 0.5, 0.998];
+const HIT_MIN = 0.9, MIN_SAMPLES = 40, STROKE_R = 3, DIFF_MIN = 24, REF_TOL = 3, SAME_FRAC = 0.01, MIN_COMPARED = 1000, LOOK_U = [0.002, 0.5, 0.998];
 await view(1200, 800);
 const ST = {
   pattern: 'phase', outline: true, lines: true, unit: false, alpha: 0.85, v3: true, v4: true, v5: true, nextId: 50,
@@ -26,7 +30,7 @@ const sceneFrames = async (ns, shapes) => {
   ok('the page shows the steps view', await isSteps(), null);
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'in', surf: 'plane' }), 1`);
 };
-const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { grab, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (the left canvas's still pixels kept in __heldPx[tag])
 const at = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-9 && GLR.pendingLinks === 0` }); };
 const still = async (tag) => { await ev(`__cmwSteps({ bare: false }), 1`); await settled({ max: 20000 }); ok(`the frame ${tag} settles`, await grab(tag), null); };
@@ -34,7 +38,16 @@ const still = async (tag) => { await ev(`__cmwSteps({ bare: false }), 1`); await
 const take = async (suffix) => {
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
   await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0` });
-  await still('P' + suffix);   for (const u of LOOK_U) { await at(u); await still('M' + u + suffix); }
+  await still('P' + suffix);   for (const u of LOOK_U) {
+    await at(u); await still('M' + u + suffix);
+    if (!suffix) {
+      const g = await ev(`(({ path, reason }) => ({ path, reason }))(__cmwSteps().glide)`);
+      info['record u=' + u] = g;
+      const R = info['exact u=' + u] = (await refOf('P', 'M' + u, REF_TOL)).ref;
+      ok(`the frame at u = ${u} is the exact picture at u: the parked frame's colours (the regions' colour from z) through H_u's inverse, at most ${SAME_FRAC * 100} % of the compared pixels > ${REF_TOL}/255 apart`, R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, R);
+      ok(`the frame at u = ${u} is the inverse pass's (the later planes' regions in it)`, g.path === 'inverse', g);
+    }
+  }
 };
 const pack = (tags) => ev(`(() => { const K = window.__heldPx, o = {}; for (const t of ${JSON.stringify(tags)}) { let b = ''; const d = K[t]; for (let i = 0; i < d.length; i += 32768) b += String.fromCharCode.apply(null, d.subarray(i, i + 32768)); o[t] = btoa(b); } return o; })()`);
 const unpack = async (o) => {
@@ -61,7 +74,7 @@ const carried = (u) => ev(`(() => {
     for (let dy = -R; dy <= R && !found; dy++) for (let dx = -R; dx <= R && !found; dx++) { const j = 4 * ((wy + dy) * W + wx + dx); if (drawn(M, M0, j)) found = true; }
     if (found) hit++;
   }
-  return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, b: g.b, u: +g.u.toFixed(3) };
+  return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, reason: g.reason, b: g.b, u: +g.u.toFixed(3) };
 })()`);
 
 const tags = ['P'].concat(LOOK_U.map((u) => 'M' + u));

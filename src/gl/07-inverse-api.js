@@ -36,10 +36,13 @@
     for (const s of list || []) {
       if (!s || s.visible === false || !TKIND[s.kind] || TKIND[s.kind] > 10) continue;
       const gk = gKind(s);
-      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
+      // stage: the plane the shape lies on; a shape of plane k > 0 holds the points z of plane 0 whose F_{0->k}(z) it
+      // holds, so its clip primitive and box (in its own plane) say nothing of z
+      const stage = Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
+      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
       recs.set(s.id, rec);
       let prim = null;
-      try { prim = Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
+      try { prim = Region.clipPrimitive && !stage ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
       const pk = packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
@@ -69,7 +72,7 @@
       rec.clipU.set(data.slice(n0 + 4, n0 + 4 + 64));
       // the early-out box (polygons, bounded formulas); x0 > x1: none
       rec.box = [1, 1, 0, 0];
-      if (!s.complement && (s.kind === 'polygon' || s.kind === 'formula')) {
+      if (!stage && !s.complement && (s.kind === 'polygon' || s.kind === 'formula')) {
         let bb = null;
         try { bb = s.kind === 'polygon' ? Region.bboxOf(s) : Region.formulaBox(s); } catch (e) { bb = null; }
         if (bb && [bb.x0, bb.x1, bb.y0, bb.y1].every(Number.isFinite) && bb.x0 <= bb.x1 && bb.y0 <= bb.y1) rec.box = [bb.x0, bb.y0, bb.x1, bb.y1];
@@ -483,7 +486,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
-    u1i(P, 'uIxTail', d.tail);
+    u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
+    u1i(P, 'uShStage', rec.stage);
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);

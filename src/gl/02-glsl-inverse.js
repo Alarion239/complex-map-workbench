@@ -32,6 +32,8 @@ uniform int uKsat; uniform int uKall;
 uniform int uIxTail;
 uniform highp sampler2D uPts; uniform int uShOff; uniform ivec4 uShape; uniform vec4 uShA; uniform vec4 uShB; uniform vec4 uShC;
 uniform int uFormSlot;
+// uShStage > 0 (carried programs): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
+uniform int uShStage;
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
@@ -203,7 +205,19 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   int kind = uShape.x;
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
-  if (IX_HASLAM(L) && abs(L.lam.x) > 60.0) {
+#ifdef IX_CARRY
+  if (uShStage > 0) {
+    // (the shape's level at the point's image on its plane, along the image of the footprints)
+    if (!zf) return;
+    vec2 g0 = chainRange(z, 0, uShStage), gx = chainRange(z + dX, 0, uShStage) - g0, gy = chainRange(z + dY, 0, uShStage) - g0;
+    if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
+    z = g0; dX = gx; dY = gy;
+  }
+  bool ixOwn = uShStage == 0;
+#else
+  const bool ixOwn = true;
+#endif
+  if (ixOwn && IX_HASLAM(L) && abs(L.lam.x) > 60.0) {
     bool big = L.lam.x > 0.0, at0 = uShC.x > 0.5;
     float th = L.lam.y;
     if (kind == 4) { if (big || uShC.y > 0.5) ixDirHalf(uShA.zw, th, dLX, dLY, cs, s, n); else s = at0 ? IX_BIG : -IX_BIG; return; }

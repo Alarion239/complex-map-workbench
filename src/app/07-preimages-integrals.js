@@ -20,6 +20,8 @@
   function preimageTargets(areasOnly) {
     return pullTargets((S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area')));
   }
+  // the opacity of a pulled-back region's fill
+  const PULL_ALPHA = 0.42;
   function pullTargets(list) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
@@ -31,7 +33,7 @@
         t.pts = Array.from({ length: n }, (_, i) => s.pts[Math.round(i * (s.pts.length - 1) / Math.max(1, n - 1))]);
       }
       const ink = shapeInk(s), area = kindType(s) === 'area';
-      let a = area ? 0.42 : 1;
+      let a = area ? PULL_ALPHA : 1;
       a *= dimK(s);
       t.color = GLR.hexRGB(area ? ink.c0 : ink.edge);
       t.edge = GLR.hexRGB(ink.edge);
