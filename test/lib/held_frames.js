@@ -84,7 +84,8 @@
 };`;
   const HOLD_EPS = 0.003;   // (a rail pixel is about 0.005 of a plane at 1200 px wide)
   const DIFF_TOL = 32;      // (steps_sm_standin_cmd.js: a frame is the rest frame with at most 0.5 % of pixels > 32/255 apart)
-  const hold = async (x) => {
+  // (links: wait for every program to have linked too; false while links are held, GLR.holdLinks)
+  const hold = async (x, links = true) => {
     await ev(`(() => {
       const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
       const i = Math.min(ns.length - 2, Math.floor(${x})), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
@@ -93,7 +94,7 @@
       window.__svScrubUp = () => ev('pointerup', cx);
       return 1;
     })()`);
-    return settled({ max: 60000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving` });
+    return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving` });
   };
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
