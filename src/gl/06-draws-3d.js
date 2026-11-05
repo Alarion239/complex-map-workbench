@@ -1277,7 +1277,7 @@
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0); u1f(Pc, 'uPatch', 0);
+      u4f(Pc, 'uPolar', 0, 0, 0, 0);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -1286,7 +1286,7 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', CARRY_POLE_N); u1f(Pc, 'uPatch', 1);
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', CARRY_POLE_N);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (CARRY_POLE_N - 1) * (CARRY_POLE_N - 1));
