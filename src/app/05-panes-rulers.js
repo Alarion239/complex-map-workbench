@@ -74,7 +74,8 @@
   // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
   let zpHandlesL = [], zpHover = null, zpSel = null;
-  function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
+  // (k: the stage the left plane shows, default its own: z's view is S.srcView, a later stage's V.left)
+  function leftView(k = leftStage()) { return k === 0 ? S.srcView : V.left; }
   // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
   function phHold() { if (Phone.hold) Phone.hold(); }
@@ -93,7 +94,7 @@
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
     if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
-    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { svRenderMoving(pane); return; } }
+    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
@@ -550,12 +551,15 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights)
-  let muCache = { key: '', mu: 1 };
-  function medianAbs(box) {
-    const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}`;
-    if (muCache.key === key) return muCache.mu;
-    const F = typeof plotF === 'function' ? plotF() : focusF(), vals = [];   // the focused map at t = end (a steady scale while morphing)
+  // median |F| over the box (used to scale |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
+  // while morphing), or of map (a map spec of the left plane, with Fm its CPU twin): the steps view's planes. One
+  // value cached per map
+  const muCache = new Map();
+  function medianAbs(box, map, Fm) {
+    const mk = map ? mapKeyOf(map) : SV.on ? mapKeyOf(svMap()) : '';
+    const key = `${chainSig[nSteps()]}|${S.focus}|${mk}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}`;
+    if (muCache.has(key)) return muCache.get(key);
+    const F = map ? Fm : typeof plotF === 'function' ? plotF() : focusF(), vals = [];
     for (let j = 0; j < 32; j++) for (let i = 0; i < 32; i++) {
       const w = F(C(box.x0 + (i + 0.5) / 32 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 32 * (box.y1 - box.y0)));
       const v = S.height === 're' ? Math.abs(w.re) : S.height === 'im' ? Math.abs(w.im) : CX.abs(w);
@@ -563,32 +567,55 @@
     }
     vals.sort((a, b) => a - b);
     const mu = vals.length ? Math.max(1e-6, vals[Math.floor(vals.length / 2)]) : 1;
-    muCache = { key, mu };
+    if (muCache.size > 8) muCache.delete(muCache.keys().next().value);
+    muCache.set(key, mu);
     return mu;
   }
   // the landscape's domain: the left view box, aspect preserved (spec 6.9), trimmed to at most 2:1 about its centre
-  function landBox() {
+  // (v: a view of the left plane, default its own: the steps view's glide asks for both planes')
+  function landBox(v) {
     // (a figure's art: the window figure.js chose, snapped to round numbers; the screen never takes this path)
     if (artMode && artLandBox) return artLandBox;
-    const vb = leftPaneBox();
+    const vb = leftPaneBox(v);
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
     return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
   }
-  function render3D(pane) {
+  // carry (the steps view's glide, svLandMoving): {map, s, T, lim, u, b, va, vb}: plane s's surface moved by the glide's
+  // map (GLR.drawLandscape's carry); its block and its height scale go from plane s's to plane b's over u (the box's
+  // centre linearly, its size and the scale in log; b null: plane s's), so the block, its floor and its axes move
+  // smoothly from one plane's rest frame to the other's. va, vb: the two planes' views
+  // p to q at f in log (p, q > 0)
+  const logLerp = (p, q, f) => Math.exp((1 - f) * Math.log(p) + f * Math.log(q));
+  function carryBox(c) {
+    const A = landBox(c.va), B = c.b == null ? A : landBox(c.vb), u = c.u;
+    const mid = (p, q) => (1 - u) * p + u * q, geo = (p, q) => logLerp(p, q, u);
+    const cx = mid((A.x0 + A.x1) / 2, (B.x0 + B.x1) / 2), cy = mid((A.y0 + A.y1) / 2, (B.y0 + B.y1) / 2);
+    const hw = geo(A.x1 - A.x0, B.x1 - B.x0) / 2, hh = geo(A.y1 - A.y0, B.y1 - B.y0) / 2;
+    return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
+  }
+  function render3D(pane, carry) {
     pane.begin(TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
-    const box = landBox();
+    const box = carry ? carryBox(carry) : landBox();
     // the Morph transport (homView): the surface of H_t; All sheets (S.sheets, window S.sheetW): the whole covering
     // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
     // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
-    const hv = typeof homView === 'function' ? homView() : null;
+    const hv = !carry && typeof homView === 'function' ? homView() : null;
     // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
-    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
+    // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
+    const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
+    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
+    if (carry && S.height !== 'log') {
+      const ma = medianAbs(landBox(carry.va), svColourMap(carry.s), svF(carry.s));
+      const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svColourMap(carry.b), svF(carry.b));
+      mu = logLerp(ma, mb, carry.u);
+    }
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
     // ones into stacked plates), so the height is nearly linear in the value and every turn keeps its pitch; the
@@ -604,17 +631,27 @@
     const fm = focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
-      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}`;
-      const c = render3D.muS || (render3D.muS = { key: '', mu: 1 });
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
-      const zAt = (i, j) => C(box.x0 + (i + 0.5) / 12 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 12 * (box.y1 - box.y0));
+      const mu0 = mu;
+      const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
+      const zAt = zAtIn(box);
       const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
-      if (c.key !== key) {
+      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq ? sheets.uniq.join(',') : ''}`;
+      // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
+      const scaleOf = (fmK, K, bx) => {
+        // the combos drawn: the distinct sheets of fmK
+        const combos = sheetUniqOf(fmK, sheets.W) || Array.from({ length: K }, (_, i) => i);
+        const ck = `${chainSig[nSteps()]}|${mapKeyOf(fmK)}|${S.focus}|${bx.x0},${bx.x1},${bx.y0},${bx.y1}|${S.height}|${sheets.W}|${combos.join(',')}`;
+        const cache = render3D.muScales || (render3D.muScales = new Map());
+        let r = cache.get(ck);
+        if (r) return r;
+        const zAtB = zAtIn(bx);
         const vals = [], sv = [], sv0 = [];
-        for (let k = 0; k < si.K; k++) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
-          const z = zAt(i, j);
+        for (const k of combos) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
+          const z = zAtB(i, j);
+          // a sheet that cannot be evaluated at z (a throw) is no sample, like a non-finite value
           let w = null;
-          try { w = Funcs.sheetEval(S.steps, built, fm.b, z, z, k, sheets.W, { a: fm.a || 0 }); } catch (e) { w = null; }
+          try { w = Funcs.sheetEval(S.steps, built, fmK.b, z, z, k, sheets.W, { a: fmK.a || 0 }); } catch (e) { w = null; }
           const x = hOf(w);
           if (!Number.isFinite(x)) continue;
           vals.push(Math.abs(x)); sv.push(x);
@@ -622,10 +659,19 @@
         }
         for (const a of [vals, sv, sv0]) a.sort((x, y) => x - y);
         // linear heights over all sheets: the scale is (nearly) the largest value, so the surfaces fill the block
-        c.key = key; c.mu = vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu;
         const s0 = sv0.length ? q(sv0, 0.95) - q(sv0, 0.05) : 0, s1 = sv.length ? q(sv, 0.95) - q(sv, 0.05) : 0;
-        c.boost = lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1;
-      }
+        r = { mu: vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu0, boost: lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1 };
+        if (cache.size > 16) cache.delete(cache.keys().next().value);
+        cache.set(ck, r);
+        return r;
+      };
+      // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
+      // frames' are, so a frame depends on u alone
+      const ofPlane = (k, v) => { const m = svColourMap(k), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
+      const c = carry ? (() => {
+        const ra = ofPlane(carry.s, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
+        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
+      })() : scaleOf(fm, si.K, box);
       mu = c.mu;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
@@ -646,7 +692,7 @@
           // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
           // stops when this no longer matches, so a value is only ever computed for the state of its key
           const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
-          const cmu = c.mu, K = si.K, W = sheets.W, end = sheets.end, s0 = sig();
+          const cmu = c.mu, combos = sheets.uniq || Array.from({ length: si.K }, (_, i) => i), K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
           h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
           // fill time j (from where it stopped); with over(), stop after the row that runs past it and return false
           h.fill = (jt, over) => {
@@ -658,7 +704,7 @@
                 if (!p.mp) p.mp = HR.state(S, jt / N * L, true).map;
                 for (; p.r < K * 12; p.r++) {
                   if (over && over()) return false;
-                  const k = Math.floor(p.r / 12), jj = p.r % 12;
+                  const k = combos[Math.floor(p.r / 12)], jj = p.r % 12;
                   for (let i = 0; i < 12; i++) {
                     const z = zAt(i, jj), xv = hOf(Funcs.sheetMapEval(S.steps, built, p.mp, z, z, k, W, end));
                     if (Number.isFinite(xv)) p.v.push(Math.abs(xv));
@@ -690,7 +736,7 @@
           if (h.mu[jt] === undefined) h.fill(jt, null);
           return h.mu[jt];
         };
-        mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : Math.exp((1 - f) * Math.log(at(j)) + f * Math.log(at(j + 1)));
+        mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : logLerp(at(j), at(j + 1), f);
       }
       lscale *= c.boost || 1;
       if (lin) render3D.linear = true;
@@ -699,6 +745,9 @@
     const geo = GLR.landGeom(box, lscale);
     refitCam(cam, CAM3, landFitDist(geo, pane));
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
+    // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
+    // landscape's frame begins, as it takes a GL frame of its own)
+    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.va)) : svLandMask(svStage(), box)) : null;
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
@@ -712,8 +761,8 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: hv ? hv.map : focusMap(), box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, lim: carry.lim, src: landBox(carry.va) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
       colors: {
@@ -731,11 +780,14 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets } : null;   // (the last frame's carry: tests)
+    render3D.box = box;
+    render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
-    render3D.pick = info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
+    render3D.pick = carry ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.muS = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -1243,8 +1295,9 @@
   // null off the globe or at the north pole (infinity).
   function pickSphereLeft(x, y) { return pickSphere(paneL, camL, x, y); }
   let leftSphereInfo = null;   // the left globe's last frame {MVP, eye}: overlays lift their marks onto it
-  function leftPaneBox() {
-    const v = leftView(), P = solo() === 'R' ? paneR : paneL;
+  // (v: a view of the left plane, default its own)
+  function leftPaneBox(v = leftView()) {
+    const P = solo() === 'R' ? paneR : paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
