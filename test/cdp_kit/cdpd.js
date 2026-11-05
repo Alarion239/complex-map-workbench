@@ -56,13 +56,36 @@ let S = null;
 const H = {};
 H.send = (m, p) => send(m, p, S);
 H.sleep = sleep;
+// evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
+// (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
+// result is read by value from its handle, which is released at once.
 H.ev = async (expr, timeout = 20000) => {
-  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, timeout, userGesture: true, replMode: true }, S);
-  if (r.exceptionDetails) return { __exc: (r.exceptionDetails.exception && r.exceptionDetails.exception.description) || r.exceptionDetails.text };
-  return r.result.value;
+  const t0 = Date.now();
+  const group = 'ev';
+  const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
+  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: false, timeout, userGesture: true, replMode: true, objectGroup: group }, S);
+  if (r.exceptionDetails) return fail(r.exceptionDetails);
+  const o = r.result;
+  if (!o.objectId) return o.value;
+  try {
+    let timer;
+    const left = Math.max(1, timeout - (Date.now() - t0));
+    const limit = new Promise((res) => { timer = setTimeout(() => res({ exceptionDetails: { text: `ev: the promise did not settle within ${timeout} ms` } }), left); });
+    const settled = o.subtype === 'promise'
+      ? await Promise.race([send('Runtime.awaitPromise', { promiseObjectId: o.objectId, returnByValue: true, userGesture: true }, S), limit])
+      : await send('Runtime.callFunctionOn', { objectId: o.objectId, functionDeclaration: 'function () { return this; }', returnByValue: true }, S);
+    clearTimeout(timer);
+    if (settled.exceptionDetails) return fail(settled.exceptionDetails);
+    return settled.result.value;
+  } finally {
+    // (the release only frees the page's references: the answer is already read, and when the page has reloaded or gone its group is gone too, so a failed release has nothing to report)
+    send('Runtime.releaseObjectGroup', { objectGroup: group }, S).catch(() => {});
+  }
 };
+// (the device pixel ratio: CMW_DPR, 1 by default; 2 is the Mac's screen)
+const DPR = +process.env.CMW_DPR || 1;
 H.view = async (w, h, dark, mobile) => {
-  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!mobile }, S);
+  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: DPR, mobile: !!mobile }, S);
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }] }, S);
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!mobile, maxTouchPoints: mobile ? 5 : 1 }, S);
 };

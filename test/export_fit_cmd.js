@@ -14,6 +14,7 @@ for (const [W, H] of [[1024, 768], [1280, 800], [1440, 900]]) for (const lang of
   await nav(`${base}/test.html?ns=xfit${lang}${W}${Date.now() % 1000000}&lang=${lang}`);
   await sleep(2400);
   await ev('(__cmwExample(1), 1)'); await sleep(1800);
+  ok(`${tag}: the dialog opens from the steps view`, await ev('!!window.__cmwSteps && __cmwSteps().on'), null);
   await key('e', 4);   // Meta+E (the page also takes Ctrl+E)
   const up = await ready();
   ok(`${tag}: the dialog opens`, up, null);

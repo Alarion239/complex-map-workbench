@@ -9,26 +9,16 @@
 // The Paths toggle and the order select have their own suites (steps_paths_cmd, steps_order_cmd); the classic
 // Deformation dock's version of all this is deform_nat_classic_cmd. A command file for a CDP daemon (test/cdp_kit
 // README); prints { pass, fails, paths }.
-const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
 const fails = [], errs = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
 const NS = 'svnat' + Date.now();
 const SV = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
-const S = () => ev('__cmwSteps()');
 const base = (sc, extra) => Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, pattern: 'checker' }, sc, extra);
 const open = async (st, ns) => {
-  await go(`${BASE}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await loadView('steps', ns, st, { lang: 'en' });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip')` });
 };
-// (parked at x, until a frame has drawn the paths of the finished selection, at most 20 s on a software renderer)
-const parked = async (x) => {
-  await SV({ park: x });
-  await settled({ max: 20000, until: `(() => { const p = __cmwSteps().paths; return !!p.src && p.ready && p.heads > 0 && Math.abs(p.T - p.src.T) < 1e-9; })()` });
-  return (await S()).paths;
-};
+const { S, parked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_paths_kit.js'), 'utf8'))({ ev, settled });
 const zsAt = async () => JSON.stringify((await ev('__cmwMorphCache()')).zs);
 
 // 1. an old save with the straight line: migrated to the natural paths, the order select off for one step
@@ -71,18 +61,20 @@ for (const [id, sc] of Object.entries(PA)) {
   for (const x of xs) { await parked(x); ok(`paths ${id}: the same points at x = ${x}`, (await zsAt()) === zs0, null); }
   // a glide from the first plane to the last: the first frame mid-glide with paths drawn, kept where the wait found it
   // (the glide moves on meanwhile; the panes are never quiet during one). The run is the chain's own, with the same
-  // points as parked
+  // points as parked. The glide's clock is the test hook's, 300 ms a frame (about 15 frames of a Slower glide): each
+  // frame is drawn the app's way, but a runner whose frames take seconds still has frames mid-glide
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
   await settled({ max: 10000, until: `!__cmwSteps().moving` });
   await ev(`(() => { const e = document.querySelector('#svStrip .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
   const last = sc.steps.length;
-  await ev(`window.__svGlide = null; __cmwSteps({ go: ${last} }), 1`);
+  await ev(`window.__svGlide = null; __cmwSteps({ clock: 300 }); __cmwSteps({ go: ${last} }), 1`);
   await settled({ panes: false, max: 30000, until: `(() => { const s = __cmwSteps(); if (s.anim && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) window.__svGlide = { paths: s.paths, zs: JSON.stringify(__cmwMorphCache().zs), all: s.all }; return !!window.__svGlide || !s.moving; })()` });
   const pl = await ev('window.__svGlide || null');
   ok(`paths ${id}: paths are drawn mid-glide, their moving points at H_T(z)`, !!pl && pl.paths.err < 1.5, pl);
   if (pl && last === 1) ok(`paths ${id}: the same points while a glide plays`, pl.zs === zs0, null);
   if (pl && last > 1) ok(`paths ${id}: a glide over ${last} steps is one run of them`, pl.paths.src.Tend === last && pl.paths.src.seq === true && pl.paths.src.startId === true, pl.paths.src);
   await settled({ max: 30000, until: `!__cmwSteps().moving` });
+  await ev('__cmwSteps({ clock: 0 }), 1');
   paRes[id] = { n: c.n, kinds: c.kinds, jump: +c.jump.toFixed(3), kink: +c.kink.toFixed(3), turnP99: +c.turnP99.toFixed(3), sep: +c.sep.toFixed(3), err: +p.err.toFixed(3) };
 }
 
