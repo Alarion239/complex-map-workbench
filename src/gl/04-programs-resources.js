@@ -90,7 +90,7 @@
   // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
   // the fill draws through: drawRegionCarry)
   const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
-  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
+  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip, true);
   const REGION_KM_FS = () => UTIL + CARRY_MASK_FS;
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
@@ -142,6 +142,9 @@
     // (#366 F: the steps view's carried colour, CARRY_VS)
     carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
     carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
+    // (the same on the globe, CARRY_GLOBE_VS)
+    carryG: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + CARRY_GLOBE_FS(false) },
+    carryGId: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + CARRY_GLOBE_FS(true) },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
     // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
     cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },
@@ -1313,8 +1316,8 @@ float wabs(vec2 w) {
   // outer ring's sizes): its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose
   // cuts the fill draws, its point pass's (fillPoints: both runs' for a cut not clipped), each at the size its draw
   // asks for; and the vertex arrays of its map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO,
-  // meshVAO; no cells skipped), so that draw creates none of them
-  function carryReserve(res, L) {
+  // meshVAO) with the cells skip leaves out (none without it), so that draw creates none of them
+  function carryReserve(res, L, skip) {
     if (!ok || !rtOK || !res || !res.n) return false;
     const tpl = regionTemplate(L), W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(tpl.P * res.n / W));
     if (H > maxTex) return false;
@@ -1340,8 +1343,8 @@ float wabs(vec2 w) {
       }
     }
     meshTFVAO(res, L);
-    if (res.fillPts) fillPtsVAO(res, res.skip0);
-    meshVAO(res, L);
+    if (res.fillPts) fillPtsVAO(res, skip || res.skip0);
+    meshVAO(res, L, skip);
     return true;
   }
   // (the tests' record of the fill: runs, how many point passes have run; frames, the fill's frames drawn from the point

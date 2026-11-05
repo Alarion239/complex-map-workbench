@@ -15,7 +15,7 @@ eq('a multi-line export goes', stripEsm('const a = 1;\nexport {\n  a,\n};\n'), '
 eq('an indented export (inside a template) stays', stripEsm('const t = `\n  export { a };\n`;\n'), 'const t = `\n  export { a };\n`;\n');
 eq('CRLF lines too', stripEsm("import a from './a.js';\r\nconst z = a;\r\nexport { z };\r\n"), 'const z = a;\r\n');
 // the joined files and the signatures. (A file with neither imports nor exports is a fixture of its own, not one of
-// src/: after phase 4 of #20 every file of src/ has its module block)
+// src/: every file of src/ has its module block)
 const fs = require('fs'), os = require('os'), path = require('path');
 const FIX = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-src-text-'));
 const PLAIN = "'use strict';\n// a file with no import and no export\nconst a = 1;\nfunction f() { return a; }\n";

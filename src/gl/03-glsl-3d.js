@@ -533,23 +533,38 @@ void main() {
   gl_PointSize = 1.0;
 }
 `;
-  // (#846) The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
+  // The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of the stages (uGs, uGt] there (s to
   // the plane the heights read, hT), so every point keeps its height while the plane moves. tfOut: (place x, y, height, finite).
+  // The carried grid's point of plane s at grid place ij (0 to uN - 1 each way): over the box uSrc, or, with uPolar
+  // (pole x, y, r0, r1; r1 > 0), a patch about a pole of the glide's map: the angle once round clockwise with i (so its
+  // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
+  // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
+  // are left out
+  const CARRY_Z = `
+uniform vec4 uPolar;
+vec2 carryZ(vec2 ij) {
+  float f = 1.0 / float(uN - 1);
+  if (uPolar.w <= 0.0) return uSrc.xy + ij * f * uSrc.zw;
+  float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
+  return uPolar.xy + r * vec2(cos(th), sin(th));
+}
+`;
   const LAND_CARRY_TF_VS = `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
+` + CARRY_Z + `
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = uSrc.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uSrc.zw;
+  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
   vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
 }
 `;
   // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
-  // s), without a height: (place x, y, 0, finite). The sheets keep the heights of plane s's own surface (LAND_SHEET_VS,
-  // uCarry 1 reads these places)
+  // s), without a height: (place x, y, 0, finite). The sheets keep their heights at plane s, of the stages (s, hT]
+  // (LAND_SHEET_VS, uCarry 1 reads these places)
   const LAND_CARRY_PLACE_TF_VS = `
 uniform int uN; uniform vec4 uSrc;
 out vec4 tfOut;
@@ -566,6 +581,7 @@ void main() {
   // the grid (LAND_AO, as at rest)
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
+uniform float uPatch;
 out vec4 tfOut;
 ` + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
@@ -583,7 +599,8 @@ void main() {
   vec3 dx = (oR ? placeOf(R) : P0) - (oL ? placeOf(L) : P0), dy = (oU ? placeOf(U) : P0) - (oD ? placeOf(D) : P0);
   vec3 n = cross(dx, dy);
   n = length(n) > 1e-20 ? normalize(n) : vec3(0.0, 0.0, 1.0);
-  tfOut = vec4(n, landAO(p, c.z));
+  // (no occlusion on a patch (CARRY_Z): its 9 x 9 neighbours span radii many times apart, not a neighbourhood)
+  tfOut = vec4(n, uPatch > 0.5 ? 1.0 : landAO(p, c.z));
 }
 `;
   // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle
@@ -598,6 +615,7 @@ uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; unif
 uniform float uStep;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
+` + CARRY_Z + `
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
@@ -611,7 +629,7 @@ void main() {
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = uSrc.xy + vec2(V) / float(M) * uSrc.zw;
+  vZ = carryZ(vec2(V));
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -1115,9 +1133,9 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${sheet ? ' uniform int uCarry; uniform vec2 uClipA;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc; uniform float uPatch;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1162,10 +1180,10 @@ void main() {
 ${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
-  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = facetW(w0);
+  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
-  float la = ht.y > 0.5 ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
+  float la = ht.y > 0.5${sheet ? ' && uCarryCol == 0' : ''} ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
   float r = wabs(w);
   float q = TAU / max(uSectors, 1.0);
   // (the lines' widths: the smaller of w's and F's as it is. On a silhouette the helper fragments of a quad sit off the
@@ -1204,7 +1222,7 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
   vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
-  // where the block's top or bottom clips the surface: the same rim as the domain's edges
+${carry ? '  rim *= 1.0 - uPatch;   // (a patch of the carried grid (CARRY_Z) has no domain edge of its own)\n' : ''}  // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
                          vBoxE.y * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.y))),
                          vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z))));

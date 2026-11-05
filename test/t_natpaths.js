@@ -133,7 +133,7 @@ const chain = [S('joukowski'), S('cos'), S('rational')];
 const allAt = (t) => (z) => chain.reduce((w, b) => b.hom(t)(w), z);
 const Fz = (z) => chain.reduce((w, b) => b.f(w), z);
 check('all at once: H_0 = id, H_1 = F', pts.every((z) => CX.abs(CX.sub(allAt(0)(z), z)) === 0 && (!CX.isFin(Fz(z)) || rel(allAt(1)(z), Fz(z)) < 1e-14)));
-// (i) the same map deforms the same way however it was entered (degree 1: the Moebius group; c J: the Joukowski
+// (i) the same map deforms the same way however it is entered (degree 1: the Moebius group; c J: the Joukowski
 // path; z^n: the power path), and any analytic formula gets a natural path
 const same = (b1, b2, ts = [0.3, 0.6]) => ts.every((t) => pts.every((z) => { const u = b1.hom(t)(z), v = b2.hom(t)(z); return !CX.isFin(v) || CX.abs(v) > 1e6 || rel(u, v) < 1e-9; }));
 check('custom 1/z = the recip step', S('custom', { expr: '\\frac{1}{z}' }).nat.kind === 'chain' && same(S('custom', { expr: '\\frac{1}{z}' }), S('recip')));
@@ -152,7 +152,7 @@ for (const e of ['\\sin(2z)+z', 'z\\,e^{z}']) {
   check(`custom ${e}: a natural path (the generic zoom), real centre for a real map`, b.nat && b.nat.kind === 'gzoom' && b.natData.p.im === 0 && conjSym(b, 0.5, pts.slice(0, 20).filter((z) => Math.abs(z.im) > 0.05)), b.nat);
 }
 check('custom sqrt z = the square root step', same(S('custom', { expr: '\\sqrt{z}' }), S('root', { n: 2 })));
-// (1/z^7: z^{-7} itself was built above with Recognize declining)
+// (1/z^7: z^{-7} itself is built above with Recognize declining)
 check('custom 1/z^7 = the power step z^{-7}', same(S('custom', { expr: '\\frac{1}{z^{7}}' }), S('pown', { n: -7 }), [1e-7, 4e-6, 0.3, 0.6, 1 - 1e-7]));
 const zp = F.zerosPolesNat(C(1, 0), [C(2, 0)], [C(1, 0)], (z) => CX.div(CX.sub(z, C(2, 0)), CX.sub(z, C(1, 0))));
 check('zeros and poles of degree 1: the Moebius path of the rational step', zp.nat.kind === 'mob' && same(zp, S('rational', { p: '1, -2', q: '1, -1' })));

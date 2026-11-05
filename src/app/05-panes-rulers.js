@@ -94,7 +94,7 @@
     // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
     // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
     if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
-    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
     if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
@@ -629,7 +629,7 @@
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
     // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
     // and a log window keeps its pitch instead of the compressed height's plates)
-    const fm = carry ? svColourMap(carry.s) : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
+    const fm = carry ? svHeightMap(carry.s) : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
@@ -668,7 +668,7 @@
       };
       // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
       // frames' are, so a frame depends on u alone
-      const ofPlane = (k, v) => { const m = svColourMap(k <= carry.T ? k : carry.s), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
+      const ofPlane = (k, v) => { const m = svHeightMap(k <= carry.T ? k : carry.s), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
       const c = carry ? (() => {
         const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
@@ -746,11 +746,15 @@
     const geo = GLR.landGeom(box, lscale);
     refitCam(cam, CAM3, landFitDist(geo, pane));
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
+    // (the carried grid: over plane s's block)
+    const src = carry ? landBox(carry.vs) : null;
+    const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
+    // (the carried grid's patches about the glide map's poles: svLandPatches)
+    const polar = carry ? svLandPatches(carry.map, src, cells) : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
-    const mask = SV.on ? (carry ? svLandMask(carry.s, landBox(carry.vs)) : svLandMask(svStage(), box)) : null;
+    const mask = SV.on ? (carry ? svLandMask(carry.s, src) : svLandMask(svStage(), box)) : null;
     GLR.begin(pane.pw, pane.ph);
-    const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
     const omap0 = stageMap(leftStage());
@@ -762,7 +766,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? svColourMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, lim: carry.lim, src: landBox(carry.vs) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? svHeightMap(carry.s) : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, lim: carry.lim, src, polar } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
@@ -781,7 +785,7 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, polar, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
@@ -1022,20 +1026,25 @@
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
-  // of o.probeW; without it the probe is a dot on the globe. Returns the frame's {MVP, eye} or null.
+  // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
+  // globe (GLR.drawSphere's st.carried); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe under it (drawSphere's regions, each an inverse record with its carry). Returns the frame's {MVP, eye,
+  // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
     // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
     // (a frame or two) the regions' globe alone; the frame is asked again when it has)
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
-      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true }));
+      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
+      let carried = false;
       if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
         try {
-          withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
+          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
+          carried = !!(mi && mi.carried);
         } catch (e) { console.error('globe region mask', e); }
       }
-      return info;
+      return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
     // backdrop, shadow or marks of its own, #440)
@@ -1097,8 +1106,9 @@
     }
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
-      // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map (none in a homotopy)
-      const sm = hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
+      // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map: in the
+      // steps view's glide (o.lineMap) the glide's map from its plane (svShapeMap), in another homotopy none
+      const sm = o.lineMap ? svShapeMap(s, map) : hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
       if (!sm) continue;
       const smk = sm === map ? mk : mapKeyOf(sm), recsOf = shapeStage(s) ? null : recs;   // (the packed records hold the z-plane's shapes only)
       const r = shapeGPU(s);
@@ -1158,11 +1168,11 @@
       }
     }
     const info = GLR.drawSphere({
-      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode || o.carryRegions ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
-      regions: imageMode ? regions : [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain',
+      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
@@ -1260,16 +1270,22 @@
     for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: p.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)) }) : p);
     return out.length ? out : null;
   }
+  // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
+  // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
+  const leftNet = () => (globeEdit('L') ? globeNet() : 'plain');
+  // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
+  // view, in both paints (over the portrait, area fills at half strength)
+  const leftPre = () => (hasTargets() ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null);
+  // what the left globe draws over its picture at rest: the net, the targets pulled back, the probe and a shape draft
+  // drawn on the globe (P3b) over the shapes (sphereView's options)
+  const leftGlobeOver = () => ({ net: leftNet(), pre: preAll(leftPre(), false), probeW: probe || null, post: [globeDraftPass('L')] });
   function renderSphereLeft(pane) {
-    // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
-    // of this globe draws it, the steps view's Inside regions too: the net belongs to the surface, in every scope
-    const net = globeEdit('L') ? globeNet() : 'plain';
+    // the steps view at rest on a plane past the colour plane: the colour carried to it, as the plane shows it (19)
+    const carried = SV.on && !svColoured() ? svGlobeRest(pane, svStage()) : null;
+    if (carried) return carried;
+    const net = leftNet(), pre = leftPre();
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
     // shapes outlined (earlier the right pane's Sphere > Phase)
-    // the w-plane targets pulled back by the focused map, painted on the globe (GLR.drawSphere st.pre) as in the flat
-    // view, in both paints (over the portrait, area fills at half strength)
-    const pre = typeof hasTargets === 'function' && hasTargets() && typeof preimageTargets === 'function'
-      ? { map: endMap(), targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) } : null;
     // ((#366 prototype) the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
     // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
@@ -1278,9 +1294,8 @@
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
       return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
-    // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates); a shape draft
-    // drawn on the globe (P3b) over the shapes
-    return sphereView(pane, camL, CAML, { imageMode: true, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, pre: preAll(pre, false), role: 'L', post: [globeDraftPass('L')], net });
+    // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
+    return sphereView(pane, camL, CAML, Object.assign({ imageMode: true, stage: leftStage(), plane: !!xView().eq, role: 'L' }, leftGlobeOver()));
   }
   // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
   function sphereCaption(pane, text) {
