@@ -12,7 +12,7 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
@@ -53,7 +53,7 @@ for (const i of [0]) {
 }
 // the relief is h(F) whatever T: with the colour kept to a disc far from the pole (Inside regions, plain paper elsewhere),
 // plane z's frames with T = w₂ and T = w₁ are the same shape about the pole at z = −1 (a window of the pane around it:
-// none of its pixels more than 32/255 apart, DIFF_TOL of held_frames.js: the two frames draw the same cells)
+// none of its pixels more than 32/255 apart, held_frames.js's DIFF_TOL: the two frames draw the same cells)
 {
   const ns2 = 'landsheetshb' + Date.now();
   await loadView('steps', ns2, { shapes: [{ id: 'd1', kind: 'disc', c: [7, 5], r: 0.4, ci: 0, visible: true }], steps: CHAIN, sheets: true });
@@ -65,18 +65,8 @@ for (const i of [0]) {
   await ev(`__cmwSteps({ T: 1 }); 1`);
   await rest(0);
   ok('bare, T = w₁: the carried frame is still', await grab('bare1'), null);
-  const win = info.bare = await ev(`(() => {
-    const A = window.__heldPx.bare2, B = window.__heldPx.bare1, c = document.getElementById('canvasL'), W = c.width, k = W / c.clientWidth;
-    if (!A || !B || A.length !== B.length) return null;
-    const x0 = Math.round(0.28 * c.clientWidth * k), x1 = Math.round(0.62 * c.clientWidth * k), y0 = Math.round(0.2 * c.clientHeight * k), y1 = Math.round(0.6 * c.clientHeight * k);
-    let n = 0, over = 0;
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const i = 4 * (y * W + x);
-      n++;
-      if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 32) over++;
-    }
-    return { n, over: +(over / n).toFixed(5) };
-  })()`);
-  ok('bare: the relief about the pole is the same with T = w₁ as with T = w₂ (none of the window apart)', !!win && win.over === 0, win);
+  // (the pane's window around the pole at z = −1 under the default camera: the funnel and its wall, clear of the sheets' far edges)
+  const win = info.bare = await compare('bare2', 'bare1', { x: [0.28, 0.62], y: [0.2, 0.6] });
+  ok('bare: the relief about the pole is the same with T = w₁ as with T = w₂ (none of the window apart)', !!win && win.frac === 0, win);
 }
 return { pass: fails.length === 0, fails, info };
