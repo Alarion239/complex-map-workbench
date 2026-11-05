@@ -656,6 +656,7 @@ float invLeaf(Lf L, out bool cov) {
 #endif
   if (!done) ixShapePx(z, zf, dX, dY, L, dLX, dLY, s, n);
 #ifdef IX_STAGED
+  // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
   if (uEdgeOnly == 1 && s == s) ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0) * uEdgeA);
 #endif

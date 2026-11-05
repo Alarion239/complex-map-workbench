@@ -782,6 +782,7 @@
       const p = paths[i];
       let res = 'error';
       try {
+        // grow: half the pull-back band's width plus half a pixel, so the colour reaches as far as the band's outer edge
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
           look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, edge: edgeOf ? edgeOf(list[i]) : null, grow: shapeStage(list[i]) && !edgeOf ? 0.5 * pullBandW(list[i], pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true });
       } catch (e) {

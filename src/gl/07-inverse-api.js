@@ -136,6 +136,8 @@
   // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
   // test adds weigh on the programs that never draw one)
   const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
+  const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
   const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
@@ -446,7 +448,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (st.staged ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
@@ -459,7 +461,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
-    const extra = st.carry && !globe ? (rec.stage ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const extra = st.carry && !globe ? (stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
@@ -504,10 +506,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
     u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
     u1i(P, 'uShStage', rec.stage);
-    // st.edge {w, a}: the boundary band alone, w device px wide at alpha a
-    u1i(P, 'uEdgeOnly', st.edge ? 1 : 0);
-    if (st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u1f(P, 'uEdgeA', st.edge.a); }
-    u1f(P, 'uStageGrow', st.grow || 0);
+    // st.edge {w, a}: the boundary band alone, w device px wide at alpha a (a shape of a later plane only: the band and the
+    // grow live in the staged program). uEdgeW is the band's half width: it reaches w / 2 to each side of the boundary
+    const staged = rec.stage > 0;
+    u1i(P, 'uEdgeOnly', staged && st.edge ? 1 : 0);
+    if (staged && st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u1f(P, 'uEdgeA', st.edge.a); }
+    u1f(P, 'uStageGrow', staged ? st.grow || 0 : 0);
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
