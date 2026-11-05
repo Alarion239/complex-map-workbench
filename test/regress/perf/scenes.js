@@ -200,7 +200,7 @@ const SCENES = {
       srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
     },
   },
-  // pointer paths (issue #63; notes/ux-build/w1-review-regress.json regress-6): a Line grid plus several
+  // pointer paths (notes/ux-build/w1-review-regress.json): a Line grid plus several
   // circles, so the snap and detent search of a hover, a drag or a glide has many curves near the pointer; the unit
   // circle C carries a glider g, and the disc d1 is dragged with Snap on
   gridCircles: {

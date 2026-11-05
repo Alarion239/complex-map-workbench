@@ -1658,7 +1658,7 @@ async function hoverDimUnit() {
   put(`${pre}.no_job`, 'check', '', [busy === 0]);
 }
 
-// ---------------- pointer and per-frame work (issue #63) ----------------
+// ---------------- pointer and per-frame work ----------------
 // Work on pointer paths and on the frame (notes/ux-build/w1-review-regress.json regress-6, regress-7):
 // the snap and detent search of a hover with Point or a construction tool, of a body drag with Snap on and of a rail
 // glide; the hover probe's readout on X; the Y render's target note and the overlay frame's undo state while the

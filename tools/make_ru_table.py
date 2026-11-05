@@ -67,7 +67,7 @@ V165_HERE = {'v165-ux-learn.json', 'v165-ux-chain.json', 'v165-ux-plane.json', '
              'v165-ux-merge.json'}   # (v165-ux-merge.json: the strings the merge itself changed, keys of its own)
 # (the fix round: notes/i18n/ru/v165-ux-fix.json, read after every other v165 table, so a Russian it changes wins)
 V165_FIX_HERE = {'v165-ux-fix.json'}
-# (issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: the table V17_HERE names,
+# (the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: the table V17_HERE names,
 # read after every other table)
 V17_HERE = {'v17-planemenu.json'}
 # (Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
