@@ -71,6 +71,8 @@ const SUITES = {
     { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere'];" },
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
   ] },
+  // (one-off probe, not for merging: the King held mid-glide at the device pixel ratio 1 and at the Mac screen's 2)
+  'king_white_probe_cmd.js': { runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
