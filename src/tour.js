@@ -809,7 +809,7 @@ const Tour = (() => {
       // Move on by itself (on unless turned off); Why open on a wide screen (null: by the viewport)
       auto: r.auto !== false,
       why: r.why === true || r.why === false ? r.why : null,
-      // a tour is running: a page that finds this set and no live tour of its own was cut short by a
+      // a tour is running: a page that finds this set and no live tour of its own takes it as cut short by a
       // reload or a crash, and offers to continue (stop() clears it)
       open: r.open === true,
     };
