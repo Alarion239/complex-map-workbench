@@ -85,7 +85,7 @@ const Funcs = (() => {
 
   // (issue #20) the homotopies, natural paths and derivatives live in src/natpaths.js and src/derivs.js
   const { XN, texOf, taylorAt, polyMul, ratOf, derivAst, derivativeStep } = Derivs;
-  const { mobHom, mobHomTex, linHom, powHom, expHom, expHomTex, logHom, logHomTex, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat } = NatPaths;
+  const { mobHom, mobHomTex, linHom, memoAt, powHom, expHom, expHomTex, logHom, logHomTex, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat } = NatPaths;
 
   // ---- parameter helpers ----
   const cutParams = [
@@ -750,7 +750,7 @@ const Funcs = (() => {
     build() {
       const f = CX.zeta;
       return {
-        f, hom: linHom(f),
+        f, hom: linHom(memoAt(f)),
         homTex: (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: $t('the zoom path needs ζ′, which is not available') }), segment: true }),
         tex: (a) => ({ s: `\\zeta${paren(a.s)}`, p: 3 }),
         props: props({ analytic: true }),

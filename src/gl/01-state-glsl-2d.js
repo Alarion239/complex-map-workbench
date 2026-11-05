@@ -408,7 +408,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `centroid out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -1225,9 +1225,14 @@ void main() {
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
-  const CARRY_FS = (id, key = true, pre = false, clip = false) => `
+  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
+  // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
+  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
+  // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
+  // edge, the grid's identity)
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}in vec2 vP;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
@@ -1290,7 +1295,7 @@ void main() {
   // fragment's source point, then lets the colour program draw only the fragment kept in front. One chain (mapPoint),
   // none of the colour's: a fragment stage with two inlined chains links many times slower
   const CARRY_MASK_FS = `
-in vec2 vP; in vec2 vW;
+centroid in vec2 vP; in vec2 vW;
 flat in float vWTol; flat in float vTorn;
 out vec4 o;
 void main() {
