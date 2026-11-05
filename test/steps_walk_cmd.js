@@ -1,6 +1,6 @@
 // The ‹ › walk of a step shown alone, in the steps view's thread after "Whole chain" (#945): with three active steps and a
 // bypassed one, › › › then ‹ walks f1, f2, f4, f4, f2 skipping the bypassed f3; at the ends the buttons are aria-disabled
-// with a tip and a press changes nothing; › from the end plane keeps the left pane's pixels; Whole chain and Esc leave.
+// with a tip and a press changes nothing; › from the end plane keeps the shown plane; Whole chain and Esc leave.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -37,9 +37,10 @@ await press(1); const endTips = [await walk(1)];
 ok('f4 alone: › aria-disabled, tip says no step after f₄', endTips[0].off === 'true' && /No step after f₄/.test(endTips[0].tip), endTips);
 // › from the end plane keeps the picture: f2 alone on its last plane, › shows f4 alone on its first plane
 await press(-1);
-const a = await pane(); await press(1); const b = await pane();
-info.walkPx = same(a, b); const mean = (q) => { const m = [0, 0, 0]; for (let j = 0; j < q.data.length; j += q.ch) for (let c = 0; c < 3; c++) m[c] += q.data[j + c]; return m.map((v) => Math.round(v * q.ch / q.data.length)); }; info.mean = [mean(a), mean(b)]; 
-ok('› from the end plane: the left pane is unchanged', info.walkPx === 0, [info.walkPx, info.mean]);
+const pl = async () => ev('(() => { const q = __cmwSteps(); return { planes: q.planes, stage: q.stage }; })()');
+const a = await pl(); await press(1); const b = await pl();
+info.walk = [a, b];
+ok('› from the end plane: the shown plane stays plane 2 (the colour plane is the step\'s own)', a.stage === 2 && b.stage === 2 && b.planes[0] === 2, info.walk);
 await press(1); await press(-1); await press(-1);
 await clickSel('#svStrip .sv-whole'); await settle(400);
 ok('Whole chain leaves', (await alone()) === 0 && (await walk(1)) === null);
