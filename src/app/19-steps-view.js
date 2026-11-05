@@ -349,13 +349,16 @@
     Object.assign(svLandPoleMemo, { key, poles: near });
     return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8]);
   }
-  // The carried grid's far patch for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1]: plane s outside its carried box src, about
-  // the box's centre from its inscribed circle to a thousand times its size. A map takes that region over the far plane
-  // too (a Möbius step takes it to a disc about the image of infinity), where no cell of the box's grid reaches.
-  const LAND_FAR_REACH = 1000;
+  // The carried grid's far patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: plane s outside its carried box
+  // src, in two rings about the box's centre, from its inscribed circle to LAND_FAR_NEAR times that, then on to
+  // LAND_FAR_REACH times the box's size. A map takes that region over the far plane too (a Möbius step takes it to a
+  // disc about the image of infinity), where no cell of the box's grid reaches. The inner ring is the part the glides
+  // of a periodic map (exp) bring into the block, so it has the finer grid. The inner ring runs a little past the outer
+  // one's start (LAND_FAR_LAP), so the chords of their polygons, of different sizes, leave no crack.
+  const LAND_FAR_NEAR = 4, LAND_FAR_REACH = 1000, LAND_FAR_LAP = 1.002;
   const svLandFar = (src) => {
-    const w = src.x1 - src.x0, h = src.y1 - src.y0;
-    return [(src.x0 + src.x1) / 2, (src.y0 + src.y1) / 2, Math.min(w, h) / 2, LAND_FAR_REACH * Math.max(w, h)];
+    const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
+    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
   };
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
