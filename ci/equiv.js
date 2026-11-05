@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, run, serve, summary, esc } = require('./lib');
 const { buildReference } = require('./reference');
+const SC = require('./steps_scenes');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 const decode = require('../test/cdp_kit/png');
 
@@ -131,20 +132,21 @@ function topNames(script) {
   return [...out];
 }
 
-async function probe(base, page, scenes, top) {
+// (steps: the page in the steps view, started when the view is on; the published page has no hooks, so it starts on its first card)
+async function probe(base, page, scenes, top, steps = false) {
   const B = await launch({ width: 1280, height: 800, dpr: 1 });
   try {
     await B.nav('about:blank');
     for (const n of await B.ev('Object.getOwnPropertyNames(window)')) GLOBALS0.add(n);
     await B.addInit(INIT);
-    await B.nav(base + page);
-    // started: the document loaded and the chain drew its cards (a fixed wait let the published page, 4.9 MB, be
-    // measured before its app had run, at times: no globals, no worklet, another picture); then a moment to settle
+    await B.nav(base + page + (steps ? '?view=steps' : ''));
+    // started: the document loaded and the view is on (the published page has no hooks: its first card), polled so the
+    // 4.9 MB published page is measured only once its app has run; then a moment to settle
     let started = false;
     for (let t = Date.now(); !started && Date.now() - t < 30000; await sleep(250)) {
-      try { started = await B.ev(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
+      try { started = await B.ev(steps ? SC.started() : `document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
     }
-    if (!started) throw new Error(`${page} did not start within 30 s (no chain card)`);
+    if (!started) throw new Error(`${page} did not start within 30 s (${steps ? 'the steps view is not on' : 'no chain card'})`);
     await sleep(3000);
     const own = (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n));
     // (a name is there when evaluating it throws no ReferenceError: a top-level `let x;` is there, undefined)
@@ -153,11 +155,12 @@ async function probe(base, page, scenes, top) {
     for (const [name, js] of scenes) {
       if (js) { try { await B.ev(js); } catch (e) { out.shots.push([name, null, String(e.message).slice(0, 200)]); continue; } }
       await sleep(1500);
-      // (a picture of a moment: a deformation an example plays is stopped at t = 0.5, and the shader compiles land)
-      await B.ev(`(() => { try { const m = __cmwState().morph; if (m && m.open) __cmwMorph({ playing: false, T: 0.5 }); } catch (e) { /* a page without the hooks */ } return 1; })()`);
+      // (a picture of a moment: a glide an example plays is stopped, and the shader compiles land)
+      if (steps) await B.ev(SC.stopPlay());
       for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
-      // (and the chain's cards drawn: a card draws in a quiet moment, so one page can be a moment behind the other)
-      for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
+      // (and the view at rest: a frame draws in a quiet moment, so one page can be a moment behind the other)
+      if (steps) for (let k = 0; k < 40 && await B.ev(SC.moving()); k++) await sleep(250);
+      else for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
       await sleep(1500);
       // (a toast's moment differs with the page's speed: none in the picture)
       await B.ev(`document.querySelectorAll('.toast').forEach((t) => t.remove()); 1`);
@@ -201,11 +204,11 @@ function pictures(pre, scenes, a, b) {
 async function behaviour(refDist, curDist) {
   const scenes = [['default scene', null]];
   for (let i = 0; i < N_EX; i++) scenes.push([`example ${i}`, `__cmwExample(${i}); 1`]);
-  for (const i of VIEWS) for (const v of ['phase', 'land']) scenes.push([`example ${i}, ${v}`, `__cmwExample(${i}); __cmwSetMain('${v}'); 1`]);
+  for (const i of VIEWS) for (const v of ['phase', 'land']) scenes.push([`example ${i}, ${v}`, `__cmwExample(${i}); ${SC.main(v)}`]);
   const top = topNames(splitPage(fs.readFileSync(path.join(refDist, 'test.html'), 'utf8')).script);
   const [sa, sb] = [await serve(refDist), await serve(curDist)];
   try {
-    const a = await probe(sa.base, 'test.html', scenes, top), b = await probe(sb.base, 'test.html', scenes, top);
+    const a = await probe(sa.base, 'test.html', scenes, top, true), b = await probe(sb.base, 'test.html', scenes, top, true);
     check('test page: the same globals', JSON.stringify(a.globals) === JSON.stringify(b.globals), `${a.globals.length} names` + diffNames(a.globals, b.globals));
     check('test page: no exception', b.errors.length === 0, b.errors.slice(0, 3).join(' | '));
     check('every shader source, the same set', JSON.stringify(a.shaders) === JSON.stringify(b.shaders), `${a.shaders.length} sources` + (a.shaders.length === b.shaders.length ? '' : ` against ${b.shaders.length}`));
