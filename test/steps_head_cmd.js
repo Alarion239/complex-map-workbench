@@ -115,6 +115,23 @@ for (const lang of ['en', 'ru', 'it']) {
     }
   }
 }
+// (#1047) the Landscape with All sheets, the chain √, cos, log and Height = Im F, at 1024 × 768: the title keeps its
+// words ("z · landscape of …", ellipsed if it must) and is not folded to the plane's letter alone
+{
+  const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
+    steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
+  await view(1024, 768, false, false);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}land', ${JSON.stringify(JSON.stringify(LAND))}); 1`);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land&lang=en&view=steps` }); await sleep(3000); await settle(500);
+  for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-title')`)); i++) await sleep(100);
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`); await settle(1500);
+  const title = await ev(`(() => { const t = document.querySelector('#svHead .sv-title'), r = t.getBoundingClientRect();
+    return { surf: __cmwSteps().surf, w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
+  info.title1024 = title;
+  ok('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its words, "z · landscape of …"', title.surf === 'land' && /landscape of/.test(title.text || ''), title);
+  ok('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 100 px or more)', title.cw >= 100, title);
+}
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
 info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';
 return { pass: fails.length === 0, fails, info };
