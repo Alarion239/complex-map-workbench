@@ -97,6 +97,7 @@
     gl.depthMask(true);
     gl.depthFunc(gl.LESS);
     gl.disable(gl.CULL_FACE);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
   }
   // a promise that settles once the GPU has finished every command issued so far: a fence polled between tasks,
   // never waited on (SPEC 10.6: the export reads its rasters back only then, so a readback does not hold the main
@@ -311,13 +312,16 @@
     if (e.res.tmp && e.res.tmp.get(e.slot) === e) e.res.tmp.delete(e.slot);
   }
   // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended); the
-  // steps view's carried colour's (e.carry) after CARRY_TMP_MS, since its next glide or scrub, after a rest, draws them
-  // again: freed in the rest, the scrub's first frame would allocate them again. With need more bytes over the budget,
-  // those go after a second too
-  const CARRY_TMP_MS = 30000;
+  // steps view's carried colour's (e.carry) once none of them has been drawn for CARRY_TMP_MS (carryTmpT), since its
+  // next glide or scrub, after a rest, draws them again: freed in the rest, the scrub's first frame would allocate them
+  // again, and a scrub or glide that lasts longer than the keep time draws each plane's only once, so each entry's own
+  // idle time is no measure of the rest. With need more bytes over the budget, each one's own go after a second too
+  let CARRY_TMP_MS = 30000, carryTmpT = 0;
   function freeStaleTmp(now, need = 0) {
-    const keep = cacheBytes + need > CACHE_BYTES ? 1000 : CARRY_TMP_MS;
-    for (const e of [...tmpAll]) if (now - e.t > (e.carry ? keep : 1000)) freeTmp(e);
+    const pressed = cacheBytes + need > CACHE_BYTES;
+    for (const e of [...tmpAll]) {
+      if (e.carry && !pressed ? now - carryTmpT > CARRY_TMP_MS : now - e.t > 1000) freeTmp(e);
+    }
   }
   // and once the drawing that used them has been idle that long, whatever the budget: a scratch evaluation is only
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
@@ -367,9 +371,6 @@
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
     return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'], [1]);
   }
-  // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
-  let fillPtsOn = true;
-  function fillPointsOn(on) { fillPtsOn = !!on; return fillPtsOn; }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
@@ -382,8 +383,8 @@
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
-    // triangles they tear across a cut on their centre's sheet (regionKSCpt from its point pass, or regionKSC, the
-    // fill); without the cache, every triangle
+    // triangles they tear across a cut on their centre's sheet (regionKSCpt, its places from its point pass); without
+    // the cache, every triangle
     // on its centre's sheet (regionKS, the chain at every vertex). A cut clipped (cutKinds' clip): the sheet program's
     // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
@@ -396,10 +397,11 @@
     const cache = rtOK && !isIdent(st.map), linked = programLinked;
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
-    if (e) e.carry = true;
+    if (e) { e.carry = true; carryTmpT = performance.now(); }
     let P = e ? program('regionKC', st.map) : null;
-    // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
-    // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
+    // (the fill's places from its point pass, fillPoints: the chain once per point of a torn sub-triangle. The fill never
+    // evaluates them itself, so its frames are the point pass's whatever the compiler does with either program; while
+    // the pass cannot run (fillPts or the fill still linking) the sheet program stands in, below)
     // (a sheet program without a clipped cut, under the key: drawn only with its mask (regionKS*m) of the same chain
     // version and map mode, so no frame shows a torn triangle whole; until the mask has linked, the frame draws as
     // while the sheet program itself links. Without the key (no depth to draw the mask into), the sheet program alone)
@@ -410,14 +412,12 @@
     };
     let fill = null, fp = null, mask = null;
     if (cuts && P && !carryProbe.noFill) {
-      const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
+      const Q = program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map);
       const QM = Q && masked ? maskOf('regionKSCpt', Q, program) : null;
       // (with the mask, the point pass's second run too: the places of the fill's pass 1)
       fp = Q && (!masked || QM) ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30, two: !!QM }) : null;
-      if (fp) { fill = Q; mask = QM; } else {
-        fill = (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
-        if (fill && masked && !(mask = maskOf('regionKSC', fill, program))) fill = null;
-      }
+      if (fp) { fill = Q; mask = QM; }
+      noteFill(Q, !!fp);
     }
     let full = null;
     if (cuts && !fill && !carryProbe.noFill) {
@@ -475,11 +475,14 @@
       scissored(st.scissors, drawAll);
       gl.depthFunc(gl.LEQUAL);
     };
+    // (st.behind: its depth pushed back that many units (polygonOffset), so where another mesh in the same depth draws
+    // the same points, that mesh's are in front, not whichever placement lands a hair nearer)
     carryDraw(k, st.depth, () => {
+      if (st.behind) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, st.behind); }
       // (the map cache's pass; without the cache, P is the sheet program itself, drawn by its passes)
       if (!carryProbe.noKCDraw && P !== full) scissored(st.scissors, drawAll);
-      if (!sheet) return;
-      sheetPass(0); sheetPass(1);
+      if (sheet) { sheetPass(0); sheetPass(1); }
+      if (st.behind) gl.disable(gl.POLYGON_OFFSET_FILL);
     });
     gl.bindVertexArray(null);
     return true;
@@ -756,15 +759,10 @@
     dcUniforms(P, st, dpr);
     // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    u1i(P, 'uKeyOn', k ? 1 : 0);
+    keyUniforms(P, k);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     if (k) {
-      const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
-      sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
-      u4f(P, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(P, 'uKR', k.R); u1f(P, 'uKRs', k.rs);
-      if (P.loc.uKSing) gl.uniform2fv(P.loc.uKSing, sv);
-      u1i(P, 'uKSingN', sing.length);
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
       gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
@@ -772,6 +770,36 @@
       if (!dt) gl.disable(gl.DEPTH_TEST);
     } else gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
     gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
+    return true;
+  }
+
+  // drawCarried on the globe, inside drawSphere's frame (sph: its camera and key light): the whole sphere of
+  // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
+  // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
+  // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
+  // False when the program is not ready
+  function drawCarriedGlobe(st, sph) {
+    if (!ok) return false;
+    const P = program(st.s === st.T ? 'carryGId' : 'carryG', st.map);
+    if (!P) return false;
+    use(P, st.map);
+    uM4(P, 'uMVP', sph.MVP); u3(P, 'uEye', sph.eye);
+    globeLight(P, sph);
+    const g = st.mesh;
+    u2i(P, 'uN', g.nx, g.ny);
+    u1f(P, 'uLim', st.lim);
+    u1f(P, 'uPole', 1e-3);
+    u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
+    dcUniforms(P, st, st.dpr || 1);
+    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    keyUniforms(P, k);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
+    gl.bindVertexArray(null);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.BLEND);
     return true;
   }

@@ -299,7 +299,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head.tight :is(#leftTabs, #rightTabs) > button { padding: 0 4px; }
 .pane-head.tight > .led { margin: 0 2px; }
 .pane-head.noled > .led { display: none; }
-.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: -1px; box-sizing: content-box;
+.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: calc(-1px - var(--lg-shift, 0px)); box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
@@ -335,12 +335,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #toastHost[data-placed] { translate: -50% 0; }
 #toastHost[data-placed] .toast { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
 #toastHost[data-placed] .toast > span { text-wrap: pretty; line-height: 18px; }
-/* (#515, steps view) a message over the thread's rail: one line, the rail's height at most; the rail's planes and steps are hidden
-   while it shows (it covers no control), and < > and the speed beside it stay live */
-#toastHost[data-placed="rail"] .toast { height: auto; min-height: 36px; white-space: normal; box-shadow: none; }
-.sv-strip.sv-toast .sv-rail > *, .sv-strip.sv-toast .sv-wholemap, .sv-strip.sv-toast .sv-add { visibility: hidden; }
-/* (while the message covers it the rail has nothing to show, so it does not scroll: a scroll region with no control left in it is what a screen reader tool reports) */
-.sv-strip.sv-toast .sv-rail { overflow-x: hidden; }
+/* (steps view) a message over the plot's bottom edge, clear of the thread's strip: wrapped, never wider than the plot less the
+   zoom buttons' columns */
+#toastHost[data-placed="plot"] .toast { height: auto; min-height: 36px; white-space: normal; }
 /* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
    once wrapped to four lines and cut its longest word (ru, 1024) */
 #toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
@@ -605,6 +602,15 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head .pat-btn[aria-expanded="true"], .pane-head > .options > .opts-btn[aria-expanded="true"] { background: var(--well); color: var(--ink); }
 .disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
 .disp-pop.pat-pop { width: 300px; }
+.cp-pop > .lbl { white-space: normal; text-wrap: pretty; }
+.disp-pop.pat-pop.cp-wide { width: max-content; min-width: 300px; max-width: calc(100vw - 24px); }
+/* the style row wraps: all six styles show, the thumb that slides along a one-line row is off and the checked one is filled */
+.cp-pop .seg { height: auto; flex-wrap: wrap; overflow: visible; row-gap: 2px; }
+.cp-pop .seg::before { display: none; }
+.cp-pop .seg > button { min-height: 28px; }
+.cp-pop .seg[style] > button.on { background: var(--seg-on); border-color: var(--line-strong); }
+.cp-pop > .cp-go { align-self: flex-start; justify-self: start; width: auto; }
+.cp-pop > .cp-rows { display: flex; flex-direction: column; gap: 8px; }
 /* (the ⋯ pop-up shows the words: each style's under its glyph, each toggle's beside its check) */
 .disp-pop .ic-tg > .tg-ic { display: none; }
 .disp-pop > .psec-body { padding: 0; }
@@ -778,3 +784,17 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
 .pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
+
+/* the colouring's picker in the phone's Display sheet: every row a 44 px target */
+html.ph .cp-pop .check, html.ph .cp-pop .cp-go, html.ph .cp-pop .seg button, html.ph .cp-pop select.sel { min-height: 44px; }
+html.ph .cp-pop .seg { display: grid; grid-template-columns: repeat(3, 1fr); }
+
+/* the steps view's targets' note: the words in the head; folded, its icon alone (its words are its accessible name and tip) */
+.pane-head > .sv-tnote .sv-tn-i, .pane-head > .sv-tnote .sv-tn-n { display: none; }
+.pane-head > .sv-tnote .sv-tn-i { width: 16px; height: 16px; }
+.pane-head > .sv-tnote.tn-chip, .pane-head > .sv-tnote.tn-icon { display: inline-flex; align-items: center; gap: 4px; }
+.pane-head > .sv-tnote.tn-chip .sv-tn-i, .pane-head > .sv-tnote.tn-chip .sv-tn-n { display: inline-flex; }
+.pane-head > .sv-tnote.tn-chip .sv-tn-t, .pane-head > .sv-tnote.tn-icon .sv-tn-t, .pane-head > .sv-tnote.tn-icon .sv-tn-n { display: none; }
+.pane-head > .sv-tnote { text-overflow: clip; }
+.pane-head > .sv-tnote[hidden] { display: none; }
+html.ph .ph-tnote { font: var(--t-label); color: var(--muted); padding: 4px 0; white-space: normal; }

@@ -78,6 +78,7 @@ H.ev = async (expr, timeout = 20000) => {
     if (settled.exceptionDetails) return fail(settled.exceptionDetails);
     return settled.result.value;
   } finally {
+    // (the release only frees the page's references: the answer is already read, and when the page has reloaded or gone its group is gone too, so a failed release has nothing to report)
     send('Runtime.releaseObjectGroup', { objectGroup: group }, S).catch(() => {});
   }
 };

@@ -1,7 +1,7 @@
 // Sound (notes/sound/DESIGN.md): the pure parts. Calc.argStep and Calc.orderAt (the probe's exact arg steps and the
 // order at a point, by the argument principle), winding counts, and the engine's scheduler and its guards (src/sound.js
 // run in a sandbox against a mock AudioContext: off by default, consent, the queues, the cluster and storm guards, the
-// suspended-context rule, the silent off, Esc). v15.2 (notes/sound/AS-BUILT-v152.md): palette B's parts (variation,
+// suspended-context rule, the silent off, Esc). Also (notes/sound/AS-BUILT-v152.md) palette B's parts (variation,
 // repetition, clean edges), the scrub's landmarks, the phase harp (its low Ds count the winding number), curves sing
 // (the loudest harmonic is 4 + W). Run: node test/t_sound.js
 const vm = require('vm');
@@ -121,7 +121,7 @@ function makeEnv(opts = {}) {
   class AC {
     constructor() {
       env.ctxs.push(this);
-      // (#271: the event in which the timer that created it was set, if a timer did)
+      // (the event in which the timer that created it is set, if a timer did)
       this.madeIn = env.inTimer ? env.inTimer.ev : 'sync:' + (env.inEvent || '');
       this.state = opts.startSuspended ? 'suspended' : 'running'; this.currentTime = 0; this.sampleRate = 48000; this.baseLatency = 0.005; this.outputLatency = 0;
       this.sources = []; this.destination = this.node();
@@ -184,7 +184,7 @@ function makeEnv(opts = {}) {
 const flush = () => new Promise((r) => setImmediate(r));
 
 (async () => {
-  // v15 defaults (notes/sound/README.md): the published page has sound on, Interface and Mathematical events on, Snap
+  // defaults (notes/sound/README.md): the published page has sound on, Interface and Mathematical events on, Snap
   // ticks and Hear the function off; nothing is created or played before the page's first click or key
   {
     const e = makeEnv({ search: '' });
@@ -194,8 +194,8 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('v15 default: nothing plays before a gesture', e.Sound.play('toggleOn', {}) === false && e.Sound.play('stepAdd', {}) === false && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('v15 default: Esc is not an activation', e.ctxs.length === 0);
-    // (#271) a click: pointerdown (a mouse's arms only the 250 ms backstop), pointerup and click (each re-arms the 0 ms
-    // timer, so the one that runs was set inside the click's own event); no context inside any handler
+    // a click: pointerdown (a mouse's arms only the 250 ms backstop), pointerup and click (each re-arms the 0 ms
+    // timer, so the one that runs is set inside the click's own event); no context inside any handler
     e.fire('pointerdown', { pointerType: 'mouse' }); e.fire('pointerup', { pointerType: 'mouse' });
     e.made.length = 0;
     const q1 = e.Sound.play('morphStart', {}), q2 = e.Sound.play('morphStart', { force: true });
@@ -210,7 +210,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('#271: then sounds once, on the new clock', e.made.join() === 'morphStart', e.made.join());
     check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
   }
-  // v15.2 the deformation scrub (palette B, notes/sound/v2/DESIGN.md §3 with board-fixes.md): the texture follows the
+  // the deformation scrub (palette B, notes/sound/v2/DESIGN.md §3 with board-fixes.md): the texture follows the
   // speed (the synth's; none in this mock, which has no AudioWorklet), and the landmarks t = 0, ¼, ½, ¾, 1 ring a
   // wooden note: one per input event (the nearest where t lands), re-armed only 0.02 away (0.05 at the ends), the same
   // one at most once in 150 ms
@@ -353,7 +353,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     e.advance(3000); e.made.length = 0;
     const rt = []; for (let i = 0; i < 10; i++) rt.push(e.Sound.tick({ k: i }));
     check('contour ticks: 6 queued, the rest coalesced', e.made.filter((x) => x === 'contour').length === 6 && rt.filter((x) => x === 'coalesced').length === 4, `${e.made.join()} ${JSON.stringify(rt)}`);
-    // the audio clock moves by render quanta even inside one burst of calls (the v14 gate measured 256 frames at
+    // the audio clock moves by render quanta even inside one burst of calls (as measured: 256 frames at
     // 48 kHz after the 3rd call): the first bell has not sounded yet, so still 8 bells and one flourish
     for (const q of [1, 2]) {
       e.advance(3000); e.made.length = 0;
@@ -475,7 +475,7 @@ const flush = () => new Promise((r) => setImmediate(r));
       check('t-tracker: two steps, the turn count is the winding of t → H_t(z)', Math.abs(r.phi - wsum / TAU) < 1e-6 && Math.abs(r.phi - 1) < 1e-6 && r.up === 2 && r.down === 1, JSON.stringify({ r, w: wsum / TAU }));
     }
     // (d) a zero of order 2 of H_t passes the probe: H_t(z) = (z − a(t))²(z + 2), a(t) = −1 + 2t; the probe at 0.01i.
-    // The app's rule frame by frame (orderAt on the 8 px circle, held until the 14 px circle no longer gives it; here
+    // The app's rule frame by frame (orderAt on the 8 px circle, held while the 14 px circle still gives it; here
     // 1 px = 0.006): one ping, of order 2, and the tracked arg stays exact through it
     {
       const z = C(0, 0.01), px = 0.006;
@@ -517,7 +517,7 @@ const flush = () => new Promise((r) => setImmediate(r));
       check('turns: a wobble at a turn rings once; back past a turn rings down', out.join() === '1,1,-1', out.join());
     }
   }
-  // ---------- v15.2: palette B, the harp, curves sing (pure; the parts as the synth receives them) ----------
+  // ---------- palette B, the harp, curves sing (pure; the parts as the synth receives them) ----------
   {
     const S = makeEnv().Sound, posted = [], g = { c: { sampleRate: 48000 }, synth: { post: (l) => posted.push(...l) }, offline: false, active: new Set() };
     const cue = (name, o) => { posted.length = 0; S.cueTo(g, name, 1, o || {}); return posted[0]; };
@@ -595,8 +595,8 @@ const flush = () => new Promise((r) => setImmediate(r));
     for (let i = 1; i <= 20; i++) { sh.notes = 0; S.harpStep(sh, null, i * 0.02, 0.05 + 0.1 * i, { dt: 0.02, shaky: true }); }
     check('harp: the D-only zone counts every D (2 turns: 2 up) and plays only those', sh.up === 2 && sh.down === 0, JSON.stringify(sh));
   }
-  // v15.2 review fixes. math-1: whole turns hidden in one piece (|F| steady, a fast phase) are seen: e^{30z} moved up
-  // by 0.40 and 0.42 turns arg F by 12.0 and 12.6 rad (they read −0.57 and 0.03, exact, before)
+  // math-1: whole turns hidden in one piece (|F| steady, a fast phase) are seen: e^{30z} moved up
+  // by 0.40 and 0.42 turns arg F by 12.0 and 12.6 rad
   {
     const e30 = (z) => expF(CX.scale(z, 30));
     for (const L of [0.4, 0.42, 25.1 / 30]) {
@@ -605,7 +605,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     }
     const r = Calc.argStep((z) => CX.sin(CX.scale(z, 20)), C(-0.3, 1), null, C(0.3, 1), null);
     check('math-1: argStep sin(20z) along Im z = 1, 0.6 wide: −12 rad', r.exact && Math.abs(r.d + 12) < 1e-6, JSON.stringify(r));
-    // a pointer loop round nothing for e^{30z} (0.42 up in one event, 42 slow steps back): 0 Ds (was −2)
+    // a pointer loop round nothing for e^{30z} (0.42 up in one event, 42 slow steps back): 0 Ds
     const S = makeEnv().Sound, st = S.Harp();
     let z0 = C(0, 0), g0 = e30(z0), phi = 0;
     S.harpStep(st, null, 0, phi, {});

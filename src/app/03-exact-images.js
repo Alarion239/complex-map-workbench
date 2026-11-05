@@ -371,20 +371,44 @@
   // The inverse path of area shape s under the glide's map H_t o F_{k-1} (mode 1, hi k): the
   // plan of stages (a, k] with step k standing for its homotopy at t (Inverse.homBuilt), its own inverse op list
   // (GLChain.buildInverse: another program, the op values its uniforms) and the shape's preparation. Same answer as
-  // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}. singAt(): the key's points for a plan that
-  // inverts the homotopy by Newton (a NEWT op has no poles of its own for keySing to pull back): the glide's, as the
-  // carried mesh keys its sheets (svSheetKeyAt), so both draw the same point in front
+  // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}. singAt(): the key's points for a plan whose
+  // ops' poles are not the homotopy's, a NEWT op (none for keySing to pull back) or an op marked glideKey (Joukowski's
+  // exact chain, whose poles are its Cayley map's): the glide's, as the carried mesh keys its sheets (svSheetKeyAt), so
+  // both draw the same point in front
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map();
+  // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
+  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
+  // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
+  // planChain sets the same step, node and j on them (they have the same a and k)
+  const invHomSkels = new Map();
+  function invHomOnce(b) {
+    if (!b || b.error || !b.def) return b;
+    const r = Inverse.stepOps(b);
+    const o = Object.assign({}, b, { __homOps: () => r });
+    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
+    return o;
+  }
+  function invHomSkeleton(a, k) {
+    const sk = `${a}|${k}|${chainSig[nSteps()]}`;
+    let bs = invHomSkels.get(sk);
+    if (!bs) {
+      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
+      if (invHomSkels.size >= 8) invHomSkels.clear();
+      invHomSkels.set(sk, bs);
+    }
+    return bs;
+  }
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
     let h = invHoms.get(ck);
     if (!h) {
-      const bh = built.slice();
-      bh[k - 1] = Inverse.homBuilt(built[k - 1], t);
+      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      bh[k - 1] = Inverse.homBuilt(bs[k - 1], t);
       let plan, inv;
       try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
       try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
@@ -394,7 +418,7 @@
       invHoms.set(ck, h);
     }
     if (!h.plan.ok) return F(h.plan.reason);
-    const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT') ? singAt() : null;
+    const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     const wk = winKey() + '|' + shapeKey(s) + (own ? '|' + own.map((p) => p.re + ',' + p.im).join(';') : '');
     let prep = h.preps.get(wk);
     if (!prep) {
