@@ -666,6 +666,5 @@
  "Click ▶ to turn sound on and hear the loop wind round the zero.": "Нажмите ▶ — включится звук, и петля обойдёт нуль.",
  "Go to {p}": "Перейти к %{p}",
  "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}",
- "A d/dz step has no paths.": "Шаг d/dz не имеет путей.",
- "The first plane has no step before it, so no paths.": "Перед первой плоскостью нет шага, поэтому нет и путей."
+ "No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw": "Нет шага, ведущего к %{p}, поэтому путей t ↦ Hₜ(z) нет"
 }

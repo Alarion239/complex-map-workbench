@@ -55,6 +55,6 @@ for (const c of CASES) {
 }
 // plane 0: no step before it
 await open(1, 0);
-const p0 = await ev(`await (async () => { Figure.open(); for (let i = 0; i < 600 && !document.querySelector('#xfSvPic [data-v="paths"]'); i++) await new Promise((r) => requestAnimationFrame(r)); const b = document.querySelector('#xfSvPic [data-v="paths"]'); return b ? { disabled: b.disabled, title: b.title } : null; })()`, 60000);
-ok('plane 0: the Paths picture is off, with its reason', p0 && p0.disabled && /no step before/.test(p0.title), p0);
+const p0 = await ev(`await (async () => { Figure.open(); for (let i = 0; i < 600 && !document.querySelector('#xfSvPic [data-v="paths"]'); i++) await new Promise((r) => requestAnimationFrame(r)); const b = document.querySelector('#xfSvPic [data-v="paths"]'); return b ? { off: b.getAttribute('aria-disabled') === 'true', tip: b.dataset.tip, desc: b.getAttribute('aria-description'), clicked: (b.click(), document.querySelector('#xfSvPic [aria-checked="true"]').dataset.v) } : null; })()`, 60000);
+ok('plane 0: the Paths picture is off, with its reason as its tip and description', p0 && p0.off && /^No step leads to z, so there are no paths/.test(p0.tip) && p0.desc === p0.tip && p0.clicked !== 'paths', p0);
 return { pass: fails.length === 0, fails, results: R };

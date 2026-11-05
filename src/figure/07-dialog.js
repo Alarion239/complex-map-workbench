@@ -97,7 +97,7 @@
     const segB = (id, value, options, onchange, label, cls) => {
       const el = h('div', { class: 'seg xf-seg' + (cls ? ' ' + cls : ''), id, role: 'radiogroup', 'aria-label': label });
       for (const [v, l, sub, ic] of options) {
-        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
+        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { if (b.getAttribute('aria-disabled') === 'true') return; for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
         if (ic) b.insertAdjacentHTML('beforeend', ic);
         b.append(h('span', { class: 'xf-sl' }, l));
         if (sub) b.append(h('small', null, sub));
@@ -196,13 +196,17 @@
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
     // (Paths: the plane with the paths of the step that leads to it; off, with its reason, where there is no such step)
-    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')], ['paths', $t('Paths')]];
+    const svPics = [['plane', $t('Shown plane')], ['paths', $t('Paths')], ['film', $t('Filmstrip')]];
     const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
     const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'paths' && svpOk ? 'paths' : 'plane');
     const svPicRow = A.svOn()
       ? row($t('Picture'), segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
       : null;
-    if (svPicRow && !svpOk) { const pb = svPicRow.querySelector('[data-v="paths"]'); if (pb) { pb.disabled = true; pb.title = svp && svp.why === 'deriv' ? $t('A d/dz step has no paths.') : $t('The first plane has no step before it, so no paths.'); } }
+    if (svPicRow && !svpOk) {
+      const pb = svPicRow.querySelector('[data-v="paths"]');
+      const why = svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
+      if (pb) { pb.setAttribute('aria-disabled', 'true'); pb.dataset.tip = why; pb.setAttribute('aria-description', why); }
+    }
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();

@@ -294,7 +294,7 @@
   function svPathsFig() {
     const P = svPlanes(), i = Math.round(SV.g.x);
     if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
-    if (i < 1) return { why: 'first' };
+    if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
     const src = svPathsSeg(P, i - 1, i, i), nm = (k) => (k === 0 ? 'z' : `w_{${k}}`);
     return { i, m: 1, src, Fat: src.Fat, z: nm(P[i - 1]), end: nm(P[i]) };
