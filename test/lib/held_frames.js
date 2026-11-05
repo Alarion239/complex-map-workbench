@@ -11,7 +11,8 @@
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u and the
-//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z among the roots in the regions
+//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z (Inverse.front's order: keys in
+//   steps of 2^-8 octave, ties by larger Im z, then larger Re z) among the roots in the regions
 //   (where P is not the paper: a map many-to-one onto w under Inside regions; every root when none is, or with
 //   window.__giAllRoots) and colours w as P, plane z's
 //   parked frame, colours z (bilinear). A pixel whose front covered root could be one off P's canvas (whose cover P
@@ -19,8 +20,8 @@
 //   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
-// - refOf(base, tag, tol): __giRef of two kept frames (base: plane z's parked frame), or null when the glide's record
-//   has no sheet key (a frame the carried mesh draws);
+// - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame) sampled every step px, or
+//   null when the glide's record has no sheet key (a frame the carried mesh draws);
 // - sameAway(a, b, tol, keep): two kept frames compared pixel by pixel away from the colour lines (a pixel where either
 //   frame's __giRange spans more than 12 levels is left out), only where keep holds (the source of a page function of
 //   the device pixel (x, y); every pixel without it): { n compared, max, over: the share of n more than tol apart }.
@@ -66,7 +67,10 @@
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       const k = g.key(z), cv = covers(z);
       if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      if (best === null || (cv && !bcv) || (cv === bcv && k < bk)) { bk = k; best = z; bcv = cv; }
+      // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
+      const sk = Math.round(k / 2 ** -8), sb = Math.round(bk / 2 ** -8);
+      const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
+      if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
     }
     // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one
     // the renderer colours w by: the regions run past the canvas, so w's colour is not known)
@@ -133,11 +137,11 @@
   })()`);
   const GI_REF = `${RANGE}
 ${REF}`;
-  const refOf = (base, tag, tol) => ev(`(() => {
+  const refOf = (base, tag, tol, step = 10) => ev(`(() => {
     ${GI_REF}
     const g = __cmwSteps().glide, c = document.getElementById('canvasL'), K = window.__heldPx, f = (t) => ({ W: c.width, H: c.height, d: K[t] });
     if (!g || !g.key || !K[${JSON.stringify(base)}] || !K[${JSON.stringify(tag)}]) return { path: g && g.path, u: g && g.u, ref: null };
-    return { path: g.path, u: g.u, ref: __giRef(f(${JSON.stringify(base)}), f(${JSON.stringify(tag)}), ${tol}) };
+    return { path: g.path, u: g.u, ref: __giRef(f(${JSON.stringify(base)}), f(${JSON.stringify(tag)}), ${tol}, ${step}) };
   })()`);
   // the rest renderer's grid over the colour, in a kept frame drawn with the glide's camera (__cmwSteps().glide.view):
   // renderColor strokes the major grid lines (Axes.niceStep(110 / scale) apart, the axes left out) 1 CSS px wide at
