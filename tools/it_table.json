@@ -3370,6 +3370,8 @@
  "Picture": "Immagine",
  "Shown plane": "Piano mostrato",
  "The planes along %{chain}.": "I piani lungo %{chain}.",
+ "The planes %{a} and %{b}, joined by %{map}.": "I piani %{a} e %{b}, collegati da %{map}.",
+ "%{a} and %{b}, joined by %{map}": "%{a} e %{b}, collegati da %{map}",
  "Each plane is shown in its own window.": "Ogni piano è mostrato nella sua finestra.",
  "Each plane is shown in its own window where it fits.": "Ogni piano è mostrato nella sua finestra, dove ci sta.",
  "On": "Sì",

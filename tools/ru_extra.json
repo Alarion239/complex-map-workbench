@@ -609,6 +609,8 @@
  "Picture": "Изображение",
  "Shown plane": "Показанная плоскость",
  "The planes along %{chain}.": "Плоскости вдоль цепочки %{chain}.",
+ "The planes %{a} and %{b}, joined by %{map}.": "Плоскости %{a} и %{b}, соединённые отображением %{map}.",
+ "%{a} and %{b}, joined by %{map}": "%{a} и %{b}, соединённые отображением %{map}",
  "Each plane is shown in its own window.": "Каждая плоскость показана в своём окне.",
  "Each plane is shown in its own window where it fits.": "Каждая плоскость показана в своём окне, где она помещается.",
  "On": "Вкл",

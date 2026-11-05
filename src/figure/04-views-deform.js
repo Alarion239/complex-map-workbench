@@ -314,6 +314,23 @@
   // infinity, as exp sends a strip, would be a speck in it)
   const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10, SV_FILM_OVER = 1.5;
   const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
+  // the windows of the planes idx (indexes into A.svFrames()) when each is framed on its own (Fit, on the plane):
+  // {boxes: one per plane, or null when every plane keeps the camera's window, fellBack: some plane kept it because
+  // no shape is in view or its box was too wide}
+  function svFitBoxes(o, idx) {
+    if (o.crop === 'screen' || A.svSurf() !== 'plane') return { boxes: null, fellBack: false };
+    // (the shapes are traced in the camera's window grown 3 times each way, as the other views trace them, so a shape
+    // running off the screen keeps its part)
+    const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
+    const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
+    let boxes = idx.map((i) => {
+      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD);
+      return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
+    });
+    const fellBack = boxes.some((b) => !b);
+    boxes = boxes.map((b) => b || cam);
+    return { boxes: boxes.every((b) => sameBox(b, cam)) ? null : boxes, fellBack };
+  }
   // The frames are laid out as the deformation's filmstrips (figFilmPic, figFilmPhase): 8 pt between frames, a title
   // 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the frame and at least 2 pt
   // of room right of it for the last x label
@@ -323,20 +340,9 @@
     const cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
     const ink = printInkFor(o, A.state().alpha);
     // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
-    let boxes = null, fellBack = false;
-    if (o.crop !== 'screen' && A.svSurf() === 'plane') {
-      // (the shapes are traced in the camera's window grown 3 times each way, as the other views trace them, so a shape
-      // running off the screen keeps its part)
-      const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
-      const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
-      boxes = frames.map((f, i) => {
-        const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD);
-        return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
-      });
-      fellBack = boxes.some((b) => !b);
-      boxes = boxes.map((b) => b || cam);
-      if (boxes.every((b) => sameBox(b, cam))) boxes = null;
-    }
+    const fit = svFitBoxes(o, frames.map((f, i) => i));
+    let boxes = fit.boxes;
+    const fellBack = fit.fellBack;
     const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
     const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
     // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
@@ -379,6 +385,76 @@
     // (ownWin: the frames' windows differ, which the caption says)
     const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
     return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
+  }
+  // the steps view's two-plane figure: plane o.svFrom and plane o.svTo of the thread (indexes into A.svFrames(); by
+  // default z and the last plane) side by side, each as the Shown plane exports it, each headed by its name, with the
+  // arrow of the map between them named over it (A.svMapTex). A plane on the plane surface has its box and axes as in
+  // the other plane figures (Crop, Axes); on the sphere the frames are the stage's pictures, as in the filmstrip.
+  // a TeX plane or map name as plain text: w_{2} -> w₂, f_{2}\circ f_{1} -> f₂∘f₁
+  const plainName = (tex) => tex.replace(/_\{(\d+)\}/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join('')).replace(/\\circ ?/g, '∘').replace(/\\cdots/g, '⋯');
+  async function figSvTwo(o, P, W, T) {
+    const [tp, lp] = T, frames = A.svFrames(), n = frames.length;
+    const from = Math.max(0, Math.min(n - 2, o.svFrom == null ? 0 : o.svFrom | 0)), to = Math.max(from + 1, Math.min(n - 1, o.svTo == null ? n - 1 : o.svTo | 0));
+    const ids = [from, to], ink = printInkFor(o, A.state().alpha), mode = o.ink === 'bw' ? 'grey' : 'rgb';
+    const plane = A.svSurf() === 'plane';
+    const fit = svFitBoxes(o, ids);
+    const boxes = plane ? fit.boxes || ids.map(() => A.svBox()) : null;
+    const axes = plane ? o.axes || P.axes : 'none';
+    let asp;
+    if (plane) asp = boxes.map(aspect);
+    else {
+      const pr = await A.svArt(from, { wpt: 20, dpi: 72, ink, alive: o.alive });
+      if (!pr) return null;
+      asp = [pr.w / pr.h, pr.w / pr.h];
+    }
+    const steps = plane ? boxes.map((b) => stepFor(b, W / 2)) : null;
+    const names = ids.map((i) => frames[i].name), arrowTex = A.svMapTex(from, to), arrowLab = XD.tex(arrowTex, lp);
+    const arrowSpan = Math.max(axes === 'box' ? 22 : 26, arrowLab.w + 12);
+    const titles = names.map((nm) => [`\\operatorname{Re} ${nm}`, `\\operatorname{Im} ${nm}`]);
+    const ah = 4.6;
+    let mL, gut, mR, top, bottom;
+    if (axes === 'box') {
+      mL = tickW(boxes[0], steps[0], tp) + 3; gut = arrowSpan + 10 + tickW(boxes[1], steps[1], tp) + 3; mR = Math.max(2, overR(boxes[1], steps[1], tp));
+      top = lp * 1.15 + 3; bottom = tp * 1.05 + 4.2;
+    } else if (axes === 'none') {
+      mL = 3; gut = arrowSpan + 16; mR = 2; top = lp * 1.15 + 3; bottom = 3;
+    } else {
+      const nA = XD.tex(titles[0][0], lp).w, nB = XD.tex(titles[1][0], lp).w, t1 = XD.tex(titles[0][1], lp);
+      mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = ah * 0.3 + 2 + nB + 2;
+      top = Math.max(t1.a + t1.d + ah + 5, lp * 1.15 + 3); bottom = 3;
+    }
+    let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
+    h = Math.min(h, W * 0.62, P.maxH - top - bottom);
+    const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;
+    const xs = [x0 + mL, x0 + mL + h * asp[0] + gut];
+    const items = [], lines = [];
+    let defs = '';
+    for (const k of [0, 1]) {
+      const wpt = h * asp[k], x = xs[k];
+      const r = await A.svArt(ids[k], Object.assign({ wpt, dpi: 300, ink, alive: o.alive }, plane ? { box: boxes[k] } : {}));
+      if (!r) return null;
+      if (plane) {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[k], { mode, wpt });
+        const p = XD.panel({ x, y, w: wpt, h, box: boxes[k], step: steps[k], art: [a], curves: [], points: [], axes, minimal: P.minimal, ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: titles[k] });
+        items.push(p.markup); defs += p.defs; lines.push(...p.lines);
+      } else {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode, wpt });
+        items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
+        items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+        lines.push({ x0: x, y0: y, x1: x + wpt, y1: y + h, kind: 'frame' });
+      }
+      const nm = XD.tex(names[k], lp);
+      items.push(XD.at(nm, x, y - 3, 'start', 'base', 'title'));
+    }
+    // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
+    const oys = axes === 'cross' ? boxes.map((b) => Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h))) : [];
+    const lab = arrowLab.a + arrowLab.d + 3;
+    const ay = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => y + f * h).find((v) => oys.every((oy) => v - oy > lab + 6 || oy - v > 6)) || y + h / 2;
+    const a0 = axes === 'box' ? xs[0] + h * asp[0] + 5 : axes === 'cross' ? xs[0] + h * asp[0] + ah * 0.3 + 2 + XD.tex(titles[0][0], lp).w + 8 : xs[0] + h * asp[0] + 8;
+    const a1 = axes === 'box' ? a0 + arrowSpan : xs[1] - 8;
+    items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
+    const ownWin = !!fit.boxes && !sameBox(boxes[0], boxes[1]);
+    return { items, defs, lines, H: y + h + bottom, info: { svTwo: true, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {

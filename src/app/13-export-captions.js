@@ -317,6 +317,8 @@
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
     svFrameF: (i) => rangeF(0, svPlanes()[i]),
+    // the name, in TeX, of the map from plane i of the thread to plane j: F, f_2, f_2∘f_1
+    svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
