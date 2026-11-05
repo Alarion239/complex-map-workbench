@@ -18,9 +18,9 @@ ok('the example is found', ex >= 0, names.length);
 // (in CSS pixels of the left pane, at the example's view in a 1200 x 800 window: the band across the lobe's left rim,
 // and the box of the lobe whose streaks are counted)
 const RIM = { x0: 245, x1: 330, y0: 440, y1: 550 }, LOBE = { x0: 250, x1: 590, y0: 420, y1: 565 };
-// (the limits: the measures' values on the frame are 53 and 2 at dpr 1, 105 and 2 at dpr 2; with the grid drawn, 1339
+// (the limits: the measures' values on the frame are 53 and 3 at dpr 1, 105 and 1 at dpr 2; with the grid drawn, 1339
 // and 610, 7265 and 1225)
-const LIM = { 1: { rim: 200, streaks: 30 }, 2: { rim: 400, streaks: 60 } };
+const LIM = { 1: { rim: 100, streaks: 10 }, 2: { rim: 200, streaks: 20 } };
 const measure = (dpr) => ev(`(() => {
   const c = document.getElementById('canvasL'), k = c.width / c.clientWidth, d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, W = c.width;
   const at = (x, y) => 4 * (y * W + x);
