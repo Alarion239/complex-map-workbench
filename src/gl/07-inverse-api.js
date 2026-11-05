@@ -60,7 +60,7 @@
         const ax = s.a[0], ay = s.a[1], dx = s.b[0] - ax, dy = s.b[1] - ay, L = Math.hypot(dx, dy) || 1;
         thru0 = Math.abs((dx * ay - dy * ax) / L) <= 1e-12 * Math.hypot(ax, ay) ? 1 : 0;
       } else if (s.kind === 'sector') thru0 = Math.hypot(s.c[0], s.c[1]) <= 1e-12 ? 1 : 0;
-      if (gk) thru0 = s._g.thru0 ? 1 : 0;             // v16: from incidence [C9]
+      if (gk) thru0 = s._g.thru0 ? 1 : 0;             // from incidence
       rec.C = [at0, thru0, 0, 0];
       rec.offset = data.length / 4;
       const n0 = data.length, n = packPrim(prim, data);
@@ -236,7 +236,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a ready inverse program of the current chain, view kind and formula bundle for another B class (never starts a
   // compile): a larger B first (exact for any alpha), else the largest smaller one (its front B sheets exact, the rest
   // through their transmittance, SPEC 13.12). warm: only programs already drawn (their first draw, the Metal pipeline
-  // build, stalled the GPU process 75-200 ms: P2 review)
+  // build, stalls the GPU process 75-200 ms)
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
     if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
@@ -317,8 +317,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return d;
   }
   // ---- half-resolution target (cost guard) ----
-  // A pane's consecutive half-resolution passes share one batch (P2 review: one target bind, clear and upsample per
-  // pass cost more than half resolution saved): the first binds and clears the half target, each draws its scissored
+  // A pane's consecutive half-resolution passes share one batch (one target bind, clear and upsample per
+  // pass would cost more than half resolution saves): the first binds and clears the half target, each draws its scissored
   // part, and flushHalf() (before any other draw of GLR: the api entry points call it) upsamples the union of their
   // scissor boxes once.
   let halfTex = null, halfFbo = null, halfW = 0, halfH = 0;
@@ -396,9 +396,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // K (SPEC 4.2): the front count for the early stop and admission: 1 when alpha >= 0.999, else
   // ceil(ln(1/255) / ln(1 - alpha))
   const invK = (alpha) => (alpha >= 0.999 ? 1 : Math.max(1, Math.ceil(Math.log(1 / 255) / Math.log(1 - Math.min(alpha, 0.999999)))));
-  // B, the compile-time buffer (4.2; P2 benchmark, SPEC 13.10, 13.12): the buffer lives in registers across the whole
+  // B, the compile-time buffer (4.2; SPEC 13.10, 13.12): the buffer lives in registers across the whole
   // walk, and its size dominated the pass cost (dpr 2, z^i(H) marginal pass: B 3 1.4 ms at alpha 1, B 5 2.0 at 0.85,
-  // B 8 3.3 at 0.7, B 16 8.4-10.8 at 0.5-0.3, P2 review). Classes by the shape's own (undimmed) alpha: 3 (alpha >=
+  // B 8 3.3 at 0.7, B 16 8.4-10.8 at 0.5-0.3). Classes by the shape's own (undimmed) alpha: 3 (alpha >=
   // 0.999, K 1), 5 (alpha >= 0.5), 8 (below). The buffer keeps the front B sheets exactly; the covering candidates it
   // does not keep enter the composite through their exact transmittance, coloured with the buffer's mean (the walk then
   // has no early stop: K > B). Their share of the light is (1 - alpha)^B: 0 for alpha >= 0.67 (B 5 holds K), at most
@@ -457,7 +457,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
     // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
-    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider, P2 review), else
+    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider), else
     // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
     const defer = st.motion || st.coldOk === false;
     if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
@@ -872,17 +872,17 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
-    // (issue #72) false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
+    // false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
     // the draw that asks for it
     get parallelCompile() { return !!pcExt; },
     // whether programs `names` of the current chain (static ones by name) are linked for map; never starts one (with no
     // chain there is no chain program to wait for: true, and the card draws as it would)
     linked(names, map) { return !cur.info || names.every((n) => { const e = DEFS[n] && progs.get(progId(n, cur, map)); return !!e && e.state === 'ready'; }); },
-    // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)
+    // how many programs are compiling (the panes' "Preparing the GPU" note counts them)
     get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
     // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
-    // (issue #72, I) ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
+    // ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
     // hold on its links
     bareMs, holdLinks, chainProgs,
     // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
@@ -913,8 +913,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // All sheets for map (GPU map spec) with window W: {K (surfaces drawn, at most 24), total, W, infinite} or null
     // when the current chain cannot draw it (no multivalued step in (a, b], a homotopy, a d/dz in (a, b] with a > 0,
     // or no chainSheetRange in the chain's GLSL)
-    // TEMP-DEBUG-HOOK (removed before publishing)
-    // (v16 tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
+    // TEMP-DEBUG-HOOK
+    // (tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
     // transform feedback: a Float32Array of pairs, or null while the program compiles or without WebGL
     evalMap(map, pts) {
       if (!ok || lost || !cur.info) return null;
@@ -947,13 +947,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.deleteBuffer(vbo); gl.deleteBuffer(out); gl.deleteVertexArray(vao);
       return res;
     },
-    // (v16 tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
+    // (tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
-    // (walls tests, issue #52) the landscape's grid and refinement read back
+    // (walls tests) the landscape's grid and refinement read back
     landMesh: lwMesh, landRefine: lwRefine, landHeld: lwHeld,
-    // (issue #47: the programs compiled so far, name|chain|mode and state)
+    // (the programs compiled so far, name|chain|mode and state)
     landProgs: () => [...progs.values()].map((e) => `${e.id} ${e.state}`),
-    // (issue #47: a program's sources for the current chain, landTF of a given kind, to time its link)
+    // (a program's sources for the current chain, landTF of a given kind, to time its link)
     landSrc: (name, mode, kind) => {
       const d = DEFS[name], save = d.vs;
       if (kind) d.vs = () => UTIL_V + HEIGHT + LAND_TF_VS(kind);

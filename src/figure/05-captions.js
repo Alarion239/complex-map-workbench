@@ -17,7 +17,7 @@
   // a caption whose map is MAPTOK: F named in the text ($F$), its formula displayed at the end of the sentence that
   // names it first (", where \[ F(z) = ... . \]"); when that sentence is long, right after the phrase that names F
   // (see displayF); called inside using(lang)
-  // (export review r3) CHAINTOK ends the sentence that names the steps f_1, f_2, ...: the display there gives the chain
+  // CHAINTOK ends the sentence that names the steps f_1, f_2, ...: the display there gives the chain
   // (F(z) = ..., F = f_2 o f_1, f_1(z) = ..., f_2(w_1) = ...), so the steps the caption names are defined
   const CHAINTOK = '\u0002';
   // a literal a+bi (or a real) of the app's TeX, negated: -0.5-0.3i -> 0.5+0.3i; null when it is not one
@@ -26,7 +26,7 @@
     if (!m) { const im = /^(-?)(\d+(?:\.\d+)?)?i$/.exec(x.replace(/\s+/g, '')); return im ? `${im[1] ? '' : '-'}${im[2] || ''}i` : null; }
     return `${m[1] ? '' : '-'}${m[2]}${m[3] ? `${m[3] === '+' ? '-' : '+'}${m[4] || ''}i` : ''}`;
   };
-  // the display in normal form (export review r3, editor-16): "+ (-a)" is "- a", and a linear denominator starts
+  // the display in normal form: "+ (-a)" is "- a", and a linear denominator starts
   // with its constant: \frac{z+\left(-0.5-0.3i\right)}{\left(-0.5+0.3i\right)\,z+1} -> \frac{z-\left(0.5+0.3i\right)}{1-\left(0.5-0.3i\right)\,z}
   function tidyTex(t) {
     let out = String(t || '');
@@ -56,7 +56,7 @@
   };
   // the lead-in of a display that ends the text cap[0, p): ", where", or, when the sentence already has its own "where"
   // («где», outside math: the homotopy's "..., где H'(p) = ..."), the sentence is closed and the display is "Here \[ ... \]"
-  // (export review r3, verify-editor-13: never «где …, где»)
+  // (never «где …, где»)
   function leadIn(cap, p) {
     const st = Math.max(0, ...sentenceEnds(cap).filter((q) => q < p).map((q) => q + 1));
     const word = $t(', where').replace(/^[\s,]+/, '').trim();
@@ -81,7 +81,7 @@
     // the end of the sentence that names F (the next '.' outside math before a space or the end)
     const j = sentenceEnds(cap).find((q) => q > i);
     const disp = `${DISP_OPEN}\\displaystyle ${c.Fname}(${c.lvar})=${tidyTex(multi && I18 ? I18.notation(c.raw, undefined, { multi: true }) : c.raw)}.${DISP_CLOSE}`;
-    // (export review r3, verify-editor-13) the display follows the phrase that names F: at the first ':' or ';' after F
+    // the display follows the phrase that names F: at the first ':' or ';' after F
     // (outside math and brackets, within 100 characters: "Phase portrait of $F$ on $[-7,7]\times[-5,5]$: the color
     // ...", "Landscape of $F$ over ...: the height ..."), and the rest of that sentence becomes a sentence of its own;
     // else at the end of the sentence. Never a lead-in of its own ("The map is") far from F's name, and never ", where"
@@ -115,7 +115,7 @@
     return head.replace(/[.,;:]$/, '') + '.';
   }
   // [x0,x1]x[y0,y1]; in Russian and Italian a semicolon inside a bracket pair when an endpoint is a decimal (GLOSSARY 2.3)
-  // (export review r3, editor-19: one separator for the whole product, ';' in both intervals once an endpoint is a decimal)
+  // (one separator for the whole product, ';' in both intervals once an endpoint is a decimal)
   const winTex = (b) => { if (!b) return ''; if (!capComma()) return `[${numTex(b.x0)},${numTex(b.x1)}]\\times[${numTex(b.y0)},${numTex(b.y1)}]`; const v = [b.x0, b.x1, b.y0, b.y1].map(numTex), sep = I18.texSep(v), n = (x) => I18.texNum(x); return `[${n(v[0])}${sep}${n(v[1])}]\\times[${n(v[2])}${sep}${n(v[3])}]`; };
   const us = (segs) => segs.map((s) => (s.t != null ? Object.assign({}, s, { t: s.t.replace(/colour/g, 'color').replace(/Colour/g, 'Color').replace(/grey/g, 'gray').replace(/ \(bar\)/g, '') }) : s));   // (a phrase's closing comma keeps its pc mark)
   // a point of the plane in a Russian or Italian caption: the decimal comma (a short number formula, never a snippet)
@@ -124,7 +124,7 @@
   const joinWords = (a) => (a.length <= 1 ? a.join('') : a.length === 2 ? `${a[0]} and ${a[1]}` : `${a.slice(0, -1).join(', ')}, and ${a[a.length - 1]}`);
   // Russian: «a, b и c», Italian: «a, b e c», with «;» between decimals («$0{,}5$; $1$ и $2$»)
   const joinL = (a) => (!capComma() ? joinWords(a) : a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(a.some((x) => /\{,\}/.test(x)) ? '; ' : ', ')} ${capRu() ? 'и' : $t('and')} ${a[a.length - 1]}`);
-  // the homotopy as a sentence (export review r3, editor-13): "Here H_t, 0 <= t <= m, deforms the identity (t = 0)
+  // the homotopy as a sentence: "Here H_t, 0 <= t <= m, deforms the identity (t = 0)
   // into F (t = m) and runs the steps in turn (...): for f_1, ...; for f_2, ..." rather than "... along the homotopy
   // H_t, ..., that runs the steps in turn"; CHAINTOK ends it when the chain is displayed. Called inside using(lang)
   // " Here w_d = ...": a bracket's start written with the stage of a d/dz in its pre, defined in z
@@ -166,7 +166,7 @@
       const own = fi.ownWin ? ' ' + note : '';
       return $t('The planes along %{chain}.', { chain: svChain(fi.frames) }) + own;
     }
-    // (export review r3, verify2-new-1: a globe figure's points on the far side are not in its list of what it shows)
+    // (a globe figure's points on the far side are not in its list of what it shows)
     const c = A.capParts({ letters: !!PRESET[o.for].named, skip: (fi.globePaths || fi.film === 'globe') && fi.hidden && fi.hidden.length ? fi.hidden.map((x) => x.z) : null });
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
     // F(z) = ... as a displayed equation after the sentence that names F first
@@ -188,7 +188,7 @@
       const mx = A.pathMarksTex ? A.pathMarksTex(fi.m || 1) : { seq: false };
       // (steps one after another: an arrowhead in the middle of each step, a bar where the steps meet)
       const marksS = !mx.seq ? $t(' Small dots mark $t=%{a}$ and $t=%{c}$, an arrowhead $t=%{b}$.', { a: qT[0], b: qT[1], c: qT[2] }) : mx.nodes ? $t(' Arrowheads mark $t=%{a}$, the middle of each step, and bars $t=%{n}$, where one step ends and the next begins.', { a: mx.arrows, n: mx.nodes }) : $t(' An arrowhead marks $t=%{a}$.', { a: mx.arrows });
-      // (export review r3, verify-editor-3) the other point shapes, named by their marker; the frames where one is on the
+      // the other point shapes, named by their marker; the frames where one is on the
       // far side ((a) and (d))
       const fl = (i) => (ru ? `\\textit{${RU_LETTERS[i]}}` : `(${String.fromCharCode(97 + i)})`);
       const markS = (fi.marks || []).map((x) => (fi.globePaths ? $t(' The %{mark} is the image of the point %{p} under $%{F}$.', { mark: marks[x.mk], p: hp(x), F: c.Fname })
@@ -250,7 +250,7 @@
     }
     if (view === 'land') {
       const f = hm ? 'H_t' : c.Fname, ht = { log: `\\log|${f}|`, abs: `|${f}|`, re: `\\operatorname{Re} ${f}`, im: `\\operatorname{Im} ${f}` }[c.height || 'log'];
-      // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2, review math-8; c.sheets: what the landscape
+      // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2; c.sheets: what the landscape
       // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming)
       const shc = c.sheets && (hm || !c.sheets.hom) && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
       let s = $t('Landscape of %{map}%{over}: the height is $%{ht}$', { map: hm ? '$H_t$' : shc && I18 ? I18.notation(map, undefined, { multi: true }) : map, over: body.info.box ? $t(' over $%{box}$', { box: winTex(body.info.box) }) : '', ht });
@@ -264,7 +264,7 @@
       // (the paths figure keeps the morph figure's own caption: its inline F(z) = ... is displayed as everywhere)
       if (body.captionTex) {
         let cap = c.raw && c.mapTex ? body.captionTex.split(`$${c.mapTex}$`).join(MAPTOK) : body.captionTex;
-        // (the steps it names are defined in the display that ends the homotopy's sentence: export review r3, editor-1)
+        // (the steps it names are defined in the display that ends the homotopy's sentence)
         const hi = c.chain && c.raw && c.hom ? cap.indexOf(c.hom.tex) : -1;
         if (hi >= 0) cap = cap.slice(0, hi + c.hom.tex.length) + CHAINTOK + cap.slice(hi + c.hom.tex.length);
         return cap;
@@ -343,7 +343,7 @@
   const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
   const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
-  // (export review r3, editor-2) the default file name and \label: the scene, the view and the kind of figure, so two
+  // the default file name and \label: the scene, the view and the kind of figure, so two
   // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
   // name stays the same for the same figure, so a new export overwrites only its own file
   function defaultName(view, deform, fmt) {
@@ -359,7 +359,7 @@
     if (view === 'xyL' && A.state().main === 'phase') return `${base}-phase-sphere`;
     return base;
   }
-  // (export review r3, editor-4) the list-of-figures entry of a caption with a display: a template of its own, under
+  // the list-of-figures entry of a caption with a display: a template of its own, under
   // about 100 characters; null: the text before the display (shortCaption). Called inside using(lang)
   function shortFor(view, body) {
     const fi = body.info || {}, c = A.capParts(), ts = fi.labs ? `$t=${fi.labs.join(',\\,')}$` : '';
@@ -382,7 +382,7 @@
   // build(o): the figure for the current view. o: {for, cols, sizeId, customPt, text, ink, crop, axes, panels, deform,
   // name, captionTex (an edited caption), capInImage, view, alive}. -> {svg, W, H, boxes, lines, glyphs, meta,
   // captionTex, name, view, Wtex, ...} or null when cancelled
-  // (#288) a pass that met a range of MathJax's STIX2 font not yet loaded (XD.waits, 01-composer.js) is built again
+  // a pass that met a range of MathJax's STIX2 font not yet loaded (XD.waits, 01-composer.js) is built again
   // once the ranges are in, at most 8 passes (a range that cannot load: its formulas print as their TeX source)
   async function build(opts) {
     for (let pass = 0; ; pass++) {
@@ -416,7 +416,7 @@
     const t0 = performance.now();
     let body;
     // (round 3) the deformation is exported as a deformation in every view: the filmstrip, the paths (plane, globe),
-    // or the frame at the current t (o.deform 'frame', the earlier one-panel figure)
+    // or the frame at the current t (o.deform 'frame', the one-panel figure)
     const defo = defoOf(view);
     if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
     else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
@@ -431,7 +431,7 @@
     const shortCap = polish(using(lang, () => shortFor(view, body)), lang);
     const cp = using(lang, () => A.capParts()), Fn = view === 'morph' || (cp.hm && (view === 'phase' || view === 'land')) ? 'H_t' : cp.Fname;
     const film = view === 'morph' || (body.info && (body.info.film || body.info.globePaths));
-    // (export review r3, editor-14) a slide names F: in its title when the formula is short, else displayed under the figure
+    // a slide names F: in its title when the formula is short, else displayed under the figure
     const slideF = cp.raw ? `${cp.Fname}(${cp.lvar})=${tidyTex(cp.raw)}` : null, slideFin = !!slideF && slideF.length <= 48;
     const slideTitle = polish(using(lang, () => (film ? (slideFin ? $t('The deformation $H_t$ to $%{F}$', { F: slideF }) : $t('The deformation $H_t$')) : view === 'phase' ? $t('Phase portrait of $%{Fn}$', { Fn }) : view === 'land' ? $t('Landscape of $%{Fn}$', { Fn }) : view === 'morph' ? $t('The deformation $H_t$') : cp.mapTex && cp.mapTex.length < 60 ? $t('The map $%{mapTex}$', { mapTex: cp.mapTex }) : $t('The map $%{Fn}$', { Fn }))), lang);
     const captionTex = o.captionTex != null ? o.captionTex : autoCap;

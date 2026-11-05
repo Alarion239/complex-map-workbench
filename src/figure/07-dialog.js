@@ -10,7 +10,7 @@
   function saveSet(s) { try { localStorage.setItem(LS(), JSON.stringify(s)); } catch (e) { /* storage may be blocked */ } }
   const sizeKey = (s) => (s.for === 'article' ? (s.cols === 2 ? 'article2' : 'article1') : s.for);
   // the caption language (DESIGN.md 12, i18n-22): the dialog offers it only when the interface is not English, so an
-  // English interface keeps its dialog and its captions as they were
+  // English interface keeps its dialog and its captions in English
   const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
   // the steps view keeps its own crop, As on screen until changed there: its figure is the stage's picture
   const cropOf = (s) => (A.svOn() ? s.svCrop || 'screen' : s.crop);
@@ -186,7 +186,7 @@
     const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' || set.capLang === 'it' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
     if (capLangRow) capLangRow.classList.add('wide');
     // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, the paths (plane and
-    // globe), or one frame at the current t (the earlier one-panel figure of Phase, Landscape and the globes)
+    // globe), or one frame at the current t (the one-panel figure of Phase, Landscape and the globes)
     const defo = defoOf(view);
     // the steps view's glide along its thread: a video of it where it has a step on the plane surface
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
@@ -207,7 +207,7 @@
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
-    // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
+    // (a browser without a video encoder is told so at the format row, not after Save)
     const canVideo = typeof VideoEncoder !== 'undefined';
     const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
@@ -335,7 +335,7 @@
     const pvCv = h('canvas', { class: 'xf-pvcv', role: 'img', 'aria-label': $t('The video, as it will be saved'), hidden: true, onclick: () => pvToggle() });
     const pvBtn = h('button', { type: 'button', class: 'xf-pvbtn', id: 'xfPvPlay', onclick: () => pvToggle() });
     // (while no preview runs, between an option change and its new frames, the button and the scrubber change only the
-    // wish, which the next preview starts with: review vp-2)
+    // wish, which the next preview starts with)
     const pvRange = h('input', { type: 'range', class: 'xf-pvrange', id: 'xfPvSeek', min: '0', max: '0', step: '1', value: '0', 'aria-label': $t('Position in the video'), oninput: () => { const v = +pvRange.value; pvWant = false; if (!pv.state().id) { pvBtnSet(false); return; } pv.pause(); pv.seek(v); } });
     // (a key on the scrubber while it plays: from the frame in view, not from where the scrubber stood still)
     pvRange.addEventListener('keydown', () => { const s = pv.state(); if (s.id && s.playing) pvRange.value = String(s.i); });
@@ -349,7 +349,7 @@
     const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
     let pvWant = !reduced(), pvSize = null, pvFill = [0, 0], pvAriaAt = 0;
     // (what the frames are: the video's own, at the size shown here when that is smaller, and lightly compressed when
-    // the timeline is too long to keep them as they are; review vp-1)
+    // the timeline is too long to keep them as they are)
     const pvNoteText = () => {
       if (!pvSize) return '';
       const s = pv.state(), [r, n] = pvFill, [pw, , W, H, raw] = pvSize;
@@ -359,7 +359,7 @@
       return !s.playing && !s.shown && reduced() ? `${what} · ${$t('Paused: reduced motion is on. Press Play to watch.')}` : what;
     };
     const pvBtnSet = (on) => { pvBtn.innerHTML = on ? ICON.pause : ICON.play; pvBtn.setAttribute('aria-label', on ? $t('Pause') : $t('Play')); pvBtn.title = on ? $t('Pause') : $t('Play'); };
-    // the scrubber's value and its text for a screen reader (review vp-6): while it plays, the scrubber with focus
+    // the scrubber's value and its text for a screen reader: while it plays, the scrubber with focus
     // stands still (so a screen reader on it does not read out every frame), and its text changes at most once a second
     const pvAria = (i, now) => {
       const s = pv.state(), fps = s.fps || 30, t = pv.tOf(i), ms = performance.now();
@@ -397,7 +397,7 @@
     };
     let posterTok = 0, posterTimer = 0, extKnown = null, pvWH = null, pvKey = null;
     // (an option changed: the frames in view are stale; the preview stops, the poster dims until the new one is drawn)
-    // (the bar is dimmed and says nothing of the old video; the button shows the wish: review vp-2)
+    // (the bar is dimmed and says nothing of the last video; the button shows the wish)
     const posterSoon = () => {
       vSumSet();
       clearTimeout(posterTimer); pv.stop(); pvCv.hidden = true; posterImg.hidden = false; pvBox.classList.add('busy');
@@ -427,8 +427,8 @@
         const fr0 = plan.times.length;
         hint.textContent = $t('{w} × {h} · {fps} fps · {secs} s', { w: plan.W, h: plan.H, fps: vset.fps, secs: num(fr0 / vset.fps, 1) }) + (extKnown === 'webm' ? ' · WebM (VP9)' : '');
         wait.hidden = true; pvBox.classList.remove('busy'); pvBar.hidden = false;
-        // the preview starts from the poster's frame, so the picture does not jump (review vp-4); paused with reduced
-        // motion, only that frame is drawn until Play (review vp-5)
+        // the preview starts from the poster's frame, so the picture does not jump; paused with reduced
+        // motion, only that frame is drawn until Play
         let at = 0, best = Infinity;
         plan.times.forEach((e, i) => { if (typeof e === 'number' && Math.abs(e - t) < best - 1e-12) { best = Math.abs(e - t); at = i; } });
         pv.start(plan, { cssW, autoplay: pvWant, at, lazy: !pvWant && reduced() });
@@ -451,7 +451,7 @@
       shareBtn.hidden = vid || !canShareFiles();
       vidBtn.hidden = !vid;
       dpiSel.value = String(dpiOf());
-      // (the default name follows the figure until it is edited: export review r3, editor-2)
+      // (the default name follows the figure until it is edited)
       if (!nameEdited) { nameInp.value = defaultName(view, deformOf(), f); fitName(); }
       // (the extension of the file a video will be: .mp4, or .webm where only VP9 can be encoded; video-5)
       extEl.textContent = vid ? `.${extKnown || 'mp4'}` : `.${f}`;
@@ -681,7 +681,7 @@
   async function againRun(what) {
     const set = loadSet();
     // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
-    // and for Copy, the last figure is made again; export review r3, video-3)
+    // and for Copy, the last figure is made again)
     if (set.last && set.last.kind === 'video' && what === 'save' && defoOf(A.viewKind()) && typeof VideoEncoder !== 'undefined') { set.fmt = 'video'; saveSet(set); open(); return true; }
     const last = set.last && set.last.kind !== 'video' ? set.last : set.lastFig || { kind: 'overleaf', fmt: 'pdf' };
     if (set.last && set.last.kind === 'video' && set.fmt === 'video') set.fmt = last.fmt === 'png' || last.fmt === 'svg' ? last.fmt : 'pdf';
