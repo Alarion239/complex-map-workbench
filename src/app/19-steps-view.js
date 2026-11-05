@@ -120,14 +120,15 @@
   // plane (svHeightF), then the carried colour past T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
-    let role;
+    let role, short = '';
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+      short = $t('landscape');
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
-    return { name: svNameHtml(k), role };
+    return { name: svNameHtml(k), role, short };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
@@ -1740,8 +1741,8 @@
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: SV.i + 1, n, where });
   }
   function svFormulaHtml() {
-    const { name, role } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role">${role}</span>`;
+    const { name, role, short } = svTitleParts();
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
   }
   // the glide speed's select (the shared field-styled one, selectEl) and the Loop toggle, the strip's and the playback sheet's
   function svSpeedSel(title) {
@@ -1818,12 +1819,15 @@
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
-    const scope = seg(null, SV.scope, [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
+    const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
     const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
-    bar.append(title, cp, scope, surf1);
+    // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two; ux, #1047)
+    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', onclick: () => svScopeMenu() });
+    bar.append(title, cp, scope, scopeBtn, surf1);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
     const tnote = h('span', { class: 'head-note sv-tnote', role: 'note', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.targets }), h('span', { class: 'sv-tn-n', 'aria-hidden': 'true' }), h('span', { class: 'sv-tn-t' }));
@@ -1877,7 +1881,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1979,6 +1983,10 @@
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       setSeg(E.scope, SV.scope);
+      const scName = SV.scope === 'in' ? $t('Inside') : $t('Everywhere');
+      E.scopeBtn.innerHTML = `<span class="sv-surf-t">${scName}</span>${ICONS.chevD || ''}`;
+      E.scopeBtn.setAttribute('aria-label', `${$t('Scope')}: ${E.SCOPES.find((v) => v[0] === SV.scope)[1]}`);
+      E.scopeBtn.dataset.tip = $t('Where colour shows');
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
       E.next.disabled = at >= P.length - 1 && !svMoving() && !parked;
@@ -2043,12 +2051,15 @@
     if (l !== E.fadeL) { E.fadeL = l; E.rail.classList.toggle('fade-l', l); }
     if (r !== E.fadeR) { E.fadeR = r; E.rail.classList.toggle('fade-r', r); }
   }
-  // the surface's menu: the three, the shown one checked (a menu's keys are its own: svKeys leaves them alone)
-  function svSurfMenu() {
-    const E = SV.els;
-    const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); } }));
-    openMenu(E.surf1, Object.assign(items, { menuLabel: $t('Surface'), focusChecked: true }));
+  // a button's menu of choices, the current one checked (a menu's keys are its own: svKeys leaves them alone)
+  function svChoiceMenu(btn, pairs, cur, label, pick) {
+    openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true }));
   }
+  function svSurfMenu() {
+    svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), (v) => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); });
+  }
+  function svSetScope(v) { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
+  function svScopeMenu() { svChoiceMenu(SV.els.scopeBtn, SV.els.SCOPES, SV.scope, $t('Scope'), svSetScope); }
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
   // after the fold (the rail grows by exactly that width): no flicker at the edge.
@@ -2115,6 +2126,8 @@
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
   const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
+  const SV_FOOT_MORE = 4 + 26;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
@@ -2129,6 +2142,11 @@
       act.setAttribute('aria-label', act.dataset.name);
     }
   }
+  // the title's tooltip, its whole words, while the head shows its role as one word
+  function svTitleTip(short) {
+    const t = SV.els.title;
+    if (short) t.setAttribute('data-tip', t.textContent); else t.removeAttribute('data-tip');
+  }
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
@@ -2140,11 +2158,14 @@
     const mc = $('modeChips');
     const key = [
       ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
-      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
+      E.cp.textContent, E.surf1.textContent, E.scopeBtn.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
     ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
-    const set = (lvl) => { E.bar.classList.toggle('sv-c1', lvl >= 1); E.bar.classList.toggle('sv-c2', lvl >= 2); };
+    // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
+    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is its first word (sv-rs), then the title
+    // loses its role (sv-c2) last; a word is never cut)
+    const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-rs', lvl >= 4); E.bar.classList.toggle('sv-c2', lvl >= 5); };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
         svChipBare(c, false);
@@ -2156,6 +2177,9 @@
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
     E.bar.classList.remove('sv-c3', 'sv-c4');
+    const legend = $('leftLegend');
+    E.head.classList.remove('sv-lg');
+    if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
       // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
@@ -2171,19 +2195,37 @@
     E.tnote.classList.remove('tn-chip', 'tn-icon');
     const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
     const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    // (what the rest of the head takes at the least: the strip as its style row and a ⋯, every other shown item as it is,
+    // (what the rest of the head takes at the least: the strip as its first row (the style row, or the Landscape's height) and a ⋯, every other shown item as it is,
     // a stretchy spacer as nothing; a gap before each)
-    const dc = $('dcSeg'), foot = $('leftFoot');
+    const dc = $('dcSeg'), hs = $('heightSeg'), foot = $('leftFoot');
     let keep = 0;
     for (const c of head.children) {
       if (c === E.bar || !c.getClientRects().length) continue;
       const m = getComputedStyle(c);
-      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : 0) + 4 + 26 : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
+      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : hs && hs.getClientRects().length ? hs.getBoundingClientRect().width : 0) + SV_FOOT_MORE : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
-    let lvl = 0;
-    while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+    // (the Height key's chip folds to its glyph (sv-lg, which the pane head's own fit, fitTitle in 09-pane-titles.js, keeps) before the bar's controls shorten,
+    // and after the targets' note; its words stay its accessible name)
+    const legFoldable = !!(legend && legend.parentNode === head && legend.getClientRects().length);
+    let legFolded = false;
+    const levels = (legOk) => {
+      let l = 0;
+      set(0);
+      while (l < 5 && E.bar.scrollWidth + keep > room) {
+        if (legOk && legFoldable && !legFolded) {
+          const w0 = legend.getBoundingClientRect().width;
+          legend.classList.add('glyph'); head.classList.add('sv-lg'); legFolded = true;
+          keep -= w0 - legend.getBoundingClientRect().width;
+          continue;
+        }
+        set(++l);
+      }
+      return l;
+    };
+    let lvl = levels(!tn);
+    svTitleTip(lvl >= 4);
     // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
     // the source planes' names, then to its icon alone)
     for (const cls of ['tn-chip', 'tn-icon']) {
@@ -2191,8 +2233,18 @@
       const w0 = tn.getBoundingClientRect().width;
       tn.classList.add(cls);
       keep -= w0 - tn.getBoundingClientRect().width;
-      set(0); lvl = 0;
-      while (lvl < 2 && E.bar.scrollWidth + keep > room) set(++lvl);
+      lvl = levels(false);
+      svTitleTip(lvl >= 4);
+    }
+    if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
+    // (the levels settled, the key is unfolded again if the bar still fits beside it)
+    if (legFolded) {
+      const w1 = legend.getBoundingClientRect().width;
+      legend.classList.remove('glyph'); head.classList.remove('sv-lg');
+      // (the chip's own width: its words, not the width a squeezed chip is left with)
+      const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
+      const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
+      if (E.bar.scrollWidth + keep + dw > room) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
