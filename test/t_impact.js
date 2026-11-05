@@ -108,6 +108,8 @@ ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/p
   fsx.writeFileSync(f, 'return { pass: true };\n');
   try { ok('T1: a new suite no shard lists -> the catch-all shard (new)', same(select(['test/zz_t_impact_new_cmd.js']).browser, ['new', 'smoke']), select(['test/zz_t_impact_new_cmd.js']).browser); } finally { fsx.rmSync(f, { force: true }); }
 }
+// (misc-1, misc-2 and misc-3 hold the suites no area shard lists)
+for (const [f, id] of [['pin_view_cmd.js', 'misc-1'], ['repeat_cmd.js', 'misc-2'], ['kit_ev_cmd.js', 'misc-3']]) ok(`T1: ${f} -> ${id}`, same(select([`test/${f}`]).browser, [id, 'smoke']), select([`test/${f}`]).browser);
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
 ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_deform_cmd.js']).browser, ['export-2', 'export-3', 'export-4', 'smoke']));
