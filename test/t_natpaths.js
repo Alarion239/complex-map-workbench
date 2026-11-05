@@ -210,5 +210,26 @@ for (const cut of [0, 360, 180, 90]) {
   }
 }
 
+// the zeta step's straight-line homotopy asks ζ at the sameVal points frame after frame (an outline's samples, only t
+// moving): once the table is allocated (after its first 512 calls) a pass over the sameVal points calls ζ for the slots
+// that collided only, and every answer is the uncached one
+{
+  const zeta = CX.zeta;
+  let calls = 0;
+  CX.zeta = (z) => { calls++; return zeta(z); };
+  const b = S('zeta');
+  CX.zeta = zeta;
+  const zpts = [];
+  for (let i = 0; i < 3000; i++) zpts.push(CX.C(-2 + 6 * Math.sin(i * 0.37) + 0.001 * i, 30 * Math.cos(i * 1.13)));
+  zpts.push(CX.C(0, 0), CX.C(-0, 0), CX.C(0, -0), CX.C(NaN, 1), CX.C(Infinity, 0));
+  const ref = (t, z) => { const w = zeta(z); return CX.C((1 - t) * z.re + t * w.re, (1 - t) * z.im + t * w.im); };
+  const sameVal = (a, c) => Object.is(a.re, c.re) && Object.is(a.im, c.im) || (Number.isNaN(a.re) && Number.isNaN(c.re)) || (Number.isNaN(a.im) && Number.isNaN(c.im));
+  let wrong = 0;
+  const pass = (t) => { const H = b.hom(t); const c0 = calls; for (const z of zpts) if (!sameVal(H(z), ref(t, z))) wrong++; return calls - c0; };
+  const first = pass(0.3), second = pass(0.4), third = pass(0.5);
+  check('the zeta homotopy: its values are the uncached ones at every frame', wrong === 0, wrong);
+  check('the zeta homotopy: later frames at the sameVal points call zeta for a small share of them', first === zpts.length && second < 0.3 * zpts.length && third < 0.1 * zpts.length, { first, second, third });
+}
+
 console.log(`\n${checks} checks, ${failed} failed`);
 process.exit(failed ? 1 : 0);
