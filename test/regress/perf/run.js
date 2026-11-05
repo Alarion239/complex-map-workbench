@@ -2023,6 +2023,28 @@ unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm 
 unit('sv.glide.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere (the carried grid, its heights and colour moving with the points); info rows only, until it has a baseline', () => svGlideUnit('default', { id: 'sv.glide.land', surf: 'land', info: true }));
 unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the same glide in Inside regions (the carried region mask); info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_in', surf: 'land', scope: 'in', info: true }));
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
+// the steps view's Landscape parked at w₂, Everywhere: an orbit of the view (left-button drag) there and back; info rows
+unit('sv.orbit.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page, parked at w₂, Everywhere: an orbit (left drag) there and back; info rows only', async () => {
+  const R = [];
+  for (let i = 0; i < REPS; i++) {
+    await B.nav(`${BASE}test.html?ns=perfsvo${process.pid}_${++nsCounter}&view=steps`);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await settle(await pageNow());
+    if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+    await B.ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 2, now: true }), 1`);
+    await settle(await pageNow());
+    await sleep(SV_IDLE_MS);
+    await B.ev(SV_GLCOUNT);
+    for (const to of [0, 2]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+    await settle(await pageNow());
+    const o1 = await dragLeg('L', 160, 60, 'left', 40, 16), o2 = await dragLeg('L', -160, -60, 'left', 40, 16);
+    if (!o1.drawn.length || !o2.drawn.length) throw new Error(`sv.orbit.land: the orbit drew no frames (${o1.drawn.length} + ${o2.drawn.length})`);
+    R.push(legSummary([o1, o2], 'pointermove'));
+  }
+  putPooled('sv.orbit.land.frame_p95_ms', 'info', 'ms', R, 'frame', 0.95, 'frame_p95');
+  putPooled('sv.orbit.land.cpu_p95_ms', 'info', 'ms', R, 'cpu', 0.95, 'cpu_p95');
+  put('sv.orbit.land.fps', 'info', 'frames/s', R.map((r) => r.fps));
+});
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
