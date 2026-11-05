@@ -137,7 +137,7 @@ for (const lang of ['en', 'ru', 'it']) {
   const short = /\bsv-rs\b/.test(title.bar);
   okl('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its role, whole: "z · landscape of Im F" or "z · landscape"', title.surf === 'land' && !/\bsv-c2\b/.test(title.bar) && /Im F/.test(title.full || '') && (!short || title.before.length > 3), title);
   okl('1024 × 768 Landscape, All sheets: the head is one row (under 48 px)', title.hh < 48, title);
-  okl('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 60 px or more)', title.cw >= 60, title);
+  okl('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 40 px or more: the letter, the dot and a word)', title.cw >= 40, title);
   okl('1024 × 768 Landscape, All sheets: the role as one word has the whole title as its tip', !short || /^z · .*Im F/.test(title.tip || ''), title);
   okl('1024 × 768 Landscape, All sheets: nothing in the steps bar is ellipsized or cut', title.cut.length === 0, title.cut);
   // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
