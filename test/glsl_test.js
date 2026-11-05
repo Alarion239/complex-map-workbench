@@ -701,7 +701,7 @@ void main() {
   vec2 z = zz.xy;
   vec4 m = texelFetch(uModes, ivec2(0, c.y), 0);
   vec2 w;
-  // mode 9: chainSheetHom; m = (9, mode + 4 post + 256 end, t, combo), the second texel (base, a, hi, b)
+  // (v16.1) mode 9: chainSheetHom; m = (9, mode + 4 post + 256 end, t, combo), the second texel (base, a, hi, b)
   if (m.x > 8.75 && m.x < 9.25) {
     vec4 m2 = texelFetch(uModes, ivec2(1, c.y), 0);
     int pk = int(m.y + 0.5), pq = pk / 4;
