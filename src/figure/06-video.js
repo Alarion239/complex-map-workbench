@@ -207,6 +207,7 @@
     if (!k) return;
     // (a plane's name, "w₂": an italic letter and a subscript)
     const parts = (nm) => [...String(nm).matchAll(/([A-Za-z])([₀-₉]*)|([^A-Za-z₀-₉]+)/g)].flatMap((m) => (m[3] ? [[m[3], false]] : [[m[1], true], ...(m[2] ? [[[...m[2]].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join(''), false, 'sub']] : [])]));
+    // (spacings in units of the text size fs: the title row, the gap under the ring's labels, the strip and its words)
     const n = plan.key.width, cx = W - 0.05 * H - Math.max(n / 2, 2.6 * fs), top = 0.03 * H;
     const rows = k.plain ? 4.4 : 7.4, bh = top + 2 * fs + n + rows * fs, bw = Math.max(n, 5.2 * fs) + 2.4 * fs;
     ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(cx - bw / 2, 0, bw, bh + 0.5 * fs);
