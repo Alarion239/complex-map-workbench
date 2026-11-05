@@ -328,6 +328,27 @@
     render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
+  // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
+  // cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far plane, where
+  // the box's cells stretch past the tear limit and are left out.
+  // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
+  // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
+  // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
+  // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
+  const svLandPoleMemo = { key: '', poles: [] };
+  function svLandPatches(map, src, N) {
+    const F = cpuMap(map);
+    if (!F) return [];
+    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
+    let poles;
+    if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || p);
+    else poles = svDrain(svPolesIn(F, src, 16, src, E));
+    const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
+    Object.assign(svLandPoleMemo, { key, poles: near });
+    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8]);
+  }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
@@ -554,6 +575,12 @@
   // pauses: a slice ends within a few evaluations of its time (a map such as zeta's takes tens of µs each)
   function* svPoleTick(E) {
     if (E.n - E.at >= SV_POLE_CHUNK) { E.at = E.n; yield; }
+  }
+  // a search run to its end at once, through all its pauses: its result
+  function svDrain(gen) {
+    let r;
+    do r = gen.next(); while (!r.done);
+    return r.value;
   }
   // Newton's method on h = 1/F from z: a pole of F (h(z) = 0, |F| past 1e8) or null (it left the box or did not settle)
   function* svPoleAt(F, z, box, E) {

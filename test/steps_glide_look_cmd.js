@@ -295,23 +295,26 @@ async function look(c, r) {
   await letGo();
   r.step = 'done';
 }
-// the parked camera: at each u of c.parked, the frame parked at u once a scrub held there is let go has the held
-// frame's camera (the glide record's view: centre and scale)
+// the parked frame: at each u of c.parked, the frame parked at u once a scrub held there is let go has the held
+// frame's camera (the glide record's view: centre and scale) and its pixels (at most SAME_FRAC of them more than
+// DIFF_TOL apart)
 async function heldParked(c, r) {
   r.step = 'the parked camera';
   await rest(0);
   const VIEW = '(() => { const g = __cmwSteps().glide, v = g && g.view; return v ? [v.cx, v.cy, v.s] : null; })()';
   const P = r.parked = {};
   for (const u of c.parked) {
-    const held = (await hold(u)).ok, vk = await ev(VIEW);
+    const held = (await hold(u)).ok, still = await grab('H' + u), vk = await ev(VIEW);
     await ev('window.__svScrubUp(), 1');
     const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
-    P[u] = { held, parked, view: [vk, await ev(VIEW)] };
+    const settledP = await grab('P' + u);
+    P[u] = { held, parked, still, settledP, view: [vk, await ev(VIEW)], diff: settledP && still ? await compare('H' + u, 'P' + u) : null };
     await rest(0);
   }
   for (const u of c.parked) {
     const q = P[u];
     ok(`${c.tag}: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q);
+    ok(`${c.tag}: the frame parked at u = ${u} is the held frame's pixels (at most ${SAME_FRAC * 100} % of them > ${DIFF_TOL}/255 apart)`, q.held && q.parked && !!q.diff && q.diff.frac <= SAME_FRAC, q);
   }
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more
