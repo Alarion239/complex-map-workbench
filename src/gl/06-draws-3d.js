@@ -242,9 +242,9 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // (#846) The steps view's carried landscape (st.carry {map, s, T, lim, src}): plane s's grid over its box src (default
-  // the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box, each
-  // vertex at the height of G = the stages (s, T] at its point
+  // The steps view's carried landscape (st.carry {map, s, T, hT, lim, src}): plane s's grid over its box src
+  // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
+  // each vertex at the height of the stages (s, hT] at its point (hT default T) and coloured by G = the stages (s, T]
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
@@ -263,7 +263,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.T);
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.hT == null ? c.T : c.hT);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, landC.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
