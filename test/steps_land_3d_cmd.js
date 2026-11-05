@@ -12,6 +12,11 @@
 // - the title names the height, h(F) on every plane ("landscape of log|F|", and "|F|", "Re F", "Im F" as the Height
 //   select reads), then past T the carried colour (", colour carried from w₁"); the floor's axes name the plane drawn
 //   (Re w₁, Im w₁ on w₁), and in a held frame the plane nearer the thread.
+// - a chain with a d/dz step (z², d/dz, exp): a plane that no map joins to T across the d/dz is a plain Landscape of
+//   its own points (svPlain): with T = w₁, planes w₂ and w₃ at rest are carried frames of their own points (s = the
+//   plane, plain), titled with the height alone; the glide w₁ → w₂ across the d/dz is plane w₁ at rest until its
+//   midpoint and plane w₂ after it; the glide w₂ → w₃ carries plane w₂'s points, plain. With T = w₃ (the last), plane
+//   w₁, before T across the d/dz, is plain at rest.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -97,5 +102,39 @@ for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
     const t = info.heights[v + i] = (await state()).title;
     ok(`height ${v}, plane ${i}: the title names ${h}`, t.endsWith(`landscape of ${h}` + (i > 1 ? ', colour carried from w₁' : '')), t);
   }
+}
+// ---- a chain with a d/dz step: the planes no map joins to T are plain Landscapes ----
+{
+  const ns = `land3dd${Date.now()}`, step = (type, params) => ({ type, params: params || {}, on: true });
+  const st0 = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [step('pown', { n: 2 }), step('deriv'), step('exp')], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st0))}); 1`);
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
+  await settled({ max: 60000 });
+  const d = info.deriv = { planes: await ev('__cmwSteps().planes'), rest: {}, held: {} };
+  ok('the d/dz chain has four planes', Array.isArray(d.planes) && d.planes.length === 4, d.planes);
+  for (const i of [2, 3]) {
+    await rest(i);
+    const s = d.rest[i] = await state();
+    ok(`d/dz chain, T = 1, plane ${i} at rest: the Landscape`, s.main === 'land' && s.key, s);
+    ok(`d/dz chain, T = 1, plane ${i} at rest: its own points, plain`, !!s.carry && s.carry.s === i && s.carry.plain, s.carry);
+    ok(`d/dz chain, T = 1, plane ${i} at rest: the title names the height alone`, s.title.endsWith('landscape of log|F|'), s.title);
+  }
+  for (const [x, want] of [[1.25, null], [1.75, 2]]) {
+    await rest(1);
+    await park(x);
+    const s = d.held[x] = await state();
+    ok(`d/dz chain, T = 1, held at ${x} across the d/dz: plane ${want == null ? 1 : want} at rest`, s.main === 'land' && (want == null ? !s.carry || !s.carry.plain : !!s.carry && s.carry.s === 2 && s.carry.plain && s.carry.u === 0), s.carry);
+  }
+  await rest(2);
+  await park(2.5);
+  const s25 = d.held[2.5] = await state();
+  ok('d/dz chain, T = 1, held at 2.5: plane w₂\'s points carried, plain', s25.main === 'land' && !!s25.carry && s25.carry.s === 2 && s25.carry.plain && Math.abs(s25.carry.u - 0.5) < 1e-6, s25.carry);
+  await ev(`__cmwSteps({ T: 3 }); 1`);
+  await rest(1);
+  const s1 = d.rest.T3 = await state();
+  ok('d/dz chain, T = 3, plane 1 at rest (before T across the d/dz): its own points, plain', s1.main === 'land' && !!s1.carry && s1.carry.s === 1 && s1.carry.plain, s1);
 }
 return { pass: fails.length === 0, fails, info };
