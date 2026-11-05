@@ -165,20 +165,20 @@
 .cm-chip > .cm-seg, .cm-chip > .cm-x { flex: 0 0 auto; }
 .draft-chip.cm-on { pointer-events: auto; padding: 0 4px 0 10px; }
 .draft-chip.cm-on.cm-low { top: auto !important; bottom: 32px; left: 8px; translate: none; max-width: calc(100% - 64px); }
-/* (at the foot the chip clears the plane's buttons, 48 px narrower than at the top: its sentence may
+/* ([v16.5 check app-5] at the foot the chip clears the plane's buttons, 48 px narrower than at the top: its sentence may
    take a third line there rather than be cut; the one-line rule in syncChip measures it in this place) */
 .draft-chip.cm-on.cm-low .cm-chip > .cm-t { -webkit-line-clamp: 3; }
 .cm-seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-2, 6px); overflow: hidden; }
 .cm-sb { border: 0; background: transparent; color: var(--ink-2); font: var(--t-label); padding: 2px 8px; cursor: pointer; }
 .cm-sb.on { background: var(--inverse); color: var(--inverse-ink); }
-/* touch: each segment button takes taps 40px tall, with the same look */
+/* [v16.4 review user-5] touch: each segment button takes taps 40px tall, with the same look */
 .cm-seg.cm-touch { overflow: visible; }
 .cm-seg.cm-touch .cm-sb { position: relative; }
 .cm-seg.cm-touch .cm-sb:first-child { border-radius: 5px 0 0 5px; }
 .cm-seg.cm-touch .cm-sb:last-child { border-radius: 0 5px 5px 0; }
 .cm-seg.cm-touch .cm-sb::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 40px; transform: translateY(-50%); }
 .cm-x { border: 0; background: transparent; color: var(--ink-2); font-size: 19px; line-height: 1; width: 28px; height: 28px; cursor: pointer; }
-/* the chip wraps (text, then its controls; a refusal or the how-to on a line of its own); the
+/* [v16.5 UX48, UX51, UX52, UX100] the chip wraps (text, then its controls; a refusal or the how-to on a line of its own); the
    kept curve's token; the ? */
 .empty-chip > .cm-chip { flex-wrap: wrap; row-gap: 4px; }
 /* (the chip's words let the plane take the pointer, as the polygon's chip does: only its buttons take a press, so a
@@ -211,10 +211,10 @@
 .cm-chip.cm-tch > .cm-seg { position: relative; z-index: 1; }
 .cm-t > .cm-nw { white-space: nowrap; }
 .shape .d .cm-def { color: var(--ink-2); font: var(--t-label); }
-/* a definition (or a reason) wraps to two lines in its row instead of being cut */
+/* [review user-11] a definition (or a reason) wraps to two lines in its row instead of being cut */
 .shape-row:has(> .shape-name .cm-def, > .shape-name .d[data-cm] > .err-msg) { height: auto; min-height: 32px; padding-top: 4px; padding-bottom: 4px; }
 .shape-name:has(.cm-def, .d[data-cm] > .err-msg) { align-items: baseline; flex-wrap: wrap; white-space: normal; -webkit-mask-image: none; mask-image: none; }
-/* too narrow beside the name: the definition takes the row's full width under it */
+/* [v16 verify-4] too narrow beside the name: the definition takes the row's full width under it */
 .shape-name .d:has(> .cm-def, > .err-msg)[data-cm] { flex: 1 1 8em; min-width: 0; }
 .shape .d[data-cm] > .cm-def, .shape .d[data-cm] > .err-msg { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; line-height: 15px; }
 .shape.cm-helper > .shape-row { padding-left: 18px; }
@@ -223,7 +223,7 @@
 .rail-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; flex: 0 0 auto; }
 #railTools.cm-tight1 > .rail-tool:is([data-tool="cgrid"], [data-tool="pgrid"]), #railTools.cm-tight2 > .rail-tool:is([data-tool="curve"], [data-tool="lasso"]) { display: none; }
 @media (min-width: 768px) { :root:not(.ph) .cm-tight3 > .rail-label { display: none; } }
-/* last, the Hyperbolic line tile leaves the rail (it stays in the drawer's Construct grid and in ⌘K) */
+/* [v16.5 UX55] last, the Hyperbolic line tile leaves the rail (it stays in the drawer's Construct grid and in ⌘K) */
 #railTools.cm-tight4 > .rail-tool[data-tool="hyper"] { display: none; }
 .cm-insp { display: flex; flex-direction: column; gap: 4px; }
 .cm-ihead { margin-bottom: 4px; }
