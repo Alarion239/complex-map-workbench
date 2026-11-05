@@ -10,7 +10,7 @@
 // - the fallback, per step: a step whose homotopy is the straight line (a non-analytic formula, added after the
 //   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
-// - the NEWT roots pass (Joukowski) draws in the glide's frames without reading GL state back.
+// - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -94,21 +94,22 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   }
 }
 // ---- the NEWT roots pass reads no GL state back ----
-// (Joukowski's step inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a
+// (the partial sum of the exponential, degree 8, Inside regions, inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a
 // frame, so it keeps the frame's state from the renderer's own record, not by getParameter, a synchronous read from the
 // GPU process: 2.4 ms a frame on lavapipe. Its first call reads the device's draw-buffer limit, once)
 {
-  const ex = names.indexOf('Joukowski airfoil');
-  ok('the Joukowski example is found', ex >= 0, names.length);
+  const ex = names.indexOf('Partial sums of the exponential');
+  ok('the Partial sums of the exponential example is found', ex >= 0, names.length);
   await go(`${BASE}/test.html?ns=gn${Date.now()}&lang=en&view=steps`);
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
+  await ev(`__cmwSteps({ scope: 'in' }), 1`);
   await ev('await new Promise((r) => setTimeout(r, 3000)), 1');
   // (each newtRoots call: its answer and the getParameter calls made inside it)
   await ev(`(() => { const n = GLR.newtRoots, P = WebGL2RenderingContext.prototype, g = P.getParameter, L = window.__nrLog = []; let k = -1; P.getParameter = function () { if (k >= 0) k++; return g.apply(this, arguments); }; GLR.newtRoots = function () { k = 0; try { const r = n.apply(this, arguments); L.push([r.state, k]); return r; } finally { k = -1; } }; return 1; })()`);
   for (const x of [0.5, 0.55, 0.6]) await at(x, 'inverse');
   const log = await ev('window.__nrLog.slice(0, 40)'), drawn = log.filter((e) => e[0] === 'drawn');
   info['newt roots'] = log;
-  ok('Joukowski: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
+  ok('Partial sums of the exponential: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
 }
 return { pass: fails.length === 0, fails, info };
