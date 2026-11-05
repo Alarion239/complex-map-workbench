@@ -228,7 +228,7 @@ const Tour = (() => {
           lead: 'The Inspector edits the selected step, here $f_2$.', leadTouch: 'The editor edits the tapped step, here $f_2$.', leadDeskTouch: 'The Inspector edits the selected step, here $f_2$.', leadPhoneFine: 'The editor edits the clicked step, here $f_2$.',
           body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
           touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.', deskTouch: "The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step's own coefficients carry its index, as $a_2$ here.", phoneFine: "A clicked card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step's own coefficients carry its index, as $a_2$ here.",
-          // (Replace… is the first item of ⋯; the search then replaces this step)
+          // (Replace… is the first item of ⋯; the search then takes this step's place)
           try: { text: 'In ⋯, choose Replace…, then pick a function.', on: 'step-replaced', test: (e) => !e || e.k === 2, ctl: ['invBtn'], then: 'Only $f_2$ changed; Undo brings the old one back.' } },
         // (the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
         { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
@@ -245,7 +245,7 @@ const Tour = (() => {
       ],
     },
     {
-      // notes/constructions-v16/SPEC.md 16: circles through three points, following, snapping to crossings
+      // notes/constructions-v16/SPEC.md 16: circles through three points, following, snapping to crossings  standards-ok: a spec path in notes/
       id: 'construct', title: 'Constructions', time: '1 min', rev: 2, scene: 'construct',
       steps: [
         // (the Circle through 3 points tool itself; on a phone the More tools sheet opens with its tile, and once
@@ -571,7 +571,7 @@ const Tour = (() => {
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
     fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ph-col .ph-sph'))].find((e) => e.offsetParent) || null,
-    // notes/v16-user5/AS-BUILT-tour.md: the control a step's task needs, exactly. A tool is its own button where
+    // notes/v16-user5/AS-BUILT-tour.md: the control a step's task needs, exactly. A tool is its own button where  standards-ok: a spec path in notes/
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name
     'tool:disc': toolBtn('disc'), 'tool:select': toolBtn('select'), 'tool:line': toolBtn('line'), 'tool:circle3': toolBtn('circle3'),

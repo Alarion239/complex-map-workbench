@@ -1,5 +1,5 @@
 'use strict';
-// Constructions (notes/constructions-v16/SPEC.md):
+// Constructions (notes/constructions-v16/SPEC.md):  standards-ok: a spec path in notes/
 // exact geometry of generalized circles, refs to the points on the page, and the dependency graph of the app's
 // constructed shapes. Plain JS, no DOM, no strings (undefined reasons are codes): window.Constr in the page,
 // module.exports in node.
@@ -35,7 +35,7 @@ const Constr = (function (factory) {
   } = Poc;
 
   // =====================================================================================================
-  // Constructions (notes/constructions-v16/SPEC.md) on the app's own shapes. Everything below works on
+  // Constructions (notes/constructions-v16/SPEC.md) on the app's own shapes. Everything below works on  standards-ok: a spec path in notes/
   // the app's state {shapes, targets, steps, nextId} and its shape objects; no DOM, no strings (reasons are codes).
   // =====================================================================================================
   const TAU = 2 * Math.PI;

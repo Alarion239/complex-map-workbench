@@ -296,7 +296,7 @@ const Phone = (() => {
   // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
   // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
   // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
-  // parks, replaces or saves the views (hold), every plane holds its large view.
+  // parks, swaps or saves the views (hold), every plane holds its large view.
   const keep = { L: null, R: null };
   let held = false;
   const sameView = (a, b) => !!a && !!b && a.cx === b.cx && a.cy === b.cy && a.s === b.s;
