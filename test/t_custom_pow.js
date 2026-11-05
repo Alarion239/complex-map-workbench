@@ -97,7 +97,7 @@ for (const e of ['a', '2a', 'a+1']) {
   P.set('a', 0.5);
   ok(g2.key === g.key, `sin(z)^{${e}}: key independent of a`);
 }
-// (d) a complex shared number (wave 5, issue #10) in the exponent, in the picture's code and the sheet code: the key
+// (d) a complex shared number in the exponent, in the picture's code and the sheet code: the key
 // and the source do not change with its value, the value is in the uniforms fill() writes, and the sheet view has the
 // node as a window (n 0: a complex exponent has infinitely many branches)
 P.add('c', { value: 0.5 });
