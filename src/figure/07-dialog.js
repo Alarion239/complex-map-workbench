@@ -51,7 +51,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `#xfSvPic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
+  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}#xfSvPic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -97,7 +97,7 @@
     const segB = (id, value, options, onchange, label, cls) => {
       const el = h('div', { class: 'seg xf-seg' + (cls ? ' ' + cls : ''), id, role: 'radiogroup', 'aria-label': label });
       for (const [v, l, sub, ic] of options) {
-        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
+        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { if (b.getAttribute('aria-disabled') === 'true') return; for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
         if (ic) b.insertAdjacentHTML('beforeend', ic);
         b.append(h('span', { class: 'xf-sl' }, l));
         if (sub) b.append(h('small', null, sub));
@@ -205,7 +205,7 @@
     const svPicSeg = A.svOn() ? segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; syncPlanes(); changed(); }, $t('Picture')) : null;
     const svPicRow = svPicSeg ? row($t('Picture'), svPicSeg) : null;
     if (svPicRow) svPicRow.classList.add('wide');
-    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'); tb.disabled = true; tb.title = $t('Two planes is for the flat surfaces'); }
+    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the flat surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
     const planeSel = (id, label, onchange) => { const el = h('select', { class: 'xf-select xf-plane', id, 'aria-label': label, onchange: () => onchange(+el.value) }); return el; };
     const fromSel = planeSel('xfSvFrom', $t('From plane'), (v) => { set.svFrom = v; if (set.svTo <= v) set.svTo = v + 1; fillTo(); changed(); });
     const toSel = planeSel('xfSvTo', $t('To plane'), (v) => { set.svTo = v; changed(); });
@@ -215,7 +215,7 @@
       for (let i = 0; i < svNames.length - 1; i++) fromSel.append(h('option', { value: String(i) }, svNames[i]));
       fromSel.value = String(set.svFrom); fillTo();
     }
-    const svPlanesRow = A.svOn() ? row($t('From'), h('div', { class: 'xf-fmtrow xf-planes' }, fromSel, h('span', null, $t('to')), toSel)) : null;
+    const svPlanesRow = A.svOn() ? row($t('Planes'), h('div', { class: 'xf-fmtrow xf-planes' }, h('span', null, $t('from')), fromSel, h('span', null, $t('to')), toSel)) : null;
     if (svPlanesRow) svPlanesRow.classList.add('wide');
     function syncPlanes() { if (svPlanesRow) svPlanesRow.hidden = fmtOf() === 'video' || svPicOf() !== 'two'; }
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
