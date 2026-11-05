@@ -321,11 +321,14 @@ const one = (step) => Object.assign({}, ST, { steps: [step], shapes: [] });
 // glide's programs, work that would slow the probe's 3 ms in the frames it follows. At 800 × 600 a software renderer draws
 // the frames closer together than at 1440 × 900, so each carries the thread a shorter way)
 const warm = async () => { await ev('__cmwSteps({ x: 0.5 }); 1'); await settled({ max: 30000 }); await svDo({ go: 0, now: true }); };
+// (a real click on an empty spot of the plane, away from the controls: the activation the audio engine waits for to start on a
+// page opened with sound on already, without which no cue sounds)
+const activate = async (re, im) => { const p = await W(re, im); await click(p[0], p[1]); await settle(300); };
 await open(800, 600, false, false, one({ type: 'custom', params: { expr: 'z^5', cut: 180 }, on: true }));
 const th = 170 * Math.PI / 180;
 // (w₁ first: its arrival gives the planes past z the camera every plane shares, which ▶'s frames past ½ keep; on a page opened
 // at z they would take the view w₁ had before, and the picture under the pointer would move half-way)
-await svDo({ go: 1, now: true }); await warm();
+await svDo({ go: 1, now: true }); await warm(); await activate(0, -1.2);
 await hover(1.2 * Math.cos(th), 1.2 * Math.sin(th));
 // (a re-pick lets the rope go: the probe on the pointer's own point, which the arrival's re-pick then finds unchanged, so the
 // run is still there after the arrival)
@@ -352,7 +355,7 @@ ok('z⁵, ▶: no zero, pole, cut or dense cue', !R.z5.made.some((x) => /^(zero|
 // the thread's place set as a scrub sets it, so it stops short of w₁, a plane it would arrive at): the tone follows every
 // step, one ping of order 1 and its line, no cut, and the run is arg(q − 1/40) − arg(q − 1), −0.49 turns
 await open(800, 600, false, false, one({ type: 'custom', params: { expr: 'z-1', cut: 180 }, on: true }));
-await warm();
+await warm(); await activate(0.5, -0.6);
 await hover(0.5, 0.003);
 await svDo({ go: 0, now: true }); await settle(400);
 await hl(); await made(); await quiet();

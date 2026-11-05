@@ -608,6 +608,9 @@ const SoundHooks = (() => {
     // (keyQuiet: the keyboard probe while the transport plays by itself does not talk over a screen reader)
     const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
     const quiet = t0 - snd.gestT < 250 || !!snd.play;
+    // (the cost of a call, snd.perEval, is measured from the first call of F: the keys read before it are the probe's own
+    // bookkeeping, which the steps view's colour, many calls of its maps, makes a large share of a short step)
+    const te = performance.now();
     let g0 = null;
     try { g0 = F(z); } catch (e) { g0 = null; }
     const bz = sndBridge(F, z, g0), zc = bz.z, g = bz.g;
@@ -639,7 +642,7 @@ const SoundHooks = (() => {
           za = zb; ga = gb;
         }
       } else r = Calc.argStep(F, za0, snd.g, zc, g, { budget, deadline });
-      const dt = performance.now() - t0;
+      const dt = performance.now() - te;
       if (r.evals >= 4 || ((dT || paths) && r.evals >= 1)) { const c = snd.cost || (snd.cost = { dt: 0, n: 0 }); c.dt = 0.95 * c.dt + dt; c.n = 0.95 * c.n + r.evals + 1; if (c.n > 15) snd.perEval = Math.max(2e-5, c.dt / c.n); }
       budget -= r.evals;
       // over budget: nothing fires, and the next event starts afresh (a declared limit)
