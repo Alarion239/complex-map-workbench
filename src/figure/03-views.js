@@ -621,7 +621,10 @@
     const scr = A.screenBox('L');
     const bw = o.ink === 'bw';
     // Fit: the zeros and poles with a margin of their spread (at least one unit), inside the screen window
-    let zp = zerosPoles(F, scr), box = scr;
+    // the steps view's still draws what its pane draws (the art as the stage paints it, in the pane's window), and the
+    // pane's own key: no level curves or zero and pole marks of its own
+    const sv = A.svOn() && A.svKey ? A.svKey() : null;
+    let zp = sv ? [] : zerosPoles(F, scr), box = scr;
     if (o.crop !== 'screen' && zp.length) {
       let b = null; for (const r of zp) b = unionBox(b, { x0: r.z.re, x1: r.z.re, y0: r.z.im, y1: r.z.im });
       const span = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1), m = 0.5 * span;
@@ -645,7 +648,7 @@
     const t0 = performance.now(); for (let i = 0; i < 50; i++) F(C(box.x0 + i * 0.013, box.y0 + i * 0.017)); const per = (performance.now() - t0) / 50;
     const n = Math.max(60, Math.min(240, Math.floor(Math.sqrt(400 / Math.max(per, 1e-4)))));
     const dc = (A.capParts().dc) || 'enhanced', ownLines = !bw && (dc === 'modulus' || dc === 'grid' || dc === 'classic' || dc === 'cauchy');
-    const ks = ownLines ? [] : [...Array(12).keys()].map((k) => k - 5);
+    const ks = ownLines || sv ? [] : [...Array(12).keys()].map((k) => k - 5);
     const L = await argLevels(F, box, n, ks);
     const curves = [];
     for (const k of ks) {
@@ -660,19 +663,42 @@
     if (A.svOn()) { const srcWin = expandBox(A.screenBox('L0'), 3), lay = planeLayers(o, P, 'L', A.F('L'), box, w, A.shapes(), srcWin, null); curves.push(...lay.curves); points.push(...lay.points); }
     const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points, axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('L')}`, `\\operatorname{Im} ${A.panelVar('L')}`] });
     const items = [p.markup, head(x, x + w, top - 3, '', A.panelVar('L'), lp)];
+    let kdefs = '';
     if (keyW) {
       const kx = x + w + 6 + keyW / 2, ky = top + h / 2, R = keyW / 2 - 13, r0 = R * 0.55, kid = `${XD.ns}-key`;
       const url = await ringKey(R, 300);
       items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0)} ${f2(ky)}a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(2 * r0)} 0a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(-2 * r0)} 0Z" clip-rule="evenodd"/></clipPath>`
         + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
         + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
-      items.push(XD.at(XD.tex('-\\pi/2', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
-      items.push(XD.at(XD.tex(`\\arg ${A.fname()}`, tp), kx, ky - R - 12, 'middle', 'bottom', 'key'));
+      if (sv) {
+        // the pane's key: the ring labelled 1, i, -1, -i, then (but in the plain Phase style) the three modulus bands with
+        // their factor, and the caption "arg and |F|" ("arg F" when plain), the plane's variable in italic
+        items.push(XD.at(XD.tex('1', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
+        items.push(XD.at(XD.tex('i', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
+        items.push(XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+        items.push(XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
+        let yy = ky + R + 1.5 + tp * 1.3;
+        if (!sv.plain) {
+          const sw = 2 * R, sx = kx - R, sh = 6, sy = yy + tp * 1.2, g0 = '#9aa4ab', g1 = '#eef2f4';
+          kdefs += `<linearGradient id="${kid}-g"><stop offset="0" stop-color="${g0}"/><stop offset="1" stop-color="${g1}"/></linearGradient>`;
+          for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
+          items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+          items.push(XD.at(XD.tex(`\\times ${+Math.exp(2 * Math.PI / sv.n).toPrecision(3)}`, tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
+          items.push(XD.at(XD.tex(`\\text{${$t('per band')}}`, tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
+          yy = sy + sh + 1.5 + tp * 1.3;
+        }
+        const cap = sv.plain ? 'arg \u0001' : $t('arg and |{Fn}|', { Fn: '\u0001' }), [pre, post] = cap.split('\u0001');
+        const txt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
+        items.push(XD.at(XD.tex(`${txt(pre)}${A.fname()}${txt(post)}`, tp), kx, yy + 2, 'middle', 'top', 'key'));
+      } else {
+        items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
+        items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
+        items.push(XD.at(XD.tex('\\pm\\pi', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+        items.push(XD.at(XD.tex('-\\pi/2', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
+        items.push(XD.at(XD.tex(`\\arg ${A.fname()}`, tp), kx, ky - R - 12, 'middle', 'bottom', 'key'));
+      }
     }
-    return { items, defs: p.defs, lines: p.lines, H: top + h + bottom, info: { box, zp, bw, art } };
+    return { items, defs: p.defs + kdefs, lines: p.lines, H: top + h + bottom, info: { box, zp, bw, art } };
   }
 
   // ---------- (3) Landscape: one 3D panel, cropped to the relief, a clean frame and vector floor labels ----------

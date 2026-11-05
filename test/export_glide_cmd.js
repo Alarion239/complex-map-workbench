@@ -40,8 +40,8 @@ for (const exN of [1, 18]) {
   // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
   // being that window widened to 16:9 (both at 320 px wide, so the pixels compare the same picture)
   const fp = await ev(`await (async () => { try {
-    await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
-    const chk = await __cmwFig.videoCheck(0, 640, 360);
+    const mv = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
+    const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(mv.frames - 1, 640, 360);
     const f = await __cmwFig.build({});
     if (!f || !f.box) return { none: 1 };
     const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
@@ -59,10 +59,16 @@ for (const exN of [1, 18]) {
     vid.getContext('2d').drawImage(dv, (b.x0 - (cx - bw / 2)) * sx, ((cy + bh / 2) - b.y1) * sy, (b.x1 - b.x0) * sx, (b.y1 - b.y0) * sy, 0, 0, w, h);
     const a = vid.getContext('2d').getImageData(0, 0, w, h).data, c = still.getContext('2d').getImageData(0, 0, w, h).data;
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]);
-    return { mad: s / (w * h * 3), W: f.W, H: f.H, panel: im, t: chk.t };
+    // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
+    // draws what the pane draws: no level curves of its own
+    const de = await ld(end.decoded), rc = (img) => { const c = document.createElement('canvas'); c.width = 60; c.height = 80; c.getContext('2d').drawImage(img, 0.89 * img.width, 0.1 * img.height, 0.08 * img.width, 0.14 * img.height, 0, 0, 60, 80); return c.getContext('2d').getImageData(0, 0, 60, 80).data; };
+    const r0 = rc(dv), r1 = rc(de); let sr = 0; for (let i = 0; i < r0.length; i += 4) sr += Math.abs(r0[i] - r1[i]) + Math.abs(r0[i + 1] - r1[i + 1]) + Math.abs(r0[i + 2] - r1[i + 2]);
+    return { mad: s / (w * h * 3), ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
   ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
+  ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
+  ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place
   const s = await ev(`await (async () => {
     __cmwSteps({ park: 0.5 });

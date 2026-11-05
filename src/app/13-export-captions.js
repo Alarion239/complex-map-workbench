@@ -331,6 +331,14 @@
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
+    // the pane's key: its style's strip (none in the plain Phase style), the bands' count, the plane the colour is carried
+    // from, and the words the key and the axis title use for the plane the thread position x (default: where it is) shows
+    svKey: (x) => {
+      if (!SV.on) return null;
+      const keep = { x: SV.g.x, span: SV.span };
+      if (x != null) { SV.span = null; SV.g.set(x); }
+      try { return { plain: S.dc === 'phase', n: S.sectors || 12, carried: svCarriedFrom(), name: svKeyName(), title: svName(svStage()) }; } finally { if (x != null) { SV.g.set(keep.x); SV.span = keep.span; } }
+    },
     svFrameF: (i) => rangeF(0, svPlanes()[i]),
     shapes: () => S.shapes.filter((s) => s.visible !== false),
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
