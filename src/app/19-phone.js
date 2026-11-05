@@ -30,6 +30,7 @@
       moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
       regionsView: () => S.view.main === 'xy' || SV.on,   // the views that hold the regions' display
+      colourPick: () => (SV.on && S.view.main === 'xy' ? colourPop().el : null),   // a plane past the colour plane: the colouring's picker for the regions' display
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },

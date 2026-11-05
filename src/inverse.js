@@ -1605,6 +1605,18 @@ const Inverse = (() => {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
+    // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
+    if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
+      const { s, theta, k } = one.p, sv = add(ONE, scale(sub(s, ONE), t));
+      return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] };
+    }
+    // log on the cut theta, sheet k (logHom): (z^u - 1)/u + u, u = 1 - t, z^u on that branch; the logarithm itself
+    // where u is below logHom's 1e-6
+    if (one && one.kind === 'LOG' && !nat && id === 'log') {
+      const u = 1 - t, { theta, k } = one.p;
+      if (u < 1e-6) return own;
+      return { ok: true, ops: [opRootPow(C(u, 0), theta, k, (z) => CX.powReal(z, u, theta, k)), aff(C(1 / u, 0), C(u - 1 / u, 0))] };
+    }
     if (nat && nat.kind === 'pow' && nd) {
       const sv = C(1 + (nd.n - 1) * t, 0);
       return { ok: true, ops: [aff(ONE, neg(nd.c)), opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), aff(exp(scale(nd.la, t)), scale(nd.c, 1 - t))] };
