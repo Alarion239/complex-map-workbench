@@ -1,4 +1,4 @@
-// #20 phase 3, step 5: the app's state S is written through named state functions (src/app/01-core.js, the state
+// The app's state S is written through named state functions (src/app/01-core.js, the state
 // section). This test reads the app's sources and fails on a direct write of what has been put behind them so far:
 // S itself is replaced by setState only (5a); the panes' hideLeft and hideRight are set by setHidden only (5b); the
 // chain's selection and focused step by setSel and setFocusStep only (5c); the shapes, steps, targets and parameters

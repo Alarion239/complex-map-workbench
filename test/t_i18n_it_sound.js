@@ -29,7 +29,7 @@ const check = (where, key) => {
 const page = read('src/page.html');
 const pop = page.slice(page.indexOf('<div class="snd-pop" id="sndPop"'), page.indexOf('<div id="sndLive"'));
 ok('the popover is found', pop.length > 500, pop.length);
-// (v16.5 UX70: under "How it sounds", a <p>; before it, in the checkbox's <small>)
+// (under "How it sounds": a <p> or a <small>)
 const html = pop.match(/<span data-i18n="html">([\s\S]*?)<\/span><\/(?:small|p)>/);
 ok('the Hear the function description is one html key', !!html);
 if (html) check('popover html', html[1].trim());

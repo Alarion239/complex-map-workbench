@@ -59,7 +59,7 @@ function glue(o = {}) {
   };
   const ctx = {
     CX, Calc, C, TAU, Math, Number, Array, console, performance: { now: () => ctx.clock }, setTimeout: () => 0, clearTimeout: () => {},
-    // (the glue's clock, ms; far ahead of the process's own performance.now(), which Calc.argStep reads for the 3 ms
+    // (the glue's clock, ms; far ahead of the process's own performance clock, which Calc.argStep reads for the 3 ms
     // deadline the glue gives it: on a loaded machine the test reaches √z's cut more than a second in, and a clock of
     // 1000 made that deadline already past)
     clock: 1e7, calls, said, H,
@@ -125,7 +125,7 @@ const move = (g, z, src = 'pointer') => { const [x, y] = px(z); g.clock += 16; g
   check('rope: none on the keyboard probe', k.snd.rope === null && k.calls.filter((c) => c[0] === 'step').length === 1);
 }
 
-// ---- the outcome of a step (spec 3.1, 3.7, 3.9, 3.15; [B10], Q11)
+// ---- the outcome of a step (spec 3.1, 3.7, 3.9, 3.15)
 {
   // exact steps round a zero of F = z, then a seat on a source change
   const g = glue();
