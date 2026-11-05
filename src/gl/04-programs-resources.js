@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -85,8 +85,11 @@
   // colour's fragment stage without a key of its own (CARRY_FS): dcolor(chainRange(vP, uGs, uGt)), nothing of the
   // region's patterns (their whole chain per fragment would be most of a glide frame); the vertex stage's
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
-  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip });
+  // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
+  // the fill draws through: drawRegionCarry)
+  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
   const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
+  const REGION_KM_FS = () => UTIL + CARRY_MASK_FS;
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
@@ -105,7 +108,13 @@
     regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
     regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
     // (regionKSC and regionKSCclip with the fill's values from its point pass, fillPts: drawRegionCarry, fillPoints)
-    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true }), fs: REGION_K_FS() },
+    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS() },
+    // (the masks of regionKS, regionKSC and regionKSCpt: their vertex stage, CARRY_MASK_FS's fragments, so a torn
+    // triangle shows only where the map sends its points; started with them, prestartCarry, and drawn once linked:
+    // carryPrep)
+    regionKSm: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_KM_FS },
+    regionKSCm: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_KM_FS },
+    regionKSCptm: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_KM_FS },
     regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
     fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
@@ -156,6 +165,7 @@
     land: { chain: true, vs: () => LAND_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true) },
     // (#846: the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
@@ -624,6 +634,7 @@ float wabs(vec2 w) {
   const L_ = (P, n) => P.loc[n] ?? null;
   const u1f = (P, n, v) => gl.uniform1f(L_(P, n), v);
   const u1i = (P, n, v) => gl.uniform1i(L_(P, n), v);
+  const u1iv = (P, n, v) => { const l = L_(P, n); if (l) gl.uniform1iv(l, v); };
   const u2f = (P, n, a, b) => gl.uniform2f(L_(P, n), a, b);
   const u3 = (P, n, v) => gl.uniform3f(L_(P, n), v[0], v[1], v[2]);
   const u4f = (P, n, a, b, c, d) => gl.uniform4f(L_(P, n), a, b, c, d);
@@ -1070,7 +1081,7 @@ float wabs(vec2 w) {
     for (const b of (res.arcs || new Map()).values()) gl.deleteBuffer(b);
     if (res.arcs) res.arcs.clear();
     res.vaos.clear();
-    if (res.fillPts) { gl.deleteTexture(res.fillPts.tex); res.fillPts = null; }
+    if (res.fillPts) { gl.deleteTexture(res.fillPts.tex); if (res.fillPts.tex1) gl.deleteTexture(res.fillPts.tex1); res.fillPts = null; }
     res.n = 0;
   }
 
@@ -1246,8 +1257,9 @@ float wabs(vec2 w) {
   }
   // The fill's point pass (fillPts, FILL_PTS_VS) of mesh res at template size L (at most 2: uSub's size) under map,
   // after its map cache pass: gate {e, skip, kpx, lim} is the cache entry, the skip buffer and the uKPx, uKLim the fill
-  // draws with. -> {tex, W, P} for the fill's uFT (unit 12), uFTW, uFTP; or null (fillPts compiling, no float target,
-  // too many points for one texture), and the fill evaluates its points itself
+  // draws with; gate.two: the second run too (uFPass 1), the places of the fill's pass 1, into tex1. -> {tex, tex1, W, P}
+  // for the fill's uFT (unit 12), uFTW, uFTP; or null (fillPts compiling, no float target, too many points for one
+  // texture), and the fill evaluates its points itself
   function fillPoints(res, L, map, gate) {
     if (L > 2 || !rtOK) return null;
     const P = program('fillPts', map);
@@ -1258,7 +1270,9 @@ float wabs(vec2 w) {
     let f = res.fillPts;
     const unit = gl.getParameter(gl.ACTIVE_TEXTURE);
     const alloc = !f || f.W !== W || f.H !== H;
-    if (!f) f = res.fillPts = { tex: floatTex(), W: 0, H: 0, P: per };
+    if (!f) f = res.fillPts = { tex: floatTex(), tex1: null, W: 0, H: 0, P: per };
+    const alloc1 = alloc || !f.tex1;
+    if (gate.two && !f.tex1) f.tex1 = floatTex();
     f.W = W; f.H = H; f.P = per;
     const vao = fillPtsVAO(res, gate.skip || res.skip0);
     use(P, map);
@@ -1267,8 +1281,18 @@ float wabs(vec2 w) {
     if (P.loc.uSubI) gl.uniform4fv(P.loc.uSubI, tpl.subI);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gate.e.tex);
     u1i(P, 'uCW', gate.e.W); u1i(P, 'uCP', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
+    // (uFA on unit 13: empty for the first run, which writes tex; tex for the second)
+    u1i(P, 'uFA', 13); u1i(P, 'uFPass', 0);
+    gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE12);
     runRT(P, vao, per, res.n, f.tex, W, H, alloc, true);
+    if (gate.two) {
+      u1i(P, 'uFPass', 1);
+      gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, f.tex);
+      gl.activeTexture(gl.TEXTURE12);
+      runRT(P, vao, per, res.n, f.tex1, W, H, alloc1, true);
+      gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, null);
+    }
     gl.activeTexture(unit);
     fillPtsRuns++;
     return f;
@@ -1288,9 +1312,9 @@ float wabs(vec2 w) {
   }
   // A mesh's carried-colour textures and vertex arrays made before its first draw (the steps view's idle job, for the
   // outer ring's sizes): its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose
-  // cuts the fill draws, its point pass's (fillPoints), each at the size its draw asks for; and the vertex arrays of its
-  // map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO, meshVAO; no cells skipped), so that draw
-  // creates none of them
+  // cuts the fill draws, its point pass's (fillPoints: both runs' for a cut not clipped), each at the size its draw
+  // asks for; and the vertex arrays of its map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO,
+  // meshVAO; no cells skipped), so that draw creates none of them
   function carryReserve(res, L) {
     if (!ok || !rtOK || !res || !res.n) return false;
     const tpl = regionTemplate(L), W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(tpl.P * res.n / W));
@@ -1307,8 +1331,13 @@ float wabs(vec2 w) {
     if (L <= 2 && !res.fillPts && k.some((c) => c && (c.clip || c.h === 'sheet'))) {
       const per = 4 * (tpl.count / 3), FH = Math.max(1, Math.ceil(per * res.n / W));
       if (FH <= maxTex) {
-        res.fillPts = { tex: floatTex(), W, H: FH, P: per };
+        res.fillPts = { tex: floatTex(), tex1: null, W, H: FH, P: per };
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, FH, 0, gl.RGBA, gl.FLOAT, null);
+        // (a cut not clipped: the second run's texture too, the places of the fill's pass 1)
+        if (!k.some((c) => c && c.clip)) {
+          res.fillPts.tex1 = floatTex();
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, FH, 0, gl.RGBA, gl.FLOAT, null);
+        }
       }
     }
     meshTFVAO(res, L);
@@ -1320,7 +1349,7 @@ float wabs(vec2 w) {
   let fillPtsRuns = 0;
   const fillPointsRuns = () => fillPtsRuns;
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noCarry, noKCDraw, noFill (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

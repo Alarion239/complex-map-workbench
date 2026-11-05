@@ -1,8 +1,9 @@
 // The steps view's glide looks like its planes: the frames of a glide from plane z to the next, held still on the rail
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
-// regions) and the Mountain King Everywhere (the whole plane carried forward). Paths are off: the glide's paths are drawn over the
-// colour, which is what is read. Each case checks four things, each in checks of their own:
+// regions, and Everywhere: a homotopy inverted by Newton, every point over w) and the Mountain King Everywhere (the
+// whole plane carried forward). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// Each case checks four things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
 //   key), sampled every 10 px away from the colour lines, at least MIN_COMPARED pixels; at most SAME_FRAC of them more
@@ -28,9 +29,10 @@
 //   of at least EDGE_RUN CSS pixels, as the rows of the whole plane's stretched outer cells and the ring's coarse cells
 //   leave) than the rest frame of either plane, at most SAME_FRAC of the pixels more.
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
-// CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR); LOOK_CASES (a preamble) names the cases a run makes, all by default:
-// ci/browser_suites.js runs the default example Inside regions, the Joukowski airfoil and the Mountain King at 1, and the
-// default example Inside regions and Everywhere at 2.
+// CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
+// LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
+// Inside regions, the Joukowski airfoil both ways and the Mountain King at 1, and the default example Inside regions and
+// Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -81,6 +83,9 @@ const letGo = async () => { await ev('window.__svScrubUp(), 1'); await rest(0); 
 const CASES = [
   { tag: 'Strip to disk', example: null, scope: 'in' },
   { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', scope: 'in' },
+  // (the exact picture's Newton seeds a 24 x 16 grid: from 8 x 6, Newton misses the points of H_.25 in the disc by its
+  // lower semicircle, the path's cut, at over half of the two-point w on the window)
+  { tag: 'Joukowski airfoil, Everywhere', example: 'Joukowski airfoil', scope: 'all', seeds: [24, 16] },
   { tag: 'Mountain King, Everywhere', example: 'In the Hall of the Mountain King', scope: 'all' },
   { tag: 'Strip to disk, Everywhere', example: null, scope: 'all', edges: true },
 ];
@@ -110,7 +115,9 @@ async function look(c, r) {
   for (const u of LOOK_U) {
     const held = (await hold(u)).ok, still = await grab('M' + u);
     ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
+    if (c.seeds) await ev(`window.__giSeeds = ${JSON.stringify(c.seeds)}, 1`);
     look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL));
+    if (c.seeds) await ev('delete window.__giSeeds, 1');
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
     if (!lines.rest) lines.rest = { grid: await gridOver('R0'), outlines: await outlines('R0') };

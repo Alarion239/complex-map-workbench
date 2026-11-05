@@ -1162,11 +1162,13 @@ async function svInteractUnit(scene) {
 // stall (jank_ms) and the rAF intervals over 25 ms (info), GLR.blit calls per frame drawn (limit SV_COPIES_LIMIT: one
 // copy, #503) and the programs linked while gliding (limit 0: every program prestarted or warm, A2). A glide that draws
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot). o: {id: the
-// unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere'), scope
-// ('all': Everywhere | 'in': Inside regions), info: its rows are info}
+// unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere' | 'land'),
+// scope ('all': Everywhere | 'in': Inside regions), planes: [a, b] the glide's two planes (default [0, 1]), info: its rows
+// are info}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
+// reference without the Landscape's glide makes it NEW (refCannot)
 const SV_GLIDE_JANK_MS = 25;
 async function svGlideUnit(scene, o = {}) {
-  const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all';
+  const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all', [pa, pb] = o.planes || [0, 1];
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King', jouk: 'Joukowski airfoil' };
@@ -1198,15 +1200,19 @@ async function svGlideUnit(scene, o = {}) {
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
-        await B.ev(`__cmwSteps({ scope: '${scope}', surf: '${surf}', go: 0, now: true }), 1`);
+        await B.ev(`__cmwSteps({ scope: '${scope}', surf: '${surf}', go: ${pa}, now: true }), 1`);
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
-        for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+        for (const to of [pb, pa]) {
+          const moving = await B.ev(`(__cmwSteps({ go: ${to} }), __cmwSteps().moving)`);
+          if (!moving && surf === 'land' && to === pb) throw new Error(`${id}: this build's Landscape changes plane at once (no glide)`);
+          await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+        }
         await settle(await pageNow());
-        const l1 = await glide(1);
+        const l1 = await glide(pb);
         await settle(await pageNow());
-        const l2 = await glide(0);
+        const l2 = await glide(pa);
         await settle(await pageNow());
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`${pre}: a glide drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
         R.push(legSummary([l1, l2], 'none'));
@@ -1223,9 +1229,10 @@ async function svGlideUnit(scene, o = {}) {
     put(`${pre}.fps`, 'throughput', 'frames/s', R.map((r) => r.fps));
     put(`${pre}.jank_ms`, 'jank_ms', 'ms', R.map((r) => r.jank));
     put(`${pre}.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, longInt);
-    // (on the globe the copies are info: the globe's glide composites a second globe over the first where it has no
-    // carried colour, so its copies are what the probe reports, not a limit)
-    if (surf === 'sphere') put(`${pre}.gl_copies`, 'info', 'copies/frame', copies.map(r3));
+    // (on the globe and the Landscape the copies are info: the globe's glide composites a second globe over the first
+    // where it has no carried colour, and the Landscape draws a GL frame of its own, so their copies are what the probe
+    // reports, not a limit)
+    if (surf !== 'plane') put(`${pre}.gl_copies`, 'info', 'copies/frame', copies.map(r3));
     else put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
@@ -2013,6 +2020,9 @@ unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain Kin
 unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default', { id: 'sv.glide.globe', surf: 'sphere' }));
 unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
+unit('sv.glide.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere (the carried grid, its heights and colour moving with the points); info rows only, until it has a baseline', () => svGlideUnit('default', { id: 'sv.glide.land', surf: 'land', info: true }));
+unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the same glide in Inside regions (the carried region mask); info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_in', surf: 'land', scope: 'in', info: true }));
+unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));

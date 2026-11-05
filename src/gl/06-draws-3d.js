@@ -275,6 +275,21 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return landC;
   }
+  // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (hs.N points a side) over the
+  // box src, each at its image under the glide's map; bound to unit 11 (uCP) for the sheets' draw. Run every frame, as
+  // the places change with the glide
+  let landCP = null;
+  function carryPlaces(st, N) {
+    const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
+    if (!P) return false;
+    if (!landCP) landCP = floatTex();
+    use(P, c.map);
+    u1i(P, 'uN', N);
+    u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+    runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP, N, N, gl.RGBA32F, gl.RGBA);
+    gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP);
+    return true;
+  }
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
@@ -842,7 +857,15 @@
   // a, b, W, infinite (a log or irrational power among the steps), steps}; null when the map has no multivalued step
   // in (a, b], cannot be drawn as sheets (a homotopy, or a d/dz in (a, b] with a > 0) or the chain has no
   // chainSheetRange (GLChain). Combos 0..K-1 go to chainSheetRange as they are (it decodes them, steps in chain order).
-  function sheetPlan(map, W, end) {
+  // The drawn surfaces as combos: uniq (the combos that are distinct sheets of the map's values, in order, from the app)
+  // when it lists some of the K combos, else all K. {K: surfaces drawn, map: Int32Array(SHEET_MAX) surface -> combo}
+  function surfaceMap(uniq, K) {
+    const map = new Int32Array(SHEET_MAX);
+    const list = Array.isArray(uniq) && uniq.length && uniq.every((c) => Number.isInteger(c) && c >= 0 && c < K) ? uniq : null;
+    for (let i = 0; i < SHEET_MAX; i++) map[i] = list ? (list[i] ?? 0) : i;
+    return { K: list ? list.length : K, map };
+  }
+  function sheetPlan(map, W, end, uniq) {
     const info = cur.info;
     if (!info || !hasSheets(info) || !info.sheets || !Array.isArray(info.sheets.steps)) return null;
     const m = map || {};
@@ -858,9 +881,9 @@
       W = clamp(Math.round(W) || 2, 1, 4);
       let total = 1;
       for (const s of ps) total *= s.n > 0 ? s.n : 2 * W + 1;
-      const K = Math.min(SHEET_MAX, total);
-      if (K < 2) return null;
-      return { K, total, a: m.base || 0, b: end > 0 ? end : Math.max(m.mode === 1 ? m.hi || 0 : m.b || 0, m.post || 0), W, infinite: ps.some((s) => !(s.n > 0)), steps: ps, hom: true };
+      const K = Math.min(SHEET_MAX, total), sm = surfaceMap(uniq, K);
+      if (sm.K < 2) return null;
+      return { K: sm.K, map: sm.map, total, a: m.base || 0, b: end > 0 ? end : Math.max(m.mode === 1 ? m.hi || 0 : m.b || 0, m.post || 0), W, infinite: ps.some((s) => !(s.n > 0)), steps: ps, hom: true };
     }
     if ((m.mode || 0) !== 0) return null;
     // a > 0: the steps in (a, b] from points of the w_a-plane (chainSheetRange); never across a d/dz (its input is a
@@ -879,9 +902,10 @@
       if (typeof info.sheets.total === 'function') { const t = Math.floor(+info.sheets.total(W, b, a)); if (t > 0) total = t; }
       if (typeof info.sheets.combos === 'function') { const c = Math.floor(+info.sheets.combos(W, b, a)); if (c > 0) K = c; }
     } catch (e) { /* keep the product */ }
-    K = Math.min(SHEET_MAX, K);
+    const sm = surfaceMap(uniq, Math.min(SHEET_MAX, K));
+    K = sm.K;
     if (K < 2) return null;
-    return { K, total: Math.max(total, K), a, b, W, infinite: steps.some((s) => !(s.n > 0)), steps };
+    return { K, map: sm.map, total: Math.max(total, K), a, b, W, infinite: steps.some((s) => !(s.n > 0)), steps };
   }
   // per-cell sheet heights (LAND_SHEET_TF_VS): cache keyed like landHeights, plus the stage, window and combos
   let landS = null;
@@ -895,14 +919,14 @@
     const texW = tileC * 2 * M, texH = tileR * 2 * M;
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     if (landS && landS.key === key) { sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf); return landS; }
     if (!landS) landS = { tex1: floatTex() };
     use(P1, sp.hom ? st.map : null);
     u1i(P1, 'uN', M + 1);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
-    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW);
+    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
@@ -965,7 +989,7 @@
     u1i(P1, 'uN', M + 1); u1i(P1, 'uM', M);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
-    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC);
+    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
@@ -1112,7 +1136,7 @@
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
-    const sp = st.sheets && !st.carry ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
+    const sp = st.sheets && (!st.carry || program('landCarryPlace', st.carry.map)) ? sheetPlan(st.map, st.sheets.W, st.sheets.end, st.sheets.uniq) : null;
     // A step card's Landscape (st.card) waits for the pane's: its programs start once the pane has drawn this chain's
     // surface, and are taken into use once they have settled (r3: compiled alongside the pane's All sheets, they slowed
     // its link, and their first draws in later frames stalled the GPU process again, r2 review verify-2)
@@ -1158,13 +1182,14 @@
       pxS = Math.max(pxW0, fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * dN));
     }
     const rf = st.refine === false || dbg.noRef ? null : { pxW: Math.pow(2, Math.round(4 * Math.log2(Math.max(pxS, 1))) / 4), motion: !!st.motion, full: !!st.full, minPx: dbg.minPx || 0.1, Lp: getProg('land', cur, false, st.map), Ls };
-    let hs = sp ? sheetHeights(st, sp, N, mode, H, mu, aspect, rf) : null;
+    // (carried, the sheets' cells are plane s's, over its box src, and the sheets are not refined)
+    let hs = sp ? sheetHeights(st.carry ? Object.assign({}, st, { box: st.carry.src || st.box }) : st, sp, N, mode, H, mu, aspect, st.carry ? null : rf) : null;
     if (!Ls) hs = null;
     // (while the sheets' programs compile, the principal branch stands in only with programs that have run before, an
     // earlier version of the chain's: a formula's first All-sheets Landscape drew its principal branch with programs of
     // its own first, and the GPU process stalled once for them and once more for the sheets', r2 review verify-2)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = st.carry ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
     if (!st.card) {
@@ -1196,7 +1221,7 @@
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
-      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); }
+      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
     };
@@ -1222,8 +1247,8 @@
     if (!below) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
-    const Lp = st.carry ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
-    if (st.carry) {
+    const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
+    if (st.carry && !hs) {
       const Pc = program('landCarry', st.carry.map);
       use(Pc, st.carry.map);
       common(Pc);
@@ -1242,6 +1267,8 @@
     // (moving, the principal surface: its steep base triangles by landB, once the refinement's programs have run, STEEP;
     // not while the mesh built at rest for these heights stands, an orbit or a zoom: its walls are refined)
     const LB = Lp && !hs && rf && st.motion && !st.full && rfWarmAll && !(hd.rf && !hd.rf.partial && hd.rfFor === hd.key) ? program('landB') : null;
+    // (its pass is run before the sheets' program is set up: it makes its own program current)
+    const carried = !!st.carry && !!hs && carryPlaces(st, hs.N);
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
@@ -1262,7 +1289,10 @@
         u1f(Lp, 'uCue', cue === 'none' ? 0 : 0.14 - 0.10 * cm * cm * (3 - 2 * cm));
         u1i(Lp, 'uCueK', hs.K);
         u1f(Lp, 'uZBias', 4e-6);
-        u1i(Lp, 'uSheetK', hs.K);
+        u1i(Lp, 'uSheetK', hs.K); u1iv(Lp, 'uSheetMap', sp.map);
+        u1i(Lp, 'uCarry', carried ? 1 : 0);
+        u2f(Lp, 'uClipA', aspect[0], aspect[1]);
+        if (carried) { info.carried = true; u4f(Lp, 'uCBox', box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1)); }
       } else {
         u1i(Lp, 'uCuts', hd.cuts || 0);
         for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, hd.edges[d]); }
@@ -1358,7 +1388,7 @@
       const Pp = program(hs ? 'probeSheet' : 'probe', st.map);
       if (Pp) {
         use(Pp, st.map);
-        if (hs) { u1i(Pp, 'uSheetA', hs.a); u1i(Pp, 'uSheetB', hs.b); u1i(Pp, 'uSheetW', hs.W); }
+        if (hs) { u1i(Pp, 'uSheetA', hs.a); u1i(Pp, 'uSheetB', hs.b); u1i(Pp, 'uSheetW', hs.W); u1iv(Pp, 'uSheetMap', sp.map); }
         uM4(Pp, 'uMVP', MVP);
         u2f(Pp, 'uPx', fw, fh);
         u1f(Pp, 'uZBias', 0);
