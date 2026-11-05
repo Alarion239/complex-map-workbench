@@ -1140,7 +1140,9 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // the moving plane's points may go. Where the places fold (several points of plane s on one spot, at one height:
   // exp's or a power's image, uKeyOn 1), the fragment's depth is moved back by uKeyEps times the sheet key of its point
   // (preKeyDepth, the 2D carried colour's order) as a share of its distance from the eye, so the point the 2D picture
-  // shows is the one in front, and surfaces apart by more than that share keep their order
+  // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
+  // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
+  // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
