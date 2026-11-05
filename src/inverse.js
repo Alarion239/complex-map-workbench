@@ -399,21 +399,39 @@ const Inverse = (() => {
     }
     return D;
   }
+  // The sheet order. Keys are compared in octaves of the sheet key D; TIE_D is the width of a tie. The front is the
+  // candidate with the largest Im z (then the largest Re z) among all those whose key is within TIE_D of the smallest
+  // key (< D_min + TIE_D): a map symmetric about the window's centre (z^2 about 0) gives its points equal keys, which
+  // float rounding would order pixel by pixel. The band hangs off the smallest key, not off a rounding step, so a
+  // pair of equal keys is a tie wherever it falls, and the front of a set does not depend on the order its members
+  // are met. Keys beyond D_min + TIE_D never compete (the early stop's bound, dk + TIE_D).
+  const TIE_D = 2 ** -8;
+  const dTie = (a, b) => a === b || Math.abs(a - b) < TIE_D;
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
-  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // the same step of TIE_D octave (round(D / TIE_D)) are ties: a map symmetric about the window's centre (z^2
-  // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
-  // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
-  const TIE_D = 2 ** -8;
-  const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
-  const dTie = (a, b) => a === b || dStep(a) === dStep(b);
-  function front(a, b) {
-    if (!dTie(a.D, b.D)) return a.D < b.D;
+  // a before b by the tie rule: larger Im z, then larger Re z
+  function tieBefore(a, b) {
     const za = tieZ(a), zb = tieZ(b);
-    if (za.im !== zb.im) return za.im > zb.im;
-    return za.re > zb.re;
+    return za.im !== zb.im ? za.im > zb.im : za.re > zb.re;
   }
+  // Inverse.front(a, b): candidate a is in front of b when the two are alone (a pair is its own smallest key)
+  const front = (a, b) => (dTie(a.D, b.D) ? tieBefore(a, b) : a.D < b.D);
+  // Inverse.order(list): the candidates front to back. The front is chosen from the whole list, then the next from
+  // the rest, each by the rule above. A new array; list is not changed.
+  function order(list) {
+    const s = list.slice().sort((a, b) => a.D - b.D || (tieBefore(a, b) ? -1 : tieBefore(b, a) ? 1 : 0));
+    for (let r = 0; r < s.length; r++) {
+      let best = r;
+      for (let k = r + 1; k < s.length && dTie(s[r].D, s[k].D); k++) if (tieBefore(s[k], s[best])) best = k;
+      if (best > r) s.splice(r, 0, s.splice(best, 1)[0]);
+    }
+    return s;
+  }
+  // The walk's buffer order: keys in the same step of TIE_D (round(D / TIE_D)) are ordered by the tie rule, so the
+  // order is a total one and a buffer cut to its first entries keeps the first of that order whatever order the
+  // walk meets its members in (a band is not transitive). The entries kept are then put front to back by Inverse.order.
+  const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
+  const byStep = (a, b) => (dStep(a.D) !== dStep(b.D) ? a.D < b.D : tieBefore(a, b));
 
   // =====================================================================================================
   // 6. Singular points and pull-backs (SPEC 3.7)
@@ -1186,12 +1204,14 @@ const Inverse = (() => {
       && isFin(a.z) && isFin(b.z) && Math.hypot(a.z.re - b.z.re, a.z.im - b.z.im) <= a.fp;
     const admit = (e) => {
       let pos = ent.length;
-      for (let i = 0; i < ent.length; i++) if (front(e, ent[i])) { pos = i; break; }
+      for (let i = 0; i < ent.length; i++) if (byStep(e, ent[i])) { pos = i; break; }
       for (const k of [pos - 1, pos]) {
         const t = ent[k];
         if (t && twin(e, t)) { t.cv = Math.min(1, t.cv + e.cv); if (t.cv > U) U = t.cv; t.merged = (t.merged || 0) + 1; return; }
       }
-      if (pos >= admitLimit) { rest(e.cv); return; }
+      // (past the admission limit only a candidate less than TIE_D above the K-th smallest kept key, which may still be
+      // among the first K by Inverse.order, and only while the buffer has room)
+      if (pos >= admitLimit && !(pos < B && e.D - ent.map((x) => x.D).sort((a, b) => a - b)[Math.min(K, ent.length) - 1] < TIE_D)) { rest(e.cv); return; }
       ent.splice(pos, 0, e);
       if (ent.length > B) rest(ent.pop().cv);
     };
@@ -1393,7 +1413,7 @@ const Inverse = (() => {
       return null;
     };
     rec(ops.length - 1, { u: w, J: [1, 0, 0, 1], JL: null, lvl: Infinity, lg: null, lam: null, anc: null, path: '' });
-    return { leaves, visited, truncated, tailInf, entries: ent, nCov, U, restT };
+    return { leaves, visited, truncated, tailInf, entries: order(ent), nCov, U, restT };
   }
   // distance from the set {a + s v : 0 <= s <= smax} (smax may be Infinity) to the box W; 0 when they meet. Exact for
   // a segment or ray and a box: when disjoint, the minimum is attained at an end point of the segment or at a box corner.
@@ -1662,7 +1682,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, order, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

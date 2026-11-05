@@ -134,14 +134,11 @@ function sheetKey(win, P = []) {
     return D;
   };
 }
-// the tie step of the sheet key, in octaves: keys in one step of it tie (Inverse.front's own)
-const { TIE_D } = require('../../../src/inverse.js');
-// members in front-to-back order: key D ascending; ties (keys in one TIE_D step): larger Im z, then larger Re z in front
-// (SPEC 5.2)
+const Inverse = require('../../../src/inverse.js');
+// members in front-to-back order, as the exact renderer orders them (Inverse.order: the front is the larger Im z, then
+// the larger Re z, among the keys less than TIE_D from the smallest key; SPEC 5.2)
 function frontOrder(cands, key) {
-  const q = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
-  const dk = (a, b) => (q(a.D) !== q(b.D) ? a.D - b.D : 0);
-  return cands.map((z) => ({ z, D: key(z) })).sort((a, b) => dk(a, b) || (b.z.im - a.z.im) || (b.z.re - a.z.re));
+  return Inverse.order(cands.map((z) => ({ z, D: key(z) }))).map((e) => ({ z: e.z, D: e.D }));
 }
 // the displayed parity at a pixel from the front member, given tok(z) -> {par (0 | 1), cellPx, edgePx}. A member
 // behind the front whose key is within TIE_OCT may be in front on the GPU: when it would show another parity (or one

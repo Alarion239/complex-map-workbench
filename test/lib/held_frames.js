@@ -64,9 +64,9 @@
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       const k = g.key(z), cv = covers(z);
       if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
-      const sk = Math.round(k / 2 ** -8), sb = Math.round(bk / 2 ** -8);
-      const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
+      // (the renderer's front, Inverse.front: keys less than 2^-8 octave apart tie, then larger Im z, then larger Re z)
+      const tie = Math.abs(k - bk) < 2 ** -8;
+      const ahead = !best || (!tie ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
       if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
     }
     // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one

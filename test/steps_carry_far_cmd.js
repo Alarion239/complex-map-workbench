@@ -29,14 +29,13 @@ const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSt
 const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // whether z is where plane z's picture shows it
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
-// for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
+// for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.order in
 // the page; sing: the key's points in place of plane b's), -1 for none
 const fronts = async (lists, b, sing) => need(await ev(`(() => {
   const k = Object.assign(__cmwSvKey(${b}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'}), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) };
   return ${JSON.stringify(lists)}.map((L) => {
-    let bi = -1, bc = null;
-    L.forEach((p, i) => { const z = CX.C(p[0], p[1]), c = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!bc || Inverse.front(c, bc)) { bc = c; bi = i; } });
-    return bi;
+    const cands = L.map((p, i) => { const z = CX.C(p[0], p[1]); return { z, D: Inverse.sheetKey(prep, z, null), lam: null, i }; });
+    return cands.length ? Inverse.order(cands)[0].i : -1;
   });
 })()`), 'fronts');
 // a thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user holding it; the
