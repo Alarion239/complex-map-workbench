@@ -310,8 +310,8 @@
     };
     const s = c.src, n = c.cells;
     grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)]);
-    for (const [px, py, r0, r1] of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? [c.far] : []) : []).concat(more)) {
-      const m = (c.patchN || 96) - 1;
+    for (const [px, py, r0, r1, N] of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? [c.far.concat(c.farN)] : []) : []).concat(more)) {
+      const m = (N || c.patchN || 96) - 1;
       grid(m + 1, (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return [px + r * Math.cos(th), py + r * Math.sin(th)]; });
     }
     let bare = 0;

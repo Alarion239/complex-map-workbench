@@ -296,7 +296,7 @@
   }
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patch (st.carry.far,
   // the slot after them): their textures, kept between frames
-  const CARRY_POLES = 5, CARRY_POLE_N = 96, landPP = [];
+  const CARRY_POLES = 5, CARRY_POLE_N = 96, CARRY_FAR_N = 256, landPP = [];
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
@@ -1202,10 +1202,10 @@
     let farPatch = null;
     if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
       const o = landPP[pp.length] || (landPP[pp.length] = {});
-      pp.push({ polar, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
+      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
     }
     // (the far patch, the last: its own textures)
-    if (st.carry && !hs && hd && st.carry.far) farPatch = { polar: st.carry.far, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, st.carry.far, landPP[CARRY_POLES] || (landPP[CARRY_POLES] = {})) };
+    if (st.carry && !hs && hd && st.carry.far) farPatch = { polar: st.carry.far, N: CARRY_FAR_N, o: carryHeights(st, CARRY_FAR_N, mode, H, mu, aspect, st.carry.far, landPP[CARRY_POLES] || (landPP[CARRY_POLES] = {})) };
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
     if (!st.card) {
@@ -1286,17 +1286,17 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', CARRY_POLE_N);
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * (CARRY_POLE_N - 1) * (CARRY_POLE_N - 1));
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
       };
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
       for (const p of pp) drawPatch(p);
       if (farPatch) { gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); drawPatch(farPatch); }
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N;
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.farN = farPatch ? CARRY_FAR_N : 0;
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
