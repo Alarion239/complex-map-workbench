@@ -6,6 +6,8 @@
 // sphere and the Landscape: the glide is recorded in the screen's 3D camera at the frame's own aspect.
 // A command file for a CDP daemon:  <runner> test/export_glide_cmd.js
 const fails = [], info = {};
+// a pixel of the frame is 'drawn' where it differs from the frame's own paper by more than this (summed over r, g, b)
+const DRAWN = 60;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -52,7 +54,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     const three = ${surf !== 'plane'}, bg = [db[0], db[1], db[2]];
     let sum = 0, n = 0;
     for (let i = 0; i < da.length; i += 4) {
-      if (three && Math.abs(db[i] - bg[0]) + Math.abs(db[i + 1] - bg[1]) + Math.abs(db[i + 2] - bg[2]) <= 60) continue;
+      if (three && Math.abs(db[i] - bg[0]) + Math.abs(db[i + 1] - bg[1]) + Math.abs(db[i + 2] - bg[2]) <= ${DRAWN}) continue;
       sum += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]); n++;
     }
     return { mad: sum / (Math.max(1, n) * 3), drawn: n / (w * h), x: __cmwSteps().x };

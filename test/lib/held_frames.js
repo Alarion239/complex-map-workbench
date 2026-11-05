@@ -21,7 +21,10 @@
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame) sampled every step px, or
-//   null when the glide's record has no sheet key (a frame the carried mesh draws).
+//   null when the glide's record has no sheet key (a frame the carried mesh draws);
+// - sameAway(a, b, tol, keep): two kept frames compared pixel by pixel away from the colour lines (a pixel where either
+//   frame's __giRange spans more than 12 levels is left out), only where keep holds (the source of a page function of
+//   the device pixel (x, y); every pixel without it): { n compared, max, over: the share of n more than tol apart }.
 (() => {
   // (the page script of the exact reference, as written for steps_glide_inverse_cmd.js)
   const RANGE = `window.__giRange = (P, W, x, y) => { let r = 0; for (let c = 0; c < 3; c++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = P[4 * ((y + dy) * W + x + dx) + c]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };`;
@@ -222,13 +225,13 @@ ${REF}`;
   // two kept frames pixel by pixel away from the colour lines (__giRange: pixels whose 4 x 4 neighbourhood spans more
   // than 12 levels in either frame are left out): { n compared, max, over: the share of n more than tol apart in a
   // channel }
-  const sameAway = (a, b, tol) => ev(`(() => {
+  const sameAway = (a, b, tol, keep) => ev(`(() => {
     ${RANGE}
-    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height;
+    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height, K = ${keep || 'null'};
     if (!A || !B || A.length !== B.length) return null;
     let n = 0, over = 0, max = 0;
     for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) {
-      if (__giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
+      if ((K && !K(x, y)) || __giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
       const i = 4 * (y * W + x), m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
       n++; if (m > max) max = m; if (m > ${tol}) over++;
     }

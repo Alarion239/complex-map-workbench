@@ -93,6 +93,9 @@
     const u0 = Math.min(1 - s, Math.max(0, cx - s / 2)), v0 = Math.min(1 - s, Math.max(0, cy - s / 2));
     return [u0, u0 + s, v0, v0 + s];
   }
+  // a globe or a relief frame is drawn at a device pixel ratio of at least PIC_DPR_MIN, and of the frame's height over PIC_H_PX
+  // when that is more
+  const PIC_DPR_MIN = 1.5, PIC_H_PX = 360;
   // the plan of the steps view's glide along its thread (gl: A.svGlide): the left pane at the screen's window widened to
   // the frame's aspect, or on the sphere and the Landscape the screen's camera at the frame's own aspect (the whole
   // picture, no crop: the frame is the screen's); video time t is the thread position gl.lo + t, so m is the number of
@@ -101,7 +104,7 @@
   function glidePlan(o, v, gl) {
     const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo, pic = gl.surf !== 'plane';
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(1.5, H / 360) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(A.svBox(), W / H), landBox: gl.surf === 'land' && A.landBox ? A.landBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(A.svBox(), W / H), landBox: gl.surf === 'land' && A.landBox ? A.landBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
   }
   // the plan of a video: what is drawn, where, the tracked points
   async function videoPlan(opts) {
@@ -116,7 +119,7 @@
     const pic = kind === 'globe' || kind === 'phaseGlobe' || kind === 'land';
     // (the screen's line widths at a retina scale; a globe or a relief: the art layer's own labels at about 3 % of the
     // frame's height, export review r3, editor-8)
-    const dpr = pic ? Math.max(1.5, Hpx / 360) : Math.max(1, Math.min(Wpx, Hpx) / 720);
+    const dpr = pic ? Math.max(PIC_DPR_MIN, Hpx / PIC_H_PX) : Math.max(1, Math.min(Wpx, Hpx) / 720);
     const plan = { o, v, kind, side, W: Wpx, H: Hpx, dpr, m, pic, times: videoTimes(v, m), name: (o.name || defaultName(view, null, 'video') || 'deformation').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'deformation' };
     if (o.trace) plan.trace = o.trace;
     if (kind === 'land') {

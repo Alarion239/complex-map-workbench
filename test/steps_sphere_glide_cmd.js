@@ -1,4 +1,4 @@
-// The steps view's glide on the Sphere surface (#846): parked between plane z and plane w1, Inside regions keeps the
+// The steps view's glide on the Sphere surface: parked between plane z and plane w1, Inside regions keeps the
 // globe's colour inside the moving regions, as at rest, and the paths t -> H_t(z) of the glide are drawn on the globe.
 //  - colour: the pixels of the left pane in a saturated phase colour (max - min channel > 60), at rest on plane z with
 //    Inside regions and parked half-way; parked, about as many as at rest (the region's image moves and shrinks), not
@@ -9,7 +9,6 @@
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
 const quiet = () => settled({
   floor: 400, max: 20000,
   until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
@@ -28,21 +27,19 @@ const coloured = () => ev(`(() => {
 })()`);
 await view(1200, 800, false, false);
 const ns = 'svsg' + Date.now();
-await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
 const st = {
   v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
   shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }],
 };
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
-for (let i = 0; i < 40 && !(await ev(`typeof __cmwSteps === 'function'`)); i++) await sleep(250);
+await seed(ns, st);
+await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+await settled({ max: 60000, until: `typeof __cmwSteps === 'function'` });
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere', scope: 'in', T: 1 }); 1`); await quiet();
 const where = await ev('(() => { const s = __cmwSteps(); return { i: s.i, T: s.T, scope: s.scope, surf: s.surf }; })()');
 R.rest = { steps: where, coloured: await coloured() };
 ok('at rest on plane z: the globe shows the region in colour', R.rest.coloured > 0, R.rest);
 await ev(`__cmwSteps({ park: 0.5 }); 1`);
-await sleep(300);
 await quiet();
 // (the paths' choice waits for 150 ms of stillness, then a frame draws them)
 let p = null;
