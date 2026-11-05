@@ -94,8 +94,8 @@ const SUITES = {
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
-  // (the steps view's twin of phone_swap's sheet, rotate, lang and tablet legs; its urlbar leg waits for the fix of the flaky URL-bar test, #908)
-  'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'lang', 'tablet'].map(part) },
+  // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
+  'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
