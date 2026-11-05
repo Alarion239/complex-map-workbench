@@ -133,6 +133,10 @@
   // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
   // footprint down is G'(z) dY from the one across, else G at z + dY too
   const INV_CARRY = { carry: true, pre: '', main: '' };
+  // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
+  // test adds weigh on the programs that never draw one)
+  const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
@@ -206,9 +210,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
-    const ik = inv.key + (extra && extra.carry ? '|carry' : '');
+    const ik = inv.key + (extra && extra.carry ? '|' + carryKey(extra) : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
-    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    const fk = (extra ? (extra.carry ? carryKey(extra) + '|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
@@ -242,8 +246,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // build, stalled the GPU process 75-200 ms: P2 review)
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
-    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
-    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|' + carryKey(extra) : ''))) return null;
+    const fk = (extra ? (extra.carry ? carryKey(extra) + '|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
     const order = [3, 5, INV_B_MAX].filter((b) => b !== Bwant).sort((a, b) => (a > Bwant) !== (b > Bwant) ? (a > Bwant ? -1 : 1) : (a > Bwant ? a - b : b - a));
     for (const B of order) {
       const e = progs.get(invProgKey(inv, B, globe, fk));
@@ -435,14 +439,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // 'pending' (a compile in flight or not yet allowed to start) sets frameStatus().pending; 'error': the shape cannot
   // be drawn inverse this frame (no program, a failed compile, a side draw without a ready program, a plan / prep
   // mismatch); both fall through to the forward draw.
-  // the state of the program drawInverse(st) would draw with, nothing drawn: 'ready' (it or a ready B class of it
+  // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
   // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
   // as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? INV_CARRY : st.extra;
+    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (st.staged ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
@@ -455,7 +459,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
-    const extra = st.carry && !globe ? INV_CARRY : st.extra;
+    const extra = st.carry && !globe ? (rec.stage ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
@@ -556,7 +560,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u4f(P, 'uShBox', ...rec.box);
     // look (regionUniforms with the pattern origin Q = 0: the walk's z is absolute)
     regionUniforms(P, Object.assign({ pattern: 'solid' }, look, { dpr: st.dpr || 1 }), [0, 0]);
-    if (extra === INV_CARRY) {
+    if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
       u1i(P, 'uPattern', 9);

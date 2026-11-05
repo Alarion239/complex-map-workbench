@@ -32,7 +32,7 @@ uniform int uKsat; uniform int uKall;
 uniform int uIxTail;
 uniform highp sampler2D uPts; uniform int uShOff; uniform ivec4 uShape; uniform vec4 uShA; uniform vec4 uShB; uniform vec4 uShC;
 uniform int uFormSlot;
-// uShStage > 0 (carried programs): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
+// uShStage > 0 (programs with IX_STAGED: the carried one for the shapes of later planes): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
 uniform int uShStage;
 // uEdgeOnly = 1: the pass draws the shape's boundary alone, not its fill: a line of colour uEdgeC at alpha uEdgeA within
 // uEdgeW device px of the boundary of any candidate, over a casing of colour uEdgeCC at alpha uEdgeCA within uEdgeCW (none
@@ -210,7 +210,7 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   int kind = uShape.x;
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
-#ifdef IX_CARRY
+#ifdef IX_STAGED
   if (uShStage > 0) {
     // (the shape's level at the point's image on its plane, along the image of the footprints)
     if (!zf) return;
@@ -652,7 +652,9 @@ float invLeaf(Lf L, out bool cov) {
   }
 #endif
   if (!done) ixShapePx(z, zf, dX, dY, L, dLX, dLY, s, n);
+#ifdef IX_STAGED
   if (uEdgeOnly == 1) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); }
+#endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
@@ -694,7 +696,7 @@ ${globe ? `  vec3 P = normalize(vP);
   ixPix = uInvScale.x;`}
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0); ixEdge = 0.0; ixEdgeC = 0.0;
   invWalk(w);
-${globe ? '' : '  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA; o = vec4(uEdgeC * l, l) + vec4(uEdgeCC * cc, cc) * (1.0 - l); return; }\n'}  float T = 1.0;
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA; o = vec4(uEdgeC * l, l) + vec4(uEdgeCC * cc, cc) * (1.0 - l); return; }\n#endif\n'}  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
