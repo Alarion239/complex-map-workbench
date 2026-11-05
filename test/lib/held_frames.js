@@ -11,7 +11,7 @@
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u and the
-//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z (Inverse.front's order: keys in
+//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z (Inverse.frontByStep's order: keys in
 //   steps of 2^-8 octave, ties by larger Im z, then larger Re z) among the roots in the regions
 //   (where P is not the paper: a map many-to-one onto w under Inside regions; every root when none is, or with
 //   window.__giAllRoots) and colours w as P, plane z's
@@ -64,9 +64,9 @@
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       const k = g.key(z), cv = covers(z);
       if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      // (the renderer's front, Inverse.front: keys less than 2^-8 octave apart tie, then larger Im z, then larger Re z)
-      const tie = Math.abs(k - bk) < 2 ** -8;
-      const ahead = !best || (!tie ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
+      // (the renderer's front as Inverse.frontByStep orders a pair: keys in the same step of TIE_D tie, then larger Im z, then larger Re z)
+      const sk = Math.round(k / Inverse.TIE_D), sb = Math.round(bk / Inverse.TIE_D);
+      const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
       if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
     }
     // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one

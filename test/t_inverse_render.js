@@ -250,7 +250,7 @@ console.log('--- (h) golden emulation');
           const b = bary(x + 0.5, y + 0.5);
           if (b[0] < -1e-12 || b[1] < -1e-12 || b[2] < -1e-12) continue;
           const z = srcAt(b), k = y * W + x, cand = { z, D: Inverse.sheetKey(kp, z, null), lam: null };
-          if (best[k] && !(rev ? Inverse.front(best[k], cand) : Inverse.front(cand, best[k]))) continue;
+          if (best[k] && !(rev ? Inverse.frontByStep(best[k], cand) : Inverse.frontByStep(cand, best[k]))) continue;
           best[k] = cand;
           const pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] });
           col[3 * k] = pc.col[0]; col[3 * k + 1] = pc.col[1]; col[3 * k + 2] = pc.col[2]; cov[k] = 1;

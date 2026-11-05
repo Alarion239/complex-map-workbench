@@ -430,6 +430,7 @@ const Inverse = (() => {
   // The walk's buffer order: keys in the same step of TIE_D (round(D / TIE_D)) are ordered by the tie rule, so the
   // order is a total one and a buffer cut to its first entries keeps the first of that order whatever order the
   // walk meets its members in (a band is not transitive). The entries kept are then put front to back by Inverse.order.
+  // The pre-mapped meshes' depth (PRE_KEY's rounding step) orders sheets the same way: Inverse.frontByStep(a, b) is it for a pair.
   const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
   const byStep = (a, b) => (dStep(a.D) !== dStep(b.D) ? a.D < b.D : tieBefore(a, b));
 
@@ -1682,7 +1683,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, order, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, frontByStep: byStep, order, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

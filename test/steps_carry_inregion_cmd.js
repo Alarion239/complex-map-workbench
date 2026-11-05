@@ -24,18 +24,9 @@ const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() &&
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the points of a grid over the inner 80 % of the pane, and whether z is where plane z's picture shows it
-const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { lpx, paneOf, nearest, bare, exampleNames, fronts } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const grid = (P, nx, ny) => { const out = []; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push([P.v.cx + (i / (nx - 1) - 0.5) * 0.8 * P.w / P.v.s, P.v.cy + (j / (ny - 1) - 0.5) * 0.8 * P.h / P.v.s]); return out; };
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
-// for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.order in
-// the page; sing: the key's points in place of plane b's), -1 for none
-const fronts = async (lists, b, sing) => ev(`(() => {
-  const k = Object.assign(__cmwSvKey(${b}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'}), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) };
-  return ${JSON.stringify(lists)}.map((L) => {
-    const cands = L.map((p, i) => { const z = CX.C(p[0], p[1]); return { z, D: Inverse.sheetKey(prep, z, null), lam: null, i }; });
-    return cands.length ? Inverse.order(cands)[0].i : -1;
-  });
-})()`);
 // the colours at the points W of the state `at` against plane z's at the points Z: {n, wrong, paper, worst, state}
 // at.hold: the thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user
 // holding the thread; the frame is read once its programs are linked and two frames are alike
