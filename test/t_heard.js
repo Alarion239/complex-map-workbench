@@ -7,7 +7,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
-// the Mountain King scene of the golden logs: the old curve (the example is a function now, src/seasong.js)
+// the Mountain King scene of the golden logs: the curve as the logs hold it (the example itself is a function, src/seasong.js)
 const SEASONG = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'heard', 'mountain-king-curve.json'), 'utf8'));
 const C = CX.C, TAU = 2 * Math.PI;
 let bad = 0, n = 0;

@@ -253,29 +253,33 @@
   // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
-  function carryHeights(st, N, mode, H, mu, aspect) {
+  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
-    if (!landC || landC.N !== N) {
+    if (!polar && (!landC || landC.N !== N)) {
       if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
       landC = { N, tex1: floatTex(), tex2: floatTex() };
     }
+    const out = polar ? o : landC;
+    if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
-    runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, landC.tex1, N, N, gl.RGBA32F, gl.RGBA);
+    runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
-    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, landC.tex1);
+    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
-    runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, landC.tex2, N, N, gl.RGBA32F, gl.RGBA);
-    return landC;
+    runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
+    return out;
   }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (hs.N points a side) over the
   // box src, each at its image under the glide's map; bound to unit 11 (uCP) for the sheets' draw. Run every frame, as
@@ -292,6 +296,8 @@
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP);
     return true;
   }
+  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z): their textures, kept between frames
+  const CARRY_POLES = 5, CARRY_POLE_N = 96, landPP = [];
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
@@ -1192,6 +1198,12 @@
     // its own first, and the GPU process stalled once for them and once more for the sheets', r2 review verify-2)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
     const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (the carry's pole patches, made before the draw: each a TF pass of its own)
+    const pp = [];
+    if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
+      const o = landPP[pp.length] || (landPP[pp.length] = {});
+      pp.push({ polar, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
+    }
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
     if (!st.card) {
@@ -1223,7 +1235,10 @@
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
-      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); u1iv(P, 'uSheetMap', sp.map); }
+      // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
+      // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
+      const colB = hs && st.carry && st.carry.T < hs.b ? st.carry.T : hs ? hs.b : 0;
+      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
     };
@@ -1262,9 +1277,20 @@
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+      u4f(Pc, 'uPolar', 0, 0, 0, 0); u1f(Pc, 'uPatch', 0);
       gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+      // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
+      // the box's cells, so a patch shows only where they leave a hole)
+      if (pp.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8); }
+      for (let i = 0; i < pp.length; i++) {
+        u4f(Pc, 'uPolar', ...pp[i].polar); u1i(Pc, 'uN', CARRY_POLE_N); u1f(Pc, 'uPatch', 1);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, pp[i].o.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, pp[i].o.tex2);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (CARRY_POLE_N - 1) * (CARRY_POLE_N - 1));
+      }
+      if (pp.length) gl.disable(gl.POLYGON_OFFSET_FILL);
       info.refine = null;
-      info.carried = true;
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N;
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
@@ -1550,6 +1576,18 @@
       gl.bindVertexArray(null);
       gl.enable(gl.BLEND);
     }
+    // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
+    // the globe's depth again, which the passes below are tested against
+    const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
+    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr }, st.carried), sph));
+    if (carried) {
+      gl.colorMask(false, false, false, false);
+      use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
+      gl.depthFunc(gl.LEQUAL);
+      const g = sphere();
+      gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, g.count, gl.UNSIGNED_INT, 0); gl.bindVertexArray(null);
+      gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
+    }
     // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid}), or a
     // list of them, one per map ([#253] the shapes of each later plane)
     if (P) for (const pr of Array.isArray(st.pre) ? st.pre : st.pre ? [st.pre] : []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null }));
@@ -1607,7 +1645,7 @@
     }
     if (masked) { writeMask(true, true); keepInAlpha(); }
     resetState();
-    return { MVP, eye };
+    return { MVP, eye, key: sph.key, carried };
   }
   // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
   // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written
