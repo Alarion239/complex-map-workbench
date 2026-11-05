@@ -371,9 +371,6 @@
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
     return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'], [1]);
   }
-  // whether the fill takes its values from its point pass (fillPoints); off, it evaluates its own (the tests' reference)
-  let fillPtsOn = true;
-  function fillPointsOn(on) { fillPtsOn = !!on; return fillPtsOn; }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
@@ -386,8 +383,8 @@
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
-    // triangles they tear across a cut on their centre's sheet (regionKSCpt from its point pass, or regionKSC, the
-    // fill); without the cache, every triangle
+    // triangles they tear across a cut on their centre's sheet (regionKSCpt, its places from its point pass); without
+    // the cache, every triangle
     // on its centre's sheet (regionKS, the chain at every vertex). A cut clipped (cutKinds' clip): the sheet program's
     // triangles cut at it, and its pass again (uKPass 1) for the triangles across it, on the branch past it)
     const m = st.map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
@@ -402,8 +399,9 @@
     if (e === PENDING) e = null;
     if (e) { e.carry = true; carryTmpT = performance.now(); }
     let P = e ? program('regionKC', st.map) : null;
-    // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
-    // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
+    // (the fill's places from its point pass, fillPoints: the chain once per point of a torn sub-triangle. The fill never
+    // evaluates them itself, so its frames are the point pass's whatever the compiler does with either program; while
+    // the pass cannot run (fillPts or the fill still linking) the sheet program stands in, below)
     // (a sheet program without a clipped cut, under the key: drawn only with its mask (regionKS*m) of the same chain
     // version and map mode, so no frame shows a torn triangle whole; until the mask has linked, the frame draws as
     // while the sheet program itself links. Without the key (no depth to draw the mask into), the sheet program alone)
@@ -414,14 +412,12 @@
     };
     let fill = null, fp = null, mask = null;
     if (cuts && P && !carryProbe.noFill) {
-      const Q = fillPtsOn ? program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map) : null;
+      const Q = program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map);
       const QM = Q && masked ? maskOf('regionKSCpt', Q, program) : null;
       // (with the mask, the point pass's second run too: the places of the fill's pass 1)
       fp = Q && (!masked || QM) ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30, two: !!QM }) : null;
-      if (fp) { fill = Q; mask = QM; } else {
-        fill = (fillPtsOn ? linked : program)(clip ? 'regionKSCclip' : 'regionKSC', st.map);
-        if (fill && masked && !(mask = maskOf('regionKSC', fill, program))) fill = null;
-      }
+      if (fp) { fill = Q; mask = QM; }
+      noteFill(Q, !!fp);
     }
     let full = null;
     if (cuts && !fill && !carryProbe.noFill) {
