@@ -12,11 +12,12 @@
 // - the title names the height, h(F) on every plane ("landscape of log|F|", and "|F|", "Re F", "Im F" as the Height
 //   select reads), then past T the carried colour (", colour carried from w₁"); the floor's axes name the plane drawn
 //   (Re w₁, Im w₁ on w₁), and in a held frame the plane nearer the thread.
-// - a chain with a d/dz step (z², d/dz, exp): a plane that no map joins to T across the d/dz is a plain Landscape of
-//   its own points (svPlain): with T = w₁, planes w₂ and w₃ at rest are carried frames of their own points (s = the
-//   plane, plain), titled with the height alone; the glide w₁ → w₂ across the d/dz is plane w₁ at rest until its
-//   midpoint and plane w₂ after it; the glide w₂ → w₃ carries plane w₂'s points, plain. With T = w₃ (the last), plane
-//   w₁, before T across the d/dz, is plain at rest.
+// - a chain with a d/dz step (z², d/dz, exp), with T = w₁: planes w₂ and w₃ past T are coloured from T through the z
+//   points they share with it, as their 2D pictures are: at rest each is plane z's points carried (s = 0), titled
+//   ", colour carried from w₁"; the glides w₁ → w₂ across the d/dz and w₂ → w₃ carry plane z's points continuously
+//   (held at 1.25, 1.75, 2.5: s = 0, u the glide's, coloured), and held by either end of the d/dz glide the frame is that
+//   plane at rest. A plane's Landscape is plain exactly where its 2D picture has no colour (shapes only): with T = w₃,
+//   plane w₁, before T across the d/dz, is plain, plane z's points at w₁'s heights.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -103,7 +104,7 @@ for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
     ok(`height ${v}, plane ${i}: the title names ${h}`, t.endsWith(`landscape of ${h}` + (i > 1 ? ', colour carried from w₁' : '')), t);
   }
 }
-// ---- a chain with a d/dz step: the planes no map joins to T are plain Landscapes ----
+// ---- a chain with a d/dz step: the planes past it carry plane z's points in T's colour ----
 {
   const ns = `land3dd${Date.now()}`, step = (type, params) => ({ type, params: params || {}, on: true });
   const st0 = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [step('pown', { n: 2 }), step('deriv'), step('exp')], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
@@ -111,28 +112,53 @@ for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
   await settled({ max: 60000 });
-  const d = info.deriv = { planes: await ev('__cmwSteps().planes'), rest: {}, held: {} };
+  const d = info.deriv = { planes: await ev('__cmwSteps().planes'), rest: {}, held: {}, ends: {}, plane: {} };
   ok('the d/dz chain has four planes', Array.isArray(d.planes) && d.planes.length === 4, d.planes);
-  for (const i of [2, 3]) {
+  for (const i of [1, 2, 3]) {
     await rest(i);
     const s = d.rest[i] = await state();
+    await grab(`dr${i}`);
     ok(`d/dz chain, T = 1, plane ${i} at rest: the Landscape`, s.main === 'land' && s.key, s);
-    ok(`d/dz chain, T = 1, plane ${i} at rest: its own points, plain`, !!s.carry && s.carry.s === i && s.carry.plain, s.carry);
-    ok(`d/dz chain, T = 1, plane ${i} at rest: the title names the height alone`, s.title.endsWith('landscape of log|F|'), s.title);
+    if (i === 1) continue;
+    ok(`d/dz chain, T = 1, plane ${i} at rest: plane z's points carried, coloured`, !!s.carry && s.carry.s === 0 && s.carry.u === 1 && !s.carry.plain, s.carry);
+    ok(`d/dz chain, T = 1, plane ${i} at rest: the title names the carried colour`, s.title.endsWith('landscape of log|F|, colour carried from w₁'), s.title);
   }
-  for (const [x, want] of [[1.25, null], [1.75, 2]]) {
-    await rest(1);
+  for (const x of [1.25, 1.75, 2.5]) {
+    const j = Math.floor(x);
+    await rest(j);
     await park(x);
     const s = d.held[x] = await state();
-    ok(`d/dz chain, T = 1, held at ${x} across the d/dz: plane ${want == null ? 1 : want} at rest`, s.main === 'land' && (want == null ? !s.carry || !s.carry.plain : !!s.carry && s.carry.s === 2 && s.carry.plain && s.carry.u === 0), s.carry);
+    ok(`d/dz chain, T = 1, held at ${x}: plane z's points carried at u = ${x - j}, coloured`, s.main === 'land' && !!s.carry && s.carry.s === 0 && Math.abs(s.carry.u - (x - j)) < 1e-6 && !s.carry.plain, s.carry);
   }
-  await rest(2);
-  await park(2.5);
-  const s25 = d.held[2.5] = await state();
-  ok('d/dz chain, T = 1, held at 2.5: plane w₂\'s points carried, plain', s25.main === 'land' && !!s25.carry && s25.carry.s === 2 && s25.carry.plain && Math.abs(s25.carry.u - 0.5) < 1e-6, s25.carry);
-  await ev(`__cmwSteps({ T: 3 }); 1`);
-  await rest(1);
-  const s1 = d.rest.T3 = await state();
-  ok('d/dz chain, T = 3, plane 1 at rest (before T across the d/dz): its own points, plain', s1.main === 'land' && !!s1.carry && s1.carry.s === 1 && s1.carry.plain, s1);
+  // held by either end of the glide across the d/dz: that plane at rest (the carry is continuous into both)
+  for (const [x, end] of [[1.001, 1], [1.999, 2]]) {
+    await rest(1);
+    await hold(x);
+    await ev(rAF2);
+    const s = await state();
+    await grab(`dh${x}`);
+    const c = await compare(`dh${x}`, `dr${end}`), df = c && c.frac;
+    d.ends[x] = { carry: s.carry, d: df };
+    await ev('window.__svScrubUp(), 1');
+    await settled({ max: 60000 });
+    ok(`d/dz chain, T = 1, held at ${x}: a carried frame from plane z`, !!s.carry && s.carry.s === 0 && !s.carry.plain, s.carry);
+    ok(`d/dz chain, T = 1, held at ${x}: plane ${end} at rest there (≤ 2 % of pixels > 32/255)`, df != null && df <= 0.02, d.ends[x]);
+  }
+  // the Landscape is plain exactly where the Plane surface's picture has no colour ("shapes only")
+  for (const T of [1, 3]) {
+    await ev(`__cmwSteps({ T: ${T} }); 1`);
+    for (const i of [0, 1, 2, 3]) {
+      await ev(`__cmwSteps({ surf: 'plane' }); 1`);
+      await rest(i);
+      const t2 = (await state()).title;
+      await ev(`__cmwSteps({ surf: 'land' }); 1`);
+      await rest(i);
+      const s = await state(), plain = !!s.carry && s.carry.plain;
+      d.plane[`T${T}p${i}`] = { t2, carry: s.carry };
+      ok(`d/dz chain, T = ${T}, plane ${i}: the Landscape is plain exactly when the 2D picture is shapes only`, plain === /shapes only/.test(t2), d.plane[`T${T}p${i}`]);
+    }
+  }
+  const s1 = d.plane.T3p1.carry;
+  ok('d/dz chain, T = 3, plane 1 at rest (before T across the d/dz): plane z\'s points, plain', !!s1 && s1.s === 0 && s1.plain, s1);
 }
 return { pass: fails.length === 0, fails, info };
