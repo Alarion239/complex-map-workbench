@@ -2208,6 +2208,61 @@ unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, 
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
 // probe (no gate): the zeta scene's Inside-regions strip scrub (as sv.interact.zeta) in three variants on one page each:
 // ctl (as is), nolabels (the label pass's microtask dropped), ptcache (CX's powTable memoised, __ptCache; hit/miss in the details)
+// probe (no gate): who calls CX's powTable in the zeta scene's Inside-regions scrub: the CPU profile's parent chains of the
+// samples in powTable, and the call counts per drawn frame of the functions called most (precise coverage), on each side
+unit('sv.probe.callers', 'probe: callers and calls per frame of powTable in the zeta Inside-regions scrub (log lines only)', async () => {
+  await B.nav(`${BASE}test.html?ns=perfpc${process.pid}_${++nsCounter}&view=steps`);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+  await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
+  await settle(await pageNow());
+  await sleep(SV_IDLE_MS);
+  for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+  await settle(await pageNow());
+  await B.ev(`__cmwSteps({ scope: 'in', go: 0, now: true }), 1`);
+  await settle(await pageNow());
+  const side = typeof BASE_A !== 'undefined' && BASE === BASE_A ? 'ref' : 'cur';
+  await B.send('Profiler.enable');
+  await B.send('Profiler.setSamplingInterval', { interval: 250 });
+  await B.send('Profiler.startPreciseCoverage', { callCount: true, detailed: false });
+  await B.send('Profiler.takePreciseCoverage');
+  await B.send('Profiler.start');
+  const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+  const a = await pageNow();
+  const r1 = await stripAt();
+  await B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 });
+  const r2 = await stripAt();
+  await B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 });
+  const b = await pageNow();
+  const { profile: P } = await B.send('Profiler.stop');
+  const cov = await B.send('Profiler.takePreciseCoverage');
+  await B.send('Profiler.stopPreciseCoverage');
+  const frames = (await B.ev(`__perf.framesSince(${a}, ${b})`)).filter((f) => f[4] > 0).length || 1;
+  const counts = new Map();
+  for (const sc of cov.result) for (const f of sc.functions) {
+    const n = f.ranges && f.ranges[0] ? f.ranges[0].count : 0;
+    if (f.functionName && n > 0) counts.set(f.functionName, (counts.get(f.functionName) || 0) + n);
+  }
+  const top = [...counts].sort((x, y) => y[1] - x[1]).slice(0, 30).map(([k, v]) => `${k} ${(v / frames).toFixed(1)}`).join(', ');
+  const watch = ['powTable', 'zetaEM', 'zeta', 'dirichletEM', 'lgamma', 'invHomPath', 'svHomPaths', 'svCarryShapes', 'flushLabels', 'flushLabelsIn', 'drawInverse', 'buildInverse', 'newton'].map((k) => `${k} ${((counts.get(k) || 0) / frames).toFixed(2)}`).join(', ');
+  log(`  [callers ${side}] ${frames} drawn frames; calls per frame: ${watch}`);
+  log(`  [callers ${side}] top 30 functions by calls per frame: ${top}`);
+  const byId = new Map(P.nodes.map((n) => [n.id, n])), parent = new Map();
+  for (const n of P.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  const chains = new Map(); let tot = 0;
+  for (const id of P.samples) {
+    const nd = byId.get(id);
+    if (!nd || nd.callFrame.functionName !== 'powTable') continue;
+    tot++;
+    const ch = []; let q = parent.get(id);
+    for (let d = 0; q != null && d < 9; d++, q = parent.get(q)) ch.push(`${byId.get(q).callFrame.functionName || '(anon)'}:${byId.get(q).callFrame.lineNumber}`);
+    const k = ch.join(' < '); chains.set(k, (chains.get(k) || 0) + 1);
+  }
+  const chTop = [...chains].sort((x, y) => y[1] - x[1]).slice(0, 5);
+  log(`  [callers ${side}] powTable samples ${tot}; parent chains (innermost first), top 5:`);
+  for (const [k, v] of chTop) log(`  [callers ${side}]   ${v} (${(100 * v / Math.max(1, tot)).toFixed(0)}%) ${k}`);
+  put(`sv.probe.callers.powtable_calls_per_frame`, 'info', 'calls/frame', [(counts.get('powTable') || 0) / frames]);
+}, { timeoutS: 600 });
 unit('sv.probe.zeta', 'probe: the zeta scene Inside-regions scrub, as is / labels off / powTable cached; cpu_p95 per variant (info)', async () => {
   const VARS = ['ctl', 'nolabels', 'ptcache'], out = {};
   for (const v of VARS) out[v] = [];

@@ -31,7 +31,7 @@ const SHARDS = [
 const PARTS = [
   { id: 'steps-first', of: 'steps', re: '^sv\\.(first_glide|glide_start|glide_passes)$', what: 'the steps view: the first glide' },
   { id: 'steps-default', of: 'steps', re: '^sv\\.(interact|glide)\\.default$', what: 'the steps view on the default page: the interactions and the warm glide' },
-  { id: 'steps-zeta', of: 'steps', re: '^sv\\.(interact|glide)\\.zeta$|^sv\\.probe\\.zeta$', what: 'the steps view on the zeros of zeta: the interactions and the warm glide' },
+  { id: 'steps-zeta', of: 'steps', re: '^sv\\.(interact|glide)\\.zeta$|^sv\\.probe\\.(zeta|callers)$', what: 'the steps view on the zeros of zeta: the interactions and the warm glide' },
   { id: 'steps-king', of: 'steps', re: '^sv\\.(interact|glide)\\.king$', what: 'the steps view on the Mountain King: the interactions and the warm glide' },
   { id: 'steps-globe', of: 'steps', re: '^sv\\.glide\\.(globe|globe_in|jouk)$', what: 'the steps view on the globe: the warm glide, Everywhere and Inside regions (default page); and the Joukowski airfoil\'s glide on the plane (info)' },
   { id: 'steps-land', of: 'steps', re: '^sv\\.glide\\.(land|land_in|land_pole)$', what: 'the steps view\'s Landscape: the warm glide, Everywhere, Inside regions and across the Möbius step\'s pole (default page; info)' },
