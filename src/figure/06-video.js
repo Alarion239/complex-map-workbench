@@ -94,12 +94,14 @@
     return [u0, u0 + s, v0, v0 + s];
   }
   // the plan of the steps view's glide along its thread (gl: A.svGlide): the left pane at the screen's window widened to
-  // the frame's aspect; video time t is the thread position gl.lo + t, so m is the number of steps. The pane's own
-  // paths and outlines come with its picture (the strip's state), so no vector marks are drawn over it
+  // the frame's aspect, or on the sphere and the Landscape the screen's camera at the frame's own aspect (the whole
+  // picture, no crop: the frame is the screen's); video time t is the thread position gl.lo + t, so m is the number of
+  // steps. The pane's own paths and outlines come with its picture (the strip's state), so no vector marks are drawn
+  // over it
   function glidePlan(o, v, gl) {
-    const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo;
+    const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo, pic = gl.surf !== 'plane';
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(A.svBox(), W / H), times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(1.5, H / 360) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(A.svBox(), W / H), landBox: gl.surf === 'land' && A.landBox ? A.landBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
   }
   // the plan of a video: what is drawn, where, the tracked points
   async function videoPlan(opts) {
@@ -201,7 +203,7 @@
     const look = v.look === 'print' ? 'print' : 'light';
     const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'globe' || kind === 'phaseGlobe' };
     let r;
-    if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
+    if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, plan.pic ? { wpt: W / dpr * 72 / 96, hpt: H / dpr * 72 / 96, landBox: plan.landBox } : { box: plan.box, wpt: W / dpr * 72 / 96 }));
     else if (plan.box) r = await A.art(side, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
     else {
       const [u0, u1, v0, v1] = plan.crop, zx = 1 / (u1 - u0), zy = 1 / (v1 - v0);

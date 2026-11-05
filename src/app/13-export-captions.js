@@ -312,19 +312,21 @@
         : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
       try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
-    // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes, null without a
-    // step or off the plane surface; svGlideArt draws the left pane parked at thread position x, as the screen draws
-    // it there (svRenderMoving), and svGlideText is the screen's own words for that place
+    // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
+    // it is drawn on, null without a step or where the left pane shows no picture of that surface; svGlideArt draws the
+    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving),
+    // at o.box on the plane and at the frame's o.wpt x o.hpt in the screen's camera on the sphere and the Landscape, and
+    // svGlideText is the screen's own words for that place
     svGlide: () => {
       const P = svPlanes();
-      if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
+      if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
       const R = svRange();
-      return { at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
+      return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
     },
     svGlideArt: async (x, o) => {
       const keep = { x: SV.g.x, span: SV.span };
       SV.span = null; SV.g.set(x);
-      try { return await artRender('L', Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) })); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : o); } finally { SV.g.set(keep.x); SV.span = keep.span; }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
