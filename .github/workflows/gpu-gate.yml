@@ -16,6 +16,9 @@
 # the artifact glprof-<machine>. Machines windows-hosted (mode glprof only): the same on GitHub's windows-latest, whose
 # Direct3D 11 renders on WARP but compiles with the same FXC on the CPU, against the reference: an A/B of link times
 # while the laptop is away (#378).
+# By hand with mode suites and the input suites (a regular expression of suite file names, as ci/browser.js --only):
+# only those browser suites, on the Mac's real GPU, at the ref the run is dispatched on (run it on two refs to compare
+# them). No perf, GLSL or quality jobs; the approval of the `gpu-runners` environment still comes first.
 name: GPU gate
 
 on:
@@ -49,10 +52,14 @@ on:
         type: boolean
         default: false
       mode:
-        description: gate (the paired gates) or glprof (the app's shader link times, cold and warm, issue #72; no gate)
+        description: gate (the paired gates), glprof (the app's shader link times, cold and warm, issue #72; no gate) or suites (only the browser suites named by the input suites, on the Mac; no gate)
         type: choice
-        options: [gate, glprof]
+        options: [gate, glprof, suites]
         default: gate
+      suites:
+        description: 'Mode suites: a regular expression of browser suite file names, as ci/browser.js --only (e.g. ^steps_glide_look_cmd); required then'
+        required: false
+        default: ''
       walk:
         description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples; mountain: only the Mountain King, its Landscape and deformation; steps: the steps view on Strip to disk, the zeros of zeta and the Mountain King: a glide, a scrub and a plane past the colour plane, #439)'
         type: choice
@@ -123,6 +130,18 @@ jobs:
           sha=$(git rev-parse --verify "$ref^{commit}")
           echo "reference=$sha" >> "$GITHUB_OUTPUT"
           echo "Reference of the paired gates: \`$sha\` ($ref)" >> "$GITHUB_STEP_SUMMARY"
+      # (mode suites: the regex is checked here, behind the approval, and reaches the suites job through the environment, never through the shell's text)
+      - if: inputs.mode == 'suites'
+        shell: bash
+        env:
+          SUITES: ${{ inputs.suites }}
+        run: |
+          set -eu
+          node -e '
+            const s = process.env.SUITES;
+            if (!s) { console.error("::error::mode suites needs the input suites (a regular expression of suite file names, as ci/browser.js --only)"); process.exit(1); }
+            try { new RegExp(s); } catch (e) { console.error("::error::the input suites is not a regular expression: " + e.message); process.exit(1); }'
+          echo "Browser suites on the Mac: \`$SUITES\`" >> "$GITHUB_STEP_SUMMARY"
       - id: shards
         shell: bash
         run: |
@@ -210,11 +229,37 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  # (mode suites, by hand: the browser suites the regex names, on the Mac's GPU, at the dispatched ref; the summary and the log
+  # carry ci/browser.js's table, and the job fails when a suite does)
+  suites:
+    name: Browser suites (${{ matrix.machine }} GPU)
+    needs: plan
+    if: inputs.mode == 'suites'
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+    runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node ci/gpu_probe.js --require-hardware
+      - shell: bash
+        env:
+          SUITES: ${{ inputs.suites }}
+        run: node ci/browser.js --only "$SUITES"
+
   glsl:
     name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
     needs: plan
     # (glsl skip, by hand: no GLSL and no quality jobs, the perf shards start at once; a measurement, not the full gate)
-    if: inputs.mode != 'glprof' && inputs.glsl != 'skip'
+    if: inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.glsl != 'skip'
     strategy:
       fail-fast: false
       matrix:
@@ -251,7 +296,7 @@ jobs:
     needs: [plan, glsl]
     # (!cancelled(), not always(): a failed GLSL job still lets quality run, a cancelled run stops here; always() is
     # true after a cancel too: cancelled run 41015822380 still queued its quality job on our machines)
-    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.glsl != 'skip' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.glsl != 'skip' }}
     strategy:
       fail-fast: false
       matrix:
@@ -280,7 +325,7 @@ jobs:
   perf:
     name: Perf (${{ matrix.machine }} GPU, ${{ matrix.shard }})
     needs: [plan, quality]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.mode != 'suites' }}
     strategy:
       fail-fast: false
       matrix:
@@ -314,7 +359,7 @@ jobs:
 
   gate:
     name: GPU gate
-    if: always() && needs.plan.result != 'skipped' && inputs.mode != 'glprof'
+    if: always() && needs.plan.result != 'skipped' && inputs.mode != 'glprof' && inputs.mode != 'suites'
     needs: [plan, glsl, quality, perf]
     runs-on: ubuntu-latest
     timeout-minutes: 5
