@@ -72,7 +72,7 @@ const sp = await S();
 ok('parked at 0.5: the deformation there, between z and w₁', Math.abs(sp.x - 0.5) < 1e-9 && sp.moving === true && !sp.anim, sp);
 const hP = await hash('sv_park');
 ok('the parked picture is neither plane\'s', hP !== hZ && hP !== h1, [hP, hZ, h1]);
-ok('while parked, the plane\'s label and the thread\'s value say where it is', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && /Between z and w₁/.test(document.querySelector('#svStrip .sv-thumb').getAttribute('aria-valuetext'))`), null);
+ok('while parked, the plane\'s label says where it is and the thread\'s value reads the step and its percentage', await ev(`/Between z and w₁/.test(document.getElementById('paneL').getAttribute('aria-label')) && document.querySelector('#svStrip .sv-thumb').getAttribute('aria-valuetext') === 'Step 1 of 2 · f₁ · 50 %'`), await ev(`document.querySelector('#svStrip .sv-thumb').getAttribute('aria-valuetext')`));
 // (#492) a parked frame, Everywhere: the grid, the colour layer and the outlines are one GL frame, one copy into the page
 // (GLR.blit), once the glide's programs are ready (while one compiles, the CPU carry's layers go one by one); (#440's
 // follow-up) Inside regions too: the grid under G's masked frame and the outlines over it

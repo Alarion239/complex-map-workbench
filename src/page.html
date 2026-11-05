@@ -1433,7 +1433,10 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 /* (v16.1 user-5) a menu opened from a dialog sits over the dialog (modal 50), under the toast (60) and the tooltip (70) */
 .pop.over-modal { z-index: 55; }
 @keyframes pop-in { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
+@keyframes toast-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@keyframes toast-out { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 8px; } }
 @keyframes pop-in-up { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .pop.closing { animation: fade-out var(--t-fast) linear forwards; }
 @keyframes fade-out { to { opacity: 0; } }
@@ -1573,14 +1576,16 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
   pointer-events: auto; display: flex; align-items: center; gap: 12px; height: 36px; max-width: 100%; padding: 0 4px 0 12px;
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3);
   font: var(--t-body); color: var(--ink); white-space: nowrap;
-  animation: pop-in-up var(--t-med) var(--ease-out);
+  animation: toast-in 150ms var(--ease-out);
 }
+.toast.toast-out { animation: toast-out 150ms var(--ease-out) forwards; pointer-events: none; }
 /* over a dialog a message never takes a click meant for the dialog under it (a phone's lies across the dialog's footer, over
-   More formats): only its own buttons (Undo, close) stay live */
+   More formats): only its own action buttons (Undo) stay live; its × does not, and a timed message goes by itself */
 :root:has(.modal-bg) #toastHost .toast { pointer-events: none; }
 :root:has(.modal-bg) #toastHost .toast button { pointer-events: auto; }
-.toast:not(:has(.toast-act)) { padding-right: 12px; }
-.toast .toast-x { flex: 0 0 auto; width: 28px; height: 28px; margin-left: -8px; }
+:root:has(.modal-bg) #toastHost .toast .toast-x { pointer-events: none; }
+
+.toast .toast-x { flex: 0 0 auto; width: 24px; height: 24px; margin-left: -8px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; }
 .toast-act { height: 28px; padding: 0 8px; border-radius: var(--r-2); font: 600 13px/18px var(--f-ui); color: var(--accent); transition: background-color var(--t-fast) var(--ease-out); }
 .toast-act:hover { background: var(--accent-soft); }
@@ -2009,7 +2014,9 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .led.busy { animation: none; opacity: 1; }
   .hairline::before { animation: none; width: 100%; opacity: 0.6; }
   #warmBar.indet > i { animation: none; width: 100%; opacity: 0.6; }
-  .pop, .toast, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
+  .pop, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
+  .toast { animation: fade-in 150ms linear !important; }
+  .toast.toast-out { animation: fade-out 150ms linear forwards !important; }
   .layout.drawer-right > .panel.right, .layout.drawer-left > .panel.left { animation: fade-in 80ms linear !important; }
   .lamp.flash { animation: none; }
   .seg::before { transition: none; }
