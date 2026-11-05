@@ -93,7 +93,7 @@
     if (S.outline) {
       const map = stageMap(0);
       for (const o of shapeOutlines(map)) {
-        const dash = o.r.open ? { dash: [5, 3.5], arc: arcOf(o.r, stageF(0), mapKeyOf(o.map)) } : null;
+        const dash = openDash(o.r, o.map, stageF(0));
         GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 2.4 * pane.dpr }, cacheKey: o.cacheKey }, dash));
       }
     }

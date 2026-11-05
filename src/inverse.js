@@ -17,7 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
-  const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
+  const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // budgets (SPEC 3.1)
   const LEAF_CAP = 64, WIN_MAX = 17, MIN_WIN = 9, OPS_MAX = 16, POLY_MAX = 64, M_MAX = 2 ** 20, RAMP = 1;
@@ -35,7 +35,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -51,9 +51,14 @@ const Inverse = (() => {
       if (!st || st.on === false) return 'off';
       if (!b || b.error || !b.def) return 'err';
       const r = stepOps(b);
-      return r.ok ? r.ops.map((o) => o.kind) : 'X';
+      return r.ok ? r.ops.map(opSig) : 'X';
     });
     return JSON.stringify(['inv2', sigs]);
+  }
+  // an op's part of the key: its kind, and a NEWT op's seeding ops with their member counts (they shape its program)
+  function opSig(o) {
+    const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
+    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind;
   }
   // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
   function planChain(steps, built, a = 0, b = steps.length) {
@@ -1562,6 +1567,92 @@ const Inverse = (() => {
   // =====================================================================================================
   // 12. Homotopy end points for normalizeMap (SPEC 10.5; verified by test/t_inverse.js (k))
   // =====================================================================================================
+
+  // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
+  // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
+  // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
+  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
+  // (newtOps). {ok, ops} | {ok: false, reason}
+  function homOps(b, t) {
+    if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
+    if (!(t > 0)) return { ok: true, ops: [] };
+    if (t >= 1) return stepOps(b);
+    const id = b.def.id, nat = b.nat || null, nd = b.natData || null;
+    const T = C(t, 0), aff = (a, c) => opAff(a, c);
+    const mobOf = (M) => (isZero(M[2]) ? opAff(div(M[0], M[3]), div(M[1], M[3])) : opMob(M));
+    if (nat && nat.kind === 'chain' && b.rec) {
+      const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
+      for (let i = 0; i < j; i++) { const r = stepOps(sub[i]); if (!r.ok) return r; ops.push(...r.ops); }
+      const r = homOps(sub[j], x - j);
+      if (!r.ok) return r;
+      return { ok: true, ops: ops.concat(r.ops) };
+    }
+    const own = stepOps(b);
+    if (!own.ok) return newtOps(b, t, own.reason);
+    const one = own.ops.length === 1 ? own.ops[0] : null;
+    // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path
+    if (one && (one.kind === 'MOB' || one.kind === 'AFF') && (!nat || nat.kind === 'mob')) {
+      const m = one.kind === 'MOB' ? one.p.m : [one.p.a, one.p.b, ZERO, ONE];
+      const path = CX.mobPath(m);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [mobOf(path(t))] };
+    }
+    // z^n, n >= 0 (powHom about 0, principal): z^{1+(n-1)t}
+    if (one && one.kind === 'IPOW' && !nat && one.p.n > 0) {
+      const sv = C(1 + (one.p.n - 1) * t, 0);
+      return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
+    }
+    // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
+    if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
+      const { s, theta, k } = one.p, sv = add(ONE, scale(sub(s, ONE), t));
+      return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] };
+    }
+    // log on the cut theta, sheet k (logHom): (z^u - 1)/u + u, u = 1 - t, z^u on that branch; the logarithm itself
+    // where u is below logHom's 1e-6
+    if (one && one.kind === 'LOG' && !nat && id === 'log') {
+      const u = 1 - t, { theta, k } = one.p;
+      if (u < 1e-6) return own;
+      return { ok: true, ops: [opRootPow(C(u, 0), theta, k, (z) => CX.powReal(z, u, theta, k)), aff(C(1 / u, 0), C(u - 1 / u, 0))] };
+    }
+    if (nat && nat.kind === 'pow' && nd) {
+      const sv = C(1 + (nd.n - 1) * t, 0);
+      return { ok: true, ops: [aff(ONE, neg(nd.c)), opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), aff(exp(scale(nd.la, t)), scale(nd.c, 1 - t))] };
+    }
+    // the exponential's zoom (e^{tz} - 1)/t + t
+    if (id === 'exp' || (nat && nat.kind === 'exp')) {
+      if (t < 1e-6) return { ok: true, ops: [] };
+      return { ok: true, ops: [aff(T, ZERO), opExp(null), aff(C(1 / t, 0), C(t - 1 / t, 0))] };
+    }
+    if (nat && nat.kind === 'zoom' && ['sin', 'sinh', 'tan', 'tanh', 'arcsin', 'arsinh', 'arctan', 'artanh'].includes(nat.fn)) {
+      return { ok: true, ops: [aff(T, ZERO), ...own.ops, aff(C(1 / t, 0), ZERO)] };
+    }
+    if (nat && nd && ((nat.kind === 'gzoom' && t >= nd.t0) || nat.kind === 'ratzoom')) {
+      const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);
+      return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
+    }
+    // Joukowski (Funcs joukHom): C^-1((Cz)^(1+t)), C(z) = (z - 1)/(z + 1), on the branch arg Cz in (-pi/2, 3pi/2]; as the
+    // principal power of -i Cz, (Cz)^s = e^(i pi s / 2) (-i Cz)^s with s = 1 + t. Its ROOTPOW carries glideKey: the
+    // chain's poles are the Cayley map's, not the homotopy's, so a glide frame keys its points by the glide's key
+    // points (invHomPath's singAt), as for a NEWT op
+    if (nat && nat.kind === 'jouk') {
+      const sv = C(1 + t, 0), k = C(Math.cos(HPI * (1 + t)), Math.sin(HPI * (1 + t))), mI = C(0, -1);
+      const rp = Object.assign(opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), { glideKey: true });
+      return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), rp, opMob([k, ONE, neg(k), ONE])] };
+    }
+    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
+  }
+  // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
+  // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
+  // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
+  // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
+  function newtOps(b, t, reason) {
+    if (!(b.props && b.props.analytic)) return { ok: false, reason };
+    const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
+    const own = stepOps(b);
+    return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
+  }
+  // a stand-in for built step b whose ops are its homotopy's at t (stepOps reads them)
+  function homBuilt(b, t) { return Object.assign({}, b, { __homOps: () => homOps(b, t) }); }
   // catalog types whose homotopy satisfies H_0 = id and H_1 = f (to 1e-12 (1 + |f|)): a paused morph at t = 0 or 1
   // may be drawn as the mode-0 map of the stage it equals
   const HOM_EXACT = new Set(['mul', 'add', 'affine', 'recip', 'mobius', 'blaschke', 'pown', 'root', 'powa', 'exp', 'log',
@@ -1571,8 +1662,8 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

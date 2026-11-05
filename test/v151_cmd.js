@@ -1,9 +1,9 @@
-// Acceptance: verify-3 (the degenerate Möbius note), verify-7 (a Cyrillic letter in a number's
-// value field), verify-8 (the language switch keeps a selection other than the step shown alone), verify-9 (the F
+// v15.1 acceptance (review-v15-verify): verify-3 (the degenerate Möbius note), verify-7 (a Cyrillic letter in a number's
+// value field), verify-8 (the language switch keeps a selection other than the plane shown), verify-9 (the F
 // list's fractions in display style). verify-1, verify-4 and verify-6 are in v15_desktop_cmd.js, verify-10 in
 // tour_cmd.js. Run: test/<you>_cdp/q.sh test/v151_cmd.js
-// Probe: verify-1 (t labels while playing), verify-3 (degenerate Möbius note), verify-7 (Cyrillic in a value
-// field), verify-8 (language switch with Show alone on another step), verify-9 (the F list's fractions).
+// v15.1 probe: verify-1 (t labels while playing), verify-3 (degenerate Möbius note), verify-7 (Cyrillic in a value
+// field), verify-8 (language switch with another plane shown), verify-9 (the F list's fractions).
 const P = { port: (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1], tag: 'v151' }, base = `http://localhost:${P.port}/test.html`, out = { port: P.port };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const open = async (ns, st, q = '') => {
@@ -44,11 +44,12 @@ await typeIn('.prm-row[data-name="b"] .prm-val', 'д');
 out.v7.cyrD = await errOf('b');
 await typeIn('.prm-row[data-name="b"] .prm-val', 'q');
 out.v7.latinQ = await errOf('b');
-// verify-8: f1 shown alone, f2 selected, then the language switch
+// verify-8: plane w₁ shown (the steps view looks at another step by showing its plane), f2 selected, then the language switch
 ns = 'pr8' + Date.now();
-await open(ns, { shapes: SH, steps: [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '0.5', poles: '-0.5' }, on: true }], focus: 1 });
-await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="2"]'); c.click(); return 1; })()`); await settle(600);
-const selState = `(() => { const C = __cmwCards(); return { focus: C.focus, sel: C.sel, insp: (document.querySelector('#propsPanel .insp-step .ihead .ttl') || {}).textContent || null, k: (document.querySelector('#propsPanel .insp-step') || { dataset: {} }).dataset.k }; })()`;
+await open(ns, { shapes: SH, steps: [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '0.5', poles: '-0.5' }, on: true }] });
+await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'); c.click(); return 1; })()`); await settle(600);
+await ev(`__cmwSteps({ go: 1, now: true }), 1`); await settle(900);
+const selState = `(() => { const C = __cmwCards(), s = __cmwSteps(); return { stage: s.stage, sel: C.sel, insp: (document.querySelector('#propsPanel .insp-step .ihead .ttl') || {}).textContent || null, k: (document.querySelector('#propsPanel .insp-step') || { dataset: {} }).dataset.k }; })()`;
 out.v8 = { before: await ev(selState) };
 await ev(`(() => { I18N.setPref('ru'); return 1; })()`); await sleep(3000); await settle(800);
 out.v8.after = await ev(selState);
@@ -76,8 +77,8 @@ ok('verify-7: «с» in a value field (no number c) names the Russian letter, no
 ok('verify-7: «д» names the Russian letter', /Буква «д» — русская/.test(sp(out.v7.cyrD.err)), out.v7.cyrD);
 ok('verify-7: a look-alike of a known number (а for a) still reads as that number', out.v7.cyrA.err === '', out.v7.cyrA);
 ok('verify-7: a Latin unknown name keeps its message', /^q не задано/.test(out.v7.latinQ.err), out.v7.latinQ);
-const same = (a, b) => a && b && a.focus === b.focus && a.sel === b.sel && a.k === b.k;
-ok('verify-8: the switch keeps f2 selected while f1 is shown alone (and back)', out.v8.before.focus === 1 && out.v8.before.sel === 2 && same(out.v8.before, out.v8.after) && same(out.v8.before, out.v8.back) && /Нули и полюсы/.test(sp(out.v8.after.insp)), out.v8);
+const same = (a, b) => a && b && a.stage === b.stage && a.sel === b.sel && a.k === b.k;
+ok('verify-8: the switch keeps f2 selected while plane w₁ is shown (and back)', out.v8.before.stage === 1 && out.v8.before.sel === 2 && same(out.v8.before, out.v8.after) && same(out.v8.before, out.v8.back) && /Нули и полюсы/.test(sp(out.v8.after.insp)), out.v8);
 for (const w of ['1440', '1024']) ok(`verify-9 ${w}: the w list is in display style and fits its well`, out.v9[w] && out.v9[w].wl.length === 2 && out.v9[w].wl.every((x) => /^\\displaystyle /.test(x.tex) && x.right <= x.formRight), out.v9[w]);
 ok('no exceptions', out.logs.length === 0, out.logs);
 return { pass: fails.length === 0, fails, info: out };
