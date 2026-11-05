@@ -48,7 +48,7 @@ for (const [name, w, h, touch] of [['desk', 1280, 800, false], ['phone', 390, 84
       inside: async () => {
         // (short of room the scope is a menu button: its menu holds the choice)
         if (await press('#svHead .sv-scope [data-v="in"]')) return;
-        if (await press('#svHead .sv-scope-menu')) { await sleep(200); await press('.pop.menu [role=menuitemradio]:last-child'); }
+        if (await press('#svHead .sv-scope-menu')) { await waitFor(`!!document.querySelector('.pop.menu [role=menuitemradio]')`); await press('.pop.menu [role=menuitemradio]:last-child'); }
       },
       surface: async () => { await press('#svHead .sv-surf1'); await sleep(400); await ev(`(() => { const b = document.querySelectorAll('.pop.menu [role=menuitemradio]')[1]; if (b) b.click(); return !!b; })()`); },
       step: async () => { await press('#svStrip .sv-fchip'); },

@@ -1784,7 +1784,7 @@
   // the border and rounding). Short of room, a chip's name gives up its width in SV_NAME_STEP px steps (a few letters
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
-  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16, SV_TITLE_MIN = 100;
+  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16, SV_TITLE_MIN = 100;   // (SV_TITLE_MIN: the least the cut title keeps: "z · landscape of …" is readable at that width)
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));

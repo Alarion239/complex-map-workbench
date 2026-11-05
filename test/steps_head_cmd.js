@@ -121,11 +121,17 @@ for (const lang of ['en', 'ru', 'it']) {
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(1024, 768, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
+  const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` });
+  await until(`document.readyState === 'complete'`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}land', ${JSON.stringify(JSON.stringify(LAND))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land&lang=en&view=steps` }); await sleep(3000); await settle(500);
-  for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-title')`)); i++) await sleep(100);
-  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`); await settle(1500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land&lang=en&view=steps` });
+  await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
+  // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
+  await until(`(() => { const b = document.getElementById('svHead'), k = b.className + '|' + b.querySelector('.sv-title').innerText, r = window.__fk !== k; window.__fk = k;
+    return __cmwSteps().surf === 'land' && /landscape of/.test(b.querySelector('.sv-title').innerText) && !r; })()`);
   const title = await ev(`(() => { const t = document.querySelector('#svHead .sv-title'), r = t.getBoundingClientRect();
     return { surf: __cmwSteps().surf, hh: Math.round(document.querySelector('#paneL .pane-head').getBoundingClientRect().height), w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
   info.title1024 = title;
@@ -142,10 +148,12 @@ for (const lang of ['en', 'ru', 'it']) {
   ok('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
     fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && fold.name === 'Scope: Everywhere' && fold.text === 'Everywhere' : !fold.menuShown && fold.segShown, fold);
   if (fold.sm) {
-    await ev(`document.querySelector('.sv-scope-menu').click(); 1`); await settle(300);
+    await ev(`document.querySelector('.sv-scope-menu').click(); 1`);
+    await until(`!!document.querySelector('.pop.menu [role=menuitemradio]')`);
     const sm = await ev(`(() => { const m = document.querySelector('.pop.menu'); return m && { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
     ok('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Scope' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
-    await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Inside/.test(b.textContent)).click(); 1`); await settle(800);
+    await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Inside/.test(b.textContent)).click(); 1`);
+    await until(`__cmwSteps().scope === 'in' && /Inside/.test(document.querySelector('.sv-scope-menu').textContent)`);
     const after = await ev(`(() => { const m = document.querySelector('.sv-scope-menu'); return { scope: __cmwSteps().scope, name: m.getAttribute('aria-label'), text: m.textContent.trim() }; })()`);
     ok('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Scope: Inside regions' && after.text === 'Inside', after);
   }
