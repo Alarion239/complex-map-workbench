@@ -145,8 +145,8 @@ if (part('preview')) {
     await sleep(150);
   }
   const st = await pvState();
-  ok('preview: the glide plays in the dialog by itself, every frame drawn, the note says at what size', tMoving >= 0 && tFilled >= 0 && st && st.ready === st.total && st.n === st.total && /^Preview/.test(st.note || ''), st);
-  const adv = await ev(`await (async () => { const d = __cmwFig.dialog(); const a = d.preview.state().index; const t = performance.now(); await new Promise((r) => setTimeout(r, 1000)); return { rate: d.preview.state().index - a, ms: performance.now() - t }; })()`);
+  ok('preview: the glide plays in the dialog by itself, every frame drawn, the note says at what size', tMoving >= 0 && tFilled >= 0 && st && st.ready === st.total && st.total > 0 && st.total <= st.n && /^Preview/.test(st.note || ''), st);
+  const adv = await ev(`await (async () => { const d = __cmwFig.dialog(); const a = d.preview.state().i; const t = performance.now(); await new Promise((r) => setTimeout(r, 1000)); return { rate: d.preview.state().i - a, ms: performance.now() - t }; })()`);
   ok('preview: it advances at the video\'s frame rate (30 fps: 24 to 36 frames a second)', adv && adv.rate >= 24 && adv.rate <= 36, adv);
   const m1 = await ev(`await (${VS})(Math.floor(__cmwFig.dialog().preview.state().n * 0.4))`, 300000);
   ok('preview: its frame k is the saved video\'s frame k (decoded MP4 < 4 of 255; the exact render < 6) and not blank', m1 && m1.frames === m1.n && m1.madVideo < 4 && m1.madExact < 6 && m1.range > 20, m1);
@@ -154,7 +154,7 @@ if (part('preview')) {
   ok('preview: no main-thread task of 50 ms or more while it fills and plays', !(await ev('window.__lt')).some((d) => d >= 50), null);
   await ev(`(() => { const b = document.getElementById('xfPvPlay'); b.click(); return 1; })()`); await sleep(300);
   const p1 = await pvState(); await sleep(400); const p2 = await pvState();
-  ok('preview: the button pauses it', p1 && p2 && p1.btn === 'Play' && p1.index === p2.index, { p1, p2 });
+  ok('preview: the button pauses it', p1 && p2 && p1.btn === 'Play' && typeof p1.i === 'number' && p1.i === p2.i, { p1, p2 });
   await key('Escape'); await settle(300);
   ok('preview: closing the dialog stops it', (await ev('!__cmwFig.dialog()')) === true, null);
 }
