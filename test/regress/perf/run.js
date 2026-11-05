@@ -1200,6 +1200,18 @@ function svAttrFrames(drawn, prev, snaps) {
   });
   return out;
 }
+// SV_PROF=1: a CPU profile (CDP Profiler) around each timed scrub/pan/orbit leg of sv.interact.*, logged as the top
+// self times in ms and, from the WebGL call hook SV_GLT, the synchronous ms of compile/link/status calls in the leg
+const SV_PROF_ON = !!process.env.SV_PROF;
+async function svProfLog(label, a, b) {
+  const { profile: P } = await B.send('Profiler.stop');
+  const dt = new Map(), byId = new Map(P.nodes.map((n) => [n.id, n])), self = new Map();
+  P.samples.forEach((id, j) => dt.set(id, (dt.get(id) || 0) + (P.timeDeltas[j + 1] || 0) / 1000));
+  for (const [id, ms] of dt) { const n = byId.get(id).callFrame, k = `${n.functionName || '(anon)'}:${n.lineNumber}`; self.set(k, (self.get(k) || 0) + ms); }
+  const gl = JSON.parse(await B.ev(`JSON.stringify((window.__svGlt || []).filter((x) => x[1] >= ${a} && x[1] <= ${b}))`));
+  const sum = (n) => gl.filter((x) => x[0] === n).reduce((s, x) => s + x[2], 0);
+  log(`  [prof] ${label} ${(b - a).toFixed(0)} ms: gl compile ${sum('compileShader').toFixed(1)}, link ${sum('linkProgram').toFixed(1)}, status ${(sum('getProgramParameter') + sum('getShaderParameter')).toFixed(1)} ms; top self: ${[...self].sort((x, y) => y[1] - x[1]).slice(0, 14).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ')}`);
+}
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
   // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
@@ -1211,8 +1223,10 @@ async function svInteractUnit(scene) {
   const leg = async (fn, rec) => {
     if (rec) await B.ev('(__svAttr.snaps = [], __svAttr.gl = {}, __svAttr.on = true, 1)');
     const bl0 = await B.ev('__svBl.n'), a = await pageNow();
+    const prof = SV_PROF_ON ? (await B.send('Profiler.enable'), await B.send('Profiler.setSamplingInterval', { interval: 250 }), await B.send('Profiler.start'), true) : false;
     await fn();
     const b = await pageNow(), bl1 = await B.ev('__svBl.n');
+    if (prof) await svProfLog(`sv.interact.${scene} leg`, a, b);
     const w = await windowStats(a, b);
     if (rec) {
       const snaps = JSON.parse(await B.ev('(__svAttr.on = false, JSON.stringify(__svAttr.snaps))'));
@@ -1235,6 +1249,7 @@ async function svInteractUnit(scene) {
       await B.nav(`${BASE}test.html?ns=perfsvi${process.pid}_${++nsCounter}&view=steps`);
       await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
       await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+      if (SV_PROF_ON) await B.ev(SV_GLT);
       if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
       await settle(await pageNow());
       if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
