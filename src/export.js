@@ -1,5 +1,5 @@
 'use strict';
-// Export and captions (issue #20, phase 3: moved out of app.js): plane images and the LaTeX of the map with its
+// Export and captions: plane images and the LaTeX of the map with its
 // guarantees, article figures, the captions (as segments and as LaTeX), and the figure export's renderer and the state
 // it reads (src/figure.js; notes/export-design/AS-BUILT.md). The app hands it what it needs once, Export.init(api) at
 // start-up (src/app/13-export-captions.js, exportApi): its functions and constants as they are, and the state it
@@ -58,7 +58,7 @@ const Export = (() => {
   const FIG_DPI = 300;
   const PT = 96 / 72;                  // px per point
   const mjCache = new Map();
-  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. mj() typesets synchronously, so it notes the promise and gives the
   // fallback for that formula (uncached); buildFigure waits for mjWaits and builds again. (Another formula with a
   // letter of a range still loading comes back with it as <text> in a system font, not a throw: uncached as well)
@@ -143,8 +143,8 @@ const Export = (() => {
     }
     return alive() && warmExport(panels, alive, morphFig);
   }
-  // (issue #72) renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
-  // Direct3D 11 takes seconds: the tab froze. So the panels are first drawn small with nothing waiting (renderOff's
+  // renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
+  // Direct3D 11 takes seconds, which would freeze the tab. So the panels are first drawn small with nothing waiting (renderOff's
   // warm), the deformation's map modes started too, and the programs are awaited here, polled, while the export's
   // progress shows; renderOff then finds them linked (or links the odd one still missing). Awaited: the ones this
   // warm-up started and the current chain's; not the others compiling meanwhile (the idle warm-up's, the gallery's).
@@ -232,7 +232,7 @@ const Export = (() => {
   // the variable of a panel's coordinates, in TeX
   function panelVar(side) {
     if (side === 'L') return leftStage() === 0 ? 'z' : `w_{${leftStage()}}`;
-    // (the plane Y rests on while ‹ › have it on a step's, #383, is that step's: w_j)
+    // (the plane Y rests on while ‹ › have it on a step's, is that step's: w_j)
     return A.S.focus === 0 && rightStage() === nSteps() ? 'w' : `w_{${rightStage()}}`;
   }
   // a tick number in TeX: as few decimals as the step needs; powers of ten far from 1
@@ -284,7 +284,7 @@ const Export = (() => {
     if (tex) tex = inlineFrac(tex.replace(/\\left\|/g, '|').replace(/\\right\|/g, '|').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')).replace(/\\tfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2');
     const P = (a) => CX.tex(C(a[0], a[1]), 3);
     const M = (m) => ({ m });
-    // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга», math-4)
+    // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга»)
     const phrase = (c) => {
       const sp = (src, params) => capT(src, params, c);
       // (constructions by their definitions; a phrase that must be closed when more text
@@ -328,10 +328,10 @@ const Export = (() => {
         case 'sector': return capT('the sector %{m}', { m: M(tex) }, s.r > 0 ? c : c === 'gen' ? 'gen-angle' : 'angle');
         case 'formula': return sp('the set %{m}', { m: M(tex) });
         case 'fcurve': return sp('the curve %{m}', { m: M(tex) });
-        // (the grid's name is a translated \text{} at the front of its TeX: review math-3)
+        // (the grid's name is a translated \text{} at the front of its TeX)
         case 'cgrid': return sp('a Cartesian grid on %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\}\s*/, '')) });
         case 'pgrid': return sp('a polar grid in %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\},\s*/, '')) });
-        // ([issue #260] by their equations: arg Φ_M(z) = 2π·θ, |Φ_M(z)| = r)
+        // (by their equations: arg Φ_M(z) = 2π·θ, |Φ_M(z)| = r)
         case 'dhray': return sp('the external ray %{m}', { m: M(tex) });
         case 'dheq': return sp('the equipotential %{m}', { m: M(tex) });
         default: return Region.KINDS[s.kind] ? sp('a %{kind}', { kind: Region.KINDS[s.kind].label.toLowerCase() }) : sp('a shape', {});
@@ -364,14 +364,14 @@ const Export = (() => {
       return !(nx.t != null && /^\s*(?:[,.;:()]|and\b)/.test(nx.t));
     }).map((g, i, a) => (g.pc && keepEnd && !a.slice(i + 1).some((x) => x.m != null || x.b != null || (x.t != null && /\S/.test(x.t))) ? { t: PC_MARK } : g));
   }
-  // (upto: only the steps through that stage: the plane ‹ › rest Y on, #383)
+  // (upto: only the steps through that stage: the plane ‹ › rest Y on)
   function compositeTexShort(upto) {
     const act = activeSteps().filter((j) => upto == null || upto < 0 || j <= upto);
     let arg = { s: 'z', p: 4 };
     for (const j of act) arg = A.built[j - 1].tex(arg);
     return act.length ? (arg.s.length <= 320 ? arg.s : null) : 'z';
   }
-  // the sentence on the image's shading: the phase of z carried by the map (#363: the one region fill), and its grid
+  // the sentence on the image's shading: the phase of z carried by the map (the one region fill), and its grid
   // lines when they are drawn (the pattern 'solid' of the steps view's masks draws no image a caption describes)
   function patternSegs() {
     if (A.S.pattern !== 'phase') return [];
@@ -390,7 +390,7 @@ const Export = (() => {
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const mapF = Ftex ? `${Fname0}(${lv})=${Ftex}` : `${Fname0}`;
     // the deformation drawn in one panel (Phase or Landscape of H_t, or X → Y's merged globe): the picture is H_t at
-    // the current t, so the caption names H_t and says which t and which homotopy (merged-views review)
+    // the current t, so the caption names H_t and says which t and which homotopy
     const hm = morphOn() && (panels.includes('L') ? lPaintsF() : true);
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
@@ -572,7 +572,7 @@ const Export = (() => {
   // mesh ended on a budget, which the dialog's note reports)
   // (each call tags its export meshes with its own generation, so a cancelled call's cleanup never drops the meshes
   // of the call that replaced it)
-  // (#288: a pass that met a range of MathJax's STIX2 font not yet loaded, mjWaits, is built again once the ranges are
+  // (a pass that met a range of MathJax's STIX2 font not yet loaded, mjWaits, is built again once the ranges are
   // in, at most 8 passes)
   async function buildFigure(opt) {
     const gen = ++sm.exportGen;
@@ -714,7 +714,7 @@ const Export = (() => {
     }
     let H = panelTop + PH + Math.max(...panels.map(mB)) + keyH + 6;
     let capSegs;
-    I18N.using(opt.lang || I18N.lang, () => { // (review math-2: the caption in the figure's language)
+    I18N.using(opt.lang || I18N.lang, () => { // (the caption in the figure's language)
     if (isMorph && panels.includes('R')) {
       const keepT = morph.T;
       morph.T = Tend;
@@ -737,9 +737,9 @@ const Export = (() => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${(W / 96).toFixed(3)}in" height="${(H / 96).toFixed(3)}in" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${body}${capMarkup}</svg>`;
     return { svg, W, H, captionTex: captionLatex(capSegs), morph: mSel ? { kept: mSel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], meet: !!k.meet })), budget: mSel.budget, nCands: mSel.nCands, labelled: mSel.labelled ? [mSel.labelled.sp.z.re, mSel.labelled.sp.z.im] : null, log: mSel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) } : null };
   }
-  // (export review r3, video-1) the light theme's tokens, read once per class list: an export render in the dark theme
-  // swaps TH in memory instead of flipping data-theme (each flip recalculated every style and, through the theme
-  // observer, rebuilt the panels: 78-440 ms tasks per video frame). The one flip here is undone in the same block,
+  // the light theme's tokens, read once per class list: an export render in the dark theme
+  // swaps TH in memory instead of flipping data-theme (a flip recalculates every style and, through the theme
+  // observer, rebuilds the panels: 78-440 ms tasks per video frame). The one flip here is undone in the same block,
   // and themeChanged skips a notice whose theme is unchanged.
   let lightTH = null, lightKey = null;
   function lightTheme() {
@@ -815,7 +815,7 @@ const Export = (() => {
   // (o.letters: points named A, B, C... as the Homework figure names them)
   function figCapParts(o = {}) {
     const vis = A.S.shapes.filter((s) => s.visible !== false);
-    // (export review r3, verify2-new-1) o.skip: the points a globe figure cannot show (on the far side of the sphere)
+    // o.skip: the points a globe figure cannot show (on the far side of the sphere)
     // are left out of the list of what it shows; the caption says they are hidden. The other points keep their names.
     const skipped = (s) => !!(o.skip && s.kind === 'point' && s.p && o.skip.some((z) => z.re === s.p[0] && z.im === s.p[1]));
     const skipAll = vis.every(skipped);
@@ -833,7 +833,7 @@ const Export = (() => {
     const hm = morphOn() && lPaintsF();
     let hom = null;
     if (morphOn()) { try { const m = morphLen(), hs = morphHomSegs(m); hom = { T: morph.T, m, tex: captionLatex(hs.segs), inner: hs.inner ? captionLatex(hs.inner) : null, innerShort: hs.innerShort ? captionLatex(hs.innerShort) : null }; } catch (e) { hom = null; } }
-    // (export review r3) the steps the homotopy names f_1, f_2, ...: their maps, for the caption's displayed chain
+    // the steps the homotopy names f_1, f_2, ...: their maps, for the caption's displayed chain
     let chain = null;
     if (morphOn() && A.S.focus === 0) {
       const ks = morphRange().steps;

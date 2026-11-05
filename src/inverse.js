@@ -30,7 +30,7 @@ const Inverse = (() => {
   const RG = () => Region;
   const cx = (re, im) => ({ re, im });
 
-  // (issue #20) the primitive ops and the catalog decomposition live in src/invops.js, the analytic patterns in
+  // the primitive ops and the catalog decomposition live in src/invops.js, the analytic patterns in
   // src/invpatterns.js
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
@@ -568,7 +568,7 @@ const Inverse = (() => {
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
   // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
-  // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
+  // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
   // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
@@ -633,7 +633,7 @@ const Inverse = (() => {
     }
     return out;
   }
-  // [issue #276] Inverse.singularAfter(plan, win, sing, cap): the singular points of a chain whose last step has no plan
+  // Inverse.singularAfter(plan, win, sing, cap): the singular points of a chain whose last step has no plan
   // (ζ takes each value infinitely often) but names all of its own, finitely many, sing(ub, ref, cap) -> [{z, kind}] in
   // its input plane (ub: the box of expandBox(win, 3) there, null when unbounded; ref: the image of win's centre). plan
   // is that of the steps before it (ok; it may have no ops) and injective, so the points pulled back are finitely many
@@ -839,7 +839,7 @@ const Inverse = (() => {
   //    (measured: 2^{M(z)} of H with the pole of M on the real axis); such shapes take the rules below.
   //  - a pole on the boundary (in the closure, not the interior): unbounded, farCover false
   //  - unbounded shapes: the exact Möbius image of a generalised disc (opts.mob: u = M(z)); otherwise unbounded
-  //  - bounded shapes (rev 2 replaced; review P1, findings 4 and 5): branch and bound over a quadtree of the shape's
+  //  - bounded shapes branch and bound over a quadtree of the shape's
   //    bounds (8 x 8 cells to start). Each cell is enclosed by chainDisc (a disc that provably contains the image of the
   //    cell's circumscribed disc), giving an interval of coord; a cell is skipped when it lies outside the shape
   //    (level < -radius), and split only while its interval reaches beyond the extremes attained so far (values at cell
@@ -1430,7 +1430,7 @@ const Inverse = (() => {
   // Each term is minimised separately (the min of a sum is at least the sum of the mins). The GPU's ixStop implements
   // the same bound (gl.js, P2). (13.14) The members still to come start at the NEXT member, z_m + dir q (additive) or
   // za + (z_m - za) e^(dir Re S) (ROOTPOW), so the rays and the segment start there: a side stops as soon as the member
-  // after the one just visited is provably behind the front, instead of after visiting it.
+  // after the one just visited is provably behind the front, not after visiting it.
   function affStopLB(prep, F, sp, lf, goUp) {
     if (!sp || sp.kind !== 'clip') return -Infinity;
     const zm = lf.z, dir = goUp ? 1 : -1, W = prep.win;

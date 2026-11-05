@@ -235,7 +235,7 @@ const Region = (() => {
     },
     tex: (s) => $t('\\text{polar grid}, |%{c}|\\le %{r}', { c: zMinus(P(s.c)), r: num(s.r) }),
   };
-  // ----- [issue #260] external rays and equipotentials of the Mandelbrot set (s.c null) or of the Julia set of
+  // ----- external rays and equipotentials of the Mandelbrot set (s.c null) or of the Julia set of
   // z² + c (s.c = [re, im], the step's c; a shared number's name in s.bind.c, as every bound field) -----
   // dhray: s.theta '1/3' (exact: the angle doubles in integers) or a decimal turn; the ray from |z| = 10⁴ down to 2^−40
   // of that potential, then its landing point (CX.dhLanding) when it has one. dheq: s.r = |Φ| > 1 (> e^{G_c(0)})
@@ -251,7 +251,7 @@ const Region = (() => {
   // Synchronously (node, or before the app turns on Region.dhAsync) a key is traced in full at once. In the app a key
   // not yet traced gets a quick curve of exact points at once (the shape's previous curve moved to the new c by
   // CX.dhFollow, thinned to DH_FOLLOW points; else a coarse trace), and its full trace runs in slices of DH_SLICE_MS
-  // once c has rested for DH_REST_MS (#299 review: a c on Play re-traced every curve on the main thread, 300 ms
+  // once c has rested for DH_REST_MS (a c on Play would otherwise re-trace every curve on the main thread, 300 ms
   // frames); Region.dhAsync.ready() then redraws, and dhStamp (part of the app's shape key) tells it the curve changed
   const DH_MEMO = new Map(), DH_LAST = new Map();
   const DH_S = 16, DH_LEVELS = 40, DH_FOLLOW = 160, DH_REST_MS = 200, DH_SLICE_MS = 8;
@@ -295,7 +295,7 @@ const Region = (() => {
     clearTimeout(dhTimer);
     dhTimer = setTimeout(dhRun, DH_REST_MS);
   }
-  // the full traces, a slice at a time; a trace whose key a newer request replaced is dropped
+  // the full traces, a slice at a time; a trace whose key a newer request has replaced is dropped
   function dhRun() {
     dhTimer = null;
     const t0 = performance.now();
@@ -606,7 +606,7 @@ const Region = (() => {
     return b || null;
   }
   // (a perpendicular circle drawn inside its curve only, notes/orthogonal-circle/segments) the arc's open curves:
-  // a circle's from Constr.segCurves; on a line (review math-1, math-4) the chord is a segment, and the ray, or the two
+  // a circle's from Constr.segCurves; on a line the chord is a segment, and the ray, or the two
   // rays through infinity, are the line kinds' long rays (the FAR clip and, with {reach: 'sphere'}, c.reach), so the
   // settle refinement, its tails and curvePieces' clip treat them as a whole line; each runs from the arc's start toward
   // its end, the finite ends bitwise
@@ -982,7 +982,7 @@ const Region = (() => {
   // o.tail (SPEC 9.1, settle only): a long curve with c.reach continues its geometric tails (ratio REF_RATIO) past its
   // FAR ends toward c.reach until stop(z) is true, stop = o.tail() fresh per tail (the stage maps left TAIL_LIM, or
   // their images stopped moving); the samples up to the FAR ends are today's.
-  // ([#325] the line job's work is resumable: its generators yield wherever o.pc / caps.pc says the time slice is
+  // (the line job's work is resumable: its generators yield wherever o.pc / caps.pc says the time slice is
   // spent, pc.due(); the synchronous forms drain them with NOPACE, which never is: the same evaluations in the same
   // order, so the same polylines)
   const NOPACE = { due: () => false };
@@ -1067,7 +1067,7 @@ const Region = (() => {
     return Math.min(4096, Math.max(32, Math.ceil(len / step), c.n0 || 0));
   }
 
-  // (issue #20) the settle-time line refinement lives in src/regionlines.js
+  // the settle-time line refinement lives in src/regionlines.js
   const { Lines, defaultsFor } = RegionLines({ NOPACE, REACH, REF_RATIO, TAIL_LIM, clipLine, drain, expandBox, sampleCurveGen });
 
   // ---------- shape geometry for the inverse renderer (SPEC 3.8; used by src/inverse.js) ----------

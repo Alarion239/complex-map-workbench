@@ -52,7 +52,7 @@ const Inspector = (() => {
       host.innerHTML = '';
       const close = h('button', { class: 'icon-btn', 'aria-label': $t('Close the editor'), 'data-tip': $t('Close  Esc'), html: ICONS.close, onclick: () => A.closeTemp() });
       tbar = h('div', { class: 'tbar' }, h('span', null, $t('Inspector')), h('span', { class: 'grow' }), h('span', { class: 'kbd' }, 'Esc'), close);
-      // (review design-21: a named region a screen reader can jump to; the temporary one is a dialog of the same name)
+      // (a named region a screen reader can jump to; the temporary one is a dialog of the same name)
       if (!host.classList.contains('temp')) { host.setAttribute('role', 'region'); host.setAttribute('aria-label', $t('Inspector')); }
       selSec = h('section', { class: 'psec insp-sel', 'aria-label': $t('Selection') });
       // (the shared numbers bring their own section: its heading, + and label; the slot only places it)
@@ -81,15 +81,14 @@ const Inspector = (() => {
         lab.dataset.ix = '1';
         sym.innerHTML = '';
         sym.append(t, h('sub', null, String(k)));
-        // (review design-8: the Argand button names the indexed coefficient, a₃, never the plain a of a shared number)
+        // (the Argand button names the indexed coefficient, a₃, never the plain a of a shared number)
         const ab = lab.parentNode && lab.parentNode.querySelector('.argand');
         if (ab) ab.setAttribute('aria-label', $t('Pick {label} on an Argand diagram', { label: t + sub(k) }));
       }
     }
-    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (review design-9; issue #13:
-    // the planes' menu acts on a mark, it adds none)
+    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (the planes' menu acts on a mark, it adds none)
     const touchUI = () => document.documentElement.classList.contains('ph') || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
-    // a formula wider than its well: the same formula smaller, down to 70 % (review design-4); true when it fits
+    // a formula wider than its well: the same formula smaller, down to 70 %; true when it fits
     function fitTex(node, minScale = 0.7) {
       node.style.fontSize = '';
       const form = node.closest('.iform');
@@ -114,7 +113,7 @@ const Inspector = (() => {
     // a formula in its well: the full form when it fits, else the alternative (alt), then smaller; decided once per
     // formula (a drag holds its formula, so drag frames never force a layout here). 1: the alternative is shown.
     //
-    // (#455) the choice needs the well's width: in a well that has none (the Inspector built while a phone's sheet is
+    // the choice needs the well's width: in a well that has none (the Inspector built while a phone's sheet is
     // closed) nothing is decided, and the well is watched: when its width changes (the sheet opens, the phone turns)
     // each formula in it is decided again, here, from the arguments it last received
     const pickArgs = new WeakMap(), pickForms = new WeakMap();
@@ -195,7 +194,7 @@ const Inspector = (() => {
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl ttl-btn', role: 'button', tabindex: 0, 'data-tip': $t('Replace this step'), 'aria-label': $t('Replace f{x} {name}', { x: sub(k), name: d.label }), 'aria-haspopup': 'dialog', onclick: (e) => A.replacePalette(e.currentTarget, k), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); A.replacePalette(e.currentTarget, k); } } }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
       const flong = h('div', { class: 'ftex long', hidden: true }, $t('The formula is long; the field below holds it in full.'));
-      // (#361: it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
+      // (it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
       const form = h('div', { class: 'iform', tabindex: 0, role: 'group', 'aria-label': $t('Formula') }, ftex, flong);
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
@@ -341,7 +340,7 @@ const Inspector = (() => {
     }
     // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
     // the quiet mark on a line written with a step's display form: "in short", the full-formula explanation in its tooltip
-    // and its accessible description, one wording on F's line and on the split offer's row (#453; the step's own card says
+    // and its accessible description, one wording on F's line and on the split offer's row (the step's own card says
     // the same in its note)
     function shortMark() {
       const tip = $t('Written in short; each step\'s own field holds its full formula.');
@@ -413,7 +412,7 @@ const Inspector = (() => {
       if ((st.type === 'dh' || st.type === 'bottcher') && A.dhAdd) params.append(...dhAdds(k));
       indexLabels(params, k);
     }
-    // [issue #260] Φ_M and φ_c: an external ray of angle θ (turns, exact as p/q) and an equipotential |Φ| = r of the
+    // Φ_M and φ_c: an external ray of angle θ (turns, exact as p/q) and an equipotential |Φ| = r of the
     // step's set, added as shapes of the plane the step reads (Enter or the button; a value it cannot use is flagged)
     function dhAdds(k) {
       const row = (word, sym, val, kind, label) => {
@@ -455,7 +454,7 @@ const Inspector = (() => {
       const errT = bad ? b.error : '';
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
-        // (a field that uses shared numbers shows their names: Funcs.build keeps them, issue #11)
+        // (a field that uses shared numbers shows their names: Funcs.build keeps them)
         // (a display form stands for the formula here; a formula of LONG characters or more is not typeset: the well
         // says that the field holds it)
         const num = shownTex(b, { s: A.wvar(k - 1), p: 4 }).s;
@@ -497,8 +496,8 @@ const Inspector = (() => {
           const v = A.CX.sub(A.CX.mul(a, d), A.CX.mul(bb, c));
           const li = (x) => `<i>${x}</i>${sub(k)}`, num = (z) => A.fmt(z).replace(/-/g, '−');
           dt = `${li('a')}${li('d')} − ${li('b')}${li('c')} = ${num(v)}`;
-          // (review math-6: a determinant 0 makes the step constant; its "pole" is a removable singularity.
-          // verify-3: "(= v)", the true minus, f and z in italics)
+          // (a determinant 0 makes the step constant; its "pole" is a removable singularity.
+          // "(= v)", the true minus, f and z in italics)
           if (A.CX.mobDetZero([a, bb, c, d])) {
             const cz = A.CX.isZero(c);
             dt += '. ' + (cz ? $t('{f} is constant (= {v}).', { f: li('f'), v: num(A.CX.div(bb, d)) })
@@ -592,7 +591,7 @@ const Inspector = (() => {
       // (F's line says so when a step it is composed of is written in its display form)
       const sm = !long && act.some((k) => built[k - 1].show);
       if (E.smark.hidden !== !sm) E.smark.hidden = !sm;
-      // (review design-4: an expanded F wider than the well is written in terms of the last w, as the mockup does,
+      // (an expanded F wider than the well is written in terms of the last w, as the mockup does,
       // with the w list under it; then smaller, never cut)
       const last = act.length > 1 && E.chain.length ? act[act.length - 1] : 0;
       let byW = false;
@@ -602,7 +601,7 @@ const Inspector = (() => {
       for (const [k, t] of E.chain) {
         const li = t.parentNode;
         if (li) li.hidden = byW && k === last;
-        // (review verify-9: in display style, at the size of F's line, when it fits; else in text style)
+        // (in display style, at the size of F's line, when it fits; else in text style)
         if (!(byW && k === last)) { const wt = wLine(k); fitPick(t, `\\displaystyle ${wt}`, wt, false); }
       }
       const warns = [];

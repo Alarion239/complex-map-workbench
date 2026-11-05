@@ -163,7 +163,7 @@ const HomRange = (function (factory) {
     }
     return { resolve, normal, write, range, state, cpuMap, homF, H0, lastDeriv, stops, leftStage, allAtOnce };
   }
-  // ---- the step glide (#246): the chain position x (the deformation's T, x = k the plane after k steps) follows an
+  // ---- the step glide: the chain position x (the deformation's T, x = k the plane after k steps) follows an
   // integer target, which ‹ › move one step each. Not a tween: a critically damped spring, so a press never waits for
   // the last one to end, several quick presses go faster (the speed grows with the steps still to go), and a press the
   // other way turns x round from where it is, with no jump in x or in its speed. x never passes its target (it stops

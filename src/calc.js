@@ -289,7 +289,7 @@ const Calc = (() => {
   // winding number of F∘γ − p about 0 for the closed polygon γ: zeros minus poles of F − p inside, counted with
   // multiplicity, when F is meromorphic there. ok is false when F − p vanishes or is singular on γ, or jumps
   // (a branch cut crosses γ).
-  // The limit of every count here (argStep, orderAt, argPrinciple; review math-2): a zero and a pole closer together than
+  // The limit of every count here (argStep, orderAt, argPrinciple): a zero and a pole closer together than
   // about 1/50 of the spacing of the samples, with γ passing between them away from a sample, cancel in F's values at
   // the samples and their midpoints, so the piece is accepted and their 2π is missed (winding 0 for 1, still ok).
   // Below a pixel at the default zoom: a zero dragged onto a pole, or a deformation where the two meet.
@@ -725,7 +725,7 @@ const Calc = (() => {
     return out;
   }
 
-  // ---------------- the Cauchy integral by the residue theorem (issue #235) ----------------
+  // ---------------- the Cauchy integral by the residue theorem ----------------
   // For F meromorphic on and inside the closed polygon γ, with poles p_k (none on γ), and z off γ and not a pole,
   //   (1/2πi) ∮γ F(ζ)/(ζ − z) dζ = n(γ, z) F(z) − Σ_k n(γ, p_k) PP_{p_k}(z),
   // PP_p the principal part of F at p, n the winding number (the residue of F(ζ)/(ζ − z) at p is −PP_p(z)). No integral

@@ -65,8 +65,8 @@ const CX = (() => {
   // Argument in (theta - 2pi, theta]; theta = pi gives the principal branch.
   // A cut along the negative real axis (theta = pi + 2 pi m) reads the sign of a zero imaginary part as the principal
   // branch does at every m: -1 - 0i is the limit from below (theta - 2 pi), -1 + 0i is theta. So argCut(pi + 2 pi m) is
-  // argCut(pi) + 2 pi m on the ray too, as the catalog's (cut, sheet) form computes it (review math-3: a formula with
-  // its cut at 540 or -180 and its split steps differed there)
+  // argCut(pi) + 2 pi m on the ray too, as the catalog's (cut, sheet) form computes it (a formula with
+  // its cut at 540 or -180 and its split steps agree there)
   function argCut(a, theta = Math.PI) {
     let t = Math.atan2(a.im, a.re);
     if (theta !== Math.PI) {
@@ -116,7 +116,7 @@ const CX = (() => {
   }
   const sin = (a) => C(Math.sin(a.re) * Math.cosh(a.im), Math.cos(a.re) * Math.sinh(a.im));
   const cos = (a) => C(Math.cos(a.re) * Math.cosh(a.im), -Math.sin(a.re) * Math.sinh(a.im));
-  // tan z, without cancellation near its poles and without the old clamp to +-i for |Im z| > 20 (which also made tanh
+  // tan z, without cancellation near its poles and without a clamp to +-i for |Im z| > 20 (which would also make tanh
   // exactly +-1 for |Re z| > 20). |Im z| <= 1: (sin x cos x + i sinh y cosh y) / (cos^2 x + sinh^2 y), where
   // cos 2x + cosh 2y = 2 (cos^2 x + sinh^2 y) does not cancel at the poles (the GPU's ctan uses the same form);
   // |Im z| > 1: tan z = s i (1 - q) / (1 + q), s = sign(Im z), q = e^{2isz} with |q| = e^{-2|Im z|} < e^-2.
@@ -267,7 +267,7 @@ const CX = (() => {
   function zetaEM(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    // ([issue #277] k^{−s} from the multiplicative table, one exp per prime: about half the cost, to rounding)
+    // (k^{−s} from the multiplicative table, one exp per prime: about half the cost, to rounding)
     const { re, im } = powTable(s, N);
     let sr = 0, si = 0;
     for (let k = 1; k < N; k++) { sr += re[k]; si += im[k]; }
@@ -334,7 +334,7 @@ const CX = (() => {
     const L = add(add(add(scale(s, Math.LN2), scale(sub(s, ONE), LOG_PI)), logSin(scale(s, Math.PI / 2))), lgamma(one));
     return mul(exp(L), zetaEM(one));
   }
-  // ---- the Böttcher coordinate of z ↦ z² + c and the Douady–Hubbard map Φ_M(c) = φ_c(c) (issue #260) ----
+  // ---- the Böttcher coordinate of z ↦ z² + c and the Douady–Hubbard map Φ_M(c) = φ_c(c) ----
   // φ_c(z0): iterate w_{k+1} = w_k² + c from w_0 = z0 until |w_n| > DH_R (NaN when that takes more than N steps), take
   // φ_c(w_n) = w_n √(1 + c/w_n²) (the next factor of φ_c(w) = w ∏_k (1 + c/w_k²)^{2^{−k−1}} changes it by a relative
   // |c|/(4|w_n|⁴), below 1e−16 |c|), and go back to w_0 by n square roots (φ_c(w_{k+1}) = φ_c(w_k)²), each the root
@@ -361,7 +361,7 @@ const CX = (() => {
   function dhCritRho(c, N) { const p = bottcher(c, c, N); return isFin(p) ? Math.sqrt(abs(p)) : 1; }
   function bottcherJ(z, c, N, rho = dhCritRho(c, N)) { const p = bottcher(z, c, N); return isFin(p) && abs(p) > rho ? p : C(NaN, NaN); }
 
-  // ---- external rays and equipotentials (Kawahira's continuation, issue #260) ----
+  // ---- external rays and equipotentials (Kawahira's continuation) ----
   // frac(2^m θ): θ a number (doubling is exact in floating point) or exactly {p, q} (0 ≤ p < q ≤ 2^30)
   function dhAngle(theta, m) {
     if (typeof theta === 'number') {
@@ -495,7 +495,7 @@ const CX = (() => {
   const dhEquipotential = (L, o) => drain(dhEquipotentialGen(L, o));
   // A traced ray or equipotential moved to the nearby parameter c: each point by Newton from its old place, at its own
   // angle and potential (exact points of the new curve, at the cost of one Newton solve each). null when a point does not
-  // settle, a segment grows past 4 times the longest old one (a jump to another ray), or (an equipotential) the level is
+  // settle, a segment grows past 4 times the longest previous one (a jump to another ray), or (an equipotential) the level is
   // not above the new critical one
   function dhFollow(curve, c) {
     const n = curve.pts ? curve.pts.length : curve.length, P = curve.pts || curve;
@@ -517,7 +517,7 @@ const CX = (() => {
     return curve.pot ? Object.assign({}, curve, { pts: out, c, landed: null }) : Object.assign(out, { th: curve.th, L: curve.L, c });
   }
 
-  // ---- Dirichlet series Σ a_k k^{−s} (issues #242, #244) ----
+  // ---- Dirichlet series Σ a_k k^{−s} ----
   // k^{−w} for k = 1 … K: completely multiplicative, so one exp per prime and a product for the others (the smallest
   // prime factor table grows on demand). A few ulps from the direct exp at most. The table is shared: valid until the
   // next call

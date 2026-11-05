@@ -1,8 +1,7 @@
 // @ts-check
 'use strict';
 // funcs.js's sheets: the whole Riemann surfaces (local cuts, every sheet: stepSheets, sheetEval) and the deformation's
-// sheets (sheetMap*). Moved out of funcs.js (issue #20, the file-size budget) as a factory funcs.js calls where it
-// stood, with the names of funcs.js it reads (each declared before the call); it returns the ones funcs.js exports
+// sheets (sheetMap*), a factory funcs.js calls, with the names of funcs.js it reads (each declared before the call); it returns the ones funcs.js exports
 const Sheets = (host) => {
   const { DEG, PI, circleAt, circleRel, isLive } = host;
   const { C } = CX;

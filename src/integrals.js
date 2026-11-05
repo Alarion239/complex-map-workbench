@@ -1,5 +1,5 @@
 'use strict';
-// Integrals (issue #20, phase 3: moved out of app.js): ∫γ F dz along a shape's curve or an area's boundary, the
+// Integrals: ∫γ F dz along a shape's curve or an area's boundary, the
 // right-click menu's integral item, and the integral popover with its plot and the Cauchy plot. The
 // app hands it what it needs once, Integrals.init(api) at start-up (src/app/07-preimages-integrals.js, integralsApi):
 // its functions and constants as they are, and the state it reassigns (S, intPop, ...) as getters on api, read as A.S
@@ -346,7 +346,7 @@ const Integrals = (() => {
     return true;
   }
   // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?, piece?}]. The curve
-  // is the shape prefer (the one under the pointer) when it passes there, else the nearest (issue #13: one integral,
+  // is the shape prefer (the one under the pointer) when it passes there, else the nearest (one integral,
   // not one per curve in reach)
   function integralItems(pane, side, x, y, cx, cy, prefer) {
     const all = curvesNear(pane, side, x, y);
@@ -575,7 +575,7 @@ const Integrals = (() => {
     const nodes = new Float32Array(4 * n);
     let o = 0;
     for (const p of parts) { nodes.set(p, o); o += p.length; }
-    // (#235) the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
+    // the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
     // checked against the quadrature at a few points (Calc.cauchyPlan); else the nodes above draw. At most 16 poles of
     // order 4, which the shader's uniforms hold. The search and the check cost 10 to 150 ms, so a curve dragged or an F
     // changed a little (a slider) keeps the last plan's poles, counts the winding numbers again, follows the poles by

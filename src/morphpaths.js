@@ -1,5 +1,5 @@
 'use strict';
-// The deformation's paths t -> H_t(z) (notes/paths-aesthetics/AS-BUILT.md; issue #20, phase 3: moved out of app.js):
+// The deformation's paths t -> H_t(z) (notes/paths-aesthetics/AS-BUILT.md):
 // evenly spaced paths seeded from X's boundary, traced and drawn on the planes and the globes, with their arrows,
 // marks and the transport's fader. The app hands it what it needs once, MorphPaths.init(api) at start-up
 // (src/app/06-deformation.js, morphPathsApi): its functions and constants as they are, and the state it reassigns
@@ -567,7 +567,7 @@ const MorphPaths = (() => {
     if (flat && o.hook !== false) A.mfDrawn = { T, heads: drawnZ };
     else if (o.hook !== false) A.mfGlobeDrawn = { T, heads: heads.length };
   }
-  // the live paths with the cross-fade between two sets (verify fix path-3: a new choice after a pan, a zoom or an
+  // the live paths with the cross-fade between two sets (a new choice after a pan, a zoom or an
   // orbit swapped the whole set in one frame): for PATHS.fade ms after a choice replaced a set under the same chain and
   // shapes, the old set fades out while the new one fades in
   // o: { T, side } (the time drawn to and the pane to redraw, default the classic transport's and 'R')
@@ -915,7 +915,7 @@ const MorphPaths = (() => {
     const lv = A.S.focus > 1 ? `w_{${A.S.focus - 1}}` : 'z', Fname = A.S.focus === 0 ? 'F' : `f_{${A.S.focus}}`;
     const Ftex = A.S.focus === 0 ? compositeTexShort() : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const mapM = Ftex ? `${Fname}(${lv})=${Ftex}` : Fname;
-    // (#363) the image's fill: the phase of z carried by the map, the one region fill
+    // the image's fill: the phase of z carried by the map, the one region fill
     const patWord = capT('coloured by the phase of %{z}', { z: { m: 'z' } });
     const out = [];
     const hom = morphHomSegs(Tend);
@@ -1118,9 +1118,9 @@ const MorphPaths = (() => {
       const key = wKeyOn() && GLR.ok ? { noGrid: true, under: keyUnder(pane) } : null;
       if (GLR.ok) drawScene(pane, trans.k ? transState().map : stageMap(k), trans.k ? null : 'R', Object.assign({ cache: !trans.k }, key)); else noGL(pane);
       // a transition draws its homotopy forward; the stage it ends on is drawn inverse: its program compiles meanwhile
-      // (after the chain's forward programs), so the last frame is exact instead of a forward stand-in (P2 review)
+      // (after the chain's forward programs), so the last frame is exact instead of a forward stand-in
       if (trans.k && GLR.ok) requestInverseFor(stageMap(k));
-      // ([#253] the shapes of a later plane: their preimages in this one)
+      // (the shapes of a later plane: their preimages in this one)
       if (!trans.k && GLR.ok) stagePullbacks(pane, k);
       // the w-plane targets: fills (a pass of the preimage shader with the identity map), outlines, points
       if (hasTargets()) {

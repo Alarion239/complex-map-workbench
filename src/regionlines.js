@@ -1,7 +1,6 @@
 // @ts-check
 'use strict';
-// The settle-time line refinement of the regions (SPEC 9.1, P4: Region.Lines): moved out of region.js (issue #20, the
-// file-size budget) as a factory region.js calls where it stood, with the names of region.js it reads (each declared
+// The settle-time line refinement of the regions (SPEC 9.1, P4: Region.Lines), a factory region.js calls, with the names of region.js it reads (each declared
 // before that point); region.js takes Lines and defaultsFor back.
 const RegionLines = (host) => {
   const { NOPACE, REACH, REF_RATIO, TAIL_LIM, clipLine, drain, expandBox, sampleCurveGen } = host;
@@ -442,7 +441,7 @@ const RegionLines = (host) => {
     // Dash arc lengths for createLines' segment order (P4 review): per segment, the arc length of the polyline's image
     // under F at the segment start and the segment's image length. A long polyline (a sample farther than LONG_R x R
     // from c: lines, rays, half-plane boundaries, formula contours to the mesh's outer box) is measured from an anchor
-    // near the view, the point of the polyline nearest c (the window centre) in the source, instead of its first
+    // near the view, the point of the polyline nearest c (the window centre) in the source, not its first
     // sample: reach tails start up to 1e19 (image) or 1e28 (source) away, where float32 does not resolve a dash
     // period. The anchor is a source point, the same for today's samples and the refined ones (they agree near the
     // view), so the dash phase does not move when the refined samples are swapped in. A bounded polyline keeps today's

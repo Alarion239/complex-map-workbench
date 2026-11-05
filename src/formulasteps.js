@@ -1,8 +1,7 @@
 // @ts-check
 'use strict';
 // funcs.js's formula steps: a custom formula recognized as catalog steps shown as visible steps (splitSteps, the
-// rows, labels and moves of the split; notes/formula-steps/DESIGN.md 2). Moved out of funcs.js (issue #20, the
-// file-size budget) as a factory funcs.js calls where it stood, with the names of funcs.js it reads (each declared
+// rows, labels and moves of the split; notes/formula-steps/DESIGN.md 2), a factory funcs.js calls, with the names of funcs.js it reads (each declared
 // before the call, or a function declaration); it returns the ones funcs.js exports
 const FormulaSteps = (host) => {
   const { DEFS, DEG, REC_CACHE_MAX, build, buildVals, mulLabel, recProbe } = host;

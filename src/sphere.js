@@ -44,8 +44,8 @@ const SphereMesh = (() => {
   const PAT_POLAR = new Set([2, 5, 6, 8]);
   const PAT_CART = new Set([1, 3, 4, 7]);
   // saturation K for an alpha: the number of layers after which less than 1/255 shows through. Capped at KCAP = 32,
-  // above the 25 of the UI's lowest opacity (0.2), so 1 - (1 - alpha)^K >= 0.996 for every alpha the UI allows (the
-  // earlier cap of 16 left 1 - 0.8^16 = 0.972 at alpha 0.2, below the 12.4 target opacity_min >= 0.99)
+  // above the 25 of the UI's lowest opacity (0.2), so 1 - (1 - alpha)^K >= 0.996 for every alpha the UI allows (a cap of
+  // 16 would leave 1 - 0.8^16 = 0.972 at alpha 0.2, below the 12.4 target opacity_min >= 0.99)
   const KCAP = 32;
   const kOf = (alpha) => (alpha >= 1 ? 1 : Math.min(KCAP, Math.max(1, Math.ceil(Math.log(1 / 255) / Math.log(1 - Math.max(1e-3, alpha))))));
 
@@ -165,12 +165,12 @@ const SphereMesh = (() => {
     const distLike = shape.kind !== 'formula';
     // a region whose formula iterates (iter(...): an escape test such as the Mandelbrot set's) costs up to N steps per
     // level evaluation, and its fractal boundary crosses many leaves: the boundary is found by fewer halvings of a
-    // leaf's edge (2^-18 of a leaf of at most P_SRC px near the boundary: far below a pixel) instead of to the double's
+    // leaf's edge (2^-18 of a leaf of at most P_SRC px near the boundary: far below a pixel), not to the double's
     // last bits. Other regions are unchanged
     const iterL = shape.kind === 'formula' && /\\operatorname\{iter\}|\biter\s*\(/.test(shape.expr || '');
     const HALV = iterL ? 18 : 40, HALV_BND = iterL ? 14 : 30;
     // and its level evaluations count in the work budget (each as LEVW map evaluations: an escape test of about 64
-    // steps against a map of a few), so its mesh ends on the budget instead of the time cap (10 s on a desktop)
+    // steps against a map of a few), so its mesh ends on the budget, not the time cap (10 s on a desktop)
     const LEVW = iterL ? 8 : 0;
     const left = cfg.left;
     const view = cfg.view;

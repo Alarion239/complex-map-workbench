@@ -1,5 +1,5 @@
 'use strict';
-// Examples and the guide (issue #20, phase 3: moved out of app.js): loading an example, its fitted view, the examples
+// Examples and the guide: loading an example, its fitted view, the examples
 // gallery and its thumbnails, and the guide (on a desktop and on a touch screen). The app hands it what it needs once,
 // Examples.init(api) at start-up (src/app/15-examples-guide.js, examplesApi): its functions and constants as they are,
 // and the state it reassigns (currentExample, ...) as getters on api, read as A.S and so on; S itself is replaced
@@ -38,7 +38,7 @@ const Examples = (() => {
   let exTry = null;
   function exTryStop() { if (exTry) { for (const off of exTry.offs) off(); exTry = null; } }
   // (the steps view has its own line for an example whose classic one names X, Y, Deformation or a card: trySv, closed by
-  // tryDoneSv, and Show me's chapter tourSv; the others, and a line with no events of its own, keep the classic fields; #442)
+  // tryDoneSv, and Show me's chapter tourSv; the others, and a line with no events of its own, keep the classic fields)
   const exSv = () => !!(A.svOn && A.svOn());
   const exTryText = (ex) => (exSv() && ex.trySv) || ex.try;
   const exTryDone = (ex) => (exSv() && ex.tryDoneSv) || ex.tryDone;
@@ -97,7 +97,7 @@ const Examples = (() => {
       if (mine.length || ps.length !== A.S.params.length || ps.some((q, i) => q !== A.S.params[i])) setParams(ps);
     }
     setSel(null);   // (a new example selects its last step)
-    // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
+    // an example opens as its blurb describes: the views it names (in the legacy fields rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
     // landscape's sheets and height as it sets them. The layout comes first (merged-views.md): the meshing window below
     // is the X pane's box, which must have its new width (a merge or a split changes it)
@@ -132,7 +132,7 @@ const Examples = (() => {
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
       pushShape(ns);
     }
-    // (#293) an example may name the curve it is about, by index or id: a style that works on the selected curve, as Cauchy,
+    // an example may name the curve it is about, by index or id: a style that works on the selected curve, as Cauchy,
     // opens with it. The selection is the planes', not the saved state's, so a link made from the example does not carry it
     if (ex.selected != null) {
       const sh = typeof ex.selected === 'number' ? A.S.shapes[ex.selected] : A.S.shapes.find((x) => x.id === ex.selected);
@@ -164,7 +164,7 @@ const Examples = (() => {
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
     if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
-    // (issue #34, D7) every other example says what to try, in the tour's docked line, Show me starting the chapter about
+    // every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && exTryText(ex) && Tour.lane && !laned) {
       Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: exTryText(ex), drop: 'title', onClose: exTryStop,
@@ -254,7 +254,7 @@ const Examples = (() => {
       if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(anchor, okey); }
     });
     armOutside(anchor);
-    // fill thumbnails one per frame so the menu opens at once; (issue #72) one example's programs compile at a time:
+    // fill thumbnails one per frame so the menu opens at once; one example's programs compile at a time:
     // the next thumbnail waits until the one before has landed (a cold Direct3D 11 link takes seconds, and many at once
     // held the GPU from the user's own view)
     let q = 0;

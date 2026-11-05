@@ -1,6 +1,6 @@
 'use strict';
 // The command palette (Ctrl+K, /, the + of the chain): search over functions, steps, tools, examples, settings and the
-// guide, with a live preview of the region under a candidate step (issue #20, phase 3: moved out of app.js). The app
+// guide, with a live preview of the region under a candidate step. The app
 // hands it what it needs once, Commands.init(api) at start-up (src/app/12-command-palette.js, commandsApi): its
 // functions and constants as they are, and the state it reassigns (S, built, selected, ...) as getters on api, read
 // as A.S and so on. The popover layer (popEl, closePalette) stays the app's: the palette is one of its popovers.
@@ -38,7 +38,6 @@ const Commands = (() => {
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
     recurrence: [$t('z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method'), $t('recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n')],
-    // [issue #260]
     dh: [$t('The conformal map of the outside of the Mandelbrot set onto the outside of the unit disk; its external rays and equipotentials'), $t('douady hubbard mandelbrot riemann map external ray equipotential bottcher Φ phi')],
     bottcher: [$t('φ_c: the conformal map of the basin of ∞ of z² + c onto the outside of a disk; external rays of the Julia set'), $t('bottcher böttcher julia basin external ray equipotential filled julia set φ phi')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
@@ -48,7 +47,7 @@ const Commands = (() => {
     custom: [$t('Any formula in LaTeX or plain text'), $t('custom formula latex expression')],
     deriv: [$t('Derivative of the chain so far: w = (previous stage)′'), $t('derivative differentiate prime d/dz dz derivative of the chain')],
   };
-  // [issue #260] the external rays and equipotentials of the chain's first Φ_M or φ_c step (its Inspector fields)
+  // the external rays and equipotentials of the chain's first Φ_M or φ_c step (its Inspector fields)
   function dhActs() {
     const k = A.S.steps.findIndex((st) => st.on !== false && (st.type === 'dh' || st.type === 'bottcher')) + 1;
     if (!k) return [];
@@ -65,9 +64,9 @@ const Commands = (() => {
     }
     return defaultPropsCache.get(type);
   }
-  // the palette on a phone: Cancel at the right of the search row (it had no visible way out), and the
+  // the palette on a phone: Cancel at the right of the search row (the phone's way out), and the
   // insert position a chip on its own row: a tap moves the new step's place along the chain (at the start, after f₁,
-  // …, at the end), the chip saying where. (D1, issue #23: the Replace chip, when there is one, comes first on that row,
+  // …, at the end), the chip saying where. (The Replace chip, when there is one, comes first on that row,
   // and the position chip shows only while the choice is Insert)
   function phonePalette(pop, input, opener, okey, where) {
     const head = pop.querySelector('.pal-head'), ctx = head && head.querySelector('.pal-ctx');
@@ -202,7 +201,7 @@ const Commands = (() => {
         }
       });
       // the views are also found by what they are for (roots, contour integrals, …)
-      // (U8: the panes' views, with the words of the earlier single view control as aliases)
+      // (the panes' views, with the words of the single view control as aliases)
       // (comma-separated phrases, each matched on its own: a query that starts a phrase scores 3, one that starts a
       // word 2, so multi-word aliases such as 'phase portrait' and 'domain colouring' are found)
       const VIEW_ALIAS = {
@@ -376,7 +375,7 @@ const Commands = (() => {
     const names = shapeNames();
     return list.map((x) => [intLabel(x, names), () => integrateShape(x.id), '', al + ', ' + (names.get(x.id) || '')]);
   }
-  // (D1) a row's function in words, for Replace F with …; and the Replace rows' labels
+  // a row's function in words, for Replace F with …; and the Replace rows' labels
   function fnName(it) { return it.rows ? $t('these steps') : it.type === 'custom' ? $t('this formula') : it.label; }
   function whereLabel(m, it) {
     const name = fnName(it), k = palState.target;
@@ -400,7 +399,7 @@ const Commands = (() => {
       h('div', { class: 'pal-body' }, list, preview),
       h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), $t(' to move')), h('span', { class: 'pal-enter' }, h('span', { class: 'kbd' }, 'Enter'), h('span', { class: 'pal-verb' }, $t(' to add'))), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), $t(' to insert before')), h('span', null, h('span', { class: 'kbd' }, 'Esc'), $t(' to close'))));
     const opener = anchor || document.activeElement, okey = focusKey(opener);
-    // (D1, issue #23) where a function goes: inserted, F replaced by it, or step f_k replaced by it. A chip in the search
+    // where a function goes: inserted, F replaced by it, or step f_k replaced by it. A chip in the search
     // row says which (Tab or a click changes it) and remembers the last choice; a card's "Insert a function after it"
     // always inserts, and its "Replace…" and the Inspector's title always replace that step
     const n0 = A.S.steps.length;
@@ -450,7 +449,7 @@ const Commands = (() => {
     };
     const render = () => {
       const items = paletteItems(input.value, opt.fnOnly);
-      // (D1) a search with an answer lists its best function three ways, the chosen way first: Replace F with sin z,
+      // a search with an answer lists its best function three ways, the chosen way first: Replace F with sin z,
       // Insert sin z after f₂, Replace f₂ Möbius with sin z; the other matches go the chosen way
       // (the Insert row keeps the row's own label, the chip saying where; a new number's row is not repeated)
       const i0 = modes.length > 1 && input.value.trim() ? items.findIndex((x) => x.kind === 'fn') : -1;
@@ -466,7 +465,7 @@ const Commands = (() => {
         // (four groups stay English as data: items.parseErr below looks for them)
         if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group === 'Custom formula' ? $t('Formula') : group === 'Region formulas' ? $t('Region formulas') : group === 'Curve formulas' ? $t('Curve formulas') : group === 'Calculus' ? $t('Calculus') : group)); }
         const t = h('span', { class: 'pal-tex' });
-        // (Add as n steps: the start of its own derivation, not the formula row's TeX again: review verify-4)
+        // (Add as n steps: the start of its own derivation, not the formula row's TeX again)
         if (it.rows) t.append(drvStart(it.rows));
         else if (it.tex) TeX.set(t, it.tex);
         const props = h('span', { class: 'pal-props' });
@@ -478,7 +477,7 @@ const Commands = (() => {
           onclick: (e) => runItem(it, e.shiftKey) },
         t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, ...(it.labelParts ? it.labelParts() : [it.label])),
           // (on a phone the preview with its derivation is hidden: Add as n steps shows the derivation itself, small and
-          // fitted, instead of the step names, review steps-12)
+          // fitted, in place of the step names)
           it.rows && document.documentElement.classList.contains('ph') ? h('span', { class: 'pal-desc pal-drv' }, drvLine(it.rows, 'drv-line')) : it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
         list.append(row);
       });
@@ -525,7 +524,7 @@ const Commands = (() => {
       else if (e.key === 'Enter') { e.preventDefault(); const it = palState.items[palState.sel]; if (it) runItem(it, e.shiftKey); }
       else if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(opener, okey); }
       else if (e.key === 'Tab') {
-        // Tab changes where the function goes (D1); with nothing to replace, it cycles groups
+        // Tab changes where the function goes; with nothing to replace, it cycles groups
         e.preventDefault();
         if (where) { cycleWhere(e.shiftKey ? -1 : 1); return; }
         if (!n) return;
@@ -638,7 +637,7 @@ const Commands = (() => {
     }
     cap.innerHTML = $t('Image after adding {f}', { f: fsub((palState ? palState.at : A.S.steps.length) + 1) });
     // (Add as n steps: the derivation z ↦ z² ↦ z²+1 ↦ sin(z²+1), wrapped after a ↦ when it is long: never cut, never
-    // tiny; review steps-2, verify-3)
+    // tiny)
     if (it.rows) {
       cap.innerHTML = '';
       cap.append(drvLine(it.rows, 'pal-rows'));
@@ -686,7 +685,7 @@ const Commands = (() => {
   }
   // a search row's formula in its column (120 px; 84 px on a phone), once laid out: smaller when it is wider, down to
   // 85 %; past that without its "f(z) =" or "w =", down to 75 %; past that it ends in a fade, never a hard cut. The
-  // Add as n steps row keeps as many rows of its derivation as fit and ends in ↦ ⋯ (review verify-4: both rows showed
+  // Add as n steps row keeps as many rows of its derivation as fit and ends in ↦ ⋯ (so two rows never show
   // the same cut formula, "f(z) = sin" on the phone)
   function fitPalTex(list, items, tries = 0) {
     requestAnimationFrame(() => {

@@ -44,9 +44,9 @@ const Params = (() => {
     r: $t('r is |z| in region formulas: use ρ or R'), i: $t('i is the imaginary unit'), e: $t("e is Euler's number"),
     'θ': $t('θ is arg z in region formulas: use φ or t'), 'π': $t('π is the constant 3.14159…'), 'ϑ': $t('θ is arg z in region formulas: use φ or t'),
   });
-  // (review russian-7: a Cyrillic look-alike typed on a Russian layout reads as its Latin letter, as in formulas)
+  // (a Cyrillic look-alike typed on a Russian layout reads as its Latin letter, as in formulas)
   const LOOK = { 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'к': 'k', 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
-  // [#240] letters a step binds: n, the index of every series, is never a new number; u (a recurrence's variable) and
+  // letters a step binds: n, the index of every series, is never a new number; u (a recurrence's variable) and
   // the field's own bound letters are not while a step binds them. A number by such a name in an older scene still
   // loads (sanitize), and its fields keep reading the bound letter as the index
   function reservedWhy(nm, bound) {
@@ -106,7 +106,7 @@ const Params = (() => {
     return out;
   }
   const unknownIn = (src, opts) => namesIn(src, opts).filter((nm) => !find(nm));
-  // (review verify-7: a value or formula that fails because of a Cyrillic letter, a look-alike read as an unknown Latin
+  // (a value or formula that fails because of a Cyrillic letter, a look-alike read as an unknown Latin
   // name or a letter the parser cannot read, says so in the name field's words, not with a Latin name the user never
   // typed; a look-alike of a known number still reads as that number)
   function cyrMsg(src, msg) {
@@ -437,7 +437,7 @@ const Params = (() => {
 .prm { display: flex; flex-direction: column; min-height: 240px; min-width: 0; }
 .prm > h2 { flex: 0 0 auto; min-height: 28px; margin: 0 0 4px; }
 .prm-list { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
-/* (the list takes its own height, so + Number sits right under the last number or the hint, never at
+/* ([v16.5 fix user-5] the list takes its own height, so + Number sits right under the last number or the hint, never at
    the section's foot; a long list still scrolls) */
 .prm-row { display: grid; grid-template-rows: 24px 20px; row-gap: 4px; padding: 2px 0 6px; min-height: 56px; box-sizing: border-box; border-bottom: 1px solid var(--line); }
 .prm-row:last-child { border-bottom: 0; }
@@ -480,12 +480,12 @@ const Params = (() => {
   const fmt = (v) => {
     if (!isNum(v)) return '';
     const s = String(+v.toPrecision(6));
-    // (screen text: the true minus, U+2212, as the rest of the interface; review math-14, russian-10)
+    // (screen text: the true minus, U+2212, as the rest of the interface)
     return (typeof I18N !== 'undefined' && I18N.lang !== 'en' && I18N.num ? I18N.num(s) : s).replace(/-/g, '−');
   };
   // the text of a value field: the formula of a number by formula, else the value (the exact value when short)
   const valText = (p) => (p.expr ? p.expr : isComplex(p) ? reprC({ re: +p.value.toPrecision(12), im: +p.im.toPrecision(12) }) : String(+p.value.toPrecision(12)));
-  // (as shown in an idle field: the true minus; the parser reads it back, review math-14)
+  // (as shown in an idle field: the true minus; the parser reads it back)
   const valShow = (p) => valText(p).replace(/-/g, '−');
   function mount(el) {
     style();
@@ -506,7 +506,7 @@ const Params = (() => {
   function render(skip) {
     if (!skip) unusedSig = unusedKey();
     for (const m of mounts) {
-      if (!m.el.isConnected) continue;   // (review regress-7: a detached mount is never drawn)
+      if (!m.el.isConnected) continue;   // (a detached mount is never drawn)
       // while a slider of the panel is dragged, only the other rows' values follow (the row being dragged keeps its DOM)
       if (skip) { syncAll(m, skip); continue; }
       draw(m);
@@ -528,10 +528,10 @@ const Params = (() => {
     el.innerHTML = '';
     // (one name, Numbers, for the section, the key, the hint and the button)
     const sec = h('section', { class: 'psec prm', 'aria-label': $t('Numbers') });
-    // (review design-17: one add control, + Number at the end of the list)
+    // (one add control, + Number at the end of the list)
     sec.append(h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))));
     const a = arr();
-    // (#361: a list only with rows to list: its one child with none is the hint, which is not a list item)
+    // (a list only with rows to list: its one child with none is the hint, which is not a list item)
     const listEl = h('div', { class: 'prm-list', role: a.length ? 'list' : null });
     if (!a.length && !m.adding) listEl.append(h('div', { class: 'prm-empty', html: $t('Type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.') }));
     for (const p of a) listEl.append(row(m, p));
@@ -696,7 +696,7 @@ const Params = (() => {
   // ---------------- links and scene files ----------------
   // A link holds the figure in its hash: #cmw=1.<base64url of deflate-raw(JSON)> (0.<base64url of JSON> where the
   // browser has no CompressionStream). The JSON is {v: 1, s: state}; the state goes through the app's sanitizeState,
-  // so a link made by an earlier build opens as its saved state would.
+  // so a link opens as its saved state would.
   const LINK_V = 1;
   const b64u = {
     enc(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
