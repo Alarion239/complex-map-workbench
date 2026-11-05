@@ -242,7 +242,7 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // The steps view's carried landscape (st.carry {map, s, T, hT, hT2, u, lim, src}): plane s's grid over its box src
+  // The steps view's carried landscape (st.carry {map, s, T, hT, hT2, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
   // each vertex at the height of the stages (s, hT] at its point (hT default T), blended over u into that of the stages
   // (s, hT2] (default hT: the glide's two planes read their heights from different planes across a d/dz step), and coloured by G = the stages (s, T]
@@ -1248,6 +1248,8 @@
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 1 % of the distance)
+      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-2);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);

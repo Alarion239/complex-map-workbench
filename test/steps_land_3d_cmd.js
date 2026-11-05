@@ -16,7 +16,9 @@
 //   points they share with it, as their 2D pictures are: at rest each is plane z's points carried (s = 0), titled
 //   ", colour carried from w₁"; the glides w₁ → w₂ across the d/dz and w₂ → w₃ carry plane z's points continuously
 //   (held at 1.25, 1.75, 2.5: s = 0, u the glide's, coloured), and held by either end of the d/dz glide the frame is that
-//   plane at rest. A plane's Landscape is plain exactly where its 2D picture has no colour (shapes only): with T = w₃,
+//   plane at rest. On w₃, which exp(2z) reaches from many z points at one height, the frame shows the point the 2D
+//   picture shows (its sheet key), with no fighting: no more speckled than w₂, and steady under a small camera turn.
+//   A plane's Landscape is plain exactly where its 2D picture has no colour (shapes only): with T = w₃,
 //   plane w₁, before T across the d/dz, is plain, plane z's points at w₁'s heights.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -123,6 +125,26 @@ for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
     ok(`d/dz chain, T = 1, plane ${i} at rest: plane z's points carried, coloured`, !!s.carry && s.carry.s === 0 && s.carry.u === 1 && !s.carry.plain, s.carry);
     ok(`d/dz chain, T = 1, plane ${i} at rest: the title names the carried colour`, s.title.endsWith('landscape of log|F|, colour carried from w₁'), s.title);
   }
+  // no fighting on w₃ at rest: exp(2z) takes many z points to one spot of w₃ at one height, in different colours; the
+  // frame shows one of them per pixel, the 2D picture's (its sheet key), so it is no more speckled than w₂'s (the share
+  // of the coloured pixels with a right or lower neighbour more than 64/255 apart: at most 1.5 times w₂'s), and turning
+  // the camera by 0.003 rad changes it as little as any still surface (within the 2 % tolerance)
+  const speck = (tag) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}], cv = document.getElementById('canvasL'), W = cv.width, H = cv.height; let n = 0, s = 0;
+    for (let y = 0; y < H - 1; y++) for (let x = 0; x < W - 1; x++) { const i = 4 * (y * W + x); if (Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) <= 16) continue; n++;
+      let d = 0; for (const j of [i + 4, i + 4 * W]) for (let c = 0; c < 3; c++) d = Math.max(d, Math.abs(P[i + c] - P[j + c])); if (d > 64) s++; }
+    return s / Math.max(n, 1); })()`);
+  d.speck = { w2: await speck('dr2'), w3: await speck('dr3') };
+  ok('d/dz chain, T = 1, plane 3 at rest: no more speckled than plane 2 (no fighting sheets)', d.speck.w3 <= 1.5 * d.speck.w2, d.speck);
+  await rest(3);
+  const yaw = JSON.parse(await ev(`JSON.stringify(__cmwCam('L'))`)).yaw;
+  await ev(`__cmwCam('L', { yaw: ${yaw} + 0.003 }); 1`);
+  await settled({ max: 30000 });
+  await ev(rAF2);
+  await grab('dr3t');
+  const turned = d.turned = await compare('dr3', 'dr3t');
+  await ev(`__cmwCam('L', { yaw: ${yaw} }); 1`);
+  await settled({ max: 30000 });
+  ok('d/dz chain, T = 1, plane 3 at rest: a camera turned by 0.003 rad changes ≤ 2 % of pixels > 32/255', !!turned && turned.frac <= 0.02, turned);
   for (const x of [1.25, 1.75, 2.5]) {
     const j = Math.floor(x);
     await rest(j);

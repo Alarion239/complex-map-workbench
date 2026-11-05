@@ -293,13 +293,16 @@
   // b's at u = 1 (b null: a's). s is min(a, T), or z's plane when a d/dz step lies in the way (svCarryFrom), so every
   // point past T keeps T's colour. Each point is placed by mapOf(s) (a map spec from plane s), at its height h(F) (the
   // stages (s, hT] blended over u into (s, hT2]: the heights of planes a and b, svHT) and in its colour (the stages
-  // (s, T], the map spec cmap), or in no colour while the nearer plane is plain (svPlain; T is then s). vs, va, vb: the
-  // views of s, a and b. rest: the plane at rest the frame is (the probe picks on its relief), else null
+  // (s, T], the map spec cmap), or in no colour while the nearer plane is plain (svPlain; T is then s). key: from z's
+  // plane to a later one, the 2D carried colour's sheet key of the plane the frame goes to (svSheetKey), so where the
+  // places fold the point in front is the one the 2D picture shows; else null. vs, va, vb: the views of s, a and b.
+  // rest: the plane at rest the frame is (the probe picks on its relief), else null
   function svLandCarry(mapOf, a, b, u, rest = null) {
     const T0 = svT(), e = b == null ? a : b, hT = svHT(a), hT2 = svHT(e), plain = svPlain(u < 0.5 ? a : e);
     const s = svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
     const lim = 0.35 * Math.max(paneL.w, paneL.h) / S.srcView.s, cmap = plain ? { mode: 0, a: s, b: s } : svColourMap(s);
-    return { map: mapOf(s), s, T, hT, hT2, cmap, plain, lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
+    const key = !plain && s === 0 && e > 0 ? svSheetKey(e) : null;
+    return { map: mapOf(s), s, T, hT, hT2, cmap, plain, key, lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
   }
   // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
   // when it is coloured from T and its heights are of that map too; else plane k's points (k at or before T) or T's
