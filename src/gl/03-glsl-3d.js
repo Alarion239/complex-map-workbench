@@ -795,8 +795,9 @@ void main() {
   // before); a deformation (modes 1 and 3, the map's own uniforms) H_t on the sheets that become F's (chainSheetHom,
   // notes/v16-user5/SHEETS-DESIGN.md)
   const SHEET_MAP = `
-uniform int uSheetA; uniform int uSheetB;
-vec2 mapSheet(vec2 zc, vec2 z, int combo) {
+uniform int uSheetA; uniform int uSheetB; uniform int uSheetMap[24];
+vec2 mapSheet(vec2 zc, vec2 z, int surf) {
+  int combo = uSheetMap[surf];
   if (uMode == 1 || uMode == 3) return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, combo, uSheetB);
   return chainSheetRange(zc, z, uSheetA, uSheetB, combo);
 }

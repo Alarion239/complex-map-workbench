@@ -607,7 +607,10 @@
     const hv = !carry && typeof homView === 'function' ? homView() : null;
     // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
-    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
+    // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
+    const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
+    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svHeightMap(carry.a), svHeightF(carry.a));
@@ -634,17 +637,20 @@
       const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
       const zAt = zAtIn(box);
       const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
-      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}`;
+      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq ? sheets.uniq.join(',') : ''}`;
       // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
       const scaleOf = (fmK, K, bx) => {
-        const ck = `${chainSig[nSteps()]}|${mapKeyOf(fmK)}|${S.focus}|${bx.x0},${bx.x1},${bx.y0},${bx.y1}|${S.height}|${sheets.W}|${K}`;
+        // the combos drawn: the distinct sheets of fmK
+        const combos = sheetUniqOf(fmK, sheets.W) || Array.from({ length: K }, (_, i) => i);
+        const ck = `${chainSig[nSteps()]}|${mapKeyOf(fmK)}|${S.focus}|${bx.x0},${bx.x1},${bx.y0},${bx.y1}|${S.height}|${sheets.W}|${combos.join(',')}`;
         const cache = render3D.muScales || (render3D.muScales = new Map());
         let r = cache.get(ck);
         if (r) return r;
         const zAtB = zAtIn(bx);
         const vals = [], sv = [], sv0 = [];
-        for (let k = 0; k < K; k++) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
+        for (const k of combos) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
           const z = zAtB(i, j);
+          // a sheet that cannot be evaluated at z (a throw) is no sample, like a non-finite value
           let w = null;
           try { w = Funcs.sheetEval(S.steps, built, fmK.b, z, z, k, sheets.W, { a: fmK.a || 0 }); } catch (e) { w = null; }
           const x = hOf(w);
@@ -687,7 +693,7 @@
           // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
           // stops when this no longer matches, so a value is only ever computed for the state of its key
           const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
-          const cmu = c.mu, K = si.K, W = sheets.W, end = sheets.end, s0 = sig();
+          const cmu = c.mu, combos = sheets.uniq || Array.from({ length: si.K }, (_, i) => i), K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
           h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
           // fill time j (from where it stopped); with over(), stop after the row that runs past it and return false
           h.fill = (jt, over) => {
@@ -699,7 +705,7 @@
                 if (!p.mp) p.mp = HR.state(S, jt / N * L, true).map;
                 for (; p.r < K * 12; p.r++) {
                   if (over && over()) return false;
-                  const k = Math.floor(p.r / 12), jj = p.r % 12;
+                  const k = combos[Math.floor(p.r / 12)], jj = p.r % 12;
                   for (let i = 0; i < 12; i++) {
                     const z = zAt(i, jj), xv = hOf(Funcs.sheetMapEval(S.steps, built, p.mp, z, z, k, W, end));
                     if (Number.isFinite(xv)) p.v.push(Math.abs(xv));
