@@ -28,7 +28,7 @@ const ready = async (ex) => {
   await go(`${base}/test.html?view=steps&ns=xtp${ex}${Date.now() % 1e7}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${ex}), __cmwSet('wKey', false), 1)`);
-  await settled({ until: '__cmwSteps().planes.length > 1', max: 15000, floor: 300 });
+  await settled({ until: '__cmwSteps().planes.length > 1', max: 15000 });
 };
 
 // example 1: z, w₁, w₂
@@ -57,7 +57,7 @@ for (const c of CASES) {
   const g2 = await grids(r.svg);
   for (const [k, plane] of [[0, c.from], [1, c.to]]) {
     await ev(`(__cmwSteps({ go: ${plane}, now: true }), 1)`);
-    await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 300 });
+    await settled({ until: `__cmwSteps().i === ${plane} && !__cmwSteps().moving`, max: 15000 });
     const one = await build({ crop: 'screen', axes: 'none' });
     const g1 = one && one.svg ? await grids(one.svg) : [];
     const d = g1[0] && g2[k] ? diff(g1[0], g2[k]) : null;
