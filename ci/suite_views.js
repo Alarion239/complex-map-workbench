@@ -48,6 +48,7 @@ const VIEWS = {
   'steps_land_inregions_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_poles_cmd.js': steps(),
+  'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
