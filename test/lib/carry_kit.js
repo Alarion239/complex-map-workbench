@@ -9,7 +9,8 @@
 // - bare(p): whether the centre pixel p (of a 3 x 3 read) is bare paper, its channels within 6 of each other;
 // - exampleNames(): the example names of src/app/15-examples-guide.js, in the order the page lists them.
 (() => {
-  const lpx = (pts) => ev(`__cmwLPx(${JSON.stringify(pts)})`);
+  // (a page hook that throws answers { __exc }, which fails the suite here rather than reading as no pixels)
+  const lpx = async (pts) => { const r = await ev(`__cmwLPx(${JSON.stringify(pts)})`); if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc); return r; };
   const paneOf = async () => { const q = await lpx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; };
   const nearest = (p, ref) => {
     let best = 1e9;
