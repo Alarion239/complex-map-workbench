@@ -1,4 +1,4 @@
-// v16.5 wave 1, the "plane" piece (notes/ux-build/w1-plane-AS-BUILT.md): the logic under UX55 (the chip's three
+// The "plane" piece (notes/ux-build/w1-plane-AS-BUILT.md): the logic under the plane chip (its three
 // choices, the Hyperbolic line tool) on the real graph of src/constr.js. construct.js makes a perpendicular circle with
 //   seg = 0 (Whole), seg = segSideOf(C, …) (Inside, and always for the Hyperbolic line tool), seg = −segSideOf(C, …)
 // (Outside). Checked here: Inside is the arc inside a circle C (on the first point's side of a line C) through P and Q;
