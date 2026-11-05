@@ -576,7 +576,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv { --ph-cbelow: 60px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
 /* (the steps view's message floats over the plot: no row is given up for it unless a sheet is open, and the controls at the plane's foot ride up above it) */
-:root.ph.sv.ph-toast-on:not(.ph-sheet-on) { --ph-ctx: 0px; --ph-lift: 64px; }
+:root.ph.sv.ph-toast-on:not(.ph-sheet-on) { --ph-ctx: 0px; --ph-lift: calc(var(--ph-toast-h, 56px) + 8px); }
 /* (#464) a sheet gives up the message's row as the planes do: it ends above the message, so a message covers no row of it (Alexander's
    screenshot on #58: "Added f₃ …  Show alone  Undo" across the chain sheet's list, hiding f₂); the safe area is under the message then */
 :root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + 56px); padding-bottom: 0; }
@@ -618,7 +618,10 @@ html:not(.ph) .ph-only { display: none !important; }
    a vertical drag on it is its own (a swipe down dismisses it) */
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
 :root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + env(safe-area-inset-right, 0px)); }
-:root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); }
+:root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
+/* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right) */
+:root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast > span + .toast-act { margin-left: auto; }
 
 .ph-ctx.under { visibility: hidden; }
 
