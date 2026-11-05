@@ -1134,6 +1134,9 @@ section('singularAfter (ζ after an injective plan)');
 // root of H_t(u) = w: the partial sum of the exponential to z^8 / 8! and z^3 - z have 8 and 3 distinct points over each
 // w of a 20 x 20 grid over [-6, 6]^2 at t = .002 to .998, each where H_t is w
 {
+  // (two roots closer than DISTINCT (1 + |root|) count as one; a root is off when H_t of it is further than ON_W
+  // (1 + |w|) from w)
+  const DISTINCT = 1e-6, ON_W = 1e-8;
   for (const [name, st, deg] of [['sum z^n / n!, n <= 8', St('custom', { expr: '\\sum_{n=0}^{8} \\frac{z^n}{n!}', cut: 180 }), 8], ['z^3 - z', St('poly', { co: '1, 0, -1, 0' }), 3]]) {
     const b = Funcs.build(st);
     for (const t of [0.002, 0.25, 0.5, 0.75, 0.998]) {
@@ -1142,8 +1145,8 @@ section('singularAfter (ζ after an injective plan)');
       for (let i = 0; i < 20; i++) {
         for (let j = 0; j < 20; j++) {
           const w = C(-6 + (i + 0.5) * 0.6, -6 + (j + 0.5) * 0.6), G = o.pre(w).map((m) => m.u);
-          if (G.length !== deg || G.some((g, k) => G.some((h, m) => m < k && CX.abs(CX.sub(g, h)) <= 1e-6 * (1 + CX.abs(g))))) short++;
-          if (Hh && G.some((g) => CX.abs(CX.sub(Hh(g), w)) > 1e-8 * (1 + CX.abs(w)))) off++;
+          if (G.length !== deg || G.some((g, k) => G.some((h, m) => m < k && CX.abs(CX.sub(g, h)) <= DISTINCT * (1 + CX.abs(g))))) short++;
+          if (Hh && G.some((g) => CX.abs(CX.sub(Hh(g), w)) > ON_W * (1 + CX.abs(w)))) off++;
         }
       }
       check(`homOps ${name} at t = ${t}: NEWT^${deg} finds every root of H_t(u) = w`, o.kind === 'NEWT' && o.p.deg === deg && o.fam.count === deg && Inverse.opSig(o) === `NEWT^${deg}` && short === 0 && off === 0, { kind: o.kind, short, off });
