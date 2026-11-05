@@ -97,6 +97,7 @@
     gl.depthMask(true);
     gl.depthFunc(gl.LESS);
     gl.disable(gl.CULL_FACE);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
   }
   // a promise that settles once the GPU has finished every command issued so far: a fence polled between tasks,
   // never waited on (SPEC 10.6: the export reads its rasters back only then, so a readback does not hold the main
