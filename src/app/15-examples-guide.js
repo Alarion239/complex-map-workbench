@@ -917,11 +917,21 @@
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
-    // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
-    if (document.documentElement.classList.contains('ph')) { clear(); return; }
-    if (!host.firstElementChild) return;
+    const phone = document.documentElement.classList.contains('ph');
+    if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
+    // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip, as wide as the plot
+    // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
+    // the tool row, which the planes and the sheet give up)
+    if (phone) {
+      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
+      if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
+      host.setAttribute('data-placed', 'phone-plot');
+      st.bottom = Math.round(H0() - sb.top + 8) + 'px';
+      return;
+    }
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
     // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it covers no control of the strip)
     const plot = document.documentElement.classList.contains('sv') ? box($('plotL')) : null;
@@ -1013,6 +1023,24 @@
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
     const hold = (d) => { held += d; if (held === 1 && d > 0) { clearTimeout(timer); left -= performance.now() - t0; } else if (held === 0) run(Math.max(800, left)); };
     run(left);
+    // a touch that drags the message down dismisses it past 32 px, and lets it back otherwise
+    t.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || !e.isPrimary || /** @type {Element} */ (e.target).closest('button')) return;
+      const y0 = e.clientY, id = e.pointerId;
+      let dy = 0;
+      hold(1); t.setPointerCapture(id);
+      const move = (m) => { if (m.pointerId !== id) return; dy = Math.max(0, m.clientY - y0); t.style.setProperty('--drag', dy + 'px'); t.style.translate = '0 var(--drag)'; };
+      const end = (u) => {
+        if (u.pointerId !== id) return;
+        t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', end); t.removeEventListener('pointercancel', end);
+        t.style.removeProperty('translate');
+        hold(-1);
+        // (a drag is no press: the click that follows it does not reach the host's press-to-dismiss)
+        if (dy > 8) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), 100); }
+        if (u.type === 'pointerup' && dy >= 32) closeToast(t); else t.style.removeProperty('--drag');
+      };
+      t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+    });
     t.addEventListener('pointerenter', () => hold(1));
     t.addEventListener('pointerleave', () => hold(-1));
     t.addEventListener('focusin', () => hold(1));
