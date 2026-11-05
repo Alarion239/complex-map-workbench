@@ -1204,6 +1204,21 @@
     const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
     svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => ({ w: Math.max(pane.dpr, PULL_EDGE_MIN * pullWidth(x, pane.dpr)), a: PULL_EDGE_A }));
   }
+  // the outlines of the regions of the plane the glide reaches, from the midpoint on (while it is the nearer plane), in the
+  // open frame: the own-plane stroke the outline pass draws at rest (the shape's colour over its casing), where the
+  // inverse pass puts the boundary. The pulled-back regions' band is in the mask (svStagedMask), those of the earlier planes
+  // are the outline pass's (svShapeMap)
+  function svStagedStrokes(pane, map0) {
+    if (map0.mode !== 1) return;
+    const st = svStagedOf();
+    if (!st) return;
+    const own = st.list.map((x, i) => i).filter((i) => shapeStage(st.list[i]) >= st.g.b && shapeStage(st.list[i]) <= st.g.near);
+    if (!own.length) return;
+    svDrawInverse(pane, own.map((i) => st.list[i]), own.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => {
+      const k = shapeStroke(x, pane.dpr, { plane: st.g.near });
+      return { w: k.width, a: k.alpha, rgb: k.color, casing: k.casing && { w: k.casing.width, a: k.casing.alpha, rgb: k.casing.color } };
+    });
+  }
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
   // when there is none or the pass cannot draw them
   function svStagedOf() {
@@ -1276,6 +1291,7 @@
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
+    if (!hideStrokes && svMaskOn()) svStagedStrokes(pane, map0);
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the

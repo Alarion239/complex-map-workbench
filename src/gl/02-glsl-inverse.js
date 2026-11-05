@@ -34,10 +34,11 @@ uniform highp sampler2D uPts; uniform int uShOff; uniform ivec4 uShape; uniform 
 uniform int uFormSlot;
 // uShStage > 0 (carried programs): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
 uniform int uShStage;
-// uEdgeOnly = 1: the pass draws the shape's boundary band alone, not its fill: alpha uEdgeA over the pixels within uEdgeW
-// device px of the boundary of any candidate (the colour channels stay zero: it is drawn into a mask's alpha)
-uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA;
-float ixEdge;
+// uEdgeOnly = 1: the pass draws the shape's boundary alone, not its fill: a line of colour uEdgeC at alpha uEdgeA within
+// uEdgeW device px of the boundary of any candidate, over a casing of colour uEdgeCC at alpha uEdgeCA within uEdgeCW (none
+// at 0). With the colours zero it is a band of alpha alone, for a mask
+uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA; uniform vec3 uEdgeC; uniform float uEdgeCW; uniform float uEdgeCA; uniform vec3 uEdgeCC;
+float ixEdge, ixEdgeC;
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
@@ -651,7 +652,7 @@ float invLeaf(Lf L, out bool cov) {
   }
 #endif
   if (!done) ixShapePx(z, zf, dX, dY, L, dLX, dLY, s, n);
-  if (uEdgeOnly == 1) ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0) * uEdgeA);
+  if (uEdgeOnly == 1) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); }
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
@@ -691,9 +692,9 @@ ${globe ? `  vec3 P = normalize(vP);
   vec2 w = uCenter + (f * uInvScale + uCenterLo);
   ixDwX = vec2(uInvScale.x, 0.0); ixDwY = vec2(0.0, uInvScale.y);
   ixPix = uInvScale.x;`}
-  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0); ixEdge = 0.0;
+  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0); ixEdge = 0.0; ixEdgeC = 0.0;
   invWalk(w);
-${globe ? '' : '  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n'}  float T = 1.0;
+${globe ? '' : '  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA; o = vec4(uEdgeC * l, l) + vec4(uEdgeCC * cc, cc) * (1.0 - l); return; }\n'}  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
