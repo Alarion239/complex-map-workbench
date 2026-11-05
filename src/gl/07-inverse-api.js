@@ -509,7 +509,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.drawBuffers(Array.from({ length: n }, (_, k) => gl.COLOR_ATTACHMENT0 + k));
     gl.viewport(0, 0, W, H);
     // (every channel written: a frame's colour mask may leave alpha out, and a target's .w holds a root's part)
-    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND), cm = gl.getParameter(gl.COLOR_WRITEMASK);
+    // (the frame's colour mask is the renderer's record, maskRGB / maskA: getParameter would wait on the GPU process)
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
     if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
     else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
@@ -528,7 +529,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.viewport(vpX, vpY, fw, fh);
     if (scOn) gl.enable(gl.SCISSOR_TEST);
     if (blOn) gl.enable(gl.BLEND);
-    gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
