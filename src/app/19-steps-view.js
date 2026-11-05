@@ -1883,7 +1883,9 @@
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
       if (!d.moved) { svPause(false); svKeepView(); SV.anim = null; }
       d.moved = true;
+      const x0 = SV.g.x;
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
+      sndScrub(x0, SV.g.x, SV.g.max);   // (#580: the scrub's detents, as the Deformation's slider has)
       requestRender('L');
     });
     const up = (e) => {
@@ -1891,7 +1893,7 @@
       if (!d || d.id !== e.pointerId || !d.strip) return;
       SV.drag = null;
       if (svRangeUp(d, rail)) { e.preventDefault(); return; }
-      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); }
+      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); sndScrubEnd(); }
     };
     rail.addEventListener('pointerup', up);
     rail.addEventListener('pointercancel', up);
@@ -2233,6 +2235,7 @@
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    sndMorphStart();   // (#580: the play's swell, as the Deformation's; its arrival at a play's own end)
   }
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
   function svSlide(first) {
@@ -2241,7 +2244,7 @@
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return; }
     const i = Math.round(SV.g.x);
     if (!first) {
-      if (i >= A.end) { if (!SV.loop) { svPause(true); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
+      if (i >= A.end) { if (!SV.loop) { svPause(true); sndMorphArrive(svPerPlane() / 1000); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
       SV.i = Math.round(SV.g.x);
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
@@ -2266,6 +2269,7 @@
     if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
+    sndMorphArrive(svPerPlane() / 1000);   // (#580: the arrival, at a play's own end only: never on a loop's repeat)
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
     svSync();
     return false;

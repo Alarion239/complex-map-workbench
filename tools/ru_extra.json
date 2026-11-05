@@ -665,5 +665,7 @@
  "Tap ▶ and listen as the loop winds round the zero.": "Коснитесь ▶ и слушайте, как петля обходит нуль.",
  "Click ▶ to turn sound on and hear the loop wind round the zero.": "Нажмите ▶ — включится звук, и петля обойдёт нуль.",
  "Go to {p}": "Перейти к %{p}",
- "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}"
+ "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}",
+ "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
+ "No tone past the colour plane: the colour here comes from {p}.": "После плоскости цвета звука нет: цвет здесь берётся из %{p}."
 }

@@ -72,6 +72,8 @@ function glue(o = {}) {
     F: o.F || ((z) => z),
     sndF: () => ctx.F, sndFAt: () => ctx.F,
     sndFrameKey: () => 'f', sndVKey: () => 'v', sndUnhush() {}, sndTurnBells() {}, requestRender() {}, rangeParts: () => null, focusDeriv: () => false, derivIn: () => false,
+    // (#580: the classic view, so never past the steps view's colour plane)
+    sndSvQuiet: () => false,
     sndHover: null, sndHoverOff: () => calls.push(['off']), sndStopPlay() {},
     sndNear: (F, z, g, pan, budget, deadline, vs, fn, t) => { calls.push(['near', z]); },
     sndSayOnce: (m) => said.push(m), sndFmt: (w) => `${w.re.toFixed(2)}${w.im < 0 ? '−' : '+'}${Math.abs(w.im).toFixed(2)}i`,
