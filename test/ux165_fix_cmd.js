@@ -1,4 +1,4 @@
-// The fix round (notes/ux-build/w1-fix-AS-BUILT.md): the browser look of the review fixes, laptop 1366 × 768
+// The browser look (notes/ux-build/w1-fix-AS-BUILT.md) of the fixes, laptop 1366 × 768
 // and phone 412 × 860 (Android emulation, real touch events). A cdp_kit command file (test/cdp_kit/README.md): copy the
 // kit, serve dist/ and run: q.sh test/ux165_fix_cmd.js. BASE is the server: the port the kit's load() uses, read from
 // the daemon copy's cdpd.js as the other suites do (ci/browser.js rewrites it to its own server; a fixed port reached

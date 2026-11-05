@@ -361,7 +361,7 @@ await section('L10', async () => {
 await section('P10', async () => {
   await phone();
   await load(NS + 'l', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } }, `localStorage.removeItem('cmw-probe-learned'); sessionStorage.removeItem('cmw-probe-taught')`);
-  // (the line shows once a session, for 8 s; this suite's earlier phone sections use up that once,
+  // (the line shows once a session, for 8 s; this suite's phone sections use up that once,
   // so the session's mark is cleared with the learned one, as ux165_fix_cmd's regress-4 clears the session)
   await settle(1000);
   const zRe = /^z /, wRe = /^F\(z\) /;   // (the steps view's readout has no "=")
