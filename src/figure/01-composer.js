@@ -249,11 +249,12 @@
   // ---------- the figure ----------
   XD.svg = (spec) => {
     const title = spec.title ? `<title>${String(spec.title).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>` : '';
+    const desc = spec.desc ? `<desc>${String(spec.desc).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</desc>` : '';
     const meta = spec.meta ? `<metadata id="${XD.ns}-meta"><![CDATA[${JSON.stringify(spec.meta)}]]></metadata>` : '';
     const glyphs = [...XD.glyphs.entries()].map(([id, d]) => `<path id="${id}" d="${d}"/>`).join('');
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
-    return { svg, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
+    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
   };
   // point markers (shape carries identity in grey): dot | square | tri | diamond | ring | cross
   XD.marker = (kind, px, py, r, fill, stroke, sw) => {
@@ -534,7 +535,7 @@
     if (!lib) throw new Error('The PDF library could not be loaded');
     const doc = new lib.jsPDF({ unit: 'pt', format: [fig.W, fig.H], orientation: fig.W > fig.H ? 'landscape' : 'portrait', compress: true, putOnlyUsedFonts: true });
     const info = (v) => (fig.lang !== 'en' && I18 ? I18.pdfText(v) : v);
-    doc.setProperties({ title: fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
+    doc.setProperties({ title: fig.title || fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
     if (fig.meta && doc.addMetadata) {
       const json = JSON.stringify(fig.meta).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
       try { doc.addMetadata(`<cmw:scene>${json}</cmw:scene>`, 'https://complex-map-workbench/ns/1.0/'); } catch (e) { /* metadata is optional */ }
