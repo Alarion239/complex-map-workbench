@@ -174,8 +174,9 @@ const VIEWS = {
   'split_cmd.js': steps({ pin: true }),
   'split_deform_cmd.js': port('interact', 'the Split with the Deformation open, the alone walk ‹ › and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play) and no ‹ › walk of a step shown alone'),
   'tour_audit_cmd.js': steps({ pin: true }),
-  'tour_auto_cmd.js': port('words', 'every chapter\'s tasks with real input; it waits on the steps-view tour chapters (#717):'
-    + ' the Views chapter\'s door is the classic view switch, which the steps view lacks'),
+  'tour_auto_cmd.js': steps({ pin: true }),
+  'tour_auto_classic_cmd.js': classic('the classic views\' tour tasks with real input: the view switch\'s doors, Phase key, X\'s pan,'
+    + ' the chain step, the preimages hint and the Deformation\'s Part of the chain; the steps view\'s are tour_auto_cmd'),
   'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': port('words', 'with the Try lines left and the chapters\' retargeting'),
   'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
