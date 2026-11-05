@@ -9,8 +9,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
 const R = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })()`;
 const T = `document.querySelector('#toastHost .toast')`;
-// the message is in, placed, and at rest (full opacity, no slide offset left)
-const SETTLED = `(() => { const e = ${T}; if (!e || document.getElementById('toastHost').getAttribute('data-placed') !== 'phone-plot') return false; const c = getComputedStyle(e); return c.opacity === '1' && (c.transform === 'none' || c.transform === 'matrix(1, 0, 0, 1, 0, 0)'); })()`;
+// the message is in, placed, and at rest (full opacity, no slide offset left, the keys' lift done)
+const SETTLED = `(() => { const e = ${T}; if (!e || document.getElementById('toastHost').getAttribute('data-placed') !== 'phone-plot') return false; const c = getComputedStyle(e); return !document.getAnimations().some((a) => a.transitionProperty === 'bottom') && c.opacity === '1' && (c.transform === 'none' || c.transform === 'matrix(1, 0, 0, 1, 0, 0)'); })()`;
 const show = (msg, o) => ev(`(__cmwToast(${JSON.stringify(msg)}, 'Undo', ${JSON.stringify(o || { ms: 60000 })}), 1)`);
 const touch = async (x, y0, y1) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: y0 }] });
@@ -36,6 +36,8 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   ok(`${at}: the plane's keys are clear`, g.toast && g.keys.every((k) => k.r <= g.toast.l || k.l >= g.toast.r || k.b <= g.toast.t || k.t >= g.toast.b), g.keys);
   ok(`${at}: the root carries no style attribute while the message shows`, await ev(`document.documentElement.getAttribute('style') == null`), await ev(`document.documentElement.getAttribute('style')`));
   ok(`${at}: the bar's height reaches the keys' lift`, await ev(`parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ph-toast-h')) > 0`), null);
+  const gx = await ev(`(() => { const b = ${T}.querySelector('.toast-x'); if (!b) return null; const r = b.getBoundingClientRect(), t = ${T}.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), inside: r.left >= t.left && r.right <= t.right + 0.5 && r.top >= t.top && r.bottom <= t.bottom + 0.5 }; })()`);
+  ok(`${at}: a timed message has a × of 44 px, inside the message`, gx && gx.w >= 44 && gx.h >= 44 && gx.inside, gx);
   ok(`${at}: two lines at most`, g.lines <= 2, g.lines);
   ok(`${at}: its words are not cut`, g.cut <= 0, g.cut);
   // a short drag keeps it, a swipe down dismisses it
