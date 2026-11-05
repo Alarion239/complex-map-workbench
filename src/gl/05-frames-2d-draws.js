@@ -474,11 +474,14 @@
       scissored(st.scissors, drawAll);
       gl.depthFunc(gl.LEQUAL);
     };
+    // (st.behind: its depth pushed back that many units (polygonOffset), so where another mesh in the same depth draws
+    // the same points, that mesh's are in front, not whichever placement lands a hair nearer)
     carryDraw(k, st.depth, () => {
+      if (st.behind) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, st.behind); }
       // (the map cache's pass; without the cache, P is the sheet program itself, drawn by its passes)
       if (!carryProbe.noKCDraw && P !== full) scissored(st.scissors, drawAll);
-      if (!sheet) return;
-      sheetPass(0); sheetPass(1);
+      if (sheet) { sheetPass(0); sheetPass(1); }
+      if (st.behind) gl.disable(gl.POLYGON_OFFSET_FILL);
     });
     gl.bindVertexArray(null);
     return true;
