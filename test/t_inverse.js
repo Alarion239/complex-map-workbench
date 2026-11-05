@@ -1149,8 +1149,8 @@ section('singularAfter (ζ after an injective plan)');
   check('Region.interiorPoint: none for a curve', Region.interiorPoint({ kind: 'circle', c: [0, 0], r: 1 }, win) === null);
 }
 // What a NEWT op's members reach of the true image of a region, for a step with no exact inverse: H_t is the step's
-// homotopy, the region is where an in-region root of H_t(z) = w counts (inRegion), anchor a point of it (the op's
-// seeds are placed about it), seeds the grid (re, im ranges and step) of the true image's search (Newton, 40 steps,
+// homotopy, the region is where an in-region root of H_t(z) = w counts (inRegion), anchor {re, y0, y1} (the op's
+// seeds are spread over its y0..y1), seeds the grid (re, im ranges and step) of the true image's search (Newton, 40 steps,
 // residual <= 1e-9 (1 + |w|)), and the w are an n x n grid over box. A w is in the true image when the search finds an
 // in-region root; it is drawn when one of the op's members lies in the region
 function newtShare(b, t, anchor, inRegion, seeds, box, n) {
@@ -1177,12 +1177,14 @@ function newtShare(b, t, anchor, inRegion, seeds, box, n) {
   }
   return { truth, drawn, share: drawn / truth };
 }
-// zeta: the strip 0 < Re z < 1 (the zeros of (1 - t) z + t zeta(z)), w over [-0.4, 1.4] x [12, 26]
+const MIN_TRUTH = 40;
+const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
+// zeta: the strip 0 < Re z < 1 within the source window y 10.45..28.55 (the zeros of (1 - t) z + t zeta(z)), w over [-0.4, 1.4] x (1 - t) [10.45, 28.55] +- 1 (the window's image under (1 - t) z)
 {
-  const b = Funcs.build(St('zeta')), floor = { 0.25: 1, 0.5: 0.9, 0.75: 0.9 };
-  for (const t of [0.25, 0.5, 0.75]) {
-    const r = newtShare(b, t, C(0.5, 19.5), (u) => u.re > 0 && u.re < 1, { re: [0.2, 0.5, 0.8], im0: 0, im1: 110, dim: 2 }, { x0: -0.4, x1: 1.4, y0: 12, y1: 26 }, 10);
-    check(`opNewt zeta at t = ${t}: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > 40 && r.share >= floor[t], r);
+  const b = Funcs.build(St('zeta')), floor = FLOOR_ZETA;
+  for (const t of [0.25, 0.5, 0.75, 0.9, 0.99]) {
+    const r = newtShare(b, t, { re: 0.5, y0: 10.45, y1: 28.55 }, (u) => u.re > 0 && u.re < 1 && u.im > 10.45 && u.im < 28.55, { re: [0.2, 0.5, 0.8], im0: 0, im1: 110, dim: 2 }, { x0: -0.4, x1: 1.4, y0: (1 - t) * 10.45 - 1, y1: (1 - t) * 28.55 + 1 }, 14);
+    check(`opNewt zeta at t = ${t}: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
   }
 }
 // the exponential series sum z^n / n! (no exact inverse), the disc |z| < 2, w over [-3, 3]^2: the members keep reaching
@@ -1190,7 +1192,7 @@ function newtShare(b, t, anchor, inRegion, seeds, box, n) {
 {
   const b = Funcs.build(St('series')), floor = { 0.25: 1, 0.5: 1, 0.75: 0.95 };
   for (const t of [0.25, 0.5, 0.75]) {
-    const r = newtShare(b, t, C(0, 0), (u) => CX.abs(u) < 2, { re: [-2, -1, 0, 1, 2], im0: -2, im1: 2, dim: 1 }, { x0: -3, x1: 3, y0: -3, y1: 3 }, 12);
+    const r = newtShare(b, t, { re: 0, y0: -2, y1: 2 }, (u) => CX.abs(u) < 2, { re: [-2, -1, 0, 1, 2], im0: -2, im1: 2, dim: 1 }, { x0: -3, x1: 3, y0: -3, y1: 3 }, 12);
     check(`opNewt exp series at t = ${t}: the members reach at least ${floor[t]} of the true image of the disc`, r.truth > 30 && r.share >= floor[t], r);
   }
 }

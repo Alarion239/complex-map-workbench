@@ -391,7 +391,8 @@
       const bh = built.slice();
       let anchor = null;
       if (byShape) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, built, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
-      bh[k - 1] = Inverse.homBuilt(built[k - 1], t, anchor);
+      if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
+      bh[k - 1] = Inverse.homBuilt(built[k - 1], hk);
       let plan, inv;
       try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
       try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
