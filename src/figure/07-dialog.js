@@ -51,7 +51,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
+  const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
