@@ -11,7 +11,7 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const HIT_MIN = 0.9, MIN_SAMPLES = 40, STROKE_R = 3, DIFF_MIN = 24, REF_TOL = 3, SAME_FRAC = 0.01, MIN_COMPARED = 1000, END_FRAC = 0.02, LOOK_U = [0.002, 0.5, 0.998];
+const HIT_MIN = 0.9, MIN_SAMPLES = 40, MIN_EDGE = 200, EDGE_DIFF = 300, STROKE_R = 3, DIFF_MIN = 24, REF_TOL = 3, SAME_FRAC = 0.01, MIN_COMPARED = 1000, END_FRAC = 0.02, LOOK_U = [0.002, 0.5, 0.998];
 await view(1200, 800);
 const ST = {
   pattern: 'phase', outline: true, lines: true, unit: false, alpha: 0.85, v3: true, v4: true, v5: true, nextId: 50,
@@ -69,10 +69,10 @@ const unpack = async (o) => {
     ok(`the frame ${t} arrives`, await ev(`(() => { const K = window.__heldPx || (window.__heldPx = {}); K[${JSON.stringify(t)}] = Uint8ClampedArray.from(atob(window.__b64[${JSON.stringify(t)}]), (c) => c.charCodeAt(0)); return K[${JSON.stringify(t)}].length; })()`) === o[t].length * 3 / 4 - (o[t].endsWith('==') ? 2 : o[t].endsWith('=') ? 1 : 0), null);
   }
 };
-const carried = (u) => ev(`(() => {
+const carried = (u, min = DIFF_MIN) => ev(`(() => {
   const g = __cmwSteps().glide, K = window.__heldPx, P = K.P, P0 = K.P0, M = K['M' + ${u}], M0 = K['M' + ${u} + '0'], c = document.getElementById('canvasL');
   const W = c.width, H = c.height, dpr = W / g.w, v = g.view;
-  const drawn = (D, D0, i) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > ${DIFF_MIN};
+  const drawn = (D, D0, i) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > ${min};
   const R = Math.round(${STROKE_R} * dpr);
   let n = 0, hit = 0, off = 0;
   for (let y = 2; y < H - 2; y += 2) for (let x = 2; x < W - 2; x += 2) {
@@ -107,6 +107,8 @@ const r = info.glide0 = {};
 for (const u of LOOK_U) {
   await at(u);
   const q = r['u=' + u] = await carried(u);
+  const e = r['edge u=' + u] = await carried(u, EDGE_DIFF);
+  ok(`glide from plane 0: the boundaries at u = ${u} are the parked boundaries carried by H_u (the pixels more than ${EDGE_DIFF}/765 off the frame with no shapes: at least ${HIT_MIN * 100} % of ${MIN_EDGE}+ pixels within ${STROKE_R} px)`, e.n >= MIN_EDGE && e.frac >= HIT_MIN, e);
   ok(`glide from plane 0: the later planes' pullbacks at u = ${u} are the parked pullbacks carried by H_u (at least ${HIT_MIN * 100} % of ${MIN_SAMPLES}+ pixels within ${STROKE_R} px)`, q.n >= MIN_SAMPLES && q.frac >= HIT_MIN, q);
 }
 return { pass: fails.length === 0, fails, info };

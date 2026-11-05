@@ -22,6 +22,8 @@
   }
   // the opacity of a pulled-back region's fill
   const PULL_ALPHA = 0.42;
+  // the width (device px) of a pulled-back region's boundary
+  const pullWidth = (s, dpr) => (s.id === selected ? 2.75 : 2) * dpr;
   function pullTargets(list) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
@@ -38,7 +40,7 @@
       t.color = GLR.hexRGB(area ? ink.c0 : ink.edge);
       t.edge = GLR.hexRGB(ink.edge);
       t.alpha = a;
-      t.width = (s.id === selected ? 2.75 : 2) * (paneL ? paneL.dpr : 1);
+      t.width = pullWidth(s, paneL ? paneL.dpr : 1);
       return t;
     });
   }

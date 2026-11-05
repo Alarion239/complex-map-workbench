@@ -775,7 +775,7 @@
   // the carried colour of the shapes list by their inverse paths (pathOf's or invHomPath's, all 'inverse'; a path's inv:
   // its own inverse program), into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse
   // answer that was not ('error' when it threw). A shape drawn already stays: the next path draws over it
-  function svDrawInverse(pane, list, paths, T, gl, alphaOf) {
+  function svDrawInverse(pane, list, paths, T, gl, alphaOf, edgeOf) {
     const carry = svCarryStyle(T);
     if (!gl.open) { GLR.begin(pane.pw, pane.ph); gl.open = true; }
     for (let i = 0; i < list.length; i++) {
@@ -783,7 +783,7 @@
       let res = 'error';
       try {
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, half: false, motion: false, coldOk: true });
+          look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, edge: edgeOf ? edgeOf(list[i]) : null, half: false, motion: false, coldOk: true });
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -1194,15 +1194,29 @@
   // at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA), which writes alpha alone under the
   // caller's write mask. Nothing when none is visible or the pass cannot draw them
   function svStagedMask(pane) {
-    const g = svBetween();
-    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return;
-    const h = svHomMemo && svHomMemo.b === g.b && svHomMemo.u === g.u ? svHomMemo.h : svHomPaths(g.b, g.u, { r: null });
-    if (!h) return;
-    const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
-    if (!at.length) return;
+    const st = svStagedOf();
+    if (!st) return;
     // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
     // at rest on the nearer plane draws them)
-    svDrawInverse(pane, at.map((i) => h.list[i]), at.map((i) => h.paths[i]), svT(), { open: true }, (x) => (shapeStage(x) <= g.near ? 1 : PULL_ALPHA * dimK(x)));
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, (x) => (shapeStage(x) <= st.g.near ? 1 : PULL_ALPHA * dimK(x)));
+  }
+  // the boundaries of those regions in the open frame, drawn as the pulled-back regions' are at rest (drawPreimage's
+  // boundary: the shape's edge colour, a band as wide as pullStroke gives)
+  function svStagedStrokes(pane, map0) {
+    if (map0.mode !== 1) return;
+    const st = svStagedOf();
+    if (!st) return;
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => ({ rgb: GLR.hexRGB(shapeInk(x).edge), w: Math.max(pane.dpr, 0.55 * pullWidth(x, pane.dpr)) }));
+  }
+  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
+  // when there is none or the pass cannot draw them
+  function svStagedOf() {
+    const g = svBetween();
+    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
+    const h = svHomMemo && svHomMemo.b === g.b && svHomMemo.u === g.u ? svHomMemo.h : svHomPaths(g.b, g.u, { r: null });
+    if (!h) return null;
+    const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
+    return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -1266,6 +1280,7 @@
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
+    if (!hideStrokes && svMaskOn()) svStagedStrokes(pane, map0);
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
