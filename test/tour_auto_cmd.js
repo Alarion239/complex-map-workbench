@@ -114,7 +114,7 @@ if (!SV) {
 }
 // the chapter's last task: Phase key's check, or the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
-// (v16.5 UX20; #247: on a desktop the Phase key check is a toggle in Y's pane head; when the head has no room it is behind the
+// (on a desktop the Phase key check is a toggle in Y's pane head; when the head has no room it is behind the
 // head's ⋯ button, which is opened first)
 const ob = SV || (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
 if (ob) { await click(ob[0], ob[1]); await sleep(400); }
@@ -139,7 +139,7 @@ check('palette: the palette opens and the task ticks', (await until(`document.qu
 check('palette: no advance while it stays open (6 s)', await stays('keys/palette', 6000));
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
-// (r3 review regress-5: no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
+// (no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
 // #tourSay, which a chapter's end creates: #363 made Phase key the end of Views)
 const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
@@ -219,7 +219,7 @@ await ev('Tour.auto(false)');
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 check('Move on by itself off: tick and ring, no advance in 6 s', await stays(PAN, 6000) && (await ev(`document.querySelector('.ts-next').classList.contains('ready')`)));
-// (r3 review regress-6: a door too, in the classic views, which have one)
+// (a door too, in the classic views, which have one)
 if (!SV) {
   await goStep('views/switch');
   const phd = await center('#viewSwitch > [data-mode="phase"]');
@@ -229,7 +229,7 @@ if (!SV) {
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// (r3 review user-5) a chapter's end with a task (#363: Phase key in the classic views, the chip f₁ in the steps view): tick and
+// a chapter's end with a task (Phase key in the classic views, the chip f₁ in the steps view): tick and
 // result, then 3 s into the next chapter
 await goStep(KEYSTEP);
 // (the Phase key check in Y's head, or behind its ⋯ / Regions button: that pop-up opened first)
@@ -244,7 +244,7 @@ await sleep(200);
 check('Phase key (a chapter\'s end): tick and result', (SV ? /Planes done ✓/ : /reads as a value/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
 const aP = await advanceFrom(KEYSTEP, dP, 250);
 check(`Phase key: moves on CD_MS after, into ${AFTERKEY} (late only as far as the page was blocked)`, aP.ok && (await cur()) === AFTERKEY, [aP, dP, await cur()]);
-// (r3 review user-1) once a task is done the spotlight steps aside: the shade fades and lets presses through
+// once a task is done the spotlight steps aside: the shade fades and lets presses through
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(400);
 const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('.tour-root .tour-dim'); const e = document.elementFromPoint(innerWidth - 40, innerHeight - 40); return { quiet: L.quiet, op: getComputedStyle(s).opacity, hit: e && !e.closest('[data-tour]') }; })()`);
@@ -464,7 +464,7 @@ check('phone: × End in the portrait row (44 px), a chevron after the count, Nex
 // views' chain step: the steps view's tour has none)
 if (!SV) {
   await goStep('basics/chain');
-  // (#246: the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
+  // (the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
   if (!(await center('#pipeline .card[data-k="1"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(800); } }
   const c1 = await center('#pipeline .card[data-k="1"]');
   await tap(c1[0], c1[1]); await settle(1000);

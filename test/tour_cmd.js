@@ -16,6 +16,8 @@ const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r =>
 const cur = () => ev('Tour.current()');
 // (the shade's path is set by the strip's first paint, which a slow machine can reach after the settle: wait for it, up to 8 s)
 const shaded = async () => { for (let i = 0; i < 320; i++) { if (await ev(`(() => { const s = document.querySelector('.tour-shade'); return !!(s && s.getAttribute('d')); })()`)) return true; await sleep(25); } return false; };
+// (a condition wait: polls fn until it is truthy, up to max ms)
+const waitFor = async (fn, max = 8000) => { for (const t0 = Date.now(); Date.now() - t0 < max;) { if (await fn()) return true; await sleep(30); } return false; };
 const open = async (ns, at, w = 1440, h = 900, dark = false, mobile = false) => {
   await view(w, h, dark, mobile); await nav(U + '?ns=' + ns); await settle(1800);
   await ev('Tour.auto(false)');   // (tour_cmd checks the walk without the auto-advance; tour_auto_cmd.js checks it)
@@ -66,9 +68,9 @@ if (!SV) {
   check('ArrowLeft: back', (await cur()).id === 'x', await cur());
 } else {
   const first = (await cur()).id;
-  await clickSel('.ts-next'); await settle(900);
+  await clickSel('.ts-next'); await waitFor(async () => (await cur()).id !== first);
   check('the strip\'s Next button: next step', (await cur()).id !== first, await cur());
-  await clickSel('.ts-back'); await settle(900);
+  await clickSel('.ts-back'); await waitFor(async () => (await cur()).id === first);
   check('the strip\'s Back button: back', (await cur()).id === first, await cur());
 }
 await click(120, 820); await settle(300);
@@ -148,7 +150,7 @@ if (!SV) {
   g = await ev(`__cmwRegions()`);
   check('a scene sets its look: the default opacity even after the user chose 0.3, and the phase fill', g && g.alpha === 0.85 && g.pattern === 'phase', g);
   await snap('tour-views-switch-dark');
-  // (r3 review regress-6: a door respects Move on by itself, which this walk turns off: on for the door)
+  // (a door respects Move on by itself, which this walk turns off: on for the door)
   await ev('Tour.auto(true)');
   await ev(`window.__cmwSetMain('phase')`); await settle(1500);
   g = await cur();
@@ -163,13 +165,13 @@ if (!SV) {
   g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
   check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
   await snap('tour-sphere-dark');
-  // the Phase key: Y is lit, and (v16.5 UX20; #247: the check is a toggle in Y's pane head, or behind the head's ⋯ button)
+  // the Phase key: Y is lit, and (the check is a toggle in Y's pane head, or behind the head's ⋯ button)
   // the check, or that button, has a ring of its own
   await ev('Tour.next()'); await settle(1600);
   g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); const a = L && L.anchor, el = k && k.getClientRects().length ? k.closest('label') : ob, b = el.getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!el.closest('.pane-head'), y: (Tour.lit() || {}).body }; })()`);
   check('Phase key: Y lit, its toggle (or the head\'s ⋯) ringed in the pane head, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
   await snap('tour-phasekey-dark');
-  // (#363) the Phase key ends the chapter: Choose Phase key ticks its Try it
+  // the Phase key ends the chapter: Choose Phase key ticks its Try it
   // (the check, in Y's head or behind its ⋯ / Regions button, whose pop-up holds it while open)
   if (!(await ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`))) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400); }
   await clickSel('label:has(#wKeyChkR)'); await settle(700);
@@ -181,13 +183,13 @@ if (!SV) {
   await open('t3', null, 1440, 900, true);
   // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look
   await ev(`__cmwSet('alpha', 0.3), 1`); await settle(300);
-  await ev(`Tour.start({ chapter: 'planes' })`); await settle(1600);
+  await ev(`Tour.start({ chapter: 'planes' })`); await shaded();
   g = await ev(`__cmwRegions()`);
   check('a scene sets its look: the default opacity even after the user chose 0.3', g && g.alpha === 0.85, g);
   // Edit a step ends Planes: clicking the chip f₁ ticks its Try it
-  await ev(`Tour.start(${JSON.stringify(at('planes/step'))})`); await settle(1600);
-  await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settle(700);
-  check('Edit a step: clicking the chip f₁ ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
+  await ev(`Tour.start(${JSON.stringify(at('planes/step'))})`); await shaded();
+  await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip');
+  check('Edit a step: clicking the chip f₁ ticks the Try it', await waitFor(() => ev(`document.querySelector('.ts-l2').classList.contains('done')`)));
   g = await ev(`({ count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent, label: document.querySelector('.ts-next').getAttribute('aria-label'), h: Math.round(document.querySelector('.ts-row').getBoundingClientRect().height) })`);
   const nx = 'Next: ' + CH[2].title, n = chOf('planes').steps.length;
   check(`end of a chapter: "${nx}" (or Next → with that name) on the strip's one row`, new RegExp(`${n} of ${n}`).test(g.count) && (g.next === nx || g.label === nx) && g.h <= 62, g);
@@ -417,7 +419,7 @@ await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); awa
 // 12. phone: the strip is a 68 px row under the header; X is 608 px (600 before #246's 56 px chain bar); nothing scrolls sideways
 await open('t8', at(PAN), 390, 844, false, true);
 g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(), h = document.querySelector('header.top').getBoundingClientRect(); return { mode: document.querySelector('.tour-strip').dataset.mode, top: c.top, h: c.height, cw: Math.round(c.width), head: h.bottom, paneT: p.top, paneH: Math.round(p.height), paneB: p.bottom, sv: (() => { const e = document.querySelector('#svStrip'); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom }; })(), overP: c.top < p.bottom && c.bottom > p.top, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
-// (#246: the chain bar is 56 px, 8 less than before, and X has them: 608)
+// (the chain bar is 56 px, 8 less than before, and X has them: 608)
 // (the steps view: the plane runs from the strip to the foot of the thread, which lies over its bottom)
 check('phone: the strip under the header, full width, 68 px, X below it (608 px, or down to the thread\'s foot), no horizontal scroll', g.mode === 'port' && Math.abs(g.top - g.head) <= 1 && g.h === 68 && g.cw === 390 && !g.overP && (SV ? !!g.sv && Math.abs(g.paneT - (g.top + g.h)) <= 1 && Math.abs(g.paneB - g.sv.b) <= 1 : g.paneH === 608) && g.noHScroll, g);
 await snap('tour-phone-x');
