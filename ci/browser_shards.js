@@ -31,14 +31,14 @@ const SHARDS = [
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
   // ([#465] raw TeX on screen, a language a run)
   { id: 'raw-tex', suites: ['raw_tex_cmd.js#en', 'raw_tex_cmd.js#ru', 'raw_tex_cmd.js#it', 'raw_tex_classic_cmd.js#en', 'raw_tex_classic_cmd.js#ru', 'raw_tex_classic_cmd.js#it'] },
-  { id: 'i18n', suites: ['i18n_cmd.js', 'i18n_classic_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang', 'a11y_axe_cards_cmd.js'] },                    // 334 + 164 + 112 + 21
+  { id: 'i18n', suites: ['i18n_cmd.js', 'i18n_classic_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang', 'phone_plane_cmd.js#lang', 'a11y_axe_cards_cmd.js'] },                    // 334 + 164 + 112 + 21
   { id: 'i18n-desktop', suites: ['i18n_walk_cmd.js#1440'] },                                                // 693
   { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark'] },                                              // 601
   { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#deform', 'phone_swap_cmd.js#views', 'phone_toast_chain_cmd.js'] },   // 379 + 326 + 37
-  { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate', 'phone_swap_cmd.js#sphere', 'phone_focus_margin_cmd.js'] },   // 333 + 242 + 205
-  { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet', 'phone_landscape_cmd.js', 'phone_sheets_cmd.js', 'phone_sheet_target_cmd.js', 'phone_edit_head_cmd.js'] },   // 227 + 256 + 197 + 39
+  { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate', 'phone_plane_cmd.js#sheet', 'phone_plane_cmd.js#rotate', 'phone_swap_cmd.js#sphere', 'phone_focus_margin_cmd.js'] },   // 333 + 242 + 205
+  { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet', 'phone_plane_cmd.js#tablet', 'phone_landscape_cmd.js', 'phone_sheets_cmd.js', 'phone_sheet_target_cmd.js', 'phone_edit_head_cmd.js'] },   // 227 + 256 + 197 + 39
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'fix152_classic_cmd.js', 'v15_planemenu_cmd.js', 'warm_bar_cmd.js', 'dh_cmd.js', 'split_deform_cmd.js'] },     // 287 + 113 + 30 + 75 + 70
-  { id: 'images', suites: ['curves_cmd.js', 'curves_target_cmd.js', 'curves_outline_off_cmd.js', 'curves_target_legend_cmd.js', 'curves_target_areas_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js', 'line_slice_cmd.js', 'sv_globe_draw_cmd.js', 'sv_construct_plane_cmd.js', 'curves_areas_guard_cmd.js', 'sv_globe_edit_cmd.js', 'sv_globe_stage_shape_cmd.js', 'shape_stroke_cmd.js', 'sv_all_sheets_cmd.js', 'steps_seams_cmd.js'] },   // 226 (curves: 294 in the steps view and 226 in the classic view, with the target suite beside it) + 176 + 47 + 31 + 52
+  { id: 'images', suites: ['curves_cmd.js', 'curves_target_cmd.js', 'curves_outline_off_cmd.js', 'curves_target_legend_cmd.js', 'curves_target_legend_classic_cmd.js', 'curves_target_areas_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js', 'line_slice_cmd.js', 'sv_globe_draw_cmd.js', 'sv_construct_plane_cmd.js', 'curves_areas_guard_cmd.js', 'sv_globe_edit_cmd.js', 'sv_globe_stage_shape_cmd.js', 'shape_stroke_cmd.js', 'sv_all_sheets_cmd.js', 'steps_seams_cmd.js'] },   // 226 (curves: 294 in the steps view and 226 in the classic view, with the target suite beside it) + 176 + 47 + 31 + 52
   // (the steps view and the classic views in three parts of about 16 minutes each, balanced by the hosted suite times: as one
   // job of about 50 minutes they would be the longest job of every run that selects them)
   { id: 'views-1', suites: ['phase_key_classic_cmd.js', 'steps_empty_cmd.js', 'p3_review_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zpfix_cmd.js', 'land_cards_cmd.js', 'overlay_ghost_cmd.js', 'layout_483_cmd.js', 'steps_head_cmd.js', 'tour_planes_cmd.js', 'example_try_sv_cmd.js', 'sv_curve_menu_cmd.js', 'steps_carry_inregion_cmd.js', 'steps_carry_far_cmd.js', 'steps_fill_points_cmd.js', 'sv_globe_net_cmd.js', 'steps_ru_keys_cmd.js', 'steps_sheet_dedupe_cmd.js'] },   // 992
@@ -53,6 +53,10 @@ const SHARDS = [
   { id: 'layout-1', suites: ['layout_invariants_cmd.js#en'] },
   { id: 'layout-2', suites: ['layout_invariants_cmd.js#ru', 'layout_invariants_cmd.js#it'] },
   { id: 'smoke', suites: ['smoke_cmd.js'] },
+  // (the browser suites no area shard lists, in three parts of about 8 minutes each, balanced by their hosted suite times)
+  { id: 'misc-1', suites: ['i18n_walk_steps_cmd.js', 'pane_heads_1024_cmd.js', 'header_layout_cmd.js', 'phase_key_cmd.js', 'complex_point_cmd.js', 'a11y_axe_cmd.js', 'steps_colour_pick_cmd.js', 'tour_words_classic_cmd.js', 'field_settle_cmd.js', 'complex_lang_export_cmd.js', 'example_try_events_cmd.js', 'repeat_settle_cmd.js', 'top_bar_focus_cmd.js', 'steps_rail_fit_cmd.js', 'pin_view_cmd.js', 'steps_stage_handles_cmd.js'] },
+  { id: 'misc-2', suites: ['steps_glide_look_cmd.js', 'cauchy_residue_cmd.js', 'export_fit_cmd.js', 'repeat_classic_cmd.js', 'steps_listen_cmd.js', 'sv_globe_mask_cmd.js', 'land_release_cmd.js', 'steps_readout_cmd.js', 'steps_why_cmd.js', 'repeat_cmd.js', 'tour_words_cmd.js', 'phone_fmap_cmd.js', 'mj_ranges_cmd.js', 'param_planes_cmd.js', 'steps_carry_cmd.js', 'kit_seed_cmd.js'] },
+  { id: 'misc-3', suites: ['sv_state_cmd.js', 'phase_style_cmd.js', 'custom_show_cmd.js', 'example_try_cmd.js', 'example_try_repeat_cmd.js', 'complex_params_cmd.js', 'example_try_repeat_classic_cmd.js', 'steps_arrows_cmd.js', 'series_edit_cmd.js', 'series_params_cmd.js', 'stage_shapes_cmd.js', 'example_try_events_classic_cmd.js', 'shape_rows_cmd.js', 'offline_cmd.js', 'steps_chipname_cmd.js', 'kit_settled_cmd.js', 'kit_ev_cmd.js'] },
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },
 ];
 

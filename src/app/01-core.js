@@ -51,6 +51,7 @@
     sphere: svgI('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
     // the deformation's paths t -> H_t(z): a start dot, a curved path and its arrowhead
     // (the paths' own glyph: an open ring at z, the line, a small arrowhead at its middle, a filled dot at the end)
+    targets: svgI('<circle cx="6" cy="8" r="3.6" stroke-dasharray="2.2 1.7"/><path d="M15 8h-4.3"/><path d="M12.4 6.3L10.7 8l1.7 1.7" stroke-width="1.3"/>'),
     paths: svgI('<circle cx="3.25" cy="12.25" r="1.75" stroke-width="1.25"/><path d="M4.4 10.9C6 6.6 9 4.6 12.2 4.3"/><path d="M5.6 5.4L8.3 5.6L7.1 8.1" stroke-width="1.3"/><circle cx="13" cy="4.25" r="1.7" fill="currentColor" stroke="none"/>'),
   };
   // right-plane mode icons (14px)
