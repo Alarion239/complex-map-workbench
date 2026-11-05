@@ -11,7 +11,7 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const HIT_MIN = 0.9, MIN_SAMPLES = 40, STROKE_R = 3, DIFF_MIN = 24, REF_TOL = 3, SAME_FRAC = 0.01, MIN_COMPARED = 1000, LOOK_U = [0.002, 0.5, 0.998];
+const HIT_MIN = 0.9, MIN_SAMPLES = 40, STROKE_R = 3, DIFF_MIN = 24, REF_TOL = 3, SAME_FRAC = 0.01, MIN_COMPARED = 1000, END_FRAC = 0.02, LOOK_U = [0.002, 0.5, 0.998];
 await view(1200, 800);
 const ST = {
   pattern: 'phase', outline: true, lines: true, unit: false, alpha: 0.85, v3: true, v4: true, v5: true, nextId: 50,
@@ -30,7 +30,7 @@ const sceneFrames = async (ns, shapes) => {
   ok('the page shows the steps view', await isSteps(), null);
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'in', surf: 'plane' }), 1`);
 };
-const { grab, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { grab, refOf, compare, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (the left canvas's still pixels kept in __heldPx[tag])
 const at = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-9 && GLR.pendingLinks === 0` }); };
 const still = async (tag) => { await ev(`__cmwSteps({ bare: false }), 1`); await settled({ max: 20000 }); ok(`the frame ${tag} settles`, await grab(tag), null); };
@@ -38,17 +38,29 @@ const still = async (tag) => { await ev(`__cmwSteps({ bare: false }), 1`); await
 const take = async (suffix) => {
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
   await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0` });
-  await still('P' + suffix);   for (const u of LOOK_U) {
+  await still('P' + suffix);
+  for (const u of suffix === 'B' ? [] : LOOK_U) {
     await at(u); await still('M' + u + suffix);
     if (!suffix) {
       const g = await ev(`(({ path, reason }) => ({ path, reason }))(__cmwSteps().glide)`);
       info['record u=' + u] = g;
-      const R = info['exact u=' + u] = (await refOf('P', 'M' + u, REF_TOL)).ref;
-      ok(`the frame at u = ${u} is the exact picture at u: the parked frame's colours (the regions' colour from z) through H_u's inverse, at most ${SAME_FRAC * 100} % of the compared pixels > ${REF_TOL}/255 apart`, R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, R);
       ok(`the frame at u = ${u} is the inverse pass's (the later planes' regions in it)`, g.path === 'inverse', g);
     }
   }
+  if (suffix === 'B') {
+    for (const u of LOOK_U) {
+      await at(u); await still('M' + u + suffix);
+      const R = info['exact u=' + u] = (await refOf('P' + suffix, 'M' + u + suffix, REF_TOL)).ref;
+      ok(`the frame at u = ${u} is the exact picture at u: the parked frame's colours (the region's colour from z) through H_u's inverse, at most ${SAME_FRAC * 100} % of the compared pixels > ${REF_TOL}/255 apart`, R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, R);
+    }
+  }
+  if (!suffix) {
+    await ev(`__cmwSteps({ go: 1, now: true }), 1`);
+    await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSteps().x === 1 && GLR.pendingLinks === 0` });
+    await still('P1');
+  }
 };
+
 const pack = (tags) => ev(`(() => { const K = window.__heldPx, o = {}; for (const t of ${JSON.stringify(tags)}) { let b = ''; const d = K[t]; for (let i = 0; i < d.length; i += 32768) b += String.fromCharCode.apply(null, d.subarray(i, i + 32768)); o[t] = btoa(b); } return o; })()`);
 const unpack = async (o) => {
   for (const t in o) {
@@ -78,7 +90,16 @@ const carried = (u) => ev(`(() => {
 })()`);
 
 const tags = ['P'].concat(LOOK_U.map((u) => 'M' + u));
+// (the exact picture at u, for a region of a plane past the glide's: its pullback keeps one opacity all along, and the
+// parked frame's colours are then the reference all along)
+await sceneFrames('svlaterB', ST.shapes.slice(2)); await take('B');
 await sceneFrames('svlater', ST.shapes); await take('');
+// (the glide's ends meet the parked frames of its planes: the regions of the plane it leaves and of the plane it
+// reaches at their own opacity, with no jump on arrival)
+for (const [name, base, tag] of [['start', 'P', 'M' + LOOK_U[0]], ['arrival', 'P1', 'M' + LOOK_U[LOOK_U.length - 1]]]) {
+  const c = info['end ' + name] = await compare(base, tag);
+  ok(`the frame at the glide's ${name} is the parked frame's within ${END_FRAC * 100} % of the pixels (> ${DIFF_TOL}/255 apart)`, c.frac <= END_FRAC, c);
+}
 const kept = await pack(tags);
 await sceneFrames('svlater0', []); await take('0');
 await unpack(kept);
