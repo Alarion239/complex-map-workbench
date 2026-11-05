@@ -318,6 +318,9 @@
     svSurf: () => SV.surf,
     svFrameF: (i) => rangeF(0, svPlanes()[i]),
     // the name, in TeX, of the map from plane i of the thread to plane j: F, f_2, f_2∘f_1
+    // the planes' names (z, w₂) and the ends of the Play range as indexes into them, null when none is marked
+    svPlaneNames: () => svPlanes().map(svName),
+    svRangeEnds: () => { const R = svRange(); return R ? [R.lo, R.hi] : null; },
     svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),

@@ -28,6 +28,7 @@ const VIEWS = {
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
+  'export_two_planes_dialog_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps(),

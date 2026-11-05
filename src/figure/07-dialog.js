@@ -19,7 +19,7 @@
     const sk = sizeKey(s);
     return Object.assign({
       for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
-      ink: s.ink, crop: cropOf(s), svPic: s.svPic, axes: s.axes[s.for] || null, deform: s.deform,
+      ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null, deform: s.deform,
       panels: s.panels || 'both', lang: capLangOf(s),
     }, extra || {});
   }
@@ -51,7 +51,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
+  const CSS3 = `#xfSvPic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -60,7 +60,7 @@
 .xf-pv{display:flex;flex-direction:column;gap:6px;max-width:100%;margin:auto}.xf-scroll:not(.video) .xf-pv{display:none}.xf-pv .xf-poster{margin:0}.xf-pv.busy .xf-poster{opacity:.6;transition:opacity var(--t-med) var(--ease-out)}.xf-pv.busy .xf-pvbar{opacity:.55}
 .xf-pvcv{display:block;background:#fff;box-shadow:var(--xf-paper-shadow);cursor:pointer}.xf-pvbar{display:flex;align-items:center;gap:8px;min-width:0}.xf-pvbtn{flex:0 0 auto;width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border-radius:var(--r-2);background:var(--surface);border:1px solid var(--line);color:var(--ink);cursor:pointer}.xf-pvbtn:hover{border-color:var(--line-strong)}
 .xf-pvbtn:focus-visible,.xf-pvrange:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-pvrange{flex:1 1 auto;min-width:60px;margin:0;accent-color:var(--accent)}.xf-pvtime{font:var(--t-label);color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}.xf-pvt i{font-family:var(--f-math, serif)}.xf-pvnote{font:var(--t-label);color:var(--muted);min-height:16px;overflow-wrap:anywhere}
-@media (max-width:560px){.xf-fmtrow{flex-wrap:wrap}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
+@media (max-width:560px){#xfSvPic>button{min-height:44px}.xf-fmtrow{flex-wrap:wrap}.xf-planes{flex-direction:column;align-items:stretch}.xf-planes select.xf-select{width:100%;height:44px}.xf-planes>span{padding:0 2px}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
   const injectCSS = () => { if (document.getElementById('xfR3css')) return; const st = document.createElement('style'); st.id = 'xfR3css'; st.textContent = CSS3; document.head.append(st); };
   let dlg = null; // the open dialog's state (tests read it)
   let lastFig = null;
@@ -195,11 +195,29 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]];
-    const svPicRow = A.svOn()
-      ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
-      : null;
+    // (Two planes needs a flat surface: the Landscape's picture is 3D, and a 2D figure never stands in for it)
+    const svPics = [['plane', $t('Shown plane')], ['two', $t('Two planes')], ['film', $t('Filmstrip')]];
+    const svFlat = () => A.svSurf() !== 'land';
+    const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'two' && svFlat() ? 'two' : 'plane');
+    // the planes of the thread to draw: the Play range's ends when one is marked, else z and the last plane
+    const svNames = A.svOn() ? A.svPlaneNames() : [], svEnds = A.svOn() ? A.svRangeEnds() : null;
+    if (A.svOn()) { set.svFrom = svEnds ? svEnds[0] : 0; set.svTo = svEnds ? svEnds[1] : svNames.length - 1; }
+    const svPicSeg = A.svOn() ? segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; syncPlanes(); changed(); }, $t('Picture')) : null;
+    const svPicRow = svPicSeg ? row($t('Picture'), svPicSeg) : null;
     if (svPicRow) svPicRow.classList.add('wide');
+    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'); tb.disabled = true; tb.title = $t('Two planes is for the flat surfaces'); }
+    const planeSel = (id, label, onchange) => { const el = h('select', { class: 'xf-select xf-plane', id, 'aria-label': label, onchange: () => onchange(+el.value) }); return el; };
+    const fromSel = planeSel('xfSvFrom', $t('From plane'), (v) => { set.svFrom = v; if (set.svTo <= v) set.svTo = v + 1; fillTo(); changed(); });
+    const toSel = planeSel('xfSvTo', $t('To plane'), (v) => { set.svTo = v; changed(); });
+    // ("to" lists only the planes after "from")
+    const fillTo = () => { toSel.innerHTML = ''; for (let i = set.svFrom + 1; i < svNames.length; i++) toSel.append(h('option', { value: String(i) }, svNames[i])); toSel.value = String(set.svTo); };
+    if (A.svOn()) {
+      for (let i = 0; i < svNames.length - 1; i++) fromSel.append(h('option', { value: String(i) }, svNames[i]));
+      fromSel.value = String(set.svFrom); fillTo();
+    }
+    const svPlanesRow = A.svOn() ? row($t('From'), h('div', { class: 'xf-fmtrow xf-planes' }, fromSel, h('span', null, $t('to')), toSel)) : null;
+    if (svPlanesRow) svPlanesRow.classList.add('wide');
+    function syncPlanes() { if (svPlanesRow) svPlanesRow.hidden = fmtOf() === 'video' || svPicOf() !== 'two'; }
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
@@ -267,7 +285,7 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
@@ -432,6 +450,7 @@
       const f = fmtOf(), vid = f === 'video';
       for (const b of fmtSeg.children) b.setAttribute('aria-checked', String(b.dataset.v === f));
       dpiSel.hidden = f !== 'png';
+      syncPlanes();
       for (const r of [forRow, sizeRow, inkRow, capLangRow, svPicRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
@@ -508,6 +527,7 @@
         if (my !== token || !f) return;
         fig = f; lastFig = f; st.fig = f;
         figImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f.svg);
+        figImg.alt = f.title || $t('The figure at its printed size');
         before.innerHTML = set.for === 'homework' ? `<div class="xf-prob">${$t('Problem 3.')}</div>${dummy(3, 7, true)}` : dummy(4, 11, true);
         after.innerHTML = dummy(3, 5, true);
         // (the LaTeX box at once; the caption on the paper follows when its words are typeset)
